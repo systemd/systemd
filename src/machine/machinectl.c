@@ -773,10 +773,8 @@ static int show_machine(int argc, char *argv[], void *userdata) {
                                        &error,
                                        &reply,
                                        "s", argv[i]);
-                if (r < 0) {
-                        log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not get path to machine: %s", bus_error_message(&error, -r));
 
                 r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0)
@@ -1118,10 +1116,8 @@ static int show_image(int argc, char *argv[], void *userdata) {
                                 &error,
                                 &reply,
                                 "s", argv[i]);
-                if (r < 0) {
-                        log_error("Could not get path to image: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not get path to image: %s", bus_error_message(&error, -r));
 
                 r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0)
@@ -1158,10 +1154,8 @@ static int kill_machine(int argc, char *argv[], void *userdata) {
                                 &error,
                                 NULL,
                                 "ssi", argv[i], arg_kill_who, arg_signal);
-                if (r < 0) {
-                        log_error("Could not kill machine: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not kill machine: %s", bus_error_message(&error, -r));
         }
 
         return 0;
@@ -1200,10 +1194,8 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
                                 &error,
                                 NULL,
                                 "s", argv[i]);
-                if (r < 0) {
-                        log_error("Could not terminate machine: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not terminate machine: %s", bus_error_message(&error, -r));
         }
 
         return 0;
@@ -1285,10 +1277,8 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
                         argv[3],
                         arg_read_only,
                         arg_mkdir);
-        if (r < 0) {
-                log_error("Failed to bind mount: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind mount: %s", bus_error_message(&error, -r));
 
         return 0;
 }
@@ -1459,10 +1449,8 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                         &error,
                         &reply,
                         "s", machine);
-        if (r < 0) {
-                log_error("Failed to get login PTY: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get login PTY: %s", bus_error_message(&error, -r));
 
         r = sd_bus_message_read(reply, "hs", &master, NULL);
         if (r < 0)
@@ -1613,10 +1601,8 @@ static int rename_image(int argc, char *argv[], void *userdata) {
                         &error,
                         NULL,
                         "ss", argv[1], argv[2]);
-        if (r < 0) {
-                log_error("Could not rename image: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not rename image: %s", bus_error_message(&error, -r));
 
         return 0;
 }
@@ -1679,10 +1665,8 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
                         &error,
                         NULL,
                         "sb", argv[1], b);
-        if (r < 0) {
-                log_error("Could not mark image read-only: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not mark image read-only: %s", bus_error_message(&error, -r));
 
         return 0;
 }
@@ -1771,10 +1755,8 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                                 &error,
                                 &reply,
                                 "ss", unit, "fail");
-                if (r < 0) {
-                        log_error("Failed to start unit: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to start unit: %s", bus_error_message(&error, -r));
 
                 r = sd_bus_message_read(reply, "o", &object);
                 if (r < 0)
@@ -1853,10 +1835,8 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to enable or disable unit: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable or disable unit: %s", bus_error_message(&error, -r));
 
         if (streq(argv[0], "enable")) {
                 r = sd_bus_message_read(reply, "b", NULL);
@@ -1991,10 +1971,8 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
                 return log_error_errno(r, "Failed to request match: %m");
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to transfer image: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to transfer image: %s", bus_error_message(&error, -r));
 
         r = sd_bus_message_read(reply, "uo", &id, &path);
         if (r < 0)
@@ -2428,10 +2406,8 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                                &error,
                                &reply,
                                NULL);
-        if (r < 0) {
-                log_error("Could not get transfers: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not get transfers: %s", bus_error_message(&error, -r));
 
         r = sd_bus_message_enter_container(reply, 'a', "(usssdo)");
         if (r < 0)
@@ -2526,10 +2502,8 @@ static int cancel_transfer(int argc, char *argv[], void *userdata) {
                                 &error,
                                 NULL,
                                 "u", id);
-                if (r < 0) {
-                        log_error("Could not cancel transfer: %s", bus_error_message(&error, -r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not cancel transfer: %s", bus_error_message(&error, -r));
         }
 
         return 0;

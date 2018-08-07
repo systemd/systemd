@@ -227,8 +227,9 @@ static int set_simple_string(sd_bus *bus, const char *method, const char *value)
                         &error, NULL,
                         "sb", value, arg_ask_password);
         if (r < 0)
-                log_error("Could not set property: %s", bus_error_message(&error, -r));
-        return r;
+                return log_error_errno(r, "Could not set property: %s", bus_error_message(&error, -r));
+
+        return 0;
 }
 
 static int set_hostname(int argc, char **argv, void *userdata) {

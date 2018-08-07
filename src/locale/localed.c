@@ -104,8 +104,9 @@ static int vconsole_reload(sd_bus *bus) {
                         "ss", "systemd-vconsole-setup.service", "replace");
 
         if (r < 0)
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
-        return r;
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, -r));
+
+        return 0;
 }
 
 static int vconsole_convert_to_x11_and_emit(Context *c, sd_bus_message *m) {

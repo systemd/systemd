@@ -26,10 +26,8 @@ static int ipv4ll_address_lost(Link *link) {
         log_link_debug(link, "IPv4 link-local release %u.%u.%u.%u", ADDRESS_FMT_VAL(addr));
 
         r = address_new(&address);
-        if (r < 0) {
-                log_link_error_errno(link, r, "Could not allocate address: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate address: %m");
 
         address->family = AF_INET;
         address->in_addr.in = addr;
@@ -39,10 +37,8 @@ static int ipv4ll_address_lost(Link *link) {
         address_remove(address, link, link_address_remove_handler);
 
         r = route_new(&route);
-        if (r < 0) {
-                log_link_error_errno(link, r, "Could not allocate route: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate route: %m");
 
         route->family = AF_INET;
         route->scope = RT_SCOPE_LINK;

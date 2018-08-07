@@ -1584,8 +1584,7 @@ static int mount_setup_unit(
 
         return 0;
 fail:
-        log_warning_errno(r, "Failed to set up mount unit: %m");
-        return r;
+        return log_warning_errno(r, "Failed to set up mount unit: %m");
 }
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {

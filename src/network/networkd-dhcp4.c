@@ -503,10 +503,8 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
         if (!link->network->dhcp_critical) {
                 r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
         }
 
         r = dhcp4_update_address(link, &address, &netmask, lifetime);

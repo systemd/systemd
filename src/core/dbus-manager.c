@@ -1298,9 +1298,9 @@ int verify_run_space_and_log(const char *message) {
 
         r = verify_run_space(message, &error);
         if (r < 0)
-                log_error_errno(r, "%s", bus_error_message(&error, r));
+                return log_error_errno(r, "%s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
