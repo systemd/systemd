@@ -547,7 +547,8 @@ static int session_start_scope(Session *s, sd_bus_message *properties) {
 
         if (!s->scope) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                char *scope, *job = NULL;
+                _cleanup_free_ char *scope = NULL;
+                char *job = NULL;
                 const char *description;
 
                 scope = strjoin("session-", s->id, ".scope");
@@ -567,16 +568,12 @@ static int session_start_scope(Session *s, sd_bus_message *properties) {
                                 properties,
                                 &error,
                                 &job);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to start session scope %s: %s", scope, bus_error_message(&error, r));
-                        free(scope);
-                        return r;
-                } else {
-                        s->scope = scope;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to start session scope %s: %s", scope, bus_error_message(&error, r));
 
-                        free(s->scope_job);
-                        s->scope_job = job;
-                }
+
+                s->scope = TAKE_PTR(scope);
+                free_and_replace(s->scope_job, job);
         }
 
         if (s->scope)
