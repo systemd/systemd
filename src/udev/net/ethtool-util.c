@@ -320,7 +320,7 @@ int ethtool_set_features(int *fd, const char *ifname, int *features) {
         if (r < 0)
                 return log_warning_errno(r, "link_config: could not get ethtool features for %s", ifname);
 
-        sfeatures = alloca0(sizeof(struct ethtool_gstrings) + DIV_ROUND_UP(strings->len, 32U) * sizeof(sfeatures->features[0]));
+        sfeatures = alloca0(sizeof(struct ethtool_sfeatures) + DIV_ROUND_UP(strings->len, 32U) * sizeof(sfeatures->features[0]));
         sfeatures->cmd = ETHTOOL_SFEATURES;
         sfeatures->size = DIV_ROUND_UP(strings->len, 32U);
 
