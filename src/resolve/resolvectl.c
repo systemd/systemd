@@ -1370,21 +1370,27 @@ static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) 
         return 0;
 }
 
+struct link_info {
+        uint64_t scopes_mask;
+        const char *llmnr;
+        const char *mdns;
+        const char *dns_over_tls;
+        const char *dnssec;
+        char *current_dns;
+        char **dns;
+        char **domains;
+        char **ntas;
+        bool dnssec_supported;
+};
+
+static void link_info_clear(struct link_info *p) {
+        free(p->current_dns);
+        strv_free(p->dns);
+        strv_free(p->domains);
+        strv_free(p->ntas);
+}
+
 static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
-
-        struct link_info {
-                uint64_t scopes_mask;
-                const char *llmnr;
-                const char *mdns;
-                const char *dns_over_tls;
-                const char *dnssec;
-                char *current_dns;
-                char **dns;
-                char **domains;
-                char **ntas;
-                bool dnssec_supported;
-        } link_info = {};
-
         static const struct bus_properties_map property_map[] = {
                 { "ScopesMask",                 "t",      NULL,                        offsetof(struct link_info, scopes_mask)      },
                 { "DNS",                        "a(iay)", map_link_dns_servers,        offsetof(struct link_info, dns)              },
@@ -1398,9 +1404,9 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 { "DNSSECSupported",            "b",      NULL,                        offsetof(struct link_info, dnssec_supported) },
                 {}
         };
-
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(link_info_clear) struct link_info link_info = {};
         _cleanup_free_ char *ifi = NULL, *p = NULL;
         char ifname[IF_NAMESIZE] = "";
         char **i;
@@ -1431,35 +1437,26 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                                    &error,
                                    &m,
                                    &link_info);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get link data for %i: %s", ifindex, bus_error_message(&error, r));
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get link data for %i: %s", ifindex, bus_error_message(&error, r));
 
         (void) pager_open(arg_no_pager, false);
 
-        if (mode == STATUS_DNS) {
-                r = status_print_strv_ifindex(ifindex, name, link_info.dns);
-                goto finish;
-        }
+        if (mode == STATUS_DNS)
+                return status_print_strv_ifindex(ifindex, name, link_info.dns);
 
-        if (mode == STATUS_DOMAIN) {
-                r = status_print_strv_ifindex(ifindex, name, link_info.domains);
-                goto finish;
-        }
+        if (mode == STATUS_DOMAIN)
+                return status_print_strv_ifindex(ifindex, name, link_info.domains);
 
-        if (mode == STATUS_NTA) {
-                r = status_print_strv_ifindex(ifindex, name, link_info.ntas);
-                goto finish;
-        }
+        if (mode == STATUS_NTA)
+                return status_print_strv_ifindex(ifindex, name, link_info.ntas);
 
         if (mode == STATUS_LLMNR) {
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.llmnr));
 
-                r = 0;
-                goto finish;
+                return 0;
         }
 
         if (mode == STATUS_MDNS) {
@@ -1467,8 +1464,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.mdns));
 
-                r = 0;
-                goto finish;
+                return 0;
         }
 
         if (mode == STATUS_PRIVATE) {
@@ -1476,8 +1472,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.dns_over_tls));
 
-                r = 0;
-                goto finish;
+                return 0;
         }
 
         if (mode == STATUS_DNSSEC) {
@@ -1485,8 +1480,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.dnssec));
 
-                r = 0;
-                goto finish;
+                return 0;
         }
 
         if (empty_line && *empty_line)
@@ -1540,14 +1534,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (empty_line)
                 *empty_line = true;
 
-        r = 0;
-
-finish:
-        free(link_info.current_dns);
-        strv_free(link_info.dns);
-        strv_free(link_info.domains);
-        strv_free(link_info.ntas);
-        return r;
+        return 0;
 }
 
 static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
@@ -1644,21 +1631,28 @@ static int status_print_strv_global(char **p) {
         return 0;
 }
 
+struct global_info {
+        char *current_dns;
+        char **dns;
+        char **fallback_dns;
+        char **domains;
+        char **ntas;
+        const char *llmnr;
+        const char *mdns;
+        const char *dns_over_tls;
+        const char *dnssec;
+        bool dnssec_supported;
+};
+
+static void global_info_clear(struct global_info *p) {
+        free(p->current_dns);
+        strv_free(p->dns);
+        strv_free(p->fallback_dns);
+        strv_free(p->domains);
+        strv_free(p->ntas);
+}
+
 static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
-
-        struct global_info {
-                char *current_dns;
-                char **dns;
-                char **fallback_dns;
-                char **domains;
-                char **ntas;
-                const char *llmnr;
-                const char *mdns;
-                const char *dns_over_tls;
-                const char *dnssec;
-                bool dnssec_supported;
-        } global_info = {};
-
         static const struct bus_properties_map property_map[] = {
                 { "DNS",                        "a(iiay)", map_global_dns_servers,        offsetof(struct global_info, dns)              },
                 { "FallbackDNS",                "a(iiay)", map_global_dns_servers,        offsetof(struct global_info, fallback_dns)     },
@@ -1672,9 +1666,9 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 { "DNSSECSupported",            "b",       NULL,                          offsetof(struct global_info, dnssec_supported) },
                 {}
         };
-
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(global_info_clear) struct global_info global_info = {};
         char **i;
         int r;
 
@@ -1689,58 +1683,46 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                                    &error,
                                    &m,
                                    &global_info);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get global data: %s", bus_error_message(&error, r));
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get global data: %s", bus_error_message(&error, r));
 
         (void) pager_open(arg_no_pager, false);
 
-        if (mode == STATUS_DNS) {
-                r = status_print_strv_global(global_info.dns);
-                goto finish;
-        }
+        if (mode == STATUS_DNS)
+                return status_print_strv_global(global_info.dns);
 
-        if (mode == STATUS_DOMAIN) {
-                r = status_print_strv_global(global_info.domains);
-                goto finish;
-        }
+        if (mode == STATUS_DOMAIN)
+                return status_print_strv_global(global_info.domains);
 
-        if (mode == STATUS_NTA) {
-                r = status_print_strv_global(global_info.ntas);
-                goto finish;
-        }
+        if (mode == STATUS_NTA)
+                return status_print_strv_global(global_info.ntas);
 
         if (mode == STATUS_LLMNR) {
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.llmnr));
 
-                r = 0;
-                goto finish;
+                return 0;
         }
 
         if (mode == STATUS_MDNS) {
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.mdns));
 
-                r = 0;
-                goto finish;
+                return 0;
         }
 
         if (mode == STATUS_PRIVATE) {
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.dns_over_tls));
 
-                r = 0;
-                goto finish;
+                return 0;
         }
 
         if (mode == STATUS_DNSSEC) {
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.dnssec));
 
-                r = 0;
-                goto finish;
+                return 0;
         }
 
         printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
@@ -1786,16 +1768,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         *empty_line = true;
 
-        r = 0;
-
-finish:
-        free(global_info.current_dns);
-        strv_free(global_info.dns);
-        strv_free(global_info.fallback_dns);
-        strv_free(global_info.domains);
-        strv_free(global_info.ntas);
-
-        return r;
+        return 0;
 }
 
 static int status_all(sd_bus *bus, StatusMode mode) {
