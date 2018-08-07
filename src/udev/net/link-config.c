@@ -306,7 +306,6 @@ static bool should_rename(struct udev_device *device, bool respect_predictable) 
 
         switch (type) {
         case NET_NAME_USER:
-        case NET_NAME_RENAMED:
                 /* these were already named by userspace, do not touch again */
                 return false;
         case NET_NAME_PREDICTABLE:
