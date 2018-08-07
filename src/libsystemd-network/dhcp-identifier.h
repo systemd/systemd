@@ -27,18 +27,18 @@ struct duid {
         union {
                 struct {
                         /* DUID_TYPE_LLT */
-                        uint16_t htype;
-                        uint32_t time;
+                        be16_t htype;
+                        be32_t time;
                         uint8_t haddr[0];
                 } _packed_ llt;
                 struct {
                         /* DUID_TYPE_EN */
-                        uint32_t pen;
+                        be32_t pen;
                         uint8_t id[8];
                 } _packed_ en;
                 struct {
                         /* DUID_TYPE_LL */
-                        int16_t htype;
+                        be16_t htype;
                         uint8_t haddr[0];
                 } _packed_ ll;
                 struct {
