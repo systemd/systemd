@@ -522,9 +522,9 @@ int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
                         NULL,
                         "ss", name, "fail");
         if (r < 0)
-                log_error("Failed to start %s: %s", name, bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to start %s: %s", name, bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static bool manager_is_docked(Manager *m) {

@@ -59,9 +59,9 @@ static int start_default_target(sd_bus *bus) {
                                "ss", "default.target", "isolate");
 
         if (r < 0)
-                log_error("Failed to start default target: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int fork_wait(const char* const cmdline[]) {

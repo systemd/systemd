@@ -204,9 +204,9 @@ static int set_time(int argc, char **argv, void *userdata) {
                                NULL,
                                "xbb", (int64_t) t, relative, interactive);
         if (r < 0)
-                log_error("Failed to set time: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set time: %s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int set_timezone(int argc, char **argv, void *userdata) {
@@ -225,9 +225,9 @@ static int set_timezone(int argc, char **argv, void *userdata) {
                                NULL,
                                "sb", argv[1], arg_ask_password);
         if (r < 0)
-                log_error("Failed to set time zone: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set time zone: %s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int set_local_rtc(int argc, char **argv, void *userdata) {
@@ -250,9 +250,9 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
                                NULL,
                                "bbb", b, arg_adjust_system_clock, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set local RTC: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set local RTC: %s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int set_ntp(int argc, char **argv, void *userdata) {
@@ -275,9 +275,9 @@ static int set_ntp(int argc, char **argv, void *userdata) {
                                NULL,
                                "bb", b, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set ntp: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set ntp: %s", bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static int list_timezones(int argc, char **argv, void *userdata) {

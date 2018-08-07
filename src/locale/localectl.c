@@ -184,10 +184,8 @@ static int set_locale(int argc, char **argv, void *userdata) {
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
-        if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, -r));
 
         return 0;
 }
@@ -229,9 +227,9 @@ static int set_vconsole_keymap(int argc, char **argv, void *userdata) {
                         NULL,
                         "ssbb", map, toggle_map, arg_convert, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set keymap: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Failed to set keymap: %s", bus_error_message(&error, -r));
 
-        return r;
+        return 0;
 }
 
 static int list_vconsole_keymaps(int argc, char **argv, void *userdata) {
@@ -273,9 +271,9 @@ static int set_x11_keymap(int argc, char **argv, void *userdata) {
                         "ssssbb", layout, model, variant, options,
                                   arg_convert, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set keymap: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Failed to set keymap: %s", bus_error_message(&error, -r));
 
-        return r;
+        return 0;
 }
 
 static int list_x11_keymaps(int argc, char **argv, void *userdata) {

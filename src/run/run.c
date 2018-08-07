@@ -940,10 +940,8 @@ static int start_transient_service(
                                                &error,
                                                &pty_reply,
                                                "s", arg_host);
-                        if (r < 0) {
-                                log_error("Failed to get machine PTY: %s", bus_error_message(&error, -r));
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get machine PTY: %s", bus_error_message(&error, -r));
 
                         r = sd_bus_message_read(pty_reply, "hs", &master, &s);
                         if (r < 0)
@@ -1219,10 +1217,8 @@ static int start_transient_scope(
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to start transient scope unit: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to start transient scope unit: %s", bus_error_message(&error, -r));
 
         if (arg_nice_set) {
                 if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0)
@@ -1437,10 +1433,8 @@ static int start_transient_trigger(
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to start transient %s unit: %s", suffix + 1, bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to start transient %s unit: %s", suffix + 1, bus_error_message(&error, -r));
 
         r = sd_bus_message_read(reply, "o", &object);
         if (r < 0)
