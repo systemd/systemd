@@ -810,7 +810,7 @@ int session_release(Session *s) {
         return sd_event_add_time(s->manager->event,
                                  &s->timer_event_source,
                                  CLOCK_MONOTONIC,
-                                 now(CLOCK_MONOTONIC) + RELEASE_USEC, 0,
+                                 usec_add(now(CLOCK_MONOTONIC), RELEASE_USEC), 0,
                                  release_timeout_callback, s);
 }
 
