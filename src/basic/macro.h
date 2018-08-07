@@ -7,7 +7,7 @@
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 
-#define _printf_(a,b) __attribute__ ((format (printf, a, b)))
+#define _printf_(a, b) __attribute__ ((format (printf, a, b)))
 #ifdef __clang__
 #  define _alloc_(...)
 #else
@@ -22,8 +22,8 @@
 #define _packed_ __attribute__ ((packed))
 #define _malloc_ __attribute__ ((malloc))
 #define _weak_ __attribute__ ((weak))
-#define _likely_(x) (__builtin_expect(!!(x),1))
-#define _unlikely_(x) (__builtin_expect(!!(x),0))
+#define _likely_(x) (__builtin_expect(!!(x), 1))
+#define _unlikely_(x) (__builtin_expect(!!(x), 0))
 #define _public_ __attribute__ ((visibility("default")))
 #define _hidden_ __attribute__ ((visibility("hidden")))
 #define _weakref_(x) __attribute__((weakref(#x)))
@@ -146,10 +146,10 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #  define VOID_0 ((void*)0)
 #endif
 
-#define ELEMENTSOF(x)                                                    \
-        __extension__ (__builtin_choose_expr(                            \
+#define ELEMENTSOF(x)                                                   \
+        (__builtin_choose_expr(                                         \
                 !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
-                sizeof(x)/sizeof((x)[0]),                                \
+                sizeof(x)/sizeof((x)[0]),                               \
                 VOID_0))
 
 /*
@@ -167,23 +167,23 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
  */
 #define container_of(ptr, type, member) __container_of(UNIQ, (ptr), type, member)
 #define __container_of(uniq, ptr, type, member)                         \
-        __extension__ ({                                                \
+        ({                                                              \
                 const typeof( ((type*)0)->member ) *UNIQ_T(A, uniq) = (ptr); \
-                (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type,member) ); \
+                (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type, member) ); \
         })
 
 #undef MAX
 #define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
 #define __MAX(aq, a, bq, b)                             \
-        __extension__ ({                                \
+        ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
                 const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A,aq) > UNIQ_T(B,bq) ? UNIQ_T(A,aq) : UNIQ_T(B,bq); \
+                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
 
 /* evaluates to (void) if _A or _B are not constant or of different types */
 #define CONST_MAX(_A, _B) \
-        __extension__ (__builtin_choose_expr(                           \
+        (__builtin_choose_expr(                                         \
                 __builtin_constant_p(_A) &&                             \
                 __builtin_constant_p(_B) &&                             \
                 __builtin_types_compatible_p(typeof(_A), typeof(_B)),   \
@@ -193,47 +193,47 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 /* takes two types and returns the size of the larger one */
 #define MAXSIZE(A, B) (sizeof(union _packed_ { typeof(A) a; typeof(B) b; }))
 
-#define MAX3(x,y,z)                                     \
-        __extension__ ({                                \
-                        const typeof(x) _c = MAX(x,y);  \
-                        MAX(_c, z);                     \
-                })
+#define MAX3(x, y, z)                                   \
+        ({                                              \
+                const typeof(x) _c = MAX(x, y);         \
+                MAX(_c, z);                             \
+        })
 
 #undef MIN
 #define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
 #define __MIN(aq, a, bq, b)                             \
-        __extension__ ({                                \
+        ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
                 const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A,aq) < UNIQ_T(B,bq) ? UNIQ_T(A,aq) : UNIQ_T(B,bq); \
+                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
 
-#define MIN3(x,y,z)                                     \
-        __extension__ ({                                \
-                        const typeof(x) _c = MIN(x,y);  \
-                        MIN(_c, z);                     \
-                })
+#define MIN3(x, y, z)                                   \
+        ({                                              \
+                const typeof(x) _c = MIN(x, y);         \
+                MIN(_c, z);                             \
+        })
 
 #define LESS_BY(a, b) __LESS_BY(UNIQ, (a), UNIQ, (b))
 #define __LESS_BY(aq, a, bq, b)                         \
-        __extension__ ({                                \
+        ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
                 const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A,aq) > UNIQ_T(B,bq) ? UNIQ_T(A,aq) - UNIQ_T(B,bq) : 0; \
+                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) - UNIQ_T(B, bq) : 0; \
         })
 
 #undef CLAMP
 #define CLAMP(x, low, high) __CLAMP(UNIQ, (x), UNIQ, (low), UNIQ, (high))
 #define __CLAMP(xq, x, lowq, low, highq, high)                          \
-        __extension__ ({                                                \
-                const typeof(x) UNIQ_T(X,xq) = (x);                     \
-                const typeof(low) UNIQ_T(LOW,lowq) = (low);             \
-                const typeof(high) UNIQ_T(HIGH,highq) = (high);         \
-                        UNIQ_T(X,xq) > UNIQ_T(HIGH,highq) ?             \
-                                UNIQ_T(HIGH,highq) :                    \
-                                UNIQ_T(X,xq) < UNIQ_T(LOW,lowq) ?       \
-                                        UNIQ_T(LOW,lowq) :              \
-                                        UNIQ_T(X,xq);                   \
+        ({                                                              \
+                const typeof(x) UNIQ_T(X, xq) = (x);                    \
+                const typeof(low) UNIQ_T(LOW, lowq) = (low);            \
+                const typeof(high) UNIQ_T(HIGH, highq) = (high);        \
+                        UNIQ_T(X, xq) > UNIQ_T(HIGH, highq) ?           \
+                                UNIQ_T(HIGH, highq) :                   \
+                                UNIQ_T(X, xq) < UNIQ_T(LOW, lowq) ?     \
+                                        UNIQ_T(LOW, lowq) :             \
+                                        UNIQ_T(X, xq);                  \
         })
 
 /* [(x + y - 1) / y] suffers from an integer overflow, even though the
@@ -241,7 +241,7 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
  * [x / y + !!(x % y)]. Note that on "Real CPUs" a division returns both the
  * quotient and the remainder, so both should be equally fast. */
 #define DIV_ROUND_UP(_x, _y)                                            \
-        __extension__ ({                                                \
+        ({                                                              \
                 const typeof(_x) __x = (_x);                            \
                 const typeof(_y) __y = (_y);                            \
                 (__x / __y + !!(__x % __y));                            \
