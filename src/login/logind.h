@@ -62,6 +62,7 @@ struct Manager {
         Hashmap *user_units;
 
         usec_t inhibit_delay_max;
+        usec_t user_stop_delay;
 
         /* If an action is currently being executed or is delayed,
          * this is != 0 and encodes what is being done */

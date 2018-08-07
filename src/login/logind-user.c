@@ -47,6 +47,7 @@ int user_new(User **ret, Manager *m, uid_t uid, gid_t gid, const char *name) {
                 .manager = m,
                 .uid = uid,
                 .gid = gid,
+                .last_session_timestamp = USEC_INFINITY,
         };
 
         u->name = strdup(name);
@@ -113,6 +114,8 @@ User *user_free(User *u) {
 
         hashmap_remove_value(u->manager->users, UID_TO_PTR(u->uid), u);
 
+        (void) sd_event_source_unref(u->timer_event_source);
+
         u->service_job = mfree(u->service_job);
 
         u->service = mfree(u->service);
@@ -169,6 +172,10 @@ static int user_save_internal(User *u) {
                         "MONOTONIC="USEC_FMT"\n",
                         u->timestamp.realtime,
                         u->timestamp.monotonic);
+
+        if (u->last_session_timestamp != USEC_INFINITY)
+                fprintf(f, "LAST_SESSION_TIMESTAMP=" USEC_FMT "\n",
+                        u->last_session_timestamp);
 
         if (u->sessions) {
                 Session *i;
@@ -287,16 +294,17 @@ int user_save(User *u) {
 }
 
 int user_load(User *u) {
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *stopping = NULL;
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *stopping = NULL, *last_session_timestamp = NULL;
         int r;
 
         assert(u);
 
         r = parse_env_file(NULL, u->state_file, NEWLINE,
-                           "SERVICE_JOB", &u->service_job,
-                           "STOPPING",    &stopping,
-                           "REALTIME",    &realtime,
-                           "MONOTONIC",   &monotonic,
+                           "SERVICE_JOB",            &u->service_job,
+                           "STOPPING",               &stopping,
+                           "REALTIME",               &realtime,
+                           "MONOTONIC",              &monotonic,
+                           "LAST_SESSION_TIMESTAMP", &last_session_timestamp,
                            NULL);
         if (r == -ENOENT)
                 return 0;
@@ -312,9 +320,11 @@ int user_load(User *u) {
         }
 
         if (realtime)
-                timestamp_deserialize(realtime, &u->timestamp.realtime);
+                (void) timestamp_deserialize(realtime, &u->timestamp.realtime);
         if (monotonic)
-                timestamp_deserialize(monotonic, &u->timestamp.monotonic);
+                (void) timestamp_deserialize(monotonic, &u->timestamp.monotonic);
+        if (last_session_timestamp)
+                (void) timestamp_deserialize(last_session_timestamp, &u->last_session_timestamp);
 
         return 0;
 }
@@ -524,6 +534,17 @@ bool user_may_gc(User *u, bool drop_not_started) {
         if (u->sessions)
                 return false;
 
+        if (u->last_session_timestamp != USEC_INFINITY) {
+                /* All sessions have been closed. Let's see if we shall leave the user record around for a bit */
+
+                if (u->manager->user_stop_delay == USEC_INFINITY)
+                        return false; /* Leave it around forever! */
+                if (u->manager->user_stop_delay > 0 &&
+                    now(CLOCK_MONOTONIC) < usec_add(u->last_session_timestamp, u->manager->user_stop_delay))
+                        return false; /* Leave it around for a bit longer. */
+        }
+
+        /* Is this a user that shall stay around forever? */
         if (user_check_linger_file(u) > 0)
                 return false;
 
@@ -657,6 +678,59 @@ void user_elect_display(User *u) {
                         log_debug("Choosing session %s in preference to %s", s->id, u->display ? u->display->id : "-");
                         u->display = s;
                 }
+        }
+}
+
+static int user_stop_timeout_callback(sd_event_source *es, uint64_t usec, void *userdata) {
+        User *u = userdata;
+
+        assert(u);
+        user_add_to_gc_queue(u);
+
+        return 0;
+}
+
+void user_update_last_session_timer(User *u) {
+        int r;
+
+        assert(u);
+
+        if (u->sessions) {
+                /* There are sessions, turn off the timer */
+                u->last_session_timestamp = USEC_INFINITY;
+                u->timer_event_source = sd_event_source_unref(u->timer_event_source);
+                return;
+        }
+
+        if (u->last_session_timestamp != USEC_INFINITY)
+                return; /* Timer already started */
+
+        u->last_session_timestamp = now(CLOCK_MONOTONIC);
+
+        assert(!u->timer_event_source);
+
+        if (u->manager->user_stop_delay == 0 || u->manager->user_stop_delay == USEC_INFINITY)
+                return;
+
+        if (sd_event_get_state(u->manager->event) == SD_EVENT_FINISHED) {
+                log_debug("Not allocating user stop timeout, since we are already exiting.");
+                return;
+        }
+
+        r = sd_event_add_time(u->manager->event,
+                              &u->timer_event_source,
+                              CLOCK_MONOTONIC,
+                              usec_add(u->last_session_timestamp, u->manager->user_stop_delay), 0,
+                              user_stop_timeout_callback, u);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enqueue user stop event source, ignoring: %m");
+
+        if (DEBUG_LOGGING) {
+                char s[FORMAT_TIMESPAN_MAX];
+
+                log_debug("Last session of user '%s' logged out, terminating user context in %s.",
+                          u->name,
+                          format_timespan(s, sizeof(s), u->manager->user_stop_delay, USEC_PER_MSEC));
         }
 }
 

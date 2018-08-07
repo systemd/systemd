@@ -23,6 +23,7 @@ Login.KillUserProcesses,            config_parse_bool,                  0, offse
 Login.KillOnlyUsers,                config_parse_strv,                  0, offsetof(Manager, kill_only_users)
 Login.KillExcludeUsers,             config_parse_strv,                  0, offsetof(Manager, kill_exclude_users)
 Login.InhibitDelayMaxSec,           config_parse_sec,                   0, offsetof(Manager, inhibit_delay_max)
+Login.UserStopDelaySec,             config_parse_sec,                   0, offsetof(Manager, user_stop_delay)
 Login.HandlePowerKey,               config_parse_handle_action,         0, offsetof(Manager, handle_power_key)
 Login.HandleSuspendKey,             config_parse_handle_action,         0, offsetof(Manager, handle_suspend_key)
 Login.HandleHibernateKey,           config_parse_handle_action,         0, offsetof(Manager, handle_hibernate_key)
