@@ -401,7 +401,7 @@ static int dhcp_client_set_iaid_duid(
                                 (append_iaid ? sizeof(client->client_id.ns.iaid) : 0);
 
         if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
-                log_dhcp_client(client, "Configured IAID+DUID, restarting.");
+                log_dhcp_client(client, "Configured %sDUID, restarting.", append_iaid ? "IAID+" : "");
                 client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
                 sd_dhcp_client_start(client);
         }
