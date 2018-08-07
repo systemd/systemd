@@ -124,7 +124,16 @@
         partition table, or a file system within an MBR/MS-DOS or GPT partition table with only a single
         Linux-compatible partition, or a set of file systems within a GPT partition table that follows the <ulink
         url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable Partitions
-        Specification</ulink>.</para></listitem>
+        Specification</ulink>.</para>
+
+        <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or <literal>strict</literal>,
+        or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is set, then this setting adds
+        <filename>/dev/loop-control</filename> with <constant>rw</constant> mode, <literal>block-loop</literal> and
+        <literal>block-blkext</literal> with <constant>rwm</constant> mode to <varname>DeviceAllow=</varname>. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>. Also, see
+        <varname>PrivateDevices=</varname> below, as it may change the setting of <varname>DevicePolicy=</varname>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

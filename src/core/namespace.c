@@ -1029,24 +1029,21 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
         return r;
 }
 
-static bool namespace_info_mount_apivfs(const char *root_directory, const NamespaceInfo *ns_info) {
+static bool namespace_info_mount_apivfs(const NamespaceInfo *ns_info) {
         assert(ns_info);
 
         /*
          * ProtectControlGroups= and ProtectKernelTunables= imply MountAPIVFS=,
          * since to protect the API VFS mounts, they need to be around in the
-         * first place... and RootDirectory= or RootImage= need to be set.
+         * first place...
          */
 
-        /* root_directory should point to a mount point */
-        return root_directory &&
-                (ns_info->mount_apivfs ||
-                 ns_info->protect_control_groups ||
-                 ns_info->protect_kernel_tunables);
+        return ns_info->mount_apivfs ||
+                ns_info->protect_control_groups ||
+                ns_info->protect_kernel_tunables;
 }
 
 static size_t namespace_calculate_mounts(
-                const char* root_directory,
                 const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
@@ -1088,10 +1085,11 @@ static size_t namespace_calculate_mounts(
                 (ns_info->protect_control_groups ? 1 : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
                 protect_home_cnt + protect_system_cnt +
-                (namespace_info_mount_apivfs(root_directory, ns_info) ? ELEMENTSOF(apivfs_table) : 0);
+                (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0);
 }
 
 static void normalize_mounts(const char *root_directory, MountEntry *mounts, size_t *n_mounts) {
+        assert(root_directory);
         assert(n_mounts);
         assert(mounts || *n_mounts == 0);
 
@@ -1127,11 +1125,9 @@ int setup_namespace(
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_free_ void *root_hash = NULL;
         MountEntry *m, *mounts = NULL;
-        size_t root_hash_size = 0;
-        const char *root;
-        size_t n_mounts;
-        bool make_slave;
+        size_t n_mounts, root_hash_size = 0;
         bool require_prefix = false;
+        const char *root;
         int r = 0;
 
         assert(ns_info);
@@ -1181,7 +1177,6 @@ int setup_namespace(
         }
 
         n_mounts = namespace_calculate_mounts(
-                        root,
                         ns_info,
                         read_write_paths,
                         read_only_paths,
@@ -1191,9 +1186,6 @@ int setup_namespace(
                         n_temporary_filesystems,
                         tmp_dir, var_tmp_dir,
                         protect_home, protect_system);
-
-        /* Set mount slave mode */
-        make_slave = root || n_mounts > 0 || ns_info->private_mounts;
 
         if (n_mounts > 0) {
                 m = mounts = (MountEntry *) alloca0(n_mounts * sizeof(MountEntry));
@@ -1271,7 +1263,7 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                if (namespace_info_mount_apivfs(root, ns_info)) {
+                if (namespace_info_mount_apivfs(ns_info)) {
                         r = append_static_mounts(&m, apivfs_table, ELEMENTSOF(apivfs_table), ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
@@ -1284,7 +1276,7 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                normalize_mounts(root_directory, mounts, &n_mounts);
+                normalize_mounts(root, mounts, &n_mounts);
         }
 
         if (unshare(CLONE_NEWNS) < 0) {
@@ -1292,13 +1284,11 @@ int setup_namespace(
                 goto finish;
         }
 
-        if (make_slave) {
-                /* Remount / as SLAVE so that nothing now mounted in the namespace
-                   shows up in the parent */
-                if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+        /* Remount / as SLAVE so that nothing now mounted in the namespace
+         * shows up in the parent */
+        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
+                r = -errno;
+                goto finish;
         }
 
         if (root_image) {
@@ -1328,7 +1318,7 @@ int setup_namespace(
                         }
                 }
 
-        } else if (root) {
+        } else {
 
                 /* Let's mount the main root directory to the root directory to use */
                 if (mount("/", root, NULL, MS_BIND|MS_REC, NULL) < 0) {
@@ -1385,7 +1375,7 @@ int setup_namespace(
                         if (!again)
                                 break;
 
-                        normalize_mounts(root_directory, mounts, &n_mounts);
+                        normalize_mounts(root, mounts, &n_mounts);
                 }
 
                 /* Create a blacklist we can pass to bind_mount_recursive() */
@@ -1402,12 +1392,10 @@ int setup_namespace(
                 }
         }
 
-        if (root) {
-                /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
-                r = mount_move_root(root);
-                if (r < 0)
-                        goto finish;
-        }
+        /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
+        r = mount_move_root(root);
+        if (r < 0)
+                goto finish;
 
         /* Remount / as the desired mode. Note that this will not
          * reestablish propagation from our side to the host, since
