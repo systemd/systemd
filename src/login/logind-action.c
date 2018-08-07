@@ -152,10 +152,8 @@ int manager_handle_action(
         log_info("%s", message_table[handle]);
 
         r = bus_manager_shutdown_or_sleep_now_or_later(m, target, inhibit_operation, &error);
-        if (r < 0) {
-                log_error("Failed to execute operation: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
 
         return 1;
 }

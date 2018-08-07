@@ -195,10 +195,8 @@ int register_machine(
                 r = sd_bus_call(bus, m, 0, &error, NULL);
         }
 
-        if (r < 0) {
-                log_error("Failed to register machine: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -242,10 +240,8 @@ int terminate_machine(sd_bus *bus, pid_t pid) {
                         &error,
                         NULL,
                         NULL);
-        if (r < 0) {
+        if (r < 0)
                 log_debug("Failed to terminate machine: %s", bus_error_message(&error, r));
-                return 0;
-        }
 
         return 0;
 }
@@ -336,10 +332,8 @@ int allocate_scope(
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to allocate scope: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate scope: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "o", &object);
         if (r < 0)

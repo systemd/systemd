@@ -324,10 +324,8 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         ts = now(CLOCK_MONOTONIC);
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
-        if (r < 0) {
-                log_error("%s: resolve call failed: %s", pretty, bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "%s: resolve call failed: %s", pretty, bus_error_message(&error, r));
 
         ts = now(CLOCK_MONOTONIC) - ts;
 

@@ -162,10 +162,8 @@ static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *in
                         &error,
                         't', val);
 
-        if (r < 0) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse reply: %s", bus_error_message(&error, -r));
 
         return 0;
 }
@@ -187,10 +185,8 @@ static int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char 
                         property,
                         &error,
                         strv);
-        if (r < 0) {
-                log_error("Failed to get unit property %s: %s", property, bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unit property %s: %s", property, bus_error_message(&error, -r));
 
         return 0;
 }
@@ -405,10 +401,8 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                         "ListUnits",
                         &error, &reply,
                         NULL);
-        if (r < 0) {
-                log_error("Failed to list units: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, -r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
         if (r < 0)
@@ -1031,10 +1025,8 @@ static int list_dependencies(sd_bus *bus, const char *name) {
                         &error,
                         &reply,
                         "s");
-        if (r < 0) {
-                log_error("Failed to get ID: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get ID: %s", bus_error_message(&error, -r));
 
         r = sd_bus_message_read(reply, "s", &id);
         if (r < 0)
@@ -1293,10 +1285,8 @@ static int dot(int argc, char *argv[], void *userdata) {
                        &error,
                        &reply,
                        "");
-        if (r < 0) {
-                log_error("Failed to list units: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, -r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
         if (r < 0)
