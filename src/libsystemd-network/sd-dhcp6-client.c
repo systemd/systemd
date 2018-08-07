@@ -182,11 +182,12 @@ static int client_ensure_duid(sd_dhcp6_client *client) {
  * without further modification. Otherwise, if duid_type is supported, DUID
  * is set based on that type. Otherwise, an error is returned.
  */
-int sd_dhcp6_client_set_duid(
+static int dhcp6_client_set_duid_internal(
                 sd_dhcp6_client *client,
                 uint16_t duid_type,
                 const void *duid,
-                size_t duid_len) {
+                size_t duid_len,
+                usec_t llt_time) {
         int r;
 
         assert_return(client, -EINVAL);
@@ -234,6 +235,20 @@ int sd_dhcp6_client_set_duid(
                 }
 
         return 0;
+}
+
+int sd_dhcp6_client_set_duid(
+                sd_dhcp6_client *client,
+                uint16_t duid_type,
+                const void *duid,
+                size_t duid_len) {
+        return dhcp6_client_set_duid_internal(client, duid_type, duid, duid_len, 0);
+}
+
+int sd_dhcp6_client_set_duid_llt(
+                sd_dhcp6_client *client,
+                usec_t llt_time) {
+        return dhcp6_client_set_duid_internal(client, DUID_TYPE_LLT, NULL, 0, llt_time);
 }
 
 int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {
