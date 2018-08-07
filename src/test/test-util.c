@@ -53,6 +53,12 @@ static void test_max(void) {
                 .a = CONST_MAX(10, 100),
         };
         int d = 0;
+        unsigned long x = 12345;
+        unsigned long y = 54321;
+        const char str[] = "a_string_constant";
+        const unsigned long long arr[] = {9999ULL, 10ULL, 0ULL, 3000ULL, 2000ULL, 1000ULL, 100ULL, 9999999ULL};
+        void *p = (void *)str;
+        void *q = (void *)&str[16];
 
         assert_cc(sizeof(val1.b) == sizeof(int) * 100);
 
@@ -80,6 +86,35 @@ static void test_max(void) {
         assert_se(LESS_BY(4, 8) == 0);
         assert_se(LESS_BY(16, LESS_BY(8, 4)) == 12);
         assert_se(LESS_BY(4, LESS_BY(8, 4)) == 0);
+        assert_se(CMP(-5, 5) == -1);
+        assert_se(CMP(5, -5) == 1);
+        assert_se(CMP(5, 5) == 0);
+        assert_se(CMP(x, y) == -1);
+        assert_se(CMP(y, x) == 1);
+        assert_se(CMP(x, x) == 0);
+        assert_se(CMP(y, y) == 0);
+        assert_se(CMP(UINT64_MAX, 0L) == 1);
+        assert_se(CMP(0L, UINT64_MAX) == -1);
+        assert_se(CMP(UINT64_MAX, UINT64_MAX) == 0);
+        assert_se(CMP(INT64_MIN, INT64_MAX) == -1);
+        assert_se(CMP(INT64_MAX, INT64_MIN) == 1);
+        assert_se(CMP(INT64_MAX, INT64_MAX) == 0);
+        assert_se(CMP(INT64_MIN, INT64_MIN) == 0);
+        assert_se(CMP(INT64_MAX, 0L) == 1);
+        assert_se(CMP(0L, INT64_MIN) == 1);
+        assert_se(CMP(INT64_MIN, 0L) == -1);
+        assert_se(CMP(0L, INT64_MAX) == -1);
+        assert_se(CMP(&str[2], &str[7]) == -1);
+        assert_se(CMP(&str[2], &str[2]) == 0);
+        assert_se(CMP(&str[7], (const char *)str) == 1);
+        assert_se(CMP(str[2], str[7]) == 1);
+        assert_se(CMP(str[7], *str) == 1);
+        assert_se(CMP((const unsigned long long *)arr, &arr[3]) == -1);
+        assert_se(CMP(*arr, arr[3]) == 1);
+        assert_se(CMP(p, q) == -1);
+        assert_se(CMP(q, p) == 1);
+        assert_se(CMP(p, p) == 0);
+        assert_se(CMP(q, q) == 0);
         assert_se(CLAMP(-5, 0, 1) == 0);
         assert_se(CLAMP(5, 0, 1) == 1);
         assert_se(CLAMP(5, -10, 1) == 1);

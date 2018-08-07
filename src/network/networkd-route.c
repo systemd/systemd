@@ -164,34 +164,30 @@ static void route_hash_func(const void *b, struct siphash *state) {
 
 static int route_compare_func(const void *_a, const void *_b) {
         const Route *a = _a, *b = _b;
+        int r;
 
-        if (a->family < b->family)
-                return -1;
-        if (a->family > b->family)
-                return 1;
+        r = CMP(a->family, b->family);
+        if (r != 0)
+                return r;
 
         switch (a->family) {
         case AF_INET:
         case AF_INET6:
-                if (a->dst_prefixlen < b->dst_prefixlen)
-                        return -1;
-                if (a->dst_prefixlen > b->dst_prefixlen)
-                        return 1;
+                r = CMP(a->dst_prefixlen, b->dst_prefixlen);
+                if (r != 0)
+                        return r;
 
-                if (a->tos < b->tos)
-                        return -1;
-                if (a->tos > b->tos)
-                        return 1;
+                r = CMP(a->tos, b->tos);
+                if (r != 0)
+                        return r;
 
-                if (a->priority < b->priority)
-                        return -1;
-                if (a->priority > b->priority)
-                        return 1;
+                r = CMP(a->priority, b->priority);
+                if (r != 0)
+                        return r;
 
-                if (a->table < b->table)
-                        return -1;
-                if (a->table > b->table)
-                        return 1;
+                r = CMP(a->table, b->table);
+                if (r != 0)
+                        return r;
 
                 return memcmp(&a->dst, &b->dst, FAMILY_ADDRESS_SIZE(a->family));
         default:

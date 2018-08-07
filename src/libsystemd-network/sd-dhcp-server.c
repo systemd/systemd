@@ -125,6 +125,7 @@ void client_id_hash_func(const void *p, struct siphash *state) {
 
 int client_id_compare_func(const void *_a, const void *_b) {
         const DHCPClientId *a, *b;
+        int r;
 
         a = _a;
         b = _b;
@@ -132,8 +133,9 @@ int client_id_compare_func(const void *_a, const void *_b) {
         assert(!a->length || a->data);
         assert(!b->length || b->data);
 
-        if (a->length != b->length)
-                return a->length < b->length ? -1 : 1;
+        r = CMP(a->length, b->length);
+        if (r != 0)
+                return r;
 
         return memcmp(a->data, b->data, a->length);
 }

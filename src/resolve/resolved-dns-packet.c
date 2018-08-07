@@ -2339,11 +2339,11 @@ static void dns_packet_hash_func(const void *p, struct siphash *state) {
 
 static int dns_packet_compare_func(const void *a, const void *b) {
         const DnsPacket *x = a, *y = b;
+        int r;
 
-        if (x->size < y->size)
-                return -1;
-        if (x->size > y->size)
-                return 1;
+        r = CMP(x->size, y->size);
+        if (r != 0)
+                return r;
 
         return memcmp(DNS_PACKET_DATA((DnsPacket*) x), DNS_PACKET_DATA((DnsPacket*) y), x->size);
 }

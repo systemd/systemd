@@ -300,15 +300,13 @@ static int dns_resource_key_compare_func(const void *a, const void *b) {
         if (ret != 0)
                 return ret;
 
-        if (x->type < y->type)
-                return -1;
-        if (x->type > y->type)
-                return 1;
+        ret = CMP(x->type, y->type);
+        if (ret != 0)
+                return ret;
 
-        if (x->class < y->class)
-                return -1;
-        if (x->class > y->class)
-                return 1;
+        ret = CMP(x->class, y->class);
+        if (ret != 0)
+                return ret;
 
         return 0;
 }
@@ -1515,10 +1513,9 @@ static int dns_resource_record_compare_func(const void *a, const void *b) {
         if (dns_resource_record_equal(x, y))
                 return 0;
 
-        /* This is a bit dirty, we don't implement proper ordering, but
-         * the hashtable doesn't need ordering anyway, hence we don't
-         * care. */
-        return x < y ? -1 : 1;
+        /* We still use CMP() here, even though don't implement proper
+         * ordering, since the hashtable doesn't need ordering anyway. */
+        return CMP(x, y);
 }
 
 const struct hash_ops dns_resource_record_hash_ops = {

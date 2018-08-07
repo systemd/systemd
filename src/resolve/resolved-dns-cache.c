@@ -228,11 +228,7 @@ void dns_cache_prune(DnsCache *c) {
 static int dns_cache_item_prioq_compare_func(const void *a, const void *b) {
         const DnsCacheItem *x = a, *y = b;
 
-        if (x->until < y->until)
-                return -1;
-        if (x->until > y->until)
-                return 1;
-        return 0;
+        return CMP(x->until, y->until);
 }
 
 static int dns_cache_init(DnsCache *c) {

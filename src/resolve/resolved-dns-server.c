@@ -624,19 +624,17 @@ static int dns_server_compare_func(const void *a, const void *b) {
         const DnsServer *x = a, *y = b;
         int r;
 
-        if (x->family < y->family)
-                return -1;
-        if (x->family > y->family)
-                return 1;
+        r = CMP(x->family, y->family);
+        if (r != 0)
+                return r;
 
         r = memcmp(&x->address, &y->address, FAMILY_ADDRESS_SIZE(x->family));
         if (r != 0)
                 return r;
 
-        if (x->ifindex < y->ifindex)
-                return -1;
-        if (x->ifindex > y->ifindex)
-                return 1;
+        r = CMP(x->ifindex, y->ifindex);
+        if (r != 0)
+                return r;
 
         return 0;
 }

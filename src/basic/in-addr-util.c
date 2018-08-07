@@ -581,9 +581,11 @@ void in_addr_data_hash_func(const void *p, struct siphash *state) {
 
 int in_addr_data_compare_func(const void *a, const void *b) {
         const struct in_addr_data *x = a, *y = b;
+        int r;
 
-        if (x->family != y->family)
-                return x->family - y->family;
+        r = CMP(x->family, y->family);
+        if (r != 0)
+                return r;
 
         return memcmp(&x->address, &y->address, FAMILY_ADDRESS_SIZE(x->family));
 }
