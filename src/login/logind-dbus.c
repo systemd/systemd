@@ -782,9 +782,8 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 goto fail;
 
         session_set_user(session, user);
+        session_set_leader(session, leader);
 
-        session->leader = leader;
-        session->audit_id = audit_id;
         session->type = t;
         session->class = c;
         session->remote = remote;

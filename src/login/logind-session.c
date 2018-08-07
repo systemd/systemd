@@ -120,6 +120,9 @@ Session* session_free(Session *s) {
                 free(s->scope);
         }
 
+        if (pid_is_valid(s->leader))
+                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader), s);
+
         free(s->scope_job);
 
         sd_bus_message_unref(s->create_message);
@@ -146,6 +149,30 @@ void session_set_user(Session *s, User *u) {
         LIST_PREPEND(sessions_by_user, u->sessions, s);
 
         user_update_last_session_timer(u);
+}
+
+int session_set_leader(Session *s, pid_t pid) {
+        int r;
+
+        assert(s);
+
+        if (!pid_is_valid(pid))
+                return -EINVAL;
+
+        if (s->leader == pid)
+                return 0;
+
+        r = hashmap_put(s->manager->sessions_by_leader, PID_TO_PTR(pid), s);
+        if (r < 0)
+                return r;
+
+        if (pid_is_valid(s->leader))
+                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader), s);
+
+        s->leader = pid;
+        (void) audit_session_from_pid(pid, &s->audit_id);
+
+        return 1;
 }
 
 static void session_save_devices(Session *s, FILE *f) {
@@ -457,8 +484,16 @@ int session_load(Session *s) {
         }
 
         if (leader) {
-                if (parse_pid(leader, &s->leader) >= 0)
-                        (void) audit_session_from_pid(s->leader, &s->audit_id);
+                pid_t pid;
+
+                r = parse_pid(leader, &pid);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse leader PID of session: %s", leader);
+                else {
+                        r = session_set_leader(s, pid);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set session leader PID, ignoring: %m");
+                }
         }
 
         if (type) {
@@ -893,7 +928,7 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
 
         /* For sessions with a leader but no explicitly configured
          * tty, let's check the controlling tty of the leader */
-        if (s->leader > 0) {
+        if (pid_is_valid(s->leader)) {
                 r = get_process_ctty_atime(s->leader, &atime);
                 if (r >= 0)
                         goto found_atime;

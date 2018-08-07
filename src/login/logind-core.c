@@ -339,13 +339,16 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **ret) {
         if (!pid_is_valid(pid))
                 return -EINVAL;
 
-        r = cg_pid_get_unit(pid, &unit);
-        if (r < 0)
-                goto not_found;
+        s = hashmap_get(m->sessions_by_leader, PID_TO_PTR(pid));
+        if (!s) {
+                r = cg_pid_get_unit(pid, &unit);
+                if (r < 0)
+                        goto not_found;
 
-        s = hashmap_get(m->session_units, unit);
-        if (!s)
-                goto not_found;
+                s = hashmap_get(m->session_units, unit);
+                if (!s)
+                        goto not_found;
+        }
 
         if (ret)
                 *ret = s;
