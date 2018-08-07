@@ -302,7 +302,7 @@ static int find_feature_index(struct ethtool_gstrings *strings, const char *feat
         return -1;
 }
 
-int ethtool_set_features(int *fd, const char *ifname, NetDevFeature *features) {
+int ethtool_set_features(int *fd, const char *ifname, int *features) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct ethtool_sfeatures *sfeatures;
         int block, bit, i, r;
