@@ -773,6 +773,9 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 } while (hashmap_get(m->sessions, id));
         }
 
+        /* If we are not watching utmp aleady, try again */
+        manager_reconnect_utmp(m);
+
         r = manager_add_user_by_uid(m, uid, &user);
         if (r < 0)
                 goto fail;
@@ -795,6 +798,8 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         r = -ENOMEM;
                         goto fail;
                 }
+
+                session->tty_validity = TTY_FROM_PAM;
         }
 
         if (!isempty(display)) {

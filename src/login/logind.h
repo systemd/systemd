@@ -44,6 +44,10 @@ struct Manager {
         sd_event_source *udev_vcsa_event_source;
         sd_event_source *udev_button_event_source;
 
+#if ENABLE_UTMP
+        sd_event_source *utmp_event_source;
+#endif
+
         int console_active_fd;
 
         unsigned n_autovts;
@@ -150,6 +154,10 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
 bool manager_is_docked_or_external_displays(Manager *m);
 bool manager_is_on_external_power(void);
 bool manager_all_buttons_ignored(Manager *m);
+
+int manager_read_utmp(Manager *m);
+void manager_connect_utmp(Manager *m);
+void manager_reconnect_utmp(Manager *m);
 
 extern const sd_bus_vtable manager_vtable[];
 

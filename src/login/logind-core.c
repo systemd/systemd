@@ -5,6 +5,9 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <linux/vt.h>
+#if ENABLE_UTMP
+#include <utmpx.h>
+#endif
 
 #include "sd-device.h"
 
@@ -17,6 +20,7 @@
 #include "fd-util.h"
 #include "logind.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -683,4 +687,143 @@ bool manager_all_buttons_ignored(Manager *m) {
                 return false;
 
         return true;
+}
+
+int manager_read_utmp(Manager *m) {
+#if ENABLE_UTMP
+        int r;
+
+        assert(m);
+
+        if (utmpxname(_PATH_UTMPX) < 0)
+                return log_error_errno(errno, "Failed to set utmp path to " _PATH_UTMPX ": %m");
+
+        setutxent();
+
+        for (;;) {
+                _cleanup_free_ char *t = NULL;
+                struct utmpx *u;
+                const char *c;
+                Session *s;
+
+                errno = 0;
+                u = getutxent();
+                if (!u) {
+                        if (errno != 0)
+                                log_warning_errno(errno, "Failed to read " _PATH_UTMPX ", ignoring: %m");
+                        r = 0;
+                        break;
+                }
+
+                if (u->ut_type != USER_PROCESS)
+                        continue;
+
+                if (!pid_is_valid(u->ut_pid))
+                        continue;
+
+                t = strndup(u->ut_line, sizeof(u->ut_line));
+                if (!t) {
+                        r = log_oom();
+                        break;
+                }
+
+                c = path_startswith(t, "/dev/");
+                if (c) {
+                        r = free_and_strdup(&t, c);
+                        if (r < 0) {
+                                log_oom();
+                                break;
+                        }
+                }
+
+                if (isempty(t))
+                        continue;
+
+                s = hashmap_get(m->sessions_by_leader, PID_TO_PTR(u->ut_pid));
+                if (!s)
+                        continue;
+
+                if (s->tty_validity == TTY_FROM_UTMP && !streq_ptr(s->tty, t)) {
+                        /* This may happen on multiplexed SSH connection (i.e. 'SSH connection sharing'). In
+                         * this case PAM and utmp sessions don't match. In such a case let's invalidate the TTY
+                         * information and never acquire it again. */
+
+                        s->tty = mfree(s->tty);
+                        s->tty_validity = TTY_UTMP_INCONSISTENT;
+                        log_debug("Session '%s' has inconsistent TTY information, dropping TTY information.", s->id);
+                        continue;
+                }
+
+                /* Never override what we figured out once */
+                if (s->tty || s->tty_validity >= 0)
+                        continue;
+
+                s->tty = TAKE_PTR(t);
+                s->tty_validity = TTY_FROM_UTMP;
+                log_debug("Acquired TTY information '%s' from utmp for session '%s'.", s->tty, s->id);
+        }
+
+        endutxent();
+        return r;
+#else
+        return 0
+#endif
+}
+
+#if ENABLE_UTMP
+static int manager_dispatch_utmp(sd_event_source *s, const struct inotify_event *event, void *userdata) {
+        Manager *m = userdata;
+
+        assert(m);
+
+        /* If there's indication the file itself might have been removed or became otherwise unavailable, then let's
+         * reestablish the watch on whatever there's now. */
+        if ((event->mask & (IN_ATTRIB|IN_DELETE_SELF|IN_MOVE_SELF|IN_Q_OVERFLOW|IN_UNMOUNT)) != 0)
+                manager_connect_utmp(m);
+
+        (void) manager_read_utmp(m);
+        return 0;
+}
+#endif
+
+void manager_connect_utmp(Manager *m) {
+#if ENABLE_UTMP
+        sd_event_source *s = NULL;
+        int r;
+
+        assert(m);
+
+        /* Watch utmp for changes via inotify. We do this to deal with tools such as ssh, which will register the PAM
+         * session early, and acquire a TTY only much later for the connection. Thus during PAM the TTY won't be known
+         * yet. ssh will register itself with utmp when it finally acquired the TTY. Hence, let's make use of this, and
+         * watch utmp for the TTY asynchronously. We use the PAM session's leader PID as key, to find the right entry.
+         *
+         * Yes, relying on utmp is pretty ugly, but it's good enough for informational purposes, as well as idle
+         * detection (which, for tty sessions, relies on the TTY used) */
+
+        r = sd_event_add_inotify(m->event, &s, _PATH_UTMPX, IN_MODIFY|IN_MOVE_SELF|IN_DELETE_SELF|IN_ATTRIB, manager_dispatch_utmp, m);
+        if (r < 0)
+                log_full_errno(r == -ENOENT ? LOG_DEBUG: LOG_WARNING, r, "Failed to create inotify watch on " _PATH_UTMPX ", ignoring: %m");
+        else {
+                r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IDLE);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to adjust utmp event source priority, ignoring: %m");
+
+                (void) sd_event_source_set_description(s, "utmp");
+        }
+
+        sd_event_source_unref(m->utmp_event_source);
+        m->utmp_event_source = s;
+#endif
+}
+
+void manager_reconnect_utmp(Manager *m) {
+#if ENABLE_UTMP
+        assert(m);
+
+        if (m->utmp_event_source)
+                return;
+
+        manager_connect_utmp(m);
+#endif
 }

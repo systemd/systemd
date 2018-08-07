@@ -46,6 +46,14 @@ enum KillWho {
         _KILL_WHO_INVALID = -1
 };
 
+typedef enum TTYValidity {
+        TTY_FROM_PAM,
+        TTY_FROM_UTMP,
+        TTY_UTMP_INCONSISTENT, /* may happen on ssh sessions with multiplexed TTYs */
+        _TTY_VALIDITY_MAX,
+        _TTY_VALIDITY_INVALID = -1,
+} TTYValidity;
+
 struct Session {
         Manager *manager;
 
@@ -60,8 +68,9 @@ struct Session {
 
         dual_timestamp timestamp;
 
-        char *tty;
         char *display;
+        char *tty;
+        TTYValidity tty_validity;
 
         bool remote;
         char *remote_user;
@@ -159,6 +168,9 @@ SessionClass session_class_from_string(const char *s) _pure_;
 
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
+
+const char* tty_validity_to_string(TTYValidity t) _const_;
+TTYValidity tty_validity_from_string(const char *s) _pure_;
 
 int session_prepare_vt(Session *s);
 void session_restore_vt(Session *s);
