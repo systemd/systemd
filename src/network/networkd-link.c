@@ -1175,10 +1175,8 @@ static int link_enter_set_addresses(Link *link) {
                 }
 
                 r = sd_dhcp_server_set_emit_router(link->dhcp_server, link->network->dhcp_server_emit_router);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to set router emission for DHCP server: %m");
-                        return r;
-                }
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to set router emission for DHCP server: %m");
 
                 if (link->network->dhcp_server_emit_timezone) {
                         _cleanup_free_ char *buffer = NULL;
@@ -3386,10 +3384,8 @@ int link_update(Link *link, sd_netlink_message *m) {
                 if (link->dhcp_client) {
                         r = sd_dhcp_client_set_mtu(link->dhcp_client,
                                                    link->mtu);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Could not update MTU in DHCP client: %m");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not update MTU in DHCP client: %m");
                 }
 
                 if (link->radv) {

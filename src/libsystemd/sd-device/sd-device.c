@@ -515,10 +515,8 @@ int device_read_uevent_file(sd_device *device) {
         else if (r == -ENOENT)
                 /* some devices may not have uevent files, see set_syspath() */
                 return 0;
-        else if (r < 0) {
-                log_debug_errno(r, "sd-device: failed to read uevent file '%s': %m", path);
-                return r;
-        }
+        else if (r < 0)
+                return log_debug_errno(r, "sd-device: failed to read uevent file '%s': %m", path);
 
         for (i = 0; i < uevent_len; i++)
                 switch (state) {

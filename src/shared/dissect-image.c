@@ -1101,10 +1101,8 @@ int dissected_image_decrypt_interactively(
                         return r;
                 if (r == -EKEYREJECTED)
                         log_error_errno(r, "Incorrect passphrase, try again!");
-                else if (r != -ENOKEY) {
-                        log_error_errno(r, "Failed to decrypt image: %m");
-                        return r;
-                }
+                else if (r != -ENOKEY)
+                        return log_error_errno(r, "Failed to decrypt image: %m");
 
                 if (--n < 0) {
                         log_error("Too many retries.");
