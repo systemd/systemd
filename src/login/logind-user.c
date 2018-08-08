@@ -26,6 +26,7 @@
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
@@ -540,6 +541,27 @@ int user_check_linger_file(User *u) {
         return true;
 }
 
+static bool user_unit_active(User *u) {
+        const char *i;
+        int r;
+
+        assert(u->service);
+        assert(u->runtime_dir_service);
+        assert(u->slice);
+
+        FOREACH_STRING(i, u->service, u->runtime_dir_service, u->slice) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = manager_unit_is_active(u->manager, i, &error);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether unit '%s' is active, ignoring: %s", u->service, bus_error_message(&error, r));
+                if (r != 0)
+                        return true;
+        }
+
+        return false;
+}
+
 bool user_may_gc(User *u, bool drop_not_started) {
         int r;
 
@@ -561,8 +583,10 @@ bool user_may_gc(User *u, bool drop_not_started) {
                         return false; /* Leave it around for a bit longer. */
         }
 
-        /* Is this a user that shall stay around forever? */
-        if (user_check_linger_file(u) > 0)
+        /* Is this a user that shall stay around forever ("linger")? Before we say "no" to GC'ing for lingering users, let's check
+         * if any of the three units that we maintain for this user is still around. If none of them is,
+         * there's no need to keep this user around even if lingering is enabled. */
+        if (user_check_linger_file(u) > 0 && user_unit_active(u))
                 return false;
 
         /* Check if our job is still pending */
@@ -619,7 +643,7 @@ UserState user_get_state(User *u) {
                 return all_closing ? USER_CLOSING : USER_ONLINE;
         }
 
-        if (user_check_linger_file(u) > 0)
+        if (user_check_linger_file(u) > 0 && user_unit_active(u))
                 return USER_LINGERING;
 
         return USER_CLOSING;
