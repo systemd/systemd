@@ -46,9 +46,9 @@ _journalctl() {
                               --flush --rotate --sync --no-hostname -N --fields'
                        [ARG]='-b --boot -D --directory --file -F --field -t --identifier
                               -M --machine -o --output -u --unit --user-unit -p --priority
-                              --root'
+                              --root --case-sensitive'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
-                              --after-cursor --verify-key
+                              --after-cursor --verify-key -g --grep
                               --vacuum-size --vacuum-time --vacuum-files --output-fields'
         )
 
@@ -85,6 +85,9 @@ _journalctl() {
                         ;;
                         --identifier|-t)
                                 comps=$(journalctl -F 'SYSLOG_IDENTIFIER' 2>/dev/null)
+                        ;;
+                        --case-sensitive)
+                                comps='yes no'
                         ;;
                         *)
                                 return 0
