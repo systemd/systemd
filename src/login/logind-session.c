@@ -642,6 +642,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                 description,
                                 STRV_MAKE(s->user->runtime_dir_service, s->user->service), /* These two have StopWhenUnneeded= set, hence add a dep towards them */
                                 STRV_MAKE("systemd-logind.service", "systemd-user-sessions.service", s->user->runtime_dir_service, s->user->service), /* And order us after some more */
+                                s->user->home,
                                 properties,
                                 error,
                                 &s->scope_job);
