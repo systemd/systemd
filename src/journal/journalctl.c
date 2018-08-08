@@ -319,8 +319,10 @@ static void help(void) {
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
                "  -p --priority=RANGE        Show entries with the specified priority\n"
+#if HAVE_PCRE2
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
                "     --case-sensitive[=BOOL] Force case sensitive or insenstive matching\n"
+#endif
                "  -e --pager-end             Immediately jump to the end in the pager\n"
                "  -f --follow                Follow the journal\n"
                "  -n --lines[=INTEGER]       Number of journal entries to show\n"
