@@ -1312,22 +1312,18 @@ int link_set_mtu(Link *link, uint32_t mtu) {
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
         /* If IPv6 not configured (no static IPv6 address and IPv6LL autoconfiguration is disabled)
-           for this interface, or if it is a bridge slave, then disable IPv6 else enable it. */
+         * for this interface, or if it is a bridge slave, then disable IPv6 else enable it. */
         (void) link_enable_ipv6(link);
 
         /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
-           on the interface. Bump up MTU bytes to IPV6_MTU_MIN. */
-        if (link_ipv6_enabled(link) && link->network->mtu < IPV6_MIN_MTU) {
+         * on the interface. Bump up MTU bytes to IPV6_MTU_MIN. */
+        if (link_ipv6_enabled(link) && mtu < IPV6_MIN_MTU) {
 
                 log_link_warning(link, "Bumping MTU to " STRINGIFY(IPV6_MIN_MTU) ", as "
                                  "IPv6 is requested and requires a minimum MTU of " STRINGIFY(IPV6_MIN_MTU) " bytes: %m");
 
-                link->network->mtu = IPV6_MIN_MTU;
+                mtu = IPV6_MIN_MTU;
         }
-
-        r = sd_netlink_message_append_u32(req, IFLA_MTU, link->network->mtu);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set MTU: %m");
 
         r = sd_netlink_message_append_u32(req, IFLA_MTU, mtu);
         if (r < 0)
