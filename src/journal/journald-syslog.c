@@ -304,7 +304,8 @@ void server_process_syslog_message(
         char *t, syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
                  syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
         const char *msg, *syslog_ts, *a;
-        _cleanup_free_ char *identifier = NULL, *pid = NULL;
+        _cleanup_free_ char *identifier = NULL, *pid = NULL,
+                *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
@@ -340,9 +341,14 @@ void server_process_syslog_message(
                 /* Nice! No need to strip anything on the end, let's optimize this a bit */
                 msg = buf + leading_ws;
         else {
-                msg = t = newa(char, i - leading_ws + 1);
-                memcpy(t, buf + leading_ws, i - leading_ws);
-                t[i - leading_ws] = 0;
+                msg = dummy = new(char, i - leading_ws + 1);
+                if (!dummy) {
+                        log_oom();
+                        return;
+                }
+
+                memcpy(dummy, buf + leading_ws, i - leading_ws);
+                dummy[i - leading_ws] = 0;
         }
 
         /* We will add the SYSLOG_RAW= field when we stripped anything
@@ -407,17 +413,26 @@ void server_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE(t, hlen + syslog_ts_len);
         }
 
-        a = strjoina("MESSAGE=", msg);
-        iovec[n++] = IOVEC_MAKE_STRING(a);
+        msg_msg = strjoin("MESSAGE=", msg);
+        if (!msg_msg) {
+                log_oom();
+                return;
+        }
+        iovec[n++] = IOVEC_MAKE_STRING(msg_msg);
 
         if (store_raw) {
                 const size_t hlen = strlen("SYSLOG_RAW=");
 
-                t = newa(char, hlen + raw_len);
-                memcpy(t, "SYSLOG_RAW=", hlen);
-                memcpy(t + hlen, buf, raw_len);
+                msg_raw = new(char, hlen + raw_len);
+                if (!msg_raw) {
+                        log_oom();
+                        return;
+                }
 
-                iovec[n++] = IOVEC_MAKE(t, hlen + raw_len);
+                memcpy(msg_raw, "SYSLOG_RAW=", hlen);
+                memcpy(msg_raw + hlen, buf, raw_len);
+
+                iovec[n++] = IOVEC_MAKE(msg_raw, hlen + raw_len);
         }
 
         server_dispatch_message(s, iovec, n, m, context, tv, priority, 0);
