@@ -1380,7 +1380,7 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
                 return 0;
         if (rr->nsec3.salt_size != nsec3->nsec3.salt_size)
                 return 0;
-        if (memcmp(rr->nsec3.salt, nsec3->nsec3.salt, rr->nsec3.salt_size) != 0)
+        if (memcmp_safe(rr->nsec3.salt, nsec3->nsec3.salt, rr->nsec3.salt_size) != 0)
                 return 0;
 
         a = dns_resource_key_name(rr->key);

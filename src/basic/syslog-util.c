@@ -10,7 +10,8 @@
 
 int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         int a = 0, b = 0, c = 0;
-        int k;
+        const char *end;
+        size_t k;
 
         assert(p);
         assert(*p);
@@ -19,21 +20,22 @@ int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         if ((*p)[0] != '<')
                 return 0;
 
-        if (!strchr(*p, '>'))
+        end = strchr(*p, '>');
+        if (!end)
                 return 0;
 
-        if ((*p)[2] == '>') {
+        k = end - *p;
+        assert(k > 0);
+
+        if (k == 2)
                 c = undecchar((*p)[1]);
-                k = 3;
-        } else if ((*p)[3] == '>') {
+        else if (k == 3) {
                 b = undecchar((*p)[1]);
                 c = undecchar((*p)[2]);
-                k = 4;
-        } else if ((*p)[4] == '>') {
+        } else if (k == 4) {
                 a = undecchar((*p)[1]);
                 b = undecchar((*p)[2]);
                 c = undecchar((*p)[3]);
-                k = 5;
         } else
                 return 0;
 
@@ -46,7 +48,7 @@ int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         else
                 *priority = (*priority & LOG_FACMASK) | c;
 
-        *p += k;
+        *p += k + 1;
         return 1;
 }
 

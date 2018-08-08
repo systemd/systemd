@@ -112,14 +112,21 @@ static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, int (*com
         qsort_r(base, nmemb, size, compar, userdata);
 }
 
-/**
- * Normal memcpy requires src to be nonnull. We do nothing if n is 0.
- */
+/* Normal memcpy requires src to be nonnull. We do nothing if n is 0. */
 static inline void memcpy_safe(void *dst, const void *src, size_t n) {
         if (n == 0)
                 return;
         assert(src);
         memcpy(dst, src, n);
+}
+
+/* Normal memcmp requires s1 and s2 to be nonnull. We do nothing if n is 0. */
+static inline int memcmp_safe(const void *s1, const void *s2, size_t n) {
+        if (n == 0)
+                return 0;
+        assert(s1);
+        assert(s2);
+        return memcmp(s1, s2, n);
 }
 
 int on_ac_power(void);

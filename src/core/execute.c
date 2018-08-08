@@ -3216,7 +3216,7 @@ static int exec_child(
                 }
 
                 fds_with_exec_fd = newa(int, n_fds + 1);
-                memcpy(fds_with_exec_fd, fds, n_fds * sizeof(int));
+                memcpy_safe(fds_with_exec_fd, fds, n_fds * sizeof(int));
                 fds_with_exec_fd[n_fds] = exec_fd;
                 n_fds_with_exec_fd = n_fds + 1;
         } else {
