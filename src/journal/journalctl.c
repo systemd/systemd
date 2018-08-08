@@ -342,11 +342,9 @@ static void help(void) {
                "  -D --directory=PATH        Show journal files from directory\n"
                "     --file=PATH             Show journal file\n"
                "     --root=ROOT             Operate on files below a root directory\n"
-#if HAVE_GCRYPT
                "     --interval=TIME         Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY        Specify FSS verification key\n"
                "     --force                 Override of the FSS key pair with --setup-keys\n"
-#endif
                "\nCommands:\n"
                "  -h --help                  Show this help text\n"
                "     --version               Show package version\n"
@@ -365,9 +363,7 @@ static void help(void) {
                "     --dump-catalog          Show entries in the message catalog\n"
                "     --update-catalog        Update the message catalog database\n"
                "     --new-id128             Generate a new 128-bit ID\n"
-#if HAVE_GCRYPT
                "     --setup-keys            Generate a new FSS key pair\n"
-#endif
                , program_invocation_short_name);
 }
 
@@ -741,7 +737,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERIFY_KEY:
                 case ARG_INTERVAL:
                 case ARG_FORCE:
-                        log_error("Forward-secure sealing not available.");
+                        log_error("Compiled without forward-secure sealing support.");
                         return -EOPNOTSUPP;
 #endif
 
