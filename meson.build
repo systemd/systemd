@@ -1762,15 +1762,15 @@ if conf.get('ENABLE_LOGIND') == 1
                              args : pam_systemd.full_path())
                 endif
         endif
-endif
 
-executable('systemd-user-runtime-dir',
-           user_runtime_dir_sources,
-           include_directories : includes,
-           link_with : [libshared, liblogind_core],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootlibexecdir)
+        executable('systemd-user-runtime-dir',
+                   user_runtime_dir_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+endif
 
 if conf.get('HAVE_PAM') == 1
         executable('systemd-user-sessions',

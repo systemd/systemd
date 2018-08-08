@@ -8,9 +8,9 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=User runtime directory /run/user/%i
+Description=User Runtime Directory /run/user/%i
 Documentation=man:user@.service(5)
-After=systemd-user-sessions.service
+After=systemd-user-sessions.service dbus.service
 StopWhenUnneeded=yes
 IgnoreOnIsolate=yes
 

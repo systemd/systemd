@@ -58,7 +58,6 @@ loginctl_sources = files('''
 
 user_runtime_dir_sources = files('''
         user-runtime-dir.c
-        logind.h
 '''.split())
 
 if conf.get('ENABLE_LOGIND') == 1
