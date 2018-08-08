@@ -406,7 +406,7 @@ void server_process_syslog_message(
         if (syslog_ts_len > 0) {
                 const size_t hlen = strlen("SYSLOG_TIMESTAMP=");
 
-                t = newa(char, hlen + raw_len);
+                t = newa(char, hlen + syslog_ts_len);
                 memcpy(t, "SYSLOG_TIMESTAMP=", hlen);
                 memcpy(t + hlen, syslog_ts, syslog_ts_len);
 
