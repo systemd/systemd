@@ -530,8 +530,14 @@ int user_check_linger_file(User *u) {
                 return -ENOMEM;
 
         p = strjoina("/var/lib/systemd/linger/", cc);
+        if (access(p, F_OK) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
 
-        return access(p, F_OK) >= 0;
+                return false;
+        }
+
+        return true;
 }
 
 bool user_may_gc(User *u, bool drop_not_started) {
