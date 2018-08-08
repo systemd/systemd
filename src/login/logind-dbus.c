@@ -3313,6 +3313,7 @@ int manager_start_scope(
                 const char *description,
                 char **wants,
                 char **after,
+                const char *requires_mounts_for,
                 sd_bus_message *more_properties,
                 sd_bus_error *error,
                 char **job) {
@@ -3364,6 +3365,12 @@ int manager_start_scope(
 
         STRV_FOREACH(i, after) {
                 r = sd_bus_message_append(m, "(sv)", "After", "as", 1, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!empty_or_root(requires_mounts_for)) {
+                r = sd_bus_message_append(m, "(sv)", "RequiresMountsFor", "as", 1, requires_mounts_for);
                 if (r < 0)
                         return r;
         }

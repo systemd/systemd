@@ -128,7 +128,14 @@ int manager_add_session(Manager *m, const char *id, Session **_session) {
         return 0;
 }
 
-int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **_user) {
+int manager_add_user(
+                Manager *m,
+                uid_t uid,
+                gid_t gid,
+                const char *name,
+                const char *home,
+                User **_user) {
+
         User *u;
         int r;
 
@@ -137,7 +144,7 @@ int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **
 
         u = hashmap_get(m->users, UID_TO_PTR(uid));
         if (!u) {
-                r = user_new(&u, m, uid, gid, name);
+                r = user_new(&u, m, uid, gid, name, home);
                 if (r < 0)
                         return r;
         }
@@ -148,7 +155,12 @@ int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **
         return 0;
 }
 
-int manager_add_user_by_name(Manager *m, const char *name, User **_user) {
+int manager_add_user_by_name(
+                Manager *m,
+                const char *name,
+                User **_user) {
+
+        const char *home = NULL;
         uid_t uid;
         gid_t gid;
         int r;
@@ -156,11 +168,11 @@ int manager_add_user_by_name(Manager *m, const char *name, User **_user) {
         assert(m);
         assert(name);
 
-        r = get_user_creds(&name, &uid, &gid, NULL, NULL);
+        r = get_user_creds(&name, &uid, &gid, &home, NULL);
         if (r < 0)
                 return r;
 
-        return manager_add_user(m, uid, gid, name, _user);
+        return manager_add_user(m, uid, gid, name, home, _user);
 }
 
 int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
@@ -173,7 +185,7 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
         if (!p)
                 return errno > 0 ? -errno : -ENOENT;
 
-        return manager_add_user(m, uid, p->pw_gid, p->pw_name, _user);
+        return manager_add_user(m, uid, p->pw_gid, p->pw_name, p->pw_dir, _user);
 }
 
 int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor) {
