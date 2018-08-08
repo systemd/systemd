@@ -852,7 +852,9 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->srv.name, true, false, NULL);
+                /* RFC 2782 states "Unless and until permitted by future standards
+                 * action, name compression is not to be used for this field." */
+                r = dns_packet_append_name(p, rr->srv.name, false, false, NULL);
                 break;
 
         case DNS_TYPE_PTR:
