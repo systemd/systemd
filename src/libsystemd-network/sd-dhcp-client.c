@@ -801,7 +801,7 @@ static int client_send_discover(sd_dhcp_client *client) {
            The client SHOULD wait a random time between one and ten seconds to
            desynchronize the use of DHCP at startup.
          */
-        r = dhcp_client_send_raw(client, discover, sizeof(DHCPPacket) + optoffset);
+        r = dhcp_client_send_raw(client, discover, sizeof(DHCPPacket) + optlen);
         if (r < 0)
                 return r;
 
@@ -914,9 +914,9 @@ static int client_send_request(sd_dhcp_client *client) {
                                                  client->lease->server_address,
                                                  DHCP_PORT_SERVER,
                                                  &request->dhcp,
-                                                 sizeof(DHCPMessage) + optoffset);
+                                                 sizeof(DHCPMessage) + optlen);
         } else {
-                r = dhcp_client_send_raw(client, request, sizeof(DHCPPacket) + optoffset);
+                r = dhcp_client_send_raw(client, request, sizeof(DHCPPacket) + optlen);
         }
         if (r < 0)
                 return r;
