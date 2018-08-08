@@ -1305,6 +1305,9 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
+        if (link->mtu == mtu)
+                return 0;
+
         log_link_debug(link, "Setting MTU: %" PRIu32, mtu);
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
