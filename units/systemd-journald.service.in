@@ -12,12 +12,12 @@ Description=Journal Service
 Documentation=man:systemd-journald.service(8) man:journald.conf(5)
 DefaultDependencies=no
 Requires=systemd-journald.socket
-After=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket syslog.socket
+After=systemd-journald.socket systemd-journald-dev-log.socket syslog.socket
 Before=sysinit.target
 
 [Service]
 Type=notify
-Sockets=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket
+Sockets=systemd-journald.socket systemd-journald-dev-log.socket
 ExecStart=@rootlibexecdir@/systemd-journald
 Restart=always
 RestartSec=0
