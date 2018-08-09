@@ -1288,6 +1288,14 @@ static int terminate_seat(int argc, char *argv[], void *userdata) {
 }
 
 static int help(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        (void) pager_open(arg_no_pager, false);
+
+        r = terminal_urlify_man("loginctl", "1", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the login manager.\n\n"
@@ -1335,7 +1343,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  attach NAME DEVICE...    Attach one or more devices to a seat\n"
                "  flush-devices            Flush all device associations\n"
                "  terminate-seat NAME...   Terminate all sessions on one or more seats\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }
@@ -1380,8 +1391,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help(0, NULL, NULL);
 
                 case ARG_VERSION:
                         return version();

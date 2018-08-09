@@ -1067,7 +1067,14 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("networkctl", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Query and control the networking subsystem.\n\n"
                "  -h --help             Show this help\n"
@@ -1080,7 +1087,12 @@ static void help(void) {
                "  status [LINK...]      Show link status\n"
                "  lldp [LINK...]        Show LLDP neighbors\n"
                "  label                 Show current address label entries in the kernel\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1110,8 +1122,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

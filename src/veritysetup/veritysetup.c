@@ -9,17 +9,28 @@
 #include "hexdecoct.h"
 #include "log.h"
 #include "string-util.h"
+#include "terminal-util.h"
 
 static char *arg_root_hash = NULL;
 static char *arg_data_what = NULL;
 static char *arg_hash_what = NULL;
 
 static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-veritysetup@.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s attach VOLUME DATADEVICE HASHDEVICE ROOTHASH\n"
                "%s detach VOLUME\n\n"
-               "Attaches or detaches an integrity protected block device.\n",
-               program_invocation_short_name,
-               program_invocation_short_name);
+               "Attaches or detaches an integrity protected block device.\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }

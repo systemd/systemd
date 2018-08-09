@@ -7,13 +7,21 @@
 #include "manager.h"
 #include "signal-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 static bool arg_quiet = false;
 static usec_t arg_timeout = 120 * USEC_PER_SEC;
 static char **arg_interfaces = NULL;
 static char **arg_ignore = NULL;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-networkd-wait-online.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Block until network is configured.\n\n"
                "  -h --help                 Show this help\n"
@@ -22,7 +30,12 @@ static void help(void) {
                "  -i --interface=INTERFACE  Block until at least these interfaces have appeared\n"
                "     --ignore=INTERFACE     Don't take these interfaces into account\n"
                "     --timeout=SECS         Maximum time to wait for network connectivity\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {

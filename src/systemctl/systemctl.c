@@ -7098,8 +7098,15 @@ end:
         return r;
 }
 
-static void systemctl_help(void) {
+static int systemctl_help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
         (void) pager_open(arg_no_pager, false);
+
+        r = terminal_urlify_man("systemctl", "1", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Query or send control commands to the systemd manager.\n\n"
@@ -7237,11 +7244,23 @@ static void systemctl_help(void) {
                "  hibernate                           Hibernate the system\n"
                "  hybrid-sleep                        Hibernate and suspend the system\n"
                "  suspend-then-hibernate              Suspend the system, wake after a period of\n"
-               "                                      time and put it into hibernate\n",
-               program_invocation_short_name);
+               "                                      time and put it into hibernate\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
-static void halt_help(void) {
+static int halt_help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("halt", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]%s\n\n"
                "%s the system.\n\n"
                "     --help      Show this help\n"
@@ -7251,15 +7270,27 @@ static void halt_help(void) {
                "  -f --force     Force immediate halt/power-off/reboot\n"
                "  -w --wtmp-only Don't halt/power-off/reboot, just write wtmp record\n"
                "  -d --no-wtmp   Don't write wtmp record\n"
-               "     --no-wall   Don't send wall message before halt/power-off/reboot\n",
-               program_invocation_short_name,
-               arg_action == ACTION_REBOOT   ? " [ARG]" : "",
-               arg_action == ACTION_REBOOT   ? "Reboot" :
-               arg_action == ACTION_POWEROFF ? "Power off" :
-                                               "Halt");
+               "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , arg_action == ACTION_REBOOT   ? " [ARG]" : "",
+                 arg_action == ACTION_REBOOT   ? "Reboot" :
+                 arg_action == ACTION_POWEROFF ? "Power off" :
+                                                 "Halt"
+               , link
+        );
+
+        return 0;
 }
 
-static void shutdown_help(void) {
+static int shutdown_help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("shutdown", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [TIME] [WALL...]\n\n"
                "Shut down the system.\n\n"
                "     --help      Show this help\n"
@@ -7269,11 +7300,23 @@ static void shutdown_help(void) {
                "  -h             Equivalent to --poweroff, overridden by --halt\n"
                "  -k             Don't halt/power-off/reboot, just send warnings\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
-               "  -c             Cancel a pending shutdown\n",
-               program_invocation_short_name);
+               "  -c             Cancel a pending shutdown\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
-static void telinit_help(void) {
+static int telinit_help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("telinit", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] {COMMAND}\n\n"
                "Send control commands to the init daemon.\n\n"
                "     --help      Show this help\n"
@@ -7284,15 +7327,32 @@ static void telinit_help(void) {
                "  2, 3, 4, 5     Start runlevelX.target unit\n"
                "  1, s, S        Enter rescue mode\n"
                "  q, Q           Reload init daemon configuration\n"
-               "  u, U           Reexecute init daemon\n",
-               program_invocation_short_name);
+               "  u, U           Reexecute init daemon\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
-static void runlevel_help(void) {
+static int runlevel_help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("runlevel", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Prints the previous and current runlevel of the init system.\n\n"
-               "     --help      Show this help\n",
-               program_invocation_short_name);
+               "     --help      Show this help\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static void help_types(void) {
@@ -7454,8 +7514,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        systemctl_help();
-                        return 0;
+                        return systemctl_help();
 
                 case ARG_VERSION:
                         return version();
@@ -7829,8 +7888,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case ARG_HELP:
-                        halt_help();
-                        return 0;
+                        return halt_help();
 
                 case ARG_HALT:
                         arg_action = ACTION_HALT;
@@ -7965,8 +8023,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case ARG_HELP:
-                        shutdown_help();
-                        return 0;
+                        return shutdown_help();
 
                 case 'H':
                         arg_action = ACTION_HALT;
@@ -8086,8 +8143,7 @@ static int telinit_parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case ARG_HELP:
-                        telinit_help();
-                        return 0;
+                        return telinit_help();
 
                 case ARG_NO_WALL:
                         arg_no_wall = true;
@@ -8150,8 +8206,7 @@ static int runlevel_parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case ARG_HELP:
-                        runlevel_help();
-                        return 0;
+                        return runlevel_help();
 
                 case '?':
                         return -EINVAL;

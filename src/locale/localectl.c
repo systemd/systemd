@@ -19,6 +19,7 @@
 #include "set.h"
 #include "spawn-polkit-agent.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
@@ -373,6 +374,13 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
 }
 
 static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("localectl", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system locale and keyboard settings.\n\n"
                "  -h --help                Show this help\n"
@@ -395,7 +403,10 @@ static int help(void) {
                "  list-x11-keymap-variants [LAYOUT]\n"
                "                           Show known X11 keyboard mapping variants\n"
                "  list-x11-keymap-options  Show known X11 keyboard mapping options\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }

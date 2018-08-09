@@ -515,7 +515,14 @@ static int process_suffix_chop(const char *arg) {
         return -EINVAL;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-delta", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [SUFFIX...]\n\n"
                "Find overridden configuration files.\n\n"
                "  -h --help           Show this help\n"
@@ -523,7 +530,12 @@ static void help(void) {
                "     --no-pager       Do not pipe output into a pager\n"
                "     --diff[=1|0]     Show a diff when overridden files differ\n"
                "  -t --type=LIST...   Only display a selected set of override types\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_flags(const char *flag_str, int flags) {
@@ -578,8 +590,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

@@ -11,6 +11,7 @@
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "util.h"
 
 static const char *arg_suffix = NULL;
@@ -102,13 +103,25 @@ static int print_home(const char *n) {
         return -EOPNOTSUPP;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-path", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [NAME...]\n\n"
                "Show system and user paths.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "     --suffix=SUFFIX    Suffix to append to paths\n",
-               program_invocation_short_name);
+               "     --suffix=SUFFIX    Suffix to append to paths\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -135,8 +148,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

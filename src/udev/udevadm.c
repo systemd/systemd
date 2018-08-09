@@ -7,8 +7,9 @@
 
 #include "selinux-util.h"
 #include "string-util.h"
-#include "udev.h"
+#include "terminal-util.h"
 #include "udev-util.h"
+#include "udev.h"
 
 static int adm_version(struct udev *udev, int argc, char *argv[]) {
         printf("%s\n", PACKAGE_VERSION);
@@ -41,7 +42,13 @@ static const struct udevadm_cmd *udevadm_cmds[] = {
 };
 
 static int adm_help(struct udev *udev, int argc, char *argv[]) {
-        unsigned int i;
+        _cleanup_free_ char *link = NULL;
+        size_t i;
+        int r;
+
+        r = terminal_urlify_man("udevadm", "8", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n\n"
                "Send control commands or test the device manager.\n\n"
@@ -51,6 +58,8 @@ static int adm_help(struct udev *udev, int argc, char *argv[]) {
         for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++)
                 if (udevadm_cmds[i]->help != NULL)
                         printf("  %-12s  %s\n", udevadm_cmds[i]->name, udevadm_cmds[i]->help);
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 

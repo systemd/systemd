@@ -2609,7 +2609,14 @@ static int clean_images(int argc, char *argv[], void *userdata) {
 }
 
 static int help(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
         (void) pager_open(arg_no_pager, false);
+
+        r = terminal_urlify_man("machinectl", "1", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the virtual machine and container\n"
@@ -2679,7 +2686,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  export-raw NAME [FILE]      Export a RAW container or VM image locally\n"
                "  list-transfers              Show list of downloads in progress\n"
                "  cancel-transfer             Cancel a download\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }

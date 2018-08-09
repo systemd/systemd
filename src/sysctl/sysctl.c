@@ -160,7 +160,14 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
         return r;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-sysctl.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Applies kernel sysctl settings.\n\n"
                "  -h --help             Show this help\n"
@@ -168,7 +175,12 @@ static void help(void) {
                "     --cat-config       Show configuration files\n"
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
                "     --no-pager         Do not pipe output into a pager\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -199,8 +211,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

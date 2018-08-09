@@ -58,7 +58,14 @@ static gid_t arg_gid = GID_INVALID;
 static bool arg_fsck = true;
 static bool arg_aggressive_gc = false;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-mount", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("systemd-mount [OPTIONS...] WHAT [WHERE]\n"
                "systemd-mount [OPTIONS...] --list\n"
                "%s [OPTIONS...] %sWHAT|WHERE...\n\n"
@@ -86,9 +93,14 @@ static void help(void) {
                "     --bind-device                Bind automount unit to device\n"
                "     --list                       List mountable block devices\n"
                "  -u --umount                     Unmount mount points\n"
-               "  -G --collect                    Unload unit after it stopped, even when failed\n",
-               program_invocation_short_name,
-               streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ");
+               "  -G --collect                    Unload unit after it stopped, even when failed\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount "
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -155,8 +167,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

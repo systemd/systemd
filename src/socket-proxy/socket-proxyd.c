@@ -18,11 +18,12 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "log.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "parse-util.h"
+#include "terminal-util.h"
 #include "util.h"
 
 #define BUFFER_SIZE (256 * 1024)
@@ -534,14 +535,26 @@ static int add_listen_socket(Context *context, int fd) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-socket-proxyd", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%1$s [HOST:PORT]\n"
                "%1$s [SOCKET]\n\n"
                "Bidirectionally proxy local sockets to another (possibly remote) socket.\n\n"
                "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
                "  -h --help              Show this help\n"
-               "     --version           Show package version\n",
-               program_invocation_short_name);
+               "     --version           Show package version\n"
+               "\nSee the %2$s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -568,8 +581,10 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
+
+                case ARG_VERSION:
+                        return version();
 
                 case 'c':
                         r = safe_atou(optarg, &arg_connections_max);
@@ -584,9 +599,6 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         break;
-
-                case ARG_VERSION:
-                        return version();
 
                 case '?':
                         return -EINVAL;

@@ -17,6 +17,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -115,7 +116,14 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-inhibit", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Execute a process while inhibiting shutdown/sleep/idle.\n\n"
                "  -h --help               Show this help\n"
@@ -129,7 +137,12 @@ static void help(void) {
                "     --why=STRING         A descriptive string why is being inhibited\n"
                "     --mode=MODE          One of block or delay\n"
                "     --list               List active inhibitors\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -166,8 +179,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

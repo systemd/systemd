@@ -23,6 +23,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 static const char *arg_target = NULL;
 static bool arg_dry_run = false;
@@ -152,14 +153,26 @@ static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-growfs@.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] /path/to/mountpoint\n\n"
                "Grow filesystem or encrypted payload to device size.\n\n"
                "Options:\n"
                "  -h --help          Show this help and exit\n"
                "     --version       Print version string and exit\n"
                "  -n --dry-run       Just print what would be done\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -182,12 +195,10 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "hn", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
-                        version();
-                        return 0;
+                        return version();
 
                 case 'n':
                         arg_dry_run = true;

@@ -58,7 +58,14 @@ static bool with_timer = false;
 static bool arg_quiet = false;
 static bool arg_aggressive_gc = false;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-run", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] {COMMAND} [ARGS...]\n\n"
                "Run the specified command in a transient scope or service.\n\n"
                "  -h --help                       Show this help\n"
@@ -98,7 +105,12 @@ static void help(void) {
                "     --on-unit-inactive=SECONDS   Run SECONDS after the last deactivation\n"
                "     --on-calendar=SPEC           Realtime timer\n"
                "     --timer-property=NAME=VALUE  Set timer unit property\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int add_timer_property(const char *name, const char *val) {
@@ -196,8 +208,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

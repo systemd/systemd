@@ -674,7 +674,14 @@ static int process_root_password(void) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-firstboot", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Configures basic settings of the system.\n\n"
                "  -h --help                    Show this help\n"
@@ -700,7 +707,12 @@ static void help(void) {
                "     --copy-root-password      Copy root password from host\n"
                "     --copy                    Copy locale, keymap, timezone, root password\n"
                "     --setup-machine-id        Generate a new random machine ID\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -767,8 +779,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

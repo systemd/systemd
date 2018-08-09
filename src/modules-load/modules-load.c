@@ -16,6 +16,7 @@
 #include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "util.h"
 
 static char **arg_proc_cmdline_modules = NULL;
@@ -100,12 +101,24 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
         return r;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-modules-load.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Loads statically configured kernel modules.\n\n"
                "  -h --help             Show this help\n"
-               "     --version          Show package version\n",
-               program_invocation_short_name);
+               "     --version          Show package version\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -130,8 +143,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

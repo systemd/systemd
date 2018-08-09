@@ -23,6 +23,7 @@
 #include "sigbus.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "util.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
@@ -526,7 +527,14 @@ static int parse_config(void) {
                                         CONFIG_PARSE_WARN, NULL);
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-journal-upload.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s -u URL {FILE|-}...\n\n"
                "Upload journal events to a remote server.\n\n"
                "  -h --help                 Show this help\n"
@@ -550,7 +558,12 @@ static void help(void) {
                "     --follow[=BOOL]        Do [not] wait for input\n"
                "     --save-state[=FILE]    Save uploaded cursors (default \n"
                "                            " STATE_FILE ")\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -598,8 +611,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "hu:mM:D:", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        help();
-                        return 0 /* done */;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

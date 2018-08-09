@@ -297,9 +297,15 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
 
         (void) pager_open(arg_no_pager, arg_pager_end);
+
+        r = terminal_urlify_man("journalctl", "1", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
@@ -364,7 +370,12 @@ static void help(void) {
                "     --update-catalog        Update the message catalog database\n"
                "     --new-id128             Generate a new 128-bit ID\n"
                "     --setup-keys            Generate a new FSS key pair\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -478,8 +489,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

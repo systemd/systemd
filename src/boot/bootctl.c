@@ -826,23 +826,30 @@ static int install_loader_config(const char *esp_path) {
 }
 
 static int help(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *link = NULL;
+        int r;
 
-        printf("%s [COMMAND] [OPTIONS...]\n"
-               "\n"
+        r = terminal_urlify_man("bootctl", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%s [COMMAND] [OPTIONS...]\n\n"
                "Install, update or remove the systemd-boot EFI boot manager.\n\n"
                "  -h --help          Show this help\n"
                "     --version       Print version\n"
                "     --path=PATH     Path to the EFI System Partition (ESP)\n"
                "  -p --print-path    Print path to the EFI partition\n"
                "     --no-variables  Don't touch EFI variables\n"
-               "\n"
-               "Commands:\n"
+               "\nCommands:\n"
                "     status          Show status of installed systemd-boot and EFI variables\n"
                "     list            List boot entries\n"
                "     install         Install systemd-boot to the ESP and EFI variables\n"
                "     update          Update systemd-boot in the ESP and EFI variables\n"
-               "     remove          Remove systemd-boot from the ESP and EFI variables\n",
-               program_invocation_short_name);
+               "     remove          Remove systemd-boot from the ESP and EFI variables\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }
