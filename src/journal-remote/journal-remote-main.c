@@ -17,6 +17,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
@@ -727,7 +728,8 @@ static int parse_config(void) {
                 { "Remote",  "ServerKeyFile",          config_parse_path,             0, &arg_key        },
                 { "Remote",  "ServerCertificateFile",  config_parse_path,             0, &arg_cert       },
                 { "Remote",  "TrustedCertificateFile", config_parse_path,             0, &arg_trust      },
-                {}};
+                {}
+        };
 
         return config_parse_many_nulstr(PKGSYSCONFDIR "/journal-remote.conf",
                                         CONF_PATHS_NULSTR("systemd/journal-remote.conf.d"),
@@ -735,7 +737,14 @@ static int parse_config(void) {
                                         CONFIG_PARSE_WARN, NULL);
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-journal-remote.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] {FILE|-}...\n\n"
                "Write external journal events to journal file(s).\n\n"
                "  -h --help                 Show this help\n"
@@ -757,9 +766,13 @@ static void help(void) {
                "     --gnutls-log=CATEGORY...\n"
                "                            Specify a list of gnutls logging categories\n"
                "     --split-mode=none|host How many output files to create\n"
-               "\n"
-               "Note: file descriptors from sd_listen_fds() will be consumed, too.\n"
-               , program_invocation_short_name);
+               "\nNote: file descriptors from sd_listen_fds() will be consumed, too.\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -806,9 +819,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         while ((c = getopt_long(argc, argv, "ho:", options, NULL)) >= 0)
                 switch(c) {
+
                 case 'h':
-                        help();
-                        return 0 /* done */;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

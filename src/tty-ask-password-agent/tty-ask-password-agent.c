@@ -562,7 +562,14 @@ static int watch_passwords(void) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-tty-ask-password-agent", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Process system password requests.\n\n"
                "  -h --help     Show this help\n"
@@ -572,8 +579,13 @@ static void help(void) {
                "     --watch    Continuously process password requests\n"
                "     --wall     Continuously forward password requests to wall\n"
                "     --plymouth Ask question with Plymouth instead of on TTY\n"
-               "     --console  Ask question on /dev/console instead of current TTY\n",
-               program_invocation_short_name);
+               "     --console  Ask question on /dev/console instead of current TTY\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -610,8 +622,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

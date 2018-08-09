@@ -21,6 +21,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "util.h"
 
 static char* arg_verb = NULL;
@@ -265,18 +266,30 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
         return r;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-suspend.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s COMMAND\n\n"
                "Suspend the system, hibernate the system, or both.\n\n"
-               "Commands:\n"
-               "  -h --help            Show this help and exit\n"
-               "  --version            Print version string and exit\n"
-               "  suspend              Suspend the system\n"
-               "  hibernate            Hibernate the system\n"
-               "  hybrid-sleep         Both hibernate and suspend the system\n"
+               "  -h --help              Show this help and exit\n"
+               "  --version              Print version string and exit\n"
+               "\nCommands:\n"
+               "  suspend                Suspend the system\n"
+               "  hibernate              Hibernate the system\n"
+               "  hybrid-sleep           Both hibernate and suspend the system\n"
                "  suspend-then-hibernate Initially suspend and then hibernate\n"
-               "                       the system after a fixed period of time\n"
-               , program_invocation_short_name);
+               "                         the system after a fixed period of time\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -298,8 +311,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        help();
-                        return 0; /* done */
+                        return help();
 
                 case ARG_VERSION:
                         return version();

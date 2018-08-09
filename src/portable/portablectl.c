@@ -773,8 +773,14 @@ static int dump_profiles(void) {
 }
 
 static int help(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *link = NULL;
+        int r;
 
         (void) pager_open(arg_no_pager, false);
+
+        r = terminal_urlify_man("portablectl", "1", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Attach or detach portable services from the local system.\n\n"
@@ -803,7 +809,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  read-only NAME|PATH [BOOL]  Mark or unmark portable service image read-only\n"
                "  remove NAME|PATH...         Remove a portable service image\n"
                "  set-limit [NAME|PATH]       Set image or pool size limit (disk quota)\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }
@@ -851,8 +860,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help(0, NULL, NULL);
 
                 case ARG_VERSION:
                         return version();

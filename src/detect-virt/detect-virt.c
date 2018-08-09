@@ -5,7 +5,9 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "alloc-util.h"
 #include "string-table.h"
+#include "terminal-util.h"
 #include "util.h"
 #include "virt.h"
 
@@ -18,7 +20,14 @@ static enum {
         ONLY_PRIVATE_USERS,
 } arg_mode = ANY_VIRTUALIZATION;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-detect-virt", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Detect execution in a virtualized environment.\n\n"
                "  -h --help             Show this help\n"
@@ -29,7 +38,12 @@ static void help(void) {
                "     --private-users    Only detect whether we are running in a user namespace\n"
                "  -q --quiet            Don't output anything, just set return value\n"
                "     --list             List all known and detectable types of virtualization\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -62,8 +76,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

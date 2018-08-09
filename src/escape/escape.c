@@ -8,6 +8,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "unit-name.h"
 
 static enum {
@@ -20,7 +21,14 @@ static const char *arg_template = NULL;
 static bool arg_path = false;
 static bool arg_instance = false;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-escape", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [NAME...]\n\n"
                "Escape strings for usage in systemd unit names.\n\n"
                "  -h --help               Show this help\n"
@@ -31,7 +39,12 @@ static void help(void) {
                "  -u --unescape           Unescape strings\n"
                "  -m --mangle             Mangle strings\n"
                "  -p --path               When escaping/unescaping assume the string is a path\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -64,8 +77,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

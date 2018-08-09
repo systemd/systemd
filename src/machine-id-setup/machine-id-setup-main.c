@@ -5,17 +5,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "alloc-util.h"
 #include "id128-util.h"
 #include "log.h"
 #include "machine-id-setup.h"
 #include "path-util.h"
+#include "terminal-util.h"
 #include "util.h"
 
 static char *arg_root = NULL;
 static bool arg_commit = false;
 static bool arg_print = false;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-machine-id-setup", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Initialize /etc/machine-id from a random source.\n\n"
                "  -h --help             Show this help\n"
@@ -23,7 +32,12 @@ static void help(void) {
                "     --root=ROOT        Filesystem root\n"
                "     --commit           Commit transient ID\n"
                "     --print            Print used machine ID\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -54,8 +68,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

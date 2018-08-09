@@ -95,14 +95,26 @@ static int apply_file(const char *path, bool ignore_enoent) {
         return r;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-binfmt.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
-               "Registers binary formats.\n\n"
+               "Registers binary formats with the kernel.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --cat-config       Show configuration files\n"
                "     --no-pager         Do not pipe output into a pager\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -131,8 +143,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

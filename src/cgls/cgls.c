@@ -18,6 +18,7 @@
 #include "pager.h"
 #include "path-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
 
@@ -35,7 +36,14 @@ static char **arg_names = NULL;
 static int arg_full = -1;
 static char* arg_machine = NULL;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-cgls", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [CGROUP...]\n\n"
                "Recursively show control group contents.\n\n"
                "  -h --help           Show this help\n"
@@ -47,7 +55,12 @@ static void help(void) {
                "  -l --full           Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n"
                "  -M --machine=       Show container\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -80,8 +93,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

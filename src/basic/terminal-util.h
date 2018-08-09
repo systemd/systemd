@@ -157,6 +157,7 @@ int vt_reset_keyboard(int fd);
 
 int terminal_urlify(const char *url, const char *text, char **ret);
 int terminal_urlify_path(const char *path, const char *text, char **ret);
+int terminal_urlify_man(const char *page, const char *section, char **ret);
 
 typedef enum CatFlags {
         CAT_FLAGS_MAIN_FILE_OPTIONAL = 1 << 0,

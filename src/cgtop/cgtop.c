@@ -709,7 +709,14 @@ static void display(Hashmap *a) {
         }
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-cgtop", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [CGROUP]\n\n"
                "Show top control groups by their resource usage.\n\n"
                "  -h --help           Show this help\n"
@@ -731,7 +738,13 @@ static void help(void) {
                "  -b --batch          Run in batch mode, accepting no input\n"
                "     --depth=DEPTH    Maximum traversal depth (default: %u)\n"
                "  -M --machine=       Show container\n"
-               , program_invocation_short_name, arg_depth);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , arg_depth
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -769,8 +782,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

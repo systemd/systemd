@@ -2300,7 +2300,14 @@ static void help_dns_classes(void) {
         DUMP_STRING_TABLE(dns_class, int, _DNS_CLASS_MAX);
 }
 
-static void compat_help(void) {
+static int compat_help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("resolvectl", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%1$s [OPTIONS...] HOSTNAME|ADDRESS...\n"
                "%1$s [OPTIONS...] --service [[NAME] TYPE] DOMAIN\n"
                "%1$s [OPTIONS...] --openpgp EMAIL@DOMAIN...\n"
@@ -2341,10 +2348,22 @@ static void compat_help(void) {
                "     --set-dnssec=MODE      Set per-interface DNSSEC mode\n"
                "     --set-nta=DOMAIN       Set per-interface DNSSEC NTA\n"
                "     --revert               Revert per-interface configuration\n"
-               , program_invocation_short_name);
+               "\nSee the %2$s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
-static void native_help(void) {
+static int native_help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("resolvectl", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
                "\n"
                "Send control commands to the network name resolution manager, or\n"
@@ -2385,12 +2404,16 @@ static void native_help(void) {
                "  dnssec [LINK [MODE]]         Get/set per-interface DNSSEC mode\n"
                "  nta [LINK [DOMAIN...]]       Get/set per-interface DNSSEC NTA\n"
                "  revert LINK                  Revert per-interface configuration\n"
-               , program_invocation_short_name);
+               "\nSee the %2$s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int verb_help(int argc, char **argv, void *userdata) {
-        native_help();
-        return 0;
+        return native_help();
 }
 
 static int compat_parse_argv(int argc, char *argv[]) {
@@ -2463,8 +2486,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 switch(c) {
 
                 case 'h':
-                        compat_help();
-                        return 0; /* done */;
+                        return compat_help();
 
                 case ARG_VERSION:
                         return version();
@@ -2763,8 +2785,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 switch(c) {
 
                 case 'h':
-                        native_help();
-                        return 0; /* done */;
+                        return native_help();
 
                 case ARG_VERSION:
                         return version();

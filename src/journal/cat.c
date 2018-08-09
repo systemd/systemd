@@ -9,17 +9,26 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "util.h"
+#include "terminal-util.h"
 
 static const char *arg_identifier = NULL;
 static int arg_priority = LOG_INFO;
 static bool arg_level_prefix = true;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-cat", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Execute process with stdout/stderr connected to the journal.\n\n"
                "  -h --help               Show this help\n"
@@ -27,7 +36,12 @@ static void help(void) {
                "  -t --identifier=STRING  Set syslog identifier\n"
                "  -p --priority=PRIORITY  Set priority value (0..7)\n"
                "     --level-prefix=BOOL  Control whether level prefix shall be parsed\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {

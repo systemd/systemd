@@ -1397,7 +1397,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-udevd.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Manages devices.\n\n"
                "  -h --help                   Print this message\n"
@@ -1409,7 +1416,12 @@ static void help(void) {
                "  -t --event-timeout=SECONDS  Seconds to wait before terminating an event\n"
                "  -N --resolve-names=early|late|never\n"
                "                              When to resolve users and groups\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1473,8 +1485,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
                 case 'V':
                         printf("%s\n", PACKAGE_VERSION);
                         return 0;

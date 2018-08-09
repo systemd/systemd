@@ -1066,6 +1066,12 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd", "1", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [OPTIONS...]\n\n"
                "Starts up and maintains the system or user services.\n\n"
@@ -1089,8 +1095,11 @@ static int help(void) {
                "     --log-color[=BOOL]          Highlight important log messages\n"
                "     --log-location[=BOOL]       Include code location in log messages\n"
                "     --default-standard-output=  Set default standard output for services\n"
-               "     --default-standard-error=   Set default standard error output for services\n",
-               program_invocation_short_name);
+               "     --default-standard-error=   Set default standard error output for services\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }
@@ -2314,7 +2323,7 @@ int main(int argc, char *argv[]) {
                 skip_setup = true;
 
         if (arg_action == ACTION_HELP) {
-                retval = help();
+                retval = help() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
                 goto finish;
         } else if (arg_action == ACTION_VERSION) {
                 retval = version();

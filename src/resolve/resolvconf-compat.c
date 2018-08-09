@@ -14,8 +14,16 @@
 #include "resolved-def.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 
-static void resolvconf_help(void) {
+static int resolvconf_help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("resolvectl", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%1$s -a INTERFACE < FILE\n"
                "%1$s -d INTERFACE\n"
                "\n"
@@ -34,7 +42,12 @@ static void resolvconf_help(void) {
                "implementations are not supported and will cause the invocation to fail: -u,\n"
                "-I, -i, -l, -R, -r, -v, -V, --enable-updates, --disable-updates,\n"
                "--updates-are-enabled.\n"
-               , program_invocation_short_name);
+               "\nSee the %2$s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_nameserver(const char *string) {
@@ -126,8 +139,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 switch(c) {
 
                 case 'h':
-                        resolvconf_help();
-                        return 0; /* done */;
+                        return resolvconf_help();
 
                 case ARG_VERSION:
                         return version();

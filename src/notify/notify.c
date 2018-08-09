@@ -15,6 +15,7 @@
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -25,7 +26,14 @@ static bool arg_booted = false;
 static uid_t arg_uid = UID_INVALID;
 static gid_t arg_gid = GID_INVALID;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-notify", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n\n"
                "Notify the init system about service status updates.\n\n"
                "  -h --help            Show this help\n"
@@ -34,8 +42,13 @@ static void help(void) {
                "     --pid[=PID]       Set main PID of daemon\n"
                "     --uid=USER        Set user to send from\n"
                "     --status=TEXT     Set status text\n"
-               "     --booted          Check if the system was booted up with systemd\n",
-               program_invocation_short_name);
+               "     --booted          Check if the system was booted up with systemd\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -70,8 +83,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

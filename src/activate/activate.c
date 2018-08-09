@@ -19,6 +19,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 static char** arg_listen = NULL;
 static bool arg_accept = false;
@@ -310,7 +311,14 @@ static int install_chld_handler(void) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-socket-activate", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Listen on sockets and launch child on connection.\n\n"
                "Options:\n"
@@ -323,9 +331,13 @@ static void help(void) {
                "  -E --setenv=NAME[=VALUE]   Pass an environment variable to children\n"
                "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
                "     --inetd                 Enable inetd file descriptor passing protocol\n"
-               "\n"
-               "Note: file descriptors from sd_listen_fds() will be passed through.\n"
-               , program_invocation_short_name);
+               "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -358,8 +370,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "+hl:aE:d", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

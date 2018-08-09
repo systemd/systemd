@@ -1724,8 +1724,14 @@ static int do_verify(int argc, char *argv[], void *userdata) {
 }
 
 static int help(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *link = NULL;
+        int r;
 
         (void) pager_open(arg_no_pager, false);
+
+        r = terminal_urlify_man("systemd-analyze", "1", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Profile systemd, show unit dependencies, check unit files.\n\n"
@@ -1760,10 +1766,12 @@ static int help(int argc, char *argv[], void *userdata) {
                "  verify FILE...           Check unit files for correctness\n"
                "  calendar SPEC...         Validate repetitive calendar time events\n"
                "  service-watchdogs [BOOL] Get/set service watchdog state\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
-        /* When updating this list, including descriptions, apply
-         * changes to shell-completion/bash/systemd-analyze and
+        /* When updating this list, including descriptions, apply changes to shell-completion/bash/systemd-analyze and
          * shell-completion/zsh/_systemd-analyze too. */
 
         return 0;

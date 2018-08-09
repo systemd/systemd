@@ -19,6 +19,7 @@
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "util.h"
 
 /* internal helper */
@@ -549,12 +550,21 @@ static int attach_luks_or_plain(struct crypt_device *cd,
 }
 
 static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-cryptsetup@.service", "8", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s attach VOLUME SOURCEDEVICE [PASSWORD] [OPTIONS]\n"
                "%s detach VOLUME\n\n"
-               "Attaches or detaches an encrypted block device.\n",
-               program_invocation_short_name,
-               program_invocation_short_name);
+               "Attaches or detaches an encrypted block device.\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }

@@ -19,6 +19,7 @@
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
 
@@ -686,8 +687,15 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static void help(void) {
-        printf("Usage: %s OPTIONS COMMAND\n\n"
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-hwdb", "8", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%s OPTIONS COMMAND\n\n"
                "Update or query the hardware database.\n\n"
                "  -h --help       Show this help\n"
                "     --version    Show package version\n"
@@ -696,8 +704,13 @@ static void help(void) {
                "  -r --root=PATH  Alternative root path in the filesystem\n\n"
                "Commands:\n"
                "  update          Update the hwdb database\n"
-               "  query MODALIAS  Query database and print result\n",
-               program_invocation_short_name);
+               "  query MODALIAS  Query database and print result\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -724,8 +737,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch(c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

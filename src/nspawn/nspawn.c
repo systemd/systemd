@@ -204,8 +204,15 @@ static unsigned arg_cpuset_ncpus = 0;
 static ResolvConfMode arg_resolv_conf = RESOLV_CONF_AUTO;
 static TimezoneMode arg_timezone = TIMEZONE_AUTO;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
         (void) pager_open(false, false);
+
+        r = terminal_urlify_man("systemd-nspawn", "1", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a command or OS in a light-weight container.\n\n"
@@ -299,7 +306,12 @@ static void help(void) {
                "     --volatile[=MODE]      Run the system in volatile mode\n"
                "     --settings=BOOLEAN     Load additional settings from .nspawn file\n"
                "     --notify-ready=BOOLEAN Receive notifications from the child init process\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int custom_mount_check_all(void) {
@@ -532,8 +544,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
