@@ -1211,6 +1211,45 @@ static unsigned manager_dispatch_gc_job_queue(Manager *m) {
         return n;
 }
 
+static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
+        unsigned n = 0;
+        Unit *u;
+        int r;
+
+        assert(m);
+
+        while ((u = m->stop_when_unneeded_queue)) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                assert(m->stop_when_unneeded_queue);
+
+                assert(u->in_stop_when_unneeded_queue);
+                LIST_REMOVE(stop_when_unneeded_queue, m->stop_when_unneeded_queue, u);
+                u->in_stop_when_unneeded_queue = false;
+
+                n++;
+
+                if (!unit_is_unneeded(u))
+                        continue;
+
+                log_unit_debug(u, "Unit is not needed anymore.");
+
+                /* If stopping a unit fails continuously we might enter a stop loop here, hence stop acting on the
+                 * service being unnecessary after a while. */
+
+                if (!ratelimit_below(&u->auto_stop_ratelimit)) {
+                        log_unit_warning(u, "Unit not needed anymore, but not stopping since we tried this too often recently.");
+                        continue;
+                }
+
+                /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
+                r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, &error, NULL);
+                if (r < 0)
+                        log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
+        }
+
+        return n;
+}
+
 static void manager_clear_jobs_and_units(Manager *m) {
         Unit *u;
 
@@ -1228,6 +1267,7 @@ static void manager_clear_jobs_and_units(Manager *m) {
         assert(!m->cleanup_queue);
         assert(!m->gc_unit_queue);
         assert(!m->gc_job_queue);
+        assert(!m->stop_when_unneeded_queue);
 
         assert(hashmap_isempty(m->jobs));
         assert(hashmap_isempty(m->units));
@@ -2822,6 +2862,9 @@ int manager_loop(Manager *m) {
                         continue;
 
                 if (manager_dispatch_cgroup_realize_queue(m) > 0)
+                        continue;
+
+                if (manager_dispatch_stop_when_unneeded_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_dbus_queue(m) > 0)

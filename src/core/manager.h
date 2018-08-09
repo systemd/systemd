@@ -130,6 +130,9 @@ struct Manager {
         /* Target units whose default target dependencies haven't been set yet */
         LIST_HEAD(Unit, target_deps_queue);
 
+        /* Units that might be subject to StopWhenUnneeded= clean-up */
+        LIST_HEAD(Unit, stop_when_unneeded_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in
