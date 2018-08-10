@@ -218,7 +218,9 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         if (t)
                 *identifier = t;
 
-        e += strspn(p + e, WHITESPACE);
+        /* Single space is used as separator */
+        if (p[e] != '\0' && strchr(WHITESPACE, p[e]))
+                e++;
 
         *buf = p + e;
         return e;
