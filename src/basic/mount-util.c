@@ -517,7 +517,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                         (void) get_mount_flags(cleaned, &orig_flags);
                         orig_flags &= ~MS_RDONLY;
 
-                        if (mount(NULL, prefix, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
+                        if (mount(NULL, cleaned, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
                                 return -errno;
 
                         log_debug("Made top-level directory %s a mount point.", prefix);
@@ -543,6 +543,11 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                         r = path_is_mount_point(x, NULL, 0);
                         if (IN_SET(r, 0, -ENOENT))
                                 continue;
+                        if (IN_SET(r, -EACCES, -EPERM)) {
+                                /* Even if root user invoke this, FUSE or NFS mount points may not be acceessed. */
+                                log_debug_errno(r, "Failed to determine '%s' is mount point or not, ignoring: %m", x);
+                                continue;
+                        }
                         if (r < 0)
                                 return r;
 
