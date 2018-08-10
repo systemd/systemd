@@ -2386,10 +2386,15 @@ static int apply_mount_namespace(
 
         bind_mount_free_many(bind_mounts, n_bind_mounts);
 
-        /* If we couldn't set up the namespace this is probably due to a
-         * missing capability. In this case, silently proceeed. */
-        if (IN_SET(r, -EPERM, -EACCES)) {
-                log_unit_debug_errno(u, r, "Failed to set up namespace, assuming containerized execution, ignoring: %m");
+        /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
+         * that with a special, recognizable error ENOANO. In this case, silently proceeed, but only if exclusively
+         * sandboxing options were used, i.e. nothing such as RootDirectory= or BindMount= that would result in a
+         * completely different execution environment. */
+        if (r == -ENOANO &&
+            n_bind_mounts == 0 && context->n_temporary_filesystems == 0 &&
+            !root_dir && !root_image &&
+            !context->dynamic_user) {
+                log_unit_debug(u, "Failed to set up namespace, assuming containerized execution and ignoring.");
                 return 0;
         }
 

@@ -1290,8 +1290,17 @@ int setup_namespace(
                 normalize_mounts(root, mounts, &n_mounts);
         }
 
+        /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
+
         if (unshare(CLONE_NEWNS) < 0) {
                 r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
+                if (IN_SET(r, -EACCES, -EPERM, -EOPNOTSUPP, -ENOSYS))
+                        /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter in place
+                         * that doesn't allow us to create namespaces (or a missing cap), then propagate a recognizable
+                         * error back, which the caller can use to detect this case (and only this) and optionally
+                         * continue without namespacing applied. */
+                        r = -ENOANO;
+
                 goto finish;
         }
 
