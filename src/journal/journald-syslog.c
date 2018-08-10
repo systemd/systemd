@@ -223,8 +223,9 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         if (p[e] != '\0' && strchr(WHITESPACE, p[e]))
                 e++;
 
+        l = (p - *buf) + e;
         *buf = p + e;
-        return e;
+        return l;
 }
 
 static void syslog_skip_date(char **buf) {

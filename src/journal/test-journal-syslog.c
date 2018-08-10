@@ -41,6 +41,8 @@ int main(void) {
         test_syslog_parse_identifier("  ", NULL, NULL, "  ", 0);
         test_syslog_parse_identifier(":", "", NULL, "", 1);
         test_syslog_parse_identifier(":  ", "", NULL, " ", 2);
+        test_syslog_parse_identifier(" :", "", NULL, "", 2);
+        test_syslog_parse_identifier("   pidu:", "pidu", NULL, "", 8);
         test_syslog_parse_identifier("pidu:", "pidu", NULL, "", 5);
         test_syslog_parse_identifier("pidu: ", "pidu", NULL, "", 6);
         test_syslog_parse_identifier("pidu : ", NULL, NULL, "pidu : ", 0);
