@@ -235,8 +235,10 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, boo
                         needs_prefix = true;
                 }
 
-                if (!path_is_absolute(e))
+                if (!path_is_absolute(e)) {
+                        log_debug("Path is not absolute: %s", e);
                         return -EINVAL;
+                }
 
                 *((*p)++) = (MountEntry) {
                         .path_const = e,
@@ -305,8 +307,10 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
                 unsigned long flags = MS_NODEV|MS_STRICTATIME;
                 bool ro = false;
 
-                if (!path_is_absolute(t->path))
+                if (!path_is_absolute(t->path)) {
+                        log_debug("Path is not absolute: %s", t->path);
                         return -EINVAL;
+                }
 
                 if (!isempty(t->options)) {
                         str = strjoin("mode=0755,", t->options);
@@ -315,7 +319,7 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
 
                         r = mount_option_mangle(str, MS_NODEV|MS_STRICTATIME, &flags, &o);
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Failed to parse mount option '%s': %m", str);
 
                         ro = flags & MS_RDONLY;
                         if (ro)
@@ -1000,6 +1004,7 @@ static int apply_mount(
 }
 
 static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
+        bool submounts = false;
         int r = 0;
 
         assert(m);
@@ -1010,8 +1015,10 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
                         /* Make superblock readonly */
                         if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT | MS_RDONLY | m->flags, mount_entry_options(m)) < 0)
                                 r = -errno;
-                } else
+                } else {
+                        submounts = true;
                         r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), true, blacklist, proc_self_mountinfo);
+                }
         } else if (m->mode == PRIVATE_DEV) {
                 /* Superblock can be readonly but the submounts can't */
                 if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
@@ -1026,7 +1033,11 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
         if (r == -ENOENT && m->ignore)
                 r = 0;
 
-        return r;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to re-mount '%s'%s read-only: %m", mount_entry_path(m),
+                                       submounts ? " and its submounts" : "");
+
+        return 0;
 }
 
 static bool namespace_info_mount_apivfs(const NamespaceInfo *ns_info) {
@@ -1147,19 +1158,19 @@ int setup_namespace(
                                              dissect_image_flags & DISSECT_IMAGE_READ_ONLY ? O_RDONLY : O_RDWR,
                                              &loop_device);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
                 r = root_hash_load(root_image, &root_hash, &root_hash_size);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to load root hash: %m");
 
                 r = dissect_image(loop_device->fd, root_hash, root_hash_size, dissect_image_flags, &dissected_image);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to dissect image: %m");
 
                 r = dissected_image_decrypt(dissected_image, NULL, root_hash, root_hash_size, dissect_image_flags, &decrypted_image);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to decrypt dissected image: %m");
         }
 
         if (root_directory)
@@ -1280,27 +1291,31 @@ int setup_namespace(
         }
 
         if (unshare(CLONE_NEWNS) < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
                 goto finish;
         }
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
          * shows up in the parent */
         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to remount '/' as SLAVE: %m");
                 goto finish;
         }
 
         if (root_image) {
                 /* A root image is specified, mount it to the right place */
                 r = dissected_image_mount(dissected_image, root, UID_INVALID, dissect_image_flags);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to mount root image: %m");
                         goto finish;
+                }
 
                 if (decrypted_image) {
                         r = decrypted_image_relinquish(decrypted_image);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to relinquish decrypted image: %m");
                                 goto finish;
+                        }
                 }
 
                 loop_device_relinquish(loop_device);
@@ -1309,11 +1324,13 @@ int setup_namespace(
 
                 /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
                 r = path_is_mount_point(root, NULL, AT_SYMLINK_FOLLOW);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
                         goto finish;
+                }
                 if (r == 0) {
                         if (mount(root, root, NULL, MS_BIND|MS_REC, NULL) < 0) {
-                                r = -errno;
+                                r = log_debug_errno(errno, "Failed to bind mount '%s': %m", root);
                                 goto finish;
                         }
                 }
@@ -1322,7 +1339,7 @@ int setup_namespace(
 
                 /* Let's mount the main root directory to the root directory to use */
                 if (mount("/", root, NULL, MS_BIND|MS_REC, NULL) < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to bind mount '/' on '%s': %m", root);
                         goto finish;
                 }
         }
@@ -1340,7 +1357,7 @@ int setup_namespace(
                  * For example, this is the case with the option: 'InaccessiblePaths=/proc' */
                 proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
                 if (!proc_self_mountinfo) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
                         goto finish;
                 }
 
@@ -1394,14 +1411,16 @@ int setup_namespace(
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
         r = mount_move_root(root);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
                 goto finish;
+        }
 
         /* Remount / as the desired mode. Note that this will not
          * reestablish propagation from our side to the host, since
          * what's disconnected is disconnected. */
         if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to remount '/' with desired mount flags: %m");
                 goto finish;
         }
 
