@@ -191,7 +191,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
 
                 e = memchr(k, '\n', l);
                 if (!e)
-                        return;
+                        goto finish;
 
                 *e = 0;
 
