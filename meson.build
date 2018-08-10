@@ -90,8 +90,8 @@ if rootlibdir == ''
 endif
 
 # Dirs of external packages
-pkgconfigdatadir = join_paths(datadir, 'pkgconfig')
-pkgconfiglibdir = join_paths(libdir, 'pkgconfig')
+pkgconfigdatadir = get_option('pkgconfigdatadir') == '' ? join_paths(datadir, 'pkgconfig') : get_option('pkgconfigdatadir')
+pkgconfiglibdir = get_option('pkgconfiglibdir') == '' ? join_paths(libdir, 'pkgconfig') : get_option('pkgconfiglibdir')
 polkitpolicydir = join_paths(datadir, 'polkit-1/actions')
 polkitrulesdir = join_paths(datadir, 'polkit-1/rules.d')
 polkitpkladir = join_paths(localstatedir, 'lib/polkit-1/localauthority/10-vendor.d')
