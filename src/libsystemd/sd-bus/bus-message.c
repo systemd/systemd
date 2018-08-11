@@ -5013,9 +5013,9 @@ static int message_skip_fields(
 
                         assert(l >= 2);
                         {
-                                char sig[l-1], *s;
-                                strncpy(sig, *signature + 1, l-1);
-                                s = sig;
+                                char sig[l + 1], *s = sig;
+                                strncpy(sig, *signature + 1, l);
+                                sig[l] = '\0';
 
                                 r = message_skip_fields(m, ri, (uint32_t) -1, (const char**) &s);
                                 if (r < 0)
