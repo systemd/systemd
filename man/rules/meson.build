@@ -242,6 +242,7 @@ manpages = [
   ''],
  ['sd_bus_message_new_signal', '3', [], ''],
  ['sd_bus_message_read', '3', ['sd_bus_message_readv'], ''],
+ ['sd_bus_message_read_array', '3', [], ''],
  ['sd_bus_message_read_basic', '3', [], ''],
  ['sd_bus_message_rewind', '3', [], ''],
  ['sd_bus_message_set_destination',
