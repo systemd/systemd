@@ -259,6 +259,7 @@ manpages = [
    'sd_bus_message_get_expect_reply',
    'sd_bus_message_set_auto_start'],
   ''],
+ ['sd_bus_message_skip', '3', [], ''],
  ['sd_bus_message_verify_type', '3', [], ''],
  ['sd_bus_negotiate_fds',
   '3',
