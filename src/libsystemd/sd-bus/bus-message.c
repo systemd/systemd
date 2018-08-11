@@ -5047,7 +5047,7 @@ static int message_skip_fields(
 
                         *signature += l;
                 } else
-                        return -EINVAL;
+                        return -EBADMSG;
         }
 }
 
