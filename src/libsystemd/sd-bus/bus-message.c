@@ -4958,18 +4958,18 @@ static int message_skip_fields(
 
                 } else if (t == SD_BUS_TYPE_ARRAY) {
 
-                        r = signature_element_length(*signature+1, &l);
+                        r = signature_element_length(*signature + 1, &l);
                         if (r < 0)
                                 return r;
 
                         assert(l >= 1);
                         {
-                                char sig[l-1], *s;
+                                char sig[l + 1], *s = sig;
                                 uint32_t nas;
                                 int alignment;
 
-                                strncpy(sig, *signature + 1, l-1);
-                                s = sig;
+                                strncpy(sig, *signature + 1, l);
+                                sig[l] = '\0';
 
                                 alignment = bus_type_get_alignment(sig[0]);
                                 if (alignment < 0)
