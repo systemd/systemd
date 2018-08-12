@@ -2132,21 +2132,11 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * this RR matches our original question,
                          * however. */
 
-                        r = dns_resource_key_match_rr(t->key, rr, NULL);
+                        r = dns_transaction_is_primary_response(t, rr);
                         if (r < 0)
                                 return r;
-                        if (r == 0) {
-                                /* Hmm, so this SOA RR doesn't match our original question. In this case, maybe this is
-                                 * a negative reply, and we need the a SOA RR's TTL in order to cache a negative entry?
-                                 * If so, we need to validate it, too. */
-
-                                r = dns_answer_match_key(t->answer, t->key, NULL);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0) /* positive reply, we won't need the SOA and hence don't need to validate
-                                            * it. */
-                                        continue;
-                        }
+                        if (r == 0)
+                                continue;
 
                         r = dnssec_has_rrsig(t->answer, rr->key);
                         if (r < 0)
