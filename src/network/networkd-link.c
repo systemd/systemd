@@ -1279,6 +1279,8 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userd
         return 0;
 }
 
+static int link_configure_after_setting_mtu(Link *link);
+
 static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_(link_unrefp) Link *link = userdata;
         int r;
@@ -1287,12 +1289,21 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         assert(link);
         assert(link->ifname);
 
+        link->setting_mtu = false;
+
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0)
+        if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set MTU: %m");
+                return 1;
+        }
+
+        log_link_debug(link, "Setting MTU done.");
+
+        if (link->state == LINK_STATE_PENDING)
+                (void) link_configure_after_setting_mtu(link);
 
         return 1;
 }
@@ -1305,7 +1316,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (link->mtu == mtu)
+        if (link->mtu == mtu || link->setting_mtu)
                 return 0;
 
         log_link_debug(link, "Setting MTU: %" PRIu32, mtu);
@@ -1705,11 +1716,6 @@ static int link_acquire_conf(Link *link) {
         int r;
 
         assert(link);
-
-        if (link->setting_mtu) {
-                link->setting_mtu = false;
-                return 0;
-        }
 
         r = link_acquire_ipv4_conf(link);
         if (r < 0)
@@ -2874,6 +2880,19 @@ static int link_configure(Link *link) {
                         return r;
         }
 
+        return link_configure_after_setting_mtu(link);
+}
+
+static int link_configure_after_setting_mtu(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->state == LINK_STATE_PENDING);
+
+        if (link->setting_mtu)
+                return 0;
+
         if (link_has_carrier(link) || link->network->configure_without_carrier) {
                 r = link_acquire_conf(link);
                 if (r < 0)
@@ -3281,8 +3300,8 @@ static int link_carrier_lost(Link *link) {
         assert(link);
 
         /* Some devices reset itself while setting the MTU. This causes the DHCP client fall into a loop.
-           setting_mtu keep track whether the device got reset because of setting MTU and does not drop the
-           configuration and stop the clients as well. */
+         * setting_mtu keep track whether the device got reset because of setting MTU and does not drop the
+         * configuration and stop the clients as well. */
         if (link->setting_mtu)
                 return 0;
 
