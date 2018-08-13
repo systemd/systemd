@@ -628,12 +628,6 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
                 fd = -1;
 
-                if (t->server) {
-                        dns_stream_unref(t->server->stream);
-                        t->server->stream = dns_stream_ref(s);
-                        s->server = dns_server_ref(t->server);
-                }
-
 #if ENABLE_DNS_OVER_TLS
                 if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
                         assert(t->server);
@@ -642,6 +636,12 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                                 return r;
                 }
 #endif
+
+                if (t->server) {
+                        dns_stream_unref(t->server->stream);
+                        t->server->stream = dns_stream_ref(s);
+                        s->server = dns_server_ref(t->server);
+                }
 
                 s->complete = on_stream_complete;
                 s->on_packet = dns_stream_on_packet;
