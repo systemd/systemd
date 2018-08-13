@@ -222,8 +222,9 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         if (p[e] != '\0' && strchr(WHITESPACE, p[e]))
                 e++;
 
+        l = (p - *buf) + e;
         *buf = p + e;
-        return e;
+        return l;
 }
 
 static int syslog_skip_timestamp(const char **buf) {
