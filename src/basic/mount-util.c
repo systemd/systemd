@@ -951,3 +951,39 @@ int mount_option_mangle(
 
         return 0;
 }
+
+int dev_is_devtmpfs(void) {
+        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        char line[LINE_MAX], *e;
+        int mount_id, r;
+
+        r = path_get_mnt_id("/dev", &mount_id);
+        if (r < 0)
+                return r;
+
+        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+        if (!proc_self_mountinfo)
+                return -errno;
+
+        (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
+
+        FOREACH_LINE(line, proc_self_mountinfo, return -errno) {
+                int mid;
+
+                if (sscanf(line, "%i", &mid) != 1)
+                        continue;
+
+                if (mid != mount_id)
+                        continue;
+
+                e = strstr(line, " - ");
+                if (!e)
+                        continue;
+
+                /* accept any name that starts with the currently expected type */
+                if (startswith(e + 3, "devtmpfs"))
+                        return true;
+        }
+
+        return false;
+}
