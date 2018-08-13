@@ -783,7 +783,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         if (dns_type_may_redirect(k->type)) {
                 /* Check if we have a CNAME record instead */
                 i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_CNAME, n));
-                if (i)
+                if (i && i->type != DNS_CACHE_NODATA)
                         return i;
 
                 /* OK, let's look for cached DNAME records. */
@@ -792,7 +792,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
                                 return NULL;
 
                         i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_DNAME, n));
-                        if (i)
+                        if (i && i->type != DNS_CACHE_NODATA)
                                 return i;
 
                         /* Jump one label ahead */
