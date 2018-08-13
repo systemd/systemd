@@ -87,8 +87,10 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         stream->encrypted = true;
 
         r = dnstls_flush_write_buffer(stream);
-        if (r < 0 && r != -EAGAIN)
+        if (r < 0 && r != -EAGAIN) {
+                stream->encrypted = false;
                 return r;
+        }
 
         stream->dnstls_data.ssl = TAKE_PTR(s);
 

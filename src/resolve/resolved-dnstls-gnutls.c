@@ -61,8 +61,10 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
 
         stream->encrypted = true;
         stream->dnstls_data.handshake = gnutls_handshake(gs);
-        if (stream->dnstls_data.handshake < 0 && gnutls_error_is_fatal(stream->dnstls_data.handshake))
+        if (stream->dnstls_data.handshake < 0 && gnutls_error_is_fatal(stream->dnstls_data.handshake)) {
+                stream->encrypted = false;
                 return -ECONNREFUSED;
+        }
 
         stream->dnstls_data.session = TAKE_PTR(gs);
 
