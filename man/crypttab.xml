@@ -347,12 +347,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>tmp</option></term>
+        <term><option>tmp=</option></term>
 
-        <listitem><para>The encrypted block device will be prepared
-        for using it as <filename>/tmp</filename>; it will be
-        formatted using
-        <citerefentry project='man-pages'><refentrytitle>mke2fs</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <listitem><para>The encrypted block device will be formatted with
+        the specified file system or ext2 if the argument is left empty.
         This option implies <option>plain</option>.</para>
 
         <para>WARNING: Using the <option>tmp</option> option will

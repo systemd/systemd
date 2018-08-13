@@ -183,7 +183,7 @@ static int parse_one_option(const char *option) {
                 log_error("This version of cryptsetup does not support tcrypt-veracrypt; refusing.");
                 return -EINVAL;
 #endif
-        } else if (STR_IN_SET(option, "plain", "swap", "tmp"))
+        } else if (STR_IN_SET(option, "plain", "swap", "tmp") || startswith(option, "tmp="))
                 arg_type = CRYPT_PLAIN;
         else if ((val = startswith(option, "timeout="))) {
 

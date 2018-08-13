@@ -210,7 +210,7 @@ static int write_dependency(FILE *f, const char *opts,
         assert(f);
         assert(opts);
 
-        r = fstab_extract_values(opts, filter, &names);
+        r = fstab_extract_values(opts, filter, NULL, &names);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)
@@ -262,7 +262,7 @@ static int write_requires_mounts_for(FILE *f, const char *opts) {
         assert(f);
         assert(opts);
 
-        r = fstab_extract_values(opts, "x-systemd.requires-mounts-for", &paths);
+        r = fstab_extract_values(opts, "x-systemd.requires-mounts-for", NULL, &paths);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)

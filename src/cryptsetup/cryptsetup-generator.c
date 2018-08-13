@@ -45,9 +45,10 @@ static int create_disk(
 
         _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL,
                 *filtered = NULL, *u_escaped = NULL, *password_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL;
+        _cleanup_strv_free_ char **tmp = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
-        bool noauto, nofail, tmp, swap, netdev;
+        bool noauto, nofail, swap, netdev;
         int r;
 
         assert(name);
@@ -55,9 +56,12 @@ static int create_disk(
 
         noauto = fstab_test_yes_no_option(options, "noauto\0" "auto\0");
         nofail = fstab_test_yes_no_option(options, "nofail\0" "fail\0");
-        tmp = fstab_test_option(options, "tmp\0");
         swap = fstab_test_option(options, "swap\0");
         netdev = fstab_test_option(options, "_netdev\0");
+
+        r = fstab_extract_values(options, "tmp", "ext2", &tmp);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse options: %m");
 
         if (tmp && swap) {
                 log_error("Device '%s' cannot be both 'tmp' and 'swap'. Ignoring.", name);
@@ -181,14 +185,10 @@ static int create_disk(
                 name_escaped, u_escaped, strempty(password_escaped), strempty(filtered_escaped),
                 name_escaped);
 
-        if (tmp)
+        if (tmp || swap)
                 fprintf(f,
-                        "ExecStartPost=/sbin/mke2fs '/dev/mapper/%s'\n",
-                        name_escaped);
-
-        if (swap)
-                fprintf(f,
-                        "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n",
+                        "ExecStartPost="SYSTEMD_MAKEFS_PATH" %s '/dev/mapper/%s'\n",
+                        swap ? "swap" : tmp[strv_length(tmp) - 1],
                         name_escaped);
 
         r = fflush_and_check(f);

@@ -11,7 +11,7 @@ int fstab_has_fstype(const char *fstype);
 
 int fstab_filter_options(const char *opts, const char *names, const char **namefound, char **value, char **filtered);
 
-int fstab_extract_values(const char *opts, const char *name, char ***values);
+int fstab_extract_values(const char *opts, const char *name, const char *default_value, char ***values);
 
 static inline bool fstab_test_option(const char *opts, const char *names) {
         return !!fstab_filter_options(opts, names, NULL, NULL, NULL);
