@@ -281,6 +281,12 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (network->ip_masquerade)
                 network->ip_forward |= ADDRESS_FAMILY_IPV4;
 
+        if (network->mtu > 0 && network->dhcp_use_mtu) {
+                log_warning("MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set in %s. "
+                            "Disabling UseMTU=.", filename);
+                network->dhcp_use_mtu = false;
+        }
+
         LIST_PREPEND(networks, manager->networks, network);
 
         r = hashmap_ensure_allocated(&manager->networks_by_name, &string_hash_ops);

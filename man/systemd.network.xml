@@ -1167,6 +1167,7 @@
           <listitem>
             <para>When true, the interface maximum transmission unit
             from the DHCP server will be used on the current link.
+            If <varname>MTUBytes=</varname> is set, then this setting is ignored.
             Defaults to false.</para>
           </listitem>
         </varlistentry>
