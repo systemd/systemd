@@ -54,3 +54,5 @@ int mount_option_mangle(
                 unsigned long mount_flags,
                 unsigned long *ret_mount_flags,
                 char **ret_remaining_options);
+
+int dev_is_devtmpfs(void);
