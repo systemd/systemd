@@ -325,7 +325,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnStudio*155[78]:pvr*
 # Dell Touchpad
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:pvr*
- KEYBOARD_KEY_88=!                                      # wireless switch
  KEYBOARD_KEY_9e=!f21
 
 # Dell Latitude E7*
