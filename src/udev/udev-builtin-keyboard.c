@@ -192,7 +192,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                 return EXIT_FAILURE;
         }
 
-        udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev)) {
+        UDEV_LIST_ENTRY_FOREACH(entry, udev_device_get_properties_list_entry(dev)) {
                 const char *key;
                 char *endptr;
 

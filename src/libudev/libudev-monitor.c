@@ -256,11 +256,11 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 
                 /* count tag matches, to calculate end of tag match block */
                 tag_matches = 0;
-                udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list))
+                UDEV_LIST_ENTRY_FOREACH(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list))
                         tag_matches++;
 
                 /* add all tags matches */
-                udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list)) {
+                UDEV_LIST_ENTRY_FOREACH(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list)) {
                         uint64_t tag_bloom_bits = util_string_bloom64(udev_list_entry_get_name(list_entry));
                         uint32_t tag_bloom_hi = tag_bloom_bits >> 32;
                         uint32_t tag_bloom_lo = tag_bloom_bits & 0xffffffff;
@@ -287,7 +287,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 
         /* add all subsystem matches */
         if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) != NULL) {
-                udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
+                UDEV_LIST_ENTRY_FOREACH(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
                         unsigned int hash = util_string_hash32(udev_list_entry_get_name(list_entry));
 
                         /* load device subsystem value in A */
@@ -474,7 +474,7 @@ static int passes_filter(struct udev_monitor *udev_monitor, struct udev_device *
 
         if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) == NULL)
                 goto tag;
-        udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
                 const char *subsys = udev_list_entry_get_name(list_entry);
                 const char *dsubsys = udev_device_get_subsystem(udev_device);
                 const char *devtype;
@@ -497,7 +497,7 @@ static int passes_filter(struct udev_monitor *udev_monitor, struct udev_device *
 tag:
         if (udev_list_get_entry(&udev_monitor->filter_tag_list) == NULL)
                 return 1;
-        udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list)) {
                 const char *tag = udev_list_entry_get_name(list_entry);
 
                 if (udev_device_has_tag(udev_device, tag))
@@ -703,7 +703,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 
         /* add tag bloom filter */
         tag_bloom_bits = 0;
-        udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_tags_list_entry(udev_device))
                 tag_bloom_bits |= util_string_bloom64(udev_list_entry_get_name(list_entry));
         if (tag_bloom_bits > 0) {
                 nlh.filter_tag_bloom_hi = htobe32(tag_bloom_bits >> 32);

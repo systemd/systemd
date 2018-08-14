@@ -1211,7 +1211,7 @@ static int trigger_device(Manager *m, struct udev_device *d) {
                 return r;
 
         first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
+        UDEV_LIST_ENTRY_FOREACH(item, first) {
                 _cleanup_free_ char *t = NULL;
                 const char *p;
 

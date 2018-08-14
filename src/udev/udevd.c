@@ -1052,7 +1052,7 @@ static int synthesize_change(struct udev_device *dev) {
                 if (r < 0)
                         return r;
 
-                udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
+                UDEV_LIST_ENTRY_FOREACH(item, udev_enumerate_get_list_entry(e)) {
                         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
 
                         d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
@@ -1082,7 +1082,7 @@ static int synthesize_change(struct udev_device *dev) {
                 strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
                 write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
 
-                udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
+                UDEV_LIST_ENTRY_FOREACH(item, udev_enumerate_get_list_entry(e)) {
                         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
 
                         d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));

@@ -237,7 +237,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
 
                         j = 0;
                         ll = udev_device_get_devlinks_list_entry(ud);
-                        udev_list_entry_foreach(ll, ll) {
+                        UDEV_LIST_ENTRY_FOREACH(ll, ll) {
 
                                 if (j > N_IOVEC_UDEV_FIELDS)
                                         break;

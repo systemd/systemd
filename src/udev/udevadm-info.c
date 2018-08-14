@@ -38,7 +38,7 @@ static bool skip_attribute(const char *name) {
 static void print_all_attributes(struct udev_device *device, const char *key) {
         struct udev_list_entry *sysattr;
 
-        udev_list_entry_foreach(sysattr, udev_device_get_sysattr_list_entry(device)) {
+        UDEV_LIST_ENTRY_FOREACH(sysattr, udev_device_get_sysattr_list_entry(device)) {
                 const char *name;
                 const char *value;
                 size_t len;
@@ -127,11 +127,11 @@ static void print_record(struct udev_device *device) {
         if (i != 0)
                 printf("L: %i\n", i);
 
-        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(device))
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_devlinks_list_entry(device))
                 printf("S: %s\n",
                        udev_list_entry_get_name(list_entry) + STRLEN("/dev/"));
 
-        udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_properties_list_entry(device))
                 printf("E: %s=%s\n",
                        udev_list_entry_get_name(list_entry),
                        udev_list_entry_get_value(list_entry));
@@ -165,7 +165,7 @@ static int export_devices(struct udev *udev) {
                 return -ENOMEM;
 
         udev_enumerate_scan_devices(udev_enumerate);
-        udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
                 _cleanup_(udev_device_unrefp) struct udev_device *device;
 
                 device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));

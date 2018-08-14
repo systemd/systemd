@@ -1445,7 +1445,7 @@ static int list_devices(void) {
                 return log_error_errno(r, "Failed to scan devices: %m");
 
         first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
+        UDEV_LIST_ENTRY_FOREACH(item, first) {
                 _cleanup_(udev_device_unrefp) struct udev_device *d;
                 struct item *j;
 

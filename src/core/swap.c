@@ -456,7 +456,7 @@ static int swap_process_new(Manager *m, const char *device, int prio, bool set_f
 
         /* Add additional units for all symlinks */
         first = udev_device_get_devlinks_list_entry(d);
-        udev_list_entry_foreach(item, first) {
+        UDEV_LIST_ENTRY_FOREACH(item, first) {
                 const char *p;
 
                 /* Don't bother with the /dev/block links */
@@ -1345,7 +1345,7 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
                 r = swap_set_devnode(SWAP(u), dn);
 
         first = udev_device_get_devlinks_list_entry(dev);
-        udev_list_entry_foreach(item, first) {
+        UDEV_LIST_ENTRY_FOREACH(item, first) {
                 _cleanup_free_ char *n = NULL;
                 int q;
 

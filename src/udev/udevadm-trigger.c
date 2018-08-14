@@ -23,7 +23,7 @@ static int exec_list(struct udev_enumerate *udev_enumerate, const char *action, 
         struct udev_list_entry *entry;
         int r;
 
-        udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(udev_enumerate)) {
+        UDEV_LIST_ENTRY_FOREACH(entry, udev_enumerate_get_list_entry(udev_enumerate)) {
                 char filename[UTIL_PATH_SIZE];
                 const char *syspath;
                 _cleanup_close_ int fd = -1;

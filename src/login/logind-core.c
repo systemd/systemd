@@ -557,7 +557,7 @@ static int manager_count_external_displays(Manager *m) {
                 return r;
 
         first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
+        UDEV_LIST_ENTRY_FOREACH(item, first) {
                 _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
                 struct udev_device *p;
                 const char *status, *enabled, *dash, *nn, *i;

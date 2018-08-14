@@ -239,7 +239,7 @@ static size_t subst_format_var(struct udev_event *event, struct udev_device *dev
                         break;
                 l = strpcpy(&s, l,
                             udev_list_entry_get_name(list_entry) + STRLEN("/dev/"));
-                udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry))
+                UDEV_LIST_ENTRY_FOREACH(list_entry, udev_list_entry_get_next(list_entry))
                         l = strpcpyl(&s, l, " ",
                                      udev_list_entry_get_name(list_entry) + STRLEN("/dev/"),
                                      NULL);
@@ -933,7 +933,7 @@ void udev_event_execute_rules(struct udev_event *event,
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec) {
         struct udev_list_entry *list_entry;
 
-        udev_list_entry_foreach(list_entry, udev_list_get_entry(&event->run_list)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_list_get_entry(&event->run_list)) {
                 char command[UTIL_PATH_SIZE];
                 const char *cmd = udev_list_entry_get_name(list_entry);
                 enum udev_builtin_cmd builtin_cmd = udev_list_entry_get_num(list_entry);

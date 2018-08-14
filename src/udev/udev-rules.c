@@ -663,7 +663,7 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
         if (dev_parent == NULL)
                 return -1;
 
-        udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(dev_parent)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_properties_list_entry(dev_parent)) {
                 const char *key = udev_list_entry_get_name(list_entry);
                 const char *val = udev_list_entry_get_value(list_entry);
 
@@ -1773,7 +1773,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         struct udev_list_entry *list_entry;
                         bool match = false;
 
-                        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(event->dev)) {
+                        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_devlinks_list_entry(event->dev)) {
                                 const char *devlink;
 
                                 devlink = udev_list_entry_get_name(list_entry) + STRLEN("/dev/");
@@ -1816,7 +1816,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         struct udev_list_entry *list_entry;
                         bool match = false;
 
-                        udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(event->dev)) {
+                        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_tags_list_entry(event->dev)) {
                                 if (streq(rules_str(rules, cur->key.value_off), udev_list_entry_get_name(list_entry))) {
                                         match = true;
                                         break;

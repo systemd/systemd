@@ -41,16 +41,18 @@ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list
 const char *udev_list_entry_get_name(struct udev_list_entry *list_entry);
 const char *udev_list_entry_get_value(struct udev_list_entry *list_entry);
 /**
- * udev_list_entry_foreach:
+ * UDEV_LIST_ENTRY_FOREACH:
  * @list_entry: entry to store the current position
  * @first_entry: first entry to start with
  *
  * Helper to iterate over all entries of a list.
  */
-#define udev_list_entry_foreach(list_entry, first_entry) \
+#define UDEV_LIST_ENTRY_FOREACH(list_entry, first_entry) \
         for (list_entry = first_entry; \
              list_entry != NULL; \
              list_entry = udev_list_entry_get_next(list_entry))
+#define udev_list_entry_foreach(list_entry, first_entry) \
+        UDEV_LIST_ENTRY_FOREACH(list_entry, first_entry)
 
 /*
  * udev_device

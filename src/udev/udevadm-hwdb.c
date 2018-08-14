@@ -430,7 +430,7 @@ static int insert_data(struct trie *trie, struct udev_list *match_list,
                 return -EINVAL;
         }
 
-        udev_list_entry_foreach(entry, udev_list_get_entry(match_list))
+        UDEV_LIST_ENTRY_FOREACH(entry, udev_list_get_entry(match_list))
                 trie_insert(trie, trie->root, udev_list_entry_get_name(entry), line, value);
 
         return 0;

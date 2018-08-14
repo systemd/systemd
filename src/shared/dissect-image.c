@@ -284,7 +284,7 @@ int dissect_image(
                 /* Count the partitions enumerated by the kernel */
                 n = 0;
                 first = udev_enumerate_get_list_entry(e);
-                udev_list_entry_foreach(item, first) {
+                UDEV_LIST_ENTRY_FOREACH(item, first) {
                         _cleanup_(udev_device_unrefp) struct udev_device *q;
                         dev_t qn;
 
@@ -357,7 +357,7 @@ int dissect_image(
         }
 
         first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
+        UDEV_LIST_ENTRY_FOREACH(item, first) {
                 _cleanup_(udev_device_unrefp) struct udev_device *q;
                 unsigned long long pflags;
                 blkid_partition pp;
