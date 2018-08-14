@@ -41,8 +41,8 @@ struct udev_event *udev_event_new(struct udev_device *dev) {
                 return NULL;
         event->dev = dev;
         event->udev = udev;
-        udev_list_init(udev, &event->run_list, false);
-        udev_list_init(udev, &event->seclabel_list, false);
+        udev_list_init(&event->run_list, false);
+        udev_list_init(&event->seclabel_list, false);
         event->birth_usec = now(CLOCK_MONOTONIC);
         return event;
 }

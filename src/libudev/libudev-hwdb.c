@@ -57,7 +57,7 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
         hwdb->refcount = 1;
         hwdb->hwdb = TAKE_PTR(hwdb_internal);
 
-        udev_list_init(udev, &hwdb->properties_list, true);
+        udev_list_init(&hwdb->properties_list, true);
 
         return hwdb;
 }
@@ -113,6 +113,7 @@ _public_ struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb) {
 _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev_hwdb *hwdb, const char *modalias, unsigned int flags) {
         const char *key, *value;
         struct udev_list_entry *e;
+        int r;
 
         if (!hwdb || !modalias) {
                 errno = EINVAL;
@@ -122,8 +123,9 @@ _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev
         udev_list_cleanup(&hwdb->properties_list);
 
         SD_HWDB_FOREACH_PROPERTY(hwdb->hwdb, modalias, key, value) {
-                if (udev_list_entry_add(&hwdb->properties_list, key, value) == NULL) {
-                        errno = ENOMEM;
+                r = udev_list_entry_add(&hwdb->properties_list, key, value, NULL);
+                if (r < 0) {
+                        errno = -r;
                         return NULL;
                 }
         }

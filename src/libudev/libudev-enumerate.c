@@ -75,7 +75,7 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
         udev_enumerate->refcount = 1;
         udev_enumerate->udev = udev;
 
-        udev_list_init(udev, &udev_enumerate->devices_list, false);
+        udev_list_init(&udev_enumerate->devices_list, false);
 
         return TAKE_PTR(udev_enumerate);
 }
@@ -156,7 +156,7 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                                 return NULL;
                         }
 
-                        udev_list_entry_add(&udev_enumerate->devices_list, syspath, NULL);
+                        udev_list_entry_add(&udev_enumerate->devices_list, syspath, NULL, NULL);
                 }
 
                 udev_enumerate->devices_uptodate = true;

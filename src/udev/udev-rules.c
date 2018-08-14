@@ -1525,7 +1525,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
                 return NULL;
         rules->udev = udev;
         rules->resolve_names = resolve_names;
-        udev_list_init(udev, &file_list, true);
+        udev_list_init(&file_list, true);
 
         /* init token array and string buffer */
         rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
@@ -2214,7 +2214,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
 
                         if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
                                 udev_list_cleanup(&event->seclabel_list);
-                        udev_list_entry_add(&event->seclabel_list, name, label);
+                        udev_list_entry_add(&event->seclabel_list, name, label, NULL);
                         log_debug("SECLABEL{%s}='%s' %s:%u",
                                   name, label,
                                   rules_str(rules, rule->rule.filename_off),
@@ -2395,7 +2395,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                   rules_str(rules, cur->key.value_off),
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
-                        entry = udev_list_entry_add(&event->run_list, rules_str(rules, cur->key.value_off), NULL);
+                        udev_list_entry_add(&event->run_list, rules_str(rules, cur->key.value_off), NULL, &entry);
                         udev_list_entry_set_num(entry, cur->key.builtin_cmd);
                         break;
                 }

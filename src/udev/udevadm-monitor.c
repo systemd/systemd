@@ -84,8 +84,8 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
                 {}
         };
 
-        udev_list_init(udev, &subsystem_match_list, true);
-        udev_list_init(udev, &tag_match_list, true);
+        udev_list_init(&subsystem_match_list, true);
+        udev_list_init(&tag_match_list, true);
 
         while ((c = getopt_long(argc, argv, "pekus:t:Vh", options, NULL)) >= 0)
                 switch (c) {
@@ -110,11 +110,11 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
                                         devtype[0] = '\0';
                                         devtype++;
                                 }
-                                udev_list_entry_add(&subsystem_match_list, subsys, devtype);
+                                udev_list_entry_add(&subsystem_match_list, subsys, devtype, NULL);
                                 break;
                         }
                 case 't':
-                        udev_list_entry_add(&tag_match_list, optarg, NULL);
+                        udev_list_entry_add(&tag_match_list, optarg, NULL, NULL);
                         break;
                 case 'V':
                         print_version();

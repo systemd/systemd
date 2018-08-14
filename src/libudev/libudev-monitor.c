@@ -88,8 +88,8 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev) {
         }
         udev_monitor->refcount = 1;
         udev_monitor->udev = udev;
-        udev_list_init(udev, &udev_monitor->filter_subsystem_list, false);
-        udev_list_init(udev, &udev_monitor->filter_tag_list, true);
+        udev_list_init(&udev_monitor->filter_subsystem_list, false);
+        udev_list_init(&udev_monitor->filter_tag_list, true);
         return udev_monitor;
 }
 
@@ -759,9 +759,7 @@ _public_ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor
                 return -EINVAL;
         if (subsystem == NULL)
                 return -EINVAL;
-        if (udev_list_entry_add(&udev_monitor->filter_subsystem_list, subsystem, devtype) == NULL)
-                return -ENOMEM;
-        return 0;
+        return udev_list_entry_add(&udev_monitor->filter_subsystem_list, subsystem, devtype, NULL);
 }
 
 /**
@@ -782,9 +780,7 @@ _public_ int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_monitor
                 return -EINVAL;
         if (tag == NULL)
                 return -EINVAL;
-        if (udev_list_entry_add(&udev_monitor->filter_tag_list, tag, NULL) == NULL)
-                return -ENOMEM;
-        return 0;
+        return udev_list_entry_add(&udev_monitor->filter_tag_list, tag, NULL, NULL);
 }
 
 /**

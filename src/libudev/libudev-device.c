@@ -205,10 +205,10 @@ struct udev_device *udev_device_new(struct udev *udev) {
         }
         udev_device->refcount = 1;
         udev_device->udev = udev;
-        udev_list_init(udev, &udev_device->properties, true);
-        udev_list_init(udev, &udev_device->tags, true);
-        udev_list_init(udev, &udev_device->sysattrs, true);
-        udev_list_init(udev, &udev_device->devlinks, true);
+        udev_list_init(&udev_device->properties, true);
+        udev_list_init(&udev_device->tags, true);
+        udev_list_init(&udev_device->sysattrs, true);
+        udev_list_init(&udev_device->devlinks, true);
 
         return udev_device;
 }
@@ -692,7 +692,7 @@ _public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev
                 udev_list_cleanup(&udev_device->devlinks);
 
                 FOREACH_DEVICE_DEVLINK(udev_device->device, devlink)
-                        udev_list_entry_add(&udev_device->devlinks, devlink, NULL);
+                        udev_list_entry_add(&udev_device->devlinks, devlink, NULL, NULL);
 
                 udev_device->devlinks_read = true;
                 udev_device->devlinks_generation = device_get_devlinks_generation(udev_device->device);
@@ -724,7 +724,7 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
                 udev_list_cleanup(&udev_device->properties);
 
                 FOREACH_DEVICE_PROPERTY(udev_device->device, key, value)
-                        udev_list_entry_add(&udev_device->properties, key, value);
+                        udev_list_entry_add(&udev_device->properties, key, value, NULL);
 
                 udev_device->properties_read = true;
                 udev_device->properties_generation = device_get_properties_generation(udev_device->device);
@@ -855,7 +855,7 @@ _public_ struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_
                 udev_list_cleanup(&udev_device->sysattrs);
 
                 FOREACH_DEVICE_SYSATTR(udev_device->device, sysattr)
-                        udev_list_entry_add(&udev_device->sysattrs, sysattr, NULL);
+                        udev_list_entry_add(&udev_device->sysattrs, sysattr, NULL, NULL);
 
                 udev_device->sysattrs_read = true;
         }
@@ -914,7 +914,7 @@ _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_dev
                 udev_list_cleanup(&udev_device->tags);
 
                 FOREACH_DEVICE_TAG(udev_device->device, tag)
-                        udev_list_entry_add(&udev_device->tags, tag, NULL);
+                        udev_list_entry_add(&udev_device->tags, tag, NULL, NULL);
 
                 udev_device->tags_read = true;
                 udev_device->tags_generation = device_get_tags_generation(udev_device->device);

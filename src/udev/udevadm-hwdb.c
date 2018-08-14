@@ -447,7 +447,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
         struct udev_list match_list;
         int r = 0, err;
 
-        udev_list_init(udev, &match_list, false);
+        udev_list_init(&match_list, false);
 
         f = fopen(filename, "re");
         if (f == NULL)
@@ -485,7 +485,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 
                         /* start of record, first match */
                         state = HW_MATCH;
-                        udev_list_entry_add(&match_list, line, NULL);
+                        udev_list_entry_add(&match_list, line, NULL, NULL);
                         break;
 
                 case HW_MATCH:
@@ -499,7 +499,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 
                         /* another match */
                         if (line[0] != ' ') {
-                                udev_list_entry_add(&match_list, line, NULL);
+                                udev_list_entry_add(&match_list, line, NULL, NULL);
                                 break;
                         }
 

@@ -7,6 +7,7 @@
 
 #include "libudev.h"
 
+#include "hashmap.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "strxcpyx.h"
@@ -64,40 +65,18 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd);
 
 /* libudev-list.c */
-struct udev_list_node {
-        struct udev_list_node *next, *prev;
-};
 struct udev_list {
-        struct udev *udev;
-        struct udev_list_node node;
-        struct udev_list_entry **entries;
-        unsigned int entries_cur;
-        unsigned int entries_max;
+        Hashmap *entries;
+        Iterator iterator;
         bool unique;
 };
-void udev_list_node_init(struct udev_list_node *list);
-int udev_list_node_is_empty(struct udev_list_node *list);
-void udev_list_node_append(struct udev_list_node *new, struct udev_list_node *list);
-void udev_list_node_remove(struct udev_list_node *entry);
-#define udev_list_node_foreach(node, list) \
-        for (node = (list)->next; \
-             node != list; \
-             node = (node)->next)
-#define udev_list_node_foreach_safe(node, tmp, list) \
-        for (node = (list)->next, tmp = (node)->next; \
-             node != list; \
-             node = tmp, tmp = (tmp)->next)
-void udev_list_init(struct udev *udev, struct udev_list *list, bool unique);
+void udev_list_init(struct udev_list *list, bool unique);
 void udev_list_cleanup(struct udev_list *list);
 struct udev_list_entry *udev_list_get_entry(struct udev_list *list);
-struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *name, const char *value);
-void udev_list_entry_delete(struct udev_list_entry *entry);
-int udev_list_entry_get_num(struct udev_list_entry *list_entry);
-void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num);
-#define udev_list_entry_foreach_safe(entry, tmp, first) \
-        for (entry = first, tmp = udev_list_entry_get_next(entry); \
-             entry != NULL; \
-             entry = tmp, tmp = udev_list_entry_get_next(tmp))
+int udev_list_entry_add(struct udev_list *list, const char *name, const char *value, struct udev_list_entry **ret);
+void udev_list_entry_free(struct udev_list_entry *entry);
+int udev_list_entry_get_num(struct udev_list_entry *entry);
+int udev_list_entry_set_num(struct udev_list_entry *entry, int num);
 
 /* libudev-queue.c */
 unsigned long long int udev_get_kernel_seqnum(struct udev *udev);

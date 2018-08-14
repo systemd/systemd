@@ -969,10 +969,10 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
                                 val = &val[1];
                                 if (val[0] == '\0') {
                                         log_debug("udevd message (ENV) received, unset '%s'", key);
-                                        udev_list_entry_add(&manager->properties, key, NULL);
+                                        udev_list_entry_add(&manager->properties, key, NULL, NULL);
                                 } else {
                                         log_debug("udevd message (ENV) received, set '%s=%s'", key, val);
-                                        udev_list_entry_add(&manager->properties, key, val);
+                                        udev_list_entry_add(&manager->properties, key, val, NULL);
                                 }
                         } else
                                 log_error("wrong key format '%s'", key);
@@ -1527,7 +1527,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
                 return log_error_errno(ENOMEM, "error reading rules");
 
         LIST_HEAD_INIT(manager->events);
-        udev_list_init(manager->udev, &manager->properties, true);
+        udev_list_init(&manager->properties, true);
 
         manager->cgroup = cgroup;
 
