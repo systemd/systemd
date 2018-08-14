@@ -48,12 +48,6 @@ struct udev_event {
         bool run_final;
 };
 
-struct udev_watch {
-        struct udev_list_node node;
-        int handle;
-        char *name;
-};
-
 /* udev-rules.c */
 struct udev_rules;
 struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
