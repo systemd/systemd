@@ -57,8 +57,8 @@
 static bool arg_debug = false;
 static int arg_daemonize = false;
 static int arg_resolve_names = 1;
-static unsigned arg_children_max;
-static int arg_exec_delay;
+static unsigned arg_children_max = 0;
+static int arg_exec_delay = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
 
@@ -126,7 +126,6 @@ enum worker_state {
 
 struct worker {
         Manager *manager;
-        int refcount;
         pid_t pid;
         struct udev_monitor *monitor;
         enum worker_state state;
@@ -138,10 +137,9 @@ struct worker_message {
 };
 
 static void event_free(struct event *event) {
-        int r;
-
         if (!event)
                 return;
+
         assert(event->manager);
 
         LIST_REMOVE(event, event->manager->events, event);
@@ -154,14 +152,11 @@ static void event_free(struct event *event) {
         if (event->worker)
                 event->worker->event = NULL;
 
-        if (LIST_IS_EMPTY(event->manager->events)) {
-                /* only clean up the queue from the process that created it */
-                if (event->manager->pid == getpid_cached()) {
-                        r = unlink("/run/udev/queue");
-                        if (r < 0)
-                                log_warning_errno(errno, "could not unlink /run/udev/queue: %m");
-                }
-        }
+        /* only clean up the queue from the process that created it */
+        if (LIST_IS_EMPTY(event->manager->events) &&
+            event->manager->pid == getpid_cached() &&
+            unlink("/run/udev/queue") < 0)
+                log_warning_errno(errno, "Could not unlink /run/udev/queue: %m");
 
         free(event);
 }
@@ -179,20 +174,21 @@ static void worker_free(struct worker *worker) {
         free(worker);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct worker*, worker_free);
+
 static void manager_workers_free(Manager *manager) {
         struct worker *worker;
-        Iterator i;
 
         assert(manager);
 
-        HASHMAP_FOREACH(worker, manager->workers, i)
+        while ((worker = hashmap_first(manager->workers)))
                 worker_free(worker);
 
         manager->workers = hashmap_free(manager->workers);
 }
 
-static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor *worker_monitor, pid_t pid) {
-        _cleanup_free_ struct worker *worker = NULL;
+static int worker_new(Manager *manager, struct udev_monitor *worker_monitor, pid_t pid, struct worker **ret) {
+        _cleanup_(worker_freep) struct worker *worker = NULL;
         int r;
 
         assert(ret);
@@ -200,16 +196,15 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         assert(worker_monitor);
         assert(pid > 1);
 
-        worker = new0(struct worker, 1);
+        worker = new(struct worker, 1);
         if (!worker)
                 return -ENOMEM;
 
-        worker->refcount = 1;
-        worker->manager = manager;
-        /* close monitor, but keep address around */
-        udev_monitor_disconnect(worker_monitor);
-        worker->monitor = udev_monitor_ref(worker_monitor);
-        worker->pid = pid;
+        *worker = (struct worker) {
+                .manager = manager,
+                .monitor = udev_monitor_ref(worker_monitor),
+                .pid = pid,
+        };
 
         r = hashmap_ensure_allocated(&manager->workers, NULL);
         if (r < 0)
@@ -219,8 +214,10 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(worker);
+        /* close monitor, but keep address around */
+        (void) udev_monitor_disconnect(worker_monitor);
 
+        *ret = TAKE_PTR(worker);
         return 0;
 }
 
@@ -323,20 +320,21 @@ static bool shall_lock_device(struct udev_device *dev) {
 }
 
 static void worker_spawn(Manager *manager, struct event *event) {
-        struct udev *udev = event->udev;
         _cleanup_(udev_monitor_unrefp) struct udev_monitor *worker_monitor = NULL;
+        struct udev *udev = event->udev;
         pid_t pid;
-        int r = 0;
+        int r;
 
         /* listen for new events */
         worker_monitor = udev_monitor_new_from_netlink(udev, NULL);
-        if (worker_monitor == NULL)
+        if (!worker_monitor)
                 return;
+
         /* allow the main daemon netlink address to send devices to the worker */
-        udev_monitor_allow_unicast_sender(worker_monitor, manager->monitor);
+        assert_se(udev_monitor_allow_unicast_sender(worker_monitor, manager->monitor) >= 0);
         r = udev_monitor_enable_receiving(worker_monitor);
         if (r < 0)
-                log_error_errno(r, "worker: could not enable receiving of device: %m");
+                log_error_errno(r, "worker: Failed to enable receiving device events: %m");
 
         pid = fork();
         switch (pid) {
@@ -527,7 +525,7 @@ out:
         {
                 struct worker *worker;
 
-                r = worker_new(&worker, manager, worker_monitor, pid);
+                r = worker_new(manager, worker_monitor, pid, &worker);
                 if (r < 0)
                         return;
 
@@ -1537,7 +1535,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         r = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_uevent, &manager->monitor);
         if (r < 0)
-                return log_error_errno(r, "error taking over netlink socket");
+                return log_error_errno(r, "Failed to take over netlink socket: %m");
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
