@@ -5,6 +5,7 @@
 #include "sd-device.h"
 
 #include "libudev-private.h"
+#include "macro.h"
 
 /**
  * udev_device:
@@ -12,13 +13,11 @@
  * Opaque object representing one kernel sys device.
  */
 struct udev_device {
-        struct udev *udev;
-
         /* real device object */
         sd_device *device;
 
         /* legacy */
-        int refcount;
+        unsigned n_ref;
 
         struct udev_device *parent;
         bool parent_set;
@@ -36,4 +35,5 @@ struct udev_device {
         bool sysattrs_read;
 };
 
-struct udev_device *udev_device_new(struct udev *udev);
+int udev_device_new(struct udev_device **ret);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_device*, udev_device_unref);

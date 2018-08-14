@@ -558,6 +558,7 @@ static int udev_monitor_receive_device_one(struct udev_monitor *udev_monitor, st
         struct ucred *cred;
         ssize_t buflen, bufpos;
         bool is_initialized = false;
+        int r;
 
         buflen = recvmsg(udev_monitor->sock, &smsg, 0);
         if (buflen < 0) {
@@ -612,9 +613,9 @@ static int udev_monitor_receive_device_one(struct udev_monitor *udev_monitor, st
                         return log_debug_errno(EAGAIN, "unrecognized message header");
         }
 
-        udev_device = udev_device_new_from_nulstr(udev_monitor->udev, &buf.raw[bufpos], buflen - bufpos);
-        if (!udev_device)
-                return log_debug_errno(errno, "could not create device: %m");
+        r = udev_device_new_from_nulstr(&buf.raw[bufpos], buflen - bufpos, &udev_device);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create device: %m");
 
         if (is_initialized)
                 udev_device_set_is_initialized(udev_device);

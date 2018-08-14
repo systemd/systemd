@@ -38,7 +38,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
         _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
         sigset_t mask, sigmask_orig;
-        int rc = 0, c;
+        int rc = 0, c, r;
 
         static const struct option options[] = {
                 { "action",        required_argument, NULL, 'a' },
@@ -110,8 +110,8 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
                 strscpy(filename, sizeof(filename), syspath);
         delete_trailing_chars(filename, "/");
 
-        dev = udev_device_new_from_synthetic_event(udev, filename, action);
-        if (dev == NULL) {
+        r = udev_device_new_from_synthetic_event(filename, action, &dev);
+        if (r < 0) {
                 fprintf(stderr, "unable to open device '%s'\n", filename);
                 rc = 4;
                 goto out;

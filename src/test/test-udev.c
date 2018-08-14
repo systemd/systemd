@@ -60,13 +60,13 @@ int main(int argc, char *argv[]) {
         char syspath[UTIL_PATH_SIZE];
         const char *devpath;
         const char *action;
-        int err;
+        int r;
 
         log_parse_environment();
         log_open();
 
-        err = fake_filesystems();
-        if (err < 0)
+        r = fake_filesystems();
+        if (r < 0)
                 return EXIT_FAILURE;
 
         udev = udev_new();
@@ -91,9 +91,9 @@ int main(int argc, char *argv[]) {
         rules = udev_rules_new(udev, 1);
 
         strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
-        dev = udev_device_new_from_synthetic_event(udev, syspath, action);
-        if (dev == NULL) {
-                log_debug("unknown device '%s'", devpath);
+        r = udev_device_new_from_synthetic_event(syspath, action, &dev);
+        if (r < 0) {
+                log_debug_errno(r, "unknown device '%s': %m", devpath);
                 goto out;
         }
 
@@ -128,5 +128,5 @@ int main(int argc, char *argv[]) {
 out:
         mac_selinux_finish();
 
-        return err ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

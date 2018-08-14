@@ -573,6 +573,7 @@ static void event_run(Manager *manager, struct event *event) {
 }
 
 static int event_queue_insert(Manager *manager, struct udev_device *dev) {
+        _cleanup_(udev_device_unrefp) struct udev_device *clone = NULL;
         struct event *event;
         int r;
 
@@ -585,6 +586,10 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
 
         assert(manager->pid == getpid_cached());
 
+        r = udev_device_shallow_clone(dev, &clone);
+        if (r < 0)
+                return r;
+
         event = new0(struct event, 1);
         if (!event)
                 return -ENOMEM;
@@ -592,7 +597,7 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
         event->udev = udev_device_get_udev(dev);
         event->manager = manager;
         event->dev = dev;
-        event->dev_kernel = udev_device_shallow_clone(dev);
+        event->dev_kernel = TAKE_PTR(clone);
         udev_device_copy_properties(event->dev_kernel, dev);
         event->seqnum = udev_device_get_seqnum(dev);
         event->devpath = udev_device_get_devpath(dev);

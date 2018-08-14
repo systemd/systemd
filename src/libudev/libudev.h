@@ -62,7 +62,7 @@ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry);
 struct udev_device;
 struct udev_device *udev_device_ref(struct udev_device *udev_device);
 struct udev_device *udev_device_unref(struct udev_device *udev_device);
-struct udev *udev_device_get_udev(struct udev_device *udev_device);
+struct udev *udev_device_get_udev(struct udev_device *udev_device) __attribute__ ((deprecated));
 struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath);
 struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum);
 struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname);

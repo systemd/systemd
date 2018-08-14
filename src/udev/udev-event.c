@@ -835,6 +835,7 @@ void udev_event_execute_rules(struct udev_event *event,
                               struct udev_list *properties_list,
                               struct udev_rules *rules) {
         struct udev_device *dev = event->dev;
+        int r;
 
         if (udev_device_get_subsystem(dev) == NULL)
                 return;
@@ -854,8 +855,8 @@ void udev_event_execute_rules(struct udev_event *event,
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_node_remove(dev);
         } else {
-                event->dev_db = udev_device_clone_with_db(dev);
-                if (event->dev_db != NULL) {
+                r = udev_device_clone_with_db(dev, &event->dev_db);
+                if (r >= 0) {
                         /* disable watch during event processing */
                         if (major(udev_device_get_devnum(dev)) != 0)
                                 udev_watch_end(event->udev, event->dev_db);
@@ -872,8 +873,6 @@ void udev_event_execute_rules(struct udev_event *event,
                 /* rename a new network interface, if needed */
                 if (udev_device_get_ifindex(dev) > 0 && streq(udev_device_get_action(dev), "add") &&
                     event->name != NULL && !streq(event->name, udev_device_get_sysname(dev))) {
-                        int r;
-
                         r = rename_netif(event);
                         if (r < 0)
                                 log_warning_errno(r, "could not rename interface '%d' from '%s' to '%s': %m", udev_device_get_ifindex(dev),
