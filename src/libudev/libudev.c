@@ -29,7 +29,7 @@
  * Opaque object representing the library context.
  */
 struct udev {
-        int refcount;
+        unsigned n_ref;
         void (*log_fn)(struct udev *udev,
                        int priority, const char *file, int line, const char *fn,
                        const char *format, va_list args);
@@ -46,8 +46,8 @@ struct udev {
  * Returns: stored userdata
  **/
 _public_ void *udev_get_userdata(struct udev *udev) {
-        if (udev == NULL)
-                return NULL;
+        assert_return(udev, NULL);
+
         return udev->userdata;
 }
 
@@ -59,11 +59,28 @@ _public_ void *udev_get_userdata(struct udev *udev) {
  * Store custom @userdata in the library context.
  **/
 _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
-        if (udev == NULL)
+        if (!udev)
                 return;
+
         udev->userdata = userdata;
 }
 
+static int udev_new_internal(struct udev **ret) {
+        struct udev *udev;
+
+        assert_return(ret, -EINVAL);
+
+        udev = new(struct udev, 1);
+        if (!udev)
+                return -ENOMEM;
+
+        *udev = (struct udev) {
+                .n_ref = 1,
+        };
+
+        *ret = TAKE_PTR(udev);
+        return 0;
+}
 /**
  * udev_new:
  *
@@ -76,13 +93,13 @@ _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
  **/
 _public_ struct udev *udev_new(void) {
         struct udev *udev;
+        int r;
 
-        udev = new0(struct udev, 1);
-        if (!udev) {
-                errno = ENOMEM;
+        r = udev_new_internal(&udev);
+        if (r < 0) {
+                errno = -r;
                 return NULL;
         }
-        udev->refcount = 1;
 
         return udev;
 }
@@ -96,9 +113,10 @@ _public_ struct udev *udev_new(void) {
  * Returns: the passed udev library context
  **/
 _public_ struct udev *udev_ref(struct udev *udev) {
-        if (udev == NULL)
+        if (!udev)
                 return NULL;
-        udev->refcount++;
+
+        udev->n_ref++;
         return udev;
 }
 
@@ -112,11 +130,13 @@ _public_ struct udev *udev_ref(struct udev *udev) {
  * Returns: the passed udev library context if it has still an active reference, or #NULL otherwise.
  **/
 _public_ struct udev *udev_unref(struct udev *udev) {
-        if (udev == NULL)
+        if (!udev)
                 return NULL;
-        udev->refcount--;
-        if (udev->refcount > 0)
+
+        udev->n_ref--;
+        if (udev->n_ref > 0)
                 return udev;
+
         return mfree(udev);
 }
 
