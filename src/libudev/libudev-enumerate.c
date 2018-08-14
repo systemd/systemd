@@ -32,52 +32,61 @@
  * Opaque object representing one device lookup/sort context.
  */
 struct udev_enumerate {
-        struct udev *udev;
-        int refcount;
+        unsigned n_ref;
+        sd_device_enumerator *enumerator;
         struct udev_list devices_list;
         bool devices_uptodate:1;
-
-        sd_device_enumerator *enumerator;
 };
+
+static int udev_enumerate_new_internal(struct udev_enumerate **ret) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        struct udev_enumerate *udev_enumerate;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        udev_enumerate = new(struct udev_enumerate, 1);
+        if (!udev_enumerate)
+                return -ENOMEM;
+
+        *udev_enumerate = (struct udev_enumerate) {
+                .n_ref = 1,
+                .enumerator = TAKE_PTR(e),
+        };
+
+        udev_list_init(&udev_enumerate->devices_list, false);
+
+        *ret = TAKE_PTR(udev_enumerate);
+        return 0;
+}
 
 /**
  * udev_enumerate_new:
- * @udev: udev library context
+ * @udev: udev library context (not used)
  *
  * Create an enumeration context to scan /sys.
  *
  * Returns: an enumeration context.
  **/
 _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
-        _cleanup_free_ struct udev_enumerate *udev_enumerate = NULL;
+        struct udev_enumerate *e;
         int r;
 
-        assert_return_errno(udev, NULL, EINVAL);
-
-        udev_enumerate = new0(struct udev_enumerate, 1);
-        if (!udev_enumerate) {
-                errno = ENOMEM;
-                return NULL;
-        }
-
-        r = sd_device_enumerator_new(&udev_enumerate->enumerator);
+        r = udev_enumerate_new_internal(&e);
         if (r < 0) {
                 errno = -r;
                 return NULL;
         }
 
-        r = sd_device_enumerator_allow_uninitialized(udev_enumerate->enumerator);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
-
-        udev_enumerate->refcount = 1;
-        udev_enumerate->udev = udev;
-
-        udev_list_init(&udev_enumerate->devices_list, false);
-
-        return TAKE_PTR(udev_enumerate);
+        return e;
 }
 
 /**
@@ -89,8 +98,10 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
  * Returns: the passed enumeration context
  **/
 _public_ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate) {
-        if (udev_enumerate)
-                udev_enumerate->refcount++;
+        if (!udev_enumerate)
+                return NULL;
+
+        udev_enumerate->n_ref++;
 
         return udev_enumerate;
 }
@@ -105,27 +116,30 @@ _public_ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_e
  * Returns: #NULL
  **/
 _public_ struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev_enumerate) {
-        if (udev_enumerate && (-- udev_enumerate->refcount) == 0) {
-                udev_list_cleanup(&udev_enumerate->devices_list);
-                sd_device_enumerator_unref(udev_enumerate->enumerator);
-                free(udev_enumerate);
-        }
+        if (!udev_enumerate)
+                return NULL;
 
-        return NULL;
+        assert(udev_enumerate->n_ref > 0);
+
+        udev_enumerate->n_ref--;
+        if (udev_enumerate->n_ref > 0)
+                return NULL;
+
+        udev_list_cleanup(&udev_enumerate->devices_list);
+        sd_device_enumerator_unref(udev_enumerate->enumerator);
+        return mfree(udev_enumerate);
 }
 
 /**
  * udev_enumerate_get_udev:
  * @udev_enumerate: context
  *
- * Get the udev library context.
+ * This function is deprecated.
  *
- * Returns: a pointer to the context.
+ * Returns: NULL.
  */
 _public_ struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate) {
-        assert_return_errno(udev_enumerate, NULL, EINVAL);
-
-        return udev_enumerate->udev;
+        return NULL;
 }
 
 /**
@@ -140,6 +154,7 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
         struct udev_list_entry *e;
 
         assert_return_errno(udev_enumerate, NULL, EINVAL);
+        assert_return_errno(udev_enumerate->enumerator, NULL, EINVAL);
 
         if (!udev_enumerate->devices_uptodate) {
                 sd_device *device;
@@ -156,7 +171,11 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                                 return NULL;
                         }
 
-                        udev_list_entry_add(&udev_enumerate->devices_list, syspath, NULL, NULL);
+                        r = udev_list_entry_add(&udev_enumerate->devices_list, syspath, NULL, NULL);
+                        if (r < 0) {
+                                errno = -r;
+                                return NULL;
+                        }
                 }
 
                 udev_enumerate->devices_uptodate = true;

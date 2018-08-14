@@ -150,8 +150,7 @@ static int test_enumerate_print_list(struct udev_enumerate *enumerate) {
         UDEV_LIST_ENTRY_FOREACH(list_entry, udev_enumerate_get_list_entry(enumerate)) {
                 struct udev_device *device;
 
-                device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate),
-                                                      udev_list_entry_get_name(list_entry));
+                device = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(list_entry));
                 if (device != NULL) {
                         log_info("device: '%s' (%s)",
                                  udev_device_get_syspath(device),

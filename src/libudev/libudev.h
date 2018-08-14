@@ -126,7 +126,7 @@ int udev_monitor_filter_remove(struct udev_monitor *udev_monitor);
 struct udev_enumerate;
 struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
 struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
-struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate);
+struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate) __attribute__ ((deprecated));
 struct udev_enumerate *udev_enumerate_new(struct udev *udev);
 /* device properties filter */
 int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem);
