@@ -79,10 +79,7 @@ int udev_list_entry_get_num(struct udev_list_entry *entry);
 int udev_list_entry_set_num(struct udev_list_entry *entry, int num);
 
 /* libudev-queue.c */
-unsigned long long int udev_get_kernel_seqnum(struct udev *udev);
-int udev_queue_read_seqnum(FILE *queue_file, unsigned long long int *seqnum);
-ssize_t udev_queue_read_devpath(FILE *queue_file, char *devpath, size_t size);
-ssize_t udev_queue_skip_devpath(FILE *queue_file);
+int udev_queue_new_internal(struct udev_queue **ret);
 
 /* libudev-queue-private.c */
 struct udev_queue_export *udev_queue_export_new(struct udev *udev);

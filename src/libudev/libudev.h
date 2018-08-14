@@ -153,7 +153,7 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 struct udev_queue;
 struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue);
 struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue);
-struct udev *udev_queue_get_udev(struct udev_queue *udev_queue);
+struct udev *udev_queue_get_udev(struct udev_queue *udev_queue) __attribute__ ((deprecated));
 struct udev_queue *udev_queue_new(struct udev *udev);
 unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue) __attribute__ ((deprecated));
 unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue) __attribute__ ((deprecated));
