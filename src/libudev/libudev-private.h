@@ -62,7 +62,7 @@ int udev_monitor_disconnect(struct udev_monitor *udev_monitor);
 int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender);
 int udev_monitor_send_device(struct udev_monitor *udev_monitor,
                              struct udev_monitor *destination, struct udev_device *udev_device);
-struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd);
+int udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd, struct udev_monitor **ret);
 
 /* libudev-list.c */
 struct udev_list {
