@@ -1538,7 +1538,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (!manager->ctrl)
                 return log_error_errno(EINVAL, "error taking over udev control socket");
 
-        r = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_uevent, &manager->monitor);
+        r = udev_monitor_new_from_netlink_fd("kernel", fd_uevent, &manager->monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to take over netlink socket: %m");
 

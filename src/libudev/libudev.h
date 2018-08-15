@@ -103,7 +103,7 @@ int udev_device_has_tag(struct udev_device *udev_device, const char *tag);
 struct udev_monitor;
 struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor);
 struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monitor);
-struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor);
+struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor) __attribute__ ((deprecated));
 /* kernel and udev generated events over netlink */
 struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name);
 /* bind socket */

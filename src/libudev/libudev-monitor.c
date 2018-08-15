@@ -37,7 +37,6 @@
  * Opaque object handling an event source.
  */
 struct udev_monitor {
-        struct udev *udev;
         unsigned n_ref;
         int sock;
         union sockaddr_union snl;
@@ -100,10 +99,9 @@ static struct udev_monitor *udev_monitor_free(struct udev_monitor *udev_monitor)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_monitor*, udev_monitor_free);
 
-static int udev_monitor_new(struct udev *udev, struct udev_monitor **ret) {
+static int udev_monitor_new(struct udev_monitor **ret) {
         _cleanup_(udev_monitor_freep) struct udev_monitor *udev_monitor = NULL;
 
-        assert(udev);
         assert(ret);
 
         udev_monitor = new(struct udev_monitor, 1);
@@ -112,7 +110,6 @@ static int udev_monitor_new(struct udev *udev, struct udev_monitor **ret) {
 
         *udev_monitor = (struct udev_monitor) {
                 .n_ref = 1,
-                .udev = udev,
         };
 
         udev_list_init(&udev_monitor->filter_subsystem_list, false);
@@ -138,12 +135,11 @@ static int udev_monitor_set_nl_address(struct udev_monitor *udev_monitor) {
         return 0;
 }
 
-int udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd, struct udev_monitor **ret) {
+int udev_monitor_new_from_netlink_fd(const char *name, int fd, struct udev_monitor **ret) {
         _cleanup_(udev_monitor_freep) struct udev_monitor *udev_monitor = NULL;
         unsigned group;
         int r;
 
-        assert_return(udev, -EINVAL);
         assert_return(!name || STR_IN_SET(name, "udev", "kernel"), -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -172,7 +168,7 @@ int udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd
                 group = UDEV_MONITOR_KERNEL;
         }
 
-        r = udev_monitor_new(udev, &udev_monitor);
+        r = udev_monitor_new(&udev_monitor);
         if (r < 0)
                 return log_oom();
 
@@ -201,7 +197,7 @@ int udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd
 
 /**
  * udev_monitor_new_from_netlink:
- * @udev: udev library context
+ * @udev: udev library context (not used)
  * @name: name of event source
  *
  * Create new udev monitor and connect to a specified event
@@ -225,7 +221,7 @@ _public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, c
         struct udev_monitor *udev_monitor;
         int r;
 
-        r = udev_monitor_new_from_netlink_fd(udev, name, -1, &udev_monitor);
+        r = udev_monitor_new_from_netlink_fd(name, -1, &udev_monitor);
         if (r < 0) {
                 errno = -r;
                 return NULL;
@@ -462,15 +458,12 @@ _public_ struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monit
  * udev_monitor_get_udev:
  * @udev_monitor: udev monitor
  *
- * Retrieve the udev library context the monitor was created with.
+ * This function is deprecated.
  *
- * Returns: the udev library context
+ * Returns: NULL.
  **/
 _public_ struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor) {
-        if (!udev_monitor)
-                return NULL;
-
-        return udev_monitor->udev;
+        return NULL;
 }
 
 /**
