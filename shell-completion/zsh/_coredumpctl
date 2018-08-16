@@ -7,7 +7,7 @@ _coredumpctl_command(){
             'list:List available coredumps'
             'info:Show detailed information about one or more coredumps'
             'dump:Print coredump to stdout'
-            'gdb:Start gdb on a coredump'
+            'debug:Start debugger (gdb) on a coredump'
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'coredumpctl command' _coredumpctl_cmds
@@ -39,4 +39,5 @@ _arguments \
     '--no-legend[Do not print the column headers]' \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
+    '--debugger=[Use the given debugger]' \
     '*::coredumpctl commands:_coredumpctl_command'
