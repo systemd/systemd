@@ -13,11 +13,12 @@
 /* This needs to be after sys/mount.h :( */
 #include <libmount.h>
 
-#include "libudev.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "def.h"
+#include "device-enumerator-private.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fstab-util.h"
@@ -28,7 +29,6 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "umount.h"
 #include "util.h"
 #include "virt.h"
@@ -212,44 +212,38 @@ int swap_list_get(const char *swaps, MountPoint **head) {
 }
 
 static int loopback_list_get(MountPoint **head) {
-        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
         int r;
 
         assert(head);
 
-        e = udev_enumerate_new(NULL);
-        if (!e)
-                return -ENOMEM;
-
-        r = udev_enumerate_add_match_subsystem(e, "block");
+        r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_add_match_sysname(e, "loop*");
+        r = sd_device_enumerator_allow_uninitialized(e);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_add_match_sysattr(e, "loop/backing_file", NULL);
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_scan_devices(e);
+        r = sd_device_enumerator_add_match_sysname(e, "loop*");
         if (r < 0)
                 return r;
 
-        first = udev_enumerate_get_list_entry(e);
-        UDEV_LIST_ENTRY_FOREACH(item, first) {
-                _cleanup_(udev_device_unrefp) struct udev_device *d;
-                const char *dn;
+        r = sd_device_enumerator_add_match_sysattr(e, "loop/backing_file", NULL, true);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
                 _cleanup_free_ MountPoint *lb = NULL;
+                const char *dn;
 
-                d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
-                if (!d)
-                        return -ENOMEM;
-
-                dn = udev_device_get_devnode(d);
-                if (!dn)
+                r = sd_device_get_devname(d, &dn);
+                if (r < 0 || isempty(dn))
                         continue;
 
                 lb = new0(MountPoint, 1);
@@ -268,42 +262,39 @@ static int loopback_list_get(MountPoint **head) {
 }
 
 static int dm_list_get(MountPoint **head) {
-        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
         int r;
 
         assert(head);
 
-        e = udev_enumerate_new(NULL);
-        if (!e)
-                return -ENOMEM;
-
-        r = udev_enumerate_add_match_subsystem(e, "block");
+        r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_add_match_sysname(e, "dm-*");
+        r = sd_device_enumerator_allow_uninitialized(e);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_scan_devices(e);
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
         if (r < 0)
                 return r;
 
-        first = udev_enumerate_get_list_entry(e);
-        UDEV_LIST_ENTRY_FOREACH(item, first) {
-                _cleanup_(udev_device_unrefp) struct udev_device *d;
-                dev_t devnum;
-                const char *dn;
+        r = sd_device_enumerator_add_match_sysname(e, "dm-*");
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
                 _cleanup_free_ MountPoint *m = NULL;
+                const char *dn;
+                dev_t devnum;
 
-                d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
-                if (!d)
-                        return -ENOMEM;
+                r = sd_device_get_devnum(d, &devnum);
+                if (r < 0)
+                        continue;
 
-                devnum = udev_device_get_devnum(d);
-                dn = udev_device_get_devnode(d);
-                if (major(devnum) == 0 || !dn)
+                r = sd_device_get_devname(d, &dn);
+                if (r < 0 || isempty(dn))
                         continue;
 
                 m = new0(MountPoint, 1);
