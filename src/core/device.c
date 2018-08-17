@@ -1018,7 +1018,7 @@ static int validate_node(Manager *m, const char *node, struct udev_device **ret)
         } else {
                 _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
 
-                r = udev_device_new_from_stat_rdev(m->udev, &st, &dev);
+                r = udev_device_new_from_stat_rdev(&st, &dev);
                 if (r == -ENOENT) {
                         *ret = NULL;
                         return 1; /* good! (though missing) */

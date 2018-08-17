@@ -38,11 +38,10 @@ int udev_parse_config(void) {
         return 0;
 }
 
-int udev_device_new_from_stat_rdev(struct udev *udev, const struct stat *st, struct udev_device **ret) {
+int udev_device_new_from_stat_rdev(const struct stat *st, struct udev_device **ret) {
         struct udev_device *nd;
         char type;
 
-        assert(udev);
         assert(st);
         assert(ret);
 
@@ -53,7 +52,7 @@ int udev_device_new_from_stat_rdev(struct udev *udev, const struct stat *st, str
         else
                 return -ENOTTY;
 
-        nd = udev_device_new_from_devnum(udev, type, st->st_rdev);
+        nd = udev_device_new_from_devnum(NULL, type, st->st_rdev);
         if (!nd)
                 return -errno;
 

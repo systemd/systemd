@@ -257,7 +257,7 @@ static int swap_load_devnode(Swap *s) {
         if (stat(s->what, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        r = udev_device_new_from_stat_rdev(UNIT(s)->manager->udev, &st, &d);
+        r = udev_device_new_from_stat_rdev(&st, &d);
         if (r < 0) {
                 log_unit_full(UNIT(s), r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                               "Failed to allocate udev device for swap %s: %m", s->what);
@@ -442,7 +442,7 @@ static int swap_process_new(Manager *m, const char *device, int prio, bool set_f
         if (stat(device, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        r = udev_device_new_from_stat_rdev(m->udev, &st, &d);
+        r = udev_device_new_from_stat_rdev(&st, &d);
         if (r < 0) {
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to allocate udev device for swap %s: %m", device);
