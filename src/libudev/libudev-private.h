@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/stat.h>
 
 #include "libudev.h"
 
@@ -19,6 +20,7 @@
 /* libudev-device-private.c */
 int udev_device_new_from_nulstr(char *nulstr, ssize_t buflen, struct udev_device **ret);
 int udev_device_new_from_synthetic_event(const char *syspath, const char *action, struct udev_device **ret);
+int udev_device_new_from_stat_rdev(const struct stat *st, struct udev_device **ret);
 int udev_device_shallow_clone(struct udev_device *old_device, struct udev_device **ret);
 int udev_device_clone_with_db(struct udev_device *old_device, struct udev_device **ret);
 int udev_device_copy_properties(struct udev_device *dst, struct udev_device *src);

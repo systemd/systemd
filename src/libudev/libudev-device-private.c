@@ -256,6 +256,25 @@ int udev_device_new_from_nulstr(char *nulstr, ssize_t buflen, struct udev_device
         return 0;
 }
 
+int udev_device_new_from_stat_rdev(const struct stat *st, struct udev_device **ret) {
+        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
+        int r;
+
+        assert(st);
+        assert(ret);
+
+        r = udev_device_new(&udev_device);
+        if (r < 0)
+                return r;
+
+        r = device_new_from_stat_rdev(&udev_device->device, st);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(udev_device);
+        return 0;
+}
+
 int udev_device_new_from_synthetic_event(const char *syspath, const char *action, struct udev_device **ret) {
         _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         int r;

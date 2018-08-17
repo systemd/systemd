@@ -15,5 +15,3 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_msg*, udev_ctrl_msg_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_monitor*, udev_monitor_unref);
 
 int udev_parse_config(void);
-
-int udev_device_new_from_stat_rdev(const struct stat *st, struct udev_device **ret);
