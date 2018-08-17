@@ -544,7 +544,7 @@ static int manager_count_external_displays(Manager *m) {
         int r;
         int n = 0;
 
-        e = udev_enumerate_new(m->udev);
+        e = udev_enumerate_new(NULL);
         if (!e)
                 return -ENOMEM;
 
@@ -563,7 +563,7 @@ static int manager_count_external_displays(Manager *m) {
                 const char *status, *enabled, *dash, *nn, *i;
                 bool external = false;
 
-                d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
+                d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                 if (!d)
                         return -ENOMEM;
 

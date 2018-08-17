@@ -127,7 +127,6 @@ int dissect_image(
         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
         const char *pttype = NULL;
@@ -253,11 +252,7 @@ int dissect_image(
         if (!pl)
                 return -errno ?: -ENOMEM;
 
-        udev = udev_new();
-        if (!udev)
-                return -errno;
-
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+        d = udev_device_new_from_devnum(NULL, 'b', st.st_rdev);
         if (!d)
                 return -ENOMEM;
 
@@ -269,7 +264,7 @@ int dissect_image(
                         return -ENXIO;
                 }
 
-                e = udev_enumerate_new(udev);
+                e = udev_enumerate_new(NULL);
                 if (!e)
                         return -errno;
 
@@ -288,7 +283,7 @@ int dissect_image(
                         _cleanup_(udev_device_unrefp) struct udev_device *q;
                         dev_t qn;
 
-                        q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                        q = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                         if (!q)
                                 return -errno;
 
@@ -365,7 +360,7 @@ int dissect_image(
                 dev_t qn;
                 int nr;
 
-                q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                q = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                 if (!q)
                         return -errno;
 

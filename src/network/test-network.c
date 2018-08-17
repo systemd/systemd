@@ -219,7 +219,6 @@ static void test_dhcp_hostname_shorten_overlong(void) {
 
 int main(void) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(udev_device_unrefp) struct udev_device *loopback = NULL;
         int r;
 
@@ -234,10 +233,7 @@ int main(void) {
         if (r == -EPERM)
                 return EXIT_TEST_SKIP;
 
-        udev = udev_new();
-        assert_se(udev);
-
-        loopback = udev_device_new_from_syspath(udev, "/sys/class/net/lo");
+        loopback = udev_device_new_from_syspath(NULL, "/sys/class/net/lo");
         assert_se(loopback);
         assert_se(udev_device_get_ifindex(loopback) == 1);
 

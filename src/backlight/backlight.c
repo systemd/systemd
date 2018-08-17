@@ -84,14 +84,13 @@ static bool same_device(struct udev_device *a, struct udev_device *b) {
         return true;
 }
 
-static bool validate_device(struct udev *udev, struct udev_device *device) {
+static bool validate_device(struct udev_device *device) {
         _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *enumerate = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         struct udev_device *parent;
         const char *v, *subsystem;
         int r;
 
-        assert(udev);
         assert(device);
 
         /* Verify whether we should actually care for a specific
@@ -124,7 +123,7 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {
         if (!subsystem)
                 return true;
 
-        enumerate = udev_enumerate_new(udev);
+        enumerate = udev_enumerate_new(NULL);
         if (!enumerate)
                 return true;
 
@@ -142,7 +141,7 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {
                 struct udev_device *other_parent;
                 const char *other_subsystem;
 
-                other = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                other = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                 if (!other)
                         return true;
 
@@ -271,7 +270,6 @@ static bool shall_clamp(struct udev_device *d) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         _cleanup_free_ char *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
         const char *sysname, *path_id, *ss, *saved;
@@ -295,12 +293,6 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        udev = udev_new();
-        if (!udev) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
-
         sysname = strchr(argv[2], ':');
         if (!sysname) {
                 log_error("Requires a subsystem and sysname pair specifying a backlight device.");
@@ -317,7 +309,7 @@ int main(int argc, char *argv[]) {
         }
 
         errno = 0;
-        device = udev_device_new_from_subsystem_sysname(udev, ss, sysname);
+        device = udev_device_new_from_subsystem_sysname(NULL, ss, sysname);
         if (!device) {
                 if (errno > 0)
                         log_error_errno(errno, "Failed to get backlight or LED device '%s:%s': %m", ss, sysname);
@@ -375,7 +367,7 @@ int main(int argc, char *argv[]) {
                 if (shall_restore_state() == 0)
                         return EXIT_SUCCESS;
 
-                if (!validate_device(udev, device))
+                if (!validate_device(device))
                         return EXIT_SUCCESS;
 
                 clamp = shall_clamp(device);
@@ -417,7 +409,7 @@ int main(int argc, char *argv[]) {
         } else if (streq(argv[1], "save")) {
                 const char *value;
 
-                if (!validate_device(udev, device)) {
+                if (!validate_device(device)) {
                         unlink(saved);
                         return EXIT_SUCCESS;
                 }

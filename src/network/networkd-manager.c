@@ -235,11 +235,7 @@ static int manager_connect_udev(Manager *m) {
         if (detect_container() > 0)
                 return 0;
 
-        m->udev = udev_new();
-        if (!m->udev)
-                return -ENOMEM;
-
-        m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        m->udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
         if (!m->udev_monitor)
                 return -ENOMEM;
 
@@ -1481,7 +1477,6 @@ void manager_free(Manager *m) {
 
         sd_event_source_unref(m->udev_event_source);
         udev_monitor_unref(m->udev_monitor);
-        udev_unref(m->udev);
 
         sd_bus_unref(m->bus);
 

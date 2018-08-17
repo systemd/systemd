@@ -34,7 +34,6 @@ struct Manager {
         LIST_HEAD(Session, session_gc_queue);
         LIST_HEAD(User, user_gc_queue);
 
-        struct udev *udev;
         struct udev_monitor *udev_seat_monitor, *udev_device_monitor, *udev_vcsa_monitor, *udev_button_monitor;
 
         sd_event_source *console_active_event_source;

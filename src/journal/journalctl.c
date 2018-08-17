@@ -177,7 +177,6 @@ typedef struct BootId {
 } BootId;
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         struct udev_device *d = NULL;
         struct stat st;
@@ -190,10 +189,6 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
                 log_error("Devpath does not start with /dev/");
                 return -EINVAL;
         }
-
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
 
         if (stat(devpath, &st) < 0)
                 return log_error_errno(errno, "Couldn't stat file: %m");

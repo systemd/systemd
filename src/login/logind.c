@@ -56,10 +56,6 @@ static int manager_new(Manager **ret) {
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 return -ENOMEM;
 
-        m->udev = udev_new();
-        if (!m->udev)
-                return -errno;
-
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
@@ -139,8 +135,6 @@ static Manager* manager_unref(Manager *m) {
         udev_monitor_unref(m->udev_vcsa_monitor);
         udev_monitor_unref(m->udev_button_monitor);
 
-        udev_unref(m->udev);
-
         if (m->unlink_nologin)
                 (void) unlink_or_warn("/run/nologin");
 
@@ -172,7 +166,7 @@ static int manager_enumerate_devices(Manager *m) {
         /* Loads devices from udev and creates seats for them as
          * necessary */
 
-        e = udev_enumerate_new(m->udev);
+        e = udev_enumerate_new(NULL);
         if (!e)
                 return -ENOMEM;
 
@@ -193,7 +187,7 @@ static int manager_enumerate_devices(Manager *m) {
                 _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
                 int k;
 
-                d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
+                d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                 if (!d)
                         return -ENOMEM;
 
@@ -217,7 +211,7 @@ static int manager_enumerate_buttons(Manager *m) {
         if (manager_all_buttons_ignored(m))
                 return 0;
 
-        e = udev_enumerate_new(m->udev);
+        e = udev_enumerate_new(NULL);
         if (!e)
                 return -ENOMEM;
 
@@ -242,7 +236,7 @@ static int manager_enumerate_buttons(Manager *m) {
                 _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
                 int k;
 
-                d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
+                d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                 if (!d)
                         return -ENOMEM;
 
@@ -869,7 +863,7 @@ static int manager_connect_udev(Manager *m) {
         assert(!m->udev_vcsa_monitor);
         assert(!m->udev_button_monitor);
 
-        m->udev_seat_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        m->udev_seat_monitor = udev_monitor_new_from_netlink(NULL, "udev");
         if (!m->udev_seat_monitor)
                 return -ENOMEM;
 
@@ -885,7 +879,7 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        m->udev_device_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        m->udev_device_monitor = udev_monitor_new_from_netlink(NULL, "udev");
         if (!m->udev_device_monitor)
                 return -ENOMEM;
 
@@ -911,7 +905,7 @@ static int manager_connect_udev(Manager *m) {
 
         /* Don't watch keys if nobody cares */
         if (!manager_all_buttons_ignored(m)) {
-                m->udev_button_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+                m->udev_button_monitor = udev_monitor_new_from_netlink(NULL, "udev");
                 if (!m->udev_button_monitor)
                         return -ENOMEM;
 
@@ -935,7 +929,7 @@ static int manager_connect_udev(Manager *m) {
         /* Don't bother watching VCSA devices, if nobody cares */
         if (m->n_autovts > 0 && m->console_active_fd >= 0) {
 
-                m->udev_vcsa_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+                m->udev_vcsa_monitor = udev_monitor_new_from_netlink(NULL, "udev");
                 if (!m->udev_vcsa_monitor)
                         return -ENOMEM;
 

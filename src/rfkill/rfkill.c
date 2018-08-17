@@ -54,7 +54,6 @@ static const char* const rfkill_type_table[NUM_RFKILL_TYPES] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(rfkill_type, int);
 
 static int find_device(
-                struct udev *udev,
                 const struct rfkill_event *event,
                 struct udev_device **ret) {
 
@@ -62,14 +61,13 @@ static int find_device(
         struct udev_device *device;
         const char *name;
 
-        assert(udev);
         assert(event);
         assert(ret);
 
         if (asprintf(&sysname, "rfkill%i", event->idx) < 0)
                 return log_oom();
 
-        device = udev_device_new_from_subsystem_sysname(udev, "rfkill", sysname);
+        device = udev_device_new_from_subsystem_sysname(NULL, "rfkill", sysname);
         if (!device)
                 return log_full_errno(IN_SET(errno, ENOENT, ENXIO, ENODEV) ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to open device '%s': %m", sysname);
@@ -88,7 +86,6 @@ static int find_device(
 }
 
 static int wait_for_initialized(
-                struct udev *udev,
                 struct udev_device *device,
                 struct udev_device **ret) {
 
@@ -97,7 +94,6 @@ static int wait_for_initialized(
         const char *sysname;
         int watch_fd, r;
 
-        assert(udev);
         assert(device);
         assert(ret);
 
@@ -111,7 +107,7 @@ static int wait_for_initialized(
         /* Wait until the device is initialized, so that we can get
          * access to the ID_PATH property */
 
-        monitor = udev_monitor_new_from_netlink(udev, "udev");
+        monitor = udev_monitor_new_from_netlink(NULL, "udev");
         if (!monitor)
                 return log_error_errno(errno, "Failed to acquire monitor: %m");
 
@@ -128,7 +124,7 @@ static int wait_for_initialized(
                 return log_error_errno(watch_fd, "Failed to get watch fd: %m");
 
         /* Check again, maybe things changed */
-        d = udev_device_new_from_subsystem_sysname(udev, "rfkill", sysname);
+        d = udev_device_new_from_subsystem_sysname(NULL, "rfkill", sysname);
         if (!d)
                 return log_full_errno(IN_SET(errno, ENOENT, ENXIO, ENODEV) ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to open device '%s': %m", sysname);
@@ -163,7 +159,6 @@ static int wait_for_initialized(
 }
 
 static int determine_state_file(
-                struct udev *udev,
                 const struct rfkill_event *event,
                 char **ret) {
 
@@ -176,11 +171,11 @@ static int determine_state_file(
         assert(event);
         assert(ret);
 
-        r = find_device(udev, event, &d);
+        r = find_device(event, &d);
         if (r < 0)
                 return r;
 
-        r = wait_for_initialized(udev, d, &device);
+        r = wait_for_initialized(d, &device);
         if (r < 0)
                 return r;
 
@@ -207,7 +202,6 @@ static int determine_state_file(
 
 static int load_state(
                 int rfkill_fd,
-                struct udev *udev,
                 const struct rfkill_event *event) {
 
         _cleanup_free_ char *state_file = NULL, *value = NULL;
@@ -216,13 +210,12 @@ static int load_state(
         int b, r;
 
         assert(rfkill_fd >= 0);
-        assert(udev);
         assert(event);
 
         if (shall_restore_state() == 0)
                 return 0;
 
-        r = determine_state_file(udev, event, &state_file);
+        r = determine_state_file(event, &state_file);
         if (r < 0)
                 return r;
 
@@ -281,7 +274,6 @@ static void save_state_queue_remove(
 static int save_state_queue(
                 struct write_queue_item **write_queue,
                 int rfkill_fd,
-                struct udev *udev,
                 const struct rfkill_event *event) {
 
         _cleanup_free_ char *state_file = NULL;
@@ -289,10 +281,9 @@ static int save_state_queue(
         int r;
 
         assert(rfkill_fd >= 0);
-        assert(udev);
         assert(event);
 
-        r = determine_state_file(udev, event, &state_file);
+        r = determine_state_file(event, &state_file);
         if (r < 0)
                 return r;
 
@@ -314,17 +305,15 @@ static int save_state_queue(
 static int save_state_cancel(
                 struct write_queue_item **write_queue,
                 int rfkill_fd,
-                struct udev *udev,
                 const struct rfkill_event *event) {
 
         _cleanup_free_ char *state_file = NULL;
         int r;
 
         assert(rfkill_fd >= 0);
-        assert(udev);
         assert(event);
 
-        r = determine_state_file(udev, event, &state_file);
+        r = determine_state_file(event, &state_file);
         save_state_queue_remove(write_queue, event->idx, state_file);
         if (r < 0)
                 return r;
@@ -358,7 +347,6 @@ static int save_state_write(struct write_queue_item **write_queue) {
 
 int main(int argc, char *argv[]) {
         LIST_HEAD(write_queue_item, write_queue);
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_close_ int rfkill_fd = -1;
         bool ready = false;
         int r, n;
@@ -375,12 +363,6 @@ int main(int argc, char *argv[]) {
         log_open();
 
         umask(0022);
-
-        udev = udev_new();
-        if (!udev) {
-                r = log_oom();
-                goto finish;
-        }
 
         r = mkdir_p("/var/lib/systemd/rfkill", 0755);
         if (r < 0) {
@@ -474,17 +456,17 @@ int main(int argc, char *argv[]) {
 
                 case RFKILL_OP_ADD:
                         log_debug("A new rfkill device has been added with index %i and type %s.", event.idx, type);
-                        (void) load_state(rfkill_fd, udev, &event);
+                        (void) load_state(rfkill_fd, &event);
                         break;
 
                 case RFKILL_OP_DEL:
                         log_debug("An rfkill device has been removed with index %i and type %s", event.idx, type);
-                        (void) save_state_cancel(&write_queue, rfkill_fd, udev, &event);
+                        (void) save_state_cancel(&write_queue, rfkill_fd, &event);
                         break;
 
                 case RFKILL_OP_CHANGE:
                         log_debug("An rfkill device has changed state with index %i and type %s", event.idx, type);
-                        (void) save_state_queue(&write_queue, rfkill_fd, udev, &event);
+                        (void) save_state_queue(&write_queue, rfkill_fd, &event);
                         break;
 
                 default:

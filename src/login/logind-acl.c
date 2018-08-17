@@ -157,8 +157,7 @@ finish:
         return r;
 }
 
-int devnode_acl_all(struct udev *udev,
-                    const char *seat,
+int devnode_acl_all(const char *seat,
                     bool flush,
                     bool del, uid_t old_uid,
                     bool add, uid_t new_uid) {
@@ -172,13 +171,11 @@ int devnode_acl_all(struct udev *udev,
         char *n;
         int r;
 
-        assert(udev);
-
         nodes = set_new(&path_hash_ops);
         if (!nodes)
                 return -ENOMEM;
 
-        e = udev_enumerate_new(udev);
+        e = udev_enumerate_new(NULL);
         if (!e)
                 return -ENOMEM;
 
@@ -207,7 +204,7 @@ int devnode_acl_all(struct udev *udev,
                 _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
                 const char *node, *sn;
 
-                d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                 if (!d)
                         return -ENOMEM;
 

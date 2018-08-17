@@ -211,7 +211,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (kernel_device) {
                 struct udev_device *ud;
 
-                ud = udev_device_new_from_device_id(s->udev, kernel_device);
+                ud = udev_device_new_from_device_id(NULL, kernel_device);
                 if (ud) {
                         const char *g;
                         struct udev_list_entry *ll;

@@ -214,16 +214,11 @@ int swap_list_get(const char *swaps, MountPoint **head) {
 static int loopback_list_get(MountPoint **head) {
         _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         int r;
 
         assert(head);
 
-        udev = udev_new();
-        if (!udev)
-                return -ENOMEM;
-
-        e = udev_enumerate_new(udev);
+        e = udev_enumerate_new(NULL);
         if (!e)
                 return -ENOMEM;
 
@@ -249,7 +244,7 @@ static int loopback_list_get(MountPoint **head) {
                 const char *dn;
                 _cleanup_free_ MountPoint *lb = NULL;
 
-                d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                 if (!d)
                         return -ENOMEM;
 
@@ -275,16 +270,11 @@ static int loopback_list_get(MountPoint **head) {
 static int dm_list_get(MountPoint **head) {
         _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         int r;
 
         assert(head);
 
-        udev = udev_new();
-        if (!udev)
-                return -ENOMEM;
-
-        e = udev_enumerate_new(udev);
+        e = udev_enumerate_new(NULL);
         if (!e)
                 return -ENOMEM;
 
@@ -307,7 +297,7 @@ static int dm_list_get(MountPoint **head) {
                 const char *dn;
                 _cleanup_free_ MountPoint *m = NULL;
 
-                d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                 if (!d)
                         return -ENOMEM;
 

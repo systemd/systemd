@@ -13,8 +13,7 @@ int devnode_acl(const char *path,
                 bool del, uid_t old_uid,
                 bool add, uid_t new_uid);
 
-int devnode_acl_all(struct udev *udev,
-                    const char *seat,
+int devnode_acl_all(const char *seat,
                     bool flush,
                     bool del, uid_t old_uid,
                     bool add, uid_t new_uid);
@@ -27,8 +26,7 @@ static inline int devnode_acl(const char *path,
         return 0;
 }
 
-static inline int devnode_acl_all(struct udev *udev,
-                                  const char *seat,
+static inline int devnode_acl_all(const char *seat,
                                   bool flush,
                                   bool del, uid_t old_uid,
                                   bool add, uid_t new_uid) {

@@ -212,8 +212,6 @@ struct Manager {
 
         dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
 
-        struct udev* udev;
-
         /* Data specific to the device subsystem */
         struct udev_monitor* udev_monitor;
         sd_event_source *udev_event_source;

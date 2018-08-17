@@ -797,7 +797,7 @@ static void device_enumerate(Manager *m) {
         assert(m);
 
         if (!m->udev_monitor) {
-                m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+                m->udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
                 if (!m->udev_monitor) {
                         log_error_errno(errno, "Failed to allocate udev monitor: %m");
                         goto fail;
@@ -829,7 +829,7 @@ static void device_enumerate(Manager *m) {
                 (void) sd_event_source_set_description(m->udev_event_source, "device");
         }
 
-        e = udev_enumerate_new(m->udev);
+        e = udev_enumerate_new(NULL);
         if (!e) {
                 log_error_errno(errno, "Failed to alloacte udev enumerator: %m");
                 goto fail;
@@ -860,7 +860,7 @@ static void device_enumerate(Manager *m) {
 
                 sysfs = udev_list_entry_get_name(item);
 
-                dev = udev_device_new_from_syspath(m->udev, sysfs);
+                dev = udev_device_new_from_syspath(NULL, sysfs);
                 if (!dev) {
                         if (errno == ENOMEM) {
                                 log_oom();

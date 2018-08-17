@@ -79,15 +79,10 @@ int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_i
 
         if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
-                _cleanup_(udev_unrefp) struct udev *udev;
                 char ifindex_str[2 + DECIMAL_STR_MAX(int)];
 
-                udev = udev_new();
-                if (!udev)
-                        return -ENOMEM;
-
                 sprintf(ifindex_str, "n%d", ifindex);
-                device = udev_device_new_from_device_id(udev, ifindex_str);
+                device = udev_device_new_from_device_id(NULL, ifindex_str);
                 if (device) {
                         if (udev_device_get_is_initialized(device) <= 0)
                                 /* not yet ready */

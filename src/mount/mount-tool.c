@@ -922,7 +922,6 @@ static int stop_mounts(
 
 static int umount_by_device(sd_bus *bus, const char *what) {
         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_strv_free_ char **list = NULL;
         struct stat st;
         const char *v;
@@ -939,11 +938,7 @@ static int umount_by_device(sd_bus *bus, const char *what) {
                 return -ENOTBLK;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
-
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+        d = udev_device_new_from_devnum(NULL, 'b', st.st_rdev);
         if (!d)
                 return log_oom();
 
@@ -1244,7 +1239,6 @@ static int acquire_removable(struct udev_device *d) {
 
 static int discover_loop_backing_file(void) {
         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_free_ char *loop_dev = NULL;
         struct stat st;
         const char *v;
@@ -1284,11 +1278,7 @@ static int discover_loop_backing_file(void) {
                 return -EINVAL;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
-
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+        d = udev_device_new_from_devnum(NULL, 'b', st.st_rdev);
         if (!d)
                 return log_oom();
 
@@ -1319,7 +1309,6 @@ static int discover_loop_backing_file(void) {
 
 static int discover_device(void) {
         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         struct stat st;
         const char *v;
         int r;
@@ -1335,11 +1324,7 @@ static int discover_device(void) {
                 return -EINVAL;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
-
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+        d = udev_device_new_from_devnum(NULL, 'b', st.st_rdev);
         if (!d)
                 return log_oom();
 
@@ -1413,7 +1398,6 @@ static int list_devices(void) {
         };
 
         _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         size_t n_allocated = 0, n = 0, i;
         size_t column_width[_COLUMN_MAX];
@@ -1424,11 +1408,7 @@ static int list_devices(void) {
         for (c = 0; c < _COLUMN_MAX; c++)
                 column_width[c] = strlen(titles[c]);
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
-
-        e = udev_enumerate_new(udev);
+        e = udev_enumerate_new(NULL);
         if (!e)
                 return log_oom();
 
@@ -1449,7 +1429,7 @@ static int list_devices(void) {
                 _cleanup_(udev_device_unrefp) struct udev_device *d;
                 struct item *j;
 
-                d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                 if (!d) {
                         r = log_oom();
                         goto finish;

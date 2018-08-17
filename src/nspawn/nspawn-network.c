@@ -392,7 +392,7 @@ int remove_bridge(const char *bridge_name) {
         return remove_one_link(rtnl, bridge_name);
 }
 
-static int parse_interface(struct udev *udev, const char *name) {
+static int parse_interface(const char *name) {
         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         char ifi_str[2 + DECIMAL_STR_MAX(int)];
         int ifi;
@@ -402,7 +402,7 @@ static int parse_interface(struct udev *udev, const char *name) {
                 return log_error_errno(errno, "Failed to resolve interface %s: %m", name);
 
         sprintf(ifi_str, "n%i", ifi);
-        d = udev_device_new_from_device_id(udev, ifi_str);
+        d = udev_device_new_from_device_id(NULL, ifi_str);
         if (!d)
                 return log_error_errno(errno, "Failed to get udev device for interface %s: %m", name);
 
@@ -415,7 +415,6 @@ static int parse_interface(struct udev *udev, const char *name) {
 }
 
 int move_network_interfaces(pid_t pid, char **ifaces) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **i;
         int r;
@@ -427,17 +426,11 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        udev = udev_new();
-        if (!udev) {
-                log_error("Failed to connect to udev.");
-                return -ENOMEM;
-        }
-
         STRV_FOREACH(i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 int ifi;
 
-                ifi = parse_interface(udev, *i);
+                ifi = parse_interface(*i);
                 if (ifi < 0)
                         return ifi;
 
@@ -458,7 +451,6 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
 }
 
 int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         unsigned idx = 0;
         char **i;
@@ -471,19 +463,13 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        udev = udev_new();
-        if (!udev) {
-                log_error("Failed to connect to udev.");
-                return -ENOMEM;
-        }
-
         STRV_FOREACH(i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 struct ether_addr mac;
                 int ifi;
 
-                ifi = parse_interface(udev, *i);
+                ifi = parse_interface(*i);
                 if (ifi < 0)
                         return ifi;
 
@@ -546,7 +532,6 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
 }
 
 int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **i;
         int r;
@@ -558,18 +543,12 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        udev = udev_new();
-        if (!udev) {
-                log_error("Failed to connect to udev.");
-                return -ENOMEM;
-        }
-
         STRV_FOREACH(i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 int ifi;
 
-                ifi = parse_interface(udev, *i);
+                ifi = parse_interface(*i);
                 if (ifi < 0)
                         return ifi;
 

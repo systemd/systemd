@@ -3201,7 +3201,7 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
                 sprintf(ifindex_str, "n%d", link->ifindex);
-                device = udev_device_new_from_device_id(m->udev, ifindex_str);
+                device = udev_device_new_from_device_id(NULL, ifindex_str);
                 if (!device) {
                         r = log_link_warning_errno(link, errno, "Could not find udev device: %m");
                         goto failed;

@@ -1196,7 +1196,7 @@ static int trigger_device(Manager *m, struct udev_device *d) {
 
         assert(m);
 
-        e = udev_enumerate_new(m->udev);
+        e = udev_enumerate_new(NULL);
         if (!e)
                 return -ENOMEM;
 
@@ -1237,7 +1237,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         assert(seat);
         assert(sysfs);
 
-        d = udev_device_new_from_syspath(m->udev, sysfs);
+        d = udev_device_new_from_syspath(NULL, sysfs);
         if (!d)
                 return -ENODEV;
 

@@ -271,7 +271,7 @@ static int session_device_verify(SessionDevice *sd) {
         const char *sp, *node;
         int r;
 
-        dev = udev_device_new_from_devnum(sd->session->manager->udev, 'c', sd->dev);
+        dev = udev_device_new_from_devnum(NULL, 'c', sd->dev);
         if (!dev)
                 return -ENODEV;
 
