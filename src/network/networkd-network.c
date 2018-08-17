@@ -450,26 +450,25 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret) {
         return 0;
 }
 
-int network_get(Manager *manager, struct udev_device *device,
+int network_get(Manager *manager, sd_device *device,
                 const char *ifname, const struct ether_addr *address,
                 Network **ret) {
         Network *network;
-        struct udev_device *parent;
+        sd_device *parent;
         const char *path = NULL, *parent_driver = NULL, *driver = NULL, *devtype = NULL;
 
         assert(manager);
         assert(ret);
 
         if (device) {
-                path = udev_device_get_property_value(device, "ID_PATH");
+                (void) sd_device_get_property_value(device, "ID_PATH", &path);
 
-                parent = udev_device_get_parent(device);
-                if (parent)
-                        parent_driver = udev_device_get_driver(parent);
+                if (sd_device_get_parent(device, &parent) >= 0)
+                        (void) sd_device_get_driver(parent, &parent_driver);
 
-                driver = udev_device_get_property_value(device, "ID_NET_DRIVER");
+                (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &driver);
 
-                devtype = udev_device_get_devtype(device);
+                (void) sd_device_get_devtype(device, &devtype);
         }
 
         LIST_FOREACH(networks, network, manager->networks) {
@@ -484,8 +483,7 @@ int network_get(Manager *manager, struct udev_device *device,
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;
 
-                                attr = udev_device_get_sysattr_value(device, "name_assign_type");
-                                if (attr)
+                                if (sd_device_get_sysattr_value(device, "name_assign_type", &attr) >= 0 && !isempty(attr))
                                         (void) safe_atou8(attr, &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM)

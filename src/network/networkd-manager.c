@@ -183,18 +183,20 @@ int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-static int manager_udev_process_link(Manager *m, struct udev_device *device) {
+static int manager_udev_process_link(Manager *m, sd_device *device) {
+        const char *action;
         Link *link = NULL;
         int r, ifindex;
 
         assert(m);
         assert(device);
 
-        if (!streq_ptr(udev_device_get_action(device), "add"))
+        r = sd_device_get_property_value(device, "ACTION", &action);
+        if (r < 0 || !streq_ptr(action, "add"))
                 return 0;
 
-        ifindex = udev_device_get_ifindex(device);
-        if (ifindex <= 0) {
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0 || ifindex <= 0) {
                 log_debug("Ignoring udev ADD event for device with invalid ifindex");
                 return 0;
         }
@@ -215,11 +217,12 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
 static int manager_dispatch_link_udev(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
         struct udev_monitor *monitor = m->udev_monitor;
-        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        int r;
 
-        device = udev_monitor_receive_device(monitor);
-        if (!device)
-                return -ENOMEM;
+        r = udev_monitor_receive_sd_device(monitor, &device);
+        if (r < 0)
+                return r;
 
         (void) manager_udev_process_link(m, device);
 
