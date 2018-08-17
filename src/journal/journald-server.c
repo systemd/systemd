@@ -9,7 +9,6 @@
 #include <sys/statvfs.h>
 #include <linux/sockios.h>
 
-#include "libudev.h"
 #include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-messages.h"
