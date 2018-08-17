@@ -5,12 +5,14 @@
 
 #include "libudev.h"
 #include "sd-daemon.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "libudev-private.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -55,11 +57,11 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(rfkill_type, int);
 
 static int find_device(
                 const struct rfkill_event *event,
-                struct udev_device **ret) {
-
+                sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *sysname = NULL;
-        struct udev_device *device;
         const char *name;
+        int r;
 
         assert(event);
         assert(ret);
@@ -67,42 +69,40 @@ static int find_device(
         if (asprintf(&sysname, "rfkill%i", event->idx) < 0)
                 return log_oom();
 
-        device = udev_device_new_from_subsystem_sysname(NULL, "rfkill", sysname);
-        if (!device)
-                return log_full_errno(IN_SET(errno, ENOENT, ENXIO, ENODEV) ? LOG_DEBUG : LOG_ERR, errno,
+        r = sd_device_new_from_subsystem_sysname(&device, "rfkill", sysname);
+        if (r < 0)
+                return log_full_errno(IN_SET(r, -ENOENT, -ENXIO, -ENODEV) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to open device '%s': %m", sysname);
 
-        name = udev_device_get_sysattr_value(device, "name");
-        if (!name) {
+        if (sd_device_get_sysattr_value(device, "name", &name) < 0 || isempty(name)) {
                 log_debug("Device has no name, ignoring.");
-                udev_device_unref(device);
                 return -ENOENT;
         }
 
         log_debug("Operating on rfkill device '%s'.", name);
 
-        *ret = device;
+        *ret = TAKE_PTR(device);
         return 0;
 }
 
 static int wait_for_initialized(
-                struct udev_device *device,
-                struct udev_device **ret) {
+                sd_device *device,
+                sd_device **ret) {
 
         _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
-        struct udev_device *d;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        int initialized, watch_fd, r;
         const char *sysname;
-        int watch_fd, r;
 
         assert(device);
         assert(ret);
 
-        if (udev_device_get_is_initialized(device) != 0) {
-                *ret = udev_device_ref(device);
+        if (sd_device_get_is_initialized(device, &initialized) >= 0 && initialized) {
+                *ret = sd_device_ref(device);
                 return 0;
         }
 
-        assert_se(sysname = udev_device_get_sysname(device));
+        assert_se(sd_device_get_sysname(device, &sysname) >= 0);
 
         /* Wait until the device is initialized, so that we can get
          * access to the ID_PATH property */
@@ -124,18 +124,19 @@ static int wait_for_initialized(
                 return log_error_errno(watch_fd, "Failed to get watch fd: %m");
 
         /* Check again, maybe things changed */
-        d = udev_device_new_from_subsystem_sysname(NULL, "rfkill", sysname);
-        if (!d)
-                return log_full_errno(IN_SET(errno, ENOENT, ENXIO, ENODEV) ? LOG_DEBUG : LOG_ERR, errno,
+        r = sd_device_new_from_subsystem_sysname(&d, "rfkill", sysname);
+        if (r < 0)
+                return log_full_errno(IN_SET(r, -ENOENT, -ENXIO, -ENODEV) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to open device '%s': %m", sysname);
 
-        if (udev_device_get_is_initialized(d) != 0) {
-                *ret = d;
+        if (sd_device_get_is_initialized(d, &initialized) >= 0 && initialized) {
+                *ret = TAKE_PTR(d);
                 return 0;
         }
 
         for (;;) {
-                _cleanup_(udev_device_unrefp) struct udev_device *t = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *t = NULL;
+                const char *name;
 
                 r = fd_wait_for_event(watch_fd, POLLIN, EXIT_USEC);
                 if (r == -EINTR)
@@ -147,12 +148,12 @@ static int wait_for_initialized(
                         return -ETIMEDOUT;
                 }
 
-                t = udev_monitor_receive_device(monitor);
-                if (!t)
+                r = udev_monitor_receive_sd_device(monitor, &t);
+                if (r < 0)
                         continue;
 
-                if (streq_ptr(udev_device_get_sysname(t), sysname)) {
-                        *ret = udev_device_ref(t);
+                if (sd_device_get_sysname(t, &name) >= 0 && streq_ptr(name, sysname)) {
+                        *ret = TAKE_PTR(t);
                         return 0;
                 }
         }
@@ -162,8 +163,7 @@ static int determine_state_file(
                 const struct rfkill_event *event,
                 char **ret) {
 
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
-        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL, *device = NULL;
         const char *path_id, *type;
         char *state_file;
         int r;
@@ -181,8 +181,7 @@ static int determine_state_file(
 
         assert_se(type = rfkill_type_to_string(event->type));
 
-        path_id = udev_device_get_property_value(device, "ID_PATH");
-        if (path_id) {
+        if (sd_device_get_property_value(device, "ID_PATH", &path_id) >= 0 && !isempty(path_id)) {
                 _cleanup_free_ char *escaped_path_id = NULL;
 
                 escaped_path_id = cescape(path_id);
