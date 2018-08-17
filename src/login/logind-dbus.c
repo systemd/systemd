@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "sd-device.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -13,6 +14,7 @@
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "device-enumerator-private.h"
 #include "dirent-util.h"
 #include "efivars.h"
 #include "escape.h"
@@ -30,7 +32,6 @@
 #include "special.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "udev-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
@@ -1189,33 +1190,33 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int trigger_device(Manager *m, struct udev_device *d) {
-        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
-        struct udev_list_entry *first, *item;
+static int trigger_device(Manager *m, sd_device *d) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
 
         assert(m);
 
-        e = udev_enumerate_new(NULL);
-        if (!e)
-                return -ENOMEM;
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
 
         if (d) {
-                r = udev_enumerate_add_match_parent(e, d);
+                r = sd_device_enumerator_add_match_parent(e, d);
                 if (r < 0)
                         return r;
         }
 
-        r = udev_enumerate_scan_devices(e);
-        if (r < 0)
-                return r;
-
-        first = udev_enumerate_get_list_entry(e);
-        UDEV_LIST_ENTRY_FOREACH(item, first) {
+        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
                 _cleanup_free_ char *t = NULL;
                 const char *p;
 
-                p = udev_list_entry_get_name(item);
+                r = sd_device_get_syspath(d, &p);
+                if (r < 0)
+                        return r;
 
                 t = strappend(p, "/uevent");
                 if (!t)
@@ -1228,7 +1229,7 @@ static int trigger_device(Manager *m, struct udev_device *d) {
 }
 
 static int attach_device(Manager *m, const char *seat, const char *sysfs) {
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *rule = NULL, *file = NULL;
         const char *id_for_seat;
         int r;
@@ -1237,15 +1238,14 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         assert(seat);
         assert(sysfs);
 
-        d = udev_device_new_from_syspath(NULL, sysfs);
-        if (!d)
+        r = sd_device_new_from_syspath(&d, sysfs);
+        if (r < 0)
+                return r;
+
+        if (sd_device_has_tag(d, "seat") <= 0)
                 return -ENODEV;
 
-        if (!udev_device_has_tag(d, "seat"))
-                return -ENODEV;
-
-        id_for_seat = udev_device_get_property_value(d, "ID_FOR_SEAT");
-        if (!id_for_seat)
+        if (sd_device_get_property_value(d, "ID_FOR_SEAT", &id_for_seat) < 0)
                 return -ENODEV;
 
         if (asprintf(&file, "/etc/udev/rules.d/72-seat-%s.rules", id_for_seat) < 0)
@@ -1254,7 +1254,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         if (asprintf(&rule, "TAG==\"seat\", ENV{ID_FOR_SEAT}==\"%s\", ENV{ID_SEAT}=\"%s\"", id_for_seat, seat) < 0)
                 return -ENOMEM;
 
-        mkdir_p_label("/etc/udev/rules.d", 0755);
+        (void) mkdir_p_label("/etc/udev/rules.d", 0755);
         r = write_string_file_atomic_label(file, rule);
         if (r < 0)
                 return r;

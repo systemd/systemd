@@ -5,6 +5,7 @@
 
 #include "libudev.h"
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-event.h"
 
 #include "conf-parser.h"
@@ -132,8 +133,8 @@ int manager_add_user_by_name(Manager *m, const char *name, User **_user);
 int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
 int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor);
 
-int manager_process_seat_device(Manager *m, struct udev_device *d);
-int manager_process_button_device(Manager *m, struct udev_device *d);
+int manager_process_seat_device(Manager *m, sd_device *d);
+int manager_process_button_device(Manager *m, sd_device *d);
 
 int manager_spawn_autovt(Manager *m, unsigned int vtnr);
 
