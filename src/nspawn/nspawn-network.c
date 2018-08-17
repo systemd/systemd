@@ -4,7 +4,7 @@
 #include <net/if.h>
 #include <sys/file.h>
 
-#include "libudev.h"
+#include "sd-device.h"
 #include "sd-id128.h"
 #include "sd-netlink.h"
 
@@ -17,7 +17,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "udev-util.h"
+#include "strv.h"
 #include "util.h"
 
 #define HOST_HASH_KEY SD_ID128_MAKE(1a,37,6f,c7,46,ec,45,0b,ad,a3,d5,31,06,60,5d,b1)
@@ -393,20 +393,24 @@ int remove_bridge(const char *bridge_name) {
 }
 
 static int parse_interface(const char *name) {
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         char ifi_str[2 + DECIMAL_STR_MAX(int)];
-        int ifi;
+        int ifi, initialized, r;
 
         ifi = (int) if_nametoindex(name);
         if (ifi <= 0)
                 return log_error_errno(errno, "Failed to resolve interface %s: %m", name);
 
         sprintf(ifi_str, "n%i", ifi);
-        d = udev_device_new_from_device_id(NULL, ifi_str);
-        if (!d)
-                return log_error_errno(errno, "Failed to get udev device for interface %s: %m", name);
+        r = sd_device_new_from_device_id(&d, ifi_str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device for interface %s: %m", name);
 
-        if (udev_device_get_is_initialized(d) <= 0) {
+        r = sd_device_get_is_initialized(d, &initialized);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine that interface %s is initialized or not: %m", name);
+
+        if (!initialized) {
                 log_error("Network interface %s is not initialized yet.", name);
                 return -EBUSY;
         }
