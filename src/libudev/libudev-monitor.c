@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "libudev-device-internal.h"
 #include "libudev-private.h"
 #include "missing.h"
 #include "mount-util.h"
@@ -525,8 +526,6 @@ tag:
         return 0;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_device*, udev_device_unref);
-
 static int udev_monitor_receive_device_one(struct udev_monitor *udev_monitor, struct udev_device **ret) {
         _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
         union {
@@ -642,6 +641,18 @@ static int udev_monitor_receive_device_internal(struct udev_monitor *udev_monito
                 if (r != 0)
                         return r;
         }
+}
+
+int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_device **ret) {
+        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
+        int r;
+
+        r = udev_monitor_receive_device_internal(udev_monitor, &udev_device);
+        if (r < 0)
+                return r;
+
+        *ret = sd_device_ref(udev_device->device);
+        return 0;
 }
 
 /**

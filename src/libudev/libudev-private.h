@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 
 #include "libudev.h"
+#include "sd-device.h"
 
 #include "hashmap.h"
 #include "macro.h"
@@ -58,6 +59,7 @@ int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct 
 int udev_monitor_send_device(struct udev_monitor *udev_monitor,
                              struct udev_monitor *destination, struct udev_device *udev_device);
 int udev_monitor_new_from_netlink_fd(const char *name, int fd, struct udev_monitor **ret);
+int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_device **ret);
 
 /* libudev-list.c */
 struct udev_list {
