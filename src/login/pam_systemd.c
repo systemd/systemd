@@ -487,7 +487,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         r = sd_bus_message_append(m, "uusssssussbss",
                         (uint32_t) pw->pw_uid,
-                        (uint32_t) getpid_cached(),
+                        0,
                         service,
                         type,
                         class,
