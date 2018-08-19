@@ -86,8 +86,7 @@ static unsigned long long int cd_media_session_last_offset;
 #define ASC(errcode)        (((errcode) >> 8) & 0xFF)
 #define ASCQ(errcode)        ((errcode) & 0xFF)
 
-static bool is_mounted(const char *device)
-{
+static bool is_mounted(const char *device) {
         struct stat statbuf;
         FILE *fp;
         int maj, min;
@@ -109,8 +108,7 @@ static bool is_mounted(const char *device)
         return mounted;
 }
 
-static void info_scsi_cmd_err(struct udev *udev, const char *cmd, int err)
-{
+static void info_scsi_cmd_err(struct udev *udev, const char *cmd, int err) {
         if (err == -1) {
                 log_debug("%s failed", cmd);
                 return;
@@ -127,8 +125,7 @@ struct scsi_cmd {
         struct sg_io_hdr sg_io;
 };
 
-static void scsi_cmd_init(struct udev *udev, struct scsi_cmd *cmd)
-{
+static void scsi_cmd_init(struct udev *udev, struct scsi_cmd *cmd) {
         memzero(cmd, sizeof(struct scsi_cmd));
         cmd->cgc.quiet = 1;
         cmd->cgc.sense = &cmd->_sense.s;
@@ -139,16 +136,14 @@ static void scsi_cmd_init(struct udev *udev, struct scsi_cmd *cmd)
         cmd->sg_io.flags = SG_FLAG_LUN_INHIBIT | SG_FLAG_DIRECT_IO;
 }
 
-static void scsi_cmd_set(struct udev *udev, struct scsi_cmd *cmd, size_t i, unsigned char arg)
-{
+static void scsi_cmd_set(struct udev *udev, struct scsi_cmd *cmd, size_t i, unsigned char arg) {
         cmd->sg_io.cmd_len = i + 1;
         cmd->cgc.cmd[i] = arg;
 }
 
 #define CHECK_CONDITION 0x01
 
-static int scsi_cmd_run(struct udev *udev, struct scsi_cmd *cmd, int fd, unsigned char *buf, size_t bufsize)
-{
+static int scsi_cmd_run(struct udev *udev, struct scsi_cmd *cmd, int fd, unsigned char *buf, size_t bufsize) {
         int ret = 0;
 
         if (bufsize > 0) {
@@ -173,8 +168,7 @@ static int scsi_cmd_run(struct udev *udev, struct scsi_cmd *cmd, int fd, unsigne
         return ret;
 }
 
-static int media_lock(struct udev *udev, int fd, bool lock)
-{
+static int media_lock(struct udev *udev, int fd, bool lock) {
         int err;
 
         /* disable the kernel's lock logic */
@@ -189,8 +183,7 @@ static int media_lock(struct udev *udev, int fd, bool lock)
         return err;
 }
 
-static int media_eject(struct udev *udev, int fd)
-{
+static int media_eject(struct udev *udev, int fd) {
         struct scsi_cmd sc;
         int err;
 
@@ -233,8 +226,7 @@ static int cd_capability_compat(struct udev *udev, int fd)
         return 0;
 }
 
-static int cd_media_compat(struct udev *udev, int fd)
-{
+static int cd_media_compat(struct udev *udev, int fd) {
         if (ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK) {
                 log_debug("CDROM_DRIVE_STATUS != CDS_DISC_OK");
                 return -1;
@@ -243,8 +235,7 @@ static int cd_media_compat(struct udev *udev, int fd)
         return 0;
 }
 
-static int cd_inquiry(struct udev *udev, int fd)
-{
+static int cd_inquiry(struct udev *udev, int fd) {
         struct scsi_cmd sc;
         unsigned char inq[128];
         int err;
@@ -268,8 +259,7 @@ static int cd_inquiry(struct udev *udev, int fd)
         return 0;
 }
 
-static void feature_profile_media(struct udev *udev, int cur_profile)
-{
+static void feature_profile_media(struct udev *udev, int cur_profile) {
         switch (cur_profile) {
         case 0x03:
         case 0x04:
@@ -377,8 +367,7 @@ static void feature_profile_media(struct udev *udev, int cur_profile)
         }
 }
 
-static int feature_profiles(struct udev *udev, const unsigned char *profiles, size_t size)
-{
+static int feature_profiles(struct udev *udev, const unsigned char *profiles, size_t size) {
         unsigned int i;
 
         for (i = 0; i+4 <= size; i += 4) {
@@ -467,8 +456,7 @@ static int feature_profiles(struct udev *udev, const unsigned char *profiles, si
 }
 
 /* returns 0 if media was detected */
-static int cd_profiles_old_mmc(struct udev *udev, int fd)
-{
+static int cd_profiles_old_mmc(struct udev *udev, int fd) {
         struct scsi_cmd sc;
         int err;
 
@@ -509,8 +497,7 @@ static int cd_profiles_old_mmc(struct udev *udev, int fd)
 }
 
 /* returns 0 if media was detected */
-static int cd_profiles(struct udev *udev, int fd)
-{
+static int cd_profiles(struct udev *udev, int fd) {
         struct scsi_cmd sc;
         unsigned char features[65530];
         unsigned int cur_profile = 0;
@@ -597,8 +584,7 @@ out:
         return ret;
 }
 
-static int cd_media_info(struct udev *udev, int fd)
-{
+static int cd_media_info(struct udev *udev, int fd) {
         struct scsi_cmd sc;
         unsigned char header[32];
         static const char *media_status[] = {
@@ -750,8 +736,7 @@ determined:
         return 0;
 }
 
-static int cd_media_toc(struct udev *udev, int fd)
-{
+static int cd_media_toc(struct udev *udev, int fd) {
         struct scsi_cmd sc;
         unsigned char header[12];
         unsigned char toc[65536];
