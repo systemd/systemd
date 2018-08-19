@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include "libudev.h"
+#include "sd-device.h"
 
 #include "condition.h"
 #include "ethtool-util.h"
@@ -68,10 +68,9 @@ void link_config_ctx_free(link_config_ctx *ctx);
 int link_config_load(link_config_ctx *ctx);
 bool link_config_should_reload(link_config_ctx *ctx);
 
-int link_config_get(link_config_ctx *ctx, struct udev_device *device, struct link_config **ret);
-int link_config_apply(link_config_ctx *ctx, struct link_config *config, struct udev_device *device, const char **name);
-
-int link_get_driver(link_config_ctx *ctx, struct udev_device *device, char **ret);
+int link_config_get(link_config_ctx *ctx, sd_device *device, struct link_config **ret);
+int link_config_apply(link_config_ctx *ctx, struct link_config *config, sd_device *device, const char **name);
+int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret);
 
 const char *name_policy_to_string(NamePolicy p) _const_;
 NamePolicy name_policy_from_string(const char *p) _pure_;

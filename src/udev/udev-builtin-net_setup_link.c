@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "libudev-device-internal.h"
 #include "link-config.h"
 #include "log.h"
 #include "udev.h"
@@ -18,11 +19,11 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
                 return EXIT_FAILURE;
         }
 
-        r = link_get_driver(ctx, dev, &driver);
+        r = link_get_driver(ctx, dev->device, &driver);
         if (r >= 0)
                 udev_builtin_add_property(dev, test, "ID_NET_DRIVER", driver);
 
-        r = link_config_get(ctx, dev, &link);
+        r = link_config_get(ctx, dev->device, &link);
         if (r < 0) {
                 if (r == -ENOENT) {
                         log_debug("No matching link configuration found.");
@@ -33,7 +34,7 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
                 }
         }
 
-        r = link_config_apply(ctx, link, dev, &name);
+        r = link_config_apply(ctx, link, dev->device, &name);
         if (r < 0)
                 log_warning_errno(r, "Could not apply link config to %s, ignoring: %m", udev_device_get_sysname(dev));
 
