@@ -36,4 +36,3 @@ struct udev_device {
 };
 
 int udev_device_new(struct udev_device **ret);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_device*, udev_device_unref);

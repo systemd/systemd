@@ -3,7 +3,6 @@
 #include <linux/rfkill.h>
 #include <poll.h>
 
-#include "libudev.h"
 #include "sd-daemon.h"
 #include "sd-device.h"
 
@@ -18,7 +17,6 @@
 #include "proc-cmdline.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "util.h"
 #include "list.h"
 

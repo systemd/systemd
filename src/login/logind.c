@@ -5,7 +5,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "libudev.h"
 #include "sd-daemon.h"
 #include "sd-device.h"
 

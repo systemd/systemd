@@ -12,7 +12,6 @@
 
 #include "fd-util.h"
 #include "format-util.h"
-#include "udev-util.h"
 #include "udev.h"
 #include "udevadm-util.h"
 

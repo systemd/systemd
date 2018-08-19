@@ -4,6 +4,7 @@
 #include "sd-event.h"
 
 #include "capability-util.h"
+#include "mkdir.h"
 #include "networkd-conf.h"
 #include "networkd-manager.h"
 #include "signal-util.h"

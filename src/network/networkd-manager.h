@@ -3,11 +3,11 @@
 
 #include <arpa/inet.h>
 
+#include "libudev.h"
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-resolve.h"
-#include "udev.h"
 
 #include "dhcp-identifier.h"
 #include "hashmap.h"

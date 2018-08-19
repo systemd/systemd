@@ -22,7 +22,6 @@
 #include "ordered-set.h"
 #include "path-util.h"
 #include "set.h"
-#include "udev-util.h"
 #include "virt.h"
 
 /* use 8 MB for receive socket kernel queue. */

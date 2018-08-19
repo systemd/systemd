@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "networkd-manager.h"
+#include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
 

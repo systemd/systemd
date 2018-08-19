@@ -8,10 +8,10 @@
 #include "libudev.h"
 
 #include "fd-util.h"
+#include "libudev-private.h"
 #include "log.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "util.h"
 
 static void print_device(struct udev_device *device) {

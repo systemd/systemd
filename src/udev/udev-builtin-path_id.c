@@ -21,7 +21,6 @@
 #include "string-util.h"
 #include "sysexits.h"
 #include "udev.h"
-#include "udev-util.h"
 
 _printf_(2,3)
 static void path_prepend(char **path, const char *fmt, ...) {

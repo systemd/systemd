@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <errno.h>
+
+#include "alloc-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "string-util.h"

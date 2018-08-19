@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include "libudev.h"
-
 #if HAVE_ACL
 
 int devnode_acl(const char *path,

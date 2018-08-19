@@ -3,15 +3,13 @@
 #include <errno.h>
 #include <string.h>
 
-#include "libudev.h"
-
 #include "alloc-util.h"
+#include "libudev-private.h"
 #include "locale-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "sysfs-show.h"
 #include "terminal-util.h"
-#include "udev-util.h"
 #include "util.h"
 
 static int show_sysfs_one(

@@ -90,3 +90,9 @@ int util_replace_chars(char *str, const char *white);
 uint32_t util_string_hash32(const char *key);
 uint64_t util_string_bloom64(const char *str);
 int util_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, int read_value);
+
+/* cleanup functions */
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev*, udev_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_device*, udev_device_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_enumerate*, udev_enumerate_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_monitor*, udev_monitor_unref);
