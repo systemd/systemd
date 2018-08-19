@@ -769,7 +769,7 @@ substs.set('DEBUGTTY', get_option('debug-tty'))
 
 enable_debug_hashmap = false
 enable_debug_mmap_cache = false
-foreach name : get_option('debug')
+foreach name : get_option('debug-extra')
         if name == 'hashmap'
                 enable_debug_hashmap = true
         elif name == 'mmap-cache'
