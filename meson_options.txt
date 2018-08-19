@@ -45,7 +45,7 @@ option('debug-shell', type : 'string', value : '/bin/sh',
        description : 'path to debug shell binary')
 option('debug-tty', type : 'string', value : '/dev/tty9',
        description : 'specify the tty device for debug shell')
-option('debug', type : 'array', choices : ['hashmap', 'mmap-cache'], value : [],
+option('debug-extra', type : 'array', choices : ['hashmap', 'mmap-cache'], value : [],
        description : 'enable extra debugging')
 option('memory-accounting-default', type : 'boolean',
        description : 'enable MemoryAccounting= by default')
