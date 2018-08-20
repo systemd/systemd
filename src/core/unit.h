@@ -617,7 +617,7 @@ void unit_add_to_dbus_queue(Unit *u);
 void unit_add_to_cleanup_queue(Unit *u);
 void unit_add_to_gc_queue(Unit *u);
 void unit_add_to_target_deps_queue(Unit *u);
-void unit_add_to_stop_when_unneeded_queue(Unit *u);
+void unit_submit_to_stop_when_unneeded_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);

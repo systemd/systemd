@@ -438,7 +438,7 @@ void unit_add_to_dbus_queue(Unit *u) {
         u->in_dbus_queue = true;
 }
 
-void unit_add_to_stop_when_unneeded_queue(Unit *u) {
+void unit_submit_to_stop_when_unneeded_queue(Unit *u) {
         assert(u);
 
         if (u->in_stop_when_unneeded_queue)
@@ -1994,7 +1994,7 @@ bool unit_is_unneeded(Unit *u) {
                 Iterator i;
                 void *v;
 
-                /* If a dependending unit has a job queued, or is active (or in transitioning), or is marked for
+                /* If a dependent unit has a job queued, is active or transitioning, or is marked for
                  * restart, then don't clean this one up. */
 
                 HASHMAP_FOREACH_KEY(v, other, u->dependencies[deps[j]], i) {
@@ -2032,7 +2032,7 @@ static void check_unneeded_dependencies(Unit *u) {
                 void *v;
 
                 HASHMAP_FOREACH_KEY(v, other, u->dependencies[deps[j]], i)
-                        unit_add_to_stop_when_unneeded_queue(other);
+                        unit_submit_to_stop_when_unneeded_queue(other);
         }
 }
 
@@ -2495,7 +2495,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
         if (!MANAGER_IS_RELOADING(u->manager)) {
                 /* Maybe we finished startup and are now ready for being stopped because unneeded? */
-                unit_add_to_stop_when_unneeded_queue(u);
+                unit_submit_to_stop_when_unneeded_queue(u);
 
                 /* Maybe we finished startup, but something we needed has vanished? Let's die then. (This happens when
                  * something BindsTo= to a Type=oneshot unit, as these units go directly from starting to inactive,
