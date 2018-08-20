@@ -221,106 +221,48 @@ static void subtract_timestamp(usec_t *a, usec_t b) {
 }
 
 static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
+        static const struct bus_properties_map property_map[] = {
+                { "FirmwareTimestampMonotonic",               "t", NULL, offsetof(struct boot_times, firmware_time)                 },
+                { "LoaderTimestampMonotonic",                 "t", NULL, offsetof(struct boot_times, loader_time)                   },
+                { "KernelTimestamp",                          "t", NULL, offsetof(struct boot_times, kernel_time)                   },
+                { "InitRDTimestampMonotonic",                 "t", NULL, offsetof(struct boot_times, initrd_time)                   },
+                { "UserspaceTimestampMonotonic",              "t", NULL, offsetof(struct boot_times, userspace_time)                },
+                { "FinishTimestampMonotonic",                 "t", NULL, offsetof(struct boot_times, finish_time)                   },
+                { "SecurityStartTimestampMonotonic",          "t", NULL, offsetof(struct boot_times, security_start_time)           },
+                { "SecurityFinishTimestampMonotonic",         "t", NULL, offsetof(struct boot_times, security_finish_time)          },
+                { "GeneratorsStartTimestampMonotonic",        "t", NULL, offsetof(struct boot_times, generators_start_time)         },
+                { "GeneratorsFinishTimestampMonotonic",       "t", NULL, offsetof(struct boot_times, generators_finish_time)        },
+                { "UnitsLoadStartTimestampMonotonic",         "t", NULL, offsetof(struct boot_times, unitsload_start_time)          },
+                { "UnitsLoadFinishTimestampMonotonic",        "t", NULL, offsetof(struct boot_times, unitsload_finish_time)         },
+                { "InitRDSecurityStartTimestampMonotonic",    "t", NULL, offsetof(struct boot_times, initrd_security_start_time)    },
+                { "InitRDSecurityFinishTimestampMonotonic",   "t", NULL, offsetof(struct boot_times, initrd_security_finish_time)   },
+                { "InitRDGeneratorsStartTimestampMonotonic",  "t", NULL, offsetof(struct boot_times, initrd_generators_start_time)  },
+                { "InitRDGeneratorsFinishTimestampMonotonic", "t", NULL, offsetof(struct boot_times, initrd_generators_finish_time) },
+                { "InitRDUnitsLoadStartTimestampMonotonic",   "t", NULL, offsetof(struct boot_times, initrd_unitsload_start_time)   },
+                { "InitRDUnitsLoadFinishTimestampMonotonic",  "t", NULL, offsetof(struct boot_times, initrd_unitsload_finish_time)  },
+                {},
+        };
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         static struct boot_times times;
         static bool cached = false;
+        int r;
 
         if (cached)
                 goto finish;
 
         assert_cc(sizeof(usec_t) == sizeof(uint64_t));
 
-        if (bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "FirmwareTimestampMonotonic",
-                                    &times.firmware_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "LoaderTimestampMonotonic",
-                                    &times.loader_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "KernelTimestamp",
-                                    &times.kernel_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "InitRDTimestampMonotonic",
-                                    &times.initrd_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "UserspaceTimestampMonotonic",
-                                    &times.userspace_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "FinishTimestampMonotonic",
-                                    &times.finish_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "SecurityStartTimestampMonotonic",
-                                    &times.security_start_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "SecurityFinishTimestampMonotonic",
-                                    &times.security_finish_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "GeneratorsStartTimestampMonotonic",
-                                    &times.generators_start_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "GeneratorsFinishTimestampMonotonic",
-                                    &times.generators_finish_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "UnitsLoadStartTimestampMonotonic",
-                                    &times.unitsload_start_time) < 0 ||
-            bus_get_uint64_property(bus,
-                                    "/org/freedesktop/systemd1",
-                                    "org.freedesktop.systemd1.Manager",
-                                    "UnitsLoadFinishTimestampMonotonic",
-                                    &times.unitsload_finish_time) < 0)
-                return -EIO;
-
-        (void) bus_get_uint64_property(bus,
-                                       "/org/freedesktop/systemd1",
-                                       "org.freedesktop.systemd1.Manager",
-                                       "InitRDSecurityStartTimestampMonotonic",
-                                       &times.initrd_security_start_time);
-        (void) bus_get_uint64_property(bus,
-                                       "/org/freedesktop/systemd1",
-                                       "org.freedesktop.systemd1.Manager",
-                                       "InitRDSecurityFinishTimestampMonotonic",
-                                       &times.initrd_security_finish_time);
-        (void) bus_get_uint64_property(bus,
-                                       "/org/freedesktop/systemd1",
-                                       "org.freedesktop.systemd1.Manager",
-                                       "InitRDGeneratorsStartTimestampMonotonic",
-                                       &times.initrd_generators_start_time);
-        (void) bus_get_uint64_property(bus,
-                                       "/org/freedesktop/systemd1",
-                                       "org.freedesktop.systemd1.Manager",
-                                       "InitRDGeneratorsFinishTimestampMonotonic",
-                                       &times.initrd_generators_finish_time);
-        (void) bus_get_uint64_property(bus,
-                                       "/org/freedesktop/systemd1",
-                                       "org.freedesktop.systemd1.Manager",
-                                       "InitRDUnitsLoadStartTimestampMonotonic",
-                                       &times.initrd_unitsload_start_time);
-        (void) bus_get_uint64_property(bus,
-                                       "/org/freedesktop/systemd1",
-                                       "org.freedesktop.systemd1.Manager",
-                                       "InitRDUnitsLoadFinishTimestampMonotonic",
-                                       &times.initrd_unitsload_finish_time);
+        r = bus_map_all_properties(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        property_map,
+                        BUS_MAP_STRDUP,
+                        &error,
+                        NULL,
+                        &times);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get timestamp properties: %s", bus_error_message(&error, r));
 
         if (times.finish_time <= 0) {
                 log_error("Bootup is not yet finished (org.freedesktop.systemd1.Manager.FinishTimestampMonotonic=%"PRIu64").\n"
@@ -331,23 +273,23 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
                 return -EINPROGRESS;
         }
 
-        if (arg_scope == UNIT_FILE_SYSTEM) {
+        if (arg_scope == UNIT_FILE_SYSTEM && times.security_start_time > 0) {
+                /* security_start_time is set when systemd is not running under container environment. */
                 if (times.initrd_time > 0)
                         times.kernel_done_time = times.initrd_time;
                 else
                         times.kernel_done_time = times.userspace_time;
         } else {
                 /*
-                 * User-instance-specific timestamps processing
+                 * User-instance-specific or container-system-specific timestamps processing
                  * (see comment to reverse_offset in struct boot_times).
                  */
                 times.reverse_offset = times.userspace_time;
 
-                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time = times.userspace_time = 0;
-                subtract_timestamp(&times.finish_time, times.reverse_offset);
+                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time = times.userspace_time =
+                        times.security_start_time = times.security_finish_time = 0;
 
-                subtract_timestamp(&times.security_start_time, times.reverse_offset);
-                subtract_timestamp(&times.security_finish_time, times.reverse_offset);
+                subtract_timestamp(&times.finish_time, times.reverse_offset);
 
                 subtract_timestamp(&times.generators_start_time, times.reverse_offset);
                 subtract_timestamp(&times.generators_finish_time, times.reverse_offset);
@@ -381,13 +323,20 @@ static void free_host_info(struct host_info *hi) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct host_info*, free_host_info);
 
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
+        static const struct bus_properties_map property_map[] = {
+                { "InactiveExitTimestampMonotonic",  "t", NULL, offsetof(struct unit_times, activating)   },
+                { "ActiveEnterTimestampMonotonic",   "t", NULL, offsetof(struct unit_times, activated)    },
+                { "ActiveExitTimestampMonotonic",    "t", NULL, offsetof(struct unit_times, deactivating) },
+                { "InactiveEnterTimestampMonotonic", "t", NULL, offsetof(struct unit_times, deactivated)  },
+                {},
+        };
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, c = 0;
-        struct boot_times *boot_times = NULL;
         _cleanup_(unit_times_freep) struct unit_times *unit_times = NULL;
-        size_t size = 0;
+        struct boot_times *boot_times = NULL;
+        size_t allocated = 0, c = 0;
         UnitInfo u;
+        int r;
 
         r = acquire_boot_times(bus, &boot_times);
         if (r < 0)
@@ -411,7 +360,7 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
                 struct unit_times *t;
 
-                if (!GREEDY_REALLOC(unit_times, size, c+2))
+                if (!GREEDY_REALLOC(unit_times, allocated, c+2))
                         return log_oom();
 
                 unit_times[c+1].has_data = false;
@@ -420,23 +369,17 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
 
                 assert_cc(sizeof(usec_t) == sizeof(uint64_t));
 
-                if (bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "InactiveExitTimestampMonotonic",
-                                            &t->activating) < 0 ||
-                    bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "ActiveEnterTimestampMonotonic",
-                                            &t->activated) < 0 ||
-                    bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "ActiveExitTimestampMonotonic",
-                                            &t->deactivating) < 0 ||
-                    bus_get_uint64_property(bus, u.unit_path,
-                                            "org.freedesktop.systemd1.Unit",
-                                            "InactiveEnterTimestampMonotonic",
-                                            &t->deactivated) < 0)
-                        return -EIO;
+                r = bus_map_all_properties(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                u.unit_path,
+                                property_map,
+                                BUS_MAP_STRDUP,
+                                &error,
+                                NULL,
+                                t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get timestamp properties of unit %s: %s", u.id, bus_error_message(&error, r));
 
                 subtract_timestamp(&t->activating, boot_times->reverse_offset);
                 subtract_timestamp(&t->activated, boot_times->reverse_offset);
@@ -579,18 +522,21 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
                 size = strpcpyf(&ptr, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), t->firmware_time - t->loader_time, USEC_PER_MSEC));
         if (t->loader_time > 0)
                 size = strpcpyf(&ptr, size, "%s (loader) + ", format_timespan(ts, sizeof(ts), t->loader_time, USEC_PER_MSEC));
-        if (t->kernel_time > 0)
+        if (t->kernel_done_time > 0)
                 size = strpcpyf(&ptr, size, "%s (kernel) + ", format_timespan(ts, sizeof(ts), t->kernel_done_time, USEC_PER_MSEC));
         if (t->initrd_time > 0)
                 size = strpcpyf(&ptr, size, "%s (initrd) + ", format_timespan(ts, sizeof(ts), t->userspace_time - t->initrd_time, USEC_PER_MSEC));
 
         size = strpcpyf(&ptr, size, "%s (userspace) ", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
-        if (t->kernel_time > 0)
+        if (t->kernel_done_time > 0)
                 strpcpyf(&ptr, size, "= %s ", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
 
-        if (unit_id && activated_time > 0 && activated_time != USEC_INFINITY)
-                size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->userspace_time, USEC_PER_MSEC));
-        else if (unit_id && activated_time == 0)
+        if (unit_id && activated_time > 0 && activated_time != USEC_INFINITY) {
+                if (t->userspace_time > 0)
+                        size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->userspace_time, USEC_PER_MSEC));
+                else
+                        size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->reverse_offset, USEC_PER_MSEC));
+        } else if (unit_id && activated_time == 0)
                 size = strpcpyf(&ptr, size, "\n%s was never reached", unit_id);
         else if (unit_id && activated_time == USEC_INFINITY)
                 size = strpcpyf(&ptr, size, "\nCould not get time to reach %s.", unit_id);
@@ -698,7 +644,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         }
         if (boot->initrd_time > 0)
                 m++;
-        if (boot->kernel_time > 0)
+        if (boot->kernel_done_time > 0)
                 m++;
 
         for (u = times; u->has_data; u++) {
@@ -798,7 +744,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
                 svg_text(true, -(double) boot->loader_time, y, "loader");
                 y++;
         }
-        if (boot->kernel_time > 0) {
+        if (boot->kernel_done_time > 0) {
                 svg_bar("kernel", 0, boot->kernel_done_time, y);
                 svg_text(true, 0, y, "kernel");
                 y++;
@@ -823,7 +769,8 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         }
 
         svg_bar("active", boot->userspace_time, boot->finish_time, y);
-        svg_bar("security", boot->security_start_time, boot->security_finish_time, y);
+        if (boot->security_start_time > 0)
+                svg_bar("security", boot->security_start_time, boot->security_finish_time, y);
         svg_bar("generators", boot->generators_start_time, boot->generators_finish_time, y);
         svg_bar("unitsload", boot->unitsload_start_time, boot->unitsload_finish_time, y);
         svg_text(true, boot->userspace_time, y, "systemd");
@@ -846,9 +793,11 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         svg_bar("deactivating", 0, 300000, y);
         svg_text(true, 400000, y, "Deactivating");
         y++;
-        svg_bar("security", 0, 300000, y);
-        svg_text(true, 400000, y, "Setting up security module");
-        y++;
+        if (boot->security_start_time > 0) {
+                svg_bar("security", 0, 300000, y);
+                svg_text(true, 400000, y, "Setting up security module");
+                y++;
+        }
         svg_bar("generators", 0, 300000, y);
         svg_text(true, 400000, y, "Generators");
         y++;

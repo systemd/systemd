@@ -53,6 +53,27 @@ typedef enum StatusType {
         STATUS_TYPE_EMERGENCY,
 } StatusType;
 
+/* Notes:
+ * 1. TIMESTAMP_FIRMWARE, TIMESTAMP_LOADER, TIMESTAMP_KERNEL, TIMESTAMP_INITRD,
+ *    TIMESTAMP_SECURITY_START, and TIMESTAMP_SECURITY_FINISH are set only when
+ *    the manager is system and not running under container environment.
+ *
+ * 2. The monotonic timestamp of TIMESTAMP_KERNEL is always zero.
+ *
+ * 3. The realtime timestamp of TIMESTAMP_KERNEL will be unset if the system does not
+ *    have RTC.
+ *
+ * 4. TIMESTAMP_FIRMWARE and TIMESTAMP_LOADER will be unset if the system does not
+ *    have RTC, or systemd is built without EFI support.
+ *
+ * 5. The monotonic timestamps of TIMESTAMP_FIRMWARE and TIMESTAMP_LOADER are stored as
+ *    negative of the actual value.
+ *
+ * 6. TIMESTAMP_USERSPACE is the timestamp of when the manager was started.
+ *
+ * 7. TIMESTAMP_INITRD_* are set only when the system is booted with an initrd.
+ */
+
 typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_FIRMWARE,
         MANAGER_TIMESTAMP_LOADER,
