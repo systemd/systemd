@@ -168,14 +168,14 @@ int get_user_creds(
         assert(username);
         assert(*username);
 
-        if (!FLAGS_SET(flags, USER_CREDS_SYNTHESIZE_FALLBACK) ||
+        if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS) ||
             (!home && !shell)) {
 
                 /* So here's the deal: normally, we'll try to synthesize all records we can synthesize, and override
-                 * the user database with that. However, if the user specifies USER_CREDS_SYNTHESIZE_FALLBACK then the
+                 * the user database with that. However, if the user specifies USER_CREDS_PREFER_NSS then the
                  * user database will override the synthetic records instead — except if the user is only interested in
                  * the UID and/or GID (but not the home directory, or the shell), in which case we'll always override
-                 * the user database (i.e. the USER_CREDS_SYNTHESIZE_FALLBACK flag has no effect in this case). Why?
+                 * the user database (i.e. the USER_CREDS_PREFER_NSS flag has no effect in this case). Why?
                  * Simply because there are valid usecase where the user might change the home directory or the shell
                  * of the relevant users, but changing the UID/GID mappings for them is something we explicitly don't
                  * support. */
@@ -215,7 +215,7 @@ int get_user_creds(
                 r = errno > 0 ? -errno : -ESRCH;
 
                 /* If the user requested that we only synthesize as fallback, do so now */
-                if (FLAGS_SET(flags, USER_CREDS_SYNTHESIZE_FALLBACK)) {
+                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS)) {
                         if (synthesize_user_creds(username, uid, gid, home, shell, flags) >= 0)
                                 return 0;
                 }
