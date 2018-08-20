@@ -771,20 +771,11 @@ static bool hardlink_vulnerable(const struct stat *st) {
 }
 
 static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st) {
-        _cleanup_free_ char *buffer = NULL;
         struct stat stbuf;
-        int r;
 
         assert(i);
         assert(fd);
-
-        if (!path) {
-                r = fd_get_path(fd, &buffer);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get path: %m");
-
-                path = buffer;
-        }
+        assert(path);
 
         if (!i->mode_set && !i->uid_set && !i->gid_set)
                 goto shortcut;
@@ -944,20 +935,11 @@ static int parse_xattrs_from_arg(Item *i) {
 
 static int fd_set_xattrs(Item *i, int fd, const char *path, const struct stat *st) {
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *buffer = NULL;
         char **name, **value;
-        int r;
 
         assert(i);
         assert(fd);
-
-        if (!path) {
-                r = fd_get_path(fd, &buffer);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get path: %m");
-
-                path = buffer;
-        }
+        assert(path);
 
         xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
@@ -1052,19 +1034,11 @@ static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *
         int r = 0;
 #if HAVE_ACL
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *buffer = NULL;
         struct stat stbuf;
 
         assert(item);
         assert(fd);
-
-        if (!path) {
-                r = fd_get_path(fd, &buffer);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get path: %m");
-
-                path = buffer;
-        }
+        assert(path);
 
         if (!st) {
                 if (fstat(fd, &stbuf) < 0)
@@ -1221,21 +1195,16 @@ static int parse_attribute_from_arg(Item *item) {
 
 static int fd_set_attribute(Item *item, int fd, const char *path, const struct stat *st) {
         _cleanup_close_ int procfs_fd = -1;
-        _cleanup_free_ char *buffer = NULL;
         struct stat stbuf;
         unsigned f;
         int r;
 
+        assert(item);
+        assert(fd);
+        assert(path);
+
         if (!item->attribute_set || item->attribute_mask == 0)
                 return 0;
-
-        if (!path) {
-                r = fd_get_path(fd, &buffer);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get path: %m");
-
-                path = buffer;
-        }
 
         if (!st) {
                 if (fstat(fd, &stbuf) < 0)
@@ -1823,6 +1792,7 @@ static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
         int r = 0, q;
 
         assert(i);
+        assert(path);
         assert(fd >= 0);
 
         if (fstat(fd, &st) < 0) {
@@ -1860,9 +1830,16 @@ static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
                         de_fd = openat(fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_PATH);
                         if (de_fd < 0)
                                 q = log_error_errno(errno, "Failed to open() file '%s': %m", de->d_name);
-                        else
-                                /* Pass ownership of dirent fd over */
-                                q = item_do(i, de_fd, NULL, action);
+                        else {
+                                _cleanup_free_ char *de_path = NULL;
+
+                                de_path = path_join(NULL, path, de->d_name);
+                                if (!de_path)
+                                        q = log_oom();
+                                else
+                                        /* Pass ownership of dirent fd over */
+                                        q = item_do(i, de_fd, de_path, action);
+                        }
 
                         if (q < 0 && r == 0)
                                 r = q;
