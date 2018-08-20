@@ -28,7 +28,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_test(struct udev *udev, int argc, char *argv[]) {
+static int adm_test(int argc, char *argv[]) {
         int resolve_names = 1;
         char filename[UTIL_PATH_SIZE];
         const char *action = "add";
@@ -94,9 +94,9 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
 
         sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
-        udev_builtin_init(udev);
+        udev_builtin_init();
 
-        rules = udev_rules_new(udev, resolve_names);
+        rules = udev_rules_new(resolve_names);
         if (rules == NULL) {
                 fprintf(stderr, "error reading rules\n");
                 rc = 3;
@@ -140,7 +140,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
                 printf("run: '%s'\n", program);
         }
 out:
-        udev_builtin_exit(udev);
+        udev_builtin_exit();
         return rc;
 }
 

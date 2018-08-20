@@ -57,7 +57,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
+static int adm_monitor(int argc, char *argv[]) {
         struct sigaction act = {};
         sigset_t mask;
         bool prop = false;
@@ -154,7 +154,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
         if (print_udev) {
                 struct udev_list_entry *entry;
 
-                udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
+                udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
                 if (udev_monitor == NULL) {
                         fprintf(stderr, "error: unable to create netlink socket\n");
                         return 1;
@@ -196,7 +196,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
         if (print_kernel) {
                 struct udev_list_entry *entry;
 
-                kernel_monitor = udev_monitor_new_from_netlink(udev, "kernel");
+                kernel_monitor = udev_monitor_new_from_netlink(NULL, "kernel");
                 if (kernel_monitor == NULL) {
                         fprintf(stderr, "error: unable to create netlink socket\n");
                         return 3;

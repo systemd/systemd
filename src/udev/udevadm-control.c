@@ -41,7 +41,7 @@ static void print_help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_control(struct udev *udev, int argc, char *argv[]) {
+static int adm_control(int argc, char *argv[]) {
         _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
         int timeout = 60;
         int rc = 1, c;
@@ -65,7 +65,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
         if (must_be_root() < 0)
                 return 1;
 
-        uctrl = udev_ctrl_new(udev);
+        uctrl = udev_ctrl_new();
         if (uctrl == NULL)
                 return 2;
 

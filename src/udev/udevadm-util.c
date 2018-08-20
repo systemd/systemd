@@ -4,11 +4,7 @@
 #include "string-util.h"
 #include "udevadm-util.h"
 
-struct udev_device *find_device(struct udev *udev,
-                                const char *id,
-                                const char *prefix) {
-
-        assert(udev);
+struct udev_device *find_device(const char *id, const char *prefix) {
         assert(id);
 
         if (prefix && !startswith(id, prefix))
@@ -28,9 +24,9 @@ struct udev_device *find_device(struct udev *udev,
                 else
                         return NULL;
 
-                return udev_device_new_from_devnum(udev, type, statbuf.st_rdev);
+                return udev_device_new_from_devnum(NULL, type, statbuf.st_rdev);
         } else if (path_startswith(id, "/sys/"))
-                return udev_device_new_from_syspath(udev, id);
+                return udev_device_new_from_syspath(NULL, id);
         else
                 return NULL;
 }

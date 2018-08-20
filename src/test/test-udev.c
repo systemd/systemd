@@ -53,7 +53,6 @@ static int fake_filesystems(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
         _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
@@ -67,10 +66,6 @@ int main(int argc, char *argv[]) {
 
         r = fake_filesystems();
         if (r < 0)
-                return EXIT_FAILURE;
-
-        udev = udev_new();
-        if (udev == NULL)
                 return EXIT_FAILURE;
 
         log_debug("version %s", PACKAGE_VERSION);
@@ -88,7 +83,7 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        rules = udev_rules_new(udev, 1);
+        rules = udev_rules_new(1);
 
         strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
         r = udev_device_new_from_synthetic_event(syspath, action, &dev);

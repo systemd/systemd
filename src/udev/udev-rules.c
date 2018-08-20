@@ -50,7 +50,6 @@ static const char* const rules_dirs[] = {
 };
 
 struct udev_rules {
-        struct udev *udev;
         usec_t dirs_ts_usec;
         int resolve_names;
 
@@ -700,7 +699,7 @@ static void attr_subst_subdir(char *attr, size_t len) {
                 }
 }
 
-static int get_key(struct udev *udev, char **line, char **key, enum operation_type *op, char **value) {
+static int get_key(char **line, char **key, enum operation_type *op, char **value) {
         char *linepos;
         char *temp;
         unsigned i, j;
@@ -802,7 +801,7 @@ static int get_key(struct udev *udev, char **line, char **key, enum operation_ty
 }
 
 /* extract possible KEY{attr} */
-static const char *get_key_attribute(struct udev *udev, char *str) {
+static const char *get_key_attribute(char *str) {
         char *pos;
         char *attr;
 
@@ -1019,7 +1018,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                 char *value;
                 enum operation_type op;
 
-                if (get_key(rules->udev, &linepos, &key, &op, &value) != 0) {
+                if (get_key(&linepos, &key, &op, &value) != 0) {
                         /* Avoid erroring on trailing whitespace. This is probably rare
                          * so save the work for the error case instead of always trying
                          * to strip the trailing whitespace with strstrip(). */
@@ -1082,8 +1081,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         rule_add_key(&rule_tmp, TK_M_DRIVER, op, value, NULL);
 
                 } else if (startswith(key, "ATTR{")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("ATTR"));
+                        attr = get_key_attribute(key + STRLEN("ATTR"));
                         if (attr == NULL)
                                 LOG_AND_RETURN("error parsing %s attribute", "ATTR");
 
@@ -1096,8 +1094,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_A_ATTR, op, value, attr);
 
                 } else if (startswith(key, "SYSCTL{")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("SYSCTL"));
+                        attr = get_key_attribute(key + STRLEN("SYSCTL"));
                         if (attr == NULL)
                                 LOG_AND_RETURN("error parsing %s attribute", "ATTR");
 
@@ -1110,8 +1107,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_A_SYSCTL, op, value, attr);
 
                 } else if (startswith(key, "SECLABEL{")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("SECLABEL"));
+                        attr = get_key_attribute(key + STRLEN("SECLABEL"));
                         if (attr == NULL)
                                 LOG_AND_RETURN("error parsing %s attribute", "SECLABEL");
 
@@ -1142,8 +1138,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         if (op > OP_MATCH_MAX)
                                 LOG_AND_RETURN("invalid %s operation", "ATTRS");
 
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("ATTRS"));
+                        attr = get_key_attribute(key + STRLEN("ATTRS"));
                         if (attr == NULL)
                                 LOG_AND_RETURN("error parsing %s attribute", "ATTRS");
 
@@ -1160,8 +1155,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         rule_add_key(&rule_tmp, TK_M_TAGS, op, value, NULL);
 
                 } else if (startswith(key, "ENV{")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("ENV"));
+                        attr = get_key_attribute(key + STRLEN("ENV"));
                         if (attr == NULL)
                                 LOG_AND_RETURN("error parsing %s attribute", "ENV");
 
@@ -1207,8 +1201,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         rule_add_key(&rule_tmp, TK_M_RESULT, op, value, NULL);
 
                 } else if (startswith(key, "IMPORT")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("IMPORT"));
+                        attr = get_key_attribute(key + STRLEN("IMPORT"));
                         if (attr == NULL) {
                                 LOG_RULE_WARNING("ignoring IMPORT{} with missing type");
                                 continue;
@@ -1252,8 +1245,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         if (op > OP_MATCH_MAX)
                                 LOG_AND_RETURN("invalid %s operation", "TEST");
 
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("TEST"));
+                        attr = get_key_attribute(key + STRLEN("TEST"));
                         if (attr != NULL) {
                                 mode = strtol(attr, NULL, 8);
                                 rule_add_key(&rule_tmp, TK_M_TEST, op, value, &mode);
@@ -1261,8 +1253,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_M_TEST, op, value, NULL);
 
                 } else if (startswith(key, "RUN")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("RUN"));
+                        attr = get_key_attribute(key + STRLEN("RUN"));
                         if (attr == NULL)
                                 attr = "program";
                         if (op == OP_REMOVE)
@@ -1513,7 +1504,7 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
         return 0;
 }
 
-struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
+struct udev_rules *udev_rules_new(int resolve_names) {
         struct udev_rules *rules;
         struct udev_list file_list;
         struct token end_token;
@@ -1523,7 +1514,6 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
         rules = new0(struct udev_rules, 1);
         if (rules == NULL)
                 return NULL;
-        rules->udev = udev;
         rules->resolve_names = resolve_names;
         udev_list_init(&file_list, true);
 

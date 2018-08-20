@@ -11,7 +11,7 @@
 #include "udev-util.h"
 #include "udev.h"
 
-static int adm_version(struct udev *udev, int argc, char *argv[]) {
+static int adm_version(int argc, char *argv[]) {
         printf("%s\n", PACKAGE_VERSION);
         return 0;
 }
@@ -21,7 +21,7 @@ static const struct udevadm_cmd udevadm_version = {
         .cmd = adm_version,
 };
 
-static int adm_help(struct udev *udev, int argc, char *argv[]);
+static int adm_help(int argc, char *argv[]);
 
 static const struct udevadm_cmd udevadm_help = {
         .name = "help",
@@ -41,7 +41,7 @@ static const struct udevadm_cmd *udevadm_cmds[] = {
         &udevadm_help,
 };
 
-static int adm_help(struct udev *udev, int argc, char *argv[]) {
+static int adm_help(int argc, char *argv[]) {
         _cleanup_free_ char *link = NULL;
         size_t i;
         int r;
@@ -63,15 +63,14 @@ static int adm_help(struct udev *udev, int argc, char *argv[]) {
         return 0;
 }
 
-static int run_command(struct udev *udev, const struct udevadm_cmd *cmd, int argc, char *argv[]) {
+static int run_command(const struct udevadm_cmd *cmd, int argc, char *argv[]) {
         if (cmd->debug)
                 log_set_max_level(LOG_DEBUG);
         log_debug("calling: %s", cmd->name);
-        return cmd->cmd(udev, argc, argv);
+        return cmd->cmd(argc, argv);
 }
 
 int main(int argc, char *argv[]) {
-        struct udev *udev;
         static const struct option options[] = {
                 { "debug", no_argument, NULL, 'd' },
                 { "help", no_argument, NULL, 'h' },
@@ -88,10 +87,6 @@ int main(int argc, char *argv[]) {
 
         mac_selinux_init();
 
-        udev = udev_new();
-        if (udev == NULL)
-                goto out;
-
         while ((c = getopt_long(argc, argv, "+dhV", options, NULL)) >= 0)
                 switch (c) {
 
@@ -100,11 +95,11 @@ int main(int argc, char *argv[]) {
                         break;
 
                 case 'h':
-                        rc = adm_help(udev, argc, argv);
+                        rc = adm_help(argc, argv);
                         goto out;
 
                 case 'V':
-                        rc = adm_version(udev, argc, argv);
+                        rc = adm_version(argc, argv);
                         goto out;
 
                 default:
@@ -120,7 +115,7 @@ int main(int argc, char *argv[]) {
                                 argv += optind;
                                 /* we need '0' here to reset the internal state */
                                 optind = 0;
-                                rc = run_command(udev, udevadm_cmds[i], argc, argv);
+                                rc = run_command(udevadm_cmds[i], argc, argv);
                                 goto out;
                         }
 
@@ -128,7 +123,6 @@ int main(int argc, char *argv[]) {
         rc = 2;
 out:
         mac_selinux_finish();
-        udev_unref(udev);
         log_close();
         return rc;
 }

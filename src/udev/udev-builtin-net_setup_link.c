@@ -45,7 +45,7 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
         return EXIT_SUCCESS;
 }
 
-static int builtin_net_setup_link_init(struct udev *udev) {
+static int builtin_net_setup_link_init(void) {
         int r;
 
         if (ctx)
@@ -63,13 +63,13 @@ static int builtin_net_setup_link_init(struct udev *udev) {
         return 0;
 }
 
-static void builtin_net_setup_link_exit(struct udev *udev) {
+static void builtin_net_setup_link_exit(void) {
         link_config_ctx_free(ctx);
         ctx = NULL;
         log_debug("Unloaded link configuration context.");
 }
 
-static bool builtin_net_setup_link_validate(struct udev *udev) {
+static bool builtin_net_setup_link_validate(void) {
         log_debug("Check if link configuration needs reloading.");
         if (!ctx)
                 return false;

@@ -113,7 +113,6 @@ exit:
 
 /* find device node of device with highest priority */
 static const char *link_find_prioritized(struct udev_device *dev, bool add, const char *stackdir, char *buf, size_t bufsize) {
-        struct udev *udev = udev_device_get_udev(dev);
         DIR *dir;
         struct dirent *dent;
         int priority = 0;
@@ -142,7 +141,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
                 if (streq(dent->d_name, udev_device_get_id_filename(dev)))
                         continue;
 
-                dev_db = udev_device_new_from_device_id(udev, dent->d_name);
+                dev_db = udev_device_new_from_device_id(NULL, dent->d_name);
                 if (dev_db != NULL) {
                         const char *devnode;
 

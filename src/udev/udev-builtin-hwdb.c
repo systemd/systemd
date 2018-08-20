@@ -161,7 +161,7 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
 
         /* read data from another device than the device we will store the data */
         if (device) {
-                srcdev = udev_device_new_from_device_id(udev_device_get_udev(dev), device);
+                srcdev = udev_device_new_from_device_id(NULL, device);
                 if (!srcdev)
                         return EXIT_FAILURE;
         }
@@ -172,7 +172,7 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
 }
 
 /* called at udev startup and reload */
-static int builtin_hwdb_init(struct udev *udev) {
+static int builtin_hwdb_init(void) {
         int r;
 
         if (hwdb)
@@ -186,12 +186,12 @@ static int builtin_hwdb_init(struct udev *udev) {
 }
 
 /* called on udev shutdown and reload request */
-static void builtin_hwdb_exit(struct udev *udev) {
+static void builtin_hwdb_exit(void) {
         hwdb = sd_hwdb_unref(hwdb);
 }
 
 /* called every couple of seconds during event activity; 'true' if config has changed */
-static bool builtin_hwdb_validate(struct udev *udev) {
+static bool builtin_hwdb_validate(void) {
         return hwdb_validate(hwdb);
 }
 
