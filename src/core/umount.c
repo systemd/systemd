@@ -72,7 +72,8 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 
         for (;;) {
                 struct libmnt_fs *fs;
-                const char *path, *options, *fstype;
+                const char *path, *fstype;
+                _cleanup_free_ char *options = NULL;
                 _cleanup_free_ char *p = NULL;
                 unsigned long remount_flags = 0u;
                 _cleanup_free_ char *remount_options = NULL;
@@ -92,8 +93,24 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 if (cunescape(path, UNESCAPE_RELAX, &p) < 0)
                         return log_oom();
 
-                options = mnt_fs_get_options(fs);
                 fstype = mnt_fs_get_fstype(fs);
+
+                /* Combine the generic VFS options with the FS-specific
+                 * options. Duplicates are not a problem here, because the only
+                 * options that should come up twice are typically ro/rw, which
+                 * are turned into MS_RDONLY or the invertion of it.
+                 *
+                 * Even if there are duplicates later in mount_option_mangle()
+                 * it shouldn't hurt anyways as they override each other.
+                 */
+                if (!strextend_with_separator(&options, ",",
+                                              mnt_fs_get_vfs_options(fs),
+                                              NULL))
+                        return log_oom();
+                if (!strextend_with_separator(&options, ",",
+                                              mnt_fs_get_fs_options(fs),
+                                              NULL))
+                        return log_oom();
 
                 /* Ignore mount points we can't unmount because they
                  * are API or because we are keeping them open (like
