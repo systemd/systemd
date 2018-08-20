@@ -770,17 +770,21 @@ static bool hardlink_vulnerable(const struct stat *st) {
         return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
 }
 
-static int fd_set_perms(Item *i, int fd, const struct stat *st) {
-        _cleanup_free_ char *path = NULL;
+static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st) {
+        _cleanup_free_ char *buffer = NULL;
         struct stat stbuf;
         int r;
 
         assert(i);
         assert(fd);
 
-        r = fd_get_path(fd, &path);
-        if (r < 0)
-                return r;
+        if (!path) {
+                r = fd_get_path(fd, &buffer);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get path: %m");
+
+                path = buffer;
+        }
 
         if (!i->mode_set && !i->uid_set && !i->gid_set)
                 goto shortcut;
@@ -897,7 +901,7 @@ static int path_set_perms(Item *i, const char *path) {
         if (fd < 0)
                 return fd;
 
-        return fd_set_perms(i, fd, NULL);
+        return fd_set_perms(i, fd, path, NULL);
 }
 
 static int parse_xattrs_from_arg(Item *i) {
@@ -938,18 +942,22 @@ static int parse_xattrs_from_arg(Item *i) {
         return 0;
 }
 
-static int fd_set_xattrs(Item *i, int fd, const struct stat *st) {
+static int fd_set_xattrs(Item *i, int fd, const char *path, const struct stat *st) {
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *buffer = NULL;
         char **name, **value;
         int r;
 
         assert(i);
         assert(fd);
 
-        r = fd_get_path(fd, &path);
-        if (r < 0)
-                return r;
+        if (!path) {
+                r = fd_get_path(fd, &buffer);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get path: %m");
+
+                path = buffer;
+        }
 
         xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
@@ -972,7 +980,7 @@ static int path_set_xattrs(Item *i, const char *path) {
         if (fd < 0)
                 return fd;
 
-        return fd_set_xattrs(i, fd, NULL);
+        return fd_set_xattrs(i, fd, path, NULL);
 }
 
 static int parse_acls_from_arg(Item *item) {
@@ -1040,19 +1048,23 @@ static int path_set_acl(const char *path, const char *pretty, acl_type_t type, a
 }
 #endif
 
-static int fd_set_acls(Item *item, int fd, const struct stat *st) {
+static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *st) {
         int r = 0;
 #if HAVE_ACL
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *buffer = NULL;
         struct stat stbuf;
 
         assert(item);
         assert(fd);
 
-        r = fd_get_path(fd, &path);
-        if (r < 0)
-                return r;
+        if (!path) {
+                r = fd_get_path(fd, &buffer);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get path: %m");
+
+                path = buffer;
+        }
 
         if (!st) {
                 if (fstat(fd, &stbuf) < 0)
@@ -1103,7 +1115,7 @@ static int path_set_acls(Item *item, const char *path) {
         if (fd < 0)
                 return fd;
 
-        r = fd_set_acls(item, fd, NULL);
+        r = fd_set_acls(item, fd, path, NULL);
 #endif
         return r;
 }
@@ -1207,9 +1219,9 @@ static int parse_attribute_from_arg(Item *item) {
         return 0;
 }
 
-static int fd_set_attribute(Item *item, int fd, const struct stat *st) {
+static int fd_set_attribute(Item *item, int fd, const char *path, const struct stat *st) {
         _cleanup_close_ int procfs_fd = -1;
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *buffer = NULL;
         struct stat stbuf;
         unsigned f;
         int r;
@@ -1217,9 +1229,13 @@ static int fd_set_attribute(Item *item, int fd, const struct stat *st) {
         if (!item->attribute_set || item->attribute_mask == 0)
                 return 0;
 
-        r = fd_get_path(fd, &path);
-        if (r < 0)
-                return r;
+        if (!path) {
+                r = fd_get_path(fd, &buffer);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get path: %m");
+
+                path = buffer;
+        }
 
         if (!st) {
                 if (fstat(fd, &stbuf) < 0)
@@ -1243,13 +1259,13 @@ static int fd_set_attribute(Item *item, int fd, const struct stat *st) {
 
         procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
         if (procfs_fd < 0)
-                return -errno;
+                return log_error_errno(procfs_fd, "Failed to re-open '%s': %m", path);
 
         r = chattr_fd(procfs_fd, f, item->attribute_mask);
         if (r < 0)
                 log_full_errno(IN_SET(r, -ENOTTY, -EOPNOTSUPP) ? LOG_DEBUG : LOG_WARNING,
                                r,
-                               "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x: %m",
+                               "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
                                path, item->attribute_value, item->attribute_mask);
 
         return 0;
@@ -1265,7 +1281,7 @@ static int path_set_attribute(Item *item, const char *path) {
         if (fd < 0)
                 return fd;
 
-        return fd_set_attribute(item, fd, NULL);
+        return fd_set_attribute(item, fd, path, NULL);
 }
 
 static int write_one_file(Item *i, const char *path) {
@@ -1303,7 +1319,7 @@ static int write_one_file(Item *i, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write file \"%s\": %m", path);
 
-        return fd_set_perms(i, fd, NULL);
+        return fd_set_perms(i, fd, path, NULL);
 }
 
 static int create_file(Item *i, const char *path) {
@@ -1370,7 +1386,7 @@ static int create_file(Item *i, const char *path) {
                 }
         }
 
-        return fd_set_perms(i, fd, st);
+        return fd_set_perms(i, fd, path, st);
 }
 
 static int truncate_file(Item *i, const char *path) {
@@ -1454,7 +1470,7 @@ static int truncate_file(Item *i, const char *path) {
                 }
         }
 
-        return fd_set_perms(i, fd, st);
+        return fd_set_perms(i, fd, path, st);
 }
 
 static int copy_files(Item *i) {
@@ -1506,7 +1522,7 @@ static int copy_files(Item *i) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
 
-        return fd_set_perms(i, fd, NULL);
+        return fd_set_perms(i, fd, i->path, NULL);
 }
 
 typedef enum {
@@ -1588,7 +1604,8 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
 
         r = openat(pfd, basename(path), O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
         if (r < 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to open directory '%s': %m", basename(path));
+
         return r;
 }
 
@@ -1604,7 +1621,7 @@ static int create_directory(Item *i, const char *path) {
         if (fd < 0)
                 return fd;
 
-        return fd_set_perms(i, fd, NULL);
+        return fd_set_perms(i, fd, path, NULL);
 }
 
 static int create_subvolume(Item *i, const char *path) {
@@ -1638,8 +1655,8 @@ static int create_subvolume(Item *i, const char *path) {
                         log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
         }
 
-        r = fd_set_perms(i, fd, NULL);
-        if (q < 0)
+        r = fd_set_perms(i, fd, path, NULL);
+        if (q < 0) /* prefer the quota change error from above */
                 return q;
 
         return r;
@@ -1739,7 +1756,7 @@ static int create_device(Item *i, mode_t file_type) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
 
-        return fd_set_perms(i, fd, NULL);
+        return fd_set_perms(i, fd, i->path, NULL);
 }
 
 static int create_fifo(Item *i, const char *path) {
@@ -1793,15 +1810,15 @@ static int create_fifo(Item *i, const char *path) {
 
         fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to openat(%s): %m", path);
+                return log_error_errno(errno, "Failed to openat(%s): %m", path);
 
-        return fd_set_perms(i, fd, NULL);
+        return fd_set_perms(i, fd, i->path, NULL);
 }
 
-typedef int (*action_t)(Item *, const char *);
-typedef int (*fdaction_t)(Item *, int fd, const struct stat *st);
+typedef int (*action_t)(Item *i, const char *path);
+typedef int (*fdaction_t)(Item *i, int fd, const char *path, const struct stat *st);
 
-static int item_do(Item *i, int fd, fdaction_t action) {
+static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
         struct stat st;
         int r = 0, q;
 
@@ -1809,13 +1826,13 @@ static int item_do(Item *i, int fd, fdaction_t action) {
         assert(fd >= 0);
 
         if (fstat(fd, &st) < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "fstat() on file failed: %m");
                 goto finish;
         }
 
         /* This returns the first error we run into, but nevertheless
          * tries to go on */
-        r = action(i, fd, &st);
+        r = action(i, fd, path, &st);
 
         if (S_ISDIR(st.st_mode)) {
                 char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
@@ -1828,7 +1845,9 @@ static int item_do(Item *i, int fd, fdaction_t action) {
 
                 d = opendir(procfs_path);
                 if (!d) {
-                        r = r ?: -errno;
+                        log_error_errno(errno, "Failed to opendir() '%s': %m", procfs_path);
+                        if (r == 0)
+                                r = -errno;
                         goto finish;
                 }
 
@@ -1839,11 +1858,11 @@ static int item_do(Item *i, int fd, fdaction_t action) {
                                 continue;
 
                         de_fd = openat(fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-                        if (de_fd >= 0)
-                                /* pass ownership of dirent fd over  */
-                                q = item_do(i, de_fd, action);
+                        if (de_fd < 0)
+                                q = log_error_errno(errno, "Failed to open() file '%s': %m", de->d_name);
                         else
-                                q = -errno;
+                                /* Pass ownership of dirent fd over */
+                                q = item_do(i, de_fd, NULL, action);
 
                         if (q < 0 && r == 0)
                                 r = q;
@@ -1895,11 +1914,13 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
 
                 fd = open(*fn, O_CLOEXEC|O_NOFOLLOW|O_PATH);
                 if (fd < 0) {
-                        r = r ?: -errno;
+                        log_error_errno(errno, "Opening '%s' failed: %m", *fn);
+                        if (r == 0)
+                                r = -errno;
                         continue;
                 }
 
-                k = item_do(i, fd, action);
+                k = item_do(i, fd, *fn, action);
                 if (k < 0 && r == 0)
                         r = k;
 
@@ -2047,10 +2068,8 @@ static int create_item(Item *i) {
         case CREATE_BLOCK_DEVICE:
         case CREATE_CHAR_DEVICE:
                 if (have_effective_cap(CAP_MKNOD) == 0) {
-                        /* In a container we lack CAP_MKNOD. We
-                        shouldn't attempt to create the device node in
-                        that case to avoid noise, and we don't support
-                        virtualized devices in containers anyway. */
+                        /* In a container we lack CAP_MKNOD. We shouldn't attempt to create the device node in that
+                         * case to avoid noise, and we don't support virtualized devices in containers anyway. */
 
                         log_debug("We lack CAP_MKNOD, skipping creation of device node %s.", i->path);
                         return 0;
