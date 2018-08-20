@@ -532,10 +532,10 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
                 strpcpyf(&ptr, size, "= %s ", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
 
         if (unit_id && activated_time > 0 && activated_time != USEC_INFINITY) {
-                if (t->userspace_time > 0)
-                        size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->userspace_time, USEC_PER_MSEC));
-                else
-                        size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->reverse_offset, USEC_PER_MSEC));
+                usec_t base = t->userspace_time > 0 ? t->userspace_time : t->reverse_offset;
+
+                size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id,
+                                format_timespan(ts, sizeof(ts), activated_time - base, USEC_PER_MSEC));
         } else if (unit_id && activated_time == 0)
                 size = strpcpyf(&ptr, size, "\n%s was never reached", unit_id);
         else if (unit_id && activated_time == USEC_INFINITY)
