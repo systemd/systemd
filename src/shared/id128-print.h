@@ -2,4 +2,9 @@
 
 #pragma once
 
-int id128_generate_new(void);
+#include <stdbool.h>
+
+#include "sd-id128.h"
+
+int id128_pretty_print(sd_id128_t id, bool pretty);
+int id128_print_new(bool pretty);

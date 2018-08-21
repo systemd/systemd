@@ -7,14 +7,14 @@
 #include "id128-print.h"
 #include "log.h"
 
-int id128_generate_new(void) {
-        sd_id128_t id;
-        int r;
+int id128_pretty_print(sd_id128_t id, bool pretty) {
         unsigned i;
 
-        r = sd_id128_randomize(&id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate ID: %m");
+        if (!pretty) {
+                printf(SD_ID128_FORMAT_STR "\n",
+                       SD_ID128_FORMAT_VAL(id));
+                return 0;
+        }
 
         printf("As string:\n"
                SD_ID128_FORMAT_STR "\n\n"
@@ -34,4 +34,15 @@ int id128_generate_new(void) {
                SD_ID128_FORMAT_VAL(id));
 
         return 0;
+}
+
+int id128_print_new(bool pretty) {
+        sd_id128_t id;
+        int r;
+
+        r = sd_id128_randomize(&id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate ID: %m");
+
+        return id128_pretty_print(id, pretty);
 }
