@@ -14,6 +14,7 @@
 
 #include "string-util.h"
 #include "udev.h"
+#include "udevadm.h"
 #include "udevadm-util.h"
 
 static void help(void) {
@@ -27,7 +28,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_test(int argc, char *argv[]) {
+int test_main(int argc, char *argv[], void *userdata) {
         int resolve_names = 1;
         char filename[UTIL_PATH_SIZE];
         const char *action = "add";
@@ -47,6 +48,7 @@ static int adm_test(int argc, char *argv[]) {
                 {}
         };
 
+        log_set_max_level(LOG_DEBUG);
         log_debug("version %s", PACKAGE_VERSION);
 
         while ((c = getopt_long(argc, argv, "a:N:Vh", options, NULL)) >= 0)
@@ -142,10 +144,3 @@ out:
         udev_builtin_exit();
         return rc;
 }
-
-const struct udevadm_cmd udevadm_test = {
-        .name = "test",
-        .cmd = adm_test,
-        .help = "Test an event run",
-        .debug = true,
-};

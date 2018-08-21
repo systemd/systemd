@@ -16,6 +16,7 @@
 #include "strbuf.h"
 #include "string-util.h"
 #include "udev.h"
+#include "udevadm.h"
 #include "udevadm-util.h"
 #include "util.h"
 
@@ -553,7 +554,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_hwdb(int argc, char *argv[]) {
+int hwdb_main(int argc, char *argv[], void *userdata) {
         enum {
                 ARG_USR = 0x100,
         };
@@ -704,8 +705,3 @@ out:
         }
         return rc;
 }
-
-const struct udevadm_cmd udevadm_hwdb = {
-        .name = "hwdb",
-        .cmd = adm_hwdb,
-};

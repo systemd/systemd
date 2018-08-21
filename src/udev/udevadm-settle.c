@@ -15,6 +15,7 @@
 
 #include "parse-util.h"
 #include "udev.h"
+#include "udevadm.h"
 #include "udevadm-util.h"
 #include "util.h"
 
@@ -28,7 +29,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_settle(int argc, char *argv[]) {
+int settle_main(int argc, char *argv[], void *userdata) {
         static const struct option options[] = {
                 { "timeout",        required_argument, NULL, 't' },
                 { "exit-if-exists", required_argument, NULL, 'E' },
@@ -147,9 +148,3 @@ out:
         udev_queue_unref(queue);
         return rc;
 }
-
-const struct udevadm_cmd udevadm_settle = {
-        .name = "settle",
-        .cmd = adm_settle,
-        .help = "Wait for pending udev events",
-};

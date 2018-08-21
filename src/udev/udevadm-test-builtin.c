@@ -9,6 +9,7 @@
 #include "path-util.h"
 #include "string-util.h"
 #include "udev.h"
+#include "udevadm.h"
 #include "udevadm-util.h"
 
 static void help(void) {
@@ -22,7 +23,7 @@ static void help(void) {
         udev_builtin_list();
 }
 
-static int adm_builtin(int argc, char *argv[]) {
+int builtin_main(int argc, char *argv[], void *userdata) {
         static const struct option options[] = {
                 { "version", no_argument, NULL, 'V' },
                 { "help",    no_argument, NULL, 'h' },
@@ -34,6 +35,8 @@ static int adm_builtin(int argc, char *argv[]) {
         struct udev_device *dev = NULL;
         enum udev_builtin_cmd cmd;
         int rc = EXIT_SUCCESS, c;
+
+        log_set_max_level(LOG_DEBUG);
 
         while ((c = getopt_long(argc, argv, "Vh", options, NULL)) >= 0)
                 switch (c) {
@@ -94,10 +97,3 @@ out:
         udev_builtin_exit();
         return rc;
 }
-
-const struct udevadm_cmd udevadm_test_builtin = {
-        .name = "test-builtin",
-        .cmd = adm_builtin,
-        .help = "Test a built-in command",
-        .debug = true,
-};

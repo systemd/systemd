@@ -22,6 +22,7 @@
 #include "process-util.h"
 #include "time-util.h"
 #include "udev.h"
+#include "udevadm.h"
 #include "udevadm-util.h"
 
 static void print_help(void) {
@@ -40,7 +41,7 @@ static void print_help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_control(int argc, char *argv[]) {
+int control_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
         int timeout = 60;
         int rc = 1, c;
@@ -166,9 +167,3 @@ static int adm_control(int argc, char *argv[]) {
                 log_error("Option missing");
         return rc;
 }
-
-const struct udevadm_cmd udevadm_control = {
-        .name = "control",
-        .cmd = adm_control,
-        .help = "Control the udev daemon",
-};

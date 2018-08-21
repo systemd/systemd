@@ -186,19 +186,3 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_rules*, udev_rules_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl*, udev_ctrl_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_connection*, udev_ctrl_connection_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_msg*, udev_ctrl_msg_unref);
-
-/* udevadm commands */
-struct udevadm_cmd {
-        const char *name;
-        int (*cmd)(int argc, char *argv[]);
-        const char *help;
-        int debug;
-};
-extern const struct udevadm_cmd udevadm_info;
-extern const struct udevadm_cmd udevadm_trigger;
-extern const struct udevadm_cmd udevadm_settle;
-extern const struct udevadm_cmd udevadm_control;
-extern const struct udevadm_cmd udevadm_monitor;
-extern const struct udevadm_cmd udevadm_hwdb;
-extern const struct udevadm_cmd udevadm_test;
-extern const struct udevadm_cmd udevadm_test_builtin;

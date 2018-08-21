@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "string-util.h"
 #include "udev.h"
+#include "udevadm.h"
 #include "udevadm-util.h"
 
 static bool skip_attribute(const char *name) {
@@ -254,7 +255,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int uinfo(int argc, char *argv[]) {
+int info_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         bool root = 0;
         bool export = 0;
@@ -459,9 +460,3 @@ static int uinfo(int argc, char *argv[]) {
 
         return 0;
 }
-
-const struct udevadm_cmd udevadm_info = {
-        .name = "info",
-        .cmd = uinfo,
-        .help = "Query sysfs or the udev database",
-};

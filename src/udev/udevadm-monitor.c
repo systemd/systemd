@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "udev.h"
+#include "udevadm.h"
 #include "udevadm-util.h"
 
 static bool udev_exit;
@@ -56,7 +57,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_monitor(int argc, char *argv[]) {
+int monitor_main(int argc, char *argv[], void *userdata) {
         struct sigaction act = {};
         sigset_t mask;
         bool prop = false;
@@ -262,9 +263,3 @@ static int adm_monitor(int argc, char *argv[]) {
 
         return 0;
 }
-
-const struct udevadm_cmd udevadm_monitor = {
-        .name = "monitor",
-        .cmd = adm_monitor,
-        .help = "Listen to kernel and udev events",
-};

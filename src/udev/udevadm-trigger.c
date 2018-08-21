@@ -12,6 +12,7 @@
 #include "set.h"
 #include "string-util.h"
 #include "udev.h"
+#include "udevadm.h"
 #include "udevadm-util.h"
 #include "util.h"
 
@@ -88,7 +89,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_trigger(int argc, char *argv[]) {
+int trigger_main(int argc, char *argv[], void *userdata) {
         enum {
                 ARG_NAME = 0x100,
         };
@@ -356,9 +357,3 @@ static int adm_trigger(int argc, char *argv[]) {
 
         return 0;
 }
-
-const struct udevadm_cmd udevadm_trigger = {
-        .name = "trigger",
-        .cmd = adm_trigger,
-        .help = "Request events from the kernel",
-};
