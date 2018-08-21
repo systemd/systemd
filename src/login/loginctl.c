@@ -909,7 +909,7 @@ static int show_user(int argc, char *argv[], void *userdata) {
                 const char *path = NULL;
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL);
+                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 
@@ -1097,7 +1097,7 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
                 if (isempty(argv[i]))
                         uid = UID_INVALID;
                 else {
-                        r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL);
+                        r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
                 }
@@ -1130,7 +1130,7 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
         for (i = 1; i < argc; i++) {
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL);
+                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 
@@ -1165,7 +1165,7 @@ static int kill_user(int argc, char *argv[], void *userdata) {
         for (i = 1; i < argc; i++) {
                 uid_t uid;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL);
+                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 

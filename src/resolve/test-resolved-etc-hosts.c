@@ -34,6 +34,7 @@ static void test_parse_etc_hosts(const char *fname) {
                 assert_se(fd >= 0);
 
                 f = fdopen(fd, "r+");
+                assert_se(f);
                 fputs("1.2.3.4 some.where\n", f);
                 fputs("1.2.3.5 some.where\n", f);
                 fputs("::0 some.where some.other\n", f);
@@ -49,7 +50,7 @@ static void test_parse_etc_hosts(const char *fname) {
 
         if (fname)
                 return;
-                
+
         EtcHostsItemByName *bn;
         assert_se(bn = hashmap_get(hosts.by_name, "some.where"));
         assert_se(bn->n_addresses == 3);

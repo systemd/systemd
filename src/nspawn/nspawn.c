@@ -1790,7 +1790,12 @@ static int copy_devnodes(const char *dest) {
                 struct stat st;
 
                 from = strappend("/dev/", d);
+                if (!from)
+                        return log_oom();
+
                 to = prefix_root(dest, from);
+                if (!to)
+                        return log_oom();
 
                 if (stat(from, &st) < 0) {
 
@@ -1803,6 +1808,8 @@ static int copy_devnodes(const char *dest) {
                         return -EIO;
 
                 } else {
+                        _cleanup_free_ char *sl = NULL, *prefixed = NULL, *dn = NULL, *t = NULL;
+
                         if (mknod(to, st.st_mode, st.st_rdev) < 0) {
                                 /* Explicitly warn the user when /dev is already populated. */
                                 if (errno == EEXIST)
@@ -1810,8 +1817,7 @@ static int copy_devnodes(const char *dest) {
                                 if (errno != EPERM)
                                         return log_error_errno(errno, "mknod(%s) failed: %m", to);
 
-                                /* Some systems abusively restrict mknod but
-                                 * allow bind mounts. */
+                                /* Some systems abusively restrict mknod but allow bind mounts. */
                                 r = touch(to);
                                 if (r < 0)
                                         return log_error_errno(r, "touch (%s) failed: %m", to);
@@ -1823,6 +1829,28 @@ static int copy_devnodes(const char *dest) {
                         r = userns_lchown(to, 0, 0);
                         if (r < 0)
                                 return log_error_errno(r, "chown() of device node %s failed: %m", to);
+
+                        dn = strjoin("/dev/", S_ISCHR(st.st_mode) ? "char" : "block");
+                        if (!dn)
+                                return log_oom();
+
+                        r = userns_mkdir(dest, dn, 0755, 0, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create '%s': %m", dn);
+
+                        if (asprintf(&sl, "%s/%u:%u", dn, major(st.st_rdev), minor(st.st_rdev)) < 0)
+                                return log_oom();
+
+                        prefixed = prefix_root(dest, sl);
+                        if (!prefixed)
+                                return log_oom();
+
+                        t = strjoin("../", d);
+                        if (!t)
+                                return log_oom();
+
+                        if (symlink(t, prefixed) < 0)
+                                log_debug_errno(errno, "Failed to symlink '%s' to '%s': %m", t, prefixed);
                 }
         }
 

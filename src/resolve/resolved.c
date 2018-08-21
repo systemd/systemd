@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
         if (r < 0) {
                 log_error_errno(r, "Cannot resolve user name %s: %m", user);
                 goto finish;

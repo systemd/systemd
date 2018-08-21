@@ -219,7 +219,7 @@ static int condition_test_user(Condition *c) {
                 return streq(c->parameter, "root");
 
         u = c->parameter;
-        r = get_user_creds(&u, &id, NULL, NULL, NULL);
+        r = get_user_creds(&u, &id, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
                 return 0;
 

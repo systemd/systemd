@@ -87,17 +87,31 @@ char *getusername_malloc(void) {
         return uid_to_name(getuid());
 }
 
-int get_user_creds(
+static inline bool is_nologin_shell(const char *shell) {
+
+        return PATH_IN_SET(shell,
+                           /* 'nologin' is the friendliest way to disable logins for a user account. It prints a nice
+                            * message and exits. Different distributions place the binary at different places though,
+                            * hence let's list them all. */
+                           "/bin/nologin",
+                           "/sbin/nologin",
+                           "/usr/bin/nologin",
+                           "/usr/sbin/nologin",
+                           /* 'true' and 'false' work too for the same purpose, but are less friendly as they don't do
+                            * any message printing. Different distributions place the binary at various places but at
+                            * least not in the 'sbin' directory. */
+                           "/bin/false",
+                           "/usr/bin/false",
+                           "/bin/true",
+                           "/usr/bin/true");
+}
+
+static int synthesize_user_creds(
                 const char **username,
                 uid_t *uid, gid_t *gid,
                 const char **home,
-                const char **shell) {
-
-        struct passwd *p;
-        uid_t u;
-
-        assert(username);
-        assert(*username);
+                const char **shell,
+                UserCredsFlags flags) {
 
         /* We enforce some special rules for uid=0 and uid=65534: in order to avoid NSS lookups for root we hardcode
          * their user record data. */
@@ -129,32 +143,85 @@ int get_user_creds(
                         *gid = GID_NOBODY;
 
                 if (home)
-                        *home = "/";
+                        *home = FLAGS_SET(flags, USER_CREDS_CLEAN) ? NULL : "/";
 
                 if (shell)
-                        *shell = "/sbin/nologin";
+                        *shell = FLAGS_SET(flags, USER_CREDS_CLEAN) ? NULL : "/sbin/nologin";
 
                 return 0;
+        }
+
+        return -ENOMEDIUM;
+}
+
+int get_user_creds(
+                const char **username,
+                uid_t *uid, gid_t *gid,
+                const char **home,
+                const char **shell,
+                UserCredsFlags flags) {
+
+        uid_t u = UID_INVALID;
+        struct passwd *p;
+        int r;
+
+        assert(username);
+        assert(*username);
+
+        if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS) ||
+            (!home && !shell)) {
+
+                /* So here's the deal: normally, we'll try to synthesize all records we can synthesize, and override
+                 * the user database with that. However, if the user specifies USER_CREDS_PREFER_NSS then the
+                 * user database will override the synthetic records instead — except if the user is only interested in
+                 * the UID and/or GID (but not the home directory, or the shell), in which case we'll always override
+                 * the user database (i.e. the USER_CREDS_PREFER_NSS flag has no effect in this case). Why?
+                 * Simply because there are valid usecase where the user might change the home directory or the shell
+                 * of the relevant users, but changing the UID/GID mappings for them is something we explicitly don't
+                 * support. */
+
+                r = synthesize_user_creds(username, uid, gid, home, shell, flags);
+                if (r >= 0)
+                        return 0;
+                if (r != -ENOMEDIUM) /* not a username we can synthesize */
+                        return r;
         }
 
         if (parse_uid(*username, &u) >= 0) {
                 errno = 0;
                 p = getpwuid(u);
 
-                /* If there are multiple users with the same id, make
-                 * sure to leave $USER to the configured value instead
-                 * of the first occurrence in the database. However if
-                 * the uid was configured by a numeric uid, then let's
-                 * pick the real username from /etc/passwd. */
+                /* If there are multiple users with the same id, make sure to leave $USER to the configured value
+                 * instead of the first occurrence in the database. However if the uid was configured by a numeric uid,
+                 * then let's pick the real username from /etc/passwd. */
                 if (p)
                         *username = p->pw_name;
+                else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING) && !gid && !home && !shell) {
+
+                        /* If the specified user is a numeric UID and it isn't in the user database, and the caller
+                         * passed USER_CREDS_ALLOW_MISSING and was only interested in the UID, then juts return that
+                         * and don't complain. */
+
+                        if (uid)
+                                *uid = u;
+
+                        return 0;
+                }
         } else {
                 errno = 0;
                 p = getpwnam(*username);
         }
+        if (!p) {
+                r = errno > 0 ? -errno : -ESRCH;
 
-        if (!p)
-                return errno > 0 ? -errno : -ESRCH;
+                /* If the user requested that we only synthesize as fallback, do so now */
+                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS)) {
+                        if (synthesize_user_creds(username, uid, gid, home, shell, flags) >= 0)
+                                return 0;
+                }
+
+                return r;
+        }
 
         if (uid) {
                 if (!uid_is_valid(p->pw_uid))
@@ -170,66 +237,30 @@ int get_user_creds(
                 *gid = p->pw_gid;
         }
 
-        if (home)
-                *home = p->pw_dir;
+        if (home) {
+                if (FLAGS_SET(flags, USER_CREDS_CLEAN) && empty_or_root(p->pw_dir))
+                        *home = NULL;
+                else
+                        *home = p->pw_dir;
+        }
 
-        if (shell)
-                *shell = p->pw_shell;
-
-        return 0;
-}
-
-static inline bool is_nologin_shell(const char *shell) {
-
-        return PATH_IN_SET(shell,
-                           /* 'nologin' is the friendliest way to disable logins for a user account. It prints a nice
-                            * message and exits. Different distributions place the binary at different places though,
-                            * hence let's list them all. */
-                           "/bin/nologin",
-                           "/sbin/nologin",
-                           "/usr/bin/nologin",
-                           "/usr/sbin/nologin",
-                           /* 'true' and 'false' work too for the same purpose, but are less friendly as they don't do
-                            * any message printing. Different distributions place the binary at various places but at
-                            * least not in the 'sbin' directory. */
-                           "/bin/false",
-                           "/usr/bin/false",
-                           "/bin/true",
-                           "/usr/bin/true");
-}
-
-int get_user_creds_clean(
-                const char **username,
-                uid_t *uid, gid_t *gid,
-                const char **home,
-                const char **shell) {
-
-        int r;
-
-        /* Like get_user_creds(), but resets home/shell to NULL if they don't contain anything relevant. */
-
-        r = get_user_creds(username, uid, gid, home, shell);
-        if (r < 0)
-                return r;
-
-        if (shell &&
-            (isempty(*shell) || is_nologin_shell(*shell)))
-                *shell = NULL;
-
-        if (home && empty_or_root(*home))
-                *home = NULL;
+        if (shell) {
+                if (FLAGS_SET(flags, USER_CREDS_CLEAN) && (isempty(p->pw_shell) || is_nologin_shell(p->pw_shell)))
+                        *shell = NULL;
+                else
+                        *shell = p->pw_shell;
+        }
 
         return 0;
 }
 
-int get_group_creds(const char **groupname, gid_t *gid) {
+int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
         struct group *g;
         gid_t id;
 
         assert(groupname);
 
-        /* We enforce some special rules for gid=0: in order to avoid
-         * NSS lookups for root we hardcode its data. */
+        /* We enforce some special rules for gid=0: in order to avoid NSS lookups for root we hardcode its data. */
 
         if (STR_IN_SET(*groupname, "root", "0")) {
                 *groupname = "root";
@@ -256,6 +287,12 @@ int get_group_creds(const char **groupname, gid_t *gid) {
 
                 if (g)
                         *groupname = g->gr_name;
+                else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING)) {
+                        if (gid)
+                                *gid = id;
+
+                        return 0;
+                }
         } else {
                 errno = 0;
                 g = getgrnam(*groupname);
@@ -391,7 +428,7 @@ int in_group(const char *name) {
         int r;
         gid_t gid;
 
-        r = get_group_creds(&name, &gid);
+        r = get_group_creds(&name, &gid, 0);
         if (r < 0)
                 return r;
 

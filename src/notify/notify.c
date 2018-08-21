@@ -115,7 +115,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_UID: {
                         const char *u = optarg;
 
-                        r = get_user_creds(&u, &arg_uid, &arg_gid, NULL, NULL);
+                        r = get_user_creds(&u, &arg_uid, &arg_gid, NULL, NULL, 0);
                         if (r == -ESRCH) /* If the user doesn't exist, then accept it anyway as numeric */
                                 r = parse_uid(u, &arg_uid);
                         if (r < 0)

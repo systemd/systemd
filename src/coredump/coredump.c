@@ -672,7 +672,7 @@ static int change_uid_gid(const char *context[]) {
         if (uid <= SYSTEM_UID_MAX) {
                 const char *user = "systemd-coredump";
 
-                r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+                r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
                 if (r < 0) {
                         log_warning_errno(r, "Cannot resolve %s user. Proceeding to dump core as root: %m", user);
                         uid = gid = 0;
