@@ -13,17 +13,23 @@
 #include "hwdb-util.h"
 #include "label.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "strbuf.h"
 #include "string-util.h"
 #include "udev.h"
 #include "udevadm.h"
-#include "udevadm-util.h"
 #include "util.h"
 
 /*
  * Generic udev properties, key/value database based on modalias strings.
  * Uses a Patricia/radix trie to index all matches for efficient lookup.
  */
+
+static const char *arg_test = NULL;
+static const char *arg_root = NULL;
+static const char *arg_hwdb_bin_dir = "/etc/udev";
+static bool arg_update = false;
+static bool arg_strict = false;
 
 static const char * const conf_file_dirs[] = {
         "/etc/udev/hwdb.d",
@@ -108,12 +114,26 @@ static struct trie_node *node_lookup(const struct trie_node *node, uint8_t c) {
 static void trie_node_cleanup(struct trie_node *node) {
         size_t i;
 
+        if (!node)
+                return;
+
         for (i = 0; i < node->children_count; i++)
                 trie_node_cleanup(node->children[i].child);
         free(node->children);
         free(node->values);
         free(node);
 }
+
+static void trie_free(struct trie *trie) {
+        if (!trie)
+                return;
+
+        trie_node_cleanup(trie->root);
+        strbuf_cleanup(trie->strings);
+        free(trie);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct trie*, trie_free);
 
 static int trie_values_cmp(const void *v1, const void *v2, void *arg) {
         const struct trie_value_entry *val1 = v1;
@@ -539,7 +559,87 @@ static int import_file(struct trie *trie, const char *filename) {
         return r;
 }
 
-static void help(void) {
+static int hwdb_update(void) {
+        _cleanup_(trie_freep) struct trie *trie = NULL;
+        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ char *hwdb_bin = NULL;
+        char **f;
+        int r;
+
+        trie = new0(struct trie, 1);
+        if (!trie)
+                return -ENOMEM;
+
+        /* string store */
+        trie->strings = strbuf_new();
+        if (!trie->strings)
+                return -ENOMEM;
+
+        /* index */
+        trie->root = new0(struct trie_node, 1);
+        if (!trie->root)
+                return -ENOMEM;
+
+        trie->nodes_count++;
+
+        r = conf_files_list_strv(&files, ".hwdb", arg_root, 0, conf_file_dirs);
+        if (r < 0)
+                return log_error_errno(r, "failed to enumerate hwdb files: %m");
+
+        STRV_FOREACH(f, files) {
+                log_debug("Reading file '%s'", *f);
+                r = import_file(trie, *f);
+                if (r < 0 && arg_strict)
+                        return r;
+        }
+
+        strbuf_complete(trie->strings);
+
+        log_debug("=== trie in-memory ===");
+        log_debug("nodes:            %8zu bytes (%8zu)",
+                  trie->nodes_count * sizeof(struct trie_node), trie->nodes_count);
+        log_debug("children arrays:  %8zu bytes (%8zu)",
+                  trie->children_count * sizeof(struct trie_child_entry), trie->children_count);
+        log_debug("values arrays:    %8zu bytes (%8zu)",
+                  trie->values_count * sizeof(struct trie_value_entry), trie->values_count);
+        log_debug("strings:          %8zu bytes",
+                  trie->strings->len);
+        log_debug("strings incoming: %8zu bytes (%8zu)",
+                  trie->strings->in_len, trie->strings->in_count);
+        log_debug("strings dedup'ed: %8zu bytes (%8zu)",
+                  trie->strings->dedup_len, trie->strings->dedup_count);
+
+        hwdb_bin = path_join(arg_root, arg_hwdb_bin_dir, "/hwdb.bin");
+        if (!hwdb_bin)
+                return -ENOMEM;
+
+        mkdir_parents_label(hwdb_bin, 0755);
+
+        r = trie_store(trie, hwdb_bin);
+        if (r < 0)
+                log_error_errno(r, "Failed to write database %s: %m", hwdb_bin);
+
+        (void) label_fix(hwdb_bin, 0);
+
+        return r;
+}
+
+static int hwdb_test(void) {
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        const char *key, *value;
+        int r;
+
+        r = sd_hwdb_new(&hwdb);
+        if (r < 0)
+                return r;
+
+        SD_HWDB_FOREACH_PROPERTY(hwdb, arg_test, key, value)
+                printf("%s=%s\n", key, value);
+
+        return 0;
+}
+
+static int help(void) {
         printf("%s hwdb [OPTIONS]\n\n"
                "  -h --help            Print this message\n"
                "  -V --version         Print version of the program\n"
@@ -552,9 +652,11 @@ static void help(void) {
                "The sub-command 'hwdb' is deprecated, and is left for backwards compatibility.\n"
                "Please use systemd-hwdb instead.\n"
                , program_invocation_short_name);
+
+        return 0;
 }
 
-int hwdb_main(int argc, char *argv[], void *userdata) {
+static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_USR = 0x100,
         };
@@ -569,139 +671,59 @@ int hwdb_main(int argc, char *argv[], void *userdata) {
                 { "help",    no_argument,       NULL, 'h'     },
                 {}
         };
-        const char *test = NULL;
-        const char *root = "";
-        const char *hwdb_bin_dir = "/etc/udev";
-        bool update = false;
-        struct trie *trie = NULL;
-        int err, c;
-        int rc = EXIT_SUCCESS;
-        bool strict = false;
+
+        int c;
 
         while ((c = getopt_long(argc, argv, "ust:r:Vh", options, NULL)) >= 0)
                 switch(c) {
                 case 'u':
-                        update = true;
+                        arg_update = true;
                         break;
                 case ARG_USR:
-                        hwdb_bin_dir = UDEVLIBEXECDIR;
+                        arg_hwdb_bin_dir = UDEVLIBEXECDIR;
                         break;
                 case 's':
-                        strict = true;
+                        arg_strict = true;
                         break;
                 case 't':
-                        test = optarg;
+                        arg_test = optarg;
                         break;
                 case 'r':
-                        root = optarg;
+                        arg_root = optarg;
                         break;
                 case 'V':
-                        print_version();
-                        return EXIT_SUCCESS;
+                        return version();
                 case 'h':
-                        help();
-                        return EXIT_SUCCESS;
+                        return help();
                 case '?':
-                        return EXIT_FAILURE;
+                        return -EINVAL;
                 default:
                         assert_not_reached("Unknown option");
                 }
 
-        if (!update && !test) {
-                log_error("Either --update or --test must be used");
-                return EXIT_FAILURE;
+        return 1;
+}
+
+int hwdb_main(int argc, char *argv[], void *userdata) {
+        int r;
+
+        r = parse_argv(argc, argv);
+        if (r < 0)
+                return r;
+
+        if (!arg_update && !arg_test) {
+                log_error("Either --update or --test must be used.");
+                return -EINVAL;
         }
 
-        if (update) {
-                char **files, **f;
-                _cleanup_free_ char *hwdb_bin = NULL;
-
-                trie = new0(struct trie, 1);
-                if (!trie) {
-                        rc = EXIT_FAILURE;
-                        goto out;
-                }
-
-                /* string store */
-                trie->strings = strbuf_new();
-                if (!trie->strings) {
-                        rc = EXIT_FAILURE;
-                        goto out;
-                }
-
-                /* index */
-                trie->root = new0(struct trie_node, 1);
-                if (!trie->root) {
-                        rc = EXIT_FAILURE;
-                        goto out;
-                }
-                trie->nodes_count++;
-
-                err = conf_files_list_strv(&files, ".hwdb", root, 0, conf_file_dirs);
-                if (err < 0) {
-                        log_error_errno(err, "failed to enumerate hwdb files: %m");
-                        rc = EXIT_FAILURE;
-                        goto out;
-                }
-                STRV_FOREACH(f, files) {
-                        log_debug("reading file '%s'", *f);
-                        if (import_file(trie, *f) < 0 && strict)
-                                rc = EXIT_FAILURE;
-                }
-                strv_free(files);
-
-                strbuf_complete(trie->strings);
-
-                log_debug("=== trie in-memory ===");
-                log_debug("nodes:            %8zu bytes (%8zu)",
-                          trie->nodes_count * sizeof(struct trie_node), trie->nodes_count);
-                log_debug("children arrays:  %8zu bytes (%8zu)",
-                          trie->children_count * sizeof(struct trie_child_entry), trie->children_count);
-                log_debug("values arrays:    %8zu bytes (%8zu)",
-                          trie->values_count * sizeof(struct trie_value_entry), trie->values_count);
-                log_debug("strings:          %8zu bytes",
-                          trie->strings->len);
-                log_debug("strings incoming: %8zu bytes (%8zu)",
-                          trie->strings->in_len, trie->strings->in_count);
-                log_debug("strings dedup'ed: %8zu bytes (%8zu)",
-                          trie->strings->dedup_len, trie->strings->dedup_count);
-
-                hwdb_bin = strjoin(root, "/", hwdb_bin_dir, "/hwdb.bin");
-                if (!hwdb_bin) {
-                        rc = EXIT_FAILURE;
-                        goto out;
-                }
-
-                mkdir_parents_label(hwdb_bin, 0755);
-
-                err = trie_store(trie, hwdb_bin);
-                if (err < 0) {
-                        log_error_errno(err, "Failure writing database %s: %m", hwdb_bin);
-                        rc = EXIT_FAILURE;
-                }
-
-                (void) label_fix(hwdb_bin, 0);
+        if (arg_update) {
+                r = hwdb_update();
+                if (r < 0)
+                        return r;
         }
 
-        if (test) {
-                _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-                int r;
+        if (arg_test)
+                return hwdb_test();
 
-                r = sd_hwdb_new(&hwdb);
-                if (r >= 0) {
-                        const char *key, *value;
-
-                        SD_HWDB_FOREACH_PROPERTY(hwdb, test, key, value)
-                                printf("%s=%s\n", key, value);
-                }
-        }
-out:
-        if (trie) {
-                if (trie->root)
-                        trie_node_cleanup(trie->root);
-                if (trie->strings)
-                        strbuf_cleanup(trie->strings);
-                free(trie);
-        }
-        return rc;
+        return 0;
 }
