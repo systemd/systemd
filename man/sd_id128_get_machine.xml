@@ -134,7 +134,20 @@
     <example>
       <title>Application-specific machine ID</title>
 
-      <para>Here's a simple example for an application specific machine ID:</para>
+      <para>First, generate the application ID:</para>
+      <programlisting>$ systemd-id128 -p new
+As string:
+c273277323db454ea63bb96e79b53e97
+
+As UUID:
+c2732773-23db-454e-a63b-b96e79b53e97
+
+As man:sd-id128(3) macro:
+#define MESSAGE_XYZ SD_ID128_MAKE(c2,73,27,73,23,db,45,4e,a6,3b,b9,6e,79,b5,3e,97)
+...
+</programlisting>
+
+      <para>Then use the new identifier in an example application:</para>
 
       <programlisting><xi:include href="id128-app-specific.c" parse="text" /></programlisting>
     </example>

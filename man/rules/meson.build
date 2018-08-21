@@ -659,6 +659,7 @@ manpages = [
   'ENABLE_HIBERNATE'],
  ['systemd-hostnamed.service', '8', ['systemd-hostnamed'], 'ENABLE_HOSTNAMED'],
  ['systemd-hwdb', '8', [], 'ENABLE_HWDB'],
+ ['systemd-id128', '1', [], ''],
  ['systemd-importd.service', '8', ['systemd-importd'], 'ENABLE_IMPORTD'],
  ['systemd-inhibit', '1', [], ''],
  ['systemd-initctl.service',
