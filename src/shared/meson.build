@@ -44,6 +44,8 @@ shared_sources = files('''
         generator.c
         generator.h
         gpt.h
+        id128-print.c
+        id128-print.h
         ima-util.c
         ima-util.h
         import-util.c

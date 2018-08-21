@@ -38,6 +38,7 @@
 #include "fsprg.h"
 #include "glob-util.h"
 #include "hostname-util.h"
+#include "id128-print.h"
 #include "io-util.h"
 #include "journal-def.h"
 #include "journal-internal.h"
@@ -1005,35 +1006,6 @@ static int parse_argv(int argc, char *argv[]) {
 #endif
 
         return 1;
-}
-
-static int generate_new_id128(void) {
-        sd_id128_t id;
-        int r;
-        unsigned i;
-
-        r = sd_id128_randomize(&id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate ID: %m");
-
-        printf("As string:\n"
-               SD_ID128_FORMAT_STR "\n\n"
-               "As UUID:\n"
-               "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n\n"
-               "As man:sd-id128(3) macro:\n"
-               "#define MESSAGE_XYZ SD_ID128_MAKE(",
-               SD_ID128_FORMAT_VAL(id),
-               SD_ID128_FORMAT_VAL(id));
-        for (i = 0; i < 16; i++)
-                printf("%02x%s", id.bytes[i], i != 15 ? "," : "");
-        fputs(")\n\n", stdout);
-
-        printf("As Python constant:\n"
-               ">>> import uuid\n"
-               ">>> MESSAGE_XYZ = uuid.UUID('" SD_ID128_FORMAT_STR "')\n",
-               SD_ID128_FORMAT_VAL(id));
-
-        return 0;
 }
 
 static int add_matches(sd_journal *j, char **args) {
@@ -2092,7 +2064,7 @@ int main(int argc, char *argv[]) {
         switch (arg_action) {
 
         case ACTION_NEW_ID128:
-                r = generate_new_id128();
+                r = id128_generate_new();
                 goto finish;
 
         case ACTION_SETUP_KEYS:
