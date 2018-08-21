@@ -434,7 +434,6 @@ static void test_getpeercred_getpeergroups(void) {
         if (r == 0) {
                 static const gid_t gids[] = { 3, 4, 5, 6, 7 };
                 gid_t *test_gids;
-                _cleanup_free_ gid_t *peer_groups = NULL;
                 size_t n_test_gids;
                 uid_t test_uid;
                 gid_t test_gid;
@@ -475,12 +474,16 @@ static void test_getpeercred_getpeergroups(void) {
                 assert_se(ucred.gid == test_gid);
                 assert_se(ucred.pid == getpid_cached());
 
-                r = getpeergroups(pair[0], &peer_groups);
-                assert_se(r >= 0 || IN_SET(r, -EOPNOTSUPP, -ENOPROTOOPT));
+                {
+                        _cleanup_free_ gid_t *peer_groups = NULL;
 
-                if (r >= 0) {
-                        assert_se((size_t) r == n_test_gids);
-                        assert_se(memcmp(peer_groups, test_gids, sizeof(gid_t) * n_test_gids) == 0);
+                        r = getpeergroups(pair[0], &peer_groups);
+                        assert_se(r >= 0 || IN_SET(r, -EOPNOTSUPP, -ENOPROTOOPT));
+
+                        if (r >= 0) {
+                                assert_se((size_t) r == n_test_gids);
+                                assert_se(memcmp(peer_groups, test_gids, sizeof(gid_t) * n_test_gids) == 0);
+                        }
                 }
 
                 safe_close_pair(pair);
