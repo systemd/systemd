@@ -18,6 +18,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "libudev-private.h"
+#include "libudev-device-internal.h"
 #include "missing.h"
 #include "mount-util.h"
 #include "socket-util.h"
@@ -700,6 +701,19 @@ retry:
         }
 
         return udev_device;
+}
+
+int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_device **ret) {
+        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
+
+        assert(ret);
+
+        udev_device = udev_monitor_receive_device(udev_monitor);
+        if (!udev_device)
+                return -errno;
+
+        *ret = sd_device_ref(udev_device->device);
+        return 0;
 }
 
 int udev_monitor_send_device(struct udev_monitor *udev_monitor,
