@@ -3,8 +3,7 @@
 
 #include "udev.h"
 
-struct udev_device *find_device(struct udev *udev,
-                                const char *id,
+struct udev_device *find_device(const char *id,
                                 const char *prefix);
 
 static inline void print_version(void) {

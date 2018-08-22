@@ -86,7 +86,6 @@ static struct udev_device *skip_subsystem(struct udev_device *dev, const char *s
 }
 
 static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent, char **path) {
-        struct udev *udev;
         struct udev_device *targetdev;
         _cleanup_(udev_device_unrefp) struct udev_device *fcdev = NULL;
         const char *port;
@@ -95,13 +94,12 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
         assert(parent);
         assert(path);
 
-        udev = udev_device_get_udev(parent);
 
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
         if (!targetdev)
                 return NULL;
 
-        fcdev = udev_device_new_from_subsystem_sysname(udev, "fc_transport", udev_device_get_sysname(targetdev));
+        fcdev = udev_device_new_from_subsystem_sysname(NULL, "fc_transport", udev_device_get_sysname(targetdev));
         if (!fcdev)
                 return NULL;
 
@@ -115,7 +113,6 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
 }
 
 static struct udev_device *handle_scsi_sas_wide_port(struct udev_device *parent, char **path) {
-        struct udev *udev;
         struct udev_device *targetdev, *target_parent;
         _cleanup_(udev_device_unrefp) struct udev_device *sasdev = NULL;
         const char *sas_address;
@@ -124,7 +121,6 @@ static struct udev_device *handle_scsi_sas_wide_port(struct udev_device *parent,
         assert(parent);
         assert(path);
 
-        udev = udev_device_get_udev(parent);
 
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
         if (!targetdev)
@@ -134,7 +130,7 @@ static struct udev_device *handle_scsi_sas_wide_port(struct udev_device *parent,
         if (!target_parent)
                 return NULL;
 
-        sasdev = udev_device_new_from_subsystem_sysname(udev, "sas_device",
+        sasdev = udev_device_new_from_subsystem_sysname(NULL, "sas_device",
                                                         udev_device_get_sysname(target_parent));
         if (!sasdev)
                 return NULL;
@@ -150,7 +146,6 @@ static struct udev_device *handle_scsi_sas_wide_port(struct udev_device *parent,
 
 static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **path)
 {
-        struct udev *udev;
         struct udev_device *targetdev, *target_parent, *port, *expander;
         _cleanup_(udev_device_unrefp) struct udev_device
                 *target_sasdev = NULL, *expander_sasdev = NULL, *port_sasdev = NULL;
@@ -162,7 +157,6 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
         assert(parent);
         assert(path);
 
-        udev = udev_device_get_udev(parent);
 
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
         if (!targetdev)
@@ -173,8 +167,7 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
                 return NULL;
 
         /* Get sas device */
-        target_sasdev = udev_device_new_from_subsystem_sysname(
-                        udev, "sas_device", udev_device_get_sysname(target_parent));
+        target_sasdev = udev_device_new_from_subsystem_sysname(NULL, "sas_device", udev_device_get_sysname(target_parent));
         if (!target_sasdev)
                 return NULL;
 
@@ -184,8 +177,7 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
                 return NULL;
 
         /* Get port device */
-        port_sasdev = udev_device_new_from_subsystem_sysname(
-                udev, "sas_port", udev_device_get_sysname(port));
+        port_sasdev = udev_device_new_from_subsystem_sysname(NULL, "sas_port", udev_device_get_sysname(port));
 
         phy_count = udev_device_get_sysattr_value(port_sasdev, "num_phys");
         if (!phy_count)
@@ -206,12 +198,10 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
                 return NULL;
 
         /* Get expander device */
-        expander_sasdev = udev_device_new_from_subsystem_sysname(
-                        udev, "sas_device", udev_device_get_sysname(expander));
+        expander_sasdev = udev_device_new_from_subsystem_sysname(NULL, "sas_device", udev_device_get_sysname(expander));
         if (expander_sasdev) {
                  /* Get expander's address */
-                 sas_address = udev_device_get_sysattr_value(expander_sasdev,
-                                                    "sas_address");
+                 sas_address = udev_device_get_sysattr_value(expander_sasdev, "sas_address");
                  if (!sas_address)
                          return NULL;
         }
@@ -226,7 +216,6 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
 }
 
 static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **path) {
-        struct udev *udev;
         struct udev_device *transportdev;
         _cleanup_(udev_device_unrefp) struct udev_device
                 *sessiondev = NULL, *conndev = NULL;
@@ -236,7 +225,6 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
         assert(parent);
         assert(path);
 
-        udev = udev_device_get_udev(parent);
 
         /* find iscsi session */
         transportdev = parent;
@@ -249,7 +237,7 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
         }
 
         /* find iscsi session device */
-        sessiondev = udev_device_new_from_subsystem_sysname(udev, "iscsi_session", udev_device_get_sysname(transportdev));
+        sessiondev = udev_device_new_from_subsystem_sysname(NULL, "iscsi_session", udev_device_get_sysname(transportdev));
         if (!sessiondev)
                 return NULL;
 
@@ -258,7 +246,7 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
                 return NULL;
 
         connname = strjoina("connection", udev_device_get_sysnum(transportdev), ":0");
-        conndev = udev_device_new_from_subsystem_sysname(udev, "iscsi_connection", connname);
+        conndev = udev_device_new_from_subsystem_sysname(NULL, "iscsi_connection", connname);
         if (!conndev)
                 return NULL;
 
@@ -273,7 +261,6 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
 }
 
 static struct udev_device *handle_scsi_ata(struct udev_device *parent, char **path) {
-        struct udev *udev;
         struct udev_device *targetdev, *target_parent;
         _cleanup_(udev_device_unrefp) struct udev_device *atadev = NULL;
         const char *port_no;
@@ -281,7 +268,6 @@ static struct udev_device *handle_scsi_ata(struct udev_device *parent, char **pa
         assert(parent);
         assert(path);
 
-        udev = udev_device_get_udev(parent);
 
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host");
         if (!targetdev)
@@ -291,7 +277,7 @@ static struct udev_device *handle_scsi_ata(struct udev_device *parent, char **pa
         if (!target_parent)
                 return NULL;
 
-        atadev = udev_device_new_from_subsystem_sysname(udev, "ata_port", udev_device_get_sysname(target_parent));
+        atadev = udev_device_new_from_subsystem_sysname(NULL, "ata_port", udev_device_get_sysname(target_parent));
         if (!atadev)
                 return NULL;
 

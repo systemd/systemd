@@ -33,16 +33,14 @@ typedef struct Spawn {
 } Spawn;
 
 struct udev_event *udev_event_new(struct udev_device *dev) {
-        struct udev *udev = udev_device_get_udev(dev);
         struct udev_event *event;
 
         event = new0(struct udev_event, 1);
         if (event == NULL)
                 return NULL;
         event->dev = dev;
-        event->udev = udev;
-        udev_list_init(udev, &event->run_list, false);
-        udev_list_init(udev, &event->seclabel_list, false);
+        udev_list_init(NULL, &event->run_list, false);
+        udev_list_init(NULL, &event->seclabel_list, false);
         event->birth_usec = now(CLOCK_MONOTONIC);
         return event;
 }
@@ -698,7 +696,7 @@ static int spawn_wait(struct udev_event *event,
         return ret;
 }
 
-int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]) {
+int udev_build_argv(char *cmd, int *argc, char *argv[]) {
         int i = 0;
         char *pos;
 
@@ -771,7 +769,7 @@ int udev_event_spawn(struct udev_event *event,
                 errpipe[READ_END] = safe_close(errpipe[READ_END]);
 
                 strscpy(arg, sizeof(arg), cmd);
-                udev_build_argv(event->udev, arg, NULL, argv);
+                udev_build_argv(arg, NULL, argv);
 
                 /* allow programs in /usr/lib/udev/ to be called without the path */
                 if (argv[0][0] != '/') {
@@ -845,7 +843,7 @@ void udev_event_execute_rules(struct udev_event *event,
                 udev_device_delete_db(dev);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
-                        udev_watch_end(event->udev, dev);
+                        udev_watch_end(dev);
 
                 udev_rules_apply_to_event(rules, event,
                                           timeout_usec, timeout_warn_usec,
@@ -858,7 +856,7 @@ void udev_event_execute_rules(struct udev_event *event,
                 if (event->dev_db != NULL) {
                         /* disable watch during event processing */
                         if (major(udev_device_get_devnum(dev)) != 0)
-                                udev_watch_end(event->udev, event->dev_db);
+                                udev_watch_end(event->dev_db);
 
                         if (major(udev_device_get_devnum(dev)) == 0 &&
                             streq(udev_device_get_action(dev), "move"))

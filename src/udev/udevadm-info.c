@@ -155,11 +155,11 @@ static int stat_device(const char *name, bool export, const char *prefix) {
         return 0;
 }
 
-static int export_devices(struct udev *udev) {
+static int export_devices(void) {
         _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *udev_enumerate;
         struct udev_list_entry *list_entry;
 
-        udev_enumerate = udev_enumerate_new(udev);
+        udev_enumerate = udev_enumerate_new(NULL);
         if (udev_enumerate == NULL)
                 return -ENOMEM;
 
@@ -167,7 +167,7 @@ static int export_devices(struct udev *udev) {
         udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
                 _cleanup_(udev_device_unrefp) struct udev_device *device;
 
-                device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
+                device = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(list_entry));
                 if (device != NULL)
                         print_record(device);
         }
@@ -203,7 +203,7 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
         }
 }
 
-static void cleanup_db(struct udev *udev) {
+static void cleanup_db(void) {
         _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL, *dir5 = NULL;
 
         (void) unlink("/run/udev/queue.bin");
@@ -254,7 +254,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int uinfo(struct udev *udev, int argc, char *argv[]) {
+static int uinfo(int argc, char *argv[]) {
         _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         bool root = 0;
         bool export = 0;
@@ -301,7 +301,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                                 return 2;
                         }
 
-                        device = find_device(udev, optarg, "/dev/");
+                        device = find_device(optarg, "/dev/");
                         if (device == NULL) {
                                 fprintf(stderr, "device node not found\n");
                                 return 2;
@@ -314,7 +314,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                                 return 2;
                         }
 
-                        device = find_device(udev, optarg, "/sys");
+                        device = find_device(optarg, "/sys");
                         if (device == NULL) {
                                 fprintf(stderr, "syspath not found\n");
                                 return 2;
@@ -348,11 +348,11 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                         action = ACTION_ATTRIBUTE_WALK;
                         break;
                 case 'e':
-                        if (export_devices(udev) < 0)
+                        if (export_devices() < 0)
                                 return 1;
                         return 0;
                 case 'c':
-                        cleanup_db(udev);
+                        cleanup_db();
                         return 0;
                 case 'x':
                         export = true;
@@ -377,7 +377,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                                 help();
                                 return 2;
                         }
-                        device = find_device(udev, argv[optind], NULL);
+                        device = find_device(argv[optind], NULL);
                         if (!device) {
                                 fprintf(stderr, "Unknown device, --name=, --path=, or absolute path in /dev/ or /sys expected.\n");
                                 return 4;
@@ -439,7 +439,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                 break;
         case ACTION_ATTRIBUTE_WALK:
                 if (!device && argv[optind]) {
-                        device = find_device(udev, argv[optind], NULL);
+                        device = find_device(argv[optind], NULL);
                         if (!device) {
                                 fprintf(stderr, "Unknown device, absolute path in /dev/ or /sys expected.\n");
                                 return 4;

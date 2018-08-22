@@ -88,7 +88,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
+static int adm_trigger(int argc, char *argv[]) {
         enum {
                 ARG_NAME = 0x100,
         };
@@ -126,7 +126,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
         _cleanup_set_free_free_ Set *settle_set = NULL;
         int c, r;
 
-        udev_enumerate = udev_enumerate_new(udev);
+        udev_enumerate = udev_enumerate_new(NULL);
         if (!udev_enumerate)
                 return 1;
 
@@ -215,7 +215,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                 case 'b': {
                         _cleanup_(udev_device_unrefp) struct udev_device *dev;
 
-                        dev = find_device(udev, optarg, "/sys");
+                        dev = find_device(optarg, "/sys");
                         if (!dev) {
                                 log_error("unable to open the device '%s'", optarg);
                                 return 2;
@@ -235,7 +235,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                 case ARG_NAME: {
                         _cleanup_(udev_device_unrefp) struct udev_device *dev;
 
-                        dev = find_device(udev, optarg, "/dev/");
+                        dev = find_device(optarg, "/dev/");
                         if (!dev) {
                                 log_error("unable to open the device '%s'", optarg);
                                 return 2;
@@ -265,7 +265,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
         for (; optind < argc; optind++) {
                 _cleanup_(udev_device_unrefp) struct udev_device *dev;
 
-                dev = find_device(udev, argv[optind], NULL);
+                dev = find_device(argv[optind], NULL);
                 if (!dev) {
                         log_error("unable to open the device '%s'", argv[optind]);
                         return 2;
@@ -285,7 +285,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                         return 1;
                 }
 
-                udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
+                udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
                 if (!udev_monitor) {
                         log_error("error: unable to create netlink socket");
                         return 3;
