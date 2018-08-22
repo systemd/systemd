@@ -49,7 +49,7 @@
 
     <para><function>sd_journal_stream_fd()</function> takes a short
     program identifier string as first argument, which will be written
-    to the journal as _SYSLOG_IDENTIFIER= field for each log entry
+    to the journal as SYSLOG_IDENTIFIER= field for each log entry
     (see
     <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for more information). The second argument shall be the default
