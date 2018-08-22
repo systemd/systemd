@@ -30,14 +30,13 @@
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 
-static int disk_scsi_inquiry_command(int      fd,
-                                     void    *buf,
-                                     size_t   buf_len)
-{
+static int disk_scsi_inquiry_command(
+                int fd,
+                void *buf,
+                size_t buf_len) {
+
         uint8_t cdb[6] = {
-                /*
-                 * INQUIRY, see SPC-4 section 6.4
-                 */
+                /* INQUIRY, see SPC-4 section 6.4 */
                 [0] = 0x12,                /* OPERATION CODE: INQUIRY */
                 [3] = (buf_len >> 8),      /* ALLOCATION LENGTH */
                 [4] = (buf_len & 0xff),
@@ -99,10 +98,11 @@ static int disk_scsi_inquiry_command(int      fd,
         return 0;
 }
 
-static int disk_identify_command(int          fd,
-                                 void         *buf,
-                                 size_t          buf_len)
-{
+static int disk_identify_command(
+                int fd,
+                void *buf,
+                size_t buf_len) {
+
         uint8_t cdb[12] = {
                 /*
                  * ATA Pass-Through 12 byte command, as described in
@@ -169,10 +169,11 @@ static int disk_identify_command(int          fd,
         return 0;
 }
 
-static int disk_identify_packet_device_command(int          fd,
-                                               void         *buf,
-                                               size_t          buf_len)
-{
+static int disk_identify_packet_device_command(
+                int fd,
+                void *buf,
+                size_t buf_len) {
+
         uint8_t cdb[16] = {
                 /*
                  * ATA Pass-Through 16 byte command, as described in
@@ -254,11 +255,12 @@ static int disk_identify_packet_device_command(int          fd,
  *
  * Copies the ATA string from @identify located at @offset_words into @dest.
  */
-static void disk_identify_get_string(uint8_t identify[512],
-                                     unsigned int offset_words,
-                                     char *dest,
-                                     size_t dest_len)
-{
+static void disk_identify_get_string(
+                uint8_t identify[512],
+                unsigned int offset_words,
+                char *dest,
+                size_t dest_len) {
+
         unsigned int c1;
         unsigned int c2;
 
@@ -274,16 +276,15 @@ static void disk_identify_get_string(uint8_t identify[512],
         }
 }
 
-static void disk_identify_fixup_string(uint8_t identify[512],
-                                       unsigned int offset_words,
-                                       size_t len)
-{
+static void disk_identify_fixup_string(
+                uint8_t identify[512],
+                unsigned int offset_words,
+                size_t len) {
         disk_identify_get_string(identify, offset_words,
                                  (char *) identify + offset_words * 2, len);
 }
 
-static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offset_words)
-{
+static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offset_words) {
         uint16_t *p;
 
         p = (uint16_t *) identify;
