@@ -137,8 +137,6 @@ struct Server {
 
         Set *deferred_closes;
 
-        struct udev *udev;
-
         uint64_t *kernel_seqnum;
         bool dev_kmsg_readable:1;
 
