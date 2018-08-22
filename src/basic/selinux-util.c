@@ -319,7 +319,6 @@ char* mac_selinux_free(char *label) {
 #if HAVE_SELINUX
 static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode) {
         _cleanup_freecon_ char *filecon = NULL;
-        _cleanup_free_ char *path = NULL;
         int r;
 
         assert(abspath);
@@ -351,7 +350,6 @@ int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode)
 
 #if HAVE_SELINUX
         _cleanup_free_ char *abspath = NULL;
-        _cleanup_close_ int fd = -1;
 
         assert(path);
 
