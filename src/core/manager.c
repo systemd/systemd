@@ -798,10 +798,6 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         if (r < 0)
                 return r;
 
-        m->udev = udev_new();
-        if (!m->udev)
-                return -ENOMEM;
-
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
@@ -1334,7 +1330,6 @@ Manager* manager_free(Manager *m) {
 
         manager_close_idle_pipe(m);
 
-        udev_unref(m->udev);
         sd_event_unref(m->event);
 
         free(m->notify_socket);
