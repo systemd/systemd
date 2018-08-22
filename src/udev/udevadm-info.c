@@ -230,7 +230,7 @@ static void cleanup_db(void) {
                 cleanup_dir(dir5, 0, 1);
 }
 
-static void help(void) {
+static int help(void) {
 
         printf("%s info [OPTIONS] [DEVPATH|FILE]\n\n"
                "Query sysfs or the udev database.\n\n"
@@ -253,6 +253,8 @@ static void help(void) {
                "  -e --export-db              Export the content of the udev database\n"
                "  -c --cleanup-db             Clean up the udev database\n"
                , program_invocation_short_name);
+
+        return 0;
 }
 
 int info_main(int argc, char *argv[], void *userdata) {
@@ -262,7 +264,7 @@ int info_main(int argc, char *argv[], void *userdata) {
         const char *export_prefix = NULL;
         char name[UTIL_PATH_SIZE];
         struct udev_list_entry *list_entry;
-        int c;
+        int c, r;
 
         static const struct option options[] = {
                 { "name",              required_argument, NULL, 'n' },
@@ -296,30 +298,25 @@ int info_main(int argc, char *argv[], void *userdata) {
 
         while ((c = getopt_long(argc, argv, "aced:n:p:q:rxP:RVh", options, NULL)) >= 0)
                 switch (c) {
-                case 'n': {
-                        if (device != NULL) {
-                                fprintf(stderr, "device already specified\n");
-                                return 2;
+                case 'n':
+                        if (device) {
+                                log_error("device already specified");
+                                return -EINVAL;
                         }
 
                         device = find_device(optarg, "/dev/");
-                        if (device == NULL) {
-                                fprintf(stderr, "device node not found\n");
-                                return 2;
-                        }
+                        if (!device)
+                                return log_error_errno(errno, "device node not found: %m");
                         break;
-                }
                 case 'p':
-                        if (device != NULL) {
-                                fprintf(stderr, "device already specified\n");
-                                return 2;
+                        if (device) {
+                                log_error("device already specified");
+                                return -EINVAL;
                         }
 
                         device = find_device(optarg, "/sys");
-                        if (device == NULL) {
-                                fprintf(stderr, "syspath not found\n");
-                                return 2;
-                        }
+                        if (!device)
+                                return log_error_errno(errno, "syspath not found: %m");
                         break;
                 case 'q':
                         action = ACTION_QUERY;
@@ -334,8 +331,8 @@ int info_main(int argc, char *argv[], void *userdata) {
                         else if (streq(optarg, "all"))
                                 query = QUERY_ALL;
                         else {
-                                fprintf(stderr, "unknown query type\n");
-                                return 3;
+                                log_error("unknown query type");
+                                return -EINVAL;
                         }
                         break;
                 case 'r':
@@ -349,9 +346,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                         action = ACTION_ATTRIBUTE_WALK;
                         break;
                 case 'e':
-                        if (export_devices() < 0)
-                                return 1;
-                        return 0;
+                        return export_devices();
                 case 'c':
                         cleanup_db();
                         return 0;
@@ -362,13 +357,13 @@ int info_main(int argc, char *argv[], void *userdata) {
                         export_prefix = optarg;
                         break;
                 case 'V':
-                        print_version();
-                        return 0;
+                        return version();
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
+                case '?':
+                        return -EINVAL;
                 default:
-                        return 1;
+                        assert_not_reached("Unknown option");
                 }
 
         switch (action) {
@@ -376,12 +371,12 @@ int info_main(int argc, char *argv[], void *userdata) {
                 if (!device) {
                         if (!argv[optind]) {
                                 help();
-                                return 2;
+                                return -EINVAL;
                         }
                         device = find_device(argv[optind], NULL);
                         if (!device) {
-                                fprintf(stderr, "Unknown device, --name=, --path=, or absolute path in /dev/ or /sys expected.\n");
-                                return 4;
+                                log_error("Unknown device, --name=, --path=, or absolute path in /dev/ or /sys expected.");
+                                return -EINVAL;
                         }
                 }
 
@@ -389,10 +384,8 @@ int info_main(int argc, char *argv[], void *userdata) {
                 case QUERY_NAME: {
                         const char *node = udev_device_get_devnode(device);
 
-                        if (node == NULL) {
-                                fprintf(stderr, "no device node found\n");
-                                return 5;
-                        }
+                        if (!node)
+                                return log_error_errno(errno, "no device node found");
 
                         if (root)
                                 printf("%s\n", udev_device_get_devnode(device));
@@ -403,14 +396,14 @@ int info_main(int argc, char *argv[], void *userdata) {
                 }
                 case QUERY_SYMLINK:
                         list_entry = udev_device_get_devlinks_list_entry(device);
-                        while (list_entry != NULL) {
+                        while (list_entry) {
                                 if (root)
                                         printf("%s", udev_list_entry_get_name(list_entry));
                                 else
                                         printf("%s",
                                                udev_list_entry_get_name(list_entry) + STRLEN("/dev/"));
                                 list_entry = udev_list_entry_get_next(list_entry);
-                                if (list_entry != NULL)
+                                if (list_entry)
                                         printf(" ");
                         }
                         printf("\n");
@@ -420,7 +413,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                         return 0;
                 case QUERY_PROPERTY:
                         list_entry = udev_device_get_properties_list_entry(device);
-                        while (list_entry != NULL) {
+                        while (list_entry) {
                                 if (export)
                                         printf("%s%s='%s'\n", strempty(export_prefix),
                                                udev_list_entry_get_name(list_entry),
@@ -442,19 +435,20 @@ int info_main(int argc, char *argv[], void *userdata) {
                 if (!device && argv[optind]) {
                         device = find_device(argv[optind], NULL);
                         if (!device) {
-                                fprintf(stderr, "Unknown device, absolute path in /dev/ or /sys expected.\n");
-                                return 4;
+                                log_error("Unknown device, absolute path in /dev/ or /sys expected.");
+                                return -EINVAL;
                         }
                 }
                 if (!device) {
-                        fprintf(stderr, "Unknown device, --name=, --path=, or absolute path in /dev/ or /sys expected.\n");
-                        return 4;
+                        log_error("Unknown device, --name=, --path=, or absolute path in /dev/ or /sys expected.");
+                        return -EINVAL;
                 }
                 print_device_chain(device);
                 break;
         case ACTION_DEVICE_ID_FILE:
-                if (stat_device(name, export, export_prefix) != 0)
-                        return 1;
+                r = stat_device(name, export, export_prefix);
+                if (r < 0)
+                        return r;
                 break;
         }
 
