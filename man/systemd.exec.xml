@@ -750,6 +750,15 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
   <refsect1>
     <title>Sandboxing</title>
 
+    <para>The following sandboxing options are an effective way to limit the exposure of the system towards the unit's
+    processes. It is recommended to turn on as many of these options for each unit as is possible without negatively
+    affecting the process' ability to operate. Note that many of these sandboxing features are gracefully turned off on
+    systems where the underlying security mechanism is not available. For example, <varname>ProtectSystem=</varname>
+    has no effect if the kernel is built without file system namespacing or if the service manager runs in a container
+    manager that makes file system namespacing unavailable to its payload. Similar,
+    <varname>RestrictRealtime=</varname> has no effect on systems that lack support for SECCOMP system call filtering,
+    or in containers where support for this is turned off.</para>
+
     <variablelist>
 
       <varlistentry>
