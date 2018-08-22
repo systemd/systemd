@@ -126,3 +126,11 @@ uint64_t util_string_bloom64(const char *str);
 
 /* libudev-util-private.c */
 int util_resolve_subsys_kernel(struct udev *udev, const char *string, char *result, size_t maxsize, int read_value);
+
+/* Cleanup functions */
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev*, udev_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_device*, udev_device_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_enumerate*, udev_enumerate_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_monitor*, udev_monitor_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_hwdb*, udev_hwdb_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_queue*, udev_queue_unref);
