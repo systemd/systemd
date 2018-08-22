@@ -23,8 +23,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "libudev.h"
-
 #include "fd-util.h"
 #include "libudev-private.h"
 #include "log.h"
@@ -294,7 +292,6 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offs
 
 /**
  * disk_identify:
- * @udev: The libudev context.
  * @fd: File descriptor for the block device.
  * @out_identify: Return location for IDENTIFY data.
  * @out_is_packet_device: Return location for whether returned data is from a IDENTIFY PACKET DEVICE.
@@ -308,11 +305,9 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offs
  * Returns: 0 if the data was successfully obtained, otherwise
  * non-zero with errno set.
  */
-static int disk_identify(struct udev *udev,
-                         int fd,
+static int disk_identify(int fd,
                          uint8_t out_identify[512],
-                         int *out_is_packet_device)
-{
+                         int *out_is_packet_device) {
         int ret;
         uint8_t inquiry_buf[36];
         int peripheral_device_type;
@@ -390,7 +385,6 @@ out:
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         struct hd_driveid id;
         union {
                 uint8_t  byte[512];
@@ -415,10 +409,6 @@ int main(int argc, char *argv[]) {
         udev_parse_config();
         log_parse_environment();
         log_open();
-
-        udev = udev_new();
-        if (udev == NULL)
-                return 0;
 
         for (;;) {
                 int option;
@@ -451,7 +441,7 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 
-        if (disk_identify(udev, fd, identify.byte, &is_packet_device) == 0) {
+        if (disk_identify(fd, identify.byte, &is_packet_device) == 0) {
                 /*
                  * fix up only the fields from the IDENTIFY data that we are going to
                  * use and copy it into the hd_driveid struct for convenience
