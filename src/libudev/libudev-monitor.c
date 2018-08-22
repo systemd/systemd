@@ -153,11 +153,6 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
         struct udev_monitor *udev_monitor;
         unsigned int group;
 
-        if (udev == NULL) {
-                errno = EINVAL;
-                return NULL;
-        }
-
         if (name == NULL)
                 group = UDEV_MONITOR_NONE;
         else if (streq(name, "udev")) {

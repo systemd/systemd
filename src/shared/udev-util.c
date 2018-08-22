@@ -42,7 +42,6 @@ int udev_device_new_from_stat_rdev(struct udev *udev, const struct stat *st, str
         struct udev_device *nd;
         char type;
 
-        assert(udev);
         assert(st);
         assert(ret);
 

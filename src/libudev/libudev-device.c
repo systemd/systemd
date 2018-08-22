@@ -196,8 +196,6 @@ _public_ const char *udev_device_get_property_value(struct udev_device *udev_dev
 struct udev_device *udev_device_new(struct udev *udev) {
         struct udev_device *udev_device;
 
-        assert_return_errno(udev, NULL, EINVAL);
-
         udev_device = new0(struct udev_device, 1);
         if (!udev_device) {
                 errno = ENOMEM;

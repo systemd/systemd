@@ -45,11 +45,6 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev)
 {
         struct udev_queue *udev_queue;
 
-        if (udev == NULL) {
-                errno = EINVAL;
-                return NULL;
-        }
-
         udev_queue = new0(struct udev_queue, 1);
         if (udev_queue == NULL) {
                 errno = ENOMEM;

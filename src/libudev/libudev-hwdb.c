@@ -40,8 +40,6 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
         struct udev_hwdb *hwdb;
         int r;
 
-        assert_return_errno(udev, NULL, EINVAL);
-
         r = sd_hwdb_new(&hwdb_internal);
         if (r < 0) {
                 errno = -r;
