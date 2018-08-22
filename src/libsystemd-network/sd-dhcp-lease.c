@@ -25,6 +25,7 @@
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unaligned.h"
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {

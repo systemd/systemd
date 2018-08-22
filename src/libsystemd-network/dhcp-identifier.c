@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "libudev.h"
+#include "sd-device.h"
 #include "sd-id128.h"
 
 #include "dhcp-identifier.h"
@@ -8,7 +8,6 @@
 #include "network-internal.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
-#include "udev-util.h"
 #include "virt.h"
 
 #define SYSTEMD_PEN 43793
@@ -71,25 +70,23 @@ int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
 }
 
 int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_id) {
-        /* name is a pointer to memory in the udev_device struct, so must
-           have the same scope */
-        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
+        /* name is a pointer to memory in the sd_device struct, so must
+         * have the same scope */
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *name = NULL;
         uint64_t id;
 
         if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
-                _cleanup_(udev_unrefp) struct udev *udev;
                 char ifindex_str[2 + DECIMAL_STR_MAX(int)];
-
-                udev = udev_new();
-                if (!udev)
-                        return -ENOMEM;
+                int initialized, r;
 
                 sprintf(ifindex_str, "n%d", ifindex);
-                device = udev_device_new_from_device_id(udev, ifindex_str);
-                if (device) {
-                        if (udev_device_get_is_initialized(device) <= 0)
+                if (sd_device_new_from_device_id(&device, ifindex_str) >= 0) {
+                        r = sd_device_get_is_initialized(device, &initialized);
+                        if (r < 0)
+                                return r;
+                        if (!initialized)
                                 /* not yet ready */
                                 return -EBUSY;
 

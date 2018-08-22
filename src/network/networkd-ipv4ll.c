@@ -202,13 +202,11 @@ int ipv4ll_configure(Link *link) {
                         return r;
         }
 
-        if (link->udev_device) {
-                r = net_get_unique_predictable_data(link->udev_device, &seed);
-                if (r >= 0) {
-                        r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
-                        if (r < 0)
-                                return r;
-                }
+        if (link->sd_device &&
+            net_get_unique_predictable_data(link->sd_device, &seed) >= 0) {
+                r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
+                if (r < 0)
+                        return r;
         }
 
         r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);

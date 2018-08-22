@@ -12,6 +12,7 @@
 #include "parse-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;

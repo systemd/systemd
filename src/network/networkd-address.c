@@ -12,6 +12,7 @@
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 #include "util.h"
 

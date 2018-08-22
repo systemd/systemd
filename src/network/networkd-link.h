@@ -4,6 +4,7 @@
 #include <endian.h>
 
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-dhcp-client.h"
 #include "sd-dhcp-server.h"
 #include "sd-dhcp6-client.h"
@@ -57,7 +58,7 @@ typedef struct Link {
         struct ether_addr mac;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
-        struct udev_device *udev_device;
+        sd_device *sd_device;
 
         unsigned flags;
         uint8_t kernel_operstate;
@@ -136,7 +137,7 @@ int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
 int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
 
 void link_enter_failed(Link *link);
-int link_initialized(Link *link, struct udev_device *device);
+int link_initialized(Link *link, sd_device *device);
 
 void link_check_ready(Link *link);
 

@@ -16,6 +16,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 
 #include "netdev/bridge.h"
 #include "netdev/bond.h"
