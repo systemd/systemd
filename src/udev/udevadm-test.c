@@ -13,7 +13,6 @@
 #include <unistd.h>
 
 #include "string-util.h"
-#include "udev-util.h"
 #include "udev.h"
 #include "udevadm-util.h"
 

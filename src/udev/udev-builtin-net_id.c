@@ -102,7 +102,6 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev.h"
-#include "udev-util.h"
 
 #define ONBOARD_INDEX_MAX (16*1024-1)
 

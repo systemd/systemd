@@ -21,7 +21,6 @@
 
 #include "process-util.h"
 #include "time-util.h"
-#include "udev-util.h"
 #include "udev.h"
 #include "udevadm-util.h"
 

@@ -11,7 +11,6 @@
 #include "fd-util.h"
 #include "set.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "udev.h"
 #include "udevadm-util.h"
 #include "util.h"
