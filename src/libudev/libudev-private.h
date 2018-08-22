@@ -125,9 +125,7 @@ int util_replace_whitespace(const char *str, char *to, size_t len);
 int util_replace_chars(char *str, const char *white);
 unsigned int util_string_hash32(const char *key);
 uint64_t util_string_bloom64(const char *str);
-
-/* libudev-util-private.c */
-int util_resolve_subsys_kernel(struct udev *udev, const char *string, char *result, size_t maxsize, int read_value);
+int util_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, int read_value);
 
 /* Cleanup functions */
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev*, udev_unref);

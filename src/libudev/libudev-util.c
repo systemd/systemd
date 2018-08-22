@@ -23,9 +23,8 @@
  */
 
 /* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
-int util_resolve_subsys_kernel(struct udev *udev, const char *string,
-                               char *result, size_t maxsize, int read_value)
-{
+int util_resolve_subsys_kernel(const char *string,
+                               char *result, size_t maxsize, int read_value) {
         char temp[UTIL_PATH_SIZE];
         char *subsys;
         char *sysname;
@@ -58,7 +57,7 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
         if (read_value && attr == NULL)
                 return -1;
 
-        dev = udev_device_new_from_subsystem_sysname(udev, subsys, sysname);
+        dev = udev_device_new_from_subsystem_sysname(NULL, subsys, sysname);
         if (dev == NULL)
                 return -1;
 
