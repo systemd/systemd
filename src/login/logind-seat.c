@@ -203,8 +203,7 @@ int seat_apply_acls(Seat *s, Session *old_active) {
 
         assert(s);
 
-        r = devnode_acl_all(s->manager->udev,
-                            s->id,
+        r = devnode_acl_all(s->id,
                             false,
                             !!old_active, old_active ? old_active->user->uid : 0,
                             !!s->active, s->active ? s->active->user->uid : 0);

@@ -5,6 +5,7 @@
 
 #include "libudev.h"
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-event.h"
 
 #include "conf-parser.h"
@@ -34,7 +35,6 @@ struct Manager {
         LIST_HEAD(Session, session_gc_queue);
         LIST_HEAD(User, user_gc_queue);
 
-        struct udev *udev;
         struct udev_monitor *udev_seat_monitor, *udev_device_monitor, *udev_vcsa_monitor, *udev_button_monitor;
 
         sd_event_source *console_active_event_source;
@@ -133,8 +133,8 @@ int manager_add_user_by_name(Manager *m, const char *name, User **_user);
 int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
 int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor);
 
-int manager_process_seat_device(Manager *m, struct udev_device *d);
-int manager_process_button_device(Manager *m, struct udev_device *d);
+int manager_process_seat_device(Manager *m, sd_device *d);
+int manager_process_button_device(Manager *m, sd_device *d);
 
 int manager_spawn_autovt(Manager *m, unsigned int vtnr);
 

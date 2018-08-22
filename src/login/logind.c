@@ -5,25 +5,26 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "libudev.h"
 #include "sd-daemon.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "def.h"
+#include "device-enumerator-private.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "libudev-private.h"
 #include "logind.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "strv.h"
-#include "udev-util.h"
 
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
@@ -55,10 +56,6 @@ static int manager_new(Manager **ret) {
 
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 return -ENOMEM;
-
-        m->udev = udev_new();
-        if (!m->udev)
-                return -errno;
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -139,8 +136,6 @@ static Manager* manager_unref(Manager *m) {
         udev_monitor_unref(m->udev_vcsa_monitor);
         udev_monitor_unref(m->udev_button_monitor);
 
-        udev_unref(m->udev);
-
         if (m->unlink_nologin)
                 (void) unlink_or_warn("/run/nologin");
 
@@ -163,8 +158,8 @@ static Manager* manager_unref(Manager *m) {
 }
 
 static int manager_enumerate_devices(Manager *m) {
-        struct udev_list_entry *item = NULL, *first = NULL;
-        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
         int r;
 
         assert(m);
@@ -172,30 +167,20 @@ static int manager_enumerate_devices(Manager *m) {
         /* Loads devices from udev and creates seats for them as
          * necessary */
 
-        e = udev_enumerate_new(m->udev);
-        if (!e)
-                return -ENOMEM;
-
-        r = udev_enumerate_add_match_tag(e, "master-of-seat");
+        r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_add_match_is_initialized(e);
+        r = sd_device_enumerator_add_match_tag(e, "master-of-seat");
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_scan_devices(e);
+        r = device_enumerator_scan_devices(e);
         if (r < 0)
                 return r;
 
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
                 int k;
-
-                d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
-                if (!d)
-                        return -ENOMEM;
 
                 k = manager_process_seat_device(m, d);
                 if (k < 0)
@@ -206,8 +191,8 @@ static int manager_enumerate_devices(Manager *m) {
 }
 
 static int manager_enumerate_buttons(Manager *m) {
-        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
         int r;
 
         assert(m);
@@ -217,34 +202,24 @@ static int manager_enumerate_buttons(Manager *m) {
         if (manager_all_buttons_ignored(m))
                 return 0;
 
-        e = udev_enumerate_new(m->udev);
-        if (!e)
-                return -ENOMEM;
-
-        r = udev_enumerate_add_match_subsystem(e, "input");
+        r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_add_match_tag(e, "power-switch");
+        r = sd_device_enumerator_add_match_subsystem(e, "input", true);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_add_match_is_initialized(e);
+        r = sd_device_enumerator_add_match_tag(e, "power-switch");
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_scan_devices(e);
+        r = device_enumerator_scan_devices(e);
         if (r < 0)
                 return r;
 
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
                 int k;
-
-                d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
-                if (!d)
-                        return -ENOMEM;
 
                 k = manager_process_button_device(m, d);
                 if (k < 0)
@@ -566,64 +541,69 @@ static int manager_enumerate_inhibitors(Manager *m) {
 }
 
 static int manager_dispatch_seat_udev(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         Manager *m = userdata;
+        int r;
 
         assert(m);
 
-        d = udev_monitor_receive_device(m->udev_seat_monitor);
-        if (!d)
-                return -ENOMEM;
+        r = udev_monitor_receive_sd_device(m->udev_seat_monitor, &d);
+        if (r < 0)
+                return r;
 
         manager_process_seat_device(m, d);
         return 0;
 }
 
 static int manager_dispatch_device_udev(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         Manager *m = userdata;
+        int r;
 
         assert(m);
 
-        d = udev_monitor_receive_device(m->udev_device_monitor);
-        if (!d)
-                return -ENOMEM;
+        r = udev_monitor_receive_sd_device(m->udev_device_monitor, &d);
+        if (r < 0)
+                return r;
 
         manager_process_seat_device(m, d);
         return 0;
 }
 
 static int manager_dispatch_vcsa_udev(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         Manager *m = userdata;
-        const char *name;
+        const char *name, *action;
+        int r;
 
         assert(m);
 
-        d = udev_monitor_receive_device(m->udev_vcsa_monitor);
-        if (!d)
-                return -ENOMEM;
-
-        name = udev_device_get_sysname(d);
+        r = udev_monitor_receive_sd_device(m->udev_vcsa_monitor, &d);
+        if (r < 0)
+                return r;
 
         /* Whenever a VCSA device is removed try to reallocate our
          * VTs, to make sure our auto VTs never go away. */
 
-        if (name && startswith(name, "vcsa") && streq_ptr(udev_device_get_action(d), "remove"))
+        if (sd_device_get_sysname(d, &name) >= 0 &&
+            startswith(name, "vcsa") &&
+            sd_device_get_property_value(d, "ACTION", &action) >= 0 &&
+            streq_ptr(action, "remove"))
                 seat_preallocate_vts(m->seat0);
 
         return 0;
 }
 
 static int manager_dispatch_button_udev(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         Manager *m = userdata;
+        int r;
 
         assert(m);
 
-        d = udev_monitor_receive_device(m->udev_button_monitor);
-        if (!d)
-                return -ENOMEM;
+        r = udev_monitor_receive_sd_device(m->udev_button_monitor, &d);
+        if (r < 0)
+                return r;
 
         manager_process_button_device(m, d);
         return 0;
@@ -869,7 +849,7 @@ static int manager_connect_udev(Manager *m) {
         assert(!m->udev_vcsa_monitor);
         assert(!m->udev_button_monitor);
 
-        m->udev_seat_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        m->udev_seat_monitor = udev_monitor_new_from_netlink(NULL, "udev");
         if (!m->udev_seat_monitor)
                 return -ENOMEM;
 
@@ -885,7 +865,7 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        m->udev_device_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        m->udev_device_monitor = udev_monitor_new_from_netlink(NULL, "udev");
         if (!m->udev_device_monitor)
                 return -ENOMEM;
 
@@ -911,7 +891,7 @@ static int manager_connect_udev(Manager *m) {
 
         /* Don't watch keys if nobody cares */
         if (!manager_all_buttons_ignored(m)) {
-                m->udev_button_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+                m->udev_button_monitor = udev_monitor_new_from_netlink(NULL, "udev");
                 if (!m->udev_button_monitor)
                         return -ENOMEM;
 
@@ -935,7 +915,7 @@ static int manager_connect_udev(Manager *m) {
         /* Don't bother watching VCSA devices, if nobody cares */
         if (m->n_autovts > 0 && m->console_active_fd >= 0) {
 
-                m->udev_vcsa_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+                m->udev_vcsa_monitor = udev_monitor_new_from_netlink(NULL, "udev");
                 if (!m->udev_vcsa_monitor)
                         return -ENOMEM;
 
