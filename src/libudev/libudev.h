@@ -41,16 +41,18 @@ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list
 const char *udev_list_entry_get_name(struct udev_list_entry *list_entry);
 const char *udev_list_entry_get_value(struct udev_list_entry *list_entry);
 /**
- * udev_list_entry_foreach:
+ * UDEV_LIST_ENTRY_FOREACH:
  * @list_entry: entry to store the current position
  * @first_entry: first entry to start with
  *
  * Helper to iterate over all entries of a list.
  */
-#define udev_list_entry_foreach(list_entry, first_entry) \
+#define UDEV_LIST_ENTRY_FOREACH(list_entry, first_entry) \
         for (list_entry = first_entry; \
              list_entry != NULL; \
              list_entry = udev_list_entry_get_next(list_entry))
+#define udev_list_entry_foreach(list_entry, first_entry) \
+        UDEV_LIST_ENTRY_FOREACH(list_entry, first_entry)
 
 /*
  * udev_device
@@ -60,7 +62,7 @@ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry);
 struct udev_device;
 struct udev_device *udev_device_ref(struct udev_device *udev_device);
 struct udev_device *udev_device_unref(struct udev_device *udev_device);
-struct udev *udev_device_get_udev(struct udev_device *udev_device);
+struct udev *udev_device_get_udev(struct udev_device *udev_device) __attribute__ ((deprecated));
 struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath);
 struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum);
 struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname);
@@ -101,7 +103,7 @@ int udev_device_has_tag(struct udev_device *udev_device, const char *tag);
 struct udev_monitor;
 struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor);
 struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monitor);
-struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor);
+struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor) __attribute__ ((deprecated));
 /* kernel and udev generated events over netlink */
 struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name);
 /* bind socket */
@@ -124,7 +126,7 @@ int udev_monitor_filter_remove(struct udev_monitor *udev_monitor);
 struct udev_enumerate;
 struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
 struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
-struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate);
+struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate) __attribute__ ((deprecated));
 struct udev_enumerate *udev_enumerate_new(struct udev *udev);
 /* device properties filter */
 int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem);
@@ -151,7 +153,7 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 struct udev_queue;
 struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue);
 struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue);
-struct udev *udev_queue_get_udev(struct udev_queue *udev_queue);
+struct udev *udev_queue_get_udev(struct udev_queue *udev_queue) __attribute__ ((deprecated));
 struct udev_queue *udev_queue_new(struct udev *udev);
 unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue) __attribute__ ((deprecated));
 unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue) __attribute__ ((deprecated));

@@ -12,7 +12,6 @@
 
 #include "fd-util.h"
 #include "format-util.h"
-#include "udev-util.h"
 #include "udev.h"
 #include "udevadm-util.h"
 
@@ -36,7 +35,7 @@ static void print_device(struct udev_device *device, const char *source, int pro
         if (prop) {
                 struct udev_list_entry *list_entry;
 
-                udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
+                UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_properties_list_entry(device))
                         printf("%s=%s\n",
                                udev_list_entry_get_name(list_entry),
                                udev_list_entry_get_value(list_entry));
@@ -57,7 +56,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
+static int adm_monitor(int argc, char *argv[]) {
         struct sigaction act = {};
         sigset_t mask;
         bool prop = false;
@@ -84,8 +83,8 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
                 {}
         };
 
-        udev_list_init(udev, &subsystem_match_list, true);
-        udev_list_init(udev, &tag_match_list, true);
+        udev_list_init(&subsystem_match_list, true);
+        udev_list_init(&tag_match_list, true);
 
         while ((c = getopt_long(argc, argv, "pekus:t:Vh", options, NULL)) >= 0)
                 switch (c) {
@@ -110,11 +109,11 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
                                         devtype[0] = '\0';
                                         devtype++;
                                 }
-                                udev_list_entry_add(&subsystem_match_list, subsys, devtype);
+                                udev_list_entry_add(&subsystem_match_list, subsys, devtype, NULL);
                                 break;
                         }
                 case 't':
-                        udev_list_entry_add(&tag_match_list, optarg, NULL);
+                        udev_list_entry_add(&tag_match_list, optarg, NULL, NULL);
                         break;
                 case 'V':
                         print_version();
@@ -154,7 +153,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
         if (print_udev) {
                 struct udev_list_entry *entry;
 
-                udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
+                udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
                 if (udev_monitor == NULL) {
                         fprintf(stderr, "error: unable to create netlink socket\n");
                         return 1;
@@ -162,7 +161,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
                 udev_monitor_set_receive_buffer_size(udev_monitor, 128*1024*1024);
                 fd_udev = udev_monitor_get_fd(udev_monitor);
 
-                udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
+                UDEV_LIST_ENTRY_FOREACH(entry, udev_list_get_entry(&subsystem_match_list)) {
                         const char *subsys = udev_list_entry_get_name(entry);
                         const char *devtype = udev_list_entry_get_value(entry);
 
@@ -170,7 +169,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
                                 fprintf(stderr, "error: unable to apply subsystem filter '%s'\n", subsys);
                 }
 
-                udev_list_entry_foreach(entry, udev_list_get_entry(&tag_match_list)) {
+                UDEV_LIST_ENTRY_FOREACH(entry, udev_list_get_entry(&tag_match_list)) {
                         const char *tag = udev_list_entry_get_name(entry);
 
                         if (udev_monitor_filter_add_match_tag(udev_monitor, tag) < 0)
@@ -196,7 +195,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
         if (print_kernel) {
                 struct udev_list_entry *entry;
 
-                kernel_monitor = udev_monitor_new_from_netlink(udev, "kernel");
+                kernel_monitor = udev_monitor_new_from_netlink(NULL, "kernel");
                 if (kernel_monitor == NULL) {
                         fprintf(stderr, "error: unable to create netlink socket\n");
                         return 3;
@@ -204,7 +203,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
                 udev_monitor_set_receive_buffer_size(kernel_monitor, 128*1024*1024);
                 fd_kernel = udev_monitor_get_fd(kernel_monitor);
 
-                udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
+                UDEV_LIST_ENTRY_FOREACH(entry, udev_list_get_entry(&subsystem_match_list)) {
                         const char *subsys = udev_list_entry_get_name(entry);
 
                         if (udev_monitor_filter_add_match_subsystem_devtype(kernel_monitor, subsys, NULL) < 0)

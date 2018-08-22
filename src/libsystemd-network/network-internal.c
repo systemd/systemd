@@ -23,24 +23,22 @@
 #include "utf8.h"
 #include "util.h"
 
-const char *net_get_name(struct udev_device *device) {
+const char *net_get_name(sd_device *device) {
         const char *name, *field;
 
         assert(device);
 
         /* fetch some persistent data unique (on this machine) to this device */
-        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
-                name = udev_device_get_property_value(device, field);
-                if (name)
+        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC")
+                if (sd_device_get_property_value(device, field, &name) >= 0 && !isempty(name))
                         return name;
-        }
 
         return NULL;
 }
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
 
-int net_get_unique_predictable_data(struct udev_device *device, uint64_t *result) {
+int net_get_unique_predictable_data(sd_device *device, uint64_t *result) {
         size_t l, sz = 0;
         const char *name = NULL;
         int r;

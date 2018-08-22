@@ -102,7 +102,6 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev.h"
-#include "udev-util.h"
 
 #define ONBOARD_INDEX_MAX (16*1024-1)
 
@@ -154,7 +153,6 @@ static struct udev_device *skip_virtio(struct udev_device *dev) {
 }
 
 static int get_virtfn_info(struct udev_device *dev, struct netnames *names, struct virtfn_info *vf_info) {
-        struct udev *udev;
         const char *physfn_link_file;
         _cleanup_free_ char *physfn_pci_syspath = NULL;
         _cleanup_free_ char *virtfn_pci_syspath = NULL;
@@ -163,9 +161,6 @@ static int get_virtfn_info(struct udev_device *dev, struct netnames *names, stru
         struct virtfn_info vf_info_local = {};
         int r;
 
-        udev = udev_device_get_udev(names->pcidev);
-        if (!udev)
-                return -ENOENT;
         /* Check if this is a virtual function. */
         physfn_link_file = strjoina(udev_device_get_syspath(names->pcidev), "/physfn");
         r = chase_symlinks(physfn_link_file, NULL, 0, &physfn_pci_syspath);
@@ -173,7 +168,7 @@ static int get_virtfn_info(struct udev_device *dev, struct netnames *names, stru
                 return r;
 
         /* Get physical function's pci device. */
-        vf_info_local.physfn_pcidev = udev_device_new_from_syspath(udev, physfn_pci_syspath);
+        vf_info_local.physfn_pcidev = udev_device_new_from_syspath(NULL, physfn_pci_syspath);
         if (!vf_info_local.physfn_pcidev)
                 return -ENOENT;
 
@@ -289,7 +284,6 @@ static bool is_pci_ari_enabled(struct udev_device *dev) {
 }
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
-        struct udev *udev = udev_device_get_udev(names->pcidev);
         unsigned domain, bus, slot, func, dev_port = 0, hotplug_slot = 0;
         size_t l;
         char *s;
@@ -332,7 +326,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 names->pci_path[0] = '\0';
 
         /* ACPI _SUN  — slot user number */
-        pci = udev_device_new_from_subsystem_sysname(udev, "subsystem", "pci");
+        pci = udev_device_new_from_subsystem_sysname(NULL, "subsystem", "pci");
         if (!pci)
                 return -ENOENT;
 

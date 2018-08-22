@@ -20,7 +20,7 @@ static int inotify_fd = -1;
  * set to cloexec since we need our children to be able to add
  * watches for us
  */
-int udev_watch_init(struct udev *udev) {
+int udev_watch_init(void) {
         inotify_fd = inotify_init1(IN_CLOEXEC);
         if (inotify_fd < 0)
                 log_error_errno(errno, "inotify_init failed: %m");
@@ -30,7 +30,7 @@ int udev_watch_init(struct udev *udev) {
 /* move any old watches directory out of the way, and then restore
  * the watches
  */
-void udev_watch_restore(struct udev *udev) {
+void udev_watch_restore(void) {
         if (inotify_fd < 0)
                 return;
 
@@ -57,12 +57,12 @@ void udev_watch_restore(struct udev *udev) {
                                 goto unlink;
                         device[len] = '\0';
 
-                        dev = udev_device_new_from_device_id(udev, device);
+                        dev = udev_device_new_from_device_id(NULL, device);
                         if (dev == NULL)
                                 goto unlink;
 
                         log_debug("restoring old watch on '%s'", udev_device_get_devnode(dev));
-                        udev_watch_begin(udev, dev);
+                        udev_watch_begin(dev);
                         udev_device_unref(dev);
 unlink:
                         (void) unlinkat(dirfd(dir), ent->d_name, 0);
@@ -75,7 +75,7 @@ unlink:
                 log_error_errno(errno, "unable to move watches dir /run/udev/watch; old watches will not be restored: %m");
 }
 
-void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
+void udev_watch_begin(struct udev_device *dev) {
         char filename[sizeof("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         int wd;
         int r;
@@ -101,7 +101,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
         udev_device_set_watch_handle(dev, wd);
 }
 
-void udev_watch_end(struct udev *udev, struct udev_device *dev) {
+void udev_watch_end(struct udev_device *dev) {
         int wd;
         char filename[sizeof("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
 
@@ -121,7 +121,7 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev) {
         udev_device_set_watch_handle(dev, -1);
 }
 
-struct udev_device *udev_watch_lookup(struct udev *udev, int wd) {
+struct udev_device *udev_watch_lookup(int wd) {
         char filename[sizeof("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
         char device[UTIL_NAME_SIZE];
         ssize_t len;
@@ -135,5 +135,5 @@ struct udev_device *udev_watch_lookup(struct udev *udev, int wd) {
                 return NULL;
         device[len] = '\0';
 
-        return udev_device_new_from_device_id(udev, device);
+        return udev_device_new_from_device_id(NULL, device);
 }

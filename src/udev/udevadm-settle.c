@@ -28,7 +28,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_settle(struct udev *udev, int argc, char *argv[]) {
+static int adm_settle(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "timeout",        required_argument, NULL, 't' },
                 { "exit-if-exists", required_argument, NULL, 'E' },
@@ -98,7 +98,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
         if (getuid() == 0) {
                 struct udev_ctrl *uctrl;
 
-                uctrl = udev_ctrl_new(udev);
+                uctrl = udev_ctrl_new();
                 if (uctrl != NULL) {
                         if (udev_ctrl_send_ping(uctrl, MAX(5U, timeout)) < 0) {
                                 log_debug("no connection to daemon");
@@ -109,7 +109,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
                 }
         }
 
-        queue = udev_queue_new(udev);
+        queue = udev_queue_new(NULL);
         if (!queue) {
                 log_error("unable to get udev queue");
                 return EXIT_FAILURE;

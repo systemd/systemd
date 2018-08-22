@@ -3,19 +3,20 @@
 #include <errno.h>
 #include <sys/epoll.h>
 
-#include "libudev.h"
-
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "dbus-device.h"
+#include "device-private.h"
+#include "device-enumerator-private.h"
+#include "device-util.h"
 #include "device.h"
+#include "libudev-private.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "swap.h"
-#include "udev-util.h"
 #include "unit-name.h"
 #include "unit.h"
 
@@ -300,27 +301,27 @@ _pure_ static const char *device_sub_state_to_string(Unit *u) {
         return device_state_to_string(DEVICE(u)->state);
 }
 
-static int device_update_description(Unit *u, struct udev_device *dev, const char *path) {
-        const char *model;
+static int device_update_description(Unit *u, sd_device *dev, const char *path) {
+        const char *model = NULL;
         int r;
 
         assert(u);
         assert(dev);
         assert(path);
 
-        model = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE");
+        (void) sd_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE", &model);
         if (!model)
-                model = udev_device_get_property_value(dev, "ID_MODEL");
+                (void) sd_device_get_property_value(dev, "ID_MODEL", &model);
 
         if (model) {
-                const char *label;
+                const char *label = NULL;
 
                 /* Try to concatenate the device model string with a label, if there is one */
-                label = udev_device_get_property_value(dev, "ID_FS_LABEL");
+                (void) sd_device_get_property_value(dev, "ID_FS_LABEL", &label);
                 if (!label)
-                        label = udev_device_get_property_value(dev, "ID_PART_ENTRY_NAME");
+                        (void) sd_device_get_property_value(dev, "ID_PART_ENTRY_NAME", &label);
                 if (!label)
-                        label = udev_device_get_property_value(dev, "ID_PART_ENTRY_NUMBER");
+                        (void) sd_device_get_property_value(dev, "ID_PART_ENTRY_NUMBER", &label);
 
                 if (label) {
                         _cleanup_free_ char *j;
@@ -340,7 +341,7 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
         return 0;
 }
 
-static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
+static int device_add_udev_wants(Unit *u, sd_device *dev) {
         _cleanup_strv_free_ char **added = NULL;
         const char *wants, *property;
         Device *d = DEVICE(u);
@@ -351,8 +352,8 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
 
         property = MANAGER_IS_USER(u->manager) ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
 
-        wants = udev_device_get_property_value(dev, property);
-        if (!wants)
+        r = sd_device_get_property_value(dev, property, &wants);
+        if (r < 0 || isempty(wants))
                 return 0;
 
         for (;;) {
@@ -429,14 +430,14 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
         return 0;
 }
 
-static bool device_is_bound_by_mounts(Device *d, struct udev_device *dev) {
-        const char *bound_by;
+static bool device_is_bound_by_mounts(Device *d, sd_device *dev) {
+        const char *bound_by = NULL;
         int r;
 
         assert(d);
         assert(dev);
 
-        bound_by = udev_device_get_property_value(dev, "SYSTEMD_MOUNT_DEVICE_BOUND");
+        (void) sd_device_get_property_value(dev, "SYSTEMD_MOUNT_DEVICE_BOUND", &bound_by);
         if (bound_by) {
                 r = parse_boolean(bound_by);
                 if (r < 0)
@@ -467,7 +468,7 @@ static void device_upgrade_mount_deps(Unit *u) {
         }
 }
 
-static int device_setup_unit(Manager *m, struct udev_device *dev, const char *path, bool main) {
+static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool main) {
         _cleanup_free_ char *e = NULL;
         const char *sysfs = NULL;
         Unit *u = NULL;
@@ -478,7 +479,7 @@ static int device_setup_unit(Manager *m, struct udev_device *dev, const char *pa
         assert(path);
 
         if (dev) {
-                sysfs = udev_device_get_syspath(dev);
+                (void) sd_device_get_syspath(dev, &sysfs);
                 if (!sysfs) {
                         log_debug("Couldn't get syspath from udev device, ignoring.");
                         return 0;
@@ -559,14 +560,14 @@ fail:
         return r;
 }
 
-static int device_process_new(Manager *m, struct udev_device *dev) {
-        const char *sysfs, *dn, *alias;
-        struct udev_list_entry *item = NULL, *first = NULL;
+static int device_process_new(Manager *m, sd_device *dev) {
+        const char *sysfs = NULL, *dn = NULL, *alias;
+        dev_t devnum;
         int r;
 
         assert(m);
 
-        sysfs = udev_device_get_syspath(dev);
+        (void) sd_device_get_syspath(dev, &sysfs);
         if (!sysfs)
                 return 0;
 
@@ -576,40 +577,41 @@ static int device_process_new(Manager *m, struct udev_device *dev) {
                 return r;
 
         /* Add an additional unit for the device node */
-        dn = udev_device_get_devnode(dev);
+        (void) sd_device_get_devname(dev, &dn);
         if (dn)
                 (void) device_setup_unit(m, dev, dn, false);
 
         /* Add additional units for all symlinks */
-        first = udev_device_get_devlinks_list_entry(dev);
-        udev_list_entry_foreach(item, first) {
+        if (sd_device_get_devnum(dev, &devnum) >= 0) {
                 const char *p;
-                struct stat st;
 
-                /* Don't bother with the /dev/block links */
-                p = udev_list_entry_get_name(item);
+                FOREACH_DEVICE_DEVLINK(dev, p) {
+                        struct stat st;
 
-                if (PATH_STARTSWITH_SET(p, "/dev/block/", "/dev/char/"))
-                        continue;
-
-                /* Verify that the symlink in the FS actually belongs
-                 * to this device. This is useful to deal with
-                 * conflicting devices, e.g. when two disks want the
-                 * same /dev/disk/by-label/xxx link because they have
-                 * the same label. We want to make sure that the same
-                 * device that won the symlink wins in systemd, so we
-                 * check the device node major/minor */
-                if (stat(p, &st) >= 0)
-                        if ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) ||
-                            st.st_rdev != udev_device_get_devnum(dev))
+                        if (PATH_STARTSWITH_SET(p, "/dev/block/", "/dev/char/"))
                                 continue;
 
-                (void) device_setup_unit(m, dev, p, false);
+                        /* Verify that the symlink in the FS actually belongs
+                         * to this device. This is useful to deal with
+                         * conflicting devices, e.g. when two disks want the
+                         * same /dev/disk/by-label/xxx link because they have
+                         * the same label. We want to make sure that the same
+                         * device that won the symlink wins in systemd, so we
+                         * check the device node major/minor */
+                        if (stat(p, &st) >= 0 &&
+                            ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) ||
+                             st.st_rdev != devnum))
+                                continue;
+
+                        (void) device_setup_unit(m, dev, p, false);
+                }
         }
 
-        /* Add additional units for all explicitly configured
-         * aliases */
-        alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
+        /* Add additional units for all explicitly configured aliases */
+        r = sd_device_get_property_value(dev, "SYSTEMD_ALIAS", &alias);
+        if (r < 0)
+                return 0;
+
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
@@ -712,13 +714,12 @@ static int device_update_found_by_name(Manager *m, const char *path, DeviceFound
         return 0;
 }
 
-static bool device_is_ready(struct udev_device *dev) {
+static bool device_is_ready(sd_device *dev) {
         const char *ready;
 
         assert(dev);
 
-        ready = udev_device_get_property_value(dev, "SYSTEMD_READY");
-        if (!ready)
+        if (sd_device_get_property_value(dev, "SYSTEMD_READY", &ready) < 0 || isempty(ready))
                 return true;
 
         return parse_boolean(ready) != 0;
@@ -790,14 +791,14 @@ static void device_shutdown(Manager *m) {
 }
 
 static void device_enumerate(Manager *m) {
-        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
         int r;
 
         assert(m);
 
         if (!m->udev_monitor) {
-                m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+                m->udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
                 if (!m->udev_monitor) {
                         log_error_errno(errno, "Failed to allocate udev monitor: %m");
                         goto fail;
@@ -829,53 +830,29 @@ static void device_enumerate(Manager *m) {
                 (void) sd_event_source_set_description(m->udev_event_source, "device");
         }
 
-        e = udev_enumerate_new(m->udev);
-        if (!e) {
-                log_error_errno(errno, "Failed to alloacte udev enumerator: %m");
-                goto fail;
-        }
-
-        r = udev_enumerate_add_match_tag(e, "systemd");
+        r = sd_device_enumerator_new(&e);
         if (r < 0) {
-                log_error_errno(r, "Failed to create udev tag enumeration: %m");
+                log_error_errno(r, "Failed to alloacte device enumerator: %m");
                 goto fail;
         }
 
-        r = udev_enumerate_add_match_is_initialized(e);
+        r = sd_device_enumerator_add_match_tag(e, "systemd");
         if (r < 0) {
-                log_error_errno(r, "Failed to install initialization match into enumeration: %m");
+                log_error_errno(r, "Failed to set tag for device enumeration: %m");
                 goto fail;
         }
 
-        r = udev_enumerate_scan_devices(e);
-        if (r < 0) {
-                log_error_errno(r, "Failed to enumerate devices: %m");
-                goto fail;
-        }
-
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+        FOREACH_DEVICE_AND_SUBSYSTEM(e, dev) {
                 const char *sysfs;
-
-                sysfs = udev_list_entry_get_name(item);
-
-                dev = udev_device_new_from_syspath(m->udev, sysfs);
-                if (!dev) {
-                        if (errno == ENOMEM) {
-                                log_oom();
-                                goto fail;
-                        }
-
-                        /* If we can't create a device, don't bother, it probably just disappeared. */
-                        log_debug_errno(errno, "Failed to create udev device object for %s: %m", sysfs);
-                        continue;
-                }
 
                 if (!device_is_ready(dev))
                         continue;
 
                 (void) device_process_new(m, dev);
+
+                if (sd_device_get_syspath(dev, &sysfs) < 0)
+                        continue;
+
                 device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
         }
 
@@ -904,7 +881,7 @@ static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
 }
 
 static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         Manager *m = userdata;
         const char *action, *sysfs;
         int r;
@@ -924,18 +901,18 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
          * libudev might filter-out devices which pass the bloom
          * filter, so getting NULL here is not necessarily an error.
          */
-        dev = udev_monitor_receive_device(m->udev_monitor);
-        if (!dev)
+        r = udev_monitor_receive_sd_device(m->udev_monitor, &dev);
+        if (r < 0)
                 return 0;
 
-        sysfs = udev_device_get_syspath(dev);
-        if (!sysfs) {
-                log_error("Failed to get udev sys path.");
+        r = sd_device_get_syspath(dev, &sysfs);
+        if (r < 0) {
+                log_error("Failed to get device sys path.");
                 return 0;
         }
 
-        action = udev_device_get_action(dev);
-        if (!action) {
+        r = sd_device_get_property_value(dev, "ACTION", &action);
+        if (r < 0 || isempty(action)) {
                 log_error("Failed to get udev action string.");
                 return 0;
         }
@@ -992,7 +969,7 @@ static bool device_supported(void) {
         return read_only <= 0;
 }
 
-static int validate_node(Manager *m, const char *node, struct udev_device **ret) {
+static int validate_node(Manager *m, const char *node, sd_device **ret) {
         struct stat st;
         int r;
 
@@ -1016,9 +993,9 @@ static int validate_node(Manager *m, const char *node, struct udev_device **ret)
                 return 1; /* good! (though missing) */
 
         } else {
-                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
-                r = udev_device_new_from_stat_rdev(m->udev, &st, &dev);
+                r = device_new_from_stat_rdev(&dev, &st);
                 if (r == -ENOENT) {
                         *ret = NULL;
                         return 1; /* good! (though missing) */
@@ -1054,7 +1031,7 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
          * and unset individual bits in a single call, while merging partially with previous state. */
 
         if ((found & mask) != 0) {
-                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
                 /* If the device is known in the kernel and newly appeared, then we'll create a device unit for it,
                  * under the name referenced in /proc/swaps or /proc/self/mountinfo. But first, let's validate if

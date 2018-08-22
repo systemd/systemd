@@ -57,13 +57,12 @@
 static bool arg_debug = false;
 static int arg_daemonize = false;
 static int arg_resolve_names = 1;
-static unsigned arg_children_max;
-static int arg_exec_delay;
+static unsigned arg_children_max = 0;
+static int arg_exec_delay = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
 
 typedef struct Manager {
-        struct udev *udev;
         sd_event *event;
         Hashmap *workers;
         LIST_HEAD(struct event, events);
@@ -98,7 +97,6 @@ enum event_state {
 struct event {
         LIST_FIELDS(struct event, event);
         Manager *manager;
-        struct udev *udev;
         struct udev_device *dev;
         struct udev_device *dev_kernel;
         struct worker *worker;
@@ -126,7 +124,6 @@ enum worker_state {
 
 struct worker {
         Manager *manager;
-        int refcount;
         pid_t pid;
         struct udev_monitor *monitor;
         enum worker_state state;
@@ -138,10 +135,9 @@ struct worker_message {
 };
 
 static void event_free(struct event *event) {
-        int r;
-
         if (!event)
                 return;
+
         assert(event->manager);
 
         LIST_REMOVE(event, event->manager->events, event);
@@ -154,14 +150,11 @@ static void event_free(struct event *event) {
         if (event->worker)
                 event->worker->event = NULL;
 
-        if (LIST_IS_EMPTY(event->manager->events)) {
-                /* only clean up the queue from the process that created it */
-                if (event->manager->pid == getpid_cached()) {
-                        r = unlink("/run/udev/queue");
-                        if (r < 0)
-                                log_warning_errno(errno, "could not unlink /run/udev/queue: %m");
-                }
-        }
+        /* only clean up the queue from the process that created it */
+        if (LIST_IS_EMPTY(event->manager->events) &&
+            event->manager->pid == getpid_cached() &&
+            unlink("/run/udev/queue") < 0)
+                log_warning_errno(errno, "Could not unlink /run/udev/queue: %m");
 
         free(event);
 }
@@ -179,20 +172,21 @@ static void worker_free(struct worker *worker) {
         free(worker);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct worker*, worker_free);
+
 static void manager_workers_free(Manager *manager) {
         struct worker *worker;
-        Iterator i;
 
         assert(manager);
 
-        HASHMAP_FOREACH(worker, manager->workers, i)
+        while ((worker = hashmap_first(manager->workers)))
                 worker_free(worker);
 
         manager->workers = hashmap_free(manager->workers);
 }
 
-static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor *worker_monitor, pid_t pid) {
-        _cleanup_free_ struct worker *worker = NULL;
+static int worker_new(Manager *manager, struct udev_monitor *worker_monitor, pid_t pid, struct worker **ret) {
+        _cleanup_(worker_freep) struct worker *worker = NULL;
         int r;
 
         assert(ret);
@@ -200,16 +194,15 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         assert(worker_monitor);
         assert(pid > 1);
 
-        worker = new0(struct worker, 1);
+        worker = new(struct worker, 1);
         if (!worker)
                 return -ENOMEM;
 
-        worker->refcount = 1;
-        worker->manager = manager;
-        /* close monitor, but keep address around */
-        udev_monitor_disconnect(worker_monitor);
-        worker->monitor = udev_monitor_ref(worker_monitor);
-        worker->pid = pid;
+        *worker = (struct worker) {
+                .manager = manager,
+                .monitor = udev_monitor_ref(worker_monitor),
+                .pid = pid,
+        };
 
         r = hashmap_ensure_allocated(&manager->workers, NULL);
         if (r < 0)
@@ -219,8 +212,10 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(worker);
+        /* close monitor, but keep address around */
+        (void) udev_monitor_disconnect(worker_monitor);
 
+        *ret = TAKE_PTR(worker);
         return 0;
 }
 
@@ -278,13 +273,12 @@ static void manager_free(Manager *manager) {
         if (!manager)
                 return;
 
-        udev_builtin_exit(manager->udev);
+        udev_builtin_exit();
 
         sd_event_source_unref(manager->ctrl_event);
         sd_event_source_unref(manager->uevent_event);
         sd_event_source_unref(manager->inotify_event);
 
-        udev_unref(manager->udev);
         sd_event_unref(manager->event);
         manager_workers_free(manager);
         event_queue_cleanup(manager, EVENT_UNDEF);
@@ -323,20 +317,20 @@ static bool shall_lock_device(struct udev_device *dev) {
 }
 
 static void worker_spawn(Manager *manager, struct event *event) {
-        struct udev *udev = event->udev;
         _cleanup_(udev_monitor_unrefp) struct udev_monitor *worker_monitor = NULL;
         pid_t pid;
-        int r = 0;
+        int r;
 
         /* listen for new events */
-        worker_monitor = udev_monitor_new_from_netlink(udev, NULL);
-        if (worker_monitor == NULL)
+        worker_monitor = udev_monitor_new_from_netlink(NULL, NULL);
+        if (!worker_monitor)
                 return;
+
         /* allow the main daemon netlink address to send devices to the worker */
-        udev_monitor_allow_unicast_sender(worker_monitor, manager->monitor);
+        assert_se(udev_monitor_allow_unicast_sender(worker_monitor, manager->monitor) >= 0);
         r = udev_monitor_enable_receiving(worker_monitor);
         if (r < 0)
-                log_error_errno(r, "worker: could not enable receiving of device: %m");
+                log_error_errno(r, "worker: Failed to enable receiving device events: %m");
 
         pid = fork();
         switch (pid) {
@@ -457,7 +451,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
 
                         /* apply/restore inotify watch */
                         if (udev_event->inotify_watch) {
-                                udev_watch_begin(udev, dev);
+                                udev_watch_begin(dev);
                                 udev_device_update_db(dev);
                         }
 
@@ -527,7 +521,7 @@ out:
         {
                 struct worker *worker;
 
-                r = worker_new(&worker, manager, worker_monitor, pid);
+                r = worker_new(manager, worker_monitor, pid, &worker);
                 if (r < 0)
                         return;
 
@@ -575,6 +569,7 @@ static void event_run(Manager *manager, struct event *event) {
 }
 
 static int event_queue_insert(Manager *manager, struct udev_device *dev) {
+        _cleanup_(udev_device_unrefp) struct udev_device *clone = NULL;
         struct event *event;
         int r;
 
@@ -587,14 +582,17 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
 
         assert(manager->pid == getpid_cached());
 
+        r = udev_device_shallow_clone(dev, &clone);
+        if (r < 0)
+                return r;
+
         event = new0(struct event, 1);
         if (!event)
                 return -ENOMEM;
 
-        event->udev = udev_device_get_udev(dev);
         event->manager = manager;
         event->dev = dev;
-        event->dev_kernel = udev_device_shallow_clone(dev);
+        event->dev_kernel = TAKE_PTR(clone);
         udev_device_copy_properties(event->dev_kernel, dev);
         event->seqnum = udev_device_get_seqnum(dev);
         event->devpath = udev_device_get_devpath(dev);
@@ -762,7 +760,7 @@ static void manager_reload(Manager *manager) {
 
         manager_kill_workers(manager);
         manager->rules = udev_rules_unref(manager->rules);
-        udev_builtin_exit(manager->udev);
+        udev_builtin_exit();
 
         sd_notifyf(false,
                    "READY=1\n"
@@ -784,16 +782,16 @@ static void event_queue_start(Manager *manager) {
         if (manager->last_usec == 0 ||
             (usec - manager->last_usec) > 3 * USEC_PER_SEC) {
                 if (udev_rules_check_timestamp(manager->rules) ||
-                    udev_builtin_validate(manager->udev))
+                    udev_builtin_validate())
                         manager_reload(manager);
 
                 manager->last_usec = usec;
         }
 
-        udev_builtin_init(manager->udev);
+        udev_builtin_init();
 
         if (!manager->rules) {
-                manager->rules = udev_rules_new(manager->udev, arg_resolve_names);
+                manager->rules = udev_rules_new(arg_resolve_names);
                 if (!manager->rules)
                         return;
         }
@@ -969,10 +967,10 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
                                 val = &val[1];
                                 if (val[0] == '\0') {
                                         log_debug("udevd message (ENV) received, unset '%s'", key);
-                                        udev_list_entry_add(&manager->properties, key, NULL);
+                                        udev_list_entry_add(&manager->properties, key, NULL, NULL);
                                 } else {
                                         log_debug("udevd message (ENV) received, set '%s=%s'", key, val);
-                                        udev_list_entry_add(&manager->properties, key, val);
+                                        udev_list_entry_add(&manager->properties, key, val, NULL);
                                 }
                         } else
                                 log_error("wrong key format '%s'", key);
@@ -1014,7 +1012,6 @@ static int synthesize_change(struct udev_device *dev) {
                 bool part_table_read = false;
                 bool has_partitions = false;
                 int fd;
-                struct udev *udev = udev_device_get_udev(dev);
                 _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
                 struct udev_list_entry *item;
 
@@ -1036,7 +1033,7 @@ static int synthesize_change(struct udev_device *dev) {
                 }
 
                 /* search for partitions */
-                e = udev_enumerate_new(udev);
+                e = udev_enumerate_new(NULL);
                 if (!e)
                         return -ENOMEM;
 
@@ -1052,10 +1049,10 @@ static int synthesize_change(struct udev_device *dev) {
                 if (r < 0)
                         return r;
 
-                udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
+                UDEV_LIST_ENTRY_FOREACH(item, udev_enumerate_get_list_entry(e)) {
                         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
 
-                        d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                        d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                         if (!d)
                                 continue;
 
@@ -1082,10 +1079,10 @@ static int synthesize_change(struct udev_device *dev) {
                 strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
                 write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
 
-                udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
+                UDEV_LIST_ENTRY_FOREACH(item, udev_enumerate_get_list_entry(e)) {
                         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
 
-                        d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                        d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                         if (!d)
                                 continue;
 
@@ -1127,7 +1124,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
         FOREACH_INOTIFY_EVENT(e, buffer, l) {
                 _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
 
-                dev = udev_watch_lookup(manager->udev, e->wd);
+                dev = udev_watch_lookup(e->wd);
                 if (!dev)
                         continue;
 
@@ -1142,7 +1139,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                          */
                         on_uevent(NULL, -1, 0, manager);
                 } else if (e->mask & IN_IGNORED)
-                        udev_watch_end(manager->udev, dev);
+                        udev_watch_end(dev);
         }
 
         return 1;
@@ -1252,7 +1249,6 @@ static int on_post(sd_event_source *s, void *userdata) {
 }
 
 static int listen_fds(int *rctrl, int *rnetlink) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         int ctrl_fd = -1, netlink_fd = -1;
         int fd, n, r;
 
@@ -1284,11 +1280,7 @@ static int listen_fds(int *rctrl, int *rnetlink) {
         if (ctrl_fd < 0) {
                 _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *ctrl = NULL;
 
-                udev = udev_new();
-                if (!udev)
-                        return -ENOMEM;
-
-                ctrl = udev_ctrl_new(udev);
+                ctrl = udev_ctrl_new();
                 if (!ctrl)
                         return log_error_errno(EINVAL, "error initializing udev control socket");
 
@@ -1308,13 +1300,7 @@ static int listen_fds(int *rctrl, int *rnetlink) {
         if (netlink_fd < 0) {
                 _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
 
-                if (!udev) {
-                        udev = udev_new();
-                        if (!udev)
-                                return -ENOMEM;
-                }
-
-                monitor = udev_monitor_new_from_netlink(udev, "kernel");
+                monitor = udev_monitor_new_from_netlink(NULL, "kernel");
                 if (!monitor)
                         return log_error_errno(EINVAL, "error initializing netlink socket");
 
@@ -1516,28 +1502,24 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         manager->worker_watch[WRITE_END] = -1;
         manager->worker_watch[READ_END] = -1;
 
-        manager->udev = udev_new();
-        if (!manager->udev)
-                return log_error_errno(errno, "could not allocate udev context: %m");
+        udev_builtin_init();
 
-        udev_builtin_init(manager->udev);
-
-        manager->rules = udev_rules_new(manager->udev, arg_resolve_names);
+        manager->rules = udev_rules_new(arg_resolve_names);
         if (!manager->rules)
                 return log_error_errno(ENOMEM, "error reading rules");
 
         LIST_HEAD_INIT(manager->events);
-        udev_list_init(manager->udev, &manager->properties, true);
+        udev_list_init(&manager->properties, true);
 
         manager->cgroup = cgroup;
 
-        manager->ctrl = udev_ctrl_new_from_fd(manager->udev, fd_ctrl);
+        manager->ctrl = udev_ctrl_new_from_fd(fd_ctrl);
         if (!manager->ctrl)
                 return log_error_errno(EINVAL, "error taking over udev control socket");
 
-        manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_uevent);
-        if (!manager->monitor)
-                return log_error_errno(EINVAL, "error taking over netlink socket");
+        r = udev_monitor_new_from_netlink_fd("kernel", fd_uevent, &manager->monitor);
+        if (r < 0)
+                return log_error_errno(r, "Failed to take over netlink socket: %m");
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
@@ -1550,11 +1532,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(errno, "could not enable SO_PASSCRED: %m");
 
-        manager->fd_inotify = udev_watch_init(manager->udev);
+        manager->fd_inotify = udev_watch_init();
         if (manager->fd_inotify < 0)
                 return log_error_errno(ENOMEM, "error initializing inotify");
 
-        udev_watch_restore(manager->udev);
+        udev_watch_restore();
 
         /* block and listen to all signals on signalfd */
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);

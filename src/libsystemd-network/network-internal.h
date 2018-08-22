@@ -3,12 +3,12 @@
 
 #include <stdbool.h>
 
+#include "sd-device.h"
 #include "sd-dhcp-lease.h"
 
 #include "condition.h"
 #include "conf-parser.h"
 #include "set.h"
-#include "udev.h"
 
 #define LINK_BRIDGE_PORT_PRIORITY_INVALID 128
 #define LINK_BRIDGE_PORT_PRIORITY_MAX 63
@@ -38,8 +38,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_port_priority);
 
-int net_get_unique_predictable_data(struct udev_device *device, uint64_t *result);
-const char *net_get_name(struct udev_device *device);
+int net_get_unique_predictable_data(sd_device *device, uint64_t *result);
+const char *net_get_name(sd_device *device);
 
 void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size);
 int deserialize_in_addrs(struct in_addr **addresses, const char *string);

@@ -11,7 +11,7 @@
 #include "udev.h"
 #include "udevadm-util.h"
 
-static void help(struct udev *udev) {
+static void help(void) {
         printf("%s test-builtin [OPTIONS] COMMAND DEVPATH\n\n"
                "Test a built-in command.\n\n"
                "  -h --help     Print this message\n"
@@ -19,10 +19,10 @@ static void help(struct udev *udev) {
                "Commands:\n"
                , program_invocation_short_name);
 
-        udev_builtin_list(udev);
+        udev_builtin_list();
 }
 
-static int adm_builtin(struct udev *udev, int argc, char *argv[]) {
+static int adm_builtin(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "version", no_argument, NULL, 'V' },
                 { "help",    no_argument, NULL, 'h' },
@@ -41,14 +41,14 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[]) {
                         print_version();
                         goto out;
                 case 'h':
-                        help(udev);
+                        help();
                         goto out;
                 }
 
         command = argv[optind++];
         if (command == NULL) {
                 fprintf(stderr, "command missing\n");
-                help(udev);
+                help();
                 rc = 2;
                 goto out;
         }
@@ -60,12 +60,12 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[]) {
                 goto out;
         }
 
-        udev_builtin_init(udev);
+        udev_builtin_init();
 
         cmd = udev_builtin_lookup(command);
         if (cmd >= UDEV_BUILTIN_MAX) {
                 fprintf(stderr, "unknown command '%s'\n", command);
-                help(udev);
+                help();
                 rc = 5;
                 goto out;
         }
@@ -77,7 +77,7 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[]) {
                 strscpy(filename, sizeof(filename), syspath);
         delete_trailing_chars(filename, "/");
 
-        dev = udev_device_new_from_syspath(udev, filename);
+        dev = udev_device_new_from_syspath(NULL, filename);
         if (dev == NULL) {
                 fprintf(stderr, "unable to open device '%s'\n\n", filename);
                 rc = 4;
@@ -91,7 +91,7 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[]) {
         }
 out:
         udev_device_unref(dev);
-        udev_builtin_exit(udev);
+        udev_builtin_exit();
         return rc;
 }
 

@@ -5,7 +5,7 @@
   Copyright © 2010 Maarten Lankhorst
 ***/
 
-#include "libudev.h"
+#include "sd-device.h"
 #include "unit.h"
 
 typedef struct Swap Swap;
@@ -85,8 +85,8 @@ struct Swap {
 
 extern const UnitVTable swap_vtable;
 
-int swap_process_device_new(Manager *m, struct udev_device *dev);
-int swap_process_device_remove(Manager *m, struct udev_device *dev);
+int swap_process_device_new(Manager *m, sd_device *dev);
+int swap_process_device_remove(Manager *m, sd_device *dev);
 
 const char* swap_exec_command_to_string(SwapExecCommand i) _const_;
 SwapExecCommand swap_exec_command_from_string(const char *s) _pure_;

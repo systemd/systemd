@@ -22,6 +22,7 @@
 #endif
 
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-journal.h"
 
 #include "acl-util.h"
@@ -30,6 +31,7 @@
 #include "bus-util.h"
 #include "catalog.h"
 #include "chattr-util.h"
+#include "device-private.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -57,8 +59,6 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
-#include "udev-util.h"
-#include "udev.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -177,9 +177,8 @@ typedef struct BootId {
 } BootId;
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
-        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
-        struct udev_device *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        sd_device *d = NULL;
         struct stat st;
         int r;
 
@@ -191,33 +190,26 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
                 return -EINVAL;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
-
         if (stat(devpath, &st) < 0)
                 return log_error_errno(errno, "Couldn't stat file: %m");
 
-        r = udev_device_new_from_stat_rdev(udev, &st, &device);
+        r = device_new_from_stat_rdev(&device, &st);
         if (r < 0)
-                return log_error_errno(r, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
+                return log_error_errno(r, "Failed to get device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
 
         d = device;
         while (d) {
                 _cleanup_free_ char *match = NULL;
                 const char *subsys, *sysname, *devnode;
+                sd_device *parent;
 
-                subsys = udev_device_get_subsystem(d);
-                if (!subsys) {
-                        d = udev_device_get_parent(d);
-                        continue;
-                }
+                r = sd_device_get_subsystem(d, &subsys);
+                if (r < 0 || isempty(subsys))
+                        goto get_parent;
 
-                sysname = udev_device_get_sysname(d);
-                if (!sysname) {
-                        d = udev_device_get_parent(d);
-                        continue;
-                }
+                r = sd_device_get_sysname(d, &sysname);
+                if (r < 0 || isempty(subsys))
+                        goto get_parent;
 
                 match = strjoin("_KERNEL_DEVICE=+", subsys, ":", sysname);
                 if (!match)
@@ -227,8 +219,7 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add match: %m");
 
-                devnode = udev_device_get_devnode(d);
-                if (devnode) {
+                if (sd_device_get_devname(d, &devnode) >= 0 && !isempty(devnode)) {
                         _cleanup_free_ char *match1 = NULL;
 
                         r = stat(devnode, &st);
@@ -244,7 +235,12 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
                                 return log_error_errno(r, "Failed to add match: %m");
                 }
 
-                d = udev_device_get_parent(d);
+get_parent:
+                r = sd_device_get_parent(d, &parent);
+                if (r < 0)
+                        break;
+
+                d = parent;
         }
 
         r = add_match_this_boot(j, arg_machine);

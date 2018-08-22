@@ -33,16 +33,14 @@ typedef struct Spawn {
 } Spawn;
 
 struct udev_event *udev_event_new(struct udev_device *dev) {
-        struct udev *udev = udev_device_get_udev(dev);
         struct udev_event *event;
 
         event = new0(struct udev_event, 1);
         if (event == NULL)
                 return NULL;
         event->dev = dev;
-        event->udev = udev;
-        udev_list_init(udev, &event->run_list, false);
-        udev_list_init(udev, &event->seclabel_list, false);
+        udev_list_init(&event->run_list, false);
+        udev_list_init(&event->seclabel_list, false);
         event->birth_usec = now(CLOCK_MONOTONIC);
         return event;
 }
@@ -180,7 +178,7 @@ static size_t subst_format_var(struct udev_event *event, struct udev_device *dev
                 }
 
                 /* try to read the value specified by "[dmi/id]product_name" */
-                if (util_resolve_subsys_kernel(event->udev, attr, vbuf, sizeof(vbuf), 1) == 0)
+                if (util_resolve_subsys_kernel(attr, vbuf, sizeof(vbuf), 1) == 0)
                         value = vbuf;
 
                 /* try to read the attribute the device */
@@ -239,7 +237,7 @@ static size_t subst_format_var(struct udev_event *event, struct udev_device *dev
                         break;
                 l = strpcpy(&s, l,
                             udev_list_entry_get_name(list_entry) + STRLEN("/dev/"));
-                udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry))
+                UDEV_LIST_ENTRY_FOREACH(list_entry, udev_list_entry_get_next(list_entry))
                         l = strpcpyl(&s, l, " ",
                                      udev_list_entry_get_name(list_entry) + STRLEN("/dev/"),
                                      NULL);
@@ -698,7 +696,7 @@ static int spawn_wait(struct udev_event *event,
         return ret;
 }
 
-int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]) {
+int udev_build_argv(char *cmd, int *argc, char *argv[]) {
         int i = 0;
         char *pos;
 
@@ -771,7 +769,7 @@ int udev_event_spawn(struct udev_event *event,
                 errpipe[READ_END] = safe_close(errpipe[READ_END]);
 
                 strscpy(arg, sizeof(arg), cmd);
-                udev_build_argv(event->udev, arg, NULL, argv);
+                udev_build_argv(arg, NULL, argv);
 
                 /* allow programs in /usr/lib/udev/ to be called without the path */
                 if (argv[0][0] != '/') {
@@ -835,6 +833,7 @@ void udev_event_execute_rules(struct udev_event *event,
                               struct udev_list *properties_list,
                               struct udev_rules *rules) {
         struct udev_device *dev = event->dev;
+        int r;
 
         if (udev_device_get_subsystem(dev) == NULL)
                 return;
@@ -845,7 +844,7 @@ void udev_event_execute_rules(struct udev_event *event,
                 udev_device_delete_db(dev);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
-                        udev_watch_end(event->udev, dev);
+                        udev_watch_end(dev);
 
                 udev_rules_apply_to_event(rules, event,
                                           timeout_usec, timeout_warn_usec,
@@ -854,11 +853,11 @@ void udev_event_execute_rules(struct udev_event *event,
                 if (major(udev_device_get_devnum(dev)) != 0)
                         udev_node_remove(dev);
         } else {
-                event->dev_db = udev_device_clone_with_db(dev);
-                if (event->dev_db != NULL) {
+                r = udev_device_clone_with_db(dev, &event->dev_db);
+                if (r >= 0) {
                         /* disable watch during event processing */
                         if (major(udev_device_get_devnum(dev)) != 0)
-                                udev_watch_end(event->udev, event->dev_db);
+                                udev_watch_end(event->dev_db);
 
                         if (major(udev_device_get_devnum(dev)) == 0 &&
                             streq(udev_device_get_action(dev), "move"))
@@ -872,8 +871,6 @@ void udev_event_execute_rules(struct udev_event *event,
                 /* rename a new network interface, if needed */
                 if (udev_device_get_ifindex(dev) > 0 && streq(udev_device_get_action(dev), "add") &&
                     event->name != NULL && !streq(event->name, udev_device_get_sysname(dev))) {
-                        int r;
-
                         r = rename_netif(event);
                         if (r < 0)
                                 log_warning_errno(r, "could not rename interface '%d' from '%s' to '%s': %m", udev_device_get_ifindex(dev),
@@ -933,7 +930,7 @@ void udev_event_execute_rules(struct udev_event *event,
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec) {
         struct udev_list_entry *list_entry;
 
-        udev_list_entry_foreach(list_entry, udev_list_get_entry(&event->run_list)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_list_get_entry(&event->run_list)) {
                 char command[UTIL_PATH_SIZE];
                 const char *cmd = udev_list_entry_get_name(list_entry);
                 enum udev_builtin_cmd builtin_cmd = udev_list_entry_get_num(list_entry);

@@ -17,7 +17,6 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "udev.h"
 
 static int fake_filesystems(void) {
@@ -53,24 +52,19 @@ static int fake_filesystems(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
         _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
         char syspath[UTIL_PATH_SIZE];
         const char *devpath;
         const char *action;
-        int err;
+        int r;
 
         log_parse_environment();
         log_open();
 
-        err = fake_filesystems();
-        if (err < 0)
-                return EXIT_FAILURE;
-
-        udev = udev_new();
-        if (udev == NULL)
+        r = fake_filesystems();
+        if (r < 0)
                 return EXIT_FAILURE;
 
         log_debug("version %s", PACKAGE_VERSION);
@@ -88,12 +82,12 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        rules = udev_rules_new(udev, 1);
+        rules = udev_rules_new(1);
 
         strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
-        dev = udev_device_new_from_synthetic_event(udev, syspath, action);
-        if (dev == NULL) {
-                log_debug("unknown device '%s'", devpath);
+        r = udev_device_new_from_synthetic_event(syspath, action, &dev);
+        if (r < 0) {
+                log_debug_errno(r, "unknown device '%s': %m", devpath);
                 goto out;
         }
 
@@ -128,5 +122,5 @@ int main(int argc, char *argv[]) {
 out:
         mac_selinux_finish();
 
-        return err ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

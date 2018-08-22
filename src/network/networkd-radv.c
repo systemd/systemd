@@ -12,6 +12,7 @@
 #include "parse-util.h"
 #include "sd-radv.h"
 #include "string-util.h"
+#include "strv.h"
 
 int config_parse_router_prefix_delegation(
                 const char *unit,

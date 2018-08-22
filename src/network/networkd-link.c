@@ -23,7 +23,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
-#include "udev-util.h"
+#include "strv.h"
 #include "util.h"
 #include "virt.h"
 
@@ -549,7 +549,7 @@ static void link_free(Link *link) {
         (void) unlink(link->state_file);
         free(link->state_file);
 
-        udev_device_unref(link->udev_device);
+        sd_device_unref(link->sd_device);
 
         HASHMAP_FOREACH (carrier, link->bound_to_links, i)
                 hashmap_remove(link->bound_to_links, INT_TO_PTR(carrier->ifindex));
@@ -2908,7 +2908,7 @@ static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
                 return r;
 
         if (!link->network) {
-                r = network_get(link->manager, link->udev_device, link->ifname,
+                r = network_get(link->manager, link->sd_device, link->ifname,
                                 &link->mac, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
@@ -2946,7 +2946,7 @@ static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
         return 1;
 }
 
-int link_initialized(Link *link, struct udev_device *device) {
+int link_initialized(Link *link, sd_device *device) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -2958,12 +2958,12 @@ int link_initialized(Link *link, struct udev_device *device) {
         if (link->state != LINK_STATE_PENDING)
                 return 0;
 
-        if (link->udev_device)
+        if (link->sd_device)
                 return 0;
 
         log_link_debug(link, "udev initialized link");
 
-        link->udev_device = udev_device_ref(device);
+        link->sd_device = sd_device_ref(device);
 
         /* udev has initialized the link, but we don't know if we have yet
          * processed the NEWLINK messages with the latest state. Do a GETLINK,
@@ -3176,10 +3176,10 @@ ipv4ll_address_fail:
 }
 
 int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
-        Link *link;
-        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         char ifindex_str[2 + DECIMAL_STR_MAX(int)];
-        int r;
+        Link *link;
+        int initialized, r;
 
         assert(m);
         assert(m->rtnl);
@@ -3201,13 +3201,18 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
                 sprintf(ifindex_str, "n%d", link->ifindex);
-                device = udev_device_new_from_device_id(m->udev, ifindex_str);
-                if (!device) {
-                        r = log_link_warning_errno(link, errno, "Could not find udev device: %m");
+                r = sd_device_new_from_device_id(&device, ifindex_str);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Could not find device: %m");
                         goto failed;
                 }
 
-                if (udev_device_get_is_initialized(device) <= 0) {
+                r = sd_device_get_is_initialized(device, &initialized);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Could not determine the device is initialized or not: %m");
+                        goto failed;
+                }
+                if (!initialized) {
                         /* not yet ready */
                         log_link_debug(link, "link pending udev initialization...");
                         return 0;

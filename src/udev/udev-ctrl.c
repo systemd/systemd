@@ -56,7 +56,6 @@ struct udev_ctrl_msg {
 
 struct udev_ctrl {
         int refcount;
-        struct udev *udev;
         int sock;
         union sockaddr_union saddr;
         socklen_t addrlen;
@@ -71,7 +70,7 @@ struct udev_ctrl_connection {
         int sock;
 };
 
-struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd) {
+struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
         struct udev_ctrl *uctrl;
         const int on = 1;
         int r;
@@ -80,7 +79,6 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd) {
         if (uctrl == NULL)
                 return NULL;
         uctrl->refcount = 1;
-        uctrl->udev = udev;
 
         if (fd < 0) {
                 uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
@@ -108,8 +106,8 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd) {
         return uctrl;
 }
 
-struct udev_ctrl *udev_ctrl_new(struct udev *udev) {
-        return udev_ctrl_new_from_fd(udev, -1);
+struct udev_ctrl *udev_ctrl_new(void) {
+        return udev_ctrl_new_from_fd(-1);
 }
 
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl) {
@@ -133,10 +131,6 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl) {
                 uctrl->cleanup_socket = true;
         }
         return 0;
-}
-
-struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl) {
-        return uctrl->udev;
 }
 
 static struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl) {

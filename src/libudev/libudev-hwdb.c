@@ -19,45 +19,54 @@
  * Opaque object representing the hardware database.
  */
 struct udev_hwdb {
-        struct udev *udev;
-        int refcount;
-
+        unsigned n_ref;
         sd_hwdb *hwdb;
-
         struct udev_list properties_list;
 };
 
+static int udev_hwdb_new_internal(struct udev_hwdb **ret) {
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb_internal = NULL;
+        struct udev_hwdb *hwdb;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = sd_hwdb_new(&hwdb_internal);
+        if (r < 0)
+                return r;
+
+        hwdb = new(struct udev_hwdb, 1);
+        if (!hwdb)
+                return -ENOMEM;
+
+        *hwdb = (struct udev_hwdb) {
+                .n_ref = 1,
+                .hwdb = TAKE_PTR(hwdb_internal),
+        };
+
+        udev_list_init(&hwdb->properties_list, true);
+
+        *ret = TAKE_PTR(hwdb);
+        return 0;
+}
+
 /**
  * udev_hwdb_new:
- * @udev: udev library context
+ * @udev: udev library context (not used)
  *
  * Create a hardware database context to query properties for devices.
  *
  * Returns: a hwdb context.
  **/
 _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb_internal = NULL;
         struct udev_hwdb *hwdb;
         int r;
 
-        assert_return_errno(udev, NULL, EINVAL);
-
-        r = sd_hwdb_new(&hwdb_internal);
+        r = udev_hwdb_new_internal(&hwdb);
         if (r < 0) {
                 errno = -r;
                 return NULL;
         }
-
-        hwdb = new0(struct udev_hwdb, 1);
-        if (!hwdb) {
-                errno = ENOMEM;
-                return NULL;
-        }
-
-        hwdb->refcount = 1;
-        hwdb->hwdb = TAKE_PTR(hwdb_internal);
-
-        udev_list_init(udev, &hwdb->properties_list, true);
 
         return hwdb;
 }
@@ -73,7 +82,8 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
 _public_ struct udev_hwdb *udev_hwdb_ref(struct udev_hwdb *hwdb) {
         if (!hwdb)
                 return NULL;
-        hwdb->refcount++;
+
+        hwdb->n_ref++;
         return hwdb;
 }
 
@@ -89,11 +99,16 @@ _public_ struct udev_hwdb *udev_hwdb_ref(struct udev_hwdb *hwdb) {
 _public_ struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb) {
         if (!hwdb)
                 return NULL;
-        hwdb->refcount--;
-        if (hwdb->refcount > 0)
+
+        assert(hwdb->n_ref > 0);
+
+        hwdb->n_ref--;
+        if (hwdb->n_ref > 0)
                 return NULL;
+
         sd_hwdb_unref(hwdb->hwdb);
         udev_list_cleanup(&hwdb->properties_list);
+
         return mfree(hwdb);
 }
 
@@ -113,17 +128,18 @@ _public_ struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb) {
 _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev_hwdb *hwdb, const char *modalias, unsigned int flags) {
         const char *key, *value;
         struct udev_list_entry *e;
+        int r;
 
-        if (!hwdb || !modalias) {
-                errno = EINVAL;
-                return NULL;
-        }
+        assert_return_errno(hwdb, NULL, EINVAL);
+        assert_return_errno(modalias, NULL, EINVAL);
+        assert_return_errno(hwdb->hwdb, NULL, EINVAL);
 
         udev_list_cleanup(&hwdb->properties_list);
 
         SD_HWDB_FOREACH_PROPERTY(hwdb->hwdb, modalias, key, value) {
-                if (udev_list_entry_add(&hwdb->properties_list, key, value) == NULL) {
-                        errno = ENOMEM;
+                r = udev_list_entry_add(&hwdb->properties_list, key, value, NULL);
+                if (r < 0) {
+                        errno = -r;
                         return NULL;
                 }
         }

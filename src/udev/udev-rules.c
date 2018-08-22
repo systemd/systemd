@@ -50,7 +50,6 @@ static const char* const rules_dirs[] = {
 };
 
 struct udev_rules {
-        struct udev *udev;
         usec_t dirs_ts_usec;
         int resolve_names;
 
@@ -663,7 +662,7 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
         if (dev_parent == NULL)
                 return -1;
 
-        udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(dev_parent)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_properties_list_entry(dev_parent)) {
                 const char *key = udev_list_entry_get_name(list_entry);
                 const char *val = udev_list_entry_get_value(list_entry);
 
@@ -700,7 +699,7 @@ static void attr_subst_subdir(char *attr, size_t len) {
                 }
 }
 
-static int get_key(struct udev *udev, char **line, char **key, enum operation_type *op, char **value) {
+static int get_key(char **line, char **key, enum operation_type *op, char **value) {
         char *linepos;
         char *temp;
         unsigned i, j;
@@ -802,7 +801,7 @@ static int get_key(struct udev *udev, char **line, char **key, enum operation_ty
 }
 
 /* extract possible KEY{attr} */
-static const char *get_key_attribute(struct udev *udev, char *str) {
+static const char *get_key_attribute(char *str) {
         char *pos;
         char *attr;
 
@@ -1019,7 +1018,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                 char *value;
                 enum operation_type op;
 
-                if (get_key(rules->udev, &linepos, &key, &op, &value) != 0) {
+                if (get_key(&linepos, &key, &op, &value) != 0) {
                         /* Avoid erroring on trailing whitespace. This is probably rare
                          * so save the work for the error case instead of always trying
                          * to strip the trailing whitespace with strstrip(). */
@@ -1082,8 +1081,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         rule_add_key(&rule_tmp, TK_M_DRIVER, op, value, NULL);
 
                 } else if (startswith(key, "ATTR{")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("ATTR"));
+                        attr = get_key_attribute(key + STRLEN("ATTR"));
                         if (attr == NULL)
                                 LOG_AND_RETURN("error parsing %s attribute", "ATTR");
 
@@ -1096,8 +1094,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_A_ATTR, op, value, attr);
 
                 } else if (startswith(key, "SYSCTL{")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("SYSCTL"));
+                        attr = get_key_attribute(key + STRLEN("SYSCTL"));
                         if (attr == NULL)
                                 LOG_AND_RETURN("error parsing %s attribute", "ATTR");
 
@@ -1110,8 +1107,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_A_SYSCTL, op, value, attr);
 
                 } else if (startswith(key, "SECLABEL{")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("SECLABEL"));
+                        attr = get_key_attribute(key + STRLEN("SECLABEL"));
                         if (attr == NULL)
                                 LOG_AND_RETURN("error parsing %s attribute", "SECLABEL");
 
@@ -1142,8 +1138,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         if (op > OP_MATCH_MAX)
                                 LOG_AND_RETURN("invalid %s operation", "ATTRS");
 
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("ATTRS"));
+                        attr = get_key_attribute(key + STRLEN("ATTRS"));
                         if (attr == NULL)
                                 LOG_AND_RETURN("error parsing %s attribute", "ATTRS");
 
@@ -1160,8 +1155,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         rule_add_key(&rule_tmp, TK_M_TAGS, op, value, NULL);
 
                 } else if (startswith(key, "ENV{")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("ENV"));
+                        attr = get_key_attribute(key + STRLEN("ENV"));
                         if (attr == NULL)
                                 LOG_AND_RETURN("error parsing %s attribute", "ENV");
 
@@ -1207,8 +1201,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         rule_add_key(&rule_tmp, TK_M_RESULT, op, value, NULL);
 
                 } else if (startswith(key, "IMPORT")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("IMPORT"));
+                        attr = get_key_attribute(key + STRLEN("IMPORT"));
                         if (attr == NULL) {
                                 LOG_RULE_WARNING("ignoring IMPORT{} with missing type");
                                 continue;
@@ -1252,8 +1245,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         if (op > OP_MATCH_MAX)
                                 LOG_AND_RETURN("invalid %s operation", "TEST");
 
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("TEST"));
+                        attr = get_key_attribute(key + STRLEN("TEST"));
                         if (attr != NULL) {
                                 mode = strtol(attr, NULL, 8);
                                 rule_add_key(&rule_tmp, TK_M_TEST, op, value, &mode);
@@ -1261,8 +1253,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_M_TEST, op, value, NULL);
 
                 } else if (startswith(key, "RUN")) {
-                        attr = get_key_attribute(rules->udev,
-                                                 key + STRLEN("RUN"));
+                        attr = get_key_attribute(key + STRLEN("RUN"));
                         if (attr == NULL)
                                 attr = "program";
                         if (op == OP_REMOVE)
@@ -1513,7 +1504,7 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
         return 0;
 }
 
-struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
+struct udev_rules *udev_rules_new(int resolve_names) {
         struct udev_rules *rules;
         struct udev_list file_list;
         struct token end_token;
@@ -1523,9 +1514,8 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
         rules = new0(struct udev_rules, 1);
         if (rules == NULL)
                 return NULL;
-        rules->udev = udev;
         rules->resolve_names = resolve_names;
-        udev_list_init(udev, &file_list, true);
+        udev_list_init(&file_list, true);
 
         /* init token array and string buffer */
         rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
@@ -1690,7 +1680,7 @@ static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct 
                         return -1;
                 break;
         case SB_SUBSYS:
-                if (util_resolve_subsys_kernel(event->udev, name, vbuf, sizeof(vbuf), 1) != 0)
+                if (util_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), 1) != 0)
                         return -1;
                 value = vbuf;
                 break;
@@ -1773,7 +1763,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         struct udev_list_entry *list_entry;
                         bool match = false;
 
-                        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(event->dev)) {
+                        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_devlinks_list_entry(event->dev)) {
                                 const char *devlink;
 
                                 devlink = udev_list_entry_get_name(list_entry) + STRLEN("/dev/");
@@ -1816,7 +1806,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         struct udev_list_entry *list_entry;
                         bool match = false;
 
-                        udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(event->dev)) {
+                        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_tags_list_entry(event->dev)) {
                                 if (streq(rules_str(rules, cur->key.value_off), udev_list_entry_get_name(list_entry))) {
                                         match = true;
                                         break;
@@ -1923,7 +1913,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         int match;
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), filename, sizeof(filename), false);
-                        if (util_resolve_subsys_kernel(event->udev, filename, filename, sizeof(filename), 0) != 0) {
+                        if (util_resolve_subsys_kernel(filename, filename, sizeof(filename), 0) != 0) {
                                 if (filename[0] != '/') {
                                         char tmp[UTIL_PATH_SIZE];
 
@@ -2214,7 +2204,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
 
                         if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
                                 udev_list_cleanup(&event->seclabel_list);
-                        udev_list_entry_add(&event->seclabel_list, name, label);
+                        udev_list_entry_add(&event->seclabel_list, name, label, NULL);
                         log_debug("SECLABEL{%s}='%s' %s:%u",
                                   name, label,
                                   rules_str(rules, rule->rule.filename_off),
@@ -2356,7 +2346,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         char value[UTIL_NAME_SIZE];
                         _cleanup_fclose_ FILE *f = NULL;
 
-                        if (util_resolve_subsys_kernel(event->udev, key_name, attr, sizeof(attr), 0) != 0)
+                        if (util_resolve_subsys_kernel(key_name, attr, sizeof(attr), 0) != 0)
                                 strscpyl(attr, sizeof(attr), udev_device_get_syspath(event->dev), "/", key_name, NULL);
                         attr_subst_subdir(attr, sizeof(attr));
 
@@ -2395,7 +2385,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                   rules_str(rules, cur->key.value_off),
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
-                        entry = udev_list_entry_add(&event->run_list, rules_str(rules, cur->key.value_off), NULL);
+                        udev_list_entry_add(&event->run_list, rules_str(rules, cur->key.value_off), NULL, &entry);
                         udev_list_entry_set_num(entry, cur->key.builtin_cmd);
                         break;
                 }

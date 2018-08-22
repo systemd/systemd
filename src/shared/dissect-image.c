@@ -4,6 +4,7 @@
 #include <sys/prctl.h>
 #include <sys/wait.h>
 
+#include "sd-device.h"
 #include "sd-id128.h"
 
 #include "architecture.h"
@@ -13,6 +14,7 @@
 #include "copy.h"
 #include "crypt-util.h"
 #include "def.h"
+#include "device-enumerator-private.h"
 #include "device-nodes.h"
 #include "dissect-image.h"
 #include "fd-util.h"
@@ -35,7 +37,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "udev-util.h"
 #include "user-util.h"
 #include "xattr-util.h"
 
@@ -94,22 +95,23 @@ not_found:
 #if HAVE_BLKID
 /* Detect RPMB and Boot partitions, which are not listed by blkid.
  * See https://github.com/systemd/systemd/issues/5806. */
-static bool device_is_mmc_special_partition(struct udev_device *d) {
+static bool device_is_mmc_special_partition(sd_device *d) {
         const char *sysname;
 
-        sysname = udev_device_get_sysname(d);
+        if (sd_device_get_sysname(d, &sysname) < 0)
+                return false;
+
         return sysname && startswith(sysname, "mmcblk") &&
                 (endswith(sysname, "rpmb") || endswith(sysname, "boot0") || endswith(sysname, "boot1"));
 }
 
-static bool device_is_block(struct udev_device *d) {
+static bool device_is_block(sd_device *d) {
         const char *ss;
 
-        ss = udev_device_get_subsystem(d);
-        if (!ss)
+        if (sd_device_get_subsystem(d, &ss) < 0)
                 return false;
 
-        return streq(ss, "block");
+        return streq_ptr(ss, "block");
 }
 #endif
 
@@ -122,19 +124,18 @@ int dissect_image(
 
 #if HAVE_BLKID
         sd_id128_t root_uuid = SD_ID128_NULL, verity_uuid = SD_ID128_NULL;
-        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool is_gpt, is_mbr, generic_rw, multiple_generic = false;
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
         const char *pttype = NULL;
-        struct udev_list_entry *first, *item;
         blkid_partlist pl;
         int r, generic_nr;
         struct stat st;
+        sd_device *q;
         unsigned i;
 
         assert(fd >= 0);
@@ -253,13 +254,9 @@ int dissect_image(
         if (!pl)
                 return -errno ?: -ENOMEM;
 
-        udev = udev_new();
-        if (!udev)
-                return -errno;
-
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!d)
-                return -ENOMEM;
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return r;
 
         for (i = 0;; i++) {
                 int n, z;
@@ -269,31 +266,24 @@ int dissect_image(
                         return -ENXIO;
                 }
 
-                e = udev_enumerate_new(udev);
-                if (!e)
-                        return -errno;
-
-                r = udev_enumerate_add_match_parent(e, d);
+                r = sd_device_enumerator_new(&e);
                 if (r < 0)
                         return r;
 
-                r = udev_enumerate_scan_devices(e);
+                r = sd_device_enumerator_allow_uninitialized(e);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_add_match_parent(e, d);
                 if (r < 0)
                         return r;
 
                 /* Count the partitions enumerated by the kernel */
                 n = 0;
-                first = udev_enumerate_get_list_entry(e);
-                udev_list_entry_foreach(item, first) {
-                        _cleanup_(udev_device_unrefp) struct udev_device *q;
+                FOREACH_DEVICE_AND_SUBSYSTEM(e, q) {
                         dev_t qn;
 
-                        q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
-                        if (!q)
-                                return -errno;
-
-                        qn = udev_device_get_devnum(q);
-                        if (major(qn) == 0)
+                        if (sd_device_get_devnum(q, &qn) < 0)
                                 continue;
 
                         if (!device_is_block(q))
@@ -353,24 +343,18 @@ int dissect_image(
                         }
                 }
 
-                e = udev_enumerate_unref(e);
+                e = sd_device_enumerator_unref(e);
         }
 
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_(udev_device_unrefp) struct udev_device *q;
+        FOREACH_DEVICE_AND_SUBSYSTEM(e, q) {
                 unsigned long long pflags;
                 blkid_partition pp;
                 const char *node;
                 dev_t qn;
                 int nr;
 
-                q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
-                if (!q)
-                        return -errno;
-
-                qn = udev_device_get_devnum(q);
-                if (major(qn) == 0)
+                r = sd_device_get_devnum(q, &qn);
+                if (r < 0)
                         continue;
 
                 if (st.st_rdev == qn)
@@ -382,8 +366,8 @@ int dissect_image(
                 if (device_is_mmc_special_partition(q))
                         continue;
 
-                node = udev_device_get_devnode(q);
-                if (!node)
+                r = sd_device_get_devname(q, &node);
+                if (r < 0 || isempty(node))
                         continue;
 
                 pp = blkid_partlist_devno_to_partition(pl, qn);

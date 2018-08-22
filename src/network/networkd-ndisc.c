@@ -10,6 +10,7 @@
 
 #include "networkd-ndisc.h"
 #include "networkd-route.h"
+#include "strv.h"
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U

@@ -2,6 +2,7 @@
 
 #include "libudev.h"
 
+#include "alloc-util.h"
 #include "device-private.h"
 #include "libudev-device-internal.h"
 #include "libudev-private.h"
@@ -199,80 +200,97 @@ int udev_device_rename(struct udev_device *udev_device, const char *name) {
         return 0;
 }
 
-struct udev_device *udev_device_shallow_clone(struct udev_device *old_device) {
-        struct udev_device *device;
+int udev_device_shallow_clone(struct udev_device *old_device, struct udev_device **ret) {
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         int r;
 
         assert(old_device);
+        assert(ret);
 
-        device = udev_device_new(old_device->udev);
-        if (!device)
-                return NULL;
+        r = udev_device_new(&device);
+        if (r < 0)
+                return r;
 
         r = device_shallow_clone(old_device->device, &device->device);
-        if (r < 0) {
-                udev_device_unref(device);
-                errno = -r;
-                return NULL;
-        }
+        if (r < 0)
+                return r;
 
-        return device;
+        *ret = TAKE_PTR(device);
+        return 0;
 }
 
-struct udev_device *udev_device_clone_with_db(struct udev_device *udev_device_old) {
-        struct udev_device *udev_device;
+int udev_device_clone_with_db(struct udev_device *udev_device_old, struct udev_device **ret) {
+        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
         int r;
 
         assert(udev_device_old);
+        assert(ret);
 
-        udev_device = udev_device_new(udev_device_old->udev);
-        if (!udev_device)
-                return NULL;
+        r = udev_device_new(&udev_device);
+        if (r < 0)
+                return r;
 
         r = device_clone_with_db(udev_device_old->device, &udev_device->device);
-        if (r < 0) {
-                udev_device_unref(udev_device);
-                errno = -r;
-                return NULL;
-        }
+        if (r < 0)
+                return r;
 
-        return udev_device;
+        *ret = TAKE_PTR(udev_device);
+        return 0;
 }
 
-struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr, ssize_t buflen) {
-        struct udev_device *device;
+int udev_device_new_from_nulstr(char *nulstr, ssize_t buflen, struct udev_device **ret) {
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         int r;
 
-        device = udev_device_new(udev);
-        if (!device)
-                return NULL;
+        assert(ret);
+
+        r = udev_device_new(&device);
+        if (r < 0)
+                return r;
 
         r = device_new_from_nulstr(&device->device, (uint8_t*)nulstr, buflen);
-        if (r < 0) {
-                udev_device_unref(device);
-                errno = -r;
-                return NULL;
-        }
+        if (r < 0)
+                return r;
 
-        return device;
+        *ret = TAKE_PTR(device);
+        return 0;
 }
 
-struct udev_device *udev_device_new_from_synthetic_event(struct udev *udev, const char *syspath, const char *action) {
-        struct udev_device *device;
+int udev_device_new_from_stat_rdev(const struct stat *st, struct udev_device **ret) {
+        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
         int r;
 
-        device = udev_device_new(udev);
-        if (!device)
-                return NULL;
+        assert(st);
+        assert(ret);
+
+        r = udev_device_new(&udev_device);
+        if (r < 0)
+                return r;
+
+        r = device_new_from_stat_rdev(&udev_device->device, st);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(udev_device);
+        return 0;
+}
+
+int udev_device_new_from_synthetic_event(const char *syspath, const char *action, struct udev_device **ret) {
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
+        int r;
+
+        assert(ret);
+
+        r = udev_device_new(&device);
+        if (r < 0)
+                return r;
 
         r = device_new_from_synthetic_event(&device->device, syspath, action);
-        if (r < 0) {
-                udev_device_unref(device);
-                errno = -r;
-                return NULL;
-        }
+        if (r < 0)
+                return r;
 
-        return device;
+        *ret = TAKE_PTR(device);
+        return 0;
 }
 
 int udev_device_copy_properties(struct udev_device *udev_device_dst, struct udev_device *udev_device_src) {
@@ -304,7 +322,6 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device) {
 }
 
 int udev_device_set_watch_handle(struct udev_device *udev_device, int handle) {
-
         assert(udev_device);
 
         device_set_watch_handle(udev_device->device, handle);

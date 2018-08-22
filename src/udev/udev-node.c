@@ -113,7 +113,6 @@ exit:
 
 /* find device node of device with highest priority */
 static const char *link_find_prioritized(struct udev_device *dev, bool add, const char *stackdir, char *buf, size_t bufsize) {
-        struct udev *udev = udev_device_get_udev(dev);
         DIR *dir;
         struct dirent *dent;
         int priority = 0;
@@ -142,7 +141,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
                 if (streq(dent->d_name, udev_device_get_id_filename(dev)))
                         continue;
 
-                dev_db = udev_device_new_from_device_id(udev, dent->d_name);
+                dev_db = udev_device_new_from_device_id(NULL, dent->d_name);
                 if (dev_db != NULL) {
                         const char *devnode;
 
@@ -210,14 +209,14 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
         struct udev_list_entry *list_entry;
 
         /* update possible left-over symlinks */
-        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev_old)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_devlinks_list_entry(dev_old)) {
                 const char *name = udev_list_entry_get_name(list_entry);
                 struct udev_list_entry *list_entry_current;
                 int found;
 
                 /* check if old link name still belongs to this device */
                 found = 0;
-                udev_list_entry_foreach(list_entry_current, udev_device_get_devlinks_list_entry(dev)) {
+                UDEV_LIST_ENTRY_FOREACH(list_entry_current, udev_device_get_devlinks_list_entry(dev)) {
                         const char *name_current = udev_list_entry_get_name(list_entry_current);
 
                         if (streq(name, name_current)) {
@@ -277,7 +276,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                 }
 
                 /* apply SECLABEL{$module}=$label */
-                udev_list_entry_foreach(entry, udev_list_get_entry(seclabel_list)) {
+                UDEV_LIST_ENTRY_FOREACH(entry, udev_list_get_entry(seclabel_list)) {
                         const char *name, *label;
                         int r;
 
@@ -338,7 +337,7 @@ void udev_node_add(struct udev_device *dev, bool apply,
         node_symlink(dev, udev_device_get_devnode(dev), filename);
 
         /* create/update symlinks, add symlinks to name index */
-        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev))
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_devlinks_list_entry(dev))
                         link_update(dev, udev_list_entry_get_name(list_entry), true);
 }
 
@@ -347,7 +346,7 @@ void udev_node_remove(struct udev_device *dev) {
         char filename[DEV_NUM_PATH_MAX];
 
         /* remove/update symlinks, remove symlinks from name index */
-        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev))
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_devlinks_list_entry(dev))
                 link_update(dev, udev_list_entry_get_name(list_entry), false);
 
         /* remove /dev/{block,char}/$major:$minor */

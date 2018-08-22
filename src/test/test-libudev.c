@@ -8,10 +8,10 @@
 #include "libudev.h"
 
 #include "fd-util.h"
+#include "libudev-private.h"
 #include "log.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "util.h"
 
 static void print_device(struct udev_device *device) {
@@ -59,7 +59,7 @@ static void print_device(struct udev_device *device) {
                 log_info("devnum:    %u:%u", major(devnum), minor(devnum));
 
         count = 0;
-        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(device)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_devlinks_list_entry(device)) {
                 log_info("link:      '%s'", udev_list_entry_get_name(list_entry));
                 count++;
         }
@@ -67,7 +67,7 @@ static void print_device(struct udev_device *device) {
                 log_info("found %i links", count);
 
         count = 0;
-        udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_device_get_properties_list_entry(device)) {
                 log_info("property:  '%s=%s'",
                        udev_list_entry_get_name(list_entry),
                        udev_list_entry_get_value(list_entry));
@@ -147,11 +147,10 @@ static int test_enumerate_print_list(struct udev_enumerate *enumerate) {
         struct udev_list_entry *list_entry;
         int count = 0;
 
-        udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
+        UDEV_LIST_ENTRY_FOREACH(list_entry, udev_enumerate_get_list_entry(enumerate)) {
                 struct udev_device *device;
 
-                device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate),
-                                                      udev_list_entry_get_name(list_entry));
+                device = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(list_entry));
                 if (device != NULL) {
                         log_info("device: '%s' (%s)",
                                  udev_device_get_syspath(device),
@@ -324,7 +323,7 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
 
         hwdb = udev_hwdb_new(udev);
 
-        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0))
+        UDEV_LIST_ENTRY_FOREACH(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0))
                 log_info("'%s'='%s'", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
 
         hwdb = udev_hwdb_unref(hwdb);

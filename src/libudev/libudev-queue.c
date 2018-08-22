@@ -27,39 +27,48 @@
  * Opaque object representing the current event queue in the udev daemon.
  */
 struct udev_queue {
-        struct udev *udev;
-        int refcount;
+        unsigned n_ref;
         int fd;
 };
 
+int udev_queue_new_internal(struct udev_queue **ret) {
+        struct udev_queue *queue;
+
+        assert_return(ret, -EINVAL);
+
+        queue = new(struct udev_queue, 1);
+        if (!queue)
+                return -ENOMEM;
+
+        *queue = (struct udev_queue) {
+                .n_ref = 1,
+                .fd = -1,
+        };
+
+        *ret = TAKE_PTR(queue);
+        return 0;
+}
+
 /**
  * udev_queue_new:
- * @udev: udev library context
+ * @udev: udev library context (not used)
  *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev queue context.
  *
  * Returns: the udev queue context, or #NULL on error.
  **/
-_public_ struct udev_queue *udev_queue_new(struct udev *udev)
-{
-        struct udev_queue *udev_queue;
+_public_ struct udev_queue *udev_queue_new(struct udev *udev) {
+        struct udev_queue *queue;
+        int r;
 
-        if (udev == NULL) {
-                errno = EINVAL;
+        r = udev_queue_new_internal(&queue);
+        if (r < 0) {
+                errno = -r;
                 return NULL;
         }
 
-        udev_queue = new0(struct udev_queue, 1);
-        if (udev_queue == NULL) {
-                errno = ENOMEM;
-                return NULL;
-        }
-
-        udev_queue->refcount = 1;
-        udev_queue->udev = udev;
-        udev_queue->fd = -1;
-        return udev_queue;
+        return queue;
 }
 
 /**
@@ -70,12 +79,11 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev)
  *
  * Returns: the same udev queue context.
  **/
-_public_ struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue)
-{
-        if (udev_queue == NULL)
+_public_ struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue) {
+        if (!udev_queue)
                 return NULL;
 
-        udev_queue->refcount++;
+        udev_queue->n_ref++;
         return udev_queue;
 }
 
@@ -88,13 +96,14 @@ _public_ struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue)
  *
  * Returns: #NULL
  **/
-_public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue)
-{
-        if (udev_queue == NULL)
+_public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue) {
+        if (!udev_queue)
                 return NULL;
 
-        udev_queue->refcount--;
-        if (udev_queue->refcount > 0)
+        assert(udev_queue->n_ref > 0);
+
+        udev_queue->n_ref--;
+        if (udev_queue->n_ref > 0)
                 return NULL;
 
         safe_close(udev_queue->fd);
@@ -106,17 +115,12 @@ _public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue)
  * udev_queue_get_udev:
  * @udev_queue: udev queue context
  *
- * Retrieve the udev library context the queue context was created with.
+ * This function is deprecated.
  *
- * Returns: the udev library context.
+ * Returns: NULL.
  **/
-_public_ struct udev *udev_queue_get_udev(struct udev_queue *udev_queue)
-{
-        if (udev_queue == NULL) {
-                errno = EINVAL;
-                return NULL;
-        }
-        return udev_queue->udev;
+_public_ struct udev *udev_queue_get_udev(struct udev_queue *udev_queue) {
+        return NULL;
 }
 
 /**
@@ -127,8 +131,7 @@ _public_ struct udev *udev_queue_get_udev(struct udev_queue *udev_queue)
  *
  * Returns: 0.
  **/
-_public_ unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue)
-{
+_public_ unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue) {
         return 0;
 }
 
@@ -140,8 +143,7 @@ _public_ unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *
  *
  * Returns: 0.
  **/
-_public_ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue)
-{
+_public_ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue) {
         return 0;
 }
 
@@ -153,8 +155,7 @@ _public_ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *ud
  *
  * Returns: a flag indicating if udev is active.
  **/
-_public_ int udev_queue_get_udev_is_active(struct udev_queue *udev_queue)
-{
+_public_ int udev_queue_get_udev_is_active(struct udev_queue *udev_queue) {
         return access("/run/udev/control", F_OK) >= 0;
 }
 
@@ -166,8 +167,7 @@ _public_ int udev_queue_get_udev_is_active(struct udev_queue *udev_queue)
  *
  * Returns: a flag indicating if udev is currently handling events.
  **/
-_public_ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
-{
+_public_ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue) {
         return access("/run/udev/queue", F_OK) < 0;
 }
 
@@ -183,8 +183,7 @@ _public_ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
  * Returns: a flag indicating if udev is currently handling events.
  **/
 _public_ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
-                                               unsigned long long int start, unsigned long long int end)
-{
+                                                        unsigned long long int start, unsigned long long int end) {
         return udev_queue_get_queue_is_empty(udev_queue);
 }
 
@@ -198,8 +197,7 @@ _public_ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_
  *
  * Returns: a flag indicating if udev is currently handling events.
  **/
-_public_ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned long long int seqnum)
-{
+_public_ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned long long int seqnum) {
         return udev_queue_get_queue_is_empty(udev_queue);
 }
 
@@ -211,8 +209,7 @@ _public_ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, un
  *
  * Returns: NULL.
  **/
-_public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue)
-{
+_public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue) {
         errno = ENODATA;
         return NULL;
 }
@@ -224,8 +221,9 @@ _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_qu
  * Returns: a file descriptor to watch for a queue to become empty.
  */
 _public_ int udev_queue_get_fd(struct udev_queue *udev_queue) {
-        int fd;
-        int r;
+        _cleanup_close_ int fd = -1;
+
+        assert_return(udev_queue, -EINVAL);
 
         if (udev_queue->fd >= 0)
                 return udev_queue->fd;
@@ -234,15 +232,11 @@ _public_ int udev_queue_get_fd(struct udev_queue *udev_queue) {
         if (fd < 0)
                 return -errno;
 
-        r = inotify_add_watch(fd, "/run/udev" , IN_DELETE);
-        if (r < 0) {
-                r = -errno;
-                close(fd);
-                return r;
-        }
+        if (inotify_add_watch(fd, "/run/udev" , IN_DELETE) < 0)
+                return -errno;
 
-        udev_queue->fd = fd;
-        return fd;
+        udev_queue->fd = TAKE_FD(fd);
+        return udev_queue->fd;
 }
 
 /**
@@ -254,7 +248,7 @@ _public_ int udev_queue_get_fd(struct udev_queue *udev_queue) {
 _public_ int udev_queue_flush(struct udev_queue *udev_queue) {
         int r;
 
-        assert(udev_queue);
+        assert_return(udev_queue, -EINVAL);
 
         if (udev_queue->fd < 0)
                 return -EINVAL;

@@ -430,13 +430,13 @@ static int insert_data(struct trie *trie, struct udev_list *match_list,
                 return -EINVAL;
         }
 
-        udev_list_entry_foreach(entry, udev_list_get_entry(match_list))
+        UDEV_LIST_ENTRY_FOREACH(entry, udev_list_get_entry(match_list))
                 trie_insert(trie, trie->root, udev_list_entry_get_name(entry), line, value);
 
         return 0;
 }
 
-static int import_file(struct udev *udev, struct trie *trie, const char *filename) {
+static int import_file(struct trie *trie, const char *filename) {
         enum {
                 HW_MATCH,
                 HW_DATA,
@@ -447,7 +447,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
         struct udev_list match_list;
         int r = 0, err;
 
-        udev_list_init(udev, &match_list, false);
+        udev_list_init(&match_list, false);
 
         f = fopen(filename, "re");
         if (f == NULL)
@@ -485,7 +485,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 
                         /* start of record, first match */
                         state = HW_MATCH;
-                        udev_list_entry_add(&match_list, line, NULL);
+                        udev_list_entry_add(&match_list, line, NULL, NULL);
                         break;
 
                 case HW_MATCH:
@@ -499,7 +499,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 
                         /* another match */
                         if (line[0] != ' ') {
-                                udev_list_entry_add(&match_list, line, NULL);
+                                udev_list_entry_add(&match_list, line, NULL, NULL);
                                 break;
                         }
 
@@ -553,7 +553,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
+static int adm_hwdb(int argc, char *argv[]) {
         enum {
                 ARG_USR = 0x100,
         };
@@ -644,7 +644,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 }
                 STRV_FOREACH(f, files) {
                         log_debug("reading file '%s'", *f);
-                        if (import_file(udev, trie, *f) < 0 && strict)
+                        if (import_file(trie, *f) < 0 && strict)
                                 rc = EXIT_FAILURE;
                 }
                 strv_free(files);
