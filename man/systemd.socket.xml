@@ -303,7 +303,7 @@
 
       <varlistentry>
         <term><varname>SocketProtocol=</varname></term>
-        <listitem><para>Takes a one of <option>udplite</option>
+        <listitem><para>Takes one of <option>udplite</option>
         or <option>sctp</option>. Specifies a socket protocol
         (<constant>IPPROTO_UDPLITE</constant>) UDP-Lite
         (<constant>IPPROTO_SCTP</constant>) SCTP socket respectively. </para>
@@ -312,7 +312,7 @@
 
       <varlistentry>
         <term><varname>BindIPv6Only=</varname></term>
-        <listitem><para>Takes a one of <option>default</option>,
+        <listitem><para>Takes one of <option>default</option>,
         <option>both</option> or <option>ipv6-only</option>. Controls
         the IPV6_V6ONLY socket option (see
         <citerefentry project='die-net'><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>
