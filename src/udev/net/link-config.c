@@ -9,6 +9,7 @@
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
+#include "libudev-device-internal.h"
 #include "libudev-private.h"
 #include "link-config.h"
 #include "log.h"
@@ -332,7 +333,7 @@ static int get_mac(struct udev_device *device, bool want_random,
         else {
                 uint64_t result;
 
-                r = net_get_unique_predictable_data(device, &result);
+                r = net_get_unique_predictable_data(device->device, &result);
                 if (r < 0)
                         return r;
 

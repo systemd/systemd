@@ -17,7 +17,6 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "udev.h"
 
 static int fake_filesystems(void) {

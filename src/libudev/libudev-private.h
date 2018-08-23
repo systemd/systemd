@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "libudev.h"
+#include "sd-device.h"
 
 #include "macro.h"
 #include "mkdir.h"
@@ -62,6 +63,7 @@ int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct 
 int udev_monitor_send_device(struct udev_monitor *udev_monitor,
                              struct udev_monitor *destination, struct udev_device *udev_device);
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd);
+int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_device **ret);
 
 /* libudev-list.c */
 struct udev_list_node {
@@ -126,3 +128,11 @@ uint64_t util_string_bloom64(const char *str);
 
 /* libudev-util-private.c */
 int util_resolve_subsys_kernel(struct udev *udev, const char *string, char *result, size_t maxsize, int read_value);
+
+/* Cleanup functions */
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev*, udev_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_device*, udev_device_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_enumerate*, udev_enumerate_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_monitor*, udev_monitor_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_hwdb*, udev_hwdb_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_queue*, udev_queue_unref);

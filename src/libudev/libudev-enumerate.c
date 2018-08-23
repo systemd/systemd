@@ -52,8 +52,6 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
         _cleanup_free_ struct udev_enumerate *udev_enumerate = NULL;
         int r;
 
-        assert_return_errno(udev, NULL, EINVAL);
-
         udev_enumerate = new0(struct udev_enumerate, 1);
         if (!udev_enumerate) {
                 errno = ENOMEM;

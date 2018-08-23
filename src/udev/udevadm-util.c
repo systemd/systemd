@@ -8,7 +8,6 @@ struct udev_device *find_device(struct udev *udev,
                                 const char *id,
                                 const char *prefix) {
 
-        assert(udev);
         assert(id);
 
         if (prefix && !startswith(id, prefix))

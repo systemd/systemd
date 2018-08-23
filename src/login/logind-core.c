@@ -6,18 +6,20 @@
 #include <sys/types.h>
 #include <linux/vt.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "device-enumerator-private.h"
 #include "fd-util.h"
 #include "logind.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "udev-util.h"
 #include "user-util.h"
 
 void manager_reset_config(Manager *m) {
@@ -215,15 +217,22 @@ int manager_add_button(Manager *m, const char *name, Button **_button) {
         return 0;
 }
 
-int manager_process_seat_device(Manager *m, struct udev_device *d) {
+int manager_process_seat_device(Manager *m, sd_device *d) {
+        const char *action = NULL;
         Device *device;
         int r;
 
         assert(m);
 
-        if (streq_ptr(udev_device_get_action(d), "remove")) {
+        (void) sd_device_get_property_value(d, "ACTION", &action);
+        if (streq_ptr(action, "remove")) {
+                const char *syspath;
 
-                device = hashmap_get(m->devices, udev_device_get_syspath(d));
+                r = sd_device_get_syspath(d, &syspath);
+                if (r < 0)
+                        return 0;
+
+                device = hashmap_get(m->devices, syspath);
                 if (!device)
                         return 0;
 
@@ -231,12 +240,11 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
                 device_free(device);
 
         } else {
-                const char *sn;
-                Seat *seat = NULL;
+                const char *sn, *syspath;
                 bool master;
+                Seat *seat;
 
-                sn = udev_device_get_property_value(d, "ID_SEAT");
-                if (isempty(sn))
+                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
                         sn = "seat0";
 
                 if (!seat_name_is_valid(sn)) {
@@ -245,13 +253,17 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
                 }
 
                 seat = hashmap_get(m->seats, sn);
-                master = udev_device_has_tag(d, "master-of-seat");
+                master = sd_device_has_tag(d, "master-of-seat") > 0;
 
                 /* Ignore non-master devices for unknown seats */
                 if (!master && !seat)
                         return 0;
 
-                r = manager_add_device(m, udev_device_get_syspath(d), master, &device);
+                r = sd_device_get_syspath(d, &syspath);
+                if (r < 0)
+                        return r;
+
+                r = manager_add_device(m, syspath, master, &device);
                 if (r < 0)
                         return r;
 
@@ -272,30 +284,34 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
         return 0;
 }
 
-int manager_process_button_device(Manager *m, struct udev_device *d) {
+int manager_process_button_device(Manager *m, sd_device *d) {
+        const char *action = NULL, *sysname;
         Button *b;
-
         int r;
 
         assert(m);
 
-        if (streq_ptr(udev_device_get_action(d), "remove")) {
+        r = sd_device_get_sysname(d, &sysname);
+        if (r < 0)
+                return r;
 
-                b = hashmap_get(m->buttons, udev_device_get_sysname(d));
+        (void) sd_device_get_property_value(d, "ACTION", &action);
+        if (streq_ptr(action, "remove")) {
+
+                b = hashmap_get(m->buttons, sysname);
                 if (!b)
                         return 0;
 
                 button_free(b);
 
         } else {
-                const char *sn;
+                const char *sn = NULL;
 
-                r = manager_add_button(m, udev_device_get_sysname(d), &b);
+                r = manager_add_button(m, sysname, &b);
                 if (r < 0)
                         return r;
 
-                sn = udev_device_get_property_value(d, "ID_SEAT");
-                if (isempty(sn))
+                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
                         sn = "seat0";
 
                 button_set_seat(b, sn);
@@ -539,46 +555,41 @@ static bool manager_is_docked(Manager *m) {
 }
 
 static int manager_count_external_displays(Manager *m) {
-        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
-        int r;
-        int n = 0;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
+        int r, n = 0;
 
-        e = udev_enumerate_new(m->udev);
-        if (!e)
-                return -ENOMEM;
-
-        r = udev_enumerate_add_match_subsystem(e, "drm");
+        r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_scan_devices(e);
+        r = sd_device_enumerator_allow_uninitialized(e);
         if (r < 0)
                 return r;
 
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
-                struct udev_device *p;
-                const char *status, *enabled, *dash, *nn, *i;
+        r = sd_device_enumerator_add_match_subsystem(e, "drm", true);
+        if (r < 0)
+                return r;
+
+        r = device_enumerator_scan_devices(e);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
+                sd_device *p;
+                const char *status, *enabled, *dash, *nn, *i, *subsys;
                 bool external = false;
 
-                d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
-                if (!d)
-                        return -ENOMEM;
-
-                p = udev_device_get_parent(d);
-                if (!p)
+                if (sd_device_get_parent(d, &p) < 0)
                         continue;
 
                 /* If the parent shares the same subsystem as the
                  * device we are looking at then it is a connector,
                  * which is what we are interested in. */
-                if (!streq_ptr(udev_device_get_subsystem(p), "drm"))
+                if (sd_device_get_subsystem(p, &subsys) < 0 || !streq(subsys, "drm"))
                         continue;
 
-                nn = udev_device_get_sysname(d);
-                if (!nn)
+                if (sd_device_get_sysname(d, &nn) < 0)
                         continue;
 
                 /* Ignore internal displays: the type is encoded in
@@ -605,16 +616,12 @@ static int manager_count_external_displays(Manager *m) {
                         continue;
 
                 /* Ignore ports that are not enabled */
-                enabled = udev_device_get_sysattr_value(d, "enabled");
-                if (!enabled)
-                        continue;
-                if (!streq_ptr(enabled, "enabled"))
+                if (sd_device_get_sysattr_value(d, "enabled", &enabled) < 0 || !streq(enabled, "enabled"))
                         continue;
 
                 /* We count any connector which is not explicitly
                  * "disconnected" as connected. */
-                status = udev_device_get_sysattr_value(d, "status");
-                if (!streq_ptr(status, "disconnected"))
+                if (sd_device_get_sysattr_value(d, "status", &status) < 0 || !streq(status, "disconnected"))
                         n++;
         }
 

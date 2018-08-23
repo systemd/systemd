@@ -3,12 +3,14 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "sd-device.h"
 
 int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len);
 int device_new_from_strv(sd_device **ret, char **strv);
+int device_new_from_stat_rdev(sd_device **ret, const struct stat *st);
 
 int device_get_id_filename(sd_device *device, const char **ret);
 

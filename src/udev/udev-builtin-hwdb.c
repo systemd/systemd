@@ -11,7 +11,6 @@
 #include "hwdb-util.h"
 #include "parse-util.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "udev.h"
 
 static sd_hwdb *hwdb;

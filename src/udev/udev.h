@@ -188,6 +188,13 @@ int udev_builtin_add_property(struct udev_device *dev, bool test, const char *ke
 int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const char *modalias,
                              const char *filter, bool test);
 
+/* Cleanup functions */
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_event*, udev_event_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_rules*, udev_rules_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl*, udev_ctrl_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_connection*, udev_ctrl_connection_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_msg*, udev_ctrl_msg_unref);
+
 /* udevadm commands */
 struct udevadm_cmd {
         const char *name;

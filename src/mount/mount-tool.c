@@ -2,9 +2,10 @@
 
 #include <getopt.h>
 
-#include "libudev.h"
 #include "sd-bus.h"
+#include "sd-device.h"
 
+#include "device-enumerator-private.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
@@ -21,7 +22,6 @@
 #include "spawn-polkit-agent.h"
 #include "stat-util.h"
 #include "strv.h"
-#include "udev-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -921,8 +921,7 @@ static int stop_mounts(
 }
 
 static int umount_by_device(sd_bus *bus, const char *what) {
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_strv_free_ char **list = NULL;
         struct stat st;
         const char *v;
@@ -939,22 +938,20 @@ static int umount_by_device(sd_bus *bus, const char *what) {
                 return -ENOTBLK;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device from device number: %m");
 
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!d)
-                return log_oom();
+        r = sd_device_get_property_value(d, "ID_FS_USAGE", &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device property: %m");
 
-        v = udev_device_get_property_value(d, "ID_FS_USAGE");
-        if (!streq_ptr(v, "filesystem")) {
+        if (!streq(v, "filesystem")) {
                 log_error("%s does not contain a known file system.", what);
                 return -EINVAL;
         }
 
-        v = udev_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE");
-        if (!isempty(v))
+        if (sd_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE", &v) >= 0)
                 r2 = stop_mounts(bus, v);
 
         r = find_mount_points(what, &list);
@@ -1042,7 +1039,7 @@ static int action_umount(
         return r2;
 }
 
-static int acquire_mount_type(struct udev_device *d) {
+static int acquire_mount_type(sd_device *d) {
         const char *v;
 
         assert(d);
@@ -1050,8 +1047,7 @@ static int acquire_mount_type(struct udev_device *d) {
         if (arg_mount_type)
                 return 0;
 
-        v = udev_device_get_property_value(d, "ID_FS_TYPE");
-        if (isempty(v))
+        if (sd_device_get_property_value(d, "ID_FS_TYPE", &v) < 0)
                 return 0;
 
         arg_mount_type = strdup(v);
@@ -1062,14 +1058,15 @@ static int acquire_mount_type(struct udev_device *d) {
         return 1;
 }
 
-static int acquire_mount_options(struct udev_device *d) {
+static int acquire_mount_options(sd_device *d) {
         const char *v;
+
+        assert(d);
 
         if (arg_mount_options)
                 return 0;
 
-        v = udev_device_get_property_value(d, "SYSTEMD_MOUNT_OPTIONS");
-        if (isempty(v))
+        if (sd_device_get_property_value(d, "SYSTEMD_MOUNT_OPTIONS", &v) < 0)
                 return 0;
 
         arg_mount_options = strdup(v);
@@ -1080,38 +1077,41 @@ static int acquire_mount_options(struct udev_device *d) {
         return 1;
 }
 
-static const char *get_model(struct udev_device *d) {
+static const char *get_model(sd_device *d) {
         const char *model;
 
         assert(d);
 
-        model = udev_device_get_property_value(d, "ID_MODEL_FROM_DATABASE");
-        if (model)
+        if (sd_device_get_property_value(d, "ID_MODEL_FROM_DATABASE", &model) >= 0)
                 return model;
 
-        return udev_device_get_property_value(d, "ID_MODEL");
+        if (sd_device_get_property_value(d, "ID_MODEL", &model) >= 0)
+                return model;
+
+        return NULL;
 }
 
-static const char* get_label(struct udev_device *d) {
+static const char* get_label(sd_device *d) {
         const char *label;
 
         assert(d);
 
-        label = udev_device_get_property_value(d, "ID_FS_LABEL");
-        if (label)
+        if (sd_device_get_property_value(d, "ID_FS_LABEL", &label) >= 0)
                 return label;
 
-        return udev_device_get_property_value(d, "ID_PART_ENTRY_NAME");
+        if (sd_device_get_property_value(d, "ID_PART_ENTRY_NAME", &label) >= 0)
+                return label;
+
+        return NULL;
 }
 
-static int acquire_mount_where(struct udev_device *d) {
+static int acquire_mount_where(sd_device *d) {
         const char *v;
 
         if (arg_mount_where)
                 return 0;
 
-        v = udev_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE");
-        if (isempty(v)) {
+        if (sd_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE", &v) < 0) {
                 _cleanup_free_ char *escaped = NULL;
                 const char *name;
 
@@ -1121,8 +1121,7 @@ static int acquire_mount_where(struct udev_device *d) {
                 if (!name) {
                         const char *dn;
 
-                        dn = udev_device_get_devnode(d);
-                        if (!dn)
+                        if (sd_device_get_devname(d, &dn) < 0)
                                 return 0;
 
                         name = basename(dn);
@@ -1171,7 +1170,7 @@ static int acquire_mount_where_for_loop_dev(const char *loop_dev) {
         return 1;
 }
 
-static int acquire_description(struct udev_device *d) {
+static int acquire_description(sd_device *d) {
         const char *model, *label;
 
         if (arg_description)
@@ -1181,7 +1180,7 @@ static int acquire_description(struct udev_device *d) {
 
         label = get_label(d);
         if (!label)
-                label = udev_device_get_property_value(d, "ID_PART_ENTRY_NUMBER");
+                (void) sd_device_get_property_value(d, "ID_PART_ENTRY_NUMBER", &label);
 
         if (model && label)
                 arg_description = strjoin(model, " ", label);
@@ -1199,7 +1198,7 @@ static int acquire_description(struct udev_device *d) {
         return 1;
 }
 
-static int acquire_removable(struct udev_device *d) {
+static int acquire_removable(sd_device *d) {
         const char *v;
 
         /* Shortcut this if there's no reason to check it */
@@ -1207,15 +1206,13 @@ static int acquire_removable(struct udev_device *d) {
                 return 0;
 
         for (;;) {
-                v = udev_device_get_sysattr_value(d, "removable");
-                if (v)
+                if (sd_device_get_sysattr_value(d, "removable", &v) > 0)
                         break;
 
-                d = udev_device_get_parent(d);
-                if (!d)
+                if (sd_device_get_parent(d, &d) < 0)
                         return 0;
 
-                if (!streq_ptr(udev_device_get_subsystem(d), "block"))
+                if (sd_device_get_subsystem(d, &v) < 0 || !streq(v, "block"))
                         return 0;
         }
 
@@ -1243,8 +1240,7 @@ static int acquire_removable(struct udev_device *d) {
 }
 
 static int discover_loop_backing_file(void) {
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *loop_dev = NULL;
         struct stat st;
         const char *v;
@@ -1284,16 +1280,11 @@ static int discover_loop_backing_file(void) {
                 return -EINVAL;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device from device number: %m");
 
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!d)
-                return log_oom();
-
-        v = udev_device_get_property_value(d, "ID_FS_USAGE");
-        if (!streq_ptr(v, "filesystem")) {
+        if (sd_device_get_property_value(d, "ID_FS_USAGE", &v) < 0 || !streq(v, "filesystem")) {
                 log_error("%s does not contain a known file system.", arg_mount_what);
                 return -EINVAL;
         }
@@ -1318,8 +1309,7 @@ static int discover_loop_backing_file(void) {
 }
 
 static int discover_device(void) {
-        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         struct stat st;
         const char *v;
         int r;
@@ -1335,16 +1325,11 @@ static int discover_device(void) {
                 return -EINVAL;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device from device number: %m");
 
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!d)
-                return log_oom();
-
-        v = udev_device_get_property_value(d, "ID_FS_USAGE");
-        if (!streq_ptr(v, "filesystem")) {
+        if (sd_device_get_property_value(d, "ID_FS_USAGE", &v) < 0 || !streq(v, "filesystem")) {
                 log_error("%s does not contain a known file system.", arg_mount_what);
                 return -EINVAL;
         }
@@ -1412,48 +1397,35 @@ static int list_devices(void) {
                 [COLUMN_UUID] = "UUID"
         };
 
-        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         size_t n_allocated = 0, n = 0, i;
         size_t column_width[_COLUMN_MAX];
         struct item *items = NULL;
+        sd_device *d;
         unsigned c;
         int r;
 
         for (c = 0; c < _COLUMN_MAX; c++)
                 column_width[c] = strlen(titles[c]);
 
-        udev = udev_new();
-        if (!udev)
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
                 return log_oom();
 
-        e = udev_enumerate_new(udev);
-        if (!e)
-                return log_oom();
-
-        r = udev_enumerate_add_match_subsystem(e, "block");
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
         if (r < 0)
                 return log_error_errno(r, "Failed to add block match: %m");
 
-        r = udev_enumerate_add_match_property(e, "ID_FS_USAGE", "filesystem");
+        r = sd_device_enumerator_add_match_property(e, "ID_FS_USAGE", "filesystem");
         if (r < 0)
                 return log_error_errno(r, "Failed to add property match: %m");
 
-        r = udev_enumerate_scan_devices(e);
+        r = device_enumerator_scan_devices(e);
         if (r < 0)
-                return log_error_errno(r, "Failed to scan devices: %m");
+                return log_error_errno(r, "Failed to enumerate devices: %m");
 
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_(udev_device_unrefp) struct udev_device *d;
+        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
                 struct item *j;
-
-                d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
-                if (!d) {
-                        r = log_oom();
-                        goto finish;
-                }
 
                 if (!GREEDY_REALLOC0(items, n_allocated, n+1)) {
                         r = log_oom();
@@ -1469,11 +1441,11 @@ static int list_devices(void) {
                         switch (c) {
 
                         case COLUMN_NODE:
-                                x = udev_device_get_devnode(d);
+                                (void) sd_device_get_devname(d, &x);
                                 break;
 
                         case COLUMN_PATH:
-                                x = udev_device_get_property_value(d, "ID_PATH");
+                                (void) sd_device_get_property_value(d, "ID_PATH", &x);
                                 break;
 
                         case COLUMN_MODEL:
@@ -1481,11 +1453,11 @@ static int list_devices(void) {
                                 break;
 
                         case COLUMN_WWN:
-                                x = udev_device_get_property_value(d, "ID_WWN");
+                                (void) sd_device_get_property_value(d, "ID_WWN", &x);
                                 break;
 
                         case COLUMN_FSTYPE:
-                                x = udev_device_get_property_value(d, "ID_FS_TYPE");
+                                (void) sd_device_get_property_value(d, "ID_FS_TYPE", &x);
                                 break;
 
                         case COLUMN_LABEL:
@@ -1493,7 +1465,7 @@ static int list_devices(void) {
                                 break;
 
                         case COLUMN_UUID:
-                                x = udev_device_get_property_value(d, "ID_FS_UUID");
+                                (void) sd_device_get_property_value(d, "ID_FS_UUID", &x);
                                 break;
                         }
 

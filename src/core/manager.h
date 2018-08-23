@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "libudev.h"
 #include "sd-bus.h"
 #include "sd-event.h"
 
@@ -214,8 +215,6 @@ struct Manager {
         usec_t shutdown_watchdog;
 
         dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
-
-        struct udev* udev;
 
         /* Data specific to the device subsystem */
         struct udev_monitor* udev_monitor;
