@@ -181,7 +181,8 @@
     <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     <parameter>host</parameter> consists of an optional user name followed by the
     <literal>@</literal> symbol, and the hostname, optionally followed by a
-    <literal>:</literal> and a machine name. If the machine name is given, a connection
+    <literal>:</literal> and a port, optionally followed by a
+    <literal>/</literal> and a machine name. If the machine name is given, a connection
     is created to the system bus in the specified container on the remote machine, and
     otherwise a connection to the system bus on the specified host is created.</para>
 

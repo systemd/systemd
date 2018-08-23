@@ -1357,38 +1357,90 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
 
 int bus_set_address_system_remote(sd_bus *b, const char *host) {
         _cleanup_free_ char *e = NULL;
-        char *m = NULL, *c = NULL, *a;
+        char *m = NULL, *c = NULL, *a, *rbracket = NULL, *p = NULL;
 
         assert(b);
         assert(host);
 
-        /* Let's see if we shall enter some container */
-        m = strchr(host, ':');
-        if (m) {
-                m++;
+        /* Skip ":"s in ipv6 addresses */
+        if (*host == '[') {
+                char *t;
 
-                /* Let's make sure this is not a port of some kind,
-                 * and is a valid machine name. */
-                if (!in_charset(m, DIGITS) && machine_name_is_valid(m)) {
-                        char *t;
+                rbracket = strchr(host, ']');
+                if (!rbracket)
+                        return -EINVAL;
+                t = strndupa(host + 1, rbracket - host - 1);
+                e = bus_address_escape(t);
+                if (!e)
+                        return -ENOMEM;
+        } else if ((a = strchr(host, '@'))) {
+                if (*(a + 1) == '[') {
+                        _cleanup_free_ char *t = NULL;
 
-                        /* Cut out the host part */
-                        t = strndupa(host, m - host - 1);
+                        rbracket = strchr(a + 1, ']');
+                        if (!rbracket)
+                                return -EINVAL;
+                        t = new0(char, strlen(host));
+                        if (!t)
+                                return -ENOMEM;
+                        strncat(t, host, a - host + 1);
+                        strncat(t, a + 2, rbracket - a - 2);
                         e = bus_address_escape(t);
                         if (!e)
                                 return -ENOMEM;
+                } else if (*(a + 1) == '\0' || strchr(a + 1, '@'))
+                        return -EINVAL;
+        }
 
-                        c = strjoina(",argv5=--machine=", m);
+        /* Let's see if a port was given */
+        m = strchr(rbracket ? rbracket + 1 : host, ':');
+        if (m) {
+                char *t;
+                bool got_forward_slash = false;
+
+                p = m + 1;
+
+                t = strchr(p, '/');
+                if (t) {
+                        p = strndupa(p, t - p);
+                        got_forward_slash = true;
+                }
+
+                if (!in_charset(p, "0123456789") || *p == '\0') {
+                        if (!machine_name_is_valid(p) || got_forward_slash)
+                                return -EINVAL;
+                        else {
+                                m = p;
+                                p = NULL;
+                                goto interpret_port_as_machine_old_syntax;
+                        }
                 }
         }
 
+        /* Let's see if a machine was given */
+        m = strchr(rbracket ? rbracket + 1 : host, '/');
+        if (m) {
+                m++;
+interpret_port_as_machine_old_syntax:
+                /* Let's make sure this is not a port of some kind,
+                 * and is a valid machine name. */
+                if (!in_charset(m, "0123456789") && machine_name_is_valid(m))
+                        c = strjoina(",argv", p ? "7" : "5", "=--machine=", m);
+        }
+
         if (!e) {
-                e = bus_address_escape(host);
+                char *t;
+
+                t = strndupa(host, strcspn(host, ":/"));
+
+                e = bus_address_escape(t);
                 if (!e)
                         return -ENOMEM;
         }
 
-        a = strjoin("unixexec:path=ssh,argv1=-xT,argv2=--,argv3=", e, ",argv4=systemd-stdio-bridge", c);
+        a = strjoin("unixexec:path=ssh,argv1=-xT", p ? ",argv2=-p,argv3=" : "", strempty(p),
+                                ",argv", p ? "4" : "2", "=--,argv", p ? "5" : "3", "=", e,
+                                ",argv", p ? "6" : "4", "=systemd-stdio-bridge", c);
         if (!a)
                 return -ENOMEM;
 
