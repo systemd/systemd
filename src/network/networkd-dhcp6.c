@@ -494,11 +494,14 @@ int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set IAID: %m");
 
-        duid = link_duid(link);
-        r = sd_dhcp6_client_set_duid(client,
-                                     duid->type,
-                                     duid->raw_data_len > 0 ? duid->raw_data : NULL,
-                                     duid->raw_data_len);
+        duid = link_get_duid(link);
+        if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
+                r = sd_dhcp6_client_set_duid_llt(client, duid->llt_time);
+        else
+                r = sd_dhcp6_client_set_duid(client,
+                                             duid->type,
+                                             duid->raw_data_len > 0 ? duid->raw_data : NULL,
+                                             duid->raw_data_len);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set DUID: %m");
 

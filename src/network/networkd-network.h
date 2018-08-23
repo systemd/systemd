@@ -70,6 +70,7 @@ typedef struct DUID {
 
         uint8_t raw_data_len;
         uint8_t raw_data[MAX_DUID_LEN];
+        usec_t llt_time;
 } DUID;
 
 typedef enum RADVPrefixDelegation {

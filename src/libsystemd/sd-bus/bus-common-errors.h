@@ -75,4 +75,6 @@
 #define BUS_ERROR_NO_SUCH_TRANSFER "org.freedesktop.import1.NoSuchTransfer"
 #define BUS_ERROR_TRANSFER_IN_PROGRESS "org.freedesktop.import1.TransferInProgress"
 
+#define BUS_ERROR_NO_PRODUCT_UUID "org.freedesktop.hostname1.NoProductUUID"
+
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

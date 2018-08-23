@@ -11,23 +11,30 @@
 #include "networkd-conf.h"
 #include "networkd-network.h"
 
-static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected) {
-        DUIDType actual = 0;
+static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected, usec_t expected_time) {
+        DUID actual = {};
         int r;
 
         r = config_parse_duid_type("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL);
-        log_info_errno(r, "\"%s\" → %d (%m)", rvalue, actual);
+        log_info_errno(r, "\"%s\" → %d (%m)", rvalue, actual.type);
         assert_se(r == ret);
-        assert_se(expected == actual);
+        assert_se(expected == actual.type);
+        if (expected == DUID_TYPE_LLT)
+                assert_se(expected_time == actual.llt_time);
 }
 
 static void test_config_parse_duid_type(void) {
-        test_config_parse_duid_type_one("", 0, 0);
-        test_config_parse_duid_type_one("link-layer-time", 0, DUID_TYPE_LLT);
-        test_config_parse_duid_type_one("vendor", 0, DUID_TYPE_EN);
-        test_config_parse_duid_type_one("link-layer", 0, DUID_TYPE_LL);
-        test_config_parse_duid_type_one("uuid", 0, DUID_TYPE_UUID);
-        test_config_parse_duid_type_one("foo", 0, 0);
+        test_config_parse_duid_type_one("", 0, 0, 0);
+        test_config_parse_duid_type_one("link-layer-time", 0, DUID_TYPE_LLT, 0);
+        test_config_parse_duid_type_one("link-layer-time:2000-01-01 00:00:00 UTC", 0, DUID_TYPE_LLT, (usec_t) 946684800000000);
+        test_config_parse_duid_type_one("vendor", 0, DUID_TYPE_EN, 0);
+        test_config_parse_duid_type_one("vendor:2000-01-01 00:00:00 UTC", 0, 0, 0);
+        test_config_parse_duid_type_one("link-layer", 0, DUID_TYPE_LL, 0);
+        test_config_parse_duid_type_one("link-layer:2000-01-01 00:00:00 UTC", 0, 0, 0);
+        test_config_parse_duid_type_one("uuid", 0, DUID_TYPE_UUID, 0);
+        test_config_parse_duid_type_one("uuid:2000-01-01 00:00:00 UTC", 0, 0, 0);
+        test_config_parse_duid_type_one("foo", 0, 0, 0);
+        test_config_parse_duid_type_one("foo:2000-01-01 00:00:00 UTC", 0, 0, 0);
 }
 
 static void test_config_parse_duid_rawdata_one(const char *rvalue, int ret, const DUID* expected) {

@@ -182,13 +182,14 @@ static int client_ensure_duid(sd_dhcp6_client *client) {
  * without further modification. Otherwise, if duid_type is supported, DUID
  * is set based on that type. Otherwise, an error is returned.
  */
-int sd_dhcp6_client_set_duid(
+static int dhcp6_client_set_duid_internal(
                 sd_dhcp6_client *client,
                 uint16_t duid_type,
                 const void *duid,
-                size_t duid_len) {
-
+                size_t duid_len,
+                usec_t llt_time) {
         int r;
+
         assert_return(client, -EINVAL);
         assert_return(duid_len == 0 || duid != NULL, -EINVAL);
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
@@ -197,20 +198,57 @@ int sd_dhcp6_client_set_duid(
                 r = dhcp_validate_duid_len(duid_type, duid_len);
                 if (r < 0)
                         return r;
-        }
 
-        if (duid != NULL) {
                 client->duid.type = htobe16(duid_type);
                 memcpy(&client->duid.raw.data, duid, duid_len);
                 client->duid_len = sizeof(client->duid.type) + duid_len;
-        } else if (duid_type == DUID_TYPE_EN) {
-                r = dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
-                if (r < 0)
-                        return r;
         } else
-                return -EOPNOTSUPP;
+                switch (duid_type) {
+                case DUID_TYPE_LLT:
+                        if (!client->mac_addr || client->mac_addr_len == 0)
+                                return -EOPNOTSUPP;
+
+                        r = dhcp_identifier_set_duid_llt(&client->duid, 0, client->mac_addr, client->mac_addr_len, client->arp_type, &client->duid_len);
+                        if (r < 0)
+                                return r;
+                        break;
+                case DUID_TYPE_EN:
+                        r = dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
+                        if (r < 0)
+                                return r;
+                        break;
+                case DUID_TYPE_LL:
+                        if (!client->mac_addr || client->mac_addr_len == 0)
+                                return -EOPNOTSUPP;
+
+                        r = dhcp_identifier_set_duid_ll(&client->duid, client->mac_addr, client->mac_addr_len, client->arp_type, &client->duid_len);
+                        if (r < 0)
+                                return r;
+                        break;
+                case DUID_TYPE_UUID:
+                        r = dhcp_identifier_set_duid_uuid(&client->duid, &client->duid_len);
+                        if (r < 0)
+                                return r;
+                        break;
+                default:
+                        return -EINVAL;
+                }
 
         return 0;
+}
+
+int sd_dhcp6_client_set_duid(
+                sd_dhcp6_client *client,
+                uint16_t duid_type,
+                const void *duid,
+                size_t duid_len) {
+        return dhcp6_client_set_duid_internal(client, duid_type, duid, duid_len, 0);
+}
+
+int sd_dhcp6_client_set_duid_llt(
+                sd_dhcp6_client *client,
+                usec_t llt_time) {
+        return dhcp6_client_set_duid_internal(client, DUID_TYPE_LLT, NULL, 0, llt_time);
 }
 
 int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {

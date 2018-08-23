@@ -415,6 +415,9 @@ void network_free(Network *network) {
 
                 if (network->manager->networks_by_name)
                         hashmap_remove(network->manager->networks_by_name, network->name);
+
+                if (network->manager->duids_requesting_uuid)
+                        set_remove(network->manager->duids_requesting_uuid, &network->duid);
         }
 
         free(network->name);

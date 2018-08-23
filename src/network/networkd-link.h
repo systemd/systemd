@@ -44,6 +44,7 @@ typedef enum LinkOperationalState {
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Address Address;
+typedef struct DUID DUID;
 
 typedef struct Link {
         Manager *manager;
@@ -124,6 +125,9 @@ typedef struct Link {
         Hashmap *bound_to_links;
 } Link;
 
+DUID *link_get_duid(Link *link);
+int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
+
 Link *link_unref(Link *link);
 Link *link_ref(Link *link);
 int link_get(Manager *m, int ifindex, Link **ret);
@@ -157,6 +161,7 @@ int link_set_mtu(Link *link, uint32_t mtu);
 
 int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
+int dhcp4_set_client_identifier(Link *link);
 int dhcp4_set_promote_secondaries(Link *link);
 int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link, int ir);
