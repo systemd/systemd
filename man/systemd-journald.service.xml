@@ -206,10 +206,10 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
     <para>Journal files are, by default, owned and readable by the
     <literal>systemd-journal</literal> system group but are not
-    writable. Adding a user to this group thus enables her/him to read
+    writable. Adding a user to this group thus enables them to read
     the journal files.</para>
 
-    <para>By default, each logged in user will get her/his own set of
+    <para>By default, each logged in user will get their own set of
     journal files in <filename>/var/log/journal/</filename>. These
     files will not be owned by the user, however, in order to avoid
     that the user can write to them directly. Instead, file system
