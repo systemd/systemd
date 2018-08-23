@@ -260,7 +260,7 @@
       <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       converts <filename>/etc/fstab</filename> into native mount units. It uses
       argv[1] as location to place the generated unit files in order to allow the
-      user to override <filename>/etc/fstab</filename> with her own native unit
+      user to override <filename>/etc/fstab</filename> with their own native unit
       files, but also to ensure that <filename>/etc/fstab</filename> overrides any
       vendor default from <filename>/usr</filename>.</para>
 
