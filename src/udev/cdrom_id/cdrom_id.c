@@ -874,7 +874,6 @@ int main(int argc, char *argv[]) {
         node = argv[optind];
         if (!node) {
                 log_error("no device");
-                fprintf(stderr, "no device\n");
                 rc = 1;
                 goto exit;
         }
@@ -892,7 +891,6 @@ int main(int argc, char *argv[]) {
         }
         if (fd < 0) {
                 log_debug("unable to open '%s'", node);
-                fprintf(stderr, "unable to open '%s'\n", node);
                 rc = 1;
                 goto exit;
         }
