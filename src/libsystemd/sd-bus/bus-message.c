@@ -3414,6 +3414,10 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                                 return r;
 
                         l = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
+                        if (l == UINT32_MAX)
+                                /* avoid overflow right below */
+                                return -EBADMSG;
+
                         r = message_peek_body(m, &rindex, 1, l+1, &q);
                         if (r < 0)
                                 return r;
@@ -3436,6 +3440,10 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                                 return r;
 
                         l = *(uint8_t*) q;
+                        if (l == UINT8_MAX)
+                                /* avoid overflow right below */
+                                return -EBADMSG;
+
                         r = message_peek_body(m, &rindex, 1, l+1, &q);
                         if (r < 0)
                                 return r;
@@ -3701,6 +3709,10 @@ static int bus_message_enter_variant(
                         return r;
 
                 l = *(uint8_t*) q;
+                if (l == UINT8_MAX)
+                        /* avoid overflow right below */
+                        return -EBADMSG;
+
                 r = message_peek_body(m, &rindex, 1, l+1, &q);
                 if (r < 0)
                         return r;
@@ -4269,6 +4281,10 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                                         return r;
 
                                 l = *(uint8_t*) q;
+                                if (l == UINT8_MAX)
+                                        /* avoid overflow right below */
+                                        return -EBADMSG;
+
                                 r = message_peek_body(m, &rindex, 1, l+1, &q);
                                 if (r < 0)
                                         return r;
@@ -4849,6 +4865,10 @@ static int message_peek_field_string(
                 if (r < 0)
                         return r;
 
+                if (l == UINT32_MAX)
+                        /* avoid overflow right below */
+                        return -EBADMSG;
+
                 r = message_peek_fields(m, ri, 1, l+1, &q);
                 if (r < 0)
                         return r;
@@ -4900,6 +4920,10 @@ static int message_peek_field_signature(
                         return r;
 
                 l = *(uint8_t*) q;
+                if (l == UINT8_MAX)
+                        /* avoid overflow right below */
+                        return -EBADMSG;
+
                 r = message_peek_fields(m, ri, 1, l+1, &q);
                 if (r < 0)
                         return r;
