@@ -184,6 +184,8 @@
             value itself contains trailing whitespace.
             </para>
           </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
           <listitem>
             <para>Match a kernel parameter value.
