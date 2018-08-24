@@ -350,6 +350,10 @@ int dissect_image(
                 e = sd_device_enumerator_unref(e);
         }
 
+        r = device_enumerator_scan_devices(e);
+        if (r < 0)
+                return r;
+
         FOREACH_DEVICE_AND_SUBSYSTEM(e, q) {
                 unsigned long long pflags;
                 blkid_partition pp;
