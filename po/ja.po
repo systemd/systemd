@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2018-02-27 16:46+0900\n"
-"PO-Revision-Date: 2018-05-28 10:30+0900\n"
+"POT-Creation-Date: 2018-08-24 22:39+0900\n"
+"PO-Revision-Date: 2018-08-24 22:42+0900\n"
 "Last-Translator: Yu Watanabe <watanabe.yu+github@gmail.com>\n"
 "Language-Team: \n"
 "Language: ja\n"
@@ -85,6 +85,14 @@ msgstr "マシン情報の設定"
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
 msgstr "マシン情報を設定するには認証が必要です。"
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "プロダクトUUIDを取得する"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "プロダクトUUIDを取得するには認証が必要です。"
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
