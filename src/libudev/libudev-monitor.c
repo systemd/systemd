@@ -17,10 +17,12 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "libudev-device-internal.h"
 #include "libudev-private.h"
 #include "missing.h"
 #include "mount-util.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -45,8 +47,8 @@ struct udev_monitor {
         union sockaddr_union snl_trusted_sender;
         union sockaddr_union snl_destination;
         socklen_t addrlen;
-        struct udev_list filter_subsystem_list;
-        struct udev_list filter_tag_list;
+        Hashmap *subsystem_filter;
+        Set *tag_filter;
         bool bound;
 };
 
@@ -164,9 +166,6 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
                 }
         }
 
-        udev_list_init(udev, &udev_monitor->filter_subsystem_list, false);
-        udev_list_init(udev, &udev_monitor->filter_tag_list, true);
-
         return TAKE_PTR(udev_monitor);
 }
 
@@ -224,20 +223,18 @@ static void bpf_jmp(struct sock_filter *ins, unsigned *i,
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
-{
-        struct sock_filter ins[512];
+_public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor) {
+        struct sock_filter ins[512] = {};
         struct sock_fprog filter;
-        unsigned i;
-        struct udev_list_entry *list_entry;
-        int err;
+        const char *subsystem, *devtype, *tag;
+        unsigned i = 0;
+        Iterator it;
 
-        if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) == NULL &&
-            udev_list_get_entry(&udev_monitor->filter_tag_list) == NULL)
+        assert_return(udev_monitor, -EINVAL);
+
+        if (hashmap_isempty(udev_monitor->subsystem_filter) &&
+            set_isempty(udev_monitor->tag_filter))
                 return 0;
-
-        memzero(ins, sizeof(ins));
-        i = 0;
 
         /* load magic in A */
         bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, magic));
@@ -246,17 +243,12 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
         /* wrong magic, pass packet */
         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
-        if (udev_list_get_entry(&udev_monitor->filter_tag_list) != NULL) {
-                int tag_matches;
-
-                /* count tag matches, to calculate end of tag match block */
-                tag_matches = 0;
-                udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list))
-                        tag_matches++;
+        if (!set_isempty(udev_monitor->tag_filter)) {
+                int tag_matches = set_size(udev_monitor->tag_filter);
 
                 /* add all tags matches */
-                udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list)) {
-                        uint64_t tag_bloom_bits = util_string_bloom64(udev_list_entry_get_name(list_entry));
+                SET_FOREACH(tag, udev_monitor->tag_filter, it) {
+                        uint64_t tag_bloom_bits = util_string_bloom64(tag);
                         uint32_t tag_bloom_hi = tag_bloom_bits >> 32;
                         uint32_t tag_bloom_lo = tag_bloom_bits & 0xffffffff;
 
@@ -281,23 +273,23 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
         }
 
         /* add all subsystem matches */
-        if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) != NULL) {
-                udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
-                        uint32_t hash = util_string_hash32(udev_list_entry_get_name(list_entry));
+        if (!hashmap_isempty(udev_monitor->subsystem_filter)) {
+                HASHMAP_FOREACH_KEY(devtype, subsystem, udev_monitor->subsystem_filter, it) {
+                        uint32_t hash = util_string_hash32(subsystem);
 
                         /* load device subsystem value in A */
                         bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_subsystem_hash));
-                        if (udev_list_entry_get_value(list_entry) == NULL) {
+                        if (!devtype) {
                                 /* jump if subsystem does not match */
                                 bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
                         } else {
+                                hash = util_string_hash32(devtype);
+
                                 /* jump if subsystem does not match */
                                 bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 3);
-
                                 /* load device devtype value in A */
                                 bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_devtype_hash));
                                 /* jump if value does not match */
-                                hash = util_string_hash32(udev_list_entry_get_value(list_entry));
                                 bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
                         }
 
@@ -316,11 +308,14 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
         /* install filter */
-        memzero(&filter, sizeof(filter));
-        filter.len = i;
-        filter.filter = ins;
-        err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
-        return err < 0 ? -errno : 0;
+        filter = (struct sock_fprog) {
+                .len = i,
+                .filter = ins,
+        };
+        if (setsockopt(udev_monitor->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter)) < 0)
+                return -errno;
+
+        return 0;
 }
 
 int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender)
@@ -395,8 +390,8 @@ static struct udev_monitor *udev_monitor_free(struct udev_monitor *udev_monitor)
         assert(udev_monitor);
 
         udev_monitor_disconnect(udev_monitor);
-        udev_list_cleanup(&udev_monitor->filter_subsystem_list);
-        udev_list_cleanup(&udev_monitor->filter_tag_list);
+        hashmap_free_free_free(udev_monitor->subsystem_filter);
+        set_free_free(udev_monitor->tag_filter);
         return mfree(udev_monitor);
 }
 
@@ -451,41 +446,49 @@ _public_ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
         return udev_monitor->sock;
 }
 
-static int passes_filter(struct udev_monitor *udev_monitor, struct udev_device *udev_device)
-{
-        struct udev_list_entry *list_entry;
+static int passes_filter(struct udev_monitor *udev_monitor, sd_device *device) {
+        const char *tag, *subsystem, *devtype, *s, *d = NULL;
+        Iterator i;
+        int r;
 
-        if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) == NULL)
+        assert_return(udev_monitor, -EINVAL);
+        assert_return(device, -EINVAL);
+
+        if (hashmap_isempty(udev_monitor->subsystem_filter))
                 goto tag;
-        udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
-                const char *subsys = udev_list_entry_get_name(list_entry);
-                const char *dsubsys = udev_device_get_subsystem(udev_device);
-                const char *devtype;
-                const char *ddevtype;
 
-                if (!streq(dsubsys, subsys))
+        r = sd_device_get_subsystem(device, &s);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devtype(device, &d);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        HASHMAP_FOREACH_KEY(devtype, subsystem, udev_monitor->subsystem_filter, i) {
+                if (!streq(s, subsystem))
                         continue;
 
-                devtype = udev_list_entry_get_value(list_entry);
-                if (devtype == NULL)
+                if (!devtype)
                         goto tag;
-                ddevtype = udev_device_get_devtype(udev_device);
-                if (ddevtype == NULL)
+
+                if (!d)
                         continue;
-                if (streq(ddevtype, devtype))
+
+                if (streq(d, devtype))
                         goto tag;
         }
+
         return 0;
 
 tag:
-        if (udev_list_get_entry(&udev_monitor->filter_tag_list) == NULL)
+        if (set_isempty(udev_monitor->tag_filter))
                 return 1;
-        udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_tag_list)) {
-                const char *tag = udev_list_entry_get_name(list_entry);
 
-                if (udev_device_has_tag(udev_device, tag))
+        SET_FOREACH(tag, udev_monitor->tag_filter, i)
+                if (sd_device_has_tag(device, tag) > 0)
                         return 1;
-        }
+
         return 0;
 }
 
@@ -630,7 +633,7 @@ retry:
                 udev_device_set_is_initialized(udev_device);
 
         /* skip device, if it does not pass the current filter */
-        if (!passes_filter(udev_monitor, udev_device)) {
+        if (!passes_filter(udev_monitor, udev_device->device)) {
                 struct pollfd pfd[1];
                 int rc;
 
@@ -749,14 +752,32 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_monitor, const char *subsystem, const char *devtype)
-{
-        if (udev_monitor == NULL)
-                return -EINVAL;
-        if (subsystem == NULL)
-                return -EINVAL;
-        if (udev_list_entry_add(&udev_monitor->filter_subsystem_list, subsystem, devtype) == NULL)
+_public_ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_monitor, const char *subsystem, const char *devtype) {
+        _cleanup_free_ char *s = NULL, *d = NULL;
+        int r;
+
+        assert_return(udev_monitor, -EINVAL);
+        assert_return(subsystem, -EINVAL);
+
+        s = strdup(subsystem);
+        if (!s)
                 return -ENOMEM;
+
+        if (devtype) {
+                d = strdup(devtype);
+                if (!d)
+                        return -ENOMEM;
+        }
+
+        r = hashmap_ensure_allocated(&udev_monitor->subsystem_filter, NULL);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(udev_monitor->subsystem_filter, s, d);
+        if (r < 0)
+                return r;
+
+        s = d = NULL;
         return 0;
 }
 
@@ -772,14 +793,28 @@ _public_ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_monitor, const char *tag)
-{
-        if (udev_monitor == NULL)
-                return -EINVAL;
-        if (tag == NULL)
-                return -EINVAL;
-        if (udev_list_entry_add(&udev_monitor->filter_tag_list, tag, NULL) == NULL)
+_public_ int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_monitor, const char *tag) {
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        assert_return(udev_monitor, -EINVAL);
+        assert_return(tag, -EINVAL);
+
+        t = strdup(tag);
+        if (!t)
                 return -ENOMEM;
+
+        r = set_ensure_allocated(&udev_monitor->tag_filter, &string_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = set_put(udev_monitor->tag_filter, t);
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(t);
         return 0;
 }
 
@@ -791,11 +826,14 @@ _public_ int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_monitor
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_monitor_filter_remove(struct udev_monitor *udev_monitor)
-{
+_public_ int udev_monitor_filter_remove(struct udev_monitor *udev_monitor) {
         static const struct sock_fprog filter = { 0, NULL };
 
-        udev_list_cleanup(&udev_monitor->filter_subsystem_list);
+        assert_return(udev_monitor, -EINVAL);
+
+        udev_monitor->subsystem_filter = hashmap_free_free_free(udev_monitor->subsystem_filter);
+        udev_monitor->tag_filter = set_free_free(udev_monitor->tag_filter);
+
         if (setsockopt(udev_monitor->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter)) < 0)
                 return -errno;
 
