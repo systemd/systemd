@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2018-06-19 15:00+0000\n"
-"PO-Revision-Date: 2018-06-19 17:05+0200\n"
+"POT-Creation-Date: 2018-08-23 15:26+0000\n"
+"PO-Revision-Date: 2018-08-24 15:33+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -100,6 +100,14 @@ msgstr "Ustawienie informacji o komputerze"
 msgid "Authentication is required to set local machine information."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić informacje o lokalnym komputerze."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "Uzyskanie UUID produktu"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "Wymagane jest uwierzytelnienie, aby uzyskać UUID produktu."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
