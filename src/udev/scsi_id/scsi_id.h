@@ -48,8 +48,8 @@ struct scsi_id_device {
         char tgpt_group[8];
 };
 
-int scsi_std_inquiry(struct udev *udev, struct scsi_id_device *dev_scsi, const char *devname);
-int scsi_get_serial(struct udev *udev, struct scsi_id_device *dev_scsi, const char *devname,
+int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);
+int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
                     int page_code, int len);
 
 /*
