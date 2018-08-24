@@ -208,7 +208,7 @@ static int dhcp6_client_set_duid_internal(
                         if (client->mac_addr_len == 0)
                                 return -EOPNOTSUPP;
 
-                        r = dhcp_identifier_set_duid_llt(&client->duid, 0, client->mac_addr, client->mac_addr_len, client->arp_type, &client->duid_len);
+                        r = dhcp_identifier_set_duid_llt(&client->duid, llt_time, client->mac_addr, client->mac_addr_len, client->arp_type, &client->duid_len);
                         if (r < 0)
                                 return r;
                         break;
