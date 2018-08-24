@@ -36,4 +36,4 @@ struct udev_device {
         bool sysattrs_read;
 };
 
-struct udev_device *udev_device_new(struct udev *udev);
+struct udev_device *udev_device_new(struct udev *udev, sd_device *device);

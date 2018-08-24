@@ -200,79 +200,59 @@ int udev_device_rename(struct udev_device *udev_device, const char *name) {
 }
 
 struct udev_device *udev_device_shallow_clone(struct udev_device *old_device) {
-        struct udev_device *device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
         assert(old_device);
 
-        device = udev_device_new(old_device->udev);
-        if (!device)
-                return NULL;
-
-        r = device_shallow_clone(old_device->device, &device->device);
+        r = device_shallow_clone(old_device->device, &device);
         if (r < 0) {
-                udev_device_unref(device);
                 errno = -r;
                 return NULL;
         }
 
-        return device;
+        return udev_device_new(old_device->udev, device);
 }
 
 struct udev_device *udev_device_clone_with_db(struct udev_device *udev_device_old) {
-        struct udev_device *udev_device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
         assert(udev_device_old);
 
-        udev_device = udev_device_new(udev_device_old->udev);
-        if (!udev_device)
-                return NULL;
-
-        r = device_clone_with_db(udev_device_old->device, &udev_device->device);
+        r = device_clone_with_db(udev_device_old->device, &device);
         if (r < 0) {
-                udev_device_unref(udev_device);
                 errno = -r;
                 return NULL;
         }
 
-        return udev_device;
+        return udev_device_new(udev_device_old->udev, device);
 }
 
 struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr, ssize_t buflen) {
-        struct udev_device *device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
-        device = udev_device_new(udev);
-        if (!device)
-                return NULL;
-
-        r = device_new_from_nulstr(&device->device, (uint8_t*)nulstr, buflen);
+        r = device_new_from_nulstr(&device, (uint8_t*)nulstr, buflen);
         if (r < 0) {
-                udev_device_unref(device);
                 errno = -r;
                 return NULL;
         }
 
-        return device;
+        return udev_device_new(udev, device);
 }
 
 struct udev_device *udev_device_new_from_synthetic_event(struct udev *udev, const char *syspath, const char *action) {
-        struct udev_device *device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
-        device = udev_device_new(udev);
-        if (!device)
-                return NULL;
-
-        r = device_new_from_synthetic_event(&device->device, syspath, action);
+        r = device_new_from_synthetic_event(&device, syspath, action);
         if (r < 0) {
-                udev_device_unref(device);
                 errno = -r;
                 return NULL;
         }
 
-        return device;
+        return udev_device_new(udev, device);
 }
 
 int udev_device_copy_properties(struct udev_device *udev_device_dst, struct udev_device *udev_device_src) {

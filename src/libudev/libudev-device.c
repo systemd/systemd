@@ -187,8 +187,10 @@ _public_ const char *udev_device_get_property_value(struct udev_device *udev_dev
         return value;
 }
 
-struct udev_device *udev_device_new(struct udev *udev) {
+struct udev_device *udev_device_new(struct udev *udev, sd_device *device) {
         struct udev_device *udev_device;
+
+        assert(device);
 
         udev_device = new(struct udev_device, 1);
         if (!udev_device) {
@@ -199,6 +201,7 @@ struct udev_device *udev_device_new(struct udev *udev) {
         *udev_device = (struct udev_device) {
                 .n_ref = 1,
                 .udev = udev,
+                .device = sd_device_ref(device),
         };
 
         udev_list_init(udev, &udev_device->properties, true);
@@ -224,21 +227,16 @@ struct udev_device *udev_device_new(struct udev *udev) {
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
 _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath) {
-        struct udev_device *udev_device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
-        udev_device = udev_device_new(udev);
-        if (!udev_device)
-                return NULL;
-
-        r = sd_device_new_from_syspath(&udev_device->device, syspath);
+        r = sd_device_new_from_syspath(&device, syspath);
         if (r < 0) {
                 errno = -r;
-                udev_device_unref(udev_device);
                 return NULL;
         }
 
-        return udev_device;
+        return udev_device_new(udev, device);
 }
 
 /**
@@ -258,21 +256,16 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
 _public_ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum) {
-        struct udev_device *udev_device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
-        udev_device = udev_device_new(udev);
-        if (!udev_device)
-                return NULL;
-
-        r = sd_device_new_from_devnum(&udev_device->device, type, devnum);
+        r = sd_device_new_from_devnum(&device, type, devnum);
         if (r < 0) {
                 errno = -r;
-                udev_device_unref(udev_device);
                 return NULL;
         }
 
-        return udev_device;
+        return udev_device_new(udev, device);
 }
 
 /**
@@ -294,21 +287,16 @@ _public_ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
 _public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, const char *id) {
-        struct udev_device *udev_device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
-        udev_device = udev_device_new(udev);
-        if (!udev_device)
-                return NULL;
-
-        r = sd_device_new_from_device_id(&udev_device->device, id);
+        r = sd_device_new_from_device_id(&device, id);
         if (r < 0) {
                 errno = -r;
-                udev_device_unref(udev_device);
                 return NULL;
         }
 
-        return udev_device;
+        return udev_device_new(udev, device);
 }
 
 /**
@@ -327,21 +315,16 @@ _public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, c
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
 _public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname) {
-        struct udev_device *udev_device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
-        udev_device = udev_device_new(udev);
-        if (!udev_device)
-                return NULL;
-
-        r = sd_device_new_from_subsystem_sysname(&udev_device->device, subsystem, sysname);
+        r = sd_device_new_from_subsystem_sysname(&device, subsystem, sysname);
         if (r < 0) {
                 errno = -r;
-                udev_device_unref(udev_device);
                 return NULL;
         }
 
-        return udev_device;
+        return udev_device_new(udev, device);
 }
 
 /**
@@ -359,44 +342,31 @@ _public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev 
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
 _public_ struct udev_device *udev_device_new_from_environment(struct udev *udev) {
-        struct udev_device *udev_device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
-        udev_device = udev_device_new(udev);
-        if (!udev_device)
-                return NULL;
-
-        r = device_new_from_strv(&udev_device->device, environ);
+        r = device_new_from_strv(&device, environ);
         if (r < 0) {
                 errno = -r;
-                udev_device_unref(udev_device);
                 return NULL;
         }
 
-        return udev_device;
+        return udev_device_new(udev, device);
 }
 
 static struct udev_device *device_new_from_parent(struct udev_device *child) {
-        struct udev_device *parent;
+        sd_device *parent;
         int r;
 
         assert_return_errno(child, NULL, EINVAL);
 
-        parent = udev_device_new(child->udev);
-        if (!parent)
-                return NULL;
-
-        r = sd_device_get_parent(child->device, &parent->device);
+        r = sd_device_get_parent(child->device, &parent);
         if (r < 0) {
                 errno = -r;
-                udev_device_unref(parent);
                 return NULL;
         }
 
-        /* the parent is unref'ed with the child, so take a ref from libudev as well */
-        sd_device_ref(parent->device);
-
-        return parent;
+        return udev_device_new(child->udev, parent);
 }
 
 /**
