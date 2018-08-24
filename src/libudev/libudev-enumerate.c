@@ -49,33 +49,37 @@ struct udev_enumerate {
  * Returns: an enumeration context.
  **/
 _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
-        _cleanup_free_ struct udev_enumerate *udev_enumerate = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        struct udev_enumerate *udev_enumerate;
         int r;
 
-        udev_enumerate = new0(struct udev_enumerate, 1);
+        r = sd_device_enumerator_new(&e);
+        if (r < 0) {
+                errno = -r;
+                return NULL;
+        }
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0) {
+                errno = -r;
+                return NULL;
+        }
+
+        udev_enumerate = new(struct udev_enumerate, 1);
         if (!udev_enumerate) {
                 errno = ENOMEM;
                 return NULL;
         }
 
-        r = sd_device_enumerator_new(&udev_enumerate->enumerator);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
-
-        r = sd_device_enumerator_allow_uninitialized(udev_enumerate->enumerator);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
-
-        udev_enumerate->n_ref = 1;
-        udev_enumerate->udev = udev;
+        *udev_enumerate = (struct udev_enumerate) {
+                .udev = udev,
+                .n_ref = 1,
+                .enumerator = TAKE_PTR(e),
+        };
 
         udev_list_init(udev, &udev_enumerate->devices_list, false);
 
-        return TAKE_PTR(udev_enumerate);
+        return udev_enumerate;
 }
 
 static struct udev_enumerate *udev_enumerate_free(struct udev_enumerate *udev_enumerate) {
