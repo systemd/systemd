@@ -659,11 +659,11 @@ _public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *ud
         return udev_device_new(udev_monitor->udev, device);
 }
 
-int udev_monitor_send_device(struct udev_monitor *udev_monitor,
-                             struct udev_monitor *destination, struct udev_device *udev_device)
-{
-        const char *buf, *val;
-        ssize_t blen, count;
+static int udev_monitor_send_sd_device(
+                struct udev_monitor *udev_monitor,
+                struct udev_monitor *destination,
+                sd_device *device) {
+
         struct udev_monitor_netlink_header nlh = {
                 .prefix = "libudev",
                 .magic = htobe32(UDEV_MONITOR_MAGIC),
@@ -676,27 +676,37 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
                 .msg_iov = iov,
                 .msg_iovlen = 2,
         };
-        struct udev_list_entry *list_entry;
         uint64_t tag_bloom_bits;
+        const char *buf, *val;
+        ssize_t count;
+        size_t blen;
+        int r;
 
-        blen = udev_device_get_properties_monitor_buf(udev_device, &buf);
+        assert(udev_monitor);
+        assert(device);
+
+        r = device_get_properties_nulstr(device, (const uint8_t **) &buf, &blen);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get device properties: %m");
         if (blen < 32) {
-                log_debug("device buffer is too small to contain a valid device");
+                log_debug("Device buffer is too small to contain a valid device");
                 return -EINVAL;
         }
 
         /* fill in versioned header */
-        val = udev_device_get_subsystem(udev_device);
+        r = sd_device_get_subsystem(device, &val);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get device subsystem: %m");
         nlh.filter_subsystem_hash = htobe32(util_string_hash32(val));
 
-        val = udev_device_get_devtype(udev_device);
-        if (val != NULL)
+        if (sd_device_get_devtype(device, &val) >= 0 && val)
                 nlh.filter_devtype_hash = htobe32(util_string_hash32(val));
 
         /* add tag bloom filter */
         tag_bloom_bits = 0;
-        udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
-                tag_bloom_bits |= util_string_bloom64(udev_list_entry_get_name(list_entry));
+        FOREACH_DEVICE_TAG(device, val)
+                tag_bloom_bits |= util_string_bloom64(val);
+
         if (tag_bloom_bits > 0) {
                 nlh.filter_tag_bloom_hi = htobe32(tag_bloom_bits >> 32);
                 nlh.filter_tag_bloom_lo = htobe32(tag_bloom_bits & 0xffffffff);
@@ -705,8 +715,10 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
         /* add properties list */
         nlh.properties_off = iov[0].iov_len;
         nlh.properties_len = blen;
-        iov[1].iov_base = (char *)buf;
-        iov[1].iov_len = blen;
+        iov[1] = (struct iovec) {
+                .iov_base = (char*) buf,
+                .iov_len = blen,
+        };
 
         /*
          * Use custom address for target, or the default one.
@@ -714,22 +726,28 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
          * If we send to a multicast group, we will get
          * ECONNREFUSED, which is expected.
          */
-        if (destination)
-                smsg.msg_name = &destination->snl;
-        else
-                smsg.msg_name = &udev_monitor->snl_destination;
+        smsg.msg_name = destination ? &destination->snl : &udev_monitor->snl_destination;
         smsg.msg_namelen = sizeof(struct sockaddr_nl);
         count = sendmsg(udev_monitor->sock, &smsg, 0);
         if (count < 0) {
                 if (!destination && errno == ECONNREFUSED) {
-                        log_debug("passed device to netlink monitor %p", udev_monitor);
+                        log_debug("Passed device to netlink monitor %p", udev_monitor);
                         return 0;
                 } else
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to send device to netlink monitor %p", udev_monitor);
         }
 
-        log_debug("passed %zi byte device to netlink monitor %p", count, udev_monitor);
+        log_debug("Passed %zi byte device to netlink monitor %p", count, udev_monitor);
         return count;
+}
+
+int udev_monitor_send_device(
+                struct udev_monitor *udev_monitor,
+                struct udev_monitor *destination,
+                struct udev_device *udev_device) {
+        assert(udev_device);
+
+        return udev_monitor_send_sd_device(udev_monitor, destination, udev_device->device);
 }
 
 /**
