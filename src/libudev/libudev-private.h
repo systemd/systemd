@@ -37,7 +37,6 @@ void udev_device_set_is_initialized(struct udev_device *udev_device);
 int udev_device_add_tag(struct udev_device *udev_device, const char *tag);
 void udev_device_remove_tag(struct udev_device *udev_device, const char *tag);
 void udev_device_cleanup_tags_list(struct udev_device *udev_device);
-usec_t udev_device_get_usec_initialized(struct udev_device *udev_device);
 void udev_device_ensure_usec_initialized(struct udev_device *udev_device, struct udev_device *old_device);
 int udev_device_get_devlink_priority(struct udev_device *udev_device);
 int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio);
@@ -45,11 +44,8 @@ int udev_device_get_watch_handle(struct udev_device *udev_device);
 int udev_device_set_watch_handle(struct udev_device *udev_device, int handle);
 int udev_device_get_ifindex(struct udev_device *udev_device);
 void udev_device_set_info_loaded(struct udev_device *device);
-bool udev_device_get_db_persist(struct udev_device *udev_device);
 void udev_device_set_db_persist(struct udev_device *udev_device);
 void udev_device_read_db(struct udev_device *udev_device);
-
-/* libudev-device-private.c */
 int udev_device_update_db(struct udev_device *udev_device);
 int udev_device_delete_db(struct udev_device *udev_device);
 int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, bool add);
