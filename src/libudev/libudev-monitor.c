@@ -233,26 +233,23 @@ _public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, c
         return udev_monitor_new_from_netlink_fd(udev, name, -1);
 }
 
-static inline void bpf_stmt(struct sock_filter *inss, unsigned *i,
-                            unsigned short code, unsigned data) {
-        struct sock_filter *ins = &inss[*i];
-
-        ins->code = code;
-        ins->k = data;
-        (*i)++;
+static void bpf_stmt(struct sock_filter *ins, unsigned *i,
+                     unsigned short code, unsigned data) {
+        ins[(*i)++] = (struct sock_filter) {
+                .code = code,
+                .k = data,
+        };
 }
 
-static inline void bpf_jmp(struct sock_filter *inss, unsigned *i,
-                           unsigned short code, unsigned data,
-                           unsigned short jt, unsigned short jf)
-{
-        struct sock_filter *ins = &inss[*i];
-
-        ins->code = code;
-        ins->jt = jt;
-        ins->jf = jf;
-        ins->k = data;
-        (*i)++;
+static void bpf_jmp(struct sock_filter *ins, unsigned *i,
+                    unsigned short code, unsigned data,
+                    unsigned short jt, unsigned short jf) {
+        ins[(*i)++] = (struct sock_filter) {
+                .code = code,
+                .jt = jt,
+                .jf = jf,
+                .k = data,
+        };
 }
 
 /**
