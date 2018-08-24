@@ -14,6 +14,8 @@
 #include "libudev.h"
 
 #include "alloc-util.h"
+#include "device-private.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -492,6 +494,137 @@ tag:
         return 0;
 }
 
+static int udev_monitor_receive_device_one(struct udev_monitor *udev_monitor, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        union {
+                struct udev_monitor_netlink_header nlh;
+                char raw[8192];
+        } buf;
+        struct iovec iov = {
+                .iov_base = &buf,
+                .iov_len = sizeof(buf)
+        };
+        char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
+        union sockaddr_union snl;
+        struct msghdr smsg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = cred_msg,
+                .msg_controllen = sizeof(cred_msg),
+                .msg_name = &snl,
+                .msg_namelen = sizeof(snl),
+        };
+        struct cmsghdr *cmsg;
+        struct ucred *cred;
+        ssize_t buflen, bufpos;
+        bool is_initialized = false;
+        int r;
+
+        assert(ret);
+
+        buflen = recvmsg(udev_monitor->sock, &smsg, 0);
+        if (buflen < 0) {
+                if (errno != EINTR)
+                        log_debug_errno(errno, "Failed to receive message: %m");
+                return -errno;
+        }
+
+        if (buflen < 32 || (smsg.msg_flags & MSG_TRUNC))
+                return log_debug_errno(EINVAL, "Invalid message length.");
+
+        if (snl.nl.nl_groups == UDEV_MONITOR_NONE) {
+                /* unicast message, check if we trust the sender */
+                if (udev_monitor->snl_trusted_sender.nl.nl_pid == 0 ||
+                    snl.nl.nl_pid != udev_monitor->snl_trusted_sender.nl.nl_pid)
+                        return log_debug_errno(EAGAIN, "Unicast netlink message ignored.");
+
+        } else if (snl.nl.nl_groups == UDEV_MONITOR_KERNEL) {
+                if (snl.nl.nl_pid > 0)
+                        return log_debug_errno(EAGAIN, "Multicast kernel netlink message from PID %"PRIu32" ignored.", snl.nl.nl_pid);
+        }
+
+        cmsg = CMSG_FIRSTHDR(&smsg);
+        if (!cmsg || cmsg->cmsg_type != SCM_CREDENTIALS)
+                return log_debug_errno(EAGAIN, "No sender credentials received, message ignored.");
+
+        cred = (struct ucred*) CMSG_DATA(cmsg);
+        if (cred->uid != 0)
+                return log_debug_errno(EAGAIN, "Sender uid="UID_FMT", message ignored.", cred->uid);
+
+        if (streq(buf.raw, "libudev")) {
+                /* udev message needs proper version magic */
+                if (buf.nlh.magic != htobe32(UDEV_MONITOR_MAGIC))
+                        return log_debug_errno(EAGAIN, "Invalid message signature (%x != %x)",
+                                               buf.nlh.magic, htobe32(UDEV_MONITOR_MAGIC));
+
+                if (buf.nlh.properties_off+32 > (size_t) buflen)
+                        return log_debug_errno(EAGAIN, "Invalid message length (%u > %zd)",
+                                               buf.nlh.properties_off+32, buflen);
+
+                bufpos = buf.nlh.properties_off;
+
+                /* devices received from udev are always initialized */
+                is_initialized = true;
+
+        } else {
+                /* kernel message with header */
+                bufpos = strlen(buf.raw) + 1;
+                if ((size_t) bufpos < sizeof("a@/d") || bufpos >= buflen)
+                        return log_debug_errno(EAGAIN, "Invalid message length");
+
+                /* check message header */
+                if (!strstr(buf.raw, "@/"))
+                        return log_debug_errno(EAGAIN, "Invalid message header");
+        }
+
+        r = device_new_from_nulstr(&device, (uint8_t*) &buf.raw[bufpos], buflen - bufpos);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create device: %m");
+
+        if (is_initialized)
+                device_set_is_initialized(device);
+
+        /* skip device, if it does not pass the current filter */
+        if (passes_filter(udev_monitor, device) <= 0)
+                return 0;
+
+        *ret = TAKE_PTR(device);
+        return 1;
+}
+
+int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_device **ret) {
+        struct pollfd pfd = {
+                .fd = udev_monitor->sock,
+                .events = POLLIN,
+        };
+        int r;
+
+        assert(udev_monitor);
+        assert(ret);
+
+        for (;;) {
+                /* r == 0 means a device is received but it does not pass the current filter. */
+                r = udev_monitor_receive_device_one(udev_monitor, ret);
+                if (r != 0)
+                        return r;
+
+                for (;;) {
+                        /* wait next message */
+                        r = poll(&pfd, 1, 0);
+                        if (r < 0) {
+                                if (IN_SET(errno, EINTR, EAGAIN))
+                                        continue;
+
+                                return -errno;
+                        } else if (r == 0)
+                                return -EAGAIN;
+
+                        /* receive next message */
+                        break;
+                }
+        }
+}
+
 /**
  * udev_monitor_receive_device:
  * @udev_monitor: udev monitor
@@ -511,159 +644,19 @@ tag:
  *
  * Returns: a new udev device, or #NULL, in case of an error
  **/
-_public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monitor)
-{
-        struct udev_device *udev_device;
-        struct msghdr smsg;
-        struct iovec iov;
-        char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
-        struct cmsghdr *cmsg;
-        union sockaddr_union snl;
-        struct ucred *cred;
-        union {
-                struct udev_monitor_netlink_header nlh;
-                char raw[8192];
-        } buf;
-        ssize_t buflen;
-        ssize_t bufpos;
-        bool is_initialized = false;
+_public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monitor) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        int r;
 
-retry:
-        if (udev_monitor == NULL) {
-                errno = EINVAL;
-                return NULL;
-        }
-        iov.iov_base = &buf;
-        iov.iov_len = sizeof(buf);
-        memzero(&smsg, sizeof(struct msghdr));
-        smsg.msg_iov = &iov;
-        smsg.msg_iovlen = 1;
-        smsg.msg_control = cred_msg;
-        smsg.msg_controllen = sizeof(cred_msg);
-        smsg.msg_name = &snl;
-        smsg.msg_namelen = sizeof(snl);
+        assert_return(udev_monitor, NULL);
 
-        buflen = recvmsg(udev_monitor->sock, &smsg, 0);
-        if (buflen < 0) {
-                if (errno != EINTR)
-                        log_debug("unable to receive message");
+        r = udev_monitor_receive_sd_device(udev_monitor, &device);
+        if (r < 0) {
+                errno = -r;
                 return NULL;
         }
 
-        if (buflen < 32 || (smsg.msg_flags & MSG_TRUNC)) {
-                log_debug("invalid message length");
-                errno = EINVAL;
-                return NULL;
-        }
-
-        if (snl.nl.nl_groups == 0) {
-                /* unicast message, check if we trust the sender */
-                if (udev_monitor->snl_trusted_sender.nl.nl_pid == 0 ||
-                    snl.nl.nl_pid != udev_monitor->snl_trusted_sender.nl.nl_pid) {
-                        log_debug("unicast netlink message ignored");
-                        errno = EAGAIN;
-                        return NULL;
-                }
-        } else if (snl.nl.nl_groups == UDEV_MONITOR_KERNEL) {
-                if (snl.nl.nl_pid > 0) {
-                        log_debug("multicast kernel netlink message from PID %"PRIu32" ignored",
-                                  snl.nl.nl_pid);
-                        errno = EAGAIN;
-                        return NULL;
-                }
-        }
-
-        cmsg = CMSG_FIRSTHDR(&smsg);
-        if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-                log_debug("no sender credentials received, message ignored");
-                errno = EAGAIN;
-                return NULL;
-        }
-
-        cred = (struct ucred *)CMSG_DATA(cmsg);
-        if (cred->uid != 0) {
-                log_debug("sender uid="UID_FMT", message ignored", cred->uid);
-                errno = EAGAIN;
-                return NULL;
-        }
-
-        if (memcmp(buf.raw, "libudev", 8) == 0) {
-                /* udev message needs proper version magic */
-                if (buf.nlh.magic != htobe32(UDEV_MONITOR_MAGIC)) {
-                        log_debug("unrecognized message signature (%x != %x)",
-                                 buf.nlh.magic, htobe32(UDEV_MONITOR_MAGIC));
-                        errno = EAGAIN;
-                        return NULL;
-                }
-                if (buf.nlh.properties_off+32 > (size_t)buflen) {
-                        log_debug("message smaller than expected (%u > %zd)",
-                                  buf.nlh.properties_off+32, buflen);
-                        errno = EAGAIN;
-                        return NULL;
-                }
-
-                bufpos = buf.nlh.properties_off;
-
-                /* devices received from udev are always initialized */
-                is_initialized = true;
-        } else {
-                /* kernel message with header */
-                bufpos = strlen(buf.raw) + 1;
-                if ((size_t)bufpos < sizeof("a@/d") || bufpos >= buflen) {
-                        log_debug("invalid message length");
-                        errno = EAGAIN;
-                        return NULL;
-                }
-
-                /* check message header */
-                if (strstr(buf.raw, "@/") == NULL) {
-                        log_debug("unrecognized message header");
-                        errno = EAGAIN;
-                        return NULL;
-                }
-        }
-
-        udev_device = udev_device_new_from_nulstr(udev_monitor->udev, &buf.raw[bufpos], buflen - bufpos);
-        if (!udev_device) {
-                log_debug_errno(errno, "could not create device: %m");
-                return NULL;
-        }
-
-        if (is_initialized)
-                udev_device_set_is_initialized(udev_device);
-
-        /* skip device, if it does not pass the current filter */
-        if (!passes_filter(udev_monitor, udev_device->device)) {
-                struct pollfd pfd[1];
-                int rc;
-
-                udev_device_unref(udev_device);
-
-                /* if something is queued, get next device */
-                pfd[0].fd = udev_monitor->sock;
-                pfd[0].events = POLLIN;
-                rc = poll(pfd, 1, 0);
-                if (rc > 0)
-                        goto retry;
-
-                errno = EAGAIN;
-                return NULL;
-        }
-
-        return udev_device;
-}
-
-int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_device **ret) {
-        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
-
-        assert(ret);
-
-        udev_device = udev_monitor_receive_device(udev_monitor);
-        if (!udev_device)
-                return -errno;
-
-        *ret = sd_device_ref(udev_device->device);
-        return 0;
+        return udev_device_new(udev_monitor->udev, device);
 }
 
 int udev_monitor_send_device(struct udev_monitor *udev_monitor,
