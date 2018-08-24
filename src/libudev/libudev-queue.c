@@ -94,12 +94,9 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_queue, udev_queue, udev_queue_f
  *
  * Returns: the udev library context.
  **/
-_public_ struct udev *udev_queue_get_udev(struct udev_queue *udev_queue)
-{
-        if (udev_queue == NULL) {
-                errno = EINVAL;
-                return NULL;
-        }
+_public_ struct udev *udev_queue_get_udev(struct udev_queue *udev_queue) {
+        assert_return_errno(udev_queue, NULL, EINVAL);
+
         return udev_queue->udev;
 }
 
@@ -238,7 +235,7 @@ _public_ int udev_queue_get_fd(struct udev_queue *udev_queue) {
 _public_ int udev_queue_flush(struct udev_queue *udev_queue) {
         int r;
 
-        assert(udev_queue);
+        assert_return(udev_queue, -EINVAL);
 
         if (udev_queue->fd < 0)
                 return -EINVAL;
