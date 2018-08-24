@@ -16,9 +16,6 @@
 #define READ_END  0
 #define WRITE_END 1
 
-/* libudev.c */
-int udev_get_rules_path(struct udev *udev, char **path[], usec_t *ts_usec[]);
-
 /* libudev-device.c */
 struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr, ssize_t buflen);
 struct udev_device *udev_device_new_from_synthetic_event(struct udev *udev, const char *syspath, const char *action);
