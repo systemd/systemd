@@ -155,10 +155,6 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
         int sense_class;
         int sense_key;
         int asc, ascq;
-#ifdef DUMP_SENSE
-        char out_buffer[256];
-        int i, j;
-#endif
 
         /*
          * Figure out and print the sense key, asc and ascq.
@@ -230,17 +226,6 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
 
         }
 
-#ifdef DUMP_SENSE
-        for (i = 0, j = 0; (i < s) && (j < 254); i++) {
-                out_buffer[j++] = hex_str[(sense_buffer[i] & 0xf0) >> 4];
-                out_buffer[j++] = hex_str[sense_buffer[i] & 0x0f];
-                out_buffer[j++] = ' ';
-        }
-        out_buffer[j] = '\0';
-        log_debug("%s: sense dump:", dev_scsi->kernel);
-        log_debug("%s: %s", dev_scsi->kernel, out_buffer);
-
-#endif
         return -1;
 }
 
