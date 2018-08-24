@@ -2924,7 +2924,7 @@ int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *re
         e = sd_bus_message_get_error(m);
         if (e) {
                 log_error_errno(sd_bus_error_get_errno(e),
-                                "Could not get product UUID. Fallback to use application specific machine ID as DUID-UUID: %s",
+                                "Could not get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %s",
                                 e->message);
                 goto configure;
         }
@@ -2934,7 +2934,7 @@ int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *re
                 goto configure;
 
         if (sz != sizeof(sd_id128_t)) {
-                log_error("Invalid product UUID. Fallback to use application specific machine ID as DUID-UUID.");
+                log_error("Invalid product UUID. Falling back to use machine-app-specific ID as DUID-UUID.");
                 goto configure;
         }
 
@@ -3006,7 +3006,8 @@ static int link_configure_duid(Link *link) {
                         if (r == -ENOMEM)
                                 return r;
 
-                        log_link_warning_errno(link, r, "Failed to get product UUID. Fallback to use application specific machine ID as DUID-UUID: %m");
+                        log_link_warning_errno(link, r,
+                                               "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
                         return 1;
                 }
         } else {
