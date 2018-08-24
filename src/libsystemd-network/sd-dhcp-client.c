@@ -385,7 +385,7 @@ static int dhcp_client_set_iaid_duid_internal(
         } else
                 switch (duid_type) {
                 case DUID_TYPE_LLT:
-                        if (!client->mac_addr || client->mac_addr_len == 0)
+                        if (client->mac_addr_len == 0)
                                 return -EOPNOTSUPP;
 
                         r = dhcp_identifier_set_duid_llt(&client->client_id.ns.duid, llt_time, client->mac_addr, client->mac_addr_len, client->arp_type, &len);
@@ -398,7 +398,7 @@ static int dhcp_client_set_iaid_duid_internal(
                                 return r;
                         break;
                 case DUID_TYPE_LL:
-                        if (!client->mac_addr || client->mac_addr_len == 0)
+                        if (client->mac_addr_len == 0)
                                 return -EOPNOTSUPP;
 
                         r = dhcp_identifier_set_duid_ll(&client->client_id.ns.duid, client->mac_addr, client->mac_addr_len, client->arp_type, &len);
