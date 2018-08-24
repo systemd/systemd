@@ -320,8 +320,10 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor) {
         return 0;
 }
 
-int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender)
-{
+int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender) {
+        assert_return(udev_monitor, -EINVAL);
+        assert_return(sender, -EINVAL);
+
         udev_monitor->snl_trusted_sender.nl.nl_pid = sender->snl.nl.nl_pid;
         return 0;
 }
@@ -372,10 +374,9 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor) {
  *
  * Returns: 0 on success, otherwise -1 on error.
  */
-_public_ int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size)
-{
-        if (udev_monitor == NULL)
-                return -EINVAL;
+_public_ int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size) {
+        assert_return(udev_monitor, -EINVAL);
+
         if (setsockopt(udev_monitor->sock, SOL_SOCKET, SO_RCVBUFFORCE, &size, sizeof(size)) < 0)
                 return -errno;
 
@@ -427,10 +428,9 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_monitor, udev_monitor, udev_mon
  *
  * Returns: the udev library context
  **/
-_public_ struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor)
-{
-        if (udev_monitor == NULL)
-                return NULL;
+_public_ struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor) {
+        assert_return(udev_monitor, NULL);
+
         return udev_monitor->udev;
 }
 
@@ -442,10 +442,9 @@ _public_ struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor)
  *
  * Returns: the socket file descriptor
  **/
-_public_ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
-{
-        if (udev_monitor == NULL)
-                return -EINVAL;
+_public_ int udev_monitor_get_fd(struct udev_monitor *udev_monitor) {
+        assert_return(udev_monitor, -EINVAL);
+
         return udev_monitor->sock;
 }
 
