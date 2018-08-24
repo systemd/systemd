@@ -956,6 +956,35 @@ static int property_get_ip_counter(
         return sd_bus_message_append(reply, "t", value);
 }
 
+static int property_get_io_counter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupIOAccountingMetric metric;
+        uint64_t value = (uint64_t) -1;
+        Unit *u = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(property);
+        assert(u);
+
+        if (streq(property, "IOIngressBytes"))
+                metric = CGROUP_IO_INGRESS_BYTES;
+        else {
+                assert(streq(property, "IOEgressBytes"));
+                metric = CGROUP_IO_EGRESS_BYTES;
+        }
+
+        (void) unit_get_io_accounting(u, metric, &value);
+        return sd_bus_message_append(reply, "t", value);
+}
+
 int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
@@ -1079,6 +1108,8 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IPIngressPackets", "t", property_get_ip_counter, 0, 0),
         SD_BUS_PROPERTY("IPEgressBytes", "t", property_get_ip_counter, 0, 0),
         SD_BUS_PROPERTY("IPEgressPackets", "t", property_get_ip_counter, 0, 0),
+        SD_BUS_PROPERTY("IOIngressBytes", "t", property_get_io_counter, 0, 0),
+        SD_BUS_PROPERTY("IOEgressBytes", "t", property_get_io_counter, 0, 0),
         SD_BUS_METHOD("GetProcesses", NULL, "a(sus)", bus_unit_method_get_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("AttachProcesses", "sau", NULL, bus_unit_method_attach_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
