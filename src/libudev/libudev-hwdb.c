@@ -104,10 +104,8 @@ _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev
         const char *key, *value;
         struct udev_list_entry *e;
 
-        if (!hwdb || !modalias) {
-                errno = EINVAL;
-                return NULL;
-        }
+        assert_return_errno(hwdb, NULL, EINVAL);
+        assert_return_errno(modalias, NULL, EINVAL);
 
         udev_list_cleanup(&hwdb->properties_list);
 
