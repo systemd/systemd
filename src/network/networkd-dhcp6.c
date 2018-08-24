@@ -221,8 +221,6 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
         if (r < 0)
                 return r;
 
-        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &pd_prefix, &buf);
-
         dhcp6_reset_pd_prefix_network(link);
         sd_dhcp6_lease_reset_pd_prefix_iter(lease);
 
@@ -231,12 +229,14 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                                      &lifetime_valid) >= 0) {
 
                 if (pd_prefix_len > 64) {
+                        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &pd_prefix, &buf);
                         log_link_debug(link, "PD Prefix length > 64, ignoring prefix %s/%u",
                                        strnull(buf), pd_prefix_len);
                         continue;
                 }
 
                 if (pd_prefix_len < 48) {
+                        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &pd_prefix, &buf);
                         log_link_warning(link, "PD Prefix length < 48, looks unusual %s/%u",
                                        strnull(buf), pd_prefix_len);
                 }
