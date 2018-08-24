@@ -17,12 +17,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "libudev-private.h"
 #include "libudev-device-internal.h"
+#include "libudev-private.h"
 #include "missing.h"
 #include "mount-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 /**
  * SECTION:libudev-monitor
@@ -79,21 +80,6 @@ struct udev_monitor_netlink_header {
         unsigned filter_tag_bloom_lo;
 };
 
-static struct udev_monitor *udev_monitor_new(struct udev *udev) {
-        struct udev_monitor *udev_monitor;
-
-        udev_monitor = new0(struct udev_monitor, 1);
-        if (udev_monitor == NULL) {
-                errno = ENOMEM;
-                return NULL;
-        }
-        udev_monitor->n_ref = 1;
-        udev_monitor->udev = udev;
-        udev_list_init(udev, &udev_monitor->filter_subsystem_list, false);
-        udev_list_init(udev, &udev_monitor->filter_tag_list, true);
-        return udev_monitor;
-}
-
 static int udev_monitor_set_nl_address(struct udev_monitor *udev_monitor) {
         union sockaddr_union snl;
         socklen_t addrlen;
@@ -111,10 +97,14 @@ static int udev_monitor_set_nl_address(struct udev_monitor *udev_monitor) {
 }
 
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd) {
-        struct udev_monitor *udev_monitor;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor = NULL;
+        _cleanup_close_ int sock = -1;
         unsigned group;
+        int r;
 
-        if (name == NULL)
+        assert_return_errno(!name || STR_IN_SET(name, "udev", "kernel"), NULL, EINVAL);
+
+        if (!name)
                 group = UDEV_MONITOR_NONE;
         else if (streq(name, "udev")) {
                 /*
@@ -130,41 +120,54 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
                  * will not receive any messages.
                  */
                 if (access("/run/udev/control", F_OK) < 0 && dev_is_devtmpfs() <= 0) {
-                        log_debug("the udev service seems not to be active, disable the monitor");
+                        log_debug("The udev service seems not to be active, disabling the monitor");
                         group = UDEV_MONITOR_NONE;
                 } else
                         group = UDEV_MONITOR_UDEV;
-        } else if (streq(name, "kernel"))
+        } else {
+                assert(streq(name, "kernel"));
                 group = UDEV_MONITOR_KERNEL;
-        else {
-                errno = EINVAL;
-                return NULL;
         }
-
-        udev_monitor = udev_monitor_new(udev);
-        if (udev_monitor == NULL)
-                return NULL;
 
         if (fd < 0) {
-                udev_monitor->sock = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
-                if (udev_monitor->sock < 0) {
-                        log_debug_errno(errno, "error getting socket: %m");
-                        return mfree(udev_monitor);
+                sock = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
+                if (sock < 0) {
+                        log_debug_errno(errno, "Failed to create socket: %m");
+                        return NULL;
                 }
-        } else {
-                udev_monitor->bound = true;
-                udev_monitor->sock = fd;
-                udev_monitor_set_nl_address(udev_monitor);
         }
 
-        udev_monitor->snl.nl.nl_family = AF_NETLINK;
-        udev_monitor->snl.nl.nl_groups = group;
+        udev_monitor = new(struct udev_monitor, 1);
+        if (!udev_monitor) {
+                errno = ENOMEM;
+                return NULL;
+        }
 
-        /* default destination for sending */
-        udev_monitor->snl_destination.nl.nl_family = AF_NETLINK;
-        udev_monitor->snl_destination.nl.nl_groups = UDEV_MONITOR_UDEV;
+        *udev_monitor = (struct udev_monitor) {
+                .udev = udev,
+                .n_ref = 1,
+                .sock = fd >= 0 ? fd : TAKE_FD(sock),
+                .bound = fd >= 0,
+                .snl.nl.nl_family = AF_NETLINK,
+                .snl.nl.nl_groups = group,
 
-        return udev_monitor;
+                /* default destination for sending */
+                .snl_destination.nl.nl_family = AF_NETLINK,
+                .snl_destination.nl.nl_groups = UDEV_MONITOR_UDEV,
+        };
+
+        if (fd >= 0) {
+                r = udev_monitor_set_nl_address(udev_monitor);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to set netlink address: %m");
+                        return NULL;
+                }
+        }
+
+        udev_list_init(udev, &udev_monitor->filter_subsystem_list, false);
+        udev_list_init(udev, &udev_monitor->filter_tag_list, true);
+
+        return TAKE_PTR(udev_monitor);
 }
 
 /**
