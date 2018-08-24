@@ -196,13 +196,17 @@ _public_ const char *udev_device_get_property_value(struct udev_device *udev_dev
 struct udev_device *udev_device_new(struct udev *udev) {
         struct udev_device *udev_device;
 
-        udev_device = new0(struct udev_device, 1);
+        udev_device = new(struct udev_device, 1);
         if (!udev_device) {
                 errno = ENOMEM;
                 return NULL;
         }
-        udev_device->n_ref = 1;
-        udev_device->udev = udev;
+
+        *udev_device = (struct udev_device) {
+                .n_ref = 1,
+                .udev = udev,
+        };
+
         udev_list_init(udev, &udev_device->properties, true);
         udev_list_init(udev, &udev_device->tags, true);
         udev_list_init(udev, &udev_device->sysattrs, true);
