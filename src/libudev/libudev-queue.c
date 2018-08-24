@@ -205,8 +205,9 @@ _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_qu
  * Returns: a file descriptor to watch for a queue to become empty.
  */
 _public_ int udev_queue_get_fd(struct udev_queue *udev_queue) {
-        int fd;
-        int r;
+        _cleanup_close_ int fd = -1;
+
+        assert_return(udev_queue, -EINVAL);
 
         if (udev_queue->fd >= 0)
                 return udev_queue->fd;
@@ -215,15 +216,11 @@ _public_ int udev_queue_get_fd(struct udev_queue *udev_queue) {
         if (fd < 0)
                 return -errno;
 
-        r = inotify_add_watch(fd, "/run/udev" , IN_DELETE);
-        if (r < 0) {
-                r = -errno;
-                close(fd);
-                return r;
-        }
+        if (inotify_add_watch(fd, "/run/udev" , IN_DELETE) < 0)
+                return -errno;
 
-        udev_queue->fd = fd;
-        return fd;
+        udev_queue->fd = TAKE_FD(fd);
+        return udev_queue->fd;
 }
 
 /**
