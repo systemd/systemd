@@ -236,6 +236,11 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                         continue;
                 }
 
+                if (pd_prefix_len < 48) {
+                        log_link_warning(link, "PD Prefix length < 48, looks unusual %s/%u",
+                                       strnull(buf), pd_prefix_len);
+                }
+
                 r = dhcp6_pd_prefix_distribute(link, &i, &pd_prefix,
                                                pd_prefix_len,
                                                lifetime_preferred,
