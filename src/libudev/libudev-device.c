@@ -773,7 +773,7 @@ _public_ unsigned long long int udev_device_get_usec_since_initialized(struct ud
 
         r = sd_device_get_usec_since_initialized(udev_device->device, &ts);
         if (r < 0) {
-                errno = EINVAL;
+                errno = -r;
                 return 0;
         }
 
