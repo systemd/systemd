@@ -334,29 +334,30 @@ int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct 
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
-{
-        int err = 0;
+_public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor) {
         const int on = 1;
+        int r;
 
-        udev_monitor_filter_update(udev_monitor);
+        assert_return(udev_monitor, -EINVAL);
+
+        r = udev_monitor_filter_update(udev_monitor);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to update filter: %m");
 
         if (!udev_monitor->bound) {
-                err = bind(udev_monitor->sock,
-                           &udev_monitor->snl.sa, sizeof(struct sockaddr_nl));
-                if (err == 0)
-                        udev_monitor->bound = true;
+                if (bind(udev_monitor->sock, &udev_monitor->snl.sa, sizeof(struct sockaddr_nl)) < 0)
+                        return log_debug_errno(errno, "Failed to bind udev monitor socket to event source: %m");
+
+                udev_monitor->bound = true;
         }
 
-        if (err >= 0)
-                udev_monitor_set_nl_address(udev_monitor);
-        else
-                return log_debug_errno(errno, "bind failed: %m");
+        r = udev_monitor_set_nl_address(udev_monitor);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set address: %m");
 
         /* enable receiving of sender credentials */
-        err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
-        if (err < 0)
-                log_debug_errno(errno, "setting SO_PASSCRED failed: %m");
+        if (setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on)) < 0)
+                return log_debug_errno(errno, "Failed to set socket option SO_PASSCRED: %m");
 
         return 0;
 }
