@@ -101,19 +101,6 @@ void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num);
              entry != NULL; \
              entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
-/* libudev-queue.c */
-unsigned long long int udev_get_kernel_seqnum(struct udev *udev);
-int udev_queue_read_seqnum(FILE *queue_file, unsigned long long int *seqnum);
-ssize_t udev_queue_read_devpath(FILE *queue_file, char *devpath, size_t size);
-ssize_t udev_queue_skip_devpath(FILE *queue_file);
-
-/* libudev-queue-private.c */
-struct udev_queue_export *udev_queue_export_new(struct udev *udev);
-struct udev_queue_export *udev_queue_export_unref(struct udev_queue_export *udev_queue_export);
-void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export);
-int udev_queue_export_device_queued(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
-int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
-
 /* libudev-util.c */
 #define UTIL_PATH_SIZE                      1024
 #define UTIL_NAME_SIZE                       512
