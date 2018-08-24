@@ -41,19 +41,21 @@ struct udev_queue {
  *
  * Returns: the udev queue context, or #NULL on error.
  **/
-_public_ struct udev_queue *udev_queue_new(struct udev *udev)
-{
+_public_ struct udev_queue *udev_queue_new(struct udev *udev) {
         struct udev_queue *udev_queue;
 
-        udev_queue = new0(struct udev_queue, 1);
+        udev_queue = new(struct udev_queue, 1);
         if (udev_queue == NULL) {
                 errno = ENOMEM;
                 return NULL;
         }
 
-        udev_queue->n_ref = 1;
-        udev_queue->udev = udev;
-        udev_queue->fd = -1;
+        *udev_queue = (struct udev_queue) {
+                .udev = udev,
+                .n_ref = 1,
+                .fd = -1,
+        };
+
         return udev_queue;
 }
 
