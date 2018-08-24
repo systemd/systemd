@@ -63,20 +63,20 @@ struct udev_monitor_netlink_header {
          * magic to protect against daemon <-> library message format mismatch
          * used in the kernel from socket filter rules; needs to be stored in network order
          */
-        unsigned int magic;
+        unsigned magic;
         /* total length of header structure known to the sender */
-        unsigned int header_size;
+        unsigned header_size;
         /* properties string buffer */
-        unsigned int properties_off;
-        unsigned int properties_len;
+        unsigned properties_off;
+        unsigned properties_len;
         /*
          * hashes of primary device properties strings, to let libudev subscribers
          * use in-kernel socket filters; values need to be stored in network order
          */
-        unsigned int filter_subsystem_hash;
-        unsigned int filter_devtype_hash;
-        unsigned int filter_tag_bloom_hi;
-        unsigned int filter_tag_bloom_lo;
+        unsigned filter_subsystem_hash;
+        unsigned filter_devtype_hash;
+        unsigned filter_tag_bloom_hi;
+        unsigned filter_tag_bloom_lo;
 };
 
 static struct udev_monitor *udev_monitor_new(struct udev *udev) {
@@ -152,7 +152,7 @@ static void monitor_set_nl_address(struct udev_monitor *udev_monitor) {
 
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd) {
         struct udev_monitor *udev_monitor;
-        unsigned int group;
+        unsigned group;
 
         if (name == NULL)
                 group = UDEV_MONITOR_NONE;
@@ -233,9 +233,8 @@ _public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, c
         return udev_monitor_new_from_netlink_fd(udev, name, -1);
 }
 
-static inline void bpf_stmt(struct sock_filter *inss, unsigned int *i,
-                            unsigned short code, unsigned int data)
-{
+static inline void bpf_stmt(struct sock_filter *inss, unsigned *i,
+                            unsigned short code, unsigned data) {
         struct sock_filter *ins = &inss[*i];
 
         ins->code = code;
@@ -243,8 +242,8 @@ static inline void bpf_stmt(struct sock_filter *inss, unsigned int *i,
         (*i)++;
 }
 
-static inline void bpf_jmp(struct sock_filter *inss, unsigned int *i,
-                           unsigned short code, unsigned int data,
+static inline void bpf_jmp(struct sock_filter *inss, unsigned *i,
+                           unsigned short code, unsigned data,
                            unsigned short jt, unsigned short jf)
 {
         struct sock_filter *ins = &inss[*i];
@@ -269,7 +268,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 {
         struct sock_filter ins[512];
         struct sock_fprog filter;
-        unsigned int i;
+        unsigned i;
         struct udev_list_entry *list_entry;
         int err;
 
@@ -324,7 +323,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
         /* add all subsystem matches */
         if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) != NULL) {
                 udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
-                        unsigned int hash = util_string_hash32(udev_list_entry_get_name(list_entry));
+                        uint32_t hash = util_string_hash32(udev_list_entry_get_name(list_entry));
 
                         /* load device subsystem value in A */
                         bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_subsystem_hash));
