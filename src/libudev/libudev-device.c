@@ -926,9 +926,8 @@ _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_dev
  *
  * Returns: 1 if the tag is found. 0 otherwise.
  **/
-_public_ int udev_device_has_tag(struct udev_device *udev_device, const char *tag)
-{
+_public_ int udev_device_has_tag(struct udev_device *udev_device, const char *tag) {
         assert_return(udev_device, 0);
 
-        return sd_device_has_tag(udev_device->device, tag);
+        return sd_device_has_tag(udev_device->device, tag) > 0;
 }
