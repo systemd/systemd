@@ -94,20 +94,20 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev) {
         return udev_monitor;
 }
 
-static void monitor_set_nl_address(struct udev_monitor *udev_monitor) {
+static int udev_monitor_set_nl_address(struct udev_monitor *udev_monitor) {
         union sockaddr_union snl;
         socklen_t addrlen;
-        int r;
 
         assert(udev_monitor);
 
-        /* get the address the kernel has assigned us
-         * it is usually, but not necessarily the pid
-         */
+        /* Get the address the kernel has assigned us.
+         * It is usually, but not necessarily the pid. */
         addrlen = sizeof(struct sockaddr_nl);
-        r = getsockname(udev_monitor->sock, &snl.sa, &addrlen);
-        if (r >= 0)
-                udev_monitor->snl.nl.nl_pid = snl.nl.nl_pid;
+        if (getsockname(udev_monitor->sock, &snl.sa, &addrlen) < 0)
+                return -errno;
+
+        udev_monitor->snl.nl.nl_pid = snl.nl.nl_pid;
+        return 0;
 }
 
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd) {
@@ -154,7 +154,7 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
         } else {
                 udev_monitor->bound = true;
                 udev_monitor->sock = fd;
-                monitor_set_nl_address(udev_monitor);
+                udev_monitor_set_nl_address(udev_monitor);
         }
 
         udev_monitor->snl.nl.nl_family = AF_NETLINK;
@@ -349,7 +349,7 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
         }
 
         if (err >= 0)
-                monitor_set_nl_address(udev_monitor);
+                udev_monitor_set_nl_address(udev_monitor);
         else
                 return log_debug_errno(errno, "bind failed: %m");
 
