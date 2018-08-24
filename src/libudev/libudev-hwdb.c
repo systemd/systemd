@@ -19,17 +19,14 @@
  * Opaque object representing the hardware database.
  */
 struct udev_hwdb {
-        struct udev *udev;
         unsigned n_ref;
-
         sd_hwdb *hwdb;
-
         struct udev_list properties_list;
 };
 
 /**
  * udev_hwdb_new:
- * @udev: udev library context
+ * @udev: udev library context (unused)
  *
  * Create a hardware database context to query properties for devices.
  *
