@@ -43,14 +43,16 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
                 return NULL;
         }
 
-        hwdb = new0(struct udev_hwdb, 1);
+        hwdb = new(struct udev_hwdb, 1);
         if (!hwdb) {
                 errno = ENOMEM;
                 return NULL;
         }
 
-        hwdb->n_ref = 1;
-        hwdb->hwdb = TAKE_PTR(hwdb_internal);
+        *hwdb = (struct udev_hwdb) {
+                .n_ref = 1,
+                .hwdb = TAKE_PTR(hwdb_internal),
+        };
 
         udev_list_init(udev, &hwdb->properties_list, true);
 
