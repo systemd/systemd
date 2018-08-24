@@ -174,7 +174,7 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
 
                 n_used++;
 
-                r = in_addr_prefix_next(AF_INET6, &prefix, pd_prefix_len);
+                r = in_addr_prefix_next(AF_INET6, &prefix, 64);
                 if (r < 0 && n_used < n_prefixes)
                         return r;
         }
