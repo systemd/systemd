@@ -53,8 +53,7 @@ static char model_enc_str[256];
 static char revision_str[16];
 static char type_str[16];
 
-static void set_type(const char *from, char *to, size_t len)
-{
+static void set_type(const char *from, char *to, size_t len) {
         int type_num;
         char *eptr;
         const char *type = "generic";
@@ -99,8 +98,7 @@ static void set_type(const char *from, char *to, size_t len)
  * Return a pointer to the NUL terminated string, returns NULL if no
  * matches.
  */
-static char *get_value(char **buffer)
-{
+static char *get_value(char **buffer) {
         static const char *quote_string = "\"\n";
         static const char *comma_string = ",\n";
         char *val;
@@ -128,8 +126,7 @@ static char *get_value(char **buffer)
         return val;
 }
 
-static int argc_count(char *opts)
-{
+static int argc_count(char *opts) {
         int i = 0;
         while (*opts != '\0')
                 if (*opts++ == ' ')
