@@ -2,6 +2,8 @@
 #  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 # SPDX-License-Identifier: LGPL-2.1+
 
+from __future__ import print_function
+
 import gdb
 
 class sd_dump_hashmaps(gdb.Command):
@@ -19,7 +21,7 @@ class sd_dump_hashmaps(gdb.Command):
                 ulong_t = gdb.lookup_type("unsigned long")
                 debug_offset = gdb.parse_and_eval("(unsigned long)&((HashmapBase*)0)->debug")
 
-                print "type, hash, indirect, entries, max_entries, buckets, creator"
+                print("type, hash, indirect, entries, max_entries, buckets, creator")
                 while d:
                         h = gdb.parse_and_eval("(HashmapBase*)((char*)%d - %d)" % (int(d.cast(ulong_t)), debug_offset))
 
@@ -34,7 +36,7 @@ class sd_dump_hashmaps(gdb.Command):
 
                         t = ["plain", "ordered", "set"][int(h["type"])]
 
-                        print "{}, {}, {}, {}, {}, {}, {} ({}:{})".format(t, h["hash_ops"], bool(h["has_indirect"]), n_entries, d["max_entries"], n_buckets, d["func"], d["file"], d["line"])
+                        print("{}, {}, {}, {}, {}, {}, {} ({}:{})".format(t, h["hash_ops"], bool(h["has_indirect"]), n_entries, d["max_entries"], n_buckets, d["func"], d["file"], d["line"]))
 
                         if arg != "" and n_entries > 0:
                                 dib_raw_addr = storage_ptr + (all_entry_sizes[h["type"]] * n_buckets)
@@ -46,10 +48,10 @@ class sd_dump_hashmaps(gdb.Command):
 
                                 for dib in sorted(iter(histogram)):
                                         if dib != 255:
-                                                print "{:>3} {:>8} {} of entries".format(dib, histogram[dib], 100.0*histogram[dib]/n_entries)
+                                                print("{:>3} {:>8} {} of entries".format(dib, histogram[dib], 100.0*histogram[dib]/n_entries))
                                         else:
-                                                print "{:>3} {:>8} {} of slots".format(dib, histogram[dib], 100.0*histogram[dib]/n_buckets)
-                                print "mean DIB of entries: {}".format(sum([dib*histogram[dib] for dib in iter(histogram) if dib != 255])*1.0/n_entries)
+                                                print("{:>3} {:>8} {} of slots".format(dib, histogram[dib], 100.0*histogram[dib]/n_buckets))
+                                print("mean DIB of entries: {}".format(sum([dib*histogram[dib] for dib in iter(histogram) if dib != 255])*1.0/n_entries))
 
                                 blocks = []
                                 current_len = 1
@@ -70,9 +72,9 @@ class sd_dump_hashmaps(gdb.Command):
                                 if len(blocks) > 1 and blocks[0][0] == blocks[0][1] and blocks[-1][0] == n_buckets - 1:
                                         blocks[0][1] += blocks[-1][1]
                                         blocks = blocks[0:-1]
-                                print "max block: {}".format(max(blocks, key=lambda a: a[1]))
-                                print "sum block lens: {}".format(sum(b[1] for b in blocks))
-                                print "mean block len: {}".format((1.0 * sum(b[1] for b in blocks) / len(blocks)))
+                                print("max block: {}".format(max(blocks, key=lambda a: a[1])))
+                                print("sum block lens: {}".format(sum(b[1] for b in blocks)))
+                                print("mean block len: {}".format((1.0 * sum(b[1] for b in blocks) / len(blocks))))
 
                         d = d["debug_list_next"]
 
