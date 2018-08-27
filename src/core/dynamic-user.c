@@ -104,9 +104,11 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
 
         d = hashmap_get(m->dynamic_users, name);
         if (d) {
-                /* We already have a structure for the dynamic user, let's increase the ref count and reuse it */
-                d->n_ref++;
-                *ret = d;
+                if (ret) {
+                        /* We already have a structure for the dynamic user, let's increase the ref count and reuse it */
+                        d->n_ref++;
+                        *ret = d;
+                }
                 return 0;
         }
 
