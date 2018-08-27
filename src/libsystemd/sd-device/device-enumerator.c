@@ -935,7 +935,7 @@ _public_ sd_device *sd_device_enumerator_get_subsystem_first(sd_device_enumerato
 _public_ sd_device *sd_device_enumerator_get_subsystem_next(sd_device_enumerator *enumerator) {
         assert_return(enumerator, NULL);
 
-        if (enumerator->scan_uptodate ||
+        if (!enumerator->scan_uptodate ||
             enumerator->type != DEVICE_ENUMERATION_TYPE_SUBSYSTEMS)
                 return NULL;
 
