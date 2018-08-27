@@ -1296,9 +1296,9 @@ void session_leave_vt(Session *s) {
                 return;
 
         session_device_pause_all(s);
-        r = ioctl(s->vtfd, VT_RELDISP, 1);
+        r = vt_release(s->vtfd, false);
         if (r < 0)
-                log_debug_errno(errno, "Cannot release VT of session %s: %m", s->id);
+                log_debug_errno(r, "Cannot release VT of session %s: %m", s->id);
 }
 
 bool session_is_controller(Session *s, const char *sender) {

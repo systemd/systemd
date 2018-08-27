@@ -1305,3 +1305,19 @@ int vt_restore(int fd) {
 
         return q;
 }
+
+int vt_release(int fd, bool restore) {
+        assert(fd >= 0);
+
+        /* This function releases the VT by acknowledging the VT-switch signal
+         * sent by the kernel and optionally reset the VT in text and auto
+         * VT-switching modes. */
+
+        if (ioctl(fd, VT_RELDISP, 1) < 0)
+                return -errno;
+
+        if (restore)
+                return vt_restore(fd);
+
+        return 0;
+}
