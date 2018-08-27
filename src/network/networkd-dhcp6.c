@@ -121,6 +121,7 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
         union in_addr_union prefix;
         uint64_t n_prefixes, n_used = 0;
         _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ char *assigned_buf = NULL;
         int r;
 
         assert(manager);
@@ -158,23 +159,27 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
                 if (assigned_link != NULL && assigned_link != link)
                         continue;
 
+                (void) in_addr_to_string(AF_INET6, &prefix, &assigned_buf);
                 r = dhcp6_pd_prefix_assign(link, &prefix.in6, 64,
                                            lifetime_preferred, lifetime_valid);
                 if (r < 0) {
-                        log_link_error_errno(link, r, "Unable to %s prefix %s/%u for link: %m",
+                        log_link_error_errno(link, r, "Unable to %s prefix %s/64 from %s/%u for link: %m",
                                              assigned_link ? "update": "assign",
+                                             strnull(assigned_buf),
                                              strnull(buf), pd_prefix_len);
 
                         if (assigned_link == NULL)
                                 continue;
 
                 } else
-                        log_link_debug(link, "Assigned prefix %" PRIu64 "/%" PRIu64 " %s/64 to link",
-                                       n_used + 1, n_prefixes, strnull(buf));
+                        log_link_debug(link, "Assigned prefix %" PRIu64 "/%" PRIu64 " %s/64 from %s/%u to link",
+                                       n_used + 1, n_prefixes,
+                                       strnull(assigned_buf),
+                                       strnull(buf), pd_prefix_len);
 
                 n_used++;
 
-                r = in_addr_prefix_next(AF_INET6, &prefix, pd_prefix_len);
+                r = in_addr_prefix_next(AF_INET6, &prefix, 64);
                 if (r < 0 && n_used < n_prefixes)
                         return r;
         }
@@ -221,8 +226,6 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
         if (r < 0)
                 return r;
 
-        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &pd_prefix, &buf);
-
         dhcp6_reset_pd_prefix_network(link);
         sd_dhcp6_lease_reset_pd_prefix_iter(lease);
 
@@ -231,9 +234,16 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                                      &lifetime_valid) >= 0) {
 
                 if (pd_prefix_len > 64) {
+                        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &pd_prefix, &buf);
                         log_link_debug(link, "PD Prefix length > 64, ignoring prefix %s/%u",
                                        strnull(buf), pd_prefix_len);
                         continue;
+                }
+
+                if (pd_prefix_len < 48) {
+                        (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &pd_prefix, &buf);
+                        log_link_warning(link, "PD Prefix length < 48, looks unusual %s/%u",
+                                       strnull(buf), pd_prefix_len);
                 }
 
                 r = dhcp6_pd_prefix_distribute(link, &i, &pd_prefix,
