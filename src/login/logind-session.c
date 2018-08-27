@@ -1225,12 +1225,7 @@ error:
 }
 
 static void session_restore_vt(Session *s) {
-
-        static const struct vt_mode mode = {
-                .mode = VT_AUTO,
-        };
-
-        int vt, old_fd;
+        int r, vt, old_fd;
 
         /* We need to get a fresh handle to the virtual terminal,
          * since the old file-descriptor is potentially in a hung-up
@@ -1246,12 +1241,9 @@ static void session_restore_vt(Session *s) {
         if (vt < 0)
                 return;
 
-        (void) ioctl(vt, KDSETMODE, KD_TEXT);
-
-        (void) vt_reset_keyboard(vt);
-
-        (void) ioctl(vt, VT_SETMODE, &mode);
-        (void) fchown(vt, 0, (gid_t) -1);
+        r = vt_restore(vt);
+        if (r < 0)
+                log_warning_errno(r, "Failed to restore VT, ignoring: %m");
 
         s->vtfd = safe_close(s->vtfd);
 }
