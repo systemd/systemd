@@ -212,8 +212,8 @@ static void rtnl_seal_message(sd_netlink *rtnl, sd_netlink_message *m) {
 }
 
 int sd_netlink_send(sd_netlink *nl,
-                 sd_netlink_message *message,
-                 uint32_t *serial) {
+                    sd_netlink_message *message,
+                    uint32_t *serial) {
         int r;
 
         assert_return(nl, -EINVAL);
