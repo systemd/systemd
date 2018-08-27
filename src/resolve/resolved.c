@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
+        /* Drop privileges, but only if we have been started as root. If we are not running as root we assume most
          * privileges are already dropped. */
         if (getuid() == 0) {
 
