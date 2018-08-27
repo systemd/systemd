@@ -45,12 +45,14 @@ _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
 
         assert(ret);
 
-        enumerator = new0(sd_device_enumerator, 1);
+        enumerator = new(sd_device_enumerator, 1);
         if (!enumerator)
                 return -ENOMEM;
 
-        enumerator->n_ref = 1;
-        enumerator->type = _DEVICE_ENUMERATION_TYPE_INVALID;
+        *enumerator = (sd_device_enumerator) {
+                .n_ref = 1,
+                .type = _DEVICE_ENUMERATION_TYPE_INVALID,
+        };
 
         *ret = TAKE_PTR(enumerator);
 

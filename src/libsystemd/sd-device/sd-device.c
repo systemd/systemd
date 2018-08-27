@@ -31,15 +31,16 @@ int device_new_aux(sd_device **ret) {
 
         assert(ret);
 
-        device = new0(sd_device, 1);
+        device = new(sd_device, 1);
         if (!device)
                 return -ENOMEM;
 
-        device->n_ref = 1;
-        device->watch_handle = -1;
+        *device = (sd_device) {
+                .n_ref = 1,
+                .watch_handle = -1,
+        };
 
         *ret = device;
-
         return 0;
 }
 
