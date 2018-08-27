@@ -464,4 +464,53 @@ static inline int __coverity_check__(int condition) {
                         func(*p);                               \
         }
 
+#define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
+        scope type *name##_ref(type *p) {                       \
+                if (!p)                                         \
+                        return NULL;                            \
+                                                                \
+                assert(p->n_ref > 0);                           \
+                p->n_ref++;                                     \
+                return p;                                       \
+        }
+
+#define _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, scope) \
+        scope type *name##_unref(type *p) {                      \
+                if (!p)                                          \
+                        return NULL;                             \
+                                                                 \
+                assert(p->n_ref > 0);                            \
+                p->n_ref--;                                      \
+                if (p->n_ref > 0)                                \
+                        return NULL;                             \
+                                                                 \
+                return free_func(p);                             \
+        }
+
+#define DEFINE_TRIVIAL_REF_FUNC(type, name)     \
+        _DEFINE_TRIVIAL_REF_FUNC(type, name,)
+#define DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name)     \
+        _DEFINE_TRIVIAL_REF_FUNC(type, name, static)
+#define DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name)      \
+        _DEFINE_TRIVIAL_REF_FUNC(type, name, _public_)
+
+#define DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func,)
+#define DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, static)
+#define DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func)         \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, _public_)
+
+#define DEFINE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
+        DEFINE_TRIVIAL_REF_FUNC(type, name);                    \
+        DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func);
+
+#define DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
+        DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name);                    \
+        DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func);
+
+#define DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
+        DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name);                    \
+        DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func);
+
 #include "log.h"
