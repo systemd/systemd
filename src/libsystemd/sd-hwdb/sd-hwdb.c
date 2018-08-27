@@ -359,25 +359,17 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
         return 0;
 }
 
-_public_ sd_hwdb *sd_hwdb_ref(sd_hwdb *hwdb) {
-        assert_return(hwdb, NULL);
+static sd_hwdb *hwdb_free(sd_hwdb *hwdb) {
+        assert(hwdb);
 
-        assert_se(REFCNT_INC(hwdb->n_ref) >= 2);
-
-        return hwdb;
+        if (hwdb->map)
+                munmap((void *)hwdb->map, hwdb->st.st_size);
+        safe_fclose(hwdb->f);
+        ordered_hashmap_free(hwdb->properties);
+        return mfree(hwdb);
 }
 
-_public_ sd_hwdb *sd_hwdb_unref(sd_hwdb *hwdb) {
-        if (hwdb && REFCNT_DEC(hwdb->n_ref) == 0) {
-                if (hwdb->map)
-                        munmap((void *)hwdb->map, hwdb->st.st_size);
-                safe_fclose(hwdb->f);
-                ordered_hashmap_free(hwdb->properties);
-                free(hwdb);
-        }
-
-        return NULL;
-}
+DEFINE_PUBLIC_ATOMIC_REF_UNREF_FUNC(sd_hwdb, sd_hwdb, hwdb_free)
 
 bool hwdb_validate(sd_hwdb *hwdb) {
         bool found = false;

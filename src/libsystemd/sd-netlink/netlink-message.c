@@ -96,13 +96,7 @@ int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
         return 0;
 }
 
-sd_netlink_message *sd_netlink_message_ref(sd_netlink_message *m) {
-        if (!m)
-                return NULL;
-
-        assert_se(REFCNT_INC(m->n_ref) >= 2);
-        return m;
-}
+DEFINE_ATOMIC_REF_FUNC(sd_netlink_message, sd_netlink_message);
 
 sd_netlink_message *sd_netlink_message_unref(sd_netlink_message *m) {
         sd_netlink_message *t;
