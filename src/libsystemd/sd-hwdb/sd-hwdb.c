@@ -23,7 +23,6 @@
 
 struct sd_hwdb {
         RefCount n_ref;
-        int refcount;
 
         FILE *f;
         struct stat st;
