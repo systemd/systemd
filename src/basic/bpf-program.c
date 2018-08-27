@@ -29,25 +29,8 @@ int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         return 0;
 }
 
-BPFProgram *bpf_program_ref(BPFProgram *p) {
-        if (!p)
-                return NULL;
-
-        assert(p->n_ref > 0);
-        p->n_ref++;
-
-        return p;
-}
-
-BPFProgram *bpf_program_unref(BPFProgram *p) {
-        if (!p)
-                return NULL;
-
-        assert(p->n_ref > 0);
-        p->n_ref--;
-
-        if (p->n_ref > 0)
-                return NULL;
+static BPFProgram *bpf_program_free(BPFProgram *p) {
+        assert(p);
 
         /* Unfortunately, the kernel currently doesn't implicitly detach BPF programs from their cgroups when the last
          * fd to the BPF program is closed. This has nasty side-effects since this means that abnormally terminated
@@ -65,6 +48,8 @@ BPFProgram *bpf_program_unref(BPFProgram *p) {
 
         return mfree(p);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(BPFProgram, bpf_program, bpf_program_free);
 
 int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *instructions, size_t count) {
 

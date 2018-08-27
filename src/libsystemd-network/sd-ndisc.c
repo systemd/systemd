@@ -100,17 +100,6 @@ _public_ sd_event *sd_ndisc_get_event(sd_ndisc *nd) {
         return nd->event;
 }
 
-_public_ sd_ndisc *sd_ndisc_ref(sd_ndisc *nd) {
-
-        if (!nd)
-                return NULL;
-
-        assert(nd->n_ref > 0);
-        nd->n_ref++;
-
-        return nd;
-}
-
 static int ndisc_reset(sd_ndisc *nd) {
         assert(nd);
 
@@ -123,21 +112,15 @@ static int ndisc_reset(sd_ndisc *nd) {
         return 0;
 }
 
-_public_ sd_ndisc *sd_ndisc_unref(sd_ndisc *nd) {
-
-        if (!nd)
-                return NULL;
-
-        assert(nd->n_ref > 0);
-        nd->n_ref--;
-
-        if (nd->n_ref > 0)
-                return NULL;
+static sd_ndisc *ndisc_free(sd_ndisc *nd) {
+        assert(nd);
 
         ndisc_reset(nd);
         sd_ndisc_detach_event(nd);
         return mfree(nd);
 }
+
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc, sd_ndisc, ndisc_free);
 
 _public_ int sd_ndisc_new(sd_ndisc **ret) {
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;

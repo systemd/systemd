@@ -43,39 +43,32 @@ int device_new_aux(sd_device **ret) {
         return 0;
 }
 
-_public_ sd_device *sd_device_ref(sd_device *device) {
-        if (device)
-                assert_se(++ device->n_ref >= 2);
+static sd_device *device_free(sd_device *device) {
+        assert(device);
 
-        return device;
+        sd_device_unref(device->parent);
+        free(device->syspath);
+        free(device->sysname);
+        free(device->devtype);
+        free(device->devname);
+        free(device->subsystem);
+        free(device->driver_subsystem);
+        free(device->driver);
+        free(device->id_filename);
+        free(device->properties_strv);
+        free(device->properties_nulstr);
+
+        ordered_hashmap_free_free_free(device->properties);
+        ordered_hashmap_free_free_free(device->properties_db);
+        hashmap_free_free_free(device->sysattr_values);
+        set_free_free(device->sysattrs);
+        set_free_free(device->tags);
+        set_free_free(device->devlinks);
+
+        return mfree(device);
 }
 
-_public_ sd_device *sd_device_unref(sd_device *device) {
-        if (device && -- device->n_ref == 0) {
-                sd_device_unref(device->parent);
-                free(device->syspath);
-                free(device->sysname);
-                free(device->devtype);
-                free(device->devname);
-                free(device->subsystem);
-                free(device->driver_subsystem);
-                free(device->driver);
-                free(device->id_filename);
-                free(device->properties_strv);
-                free(device->properties_nulstr);
-
-                ordered_hashmap_free_free_free(device->properties);
-                ordered_hashmap_free_free_free(device->properties_db);
-                hashmap_free_free_free(device->sysattr_values);
-                set_free_free(device->sysattrs);
-                set_free_free(device->tags);
-                set_free_free(device->devlinks);
-
-                free(device);
-        }
-
-        return NULL;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device, sd_device, device_free);
 
 int device_add_property_aux(sd_device *device, const char *_key, const char *_value, bool db) {
         OrderedHashmap **properties;

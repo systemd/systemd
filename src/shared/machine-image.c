@@ -56,15 +56,8 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
                            "/usr/lib/portables\0",
 };
 
-Image *image_unref(Image *i) {
-        if (!i)
-                return NULL;
-
-        assert(i->n_ref > 0);
-        i->n_ref--;
-
-        if (i->n_ref > 0)
-                return NULL;
+static Image *image_free(Image *i) {
+        assert(i);
 
         free(i->name);
         free(i->path);
@@ -76,15 +69,7 @@ Image *image_unref(Image *i) {
         return mfree(i);
 }
 
-Image *image_ref(Image *i) {
-        if (!i)
-                return NULL;
-
-        assert(i->n_ref > 0);
-        i->n_ref++;
-
-        return i;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Image, image, image_free);
 
 static char **image_settings_path(Image *image) {
         _cleanup_strv_free_ char **l = NULL;

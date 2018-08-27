@@ -1431,27 +1431,8 @@ sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client) {
         return client->event;
 }
 
-sd_dhcp6_client *sd_dhcp6_client_ref(sd_dhcp6_client *client) {
-
-        if (!client)
-                return NULL;
-
-        assert(client->n_ref >= 1);
-        client->n_ref++;
-
-        return client;
-}
-
-sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
-
-        if (!client)
-                return NULL;
-
-        assert(client->n_ref >= 1);
-        client->n_ref--;
-
-        if (client->n_ref > 0)
-                return NULL;
+static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
+        assert(client);
 
         client_reset(client);
 
@@ -1463,6 +1444,8 @@ sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
         free(client->fqdn);
         return mfree(client);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client, sd_dhcp6_client, dhcp6_client_free);
 
 int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;

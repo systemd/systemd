@@ -456,7 +456,7 @@ static void free_clock_data(struct clock_data *d) {
         prioq_free(d->latest);
 }
 
-static void event_free(sd_event *e) {
+static sd_event *event_free(sd_event *e) {
         sd_event_source *s;
 
         assert(e);
@@ -492,7 +492,8 @@ static void event_free(sd_event *e) {
 
         hashmap_free(e->child_sources);
         set_free(e->post_sources);
-        free(e);
+
+        return mfree(e);
 }
 
 _public_ int sd_event_new(sd_event** ret) {
@@ -553,30 +554,7 @@ fail:
         return r;
 }
 
-_public_ sd_event* sd_event_ref(sd_event *e) {
-
-        if (!e)
-                return NULL;
-
-        assert(e->n_ref >= 1);
-        e->n_ref++;
-
-        return e;
-}
-
-_public_ sd_event* sd_event_unref(sd_event *e) {
-
-        if (!e)
-                return NULL;
-
-        assert(e->n_ref >= 1);
-        e->n_ref--;
-
-        if (e->n_ref <= 0)
-                event_free(e);
-
-        return NULL;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_event, sd_event, event_free);
 
 static bool event_pid_changed(sd_event *e) {
         assert(e);
@@ -1926,45 +1904,30 @@ fail:
         return r;
 }
 
-_public_ sd_event_source* sd_event_source_ref(sd_event_source *s) {
-
+static sd_event_source* event_source_free(sd_event_source *s) {
         if (!s)
                 return NULL;
 
-        assert(s->n_ref >= 1);
-        s->n_ref++;
+        /* Here's a special hack: when we are called from a
+         * dispatch handler we won't free the event source
+         * immediately, but we will detach the fd from the
+         * epoll. This way it is safe for the caller to unref
+         * the event source and immediately close the fd, but
+         * we still retain a valid event source object after
+         * the callback. */
 
-        return s;
-}
+        if (s->dispatching) {
+                if (s->type == SOURCE_IO)
+                        source_io_unregister(s);
 
-_public_ sd_event_source* sd_event_source_unref(sd_event_source *s) {
-
-        if (!s)
-                return NULL;
-
-        assert(s->n_ref >= 1);
-        s->n_ref--;
-
-        if (s->n_ref <= 0) {
-                /* Here's a special hack: when we are called from a
-                 * dispatch handler we won't free the event source
-                 * immediately, but we will detach the fd from the
-                 * epoll. This way it is safe for the caller to unref
-                 * the event source and immediately close the fd, but
-                 * we still retain a valid event source object after
-                 * the callback. */
-
-                if (s->dispatching) {
-                        if (s->type == SOURCE_IO)
-                                source_io_unregister(s);
-
-                        source_disconnect(s);
-                } else
-                        source_free(s);
-        }
+                source_disconnect(s);
+        } else
+                source_free(s);
 
         return NULL;
 }
+
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_event_source, sd_event_source, event_source_free);
 
 _public_ int sd_event_source_set_description(sd_event_source *s, const char *description) {
         assert_return(s, -EINVAL);

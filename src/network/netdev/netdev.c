@@ -124,9 +124,8 @@ static void netdev_cancel_callbacks(NetDev *netdev) {
         }
 }
 
-static void netdev_free(NetDev *netdev) {
-        if (!netdev)
-                return;
+static NetDev *netdev_free(NetDev *netdev) {
+        assert(netdev);
 
         netdev_cancel_callbacks(netdev);
 
@@ -157,22 +156,10 @@ static void netdev_free(NetDev *netdev) {
             NETDEV_VTABLE(netdev)->done)
                 NETDEV_VTABLE(netdev)->done(netdev);
 
-        free(netdev);
+        return mfree(netdev);
 }
 
-NetDev *netdev_unref(NetDev *netdev) {
-        if (netdev && (-- netdev->n_ref <= 0))
-                netdev_free(netdev);
-
-        return NULL;
-}
-
-NetDev *netdev_ref(NetDev *netdev) {
-        if (netdev)
-                assert_se(++ netdev->n_ref >= 2);
-
-        return netdev;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(NetDev, netdev, netdev_free);
 
 void netdev_drop(NetDev *netdev) {
         if (!netdev || netdev->state == NETDEV_STATE_LINGER)

@@ -874,30 +874,7 @@ int bus_message_new_synthetic_error(
         return 0;
 }
 
-_public_ sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
-
-        if (!m)
-                return NULL;
-
-        assert(m->n_ref > 0);
-        m->n_ref++;
-
-        return m;
-}
-
-_public_ sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
-
-        if (!m)
-                return NULL;
-
-        assert(m->n_ref > 0);
-        m->n_ref--;
-
-        if (m->n_ref > 0)
-                return NULL;
-
-        return message_free(m);
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_message, sd_bus_message, message_free);
 
 _public_ int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type) {
         assert_return(m, -EINVAL);

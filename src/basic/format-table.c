@@ -171,31 +171,15 @@ Table *table_new_internal(const char *first_header, ...) {
         return TAKE_PTR(t);
 }
 
-static TableData *table_data_unref(TableData *d) {
-        if (!d)
-                return NULL;
-
-        assert(d->n_ref > 0);
-        d->n_ref--;
-
-        if (d->n_ref > 0)
-                return NULL;
+static TableData *table_data_free(TableData *d) {
+        assert(d);
 
         free(d->formatted);
         return mfree(d);
 }
 
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(TableData, table_data, table_data_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(TableData*, table_data_unref);
-
-static TableData *table_data_ref(TableData *d) {
-        if (!d)
-                return NULL;
-
-        assert(d->n_ref > 0);
-        d->n_ref++;
-
-        return d;
-}
 
 Table *table_unref(Table *t) {
         size_t i;

@@ -55,29 +55,14 @@ struct sd_ipv4ll {
 
 static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
 
-sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll) {
-        if (!ll)
-                return NULL;
-
-        assert(ll->n_ref >= 1);
-        ll->n_ref++;
-
-        return ll;
-}
-
-sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll) {
-        if (!ll)
-                return NULL;
-
-        assert(ll->n_ref >= 1);
-        ll->n_ref--;
-
-        if (ll->n_ref > 0)
-                return NULL;
+static sd_ipv4ll *ipv4ll_free(sd_ipv4ll *ll) {
+        assert(ll);
 
         sd_ipv4acd_unref(ll->acd);
         return mfree(ll);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4ll, sd_ipv4ll, ipv4ll_free);
 
 int sd_ipv4ll_new(sd_ipv4ll **ret) {
         _cleanup_(sd_ipv4ll_unrefp) sd_ipv4ll *ll = NULL;

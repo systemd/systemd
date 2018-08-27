@@ -15,28 +15,7 @@
 #include "ndisc-router.h"
 #include "strv.h"
 
-_public_ sd_ndisc_router* sd_ndisc_router_ref(sd_ndisc_router *rt) {
-        if (!rt)
-                return NULL;
-
-        assert(rt->n_ref > 0);
-        rt->n_ref++;
-
-        return rt;
-}
-
-_public_ sd_ndisc_router* sd_ndisc_router_unref(sd_ndisc_router *rt) {
-        if (!rt)
-                return NULL;
-
-        assert(rt->n_ref > 0);
-        rt->n_ref--;
-
-        if (rt->n_ref > 0)
-                return NULL;
-
-        return mfree(rt);
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, mfree);
 
 sd_ndisc_router *ndisc_router_new(size_t raw_size) {
         sd_ndisc_router *rt;
