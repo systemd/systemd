@@ -53,7 +53,7 @@ struct MMapFileDescriptor {
 };
 
 struct MMapCache {
-        int n_ref;
+        unsigned n_ref;
         unsigned n_windows;
 
         unsigned n_hit, n_missed;

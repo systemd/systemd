@@ -16,7 +16,7 @@ typedef struct Writer {
 
         uint64_t seqnum;
 
-        int n_ref;
+        unsigned n_ref;
 } Writer;
 
 Writer* writer_new(RemoteServer* server);
