@@ -329,27 +329,8 @@ _public_ int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex) {
         return 0;
 }
 
-_public_ sd_lldp* sd_lldp_ref(sd_lldp *lldp) {
-
-        if (!lldp)
-                return NULL;
-
-        assert(lldp->n_ref > 0);
-        lldp->n_ref++;
-
-        return lldp;
-}
-
-_public_ sd_lldp* sd_lldp_unref(sd_lldp *lldp) {
-
-        if (!lldp)
-                return NULL;
-
-        assert(lldp->n_ref > 0);
-        lldp->n_ref --;
-
-        if (lldp->n_ref > 0)
-                return NULL;
+static sd_lldp* lldp_free(sd_lldp *lldp) {
+        assert(lldp);
 
         lldp_reset(lldp);
         sd_lldp_detach_event(lldp);
@@ -359,6 +340,8 @@ _public_ sd_lldp* sd_lldp_unref(sd_lldp *lldp) {
         prioq_free(lldp->neighbor_by_expiry);
         return mfree(lldp);
 }
+
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_lldp, sd_lldp, lldp_free);
 
 _public_ int sd_lldp_new(sd_lldp **ret) {
         _cleanup_(sd_lldp_unrefp) sd_lldp *lldp = NULL;

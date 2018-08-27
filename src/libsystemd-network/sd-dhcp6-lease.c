@@ -374,27 +374,8 @@ int sd_dhcp6_lease_get_ntp_fqdn(sd_dhcp6_lease *lease, char ***ntp_fqdn) {
         return -ENOENT;
 }
 
-sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease) {
-
-        if (!lease)
-                return NULL;
-
-        assert(lease->n_ref >= 1);
-        lease->n_ref++;
-
-        return lease;
-}
-
-sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease) {
-
-        if (!lease)
-                return NULL;
-
-        assert(lease->n_ref >= 1);
-        lease->n_ref--;
-
-        if (lease->n_ref > 0)
-                return NULL;
+static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
+        assert(lease);
 
         free(lease->serverid);
         dhcp6_lease_free_ia(&lease->ia);
@@ -409,6 +390,8 @@ sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease) {
         lease->ntp_fqdn = strv_free(lease->ntp_fqdn);
         return mfree(lease);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_lease, sd_dhcp6_lease, dhcp6_lease_free);
 
 int dhcp6_lease_new(sd_dhcp6_lease **ret) {
         sd_dhcp6_lease *lease;

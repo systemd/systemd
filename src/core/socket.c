@@ -547,32 +547,16 @@ static SocketPeer *socket_peer_new(void) {
         return p;
 }
 
-SocketPeer *socket_peer_ref(SocketPeer *p) {
-        if (!p)
-                return NULL;
-
-        assert(p->n_ref > 0);
-        p->n_ref++;
-
-        return p;
-}
-
-SocketPeer *socket_peer_unref(SocketPeer *p) {
-        if (!p)
-                return NULL;
-
-        assert(p->n_ref > 0);
-
-        p->n_ref--;
-
-        if (p->n_ref > 0)
-                return NULL;
+static SocketPeer *socket_peer_free(SocketPeer *p) {
+        assert(p);
 
         if (p->socket)
                 set_remove(p->socket->peers_by_address, p);
 
         return mfree(p);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(SocketPeer, socket_peer, socket_peer_free);
 
 int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
         _cleanup_(socket_peer_unrefp) SocketPeer *remote = NULL;

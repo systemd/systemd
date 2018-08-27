@@ -101,17 +101,6 @@ int sd_dhcp_server_is_running(sd_dhcp_server *server) {
         return !!server->receive_message;
 }
 
-sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server) {
-
-        if (!server)
-                return NULL;
-
-        assert(server->n_ref >= 1);
-        server->n_ref++;
-
-        return server;
-}
-
 void client_id_hash_func(const void *p, struct siphash *state) {
         const DHCPClientId *id = p;
 
@@ -145,17 +134,10 @@ static const struct hash_ops client_id_hash_ops = {
         .compare = client_id_compare_func
 };
 
-sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
+static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         DHCPLease *lease;
 
-        if (!server)
-                return NULL;
-
-        assert(server->n_ref >= 1);
-        server->n_ref--;
-
-        if (server->n_ref > 0)
-                return NULL;
+        assert(server);
 
         log_dhcp_server(server, "UNREF");
 
@@ -174,6 +156,8 @@ sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server) {
         free(server->bound_leases);
         return mfree(server);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server, sd_dhcp_server, dhcp_server_free);
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;

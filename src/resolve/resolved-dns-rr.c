@@ -399,26 +399,8 @@ DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, c
         return dns_resource_record_new(key);
 }
 
-DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr) {
-        if (!rr)
-                return NULL;
-
-        assert(rr->n_ref > 0);
-        rr->n_ref++;
-
-        return rr;
-}
-
-DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
-        if (!rr)
-                return NULL;
-
-        assert(rr->n_ref > 0);
-
-        if (rr->n_ref > 1) {
-                rr->n_ref--;
-                return NULL;
-        }
+static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
+        assert(rr);
 
         if (rr->key) {
                 switch(rr->key->type) {
@@ -511,6 +493,8 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
         free(rr->to_string);
         return mfree(rr);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsResourceRecord, dns_resource_record, dns_resource_record_free);
 
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *hostname) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;

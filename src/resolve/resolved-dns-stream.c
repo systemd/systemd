@@ -424,18 +424,11 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
         return 0;
 }
 
-DnsStream *dns_stream_unref(DnsStream *s) {
+static DnsStream *dns_stream_free(DnsStream *s) {
         DnsPacket *p;
         Iterator i;
 
-        if (!s)
-                return NULL;
-
-        assert(s->n_ref > 0);
-        s->n_ref--;
-
-        if (s->n_ref > 0)
-                return NULL;
+        assert(s);
 
         dns_stream_stop(s);
 
@@ -464,15 +457,7 @@ DnsStream *dns_stream_unref(DnsStream *s) {
         return mfree(s);
 }
 
-DnsStream *dns_stream_ref(DnsStream *s) {
-        if (!s)
-                return NULL;
-
-        assert(s->n_ref > 0);
-        s->n_ref++;
-
-        return s;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, dns_stream_free);
 
 int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address) {
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;

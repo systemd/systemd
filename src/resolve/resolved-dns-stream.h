@@ -23,7 +23,7 @@ typedef struct DnsStream DnsStream;
 
 struct DnsStream {
         Manager *manager;
-        int n_ref;
+        unsigned n_ref;
 
         DnsProtocol protocol;
 

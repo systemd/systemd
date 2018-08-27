@@ -34,7 +34,7 @@ Writer* writer_new(RemoteServer *server) {
         return w;
 }
 
-Writer* writer_free(Writer *w) {
+static Writer* writer_free(Writer *w) {
         if (!w)
                 return NULL;
 
@@ -54,19 +54,7 @@ Writer* writer_free(Writer *w) {
         return mfree(w);
 }
 
-Writer* writer_unref(Writer *w) {
-        if (w && (-- w->n_ref <= 0))
-                writer_free(w);
-
-        return NULL;
-}
-
-Writer* writer_ref(Writer *w) {
-        if (w)
-                assert_se(++ w->n_ref >= 2);
-
-        return w;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, writer_free);
 
 int writer_write(Writer *w,
                  struct iovec_wrapper *iovw,

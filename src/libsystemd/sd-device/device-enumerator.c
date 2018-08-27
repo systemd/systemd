@@ -57,37 +57,29 @@ _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
         return 0;
 }
 
-_public_ sd_device_enumerator *sd_device_enumerator_ref(sd_device_enumerator *enumerator) {
-        assert_return(enumerator, NULL);
+static sd_device_enumerator *device_enumerator_free(sd_device_enumerator *enumerator) {
+        sd_device *device;
 
-        assert_se((++ enumerator->n_ref) >= 2);
+        assert(enumerator);
 
-        return enumerator;
+        while ((device = prioq_pop(enumerator->devices)))
+                sd_device_unref(device);
+
+        prioq_free(enumerator->devices);
+
+        set_free_free(enumerator->match_subsystem);
+        set_free_free(enumerator->nomatch_subsystem);
+        hashmap_free_free_free(enumerator->match_sysattr);
+        hashmap_free_free_free(enumerator->nomatch_sysattr);
+        hashmap_free_free_free(enumerator->match_property);
+        set_free_free(enumerator->match_sysname);
+        set_free_free(enumerator->match_tag);
+        sd_device_unref(enumerator->match_parent);
+
+        return mfree(enumerator);
 }
 
-_public_ sd_device_enumerator *sd_device_enumerator_unref(sd_device_enumerator *enumerator) {
-        if (enumerator && (-- enumerator->n_ref) == 0) {
-                sd_device *device;
-
-                while ((device = prioq_pop(enumerator->devices)))
-                        sd_device_unref(device);
-
-                prioq_free(enumerator->devices);
-
-                set_free_free(enumerator->match_subsystem);
-                set_free_free(enumerator->nomatch_subsystem);
-                hashmap_free_free_free(enumerator->match_sysattr);
-                hashmap_free_free_free(enumerator->nomatch_sysattr);
-                hashmap_free_free_free(enumerator->match_property);
-                set_free_free(enumerator->match_sysname);
-                set_free_free(enumerator->match_tag);
-                sd_device_unref(enumerator->match_parent);
-
-                free(enumerator);
-        }
-
-        return NULL;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_enumerator, sd_device_enumerator, device_enumerator_free);
 
 _public_ int sd_device_enumerator_add_match_subsystem(sd_device_enumerator *enumerator, const char *subsystem, int match) {
         Set **set;

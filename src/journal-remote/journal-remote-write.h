@@ -16,12 +16,10 @@ typedef struct Writer {
 
         uint64_t seqnum;
 
-        int n_ref;
+        unsigned n_ref;
 } Writer;
 
 Writer* writer_new(RemoteServer* server);
-Writer* writer_free(Writer *w);
-
 Writer* writer_ref(Writer *w);
 Writer* writer_unref(Writer *w);
 

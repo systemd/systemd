@@ -143,27 +143,8 @@ _public_ int sd_bus_track_new(
         return 0;
 }
 
-_public_ sd_bus_track* sd_bus_track_ref(sd_bus_track *track) {
-
-        if (!track)
-                return NULL;
-
-        assert(track->n_ref > 0);
-
-        track->n_ref++;
-
-        return track;
-}
-
-_public_ sd_bus_track* sd_bus_track_unref(sd_bus_track *track) {
-        if (!track)
-                return NULL;
-
-        assert(track->n_ref > 0);
-        track->n_ref--;
-
-        if (track->n_ref > 0)
-                return NULL;
+static sd_bus_track *track_free(sd_bus_track *track) {
+        assert(track);
 
         if (track->in_list)
                 LIST_REMOVE(tracks, track->bus->tracks, track);
@@ -177,6 +158,8 @@ _public_ sd_bus_track* sd_bus_track_unref(sd_bus_track *track) {
 
         return mfree(track);
 }
+
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_track, sd_bus_track, track_free);
 
 static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         sd_bus_track *track = userdata;

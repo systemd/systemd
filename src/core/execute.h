@@ -107,7 +107,7 @@ struct ExecCommand {
  * between invocations of commands. This is a reference counted object, with one reference taken by each currently
  * active command invocation that wants to share this runtime. */
 struct ExecRuntime {
-        int n_ref;
+        unsigned n_ref;
 
         Manager *manager;
 

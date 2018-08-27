@@ -72,7 +72,7 @@ typedef struct Condition Condition;
 typedef struct NetDev {
         Manager *manager;
 
-        int n_ref;
+        unsigned n_ref;
 
         char *filename;
 
