@@ -18,9 +18,6 @@
 /**
  * SECTION:libudev
  * @short_description: libudev context
- *
- * The context contains the default values read from the udev config file,
- * and is passed to all library operations.
  */
 
 /**
