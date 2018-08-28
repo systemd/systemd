@@ -973,3 +973,14 @@ sd_device *device_enumerator_get_next(sd_device_enumerator *enumerator) {
 
         return enumerator->devices[++enumerator->current_device_index];
 }
+
+sd_device **device_enumerator_get_devices(sd_device_enumerator *enumerator, size_t *ret_n_devices) {
+        assert(enumerator);
+        assert(ret_n_devices);
+
+        if (!enumerator->scan_uptodate)
+                return NULL;
+
+        *ret_n_devices = enumerator->n_devices;
+        return enumerator->devices;
+}
