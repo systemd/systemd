@@ -277,7 +277,7 @@ int same_fd(int a, int b) {
                 return true;
         if (r > 0)
                 return false;
-        if (errno != ENOSYS)
+        if (!IN_SET(errno, ENOSYS, EACCES, EPERM))
                 return -errno;
 
         /* We don't have kcmp(), use fstat() instead. */
