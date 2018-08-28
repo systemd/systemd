@@ -71,12 +71,15 @@ _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
 _public_ struct udev *udev_new(void) {
         struct udev *udev;
 
-        udev = new0(struct udev, 1);
+        udev = new(struct udev, 1);
         if (!udev) {
                 errno = ENOMEM;
                 return NULL;
         }
-        udev->n_ref = 1;
+
+        *udev = (struct udev) {
+                .n_ref = 1,
+        };
 
         return udev;
 }
