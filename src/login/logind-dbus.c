@@ -14,7 +14,7 @@
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
-#include "device-enumerator-private.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
 #include "escape.h"
@@ -1210,11 +1210,7 @@ static int trigger_device(Manager *m, sd_device *d) {
                         return r;
         }
 
-        r = device_enumerator_scan_devices(e);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
+        FOREACH_DEVICE(e, d) {
                 _cleanup_free_ char *t = NULL;
                 const char *p;
 

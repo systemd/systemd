@@ -13,7 +13,7 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "def.h"
-#include "device-enumerator-private.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -175,11 +175,7 @@ static int manager_enumerate_devices(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = device_enumerator_scan_devices(e);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
+        FOREACH_DEVICE(e, d) {
                 int k;
 
                 k = manager_process_seat_device(m, d);
@@ -214,11 +210,7 @@ static int manager_enumerate_buttons(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = device_enumerator_scan_devices(e);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
+        FOREACH_DEVICE(e, d) {
                 int k;
 
                 k = manager_process_button_device(m, d);

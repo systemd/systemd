@@ -5,10 +5,10 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 
-#include "device-enumerator-private.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -1420,11 +1420,7 @@ static int list_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add property match: %m");
 
-        r = device_enumerator_scan_devices(e);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate devices: %m");
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
+        FOREACH_DEVICE(e, d) {
                 struct item *j;
 
                 if (!GREEDY_REALLOC0(items, n_allocated, n+1)) {

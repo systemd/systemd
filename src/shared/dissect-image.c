@@ -14,8 +14,8 @@
 #include "copy.h"
 #include "crypt-util.h"
 #include "def.h"
-#include "device-enumerator-private.h"
 #include "device-nodes.h"
+#include "device-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -278,13 +278,9 @@ int dissect_image(
                 if (r < 0)
                         return r;
 
-                r = device_enumerator_scan_devices(e);
-                if (r < 0)
-                        return r;
-
                 /* Count the partitions enumerated by the kernel */
                 n = 0;
-                FOREACH_DEVICE_AND_SUBSYSTEM(e, q) {
+                FOREACH_DEVICE(e, q) {
                         dev_t qn;
 
                         if (sd_device_get_devnum(q, &qn) < 0)
@@ -350,11 +346,7 @@ int dissect_image(
                 e = sd_device_enumerator_unref(e);
         }
 
-        r = device_enumerator_scan_devices(e);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, q) {
+        FOREACH_DEVICE(e, q) {
                 unsigned long long pflags;
                 blkid_partition pp;
                 const char *node;

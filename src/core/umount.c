@@ -18,7 +18,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "def.h"
-#include "device-enumerator-private.h"
+#include "device-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fstab-util.h"
@@ -255,11 +255,7 @@ static int loopback_list_get(MountPoint **head) {
         if (r < 0)
                 return r;
 
-        r = device_enumerator_scan_devices(e);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
+        FOREACH_DEVICE(e, d) {
                 _cleanup_free_ MountPoint *lb = NULL;
                 const char *dn;
 
@@ -304,11 +300,7 @@ static int dm_list_get(MountPoint **head) {
         if (r < 0)
                 return r;
 
-        r = device_enumerator_scan_devices(e);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
+        FOREACH_DEVICE(e, d) {
                 _cleanup_free_ MountPoint *m = NULL;
                 const char *dn;
                 dev_t devnum;
