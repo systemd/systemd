@@ -27,9 +27,6 @@
  */
 struct udev {
         unsigned n_ref;
-        void (*log_fn)(struct udev *udev,
-                       int priority, const char *file, int line, const char *fn,
-                       const char *format, va_list args);
         void *userdata;
 };
 
