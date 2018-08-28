@@ -201,7 +201,7 @@ struct udev_device *udev_device_new(struct udev *udev) {
                 errno = ENOMEM;
                 return NULL;
         }
-        udev_device->refcount = 1;
+        udev_device->n_ref = 1;
         udev_device->udev = udev;
         udev_list_init(udev, &udev_device->properties, true);
         udev_list_init(udev, &udev_device->tags, true);
@@ -501,6 +501,20 @@ _public_ struct udev *udev_device_get_udev(struct udev_device *udev_device)
         return udev_device->udev;
 }
 
+static struct udev_device *udev_device_free(struct udev_device *udev_device) {
+        assert(udev_device);
+
+        sd_device_unref(udev_device->device);
+        udev_device_unref(udev_device->parent);
+
+        udev_list_cleanup(&udev_device->properties);
+        udev_list_cleanup(&udev_device->sysattrs);
+        udev_list_cleanup(&udev_device->tags);
+        udev_list_cleanup(&udev_device->devlinks);
+
+        return mfree(udev_device);
+}
+
 /**
  * udev_device_ref:
  * @udev_device: udev device
@@ -509,13 +523,6 @@ _public_ struct udev *udev_device_get_udev(struct udev_device *udev_device)
  *
  * Returns: the passed udev device
  **/
-_public_ struct udev_device *udev_device_ref(struct udev_device *udev_device)
-{
-        if (udev_device)
-                udev_device->refcount++;
-
-        return udev_device;
-}
 
 /**
  * udev_device_unref:
@@ -526,22 +533,7 @@ _public_ struct udev_device *udev_device_ref(struct udev_device *udev_device)
  *
  * Returns: #NULL
  **/
-_public_ struct udev_device *udev_device_unref(struct udev_device *udev_device)
-{
-        if (udev_device && (-- udev_device->refcount) == 0) {
-                sd_device_unref(udev_device->device);
-                udev_device_unref(udev_device->parent);
-
-                udev_list_cleanup(&udev_device->properties);
-                udev_list_cleanup(&udev_device->sysattrs);
-                udev_list_cleanup(&udev_device->tags);
-                udev_list_cleanup(&udev_device->devlinks);
-
-                free(udev_device);
-        }
-
-        return NULL;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_device, udev_device, udev_device_free);
 
 /**
  * udev_device_get_devpath:

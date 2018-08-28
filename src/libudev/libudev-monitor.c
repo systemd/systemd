@@ -38,7 +38,7 @@
  */
 struct udev_monitor {
         struct udev *udev;
-        int refcount;
+        unsigned n_ref;
         int sock;
         union sockaddr_union snl;
         union sockaddr_union snl_trusted_sender;
@@ -87,7 +87,7 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev) {
                 errno = ENOMEM;
                 return NULL;
         }
-        udev_monitor->refcount = 1;
+        udev_monitor->n_ref = 1;
         udev_monitor->udev = udev;
         udev_list_init(udev, &udev_monitor->filter_subsystem_list, false);
         udev_list_init(udev, &udev_monitor->filter_tag_list, true);
@@ -432,6 +432,15 @@ int udev_monitor_disconnect(struct udev_monitor *udev_monitor) {
         return 0;
 }
 
+static struct udev_monitor *udev_monitor_free(struct udev_monitor *udev_monitor) {
+        assert(udev_monitor);
+
+        udev_monitor_disconnect(udev_monitor);
+        udev_list_cleanup(&udev_monitor->filter_subsystem_list);
+        udev_list_cleanup(&udev_monitor->filter_tag_list);
+        return mfree(udev_monitor);
+}
+
 /**
  * udev_monitor_ref:
  * @udev_monitor: udev monitor
@@ -440,13 +449,6 @@ int udev_monitor_disconnect(struct udev_monitor *udev_monitor) {
  *
  * Returns: the passed udev monitor
  **/
-_public_ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor)
-{
-        if (udev_monitor == NULL)
-                return NULL;
-        udev_monitor->refcount++;
-        return udev_monitor;
-}
 
 /**
  * udev_monitor_unref:
@@ -458,19 +460,7 @@ _public_ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor
  *
  * Returns: #NULL
  **/
-_public_ struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monitor)
-{
-        if (udev_monitor == NULL)
-                return NULL;
-        udev_monitor->refcount--;
-        if (udev_monitor->refcount > 0)
-                return NULL;
-        if (udev_monitor->sock >= 0)
-                close(udev_monitor->sock);
-        udev_list_cleanup(&udev_monitor->filter_subsystem_list);
-        udev_list_cleanup(&udev_monitor->filter_tag_list);
-        return mfree(udev_monitor);
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_monitor, udev_monitor, udev_monitor_free);
 
 /**
  * udev_monitor_get_udev:

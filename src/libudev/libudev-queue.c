@@ -28,7 +28,7 @@
  */
 struct udev_queue {
         struct udev *udev;
-        int refcount;
+        unsigned n_ref;
         int fd;
 };
 
@@ -51,10 +51,17 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev)
                 return NULL;
         }
 
-        udev_queue->refcount = 1;
+        udev_queue->n_ref = 1;
         udev_queue->udev = udev;
         udev_queue->fd = -1;
         return udev_queue;
+}
+
+static struct udev_queue *udev_queue_free(struct udev_queue *udev_queue) {
+        assert(udev_queue);
+
+        safe_close(udev_queue->fd);
+        return mfree(udev_queue);
 }
 
 /**
@@ -65,14 +72,6 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev)
  *
  * Returns: the same udev queue context.
  **/
-_public_ struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue)
-{
-        if (udev_queue == NULL)
-                return NULL;
-
-        udev_queue->refcount++;
-        return udev_queue;
-}
 
 /**
  * udev_queue_unref:
@@ -83,19 +82,7 @@ _public_ struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue)
  *
  * Returns: #NULL
  **/
-_public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue)
-{
-        if (udev_queue == NULL)
-                return NULL;
-
-        udev_queue->refcount--;
-        if (udev_queue->refcount > 0)
-                return NULL;
-
-        safe_close(udev_queue->fd);
-
-        return mfree(udev_queue);
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_queue, udev_queue, udev_queue_free);
 
 /**
  * udev_queue_get_udev:

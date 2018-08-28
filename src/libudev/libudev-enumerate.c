@@ -33,7 +33,7 @@
  */
 struct udev_enumerate {
         struct udev *udev;
-        int refcount;
+        unsigned n_ref;
         struct udev_list devices_list;
         bool devices_uptodate:1;
 
@@ -70,12 +70,20 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
                 return NULL;
         }
 
-        udev_enumerate->refcount = 1;
+        udev_enumerate->n_ref = 1;
         udev_enumerate->udev = udev;
 
         udev_list_init(udev, &udev_enumerate->devices_list, false);
 
         return TAKE_PTR(udev_enumerate);
+}
+
+static struct udev_enumerate *udev_enumerate_free(struct udev_enumerate *udev_enumerate) {
+        assert(udev_enumerate);
+
+        udev_list_cleanup(&udev_enumerate->devices_list);
+        sd_device_enumerator_unref(udev_enumerate->enumerator);
+        return mfree(udev_enumerate);
 }
 
 /**
@@ -86,12 +94,6 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
  *
  * Returns: the passed enumeration context
  **/
-_public_ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate) {
-        if (udev_enumerate)
-                udev_enumerate->refcount++;
-
-        return udev_enumerate;
-}
 
 /**
  * udev_enumerate_unref:
@@ -102,15 +104,7 @@ _public_ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_e
  *
  * Returns: #NULL
  **/
-_public_ struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev_enumerate) {
-        if (udev_enumerate && (-- udev_enumerate->refcount) == 0) {
-                udev_list_cleanup(&udev_enumerate->devices_list);
-                sd_device_enumerator_unref(udev_enumerate->enumerator);
-                free(udev_enumerate);
-        }
-
-        return NULL;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_enumerate, udev_enumerate, udev_enumerate_free);
 
 /**
  * udev_enumerate_get_udev:

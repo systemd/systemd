@@ -29,7 +29,7 @@
  * Opaque object representing the library context.
  */
 struct udev {
-        int refcount;
+        unsigned n_ref;
         void (*log_fn)(struct udev *udev,
                        int priority, const char *file, int line, const char *fn,
                        const char *format, va_list args);
@@ -82,7 +82,7 @@ _public_ struct udev *udev_new(void) {
                 errno = ENOMEM;
                 return NULL;
         }
-        udev->refcount = 1;
+        udev->n_ref = 1;
 
         return udev;
 }
@@ -95,12 +95,7 @@ _public_ struct udev *udev_new(void) {
  *
  * Returns: the passed udev library context
  **/
-_public_ struct udev *udev_ref(struct udev *udev) {
-        if (udev == NULL)
-                return NULL;
-        udev->refcount++;
-        return udev;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_FUNC(struct udev, udev);
 
 /**
  * udev_unref:
@@ -112,11 +107,17 @@ _public_ struct udev *udev_ref(struct udev *udev) {
  * Returns: the passed udev library context if it has still an active reference, or #NULL otherwise.
  **/
 _public_ struct udev *udev_unref(struct udev *udev) {
-        if (udev == NULL)
+        if (!udev)
                 return NULL;
-        udev->refcount--;
-        if (udev->refcount > 0)
+
+        assert(udev->n_ref > 0);
+        udev->n_ref--;
+        if (udev->n_ref > 0)
+                /* This is different from our convetion, but let's keep backward
+                 * compatibility. So, do not use DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC()
+                 * macro to define this function. */
                 return udev;
+
         return mfree(udev);
 }
 

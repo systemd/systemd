@@ -18,7 +18,7 @@ struct udev_device {
         sd_device *device;
 
         /* legacy */
-        int refcount;
+        unsigned n_ref;
 
         struct udev_device *parent;
         bool parent_set;

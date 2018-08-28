@@ -20,7 +20,7 @@
  */
 struct udev_hwdb {
         struct udev *udev;
-        int refcount;
+        unsigned n_ref;
 
         sd_hwdb *hwdb;
 
@@ -52,12 +52,20 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
                 return NULL;
         }
 
-        hwdb->refcount = 1;
+        hwdb->n_ref = 1;
         hwdb->hwdb = TAKE_PTR(hwdb_internal);
 
         udev_list_init(udev, &hwdb->properties_list, true);
 
         return hwdb;
+}
+
+static struct udev_hwdb *udev_hwdb_free(struct udev_hwdb *hwdb) {
+        assert(hwdb);
+
+        sd_hwdb_unref(hwdb->hwdb);
+        udev_list_cleanup(&hwdb->properties_list);
+        return mfree(hwdb);
 }
 
 /**
@@ -68,12 +76,6 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
  *
  * Returns: the passed enumeration context
  **/
-_public_ struct udev_hwdb *udev_hwdb_ref(struct udev_hwdb *hwdb) {
-        if (!hwdb)
-                return NULL;
-        hwdb->refcount++;
-        return hwdb;
-}
 
 /**
  * udev_hwdb_unref:
@@ -84,16 +86,7 @@ _public_ struct udev_hwdb *udev_hwdb_ref(struct udev_hwdb *hwdb) {
  *
  * Returns: #NULL
  **/
-_public_ struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb) {
-        if (!hwdb)
-                return NULL;
-        hwdb->refcount--;
-        if (hwdb->refcount > 0)
-                return NULL;
-        sd_hwdb_unref(hwdb->hwdb);
-        udev_list_cleanup(&hwdb->properties_list);
-        return mfree(hwdb);
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_hwdb, udev_hwdb, udev_hwdb_free);
 
 /**
  * udev_hwdb_get_properties_list_entry:
