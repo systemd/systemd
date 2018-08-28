@@ -32,7 +32,6 @@ CHAR16 *stra_to_path(CHAR8 *stra);
 CHAR16 *stra_to_str(CHAR8 *stra);
 
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
-#endif
 
 static inline void FreePoolp(void *p) {
         FreePool(*(void**) p);
@@ -40,3 +39,5 @@ static inline void FreePoolp(void *p) {
 
 #define _cleanup_(x) __attribute__((cleanup(x)))
 #define _cleanup_freepool_ _cleanup_(FreePoolp)
+
+#endif
