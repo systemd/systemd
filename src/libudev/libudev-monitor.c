@@ -425,13 +425,11 @@ _public_ int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_moni
         return 0;
 }
 
-int udev_monitor_disconnect(struct udev_monitor *udev_monitor)
-{
-        int err;
+int udev_monitor_disconnect(struct udev_monitor *udev_monitor) {
+        assert(udev_monitor);
 
-        err = close(udev_monitor->sock);
-        udev_monitor->sock = -1;
-        return err < 0 ? -errno : 0;
+        udev_monitor->sock = safe_close(udev_monitor->sock);
+        return 0;
 }
 
 /**
