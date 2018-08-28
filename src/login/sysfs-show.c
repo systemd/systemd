@@ -127,8 +127,8 @@ static int show_sysfs_one(
 
 int show_sysfs(const char *seat, const char *prefix, unsigned n_columns, OutputFlags flags) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        size_t n_dev = 0, n_allocated = 0, i = 0;
-        sd_device *d, **dev_list = NULL;
+        size_t n_dev = 0, i = 0;
+        sd_device **dev_list;
         int r;
 
         if (n_columns <= 0)
@@ -155,27 +155,12 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns, OutputF
         if (r < 0)
                 return r;
 
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
-                const char *syspath;
+        dev_list = device_enumerator_get_devices(e, &n_dev);
 
-                if (sd_device_get_syspath(d, &syspath) < 0)
-                        continue;
-
-                if (!GREEDY_REALLOC(dev_list, n_allocated, n_dev + 2))
-                        return -ENOMEM;
-
-                dev_list[n_dev++] = sd_device_ref(d);
-                dev_list[n_dev] = NULL;
-        }
-
-        if (n_dev > 0)
+        if (dev_list && n_dev > 0)
                 show_sysfs_one(seat, dev_list, &i, n_dev, "/", prefix, n_columns, flags);
         else
                 printf("%s%s%s\n", prefix, special_glyph(TREE_RIGHT), "(none)");
-
-        for (i = 0; i < n_dev; i++)
-                sd_device_unref(dev_list[i]);
-        free(dev_list);
 
         return 0;
 }
