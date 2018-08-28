@@ -543,7 +543,7 @@ _public_ int sd_resolve_get_tid(sd_resolve *resolve, pid_t *tid) {
         return -ENXIO;
 }
 
-static void resolve_free(sd_resolve *resolve) {
+static sd_resolve *resolve_free(sd_resolve *resolve) {
         PROTECT_ERRNO;
         sd_resolve_query *q;
         unsigned i;
@@ -582,30 +582,11 @@ static void resolve_free(sd_resolve *resolve) {
 
         /* Close all communication channels */
         close_many(resolve->fds, _FD_MAX);
-        free(resolve);
+
+        return mfree(resolve);
 }
 
-_public_ sd_resolve* sd_resolve_ref(sd_resolve *resolve) {
-        assert_return(resolve, NULL);
-
-        assert(resolve->n_ref >= 1);
-        resolve->n_ref++;
-
-        return resolve;
-}
-
-_public_ sd_resolve* sd_resolve_unref(sd_resolve *resolve) {
-        if (!resolve)
-                return NULL;
-
-        assert(resolve->n_ref >= 1);
-        resolve->n_ref--;
-
-        if (resolve->n_ref <= 0)
-                resolve_free(resolve);
-
-        return NULL;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_resolve, sd_resolve, resolve_free);
 
 _public_ int sd_resolve_get_fd(sd_resolve *resolve) {
         assert_return(resolve, -EINVAL);
@@ -1070,15 +1051,6 @@ static int getnameinfo_done(sd_resolve_query *q) {
         return q->getnameinfo_handler(q, q->ret, q->host, q->serv, q->userdata);
 }
 
-_public_ sd_resolve_query* sd_resolve_query_ref(sd_resolve_query *q) {
-        assert_return(q, NULL);
-
-        assert(q->n_ref >= 1);
-        q->n_ref++;
-
-        return q;
-}
-
 static void resolve_freeaddrinfo(struct addrinfo *ai) {
         while (ai) {
                 struct addrinfo *next = ai->ai_next;
@@ -1118,7 +1090,7 @@ static void resolve_query_disconnect(sd_resolve_query *q) {
                 sd_resolve_unref(resolve);
 }
 
-static void resolve_query_free(sd_resolve_query *q) {
+static sd_resolve_query *resolve_query_free(sd_resolve_query *q) {
         assert(q);
 
         resolve_query_disconnect(q);
@@ -1126,21 +1098,11 @@ static void resolve_query_free(sd_resolve_query *q) {
         resolve_freeaddrinfo(q->addrinfo);
         free(q->host);
         free(q->serv);
-        free(q);
+
+        return mfree(q);
 }
 
-_public_ sd_resolve_query* sd_resolve_query_unref(sd_resolve_query* q) {
-        if (!q)
-                return NULL;
-
-        assert(q->n_ref >= 1);
-        q->n_ref--;
-
-        if (q->n_ref <= 0)
-                resolve_query_free(q);
-
-        return NULL;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_resolve_query, sd_resolve_query, resolve_query_free);
 
 _public_ int sd_resolve_query_is_done(sd_resolve_query *q) {
         assert_return(q, -EINVAL);

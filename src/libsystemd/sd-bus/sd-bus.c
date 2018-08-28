@@ -1567,27 +1567,7 @@ void bus_enter_closing(sd_bus *bus) {
         bus_set_state(bus, BUS_CLOSING);
 }
 
-_public_ sd_bus *sd_bus_ref(sd_bus *bus) {
-        if (!bus)
-                return NULL;
-
-        assert_se(REFCNT_INC(bus->n_ref) >= 2);
-
-        return bus;
-}
-
-_public_ sd_bus *sd_bus_unref(sd_bus *bus) {
-        unsigned i;
-
-        if (!bus)
-                return NULL;
-
-        i = REFCNT_DEC(bus->n_ref);
-        if (i > 0)
-                return NULL;
-
-        return bus_free(bus);
-}
+DEFINE_PUBLIC_ATOMIC_REF_UNREF_FUNC(sd_bus, sd_bus, bus_free);
 
 _public_ int sd_bus_is_open(sd_bus *bus) {
         assert_return(bus, -EINVAL);

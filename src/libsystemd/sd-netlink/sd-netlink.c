@@ -146,55 +146,39 @@ int sd_netlink_inc_rcvbuf(sd_netlink *rtnl, size_t size) {
         return fd_inc_rcvbuf(rtnl->fd, size);
 }
 
-sd_netlink *sd_netlink_ref(sd_netlink *rtnl) {
-        assert_return(rtnl, NULL);
-        assert_return(!rtnl_pid_changed(rtnl), NULL);
+static sd_netlink *netlink_free(sd_netlink *rtnl) {
+        struct match_callback *f;
+        unsigned i;
 
-        if (rtnl)
-                assert_se(REFCNT_INC(rtnl->n_ref) >= 2);
+        assert(rtnl);
 
-        return rtnl;
+        for (i = 0; i < rtnl->rqueue_size; i++)
+                sd_netlink_message_unref(rtnl->rqueue[i]);
+        free(rtnl->rqueue);
+
+        for (i = 0; i < rtnl->rqueue_partial_size; i++)
+                sd_netlink_message_unref(rtnl->rqueue_partial[i]);
+        free(rtnl->rqueue_partial);
+
+        free(rtnl->rbuffer);
+
+        hashmap_free_free(rtnl->reply_callbacks);
+        prioq_free(rtnl->reply_callbacks_prioq);
+
+        sd_event_source_unref(rtnl->io_event_source);
+        sd_event_source_unref(rtnl->time_event_source);
+        sd_event_unref(rtnl->event);
+
+        while ((f = rtnl->match_callbacks))
+                sd_netlink_remove_match(rtnl, f->type, f->callback, f->userdata);
+
+        hashmap_free(rtnl->broadcast_group_refs);
+
+        safe_close(rtnl->fd);
+        return mfree(rtnl);
 }
 
-sd_netlink *sd_netlink_unref(sd_netlink *rtnl) {
-        if (!rtnl)
-                return NULL;
-
-        assert_return(!rtnl_pid_changed(rtnl), NULL);
-
-        if (REFCNT_DEC(rtnl->n_ref) == 0) {
-                struct match_callback *f;
-                unsigned i;
-
-                for (i = 0; i < rtnl->rqueue_size; i++)
-                        sd_netlink_message_unref(rtnl->rqueue[i]);
-                free(rtnl->rqueue);
-
-                for (i = 0; i < rtnl->rqueue_partial_size; i++)
-                        sd_netlink_message_unref(rtnl->rqueue_partial[i]);
-                free(rtnl->rqueue_partial);
-
-                free(rtnl->rbuffer);
-
-                hashmap_free_free(rtnl->reply_callbacks);
-                prioq_free(rtnl->reply_callbacks_prioq);
-
-                sd_event_source_unref(rtnl->io_event_source);
-                sd_event_source_unref(rtnl->time_event_source);
-                sd_event_unref(rtnl->event);
-
-                while ((f = rtnl->match_callbacks)) {
-                        sd_netlink_remove_match(rtnl, f->type, f->callback, f->userdata);
-                }
-
-                hashmap_free(rtnl->broadcast_group_refs);
-
-                safe_close(rtnl->fd);
-                free(rtnl);
-        }
-
-        return NULL;
-}
+DEFINE_ATOMIC_REF_UNREF_FUNC(sd_netlink, sd_netlink, netlink_free);
 
 static void rtnl_seal_message(sd_netlink *rtnl, sd_netlink_message *m) {
         assert(rtnl);
@@ -212,8 +196,8 @@ static void rtnl_seal_message(sd_netlink *rtnl, sd_netlink_message *m) {
 }
 
 int sd_netlink_send(sd_netlink *nl,
-                 sd_netlink_message *message,
-                 uint32_t *serial) {
+                    sd_netlink_message *message,
+                    uint32_t *serial) {
         int r;
 
         assert_return(nl, -EINVAL);

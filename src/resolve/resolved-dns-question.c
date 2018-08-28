@@ -20,32 +20,17 @@ DnsQuestion *dns_question_new(size_t n) {
         return q;
 }
 
-DnsQuestion *dns_question_ref(DnsQuestion *q) {
-        if (!q)
-                return NULL;
+static DnsQuestion *dns_question_free(DnsQuestion *q) {
+        size_t i;
 
-        assert(q->n_ref > 0);
-        q->n_ref++;
-        return q;
+        assert(q);
+
+        for (i = 0; i < q->n_keys; i++)
+                dns_resource_key_unref(q->keys[i]);
+        return mfree(q);
 }
 
-DnsQuestion *dns_question_unref(DnsQuestion *q) {
-        if (!q)
-                return NULL;
-
-        assert(q->n_ref > 0);
-
-        if (q->n_ref == 1) {
-                size_t i;
-
-                for (i = 0; i < q->n_keys; i++)
-                        dns_resource_key_unref(q->keys[i]);
-                free(q);
-        } else
-                q->n_ref--;
-
-        return  NULL;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsQuestion, dns_question, dns_question_free);
 
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
         size_t i;

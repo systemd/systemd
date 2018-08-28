@@ -97,31 +97,16 @@ static void ipv4acd_reset(sd_ipv4acd *acd) {
         ipv4acd_set_state(acd, IPV4ACD_STATE_INIT, true);
 }
 
-sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *acd) {
-        if (!acd)
-                return NULL;
-
-        assert_se(acd->n_ref >= 1);
-        acd->n_ref++;
-
-        return acd;
-}
-
-sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *acd) {
-        if (!acd)
-                return NULL;
-
-        assert_se(acd->n_ref >= 1);
-        acd->n_ref--;
-
-        if (acd->n_ref > 0)
-                return NULL;
+static sd_ipv4acd *ipv4acd_free(sd_ipv4acd *acd) {
+        assert(acd);
 
         ipv4acd_reset(acd);
         sd_ipv4acd_detach_event(acd);
 
         return mfree(acd);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4acd, sd_ipv4acd, ipv4acd_free);
 
 int sd_ipv4acd_new(sd_ipv4acd **ret) {
         _cleanup_(sd_ipv4acd_unrefp) sd_ipv4acd *acd = NULL;

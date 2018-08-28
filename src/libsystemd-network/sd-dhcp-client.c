@@ -1951,27 +1951,8 @@ sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client) {
         return client->event;
 }
 
-sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client) {
-
-        if (!client)
-                return NULL;
-
-        assert(client->n_ref >= 1);
-        client->n_ref++;
-
-        return client;
-}
-
-sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
-
-        if (!client)
-                return NULL;
-
-        assert(client->n_ref >= 1);
-        client->n_ref--;
-
-        if (client->n_ref > 0)
-                return NULL;
+static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
+        assert(client);
 
         log_dhcp_client(client, "FREE");
 
@@ -1989,6 +1970,8 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client) {
         client->user_class = strv_free(client->user_class);
         return mfree(client);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_client, sd_dhcp_client, dhcp_client_free);
 
 int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;

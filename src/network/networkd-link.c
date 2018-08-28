@@ -497,14 +497,13 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         return 0;
 }
 
-static void link_free(Link *link) {
+static Link *link_free(Link *link) {
         Address *address;
         Link *carrier;
         Route *route;
         Iterator i;
 
-        if (!link)
-                return;
+        assert(link);
 
         while ((route = set_first(link->routes)))
                 route_free(route);
@@ -569,35 +568,10 @@ static void link_free(Link *link) {
                 hashmap_remove(link->bound_by_links, INT_TO_PTR(carrier->ifindex));
         hashmap_free(link->bound_by_links);
 
-        free(link);
+        return mfree(link);
 }
 
-Link *link_unref(Link *link) {
-        if (!link)
-                return NULL;
-
-        assert(link->n_ref > 0);
-
-        link->n_ref--;
-
-        if (link->n_ref > 0)
-                return NULL;
-
-        link_free(link);
-
-        return NULL;
-}
-
-Link *link_ref(Link *link) {
-        if (!link)
-                return NULL;
-
-        assert(link->n_ref > 0);
-
-        link->n_ref++;
-
-        return link;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Link, link, link_free);
 
 int link_get(Manager *m, int ifindex, Link **ret) {
         Link *link;

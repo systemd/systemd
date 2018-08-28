@@ -49,7 +49,7 @@ typedef struct DUID DUID;
 typedef struct Link {
         Manager *manager;
 
-        int n_ref;
+        unsigned n_ref;
 
         int ifindex;
         char *ifname;

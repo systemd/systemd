@@ -20,6 +20,8 @@
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
 #define UID_CLAMP_INTO_RANGE(rnd) (((uid_t) (rnd) % (DYNAMIC_UID_MAX - DYNAMIC_UID_MIN + 1)) + DYNAMIC_UID_MIN)
 
+DEFINE_PRIVATE_TRIVIAL_REF_FUNC(DynamicUser, dynamic_user);
+
 static DynamicUser* dynamic_user_free(DynamicUser *d) {
         if (!d)
                 return NULL;
@@ -102,9 +104,11 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
 
         d = hashmap_get(m->dynamic_users, name);
         if (d) {
-                /* We already have a structure for the dynamic user, let's increase the ref count and reuse it */
-                d->n_ref++;
-                *ret = d;
+                if (ret) {
+                        /* We already have a structure for the dynamic user, let's increase the ref count and reuse it */
+                        d->n_ref++;
+                        *ret = d;
+                }
                 return 0;
         }
 
@@ -529,16 +533,6 @@ int dynamic_user_current(DynamicUser *d, uid_t *ret) {
 
         *ret = uid;
         return 0;
-}
-
-static DynamicUser* dynamic_user_ref(DynamicUser *d) {
-        if (!d)
-                return NULL;
-
-        assert(d->n_ref > 0);
-        d->n_ref++;
-
-        return d;
 }
 
 static DynamicUser* dynamic_user_unref(DynamicUser *d) {

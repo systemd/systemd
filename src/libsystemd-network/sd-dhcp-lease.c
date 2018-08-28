@@ -246,27 +246,8 @@ int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, s
         return 0;
 }
 
-sd_dhcp_lease *sd_dhcp_lease_ref(sd_dhcp_lease *lease) {
-
-        if (!lease)
-                return NULL;
-
-        assert(lease->n_ref >= 1);
-        lease->n_ref++;
-
-        return lease;
-}
-
-sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease) {
-
-        if (!lease)
-                return NULL;
-
-        assert(lease->n_ref >= 1);
-        lease->n_ref--;
-
-        if (lease->n_ref > 0)
-                return NULL;
+static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
+        assert(lease);
 
         while (lease->private_options) {
                 struct sd_dhcp_raw_option *option = lease->private_options;
@@ -287,6 +268,8 @@ sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease) {
         strv_free(lease->search_domains);
         return mfree(lease);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_lease, sd_dhcp_lease, dhcp_lease_free);
 
 static int lease_parse_u32(const uint8_t *option, size_t len, uint32_t *ret, uint32_t min) {
         assert(option);

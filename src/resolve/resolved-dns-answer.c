@@ -19,15 +19,6 @@ DnsAnswer *dns_answer_new(size_t n) {
         return a;
 }
 
-DnsAnswer *dns_answer_ref(DnsAnswer *a) {
-        if (!a)
-                return NULL;
-
-        assert(a->n_ref > 0);
-        a->n_ref++;
-        return a;
-}
-
 static void dns_answer_flush(DnsAnswer *a) {
         DnsResourceRecord *rr;
 
@@ -40,20 +31,14 @@ static void dns_answer_flush(DnsAnswer *a) {
         a->n_rrs = 0;
 }
 
-DnsAnswer *dns_answer_unref(DnsAnswer *a) {
-        if (!a)
-                return NULL;
+static DnsAnswer *dns_answer_free(DnsAnswer *a) {
+        assert(a);
 
-        assert(a->n_ref > 0);
-
-        if (a->n_ref == 1) {
-                dns_answer_flush(a);
-                free(a);
-        } else
-                a->n_ref--;
-
-        return NULL;
+        dns_answer_flush(a);
+        return mfree(a);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsAnswer, dns_answer, dns_answer_free);
 
 static int dns_answer_add_raw(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags) {
         assert(rr);
