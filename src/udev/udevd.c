@@ -124,7 +124,6 @@ enum worker_state {
 
 struct worker {
         Manager *manager;
-        int refcount;
         pid_t pid;
         struct udev_monitor *monitor;
         enum worker_state state;
@@ -202,7 +201,6 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         if (!worker)
                 return -ENOMEM;
 
-        worker->refcount = 1;
         worker->manager = manager;
         /* close monitor, but keep address around */
         udev_monitor_disconnect(worker_monitor);
