@@ -40,8 +40,8 @@ struct udev {
  * Returns: stored userdata
  **/
 _public_ void *udev_get_userdata(struct udev *udev) {
-        if (udev == NULL)
-                return NULL;
+        assert_return(udev, NULL);
+
         return udev->userdata;
 }
 
@@ -53,8 +53,9 @@ _public_ void *udev_get_userdata(struct udev *udev) {
  * Store custom @userdata in the library context.
  **/
 _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
-        if (udev == NULL)
+        if (!udev)
                 return;
+
         udev->userdata = userdata;
 }
 
@@ -126,10 +127,11 @@ _public_ struct udev *udev_unref(struct udev *udev) {
  * This function is deprecated.
  *
  **/
-_public_ void udev_set_log_fn(struct udev *udev,
-                     void (*log_fn)(struct udev *udev,
-                                    int priority, const char *file, int line, const char *fn,
-                                    const char *format, va_list args)) {
+_public_ void udev_set_log_fn(
+                        struct udev *udev,
+                        void (*log_fn)(struct udev *udev,
+                                       int priority, const char *file, int line, const char *fn,
+                                       const char *format, va_list args)) {
         return;
 }
 
