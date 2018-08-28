@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-06-19 20:57+0200\n"
-"PO-Revision-Date: 2018-05-29 21:24+0200\n"
+"POT-Creation-Date: 2018-08-28 21:32+0200\n"
+"PO-Revision-Date: 2018-08-28 21:40+0200\n"
 "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
 "Language-Team: French\n"
 "Language: fr\n"
@@ -97,6 +97,14 @@ msgstr "Définir les informations sur la machine"
 msgid "Authentication is required to set local machine information."
 msgstr ""
 "Authentification requise pour définir les informations sur la machine locale."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "Obtenir l'UUID du produit"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "Authentification requise pour obtenir l'UUID du produit."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
