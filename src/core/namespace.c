@@ -265,7 +265,6 @@ static int append_empty_dir_mounts(MountEntry **p, char **strv) {
                         .path_const = *i,
                         .mode = EMPTY_DIR,
                         .ignore = false,
-                        .has_prefix = false,
                         .read_only = true,
                         .options_const = "mode=755",
                         .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
