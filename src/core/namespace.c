@@ -1026,6 +1026,15 @@ static int apply_mount(
         return 0;
 }
 
+/* Change the per-mount readonly flag on an existing mount */
+static int remount_bind_readonly(const char *path, unsigned long orig_flags) {
+        int r;
+
+        r = mount(NULL, path, NULL, MS_REMOUNT | MS_BIND | MS_RDONLY | orig_flags, NULL);
+
+        return r < 0 ? -errno : 0;
+}
+
 static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
         bool submounts = false;
         int r = 0;
@@ -1035,17 +1044,15 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
 
         if (mount_entry_read_only(m)) {
                 if (IN_SET(m->mode, EMPTY_DIR, TMPFS)) {
-                        /* Make superblock readonly */
-                        if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT | MS_RDONLY | m->flags, mount_entry_options(m)) < 0)
-                                r = -errno;
+                        r = remount_bind_readonly(mount_entry_path(m), m->flags);
                 } else {
                         submounts = true;
                         r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), true, blacklist, proc_self_mountinfo);
                 }
         } else if (m->mode == PRIVATE_DEV) {
-                /* Superblock can be readonly but the submounts can't */
-                if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
-                        r = -errno;
+                /* Set /dev readonly, but not submounts like /dev/shm. Also, we only set the per-mount read-only flag.
+                 * We can't set it on the superblock, if we are inside a user namespace and running Linux <= 4.17. */
+                r = remount_bind_readonly(mount_entry_path(m), DEV_MOUNT_OPTIONS);
         } else
                 return 0;
 
