@@ -1656,12 +1656,7 @@ static int setup_resolv_conf(const char *dest) {
                 if (arg_private_network)
                         m = RESOLV_CONF_OFF;
                 else if (have_resolv_conf(STATIC_RESOLV_CONF) > 0 && resolved_listening() > 0)
-                        /* resolved is enabled on the host. In this, case bind mount its static resolv.conf file into the
-                         * container, so that the container can use the host's resolver. Given that network namespacing is
-                         * disabled it's only natural of the container also uses the host's resolver. It also has the big
-                         * advantage that the container will be able to follow the host's DNS server configuration changes
-                         * transparently. */
-                        m = RESOLV_CONF_BIND_STATIC;
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_BIND_STATIC : RESOLV_CONF_COPY_STATIC;
                 else if (have_resolv_conf("/etc/resolv.conf") > 0)
                         m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_BIND_HOST : RESOLV_CONF_COPY_HOST;
                 else
