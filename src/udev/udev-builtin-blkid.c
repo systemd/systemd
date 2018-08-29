@@ -23,7 +23,8 @@
 #include "gpt.h"
 #include "parse-util.h"
 #include "string-util.h"
-#include "udev.h"
+#include "strxcpyx.h"
+#include "udev-builtin.h"
 
 static void print_property(struct udev_device *dev, bool test, const char *name, const char *value) {
         char s[256];

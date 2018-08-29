@@ -18,9 +18,11 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "libudev-private.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sysexits.h"
-#include "udev.h"
+#include "udev-builtin.h"
 
 _printf_(2,3)
 static void path_prepend(char **path, const char *fmt, ...) {

@@ -28,6 +28,7 @@ libudev_core_sources = '''
         udev-watch.c
         udev-watch.h
         udev-builtin.c
+        udev-builtin.h
         udev-builtin-btrfs.c
         udev-builtin-hwdb.c
         udev-builtin-input_id.c

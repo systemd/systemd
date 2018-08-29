@@ -4,7 +4,7 @@
 #include "libudev-device-internal.h"
 #include "link-config.h"
 #include "log.h"
-#include "udev.h"
+#include "udev-builtin.h"
 
 static link_config_ctx *ctx = NULL;
 

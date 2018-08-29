@@ -28,6 +28,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
+#include "udev-builtin.h"
 #include "udev.h"
 #include "user-util.h"
 #include "util.h"

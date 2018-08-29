@@ -6,13 +6,14 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 #include "sd-login.h"
 
 #include "login-util.h"
 #include "logind-acl.h"
-#include "udev.h"
-#include "util.h"
+#include "log.h"
+#include "udev-builtin.h"
 
 static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool test) {
         int r;

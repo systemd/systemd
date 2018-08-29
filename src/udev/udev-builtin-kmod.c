@@ -13,7 +13,7 @@
 
 #include "module-util.h"
 #include "string-util.h"
-#include "udev.h"
+#include "udev-builtin.h"
 
 static struct kmod_ctx *ctx = NULL;
 

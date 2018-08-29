@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,7 +12,8 @@
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "udev.h"
+#include "strxcpyx.h"
+#include "udev-builtin.h"
 
 static const struct key_name *keyboard_lookup_key(const char *str, GPERF_LEN_TYPE len);
 #include "keyboard-keys-from-name.h"

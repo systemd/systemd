@@ -6,9 +6,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "libudev-private.h"
 #include "path-util.h"
 #include "string-util.h"
-#include "udev.h"
+#include "strxcpyx.h"
+#include "udev-builtin.h"
 #include "udevadm.h"
 
 static const char *arg_command = NULL;

@@ -77,63 +77,6 @@ void udev_event_execute_rules(struct udev_event *event,
                               struct udev_rules *rules);
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec);
 
-/* built-in commands */
-enum udev_builtin_cmd {
-#if HAVE_BLKID
-        UDEV_BUILTIN_BLKID,
-#endif
-        UDEV_BUILTIN_BTRFS,
-        UDEV_BUILTIN_HWDB,
-        UDEV_BUILTIN_INPUT_ID,
-        UDEV_BUILTIN_KEYBOARD,
-#if HAVE_KMOD
-        UDEV_BUILTIN_KMOD,
-#endif
-        UDEV_BUILTIN_NET_ID,
-        UDEV_BUILTIN_NET_LINK,
-        UDEV_BUILTIN_PATH_ID,
-        UDEV_BUILTIN_USB_ID,
-#if HAVE_ACL
-        UDEV_BUILTIN_UACCESS,
-#endif
-        UDEV_BUILTIN_MAX
-};
-struct udev_builtin {
-        const char *name;
-        int (*cmd)(struct udev_device *dev, int argc, char *argv[], bool test);
-        const char *help;
-        int (*init)(void);
-        void (*exit)(void);
-        bool (*validate)(void);
-        bool run_once;
-};
-#if HAVE_BLKID
-extern const struct udev_builtin udev_builtin_blkid;
-#endif
-extern const struct udev_builtin udev_builtin_btrfs;
-extern const struct udev_builtin udev_builtin_hwdb;
-extern const struct udev_builtin udev_builtin_input_id;
-extern const struct udev_builtin udev_builtin_keyboard;
-#if HAVE_KMOD
-extern const struct udev_builtin udev_builtin_kmod;
-#endif
-extern const struct udev_builtin udev_builtin_net_id;
-extern const struct udev_builtin udev_builtin_net_setup_link;
-extern const struct udev_builtin udev_builtin_path_id;
-extern const struct udev_builtin udev_builtin_usb_id;
-extern const struct udev_builtin udev_builtin_uaccess;
-void udev_builtin_init(void);
-void udev_builtin_exit(void);
-enum udev_builtin_cmd udev_builtin_lookup(const char *command);
-const char *udev_builtin_name(enum udev_builtin_cmd cmd);
-bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
-int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
-void udev_builtin_list(void);
-bool udev_builtin_validate(void);
-int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
-int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const char *modalias,
-                             const char *filter, bool test);
-
 /* Cleanup functions */
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_event*, udev_event_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_rules*, udev_rules_unref);

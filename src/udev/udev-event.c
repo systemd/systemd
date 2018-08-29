@@ -24,6 +24,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "udev-builtin.h"
 #include "udev-node.h"
 #include "udev-watch.h"
 #include "udev.h"
