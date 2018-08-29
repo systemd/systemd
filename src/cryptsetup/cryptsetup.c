@@ -24,10 +24,14 @@
 
 /* internal helper */
 #define ANY_LUKS "LUKS"
+/* as in src/cryptsetup.h */
+#define CRYPT_SECTOR_SIZE 512
+#define CRYPT_MAX_SECTOR_SIZE 4096
 
 static const char *arg_type = NULL; /* ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT or CRYPT_PLAIN */
 static char *arg_cipher = NULL;
 static unsigned arg_key_size = 0;
+static unsigned arg_sector_size = CRYPT_SECTOR_SIZE;
 static int arg_key_slot = CRYPT_ANY_SLOT;
 static unsigned arg_keyfile_size = 0;
 static uint64_t arg_keyfile_offset = 0;
@@ -86,6 +90,29 @@ static int parse_one_option(const char *option) {
                 }
 
                 arg_key_size /= 8;
+
+        } else if ((val = startswith(option, "sector-size="))) {
+
+#if HAVE_LIBCRYPTSETUP_SECTOR_SIZE
+                r = safe_atou(val, &arg_sector_size);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                if (arg_sector_size % 2) {
+                        log_error("sector-size= not a multiple of 2, ignoring.");
+                        return 0;
+                }
+
+                if (arg_sector_size < CRYPT_SECTOR_SIZE || arg_sector_size > CRYPT_MAX_SECTOR_SIZE) {
+                        log_error("sector-size= is outside of %u and %u, ignoring.", CRYPT_SECTOR_SIZE, CRYPT_MAX_SECTOR_SIZE);
+                        return 0;
+                }
+#else
+                log_error("sector-size= is not supported, compiled with old libcryptsetup.");
+                return 0;
+#endif
 
         } else if ((val = startswith(option, "key-slot="))) {
 
@@ -472,6 +499,9 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 struct crypt_params_plain params = {
                         .offset = arg_offset,
                         .skip = arg_skip,
+#if HAVE_LIBCRYPTSETUP_SECTOR_SIZE
+                        .sector_size = arg_sector_size,
+#endif
                 };
                 const char *cipher, *cipher_mode;
                 _cleanup_free_ char *truncated_cipher = NULL;
