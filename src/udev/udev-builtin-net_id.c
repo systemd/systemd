@@ -658,6 +658,23 @@ static int names_mac(struct udev_device *dev, struct netnames *names) {
         unsigned int i;
         unsigned int a1, a2, a3, a4, a5, a6;
 
+        /* Some kinds of devices tend to have hardware addresses
+         * that are impossible to use in an iface name.
+         */
+        s = udev_device_get_sysattr_value(dev, "type");
+        if (!s)
+                return EXIT_FAILURE;
+        i = strtoul(s, NULL, 0);
+        switch (i) {
+        /* The persistent part of a hardware address of an InfiniBand NIC
+         * is 8 bytes long. We cannot fit this much in an iface name.
+         */
+        case ARPHRD_INFINIBAND:
+                return -EINVAL;
+        default:
+                break;
+        }
+
         /* check for NET_ADDR_PERM, skip random MAC addresses */
         s = udev_device_get_sysattr_value(dev, "addr_assign_type");
         if (!s)
