@@ -983,6 +983,62 @@ static void test_with_dropin_template(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-3@instance-2.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 }
 
+static void test_preset_multiple_instances(const char *root) {
+        UnitFileChange *changes = NULL;
+        size_t n_changes = 0;
+        const char *p;
+        UnitFileState state;
+
+        /* Set up template service files and preset file */
+        p = strjoina(root, "/usr/lib/systemd/system/foo@.service");
+        assert_se(write_string_file(p,
+                                    "[Install]\n"
+                                    "DefaultInstance=def\n"
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        p = strjoina(root, "/usr/lib/systemd/system-preset/test.preset");
+        assert_se(write_string_file(p,
+                                    "enable foo@.service bar0 bar1 bartest\n"
+                                    "enable emptylist@.service\n" /* This line ensures the old functionality for templated unit still works */
+                                    "disable *\n" , WRITE_STRING_FILE_CREATE) >= 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        /* Preset a single instantiated unit specified in the list */
+        assert_se(unit_file_preset(UNIT_FILE_SYSTEM, 0, root, STRV_MAKE("foo@bar0.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == UNIT_FILE_SYMLINK);
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_PATH"/multi-user.target.wants/foo@bar0.service");
+        assert_se(streq(changes[0].path, p));
+        unit_file_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_disable(UNIT_FILE_SYSTEM, 0, root, STRV_MAKE("foo@bar0.service"), &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == UNIT_FILE_UNLINK);
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_PATH"/multi-user.target.wants/foo@bar0.service");
+        assert_se(streq(changes[0].path, p));
+        unit_file_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        /* Check for preset-all case, only instances on the list should be enabled, not including the default instance */
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        assert_se(unit_file_preset_all(UNIT_FILE_SYSTEM, 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(n_changes > 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+
+}
+
 int main(int argc, char *argv[]) {
         char root[] = "/tmp/rootXXXXXX";
         const char *p;
@@ -1012,6 +1068,7 @@ int main(int argc, char *argv[]) {
         test_indirect(root);
         test_preset_and_list(root);
         test_preset_order(root);
+        test_preset_multiple_instances(root);
         test_revert(root);
         test_static_instance(root);
         test_with_dropin(root);
