@@ -34,7 +34,7 @@ static DynamicUser* dynamic_user_free(DynamicUser *d) {
 }
 
 static int dynamic_user_add(Manager *m, const char *name, int storage_socket[2], DynamicUser **ret) {
-        DynamicUser *d = NULL;
+        DynamicUser *d;
         int r;
 
         assert(m);

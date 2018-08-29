@@ -58,7 +58,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
         }
 
 #define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,scope) \
-        type name##_from_string(const char *s) {                        \
+        scope type name##_from_string(const char *s) {                  \
                 type i;                                                 \
                 unsigned u = 0;                                         \
                 if (!s)                                                 \
