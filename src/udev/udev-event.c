@@ -24,6 +24,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "udev-node.h"
 #include "udev-watch.h"
 #include "udev.h"
 
@@ -808,7 +809,7 @@ void udev_event_execute_rules(struct udev_event *event,
                                           properties_list);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
-                        udev_node_remove(dev);
+                        udev_node_remove(dev->device);
         } else {
                 event->dev_db = udev_device_clone_with_db(dev);
                 if (event->dev_db != NULL) {
@@ -849,7 +850,7 @@ void udev_event_execute_rules(struct udev_event *event,
 
                         /* remove/update possible left-over symlinks from old database entry */
                         if (event->dev_db != NULL)
-                                udev_node_update_old_links(dev, event->dev_db);
+                                udev_node_update_old_links(dev->device, event->dev_db->device);
 
                         if (!event->owner_set)
                                 event->uid = udev_device_get_devnode_uid(dev);
@@ -871,7 +872,7 @@ void udev_event_execute_rules(struct udev_event *event,
                         }
 
                         apply = streq(udev_device_get_action(dev), "add") || event->owner_set || event->group_set || event->mode_set;
-                        udev_node_add(dev, apply, event->mode, event->uid, event->gid, &event->seclabel_list);
+                        udev_node_add(dev->device, apply, event->mode, event->uid, event->gid, &event->seclabel_list);
                 }
 
                 /* preserve old, or get new initialization timestamp */

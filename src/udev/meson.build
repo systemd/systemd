@@ -22,6 +22,7 @@ libudev_core_sources = '''
         udev-ctrl.c
         udev-event.c
         udev-node.c
+        udev-node.h
         udev-rules.c
         udev-watch.c
         udev-watch.h
