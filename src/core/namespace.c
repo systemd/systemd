@@ -419,11 +419,7 @@ static int mount_path_compare(const void *a, const void *b) {
 static int prefix_where_needed(MountEntry *m, size_t n, const char *root_directory) {
         size_t i;
 
-        /* Prefixes all paths in the bind mount table with the root directory if it is specified and the entry needs
-         * that. */
-
-        if (!root_directory)
-                return 0;
+        /* Prefixes all paths in the bind mount table with the root directory if the entry needs that. */
 
         for (i = 0; i < n; i++) {
                 char *s;
