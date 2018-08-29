@@ -11,6 +11,7 @@
  *
  * Two character prefixes based on the type of interface:
  *   en — Ethernet
+ *   ib — InfiniBand
  *   sl — serial line IP (slip)
  *   wl — wlan
  *   ww — wwan
@@ -66,6 +67,12 @@
  *   /sys/devices/pci0000:00/0000:00:1c.1/0000:03:00.0/net/wlp3s0
  *   ID_NET_NAME_MAC=wlx0024d7e31130
  *   ID_NET_NAME_PATH=wlp3s0
+ *
+ * PCI IB host adapter with 2 ports:
+ *   /sys/devices/pci0000:00/0000:00:03.0/0000:15:00.0/net/ibp21s0f0
+ *   ID_NET_NAME_PATH=ibp21s0f0
+ *   /sys/devices/pci0000:00/0000:00:03.0/0000:15:00.1/net/ibp21s0f1
+ *   ID_NET_NAME_PATH=ibp21s0f1
  *
  * USB built-in 3G modem:
  *   /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1.4/2-1.4:1.6/net/wwp0s29u1u4i6
@@ -704,7 +711,9 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         struct netnames names = {};
         int err;
 
-        /* handle only ARPHRD_ETHER and ARPHRD_SLIP devices */
+        /* handle only ARPHRD_ETHER, ARPHRD_SLIP
+         * and ARPHRD_INFINIBAND devices
+         */
         s = udev_device_get_sysattr_value(dev, "type");
         if (!s)
                 return EXIT_FAILURE;
@@ -712,6 +721,9 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         switch (i) {
         case ARPHRD_ETHER:
                 prefix = "en";
+                break;
+        case ARPHRD_INFINIBAND:
+                prefix = "ib";
                 break;
         case ARPHRD_SLIP:
                 prefix = "sl";
