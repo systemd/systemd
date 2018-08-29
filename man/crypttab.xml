@@ -251,6 +251,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>sector-size=</option></term>
+
+        <listitem><para>Specifies the sector size in bytes. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this
+        option.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>swap</option></term>
 
         <listitem><para>The encrypted block device will be used as a
