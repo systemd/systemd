@@ -304,7 +304,7 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
         for (i = 0; i < n; i++) {
                 const TemporaryFileSystem *t = tmpfs + i;
                 _cleanup_free_ char *o = NULL, *str = NULL;
-                unsigned long flags = MS_NODEV|MS_STRICTATIME;
+                unsigned long flags;
                 bool ro = false;
 
                 if (!path_is_absolute(t->path)) {
@@ -312,29 +312,25 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
                         return -EINVAL;
                 }
 
-                if (!isempty(t->options)) {
-                        str = strjoin("mode=0755,", t->options);
-                        if (!str)
-                                return -ENOMEM;
+                str = strjoin("mode=0755,", t->options);
+                if (!str)
+                        return -ENOMEM;
 
-                        r = mount_option_mangle(str, MS_NODEV|MS_STRICTATIME, &flags, &o);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to parse mount option '%s': %m", str);
+                r = mount_option_mangle(str, MS_NODEV|MS_STRICTATIME, &flags, &o);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse mount option '%s': %m", str);
 
-                        ro = flags & MS_RDONLY;
-                        if (ro)
-                                flags ^= MS_RDONLY;
-                }
+                ro = flags & MS_RDONLY;
+                if (ro)
+                        flags ^= MS_RDONLY;
 
                 *((*p)++) = (MountEntry) {
                         .path_const = t->path,
                         .mode = TMPFS,
                         .read_only = ro,
-                        .options_malloc = o,
+                        .options_malloc = TAKE_PTR(o),
                         .flags = flags,
                 };
-
-                o = NULL;
         }
 
         return 0;

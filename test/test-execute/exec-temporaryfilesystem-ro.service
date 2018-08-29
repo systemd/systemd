@@ -10,6 +10,9 @@ ExecStart=/bin/sh -c 'test -d /var/test-exec-temporaryfilesystem/rw && test -d /
 # Check TemporaryFileSystem= are empty
 ExecStart=/bin/sh -c 'for i in $$(ls -A /var); do test $$i = test-exec-temporaryfilesystem || false; done'
 
+# Check default mode
+ExecStart=sh -x -c 'test "$$(stat -c %%a /var)" = "755"'
+
 # Cannot create a file in /var
 ExecStart=/bin/sh -c '! touch /var/hoge'
 
