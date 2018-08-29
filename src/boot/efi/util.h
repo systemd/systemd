@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-
-#ifndef __SDBOOT_UTIL_H
-#define __SDBOOT_UTIL_H
+#pragma once
 
 #include <efi.h>
 #include <efilib.h>
@@ -39,5 +37,3 @@ static inline void FreePoolp(void *p) {
 
 #define _cleanup_(x) __attribute__((cleanup(x)))
 #define _cleanup_freepool_ _cleanup_(FreePoolp)
-
-#endif
