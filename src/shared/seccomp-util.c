@@ -1061,10 +1061,8 @@ int seccomp_parse_syscall_filter_full(
                                 case -ENOMEM:
                                         return flags & SECCOMP_PARSE_LOG ? log_oom() : -ENOMEM;
                                 case -EEXIST:
-                                        if (flags & SECCOMP_PARSE_LOG)
-                                                log_warning("System call %s already blocked with different errno: %d",
-                                                            name, PTR_TO_INT(hashmap_get(filter, INT_TO_PTR(id + 1))));
-                                        return -EINVAL;
+                                        assert_se(hashmap_update(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num)) == 0);
+                                        break;
                                 default:
                                         return r;
                                 }
