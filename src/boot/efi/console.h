@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-
-#ifndef __SDBOOT_CONSOLE_H
-#define __SDBOOT_CONSOLE_H
+#pragma once
 
 #define EFI_SHIFT_STATE_VALID           0x80000000
 #define EFI_RIGHT_CONTROL_PRESSED       0x00000004
@@ -24,4 +22,3 @@ enum console_mode_change_type {
 
 EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait);
 EFI_STATUS console_set_mode(UINTN *mode, enum console_mode_change_type how);
-#endif

@@ -1,5 +1,4 @@
-#ifndef _LINUX_SECUREBITS_H
-#define _LINUX_SECUREBITS_H 1
+#pragma once
 
 /* This is minimal version of Linux' linux/securebits.h header file,
  * which is licensed GPL2 */
@@ -41,5 +40,3 @@
                                  issecure_mask(SECURE_NO_SETUID_FIXUP) | \
                                  issecure_mask(SECURE_KEEP_CAPS))
 #define SECURE_ALL_LOCKS	(SECURE_ALL_BITS << 1)
-
-#endif /* !_LINUX_SECUREBITS_H */
