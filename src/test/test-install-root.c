@@ -1037,6 +1037,7 @@ static void test_preset_multiple_instances(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bar1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 
+        unit_file_changes_free(changes, n_changes);
 }
 
 int main(int argc, char *argv[]) {
