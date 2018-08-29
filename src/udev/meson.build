@@ -20,6 +20,7 @@ systemd_udevd_sources = files('udevd.c')
 libudev_core_sources = '''
         udev.h
         udev-ctrl.c
+        udev-ctrl.h
         udev-event.c
         udev-node.c
         udev-node.h

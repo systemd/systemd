@@ -13,9 +13,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "libudev-private.h"
 #include "time-util.h"
 #include "udevadm.h"
-#include "udev.h"
+#include "udev-ctrl.h"
+#include "util.h"
 
 static usec_t arg_timeout = 120 * USEC_PER_SEC;
 static const char *arg_exists = NULL;

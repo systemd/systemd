@@ -52,6 +52,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
+#include "udev-ctrl.h"
 #include "udev-util.h"
 #include "udev-watch.h"
 #include "udev.h"
