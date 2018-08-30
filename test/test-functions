@@ -190,7 +190,7 @@ $KERNEL_APPEND \
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
 
-    local _nspawn_cmd="$BUILD_DIR/systemd-nspawn $NSPAWN_ARGUMENTS --register=no --kill-signal=SIGKILL --directory=$TESTDIR/nspawn-root $PATH_TO_INIT $KERNEL_APPEND"
+    local _nspawn_cmd="$BUILD_DIR/systemd-nspawn $NSPAWN_ARGUMENTS --keep-unit --register=no --kill-signal=SIGKILL --directory=$TESTDIR/nspawn-root $PATH_TO_INIT $KERNEL_APPEND"
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
         _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
     fi
