@@ -144,6 +144,20 @@
         to the one specified by <varname>rd.luks.key=</varname> or
         <varname>luks.key=</varname> of the corresponding UUID, or the
         password file that was specified without a UUID.</para>
+
+        <para>It is also possible to specify an external device which
+        should be mounted before we attempt to unlock the LUKS device.
+        systemd-cryptsetup will use password file stored on that
+        device. Device containing password file is specified by
+        appending colon and a device identifier to the password file
+        path. For example,
+        <varname>rd.luks.uuid=</varname>b40f1abf-2a53-400a-889a-2eccc27eaa40
+        <varname>rd.luks.key=</varname>b40f1abf-2a53-400a-889a-2eccc27eaa40=/keyfile:LABEL=keydev.
+        Hence, in this case, we will attempt to mount file system
+        residing on the block device with label <literal>keydev</literal>.
+        This syntax is for now only supported on a per-device basis,
+        i.e. you have to specify LUKS device UUID.</para>
+
         <para><varname>rd.luks.key=</varname>
         is honored only by initial RAM disk
         (initrd) while
