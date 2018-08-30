@@ -190,7 +190,7 @@ $KERNEL_APPEND \
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
 
-    local _nspawn_cmd="$BUILD_DIR/systemd-nspawn $NSPAWN_ARGUMENTS --register=no --kill-signal=SIGKILL --directory=$TESTDIR/nspawn-root $PATH_TO_INIT $KERNEL_APPEND"
+    local _nspawn_cmd="$BUILD_DIR/systemd-nspawn $NSPAWN_ARGUMENTS --register=no --kill-signal=SIGKILL --directory=$TESTDIR/$1 $PATH_TO_INIT $KERNEL_APPEND"
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
         _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
     fi
@@ -450,9 +450,9 @@ EOF
 
 check_result_nspawn() {
     ret=1
-    [[ -e $TESTDIR/nspawn-root/testok ]] && ret=0
-    [[ -f $TESTDIR/nspawn-root/failed ]] && cp -a $TESTDIR/nspawn-root/failed $TESTDIR
-    cp -a $TESTDIR/nspawn-root/var/log/journal $TESTDIR
+    [[ -e $TESTDIR/$1/testok ]] && ret=0
+    [[ -f $TESTDIR/$1/failed ]] && cp -a $TESTDIR/$1/failed $TESTDIR
+    cp -a $TESTDIR/$1/var/log/journal $TESTDIR
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
@@ -662,6 +662,9 @@ setup_nspawn_root() {
     cp -ar $initdir $TESTDIR/nspawn-root
     # we don't mount in the nspawn root
     rm -f $TESTDIR/nspawn-root/etc/fstab
+    if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
+        cp -ar $TESTDIR/nspawn-root $TESTDIR/unprivileged-nspawn-root
+    fi
 }
 
 setup_basic_dirs() {
@@ -1478,11 +1481,19 @@ test_run() {
         fi
     fi
     if [ -z "$TEST_NO_NSPAWN" ]; then
-        if run_nspawn; then
-            check_result_nspawn || return 1
+        if run_nspawn "nspawn-root"; then
+            check_result_nspawn "nspawn-root" || return 1
         else
             dwarn "can't run systemd-nspawn, skipping"
         fi
+
+        if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
+            if NSPAWN_ARGUMENTS="-U --private-network $NSPAWN_ARGUMENTS" run_nspawn "unprivileged-nspawn-root"; then
+                check_result_nspawn "unprivileged-nspawn-root" || return 1
+            else
+                dwarn "can't run systemd-nspawn, skipping"
+            fi
+	fi
     fi
     return 0
 }
