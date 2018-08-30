@@ -91,7 +91,7 @@
         <listitem><para>Takes a boolean argument or
         <literal>resolve</literal>. Controls Link-Local Multicast Name
         Resolution support (<ulink
-        url="https://tools.ietf.org/html/rfc4795">RFC 4794</ulink>) on
+        url="https://tools.ietf.org/html/rfc4795">RFC 4795</ulink>) on
         the local host. If true, enables full LLMNR responder and
         resolver support. If false, disables both. If set to
         <literal>resolve</literal>, only resolution support is enabled,
