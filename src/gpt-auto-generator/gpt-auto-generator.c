@@ -495,8 +495,8 @@ static int open_parent(dev_t devnum, int *ret) {
         log_debug("%s: root device %s.", name, node);
 
         r = sd_device_get_devnum(parent, &pn);
-        if (r < 0) {
-                log_debug_errno(r, "%s: parent device is not a proper block device, ignoring: %m", name);
+        if (r < 0 || major(pn) == 0) {
+                log_debug("%s: parent device is not a proper block device, ignoring", name);
                 goto not_found;
         }
 

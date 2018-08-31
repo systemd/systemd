@@ -287,7 +287,7 @@ int dissect_image(
                 FOREACH_DEVICE_AND_SUBSYSTEM(e, q) {
                         dev_t qn;
 
-                        if (sd_device_get_devnum(q, &qn) < 0)
+                        if (sd_device_get_devnum(q, &qn) < 0 || major(qn) == 0)
                                 continue;
 
                         if (!device_is_block(q))
@@ -362,7 +362,7 @@ int dissect_image(
                 int nr;
 
                 r = sd_device_get_devnum(q, &qn);
-                if (r < 0)
+                if (r < 0 || major(qn) == 0)
                         continue;
 
                 if (st.st_rdev == qn)
