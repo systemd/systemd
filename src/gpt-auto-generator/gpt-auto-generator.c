@@ -474,8 +474,8 @@ static int open_parent(dev_t devnum, int *ret) {
 
         /* Does it have a devtype? */
         r = sd_device_get_devtype(parent, &devtype);
-        if (r < 0) {
-                log_debug_errno(r, "%s: parent doesn't have a device type, ignoring: %m", name);
+        if (r < 0 || !devtype) {
+                log_debug("%s: parent doesn't have a device type, ignoring", name);
                 goto not_found;
         }
 
