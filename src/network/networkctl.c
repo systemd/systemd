@@ -39,16 +39,13 @@ static bool arg_legend = true;
 static bool arg_all = false;
 
 static char *link_get_type_string(unsigned short iftype, sd_device *d) {
-        const char *t;
+        const char *t, *devtype;
         char *p;
 
-        if (d) {
-                const char *devtype = NULL;
-
-                (void) sd_device_get_devtype(d, &devtype);
-                if (!isempty(devtype))
-                        return strdup(devtype);
-        }
+        if (d &&
+            sd_device_get_devtype(d, &devtype) >= 0 &&
+            !isempty(devtype))
+                return strdup(devtype);
 
         t = arphrd_to_name(iftype);
         if (!t)
@@ -768,12 +765,10 @@ static int link_status_one(
                 (void) sd_device_get_property_value(d, "ID_NET_DRIVER", &driver);
                 (void) sd_device_get_property_value(d, "ID_PATH", &path);
 
-                r = sd_device_get_property_value(d, "ID_VENDOR_FROM_DATABASE", &vendor);
-                if (r < 0)
+                if (sd_device_get_property_value(d, "ID_VENDOR_FROM_DATABASE", &vendor) < 0)
                         (void) sd_device_get_property_value(d, "ID_VENDOR", &vendor);
 
-                r = sd_device_get_property_value(d, "ID_MODEL_FROM_DATABASE", &model);
-                if (r < 0)
+                if (sd_device_get_property_value(d, "ID_MODEL_FROM_DATABASE", &model) < 0)
                         (void) sd_device_get_property_value(d, "ID_MODEL", &model);
         }
 
