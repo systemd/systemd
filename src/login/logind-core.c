@@ -305,7 +305,7 @@ int manager_process_button_device(Manager *m, sd_device *d) {
                 button_free(b);
 
         } else {
-                const char *sn = NULL;
+                const char *sn;
 
                 r = manager_add_button(m, sysname, &b);
                 if (r < 0)

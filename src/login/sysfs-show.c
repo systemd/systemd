@@ -40,7 +40,7 @@ static int show_sysfs_one(
                 max_width = n_columns;
 
         while (*i_dev < n_dev) {
-                const char *sysfs, *sn, *name = NULL, *subsystem = NULL, *sysname = NULL;
+                const char *sysfs, *sn, *name = NULL, *subsystem, *sysname;
                 _cleanup_free_ char *k = NULL, *l = NULL;
                 size_t lookahead;
                 bool is_master;
@@ -53,7 +53,10 @@ static int show_sysfs_one(
                         sn = "seat0";
 
                 /* Explicitly also check for tag 'seat' here */
-                if (!streq(seat, sn) || sd_device_has_tag(dev_list[*i_dev], "seat") <= 0) {
+                if (!streq(seat, sn) ||
+                    sd_device_has_tag(dev_list[*i_dev], "seat") <= 0 ||
+                    sd_device_get_subsystem(dev_list[*i_dev], &subsystem) < 0 ||
+                    sd_device_get_sysname(dev_list[*i_dev], &sysname) < 0) {
                         (*i_dev)++;
                         continue;
                 }
@@ -62,9 +65,6 @@ static int show_sysfs_one(
 
                 if (sd_device_get_sysattr_value(dev_list[*i_dev], "name", &name) < 0)
                         (void) sd_device_get_sysattr_value(dev_list[*i_dev], "id", &name);
-
-                (void) sd_device_get_subsystem(dev_list[*i_dev], &subsystem);
-                (void) sd_device_get_sysname(dev_list[*i_dev], &sysname);
 
                 /* Look if there's more coming after this */
                 for (lookahead = *i_dev + 1; lookahead < n_dev; lookahead++) {
