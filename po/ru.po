@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
 "POT-Creation-Date: 2015-11-22 16:37+0100\n"
-"PO-Revision-Date: 2018-06-16 00:07+0300\n"
+"PO-Revision-Date: 2018-09-01 18:46+0300\n"
 "Last-Translator: Sergey Ptashnick <0comffdiz@inbox.ru>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -69,19 +69,19 @@ msgstr ""
 "Чтобы заставить systemd перечитать конфигурацию, необходимо пройти "
 "аутентификацию."
 
-#: src/hostname/org.freedesktop.hostname1.policy:22
+#: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
 msgstr "Настроить имя компьютера"
 
-#: src/hostname/org.freedesktop.hostname1.policy:23
+#: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local host name."
 msgstr "Чтобы настроить имя компьютера, необходимо пройти аутентификацию."
 
-#: src/hostname/org.freedesktop.hostname1.policy:32
+#: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static host name"
 msgstr "Настроить статическое имя компьютера"
 
-#: src/hostname/org.freedesktop.hostname1.policy:33
+#: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local host name, "
 "as well as the pretty host name."
@@ -89,14 +89,22 @@ msgstr ""
 "Чтобы настроить статическое имя компьютера, а также его «красивое» имя, "
 "необходимо пройти аутентификацию."
 
-#: src/hostname/org.freedesktop.hostname1.policy:43
+#: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
 msgstr "Настроить информацию о компьютере"
 
-#: src/hostname/org.freedesktop.hostname1.policy:44
+#: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
 msgstr ""
 "Чтобы настроить информацию о компьютере, необходимо пройти аутентификацию."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "Получить UUID продукта"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "Чтобы получить UUID продукта, необходимо пройти аутентификацию."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -602,22 +610,23 @@ msgstr ""
 "аутентификацию."
 
 #: src/portable/org.freedesktop.portable1.policy:13
-msgid "Inspect a portable service"
+msgid "Inspect a portable service image"
 msgstr "Прочитать образ переносимой службы"
 
 #: src/portable/org.freedesktop.portable1.policy:14
-msgid "Authentication is required to inspect a portable service."
+msgid "Authentication is required to inspect a portable service image."
 msgstr "Чтобы прочитать образ переносимой службы, необходимо пройти "
 "аутентификацию."
 
 #: src/portable/org.freedesktop.portable1.policy:23
-msgid "Attach or detach a portable service"
-msgstr "Подключить или отключить переносимую службу"
+msgid "Attach or detach a portable service image"
+msgstr "Подключить или отключить образ переносимой службы"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-msgid "Authentication is required to attach or detach a portable service."
-msgstr "Чтобы подключить или отключить переносимую службу, необходимо пройти "
-"аутентификацию."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr "Чтобы подключить или отключить образ переносимой службы, необходимо "
+"пройти аутентификацию."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
@@ -687,35 +696,35 @@ msgstr ""
 "Чтобы включить или выключить синхронизацию времени по сети, необходимо "
 "пройти аутентификацию."
 
-#: src/core/dbus-unit.c:329
+#: src/core/dbus-unit.c:326
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Чтобы запустить «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:330
+#: src/core/dbus-unit.c:327
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Чтобы остановить «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:331
+#: src/core/dbus-unit.c:328
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 "Чтобы заставить «$(unit)» перечитать конфигурацию, необходимо пройти "
 "аутентификацию."
 
-#: src/core/dbus-unit.c:332 src/core/dbus-unit.c:333
+#: src/core/dbus-unit.c:329 src/core/dbus-unit.c:330
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Чтобы перезапустить «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:440
+#: src/core/dbus-unit.c:437
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "Чтобы убить юнит «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:471
+#: src/core/dbus-unit.c:468
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Чтобы сбросить состояние «failed» у юнита «$(unit)», необходимо пройти "
 "аутентификацию."
 
-#: src/core/dbus-unit.c:504
+#: src/core/dbus-unit.c:501
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Чтобы изменить параметры юнита «$(unit)», необходимо пройти "
 "аутентификацию."
