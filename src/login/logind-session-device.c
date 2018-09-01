@@ -255,10 +255,10 @@ static DeviceType detect_device_type(sd_device *dev) {
             sd_device_get_subsystem(dev, &subsystem) < 0)
                 return type;
 
-        if (streq_ptr(subsystem, "drm")) {
+        if (streq(subsystem, "drm")) {
                 if (startswith(sysname, "card"))
                         type = DEVICE_TYPE_DRM;
-        } else if (streq_ptr(subsystem, "input")) {
+        } else if (streq(subsystem, "input")) {
                 if (startswith(sysname, "event"))
                         type = DEVICE_TYPE_EVDEV;
         }

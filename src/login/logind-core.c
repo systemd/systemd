@@ -218,14 +218,14 @@ int manager_add_button(Manager *m, const char *name, Button **_button) {
 }
 
 int manager_process_seat_device(Manager *m, sd_device *d) {
-        const char *action = NULL;
+        const char *action;
         Device *device;
         int r;
 
         assert(m);
 
-        (void) sd_device_get_property_value(d, "ACTION", &action);
-        if (streq_ptr(action, "remove")) {
+        if (sd_device_get_property_value(d, "ACTION", &action) >= 0 &&
+            streq(action, "remove")) {
                 const char *syspath;
 
                 r = sd_device_get_syspath(d, &syspath);
@@ -285,7 +285,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
 }
 
 int manager_process_button_device(Manager *m, sd_device *d) {
-        const char *action = NULL, *sysname;
+        const char *action, *sysname;
         Button *b;
         int r;
 
@@ -295,8 +295,8 @@ int manager_process_button_device(Manager *m, sd_device *d) {
         if (r < 0)
                 return r;
 
-        (void) sd_device_get_property_value(d, "ACTION", &action);
-        if (streq_ptr(action, "remove")) {
+        if (sd_device_get_property_value(d, "ACTION", &action) >= 0 &&
+            streq(action, "remove")) {
 
                 b = hashmap_get(m->buttons, sysname);
                 if (!b)
