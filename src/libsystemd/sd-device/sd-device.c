@@ -38,6 +38,10 @@ int device_new_aux(sd_device **ret) {
         *device = (sd_device) {
                 .n_ref = 1,
                 .watch_handle = -1,
+                .ifindex = -1,
+                .devmode = (mode_t) -1,
+                .devuid = (uid_t) -1,
+                .devgid = (gid_t) -1,
         };
 
         *ret = device;
@@ -575,6 +579,9 @@ _public_ int sd_device_get_ifindex(sd_device *device, int *ifindex) {
         if (r < 0)
                 return r;
 
+        if (device->ifindex < 0)
+                return -ENOENT;
+
         *ifindex = device->ifindex;
 
         return 0;
@@ -839,6 +846,9 @@ _public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
         if (r < 0)
                 return r;
 
+        if (!device->devtype)
+                return -ENOENT;
+
         *devtype = device->devtype;
 
         return 0;
@@ -885,6 +895,9 @@ _public_ int sd_device_get_devnum(sd_device *device, dev_t *devnum) {
         r = device_read_uevent_file(device);
         if (r < 0)
                 return r;
+
+        if (major(device->devnum) <= 0)
+                return -ENOENT;
 
         *devnum = device->devnum;
 
@@ -1053,6 +1066,9 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
                         return r;
         }
 
+        if (!device->sysnum)
+                return -ENOENT;
+
         *ret = device->sysnum;
 
         return 0;
@@ -1216,15 +1232,7 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                 if (r < 0)
                         return r;
 
-                r = sd_device_get_devnum(device, &devnum);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_get_ifindex(device, &ifindex);
-                if (r < 0)
-                        return r;
-
-                if (major(devnum) > 0) {
+                if (sd_device_get_devnum(device, &devnum) >= 0) {
                         assert(subsystem);
 
                         /* use dev_t — b259:131072, c254:0 */
@@ -1233,7 +1241,7 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                                      major(devnum), minor(devnum));
                         if (r < 0)
                                 return -ENOMEM;
-                } else if (ifindex > 0) {
+                } else if (sd_device_get_ifindex(device, &ifindex) >= 0 && ifindex > 0) {
                         /* use netdev ifindex — n3 */
                         r = asprintf(&id, "n%u", ifindex);
                         if (r < 0)
