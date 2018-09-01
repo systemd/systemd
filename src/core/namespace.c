@@ -265,7 +265,6 @@ static int append_empty_dir_mounts(MountEntry **p, char **strv) {
                         .path_const = *i,
                         .mode = EMPTY_DIR,
                         .ignore = false,
-                        .has_prefix = false,
                         .read_only = true,
                         .options_const = "mode=755",
                         .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
@@ -304,7 +303,7 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
         for (i = 0; i < n; i++) {
                 const TemporaryFileSystem *t = tmpfs + i;
                 _cleanup_free_ char *o = NULL, *str = NULL;
-                unsigned long flags = MS_NODEV|MS_STRICTATIME;
+                unsigned long flags;
                 bool ro = false;
 
                 if (!path_is_absolute(t->path)) {
@@ -312,29 +311,25 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
                         return -EINVAL;
                 }
 
-                if (!isempty(t->options)) {
-                        str = strjoin("mode=0755,", t->options);
-                        if (!str)
-                                return -ENOMEM;
+                str = strjoin("mode=0755,", t->options);
+                if (!str)
+                        return -ENOMEM;
 
-                        r = mount_option_mangle(str, MS_NODEV|MS_STRICTATIME, &flags, &o);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to parse mount option '%s': %m", str);
+                r = mount_option_mangle(str, MS_NODEV|MS_STRICTATIME, &flags, &o);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse mount option '%s': %m", str);
 
-                        ro = flags & MS_RDONLY;
-                        if (ro)
-                                flags ^= MS_RDONLY;
-                }
+                ro = flags & MS_RDONLY;
+                if (ro)
+                        flags ^= MS_RDONLY;
 
                 *((*p)++) = (MountEntry) {
                         .path_const = t->path,
                         .mode = TMPFS,
                         .read_only = ro,
-                        .options_malloc = o,
+                        .options_malloc = TAKE_PTR(o),
                         .flags = flags,
                 };
-
-                o = NULL;
         }
 
         return 0;
@@ -423,11 +418,7 @@ static int mount_path_compare(const void *a, const void *b) {
 static int prefix_where_needed(MountEntry *m, size_t n, const char *root_directory) {
         size_t i;
 
-        /* Prefixes all paths in the bind mount table with the root directory if it is specified and the entry needs
-         * that. */
-
-        if (!root_directory)
-                return 0;
+        /* Prefixes all paths in the bind mount table with the root directory if the entry needs that. */
 
         for (i = 0; i < n; i++) {
                 char *s;
@@ -1026,6 +1017,15 @@ static int apply_mount(
         return 0;
 }
 
+/* Change the per-mount readonly flag on an existing mount */
+static int remount_bind_readonly(const char *path, unsigned long orig_flags) {
+        int r;
+
+        r = mount(NULL, path, NULL, MS_REMOUNT | MS_BIND | MS_RDONLY | orig_flags, NULL);
+
+        return r < 0 ? -errno : 0;
+}
+
 static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
         bool submounts = false;
         int r = 0;
@@ -1035,17 +1035,15 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
 
         if (mount_entry_read_only(m)) {
                 if (IN_SET(m->mode, EMPTY_DIR, TMPFS)) {
-                        /* Make superblock readonly */
-                        if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT | MS_RDONLY | m->flags, mount_entry_options(m)) < 0)
-                                r = -errno;
+                        r = remount_bind_readonly(mount_entry_path(m), m->flags);
                 } else {
                         submounts = true;
                         r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), true, blacklist, proc_self_mountinfo);
                 }
         } else if (m->mode == PRIVATE_DEV) {
-                /* Superblock can be readonly but the submounts can't */
-                if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
-                        r = -errno;
+                /* Set /dev readonly, but not submounts like /dev/shm. Also, we only set the per-mount read-only flag.
+                 * We can't set it on the superblock, if we are inside a user namespace and running Linux <= 4.17. */
+                r = remount_bind_readonly(mount_entry_path(m), DEV_MOUNT_OPTIONS);
         } else
                 return 0;
 
