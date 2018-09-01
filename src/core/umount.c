@@ -256,22 +256,26 @@ static int loopback_list_get(MountPoint **head) {
                 return r;
 
         FOREACH_DEVICE(e, d) {
-                _cleanup_free_ MountPoint *lb = NULL;
+                _cleanup_free_ char *p = NULL;
                 const char *dn;
+                MountPoint *lb;
 
                 if (sd_device_get_devname(d, &dn) < 0)
                         continue;
 
-                lb = new0(MountPoint, 1);
+                p = strdup(dn);
+                if (!p)
+                        return -ENOMEM;
+
+                lb = new(MountPoint, 1);
                 if (!lb)
                         return -ENOMEM;
 
-                r = free_and_strdup(&lb->path, dn);
-                if (r < 0)
-                        return r;
+                *lb = (MountPoint) {
+                        .path = TAKE_PTR(p),
+                };
 
                 LIST_PREPEND(mount_point, *head, lb);
-                lb = NULL;
         }
 
         return 0;
@@ -301,27 +305,29 @@ static int dm_list_get(MountPoint **head) {
                 return r;
 
         FOREACH_DEVICE(e, d) {
-                _cleanup_free_ MountPoint *m = NULL;
+                _cleanup_free_ char *p = NULL;
                 const char *dn;
+                MountPoint *m;
                 dev_t devnum;
 
-                if (sd_device_get_devnum(d, &devnum) < 0)
+                if (sd_device_get_devnum(d, &devnum) < 0 ||
+                    sd_device_get_devname(d, &dn) < 0)
                         continue;
 
-                if (sd_device_get_devname(d, &dn) < 0)
-                        continue;
+                p = strdup(dn);
+                if (!p)
+                        return -ENOMEM;
 
-                m = new0(MountPoint, 1);
+                m = new(MountPoint, 1);
                 if (!m)
                         return -ENOMEM;
 
-                m->devnum = devnum;
-                r = free_and_strdup(&m->path, dn);
-                if (r < 0)
-                        return r;
+                *m = (MountPoint) {
+                        .path = TAKE_PTR(p),
+                        .devnum = devnum,
+                };
 
                 LIST_PREPEND(mount_point, *head, m);
-                m = NULL;
         }
 
         return 0;
