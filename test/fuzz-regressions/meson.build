@@ -18,6 +18,10 @@ fuzz_regression_tests = '''
         fuzz-journal-remote/crash-96dee870ea66d03e89ac321eee28ea63a9b9aa45
         fuzz-journal-remote/oss-fuzz-8659
         fuzz-journal-remote/oss-fuzz-8686
+        fuzz-journald-syslog/github-9795
+        fuzz-journald-syslog/github-9820
+        fuzz-journald-syslog/github-9827
+        fuzz-journald-syslog/github-9829
         fuzz-unit-file/oss-fuzz-6884
         fuzz-unit-file/oss-fuzz-6885
         fuzz-unit-file/oss-fuzz-6886
