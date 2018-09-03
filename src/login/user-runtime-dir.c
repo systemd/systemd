@@ -10,6 +10,7 @@
 #include "mount-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "selinux-util.h"
 #include "smack-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -168,6 +169,12 @@ int main(int argc, char *argv[]) {
         }
         if (!STR_IN_SET(argv[1], "start", "stop")) {
                 log_error("First argument must be either \"start\" or \"stop\".");
+                return EXIT_FAILURE;
+        }
+
+        r = mac_selinux_init();
+        if (r < 0) {
+                log_error_errno(r, "Could not initialize labelling: %m\n");
                 return EXIT_FAILURE;
         }
 
