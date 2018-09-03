@@ -5,7 +5,7 @@
 
 void server_process_native_message(
                 Server *s,
-                const void *buffer,
+                const char *buffer,
                 size_t buffer_size,
                 const struct ucred *ucred,
                 const struct timeval *tv,
