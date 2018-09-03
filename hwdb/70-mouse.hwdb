@@ -482,7 +482,7 @@ mouse:usb:v046dpc06b:name:Logitech G700 Laser Mouse:
 # Logitech G700 Laser Mouse (Wireless)
 mouse:usb:v046dpc531:name:Logitech USB Receiver:
  MOUSE_DPI=*1000@500 3800@500 500@1000 1500@1000 2000@1000
- 
+
 # Logitech G703 (Wired)
 mouse:usb:v046dpc087:name:Logitech G703 Wired/Wireless Gaming Mouse:
 # Logitech G703 (Wireless)
