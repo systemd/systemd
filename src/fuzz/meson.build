@@ -19,6 +19,11 @@ fuzzers += [
           libshared],
          [libmount]],
 
+        [['src/fuzz/fuzz-journald-native.c'],
+         [libjournal_core,
+          libshared],
+         [libselinux]],
+
         [['src/fuzz/fuzz-journald-syslog.c'],
          [libjournal_core,
           libshared],
