@@ -801,7 +801,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
 
             <para>Note that restarting a unit with this command does not necessarily flush out all of the unit's
             resources before it is started again. For example, the per-service file descriptor storage facility (see
-            <varname>FileDescriptoreStoreMax=</varname> in
+            <varname>FileDescriptorStoreMax=</varname> in
             <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>) will
             remain intact as long as the unit has a job pending, and is only cleared when the unit is fully stopped and
             no jobs are pending anymore. If it is intended that the file descriptor store is flushed out, too, during a
