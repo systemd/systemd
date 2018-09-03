@@ -496,6 +496,29 @@ static void test_memory_startswith(void) {
         assert_se(!memory_startswith("xxx", 4, "xxxx"));
 }
 
+static void test_memory_startswith_no_case(void) {
+        assert_se(streq(memory_startswith_no_case("", 0, ""), ""));
+        assert_se(streq(memory_startswith_no_case("", 1, ""), ""));
+        assert_se(streq(memory_startswith_no_case("x", 2, ""), "x"));
+        assert_se(streq(memory_startswith_no_case("X", 2, ""), "X"));
+        assert_se(!memory_startswith_no_case("", 1, "X"));
+        assert_se(!memory_startswith_no_case("", 1, "xxxxXXXX"));
+        assert_se(streq(memory_startswith_no_case("xxx", 4, "X"), "xx"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "x"), "XX"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "X"), "XX"));
+        assert_se(streq(memory_startswith_no_case("xxx", 4, "XX"), "x"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "xx"), "X"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "XX"), "X"));
+        assert_se(streq(memory_startswith_no_case("xxx", 4, "XXX"), ""));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "xxx"), ""));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "XXX"), ""));
+
+        assert_se(memory_startswith_no_case((char[2]){'x', 'x'}, 2, "xx"));
+        assert_se(memory_startswith_no_case((char[2]){'x', 'X'}, 2, "xX"));
+        assert_se(memory_startswith_no_case((char[2]){'X', 'x'}, 2, "Xx"));
+        assert_se(memory_startswith_no_case((char[2]){'X', 'X'}, 2, "XX"));
+}
+
 int main(int argc, char *argv[]) {
         test_string_erase();
         test_ascii_strcasecmp_n();
@@ -525,6 +548,7 @@ int main(int argc, char *argv[]) {
         test_first_word();
         test_strlen_ptr();
         test_memory_startswith();
+        test_memory_startswith_no_case();
 
         return 0;
 }

@@ -228,3 +228,25 @@ static inline void *memory_startswith(const void *p, size_t sz, const char *toke
 
         return (uint8_t*) p + n;
 }
+
+/* Like startswith_no_case(), but operates on arbitrary memory blocks.
+ * It works only for ASCII strings.
+ */
+static inline void *memory_startswith_no_case(const void *p, size_t sz, const char *token) {
+        size_t n, i;
+
+        assert(token);
+
+        n = strlen(token);
+        if (sz < n)
+                return NULL;
+
+        assert(p);
+
+        for (i = 0; i < n; i++) {
+                if (ascii_tolower(((char *)p)[i]) != ascii_tolower(token[i]))
+                        return NULL;
+        }
+
+        return (uint8_t*) p + n;
+}
