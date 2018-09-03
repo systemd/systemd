@@ -19,6 +19,11 @@ fuzzers += [
           libshared],
          [libmount]],
 
+        [['src/fuzz/fuzz-journald-syslog.c'],
+         [libjournal_core,
+          libshared],
+         [libselinux]],
+
         [['src/fuzz/fuzz-journal-remote.c'],
          [libsystemd_journal_remote,
           libshared],
