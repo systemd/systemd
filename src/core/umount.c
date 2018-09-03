@@ -313,7 +313,7 @@ static int dm_list_get(MountPoint **head) {
                 const char *dn;
                 dev_t devnum;
 
-                if (sd_device_get_devnum(d, &devnum) < 0)
+                if (sd_device_get_devnum(d, &devnum) < 0 || major(devnum) == 0)
                         continue;
 
                 if (sd_device_get_devname(d, &dn) < 0)
