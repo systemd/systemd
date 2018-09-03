@@ -1,7 +1,5 @@
 Bugfixes:
 
-* the error paths in usbffs_dispatch_ep() leak memory
-
 * copy.c: set the right chattrs before copying files and others after
 
 External:

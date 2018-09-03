@@ -1359,8 +1359,10 @@ static int usbffs_dispatch_eps(SocketPort *p) {
 
         n = (size_t) r;
         p->auxiliary_fds = new(int, n);
-        if (!p->auxiliary_fds)
-                return -ENOMEM;
+        if (!p->auxiliary_fds) {
+                r = -ENOMEM;
+                goto clear;
+        }
 
         p->n_auxiliary_fds = n;
 
@@ -1369,8 +1371,10 @@ static int usbffs_dispatch_eps(SocketPort *p) {
                 _cleanup_free_ char *ep = NULL;
 
                 ep = path_make_absolute(ent[i]->d_name, p->path);
-                if (!ep)
-                        return -ENOMEM;
+                if (!ep) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
 
                 path_simplify(ep, false);
 
@@ -1379,15 +1383,19 @@ static int usbffs_dispatch_eps(SocketPort *p) {
                         goto fail;
 
                 p->auxiliary_fds[k++] = r;
-                free(ent[i]);
         }
 
-        return r;
+        r = 0;
+        goto clear;
 
 fail:
         close_many(p->auxiliary_fds, k);
         p->auxiliary_fds = mfree(p->auxiliary_fds);
         p->n_auxiliary_fds = 0;
+
+clear:
+        for (i = 0; i < n; ++i)
+                free(ent[i]);
 
         return r;
 }
