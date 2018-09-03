@@ -632,7 +632,7 @@ add_symlink:
         t = strjoina("../", bn);
 
         if (symlink(t, sl) < 0)
-                log_debug_errno(errno, "Failed to symlink '%s' to '%s': %m", t, sl);
+                log_debug_errno(errno, "Failed to symlink '%s' to '%s', ignoring: %m", t, sl);
 
         return 0;
 }
@@ -657,35 +657,34 @@ static int mount_private_dev(MountEntry *m) {
         u = umask(0000);
 
         if (!mkdtemp(temporary_mount))
-                return -errno;
+                return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
 
         dev = strjoina(temporary_mount, "/dev");
         (void) mkdir(dev, 0755);
         if (mount("tmpfs", dev, "tmpfs", DEV_MOUNT_OPTIONS, "mode=755") < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to mount tmpfs on '%s': %m", dev);
                 goto fail;
         }
 
         devpts = strjoina(temporary_mount, "/dev/pts");
         (void) mkdir(devpts, 0755);
         if (mount("/dev/pts", devpts, NULL, MS_BIND, NULL) < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to bind mount /dev/pts on '%s': %m", devpts);
                 goto fail;
         }
 
-        /* /dev/ptmx can either be a device node or a symlink to /dev/pts/ptmx
-         * when /dev/ptmx a device node, /dev/pts/ptmx has 000 permissions making it inaccessible
-         * thus, in that case make a clone
-         *
-         * in nspawn and other containers it will be a symlink, in that case make it a symlink
-         */
+        /* /dev/ptmx can either be a device node or a symlink to /dev/pts/ptmx.
+         * When /dev/ptmx a device node, /dev/pts/ptmx has 000 permissions making it inaccessible.
+         * Thus, in that case make a clone.
+         * In nspawn and other containers it will be a symlink, in that case make it a symlink. */
         r = is_symlink("/dev/ptmx");
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(r, "Failed to detect whether /dev/ptmx is a symlink or not: %m");
                 goto fail;
-        if (r > 0) {
+        } else if (r > 0) {
                 devptmx = strjoina(temporary_mount, "/dev/ptmx");
                 if (symlink("pts/ptmx", devptmx) < 0) {
-                        r = -errno;
+                        r = log_debug_errno(errno, "Failed to create a symlink '%s' to pts/ptmx: %m", devptmx);
                         goto fail;
                 }
         } else {
@@ -698,20 +697,23 @@ static int mount_private_dev(MountEntry *m) {
         (void) mkdir(devshm, 0755);
         r = mount("/dev/shm", devshm, NULL, MS_BIND, NULL);
         if (r < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to bind mount /dev/shm on '%s': %m", devshm);
                 goto fail;
         }
 
         devmqueue = strjoina(temporary_mount, "/dev/mqueue");
         (void) mkdir(devmqueue, 0755);
-        (void) mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
+        if (mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL) < 0)
+                log_debug_errno(errno, "Failed to bind mount /dev/mqueue on '%s', ignoring: %m", devmqueue);
 
         devhugepages = strjoina(temporary_mount, "/dev/hugepages");
         (void) mkdir(devhugepages, 0755);
-        (void) mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
+        if (mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL) < 0)
+                log_debug_errno(errno, "Failed to bind mount /dev/hugepages on '%s', ignoring: %m", devhugepages);
 
         devlog = strjoina(temporary_mount, "/dev/log");
-        (void) symlink("/run/systemd/journal/dev-log", devlog);
+        if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
+                log_debug_errno(errno, "Failed to create a symlink '%s' to /run/systemd/journal/dev-log, ignoring: %m", devlog);
 
         NULSTR_FOREACH(d, devnodes) {
                 r = clone_device_node(d, temporary_mount, &can_mknod);
@@ -720,7 +722,9 @@ static int mount_private_dev(MountEntry *m) {
                         goto fail;
         }
 
-        dev_setup(temporary_mount, UID_INVALID, GID_INVALID);
+        r = dev_setup(temporary_mount, UID_INVALID, GID_INVALID);
+        if (r < 0)
+                log_debug_errno(r, "Failed to setup basic device tree at '%s', ignoring: %m", temporary_mount);
 
         /* Create the /dev directory if missing. It is more likely to be
          * missing when the service is started with RootDirectory. This is
@@ -729,9 +733,12 @@ static int mount_private_dev(MountEntry *m) {
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
         /* Unmount everything in old /dev */
-        umount_recursive(mount_entry_path(m), 0);
+        r = umount_recursive(mount_entry_path(m), 0);
+        if (r < 0)
+                log_debug_errno(r, "Failed to unmount directories below '%s', ignoring: %m", mount_entry_path(m));
+
         if (mount(dev, mount_entry_path(m), NULL, MS_MOVE, NULL) < 0) {
-                r = -errno;
+                r = log_debug_errno(errno, "Failed to move mount point '%s' to '%s': %m", dev, mount_entry_path(m));
                 goto fail;
         }
 
