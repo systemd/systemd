@@ -8509,8 +8509,8 @@ static int halt_now(enum action a) {
         }
 }
 
+#if ENABLE_LOGIND
 static int logind_schedule_shutdown(void) {
-
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char date[FORMAT_TIMESTAMP_MAX];
         const char *action;
@@ -8563,6 +8563,7 @@ static int logind_schedule_shutdown(void) {
                 log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.", format_timestamp(date, sizeof(date), arg_when));
         return 0;
 }
+#endif
 
 static int halt_main(void) {
         int r;
