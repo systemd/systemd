@@ -53,16 +53,16 @@ static int generate_keydev_mount(const char *name, const char *keydev, char **un
                 return r;
 
         r = mkdir("/run/systemd/cryptsetup", 0700);
-        if (r < 0)
-                return r;
+        if (r < 0 && errno != EEXIST)
+                return -errno;
 
         where = strjoin("/run/systemd/cryptsetup/keydev-", name);
         if (!where)
                 return -ENOMEM;
 
         r = mkdir(where, 0700);
-        if (r < 0)
-                return r;
+        if (r < 0 && errno != EEXIST)
+                return -errno;
 
         r = unit_name_from_path(where, ".mount", &u);
         if (r < 0)
