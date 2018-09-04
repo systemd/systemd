@@ -257,6 +257,13 @@ evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondm4*
  EVDEV_ABS_35=1360:5563:47
  EVDEV_ABS_36=1269:4618:61
 
+# HP Pavilion g6 
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHewlett-Packard:pnHPPaviliong6*
+ EVDEV_ABS_00=1284:5696:88
+ EVDEV_ABS_01=1287:4838:39
+ EVDEV_ABS_35=1284:5696:88
+ EVDEV_ABS_36=1287:4838:39
+
 # HP Pavilion dv7
 evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondv7*
  EVDEV_ABS_00=1068:5805:44
