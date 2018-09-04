@@ -6,11 +6,13 @@
 #include "alloc-util.h"
 #include "def.h"
 #include "dropin.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "hashmap.h"
+#include "id128-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -40,7 +42,7 @@ static char *arg_default_options = NULL;
 static char *arg_default_keyfile = NULL;
 
 static int generate_keydev_mount(const char *name, const char *keydev, char **unit, char **mount) {
-        _cleanup_free_ char *u = NULL, *what = NULL, *where = NULL;
+        _cleanup_free_ char *u = NULL, *what = NULL, *where = NULL, *name_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -57,7 +59,11 @@ static int generate_keydev_mount(const char *name, const char *keydev, char **un
         if (r < 0 && errno != EEXIST)
                 return -errno;
 
-        where = strjoin("/run/systemd/cryptsetup/keydev-", name);
+        name_escaped = cescape(name);
+        if (!name_escaped)
+                return -ENOMEM;
+
+        where = strjoin("/run/systemd/cryptsetup/keydev-", name_escaped);
         if (!where)
                 return -ENOMEM;
 
@@ -392,36 +398,52 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return log_oom();
 
         } else if (streq(key, "luks.key")) {
+                size_t n;
+                _cleanup_free_ char *keyfile = NULL, *keydev = NULL;
+                char *c;
+                const char *keyspec;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
-                if (r == 2) {
-                        char *c;
-                        _cleanup_free_ char *keyfile = NULL, *keydev = NULL;
+                n = strspn(value, LETTERS DIGITS "-");
+                if (value[n] != '=') {
+                        if (free_and_strdup(&arg_default_keyfile, value) < 0)
+                                 return log_oom();
+                        return 0;
+                }
 
-                        d = get_crypto_device(uuid);
-                        if (!d)
-                                return log_oom();
+                uuid = strndup(value, n);
+                if (!uuid)
+                        return log_oom();
 
-                        c = strrchr(uuid_value, ':');
-                        if (!c)
-                                /* No keydev specified */
-                                return free_and_replace(d->keyfile, uuid_value);
+                if (!id128_is_valid(uuid)) {
+                        log_warning("Failed to parse luks.key= kernel command line switch. UUID is invalid, ignoring.");
+                        return 0;
+                }
 
-                        *c = '\0';
-                        keyfile = strdup(uuid_value);
-                        keydev = strdup(++c);
+                d = get_crypto_device(uuid);
+                if (!d)
+                        return log_oom();
+
+                keyspec = value + n + 1;
+                c = strrchr(keyspec, ':');
+                if (c) {
+                         *c = '\0';
+                        keyfile = strdup(keyspec);
+                        keydev = strdup(c + 1);
 
                         if (!keyfile || !keydev)
                                 return log_oom();
+                } else {
+                        /* No keydev specified */
+                        keyfile = strdup(keyspec);
+                        if (!keyfile)
+                                return log_oom();
+                }
 
-                        free_and_replace(d->keyfile, keyfile);
-                        free_and_replace(d->keydev, keydev);
-                } else if (free_and_strdup(&arg_default_keyfile, value) < 0)
-                        return log_oom();
-
+                free_and_replace(d->keyfile, keyfile);
+                free_and_replace(d->keydev, keydev);
         } else if (streq(key, "luks.name")) {
 
                 if (proc_cmdline_value_missing(key, value))
