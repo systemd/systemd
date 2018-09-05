@@ -26,9 +26,11 @@
 /build*
 /coverage/
 /image.raw
+/.#image.raw.lck
 /image.raw.cache-pre-dev
 /image.raw.cache-pre-inst
 /install-tree
+/.mkosi-*
 /mkosi.builddir/
 /mkosi.output/
 /tags
