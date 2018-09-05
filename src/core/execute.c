@@ -2400,12 +2400,16 @@ static int apply_mount_namespace(
          * that with a special, recognizable error ENOANO. In this case, silently proceeed, but only if exclusively
          * sandboxing options were used, i.e. nothing such as RootDirectory= or BindMount= that would result in a
          * completely different execution environment. */
-        if (r == -ENOANO &&
-            n_bind_mounts == 0 && context->n_temporary_filesystems == 0 &&
-            !root_dir && !root_image &&
-            !context->dynamic_user) {
-                log_unit_debug(u, "Failed to set up namespace, assuming containerized execution and ignoring.");
-                return 0;
+        if (r == -ENOANO) {
+                if (n_bind_mounts == 0 &&
+                    context->n_temporary_filesystems == 0 &&
+                    !root_dir && !root_image &&
+                    !context->dynamic_user) {
+                        log_unit_debug(u, "Failed to set up namespace, assuming containerized execution and ignoring.");
+                        return 0;
+                }
+
+                return -EOPNOTSUPP;
         }
 
         return r;
