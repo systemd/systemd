@@ -371,6 +371,10 @@ foreach arg : ['unused-parameter',
                'unused-result',
                'format-signedness',
                'error=nonnull', # work-around for gcc 7.1 turning this on on its own
+
+               # Disable -Wmaybe-uninitialized, since it's noisy on gcc 8 with
+               # optimizations enabled, producing essentially false positives.
+               'maybe-uninitialized',
               ]
         if cc.has_argument('-W' + arg)
                 add_project_arguments('-Wno-' + arg, language : 'c')
