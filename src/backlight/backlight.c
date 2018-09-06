@@ -61,12 +61,12 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
 
                 /* Graphics card */
                 if (class == 0x30000) {
-                        *ret = TAKE_PTR(parent);
+                        *ret = parent;
                         return 0;
                 }
 
         } else if (streq(subsystem, "platform")) {
-                *ret = TAKE_PTR(parent);
+                *ret = parent;
                 return 0;
         }
 
@@ -104,9 +104,8 @@ static int same_device(sd_device *a, sd_device *b) {
 
 static int validate_device(sd_device *device) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerate = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *parent = NULL;
         const char *v, *subsystem;
-        sd_device *other;
+        sd_device *parent, *other;
         int r;
 
         assert(device);
@@ -162,8 +161,8 @@ static int validate_device(sd_device *device) {
                 return r;
 
         FOREACH_DEVICE_AND_SUBSYSTEM(enumerate, other) {
-                _cleanup_(sd_device_unrefp) sd_device *other_parent = NULL;
                 const char *other_subsystem;
+                sd_device *other_parent;
 
                 if (same_device(device, other) > 0)
                         continue;
