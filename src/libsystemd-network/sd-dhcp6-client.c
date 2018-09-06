@@ -325,7 +325,16 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         return 0;
 }
 
-int sd_dhcp6_client_set_prefix_delegation(sd_dhcp6_client *client, bool delegation) {
+int sd_dhcp6_client_get_prefix_delegation(sd_dhcp6_client *client, int *delegation) {
+        assert_return(client, -EINVAL);
+        assert_return(delegation, -EINVAL);
+
+        *delegation = client->prefix_delegation;
+
+        return 0;
+}
+
+int sd_dhcp6_client_set_prefix_delegation(sd_dhcp6_client *client, int delegation) {
         assert_return(client, -EINVAL);
 
         client->prefix_delegation = delegation;
