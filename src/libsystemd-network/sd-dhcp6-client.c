@@ -955,7 +955,7 @@ static int client_parse_message(
                         if (r < 0 && r != -ENOMSG)
                                 return r;
 
-                        r = dhcp6_lease_get_iaid(lease, &iaid_lease);
+                        r = dhcp6_lease_get_pd_iaid(lease, &iaid_lease);
                         if (r < 0)
                                 return r;
 
