@@ -134,12 +134,13 @@ evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Ta
  POINTINGSTICK_SENSITIVITY=200
  POINTINGSTICK_CONST_ACCEL=1.0
 
-# Lenovo Thinkpad X200/X201/X200s/X201s
+# Lenovo Thinkpad X200/X201/X200s/X201s/X200 Tablet/X201 Tablet
 # Note these come with 2 revisions of keyboard, with the trackpoints having a
 # different sensitivity in the different revisions. 1.25 is a bit slow for the
 # least sensitive revision, but it is better to be a bit slow than too fast.
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20?:*
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20??:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20?Tablet:*
  POINTINGSTICK_SENSITIVITY=200
  POINTINGSTICK_CONST_ACCEL=1.25
 
