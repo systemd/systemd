@@ -92,6 +92,88 @@
   4 virbr0-nic   ether    off         unmanaged
 
 4 links listed.</programlisting></para>
+
+        <para>The operational status is one of the following:
+            <variablelist>
+              <varlistentry>
+                <term>off</term>
+                <listitem>
+                  <para>the device is powered down</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>no-carrier</term>
+                <listitem>
+                  <para>the device is powered up, but it does not yet have a carrier</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>dormant</term>
+                <listitem>
+                  <para>the device has a carrier, but is not yet ready for normal traffic</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>carrier</term>
+                <listitem>
+                  <para>the link has a carrier</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>degraded</term>
+                <listitem>
+                  <para>the link has carrier and addresses valid on the local link configured</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>routable</term>
+                <listitem>
+                  <para>the link has carrier and routable address configured</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+        </para>
+
+        <para>The setup status is one of the following:
+            <variablelist>
+              <varlistentry>
+                <term>pending</term>
+                <listitem>
+                  <para>udev is still processing the link, we don't yet know if we will manage it</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>failed</term>
+                <listitem>
+                  <para>networkd failed to manage the link</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>configuring</term>
+                <listitem>
+                  <para>in the process of retrieving configuration or configuring the link</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>configured</term>
+                <listitem>
+                  <para>link configured successfully</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>unmanaged</term>
+                <listitem>
+                  <para>networkd is not handling the link</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>linger</term>
+                <listitem>
+                  <para>the link is gone, but has not yet been dropped by networkd</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+        </para>
         </listitem>
       </varlistentry>
 
