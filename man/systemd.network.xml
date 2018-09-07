@@ -1372,6 +1372,22 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>ForceDHCPv6PDOtherInformation=</varname></term>
+          <listitem>
+            <para>A boolean that enforces DHCPv6 stateful mode when the 'Other information' bit is set in
+            Router Advertisement messages. By default setting only the 'O' bit in Router Advertisements
+            makes DHCPv6 request network information in a stateless manner using a two-message Information
+            Request and Information Reply message exchange.
+            <ulink url="https://tools.ietf.org/html/rfc7084">RFC 7084</ulink>, requirement WPD-4, updates
+            this behavior for a Customer Edge router so that stateful DHCPv6 Prefix Delegation is also
+            requested when only the 'O' bit is set in Router Advertisements. This option enables such a CE
+            behavior as it is impossible to automatically distinguish the intention of the 'O' bit otherwise.
+            By default this option is set to 'false', enable it if no prefixes are delegated when the device
+            should be acting as a CE router.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
     </refsect1>
 
