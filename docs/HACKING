@@ -7,7 +7,7 @@ Request (PR):
         https://github.com/systemd/systemd/pull/new
 
 Please make sure to follow our Coding Style when submitting patches. See
-doc/CODING_STYLE for details. Also have a look at our Contribution Guidelines:
+docs/CODING_STYLE for details. Also have a look at our Contribution Guidelines:
 
         https://github.com/systemd/systemd/blob/master/.github/CONTRIBUTING.md
 
@@ -23,7 +23,7 @@ encouraged.
 Please also have a look at our list of code quality tools we have setup for systemd,
 to ensure our codebase stays in good shape:
 
-        https://github.com/systemd/systemd/blob/master/doc/CODE_QUALITY.md
+        https://github.com/systemd/systemd/blob/master/docs/CODE_QUALITY.md
 
 Please always test your work before submitting a PR. For many of the components
 of systemd testing is straight-forward as you can simply compile systemd and

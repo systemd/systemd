@@ -2749,8 +2749,8 @@ subdir('network')
 subdir('man')
 subdir('shell-completion/bash')
 subdir('shell-completion/zsh')
-subdir('doc/sysvinit')
-subdir('doc/var-log')
+subdir('docs/sysvinit')
+subdir('docs/var-log')
 
 # FIXME: figure out if the warning is true:
 # https://github.com/mesonbuild/meson/wiki/Reference-manual#install_subdir
@@ -2766,13 +2766,13 @@ install_data('LICENSE.GPL2',
              'LICENSE.LGPL2.1',
              'NEWS',
              'README',
-             'doc/CODING_STYLE',
-             'doc/DISTRO_PORTING',
-             'doc/ENVIRONMENT.md',
-             'doc/HACKING',
-             'doc/TRANSIENT-SETTINGS.md',
-             'doc/TRANSLATORS',
-             'doc/UIDS-GIDS.md',
+             'docs/CODING_STYLE',
+             'docs/DISTRO_PORTING',
+             'docs/ENVIRONMENT.md',
+             'docs/HACKING',
+             'docs/TRANSIENT-SETTINGS.md',
+             'docs/TRANSLATORS',
+             'docs/UIDS-GIDS.md',
              'src/libsystemd/sd-bus/GVARIANT-SERIALIZATION',
              install_dir : docdir)
 
