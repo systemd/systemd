@@ -123,6 +123,10 @@ int sd_dhcp6_client_get_prefix_delegation(sd_dhcp6_client *client,
                                           int *delegation);
 int sd_dhcp6_client_set_prefix_delegation(sd_dhcp6_client *client,
                                           int delegation);
+int sd_dhcp6_client_get_address_request(sd_dhcp6_client *client,
+                                        int *request);
+int sd_dhcp6_client_set_address_request(sd_dhcp6_client *client,
+                                        int request);
 
 int sd_dhcp6_client_get_lease(
                 sd_dhcp6_client *client,
