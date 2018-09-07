@@ -9,7 +9,7 @@ Request (PR):
 Please make sure to follow our Coding Style when submitting patches. See
 docs/CODING_STYLE for details. Also have a look at our Contribution Guidelines:
 
-        https://github.com/systemd/systemd/blob/master/.github/CONTRIBUTING.md
+        https://github.com/systemd/systemd/blob/master/docs/CONTRIBUTING.md
 
 When adding new functionality, tests should be added. For shared functionality
 (in src/basic and src/shared) unit tests should be sufficient. The general
