@@ -109,6 +109,8 @@ evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE7470*:pvr*
 
 # Lenovo Thinkpad X220
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX220:*
+# Lenovo Thinkpad X220 tablet
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX220Tablet:*
 # Lenovo Thinkpad X230
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX230:*
 # Lenovo Thinkpad X230 tablet
