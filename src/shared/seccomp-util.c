@@ -1057,7 +1057,15 @@ int seccomp_parse_syscall_filter_full(
                 if (!(flags & SECCOMP_PARSE_INVERT) == !!(flags & SECCOMP_PARSE_WHITELIST)) {
                         r = hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
                         if (r < 0)
-                                return flags & SECCOMP_PARSE_LOG ? log_oom() : -ENOMEM;
+                                switch (r) {
+                                case -ENOMEM:
+                                        return flags & SECCOMP_PARSE_LOG ? log_oom() : -ENOMEM;
+                                case -EEXIST:
+                                        assert_se(hashmap_update(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num)) == 0);
+                                        break;
+                                default:
+                                        return r;
+                                }
                 } else
                         (void) hashmap_remove(filter, INT_TO_PTR(id + 1));
         }
