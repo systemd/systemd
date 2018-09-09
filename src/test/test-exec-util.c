@@ -117,9 +117,9 @@ static void test_execute_directory(bool gather_stdout) {
         assert_se(chmod(mask2e, 0755) == 0);
 
         if (gather_stdout)
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL);
+                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         else
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL);
+                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(chdir(template_lo) == 0);
         assert_se(access("it_works", F_OK) >= 0);
@@ -184,7 +184,7 @@ static void test_execution_order(void) {
         assert_se(chmod(override, 0755) == 0);
         assert_se(chmod(masked, 0755) == 0);
 
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL);
+        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(read_full_file(output, &contents, NULL) >= 0);
         assert_se(streq(contents, "30-override\n80-foo\n90-bar\nlast\n"));
@@ -266,7 +266,7 @@ static void test_stdout_gathering(void) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL, NULL);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         log_info("got: %s", output);
@@ -332,7 +332,7 @@ static void test_environment_gathering(void) {
         r = setenv("PATH", "no-sh-built-in-path", 1);
         assert_se(r >= 0);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
@@ -349,7 +349,7 @@ static void test_environment_gathering(void) {
         env = strv_new("PATH=" DEFAULT_PATH);
         assert_se(env);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
@@ -364,6 +364,41 @@ static void test_environment_gathering(void) {
         (void) setenv("PATH", old, 1);
 }
 
+static void test_error_catching(void) {
+        char template[] = "/tmp/test-exec-util.XXXXXXX";
+        const char *dirs[] = {template, NULL};
+        const char *name, *name2, *name3;
+        int r;
+
+        assert_se(mkdtemp(template));
+
+        log_info("/* %s */", __func__);
+
+        /* write files */
+        name = strjoina(template, "/10-foo");
+        name2 = strjoina(template, "/20-bar");
+        name3 = strjoina(template, "/30-last");
+
+        assert_se(write_string_file(name,
+                                    "#!/bin/sh\necho a\necho b\necho c\n",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name2,
+                                    "#!/bin/sh\nexit 42\n",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name3,
+                                    "#!/bin/sh\nexit 12",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+
+        assert_se(chmod(name, 0755) == 0);
+        assert_se(chmod(name2, 0755) == 0);
+        assert_se(chmod(name3, 0755) == 0);
+
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_NONE);
+
+        /* we should exit with the error code of the first script that failed */
+        assert_se(r == 42);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -372,6 +407,7 @@ int main(int argc, char *argv[]) {
         test_execution_order();
         test_stdout_gathering();
         test_environment_gathering();
+        test_error_catching();
 
         return 0;
 }
