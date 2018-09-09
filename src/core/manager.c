@@ -3810,8 +3810,8 @@ static int manager_run_environment_generators(Manager *m) {
                 return 0;
 
         RUN_WITH_UMASK(0022)
-                r = execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, m->transient_environment);
-
+                r = execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment,
+                                        args, NULL, m->transient_environment, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         return r;
 }
 
@@ -3845,8 +3845,8 @@ static int manager_run_generators(Manager *m) {
         argv[4] = NULL;
 
         RUN_WITH_UMASK(0022)
-                (void) execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC,
-                                           NULL, NULL, (char**) argv, m->transient_environment);
+                (void) execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, NULL, NULL,
+                                           (char**) argv, m->transient_environment, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         r = 0;
 
