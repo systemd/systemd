@@ -116,7 +116,7 @@ L     /tmp/foobar -    -    -    -   /dev/null</programlisting>
       <title>Type</title>
 
       <para>The type consists of a single letter and optionally an
-      exclamation mark.</para>
+      exclamation mark and/or minus sign.</para>
 
       <para>The following line types are understood:</para>
 
@@ -438,6 +438,15 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       The second line in contrast to the first one would break a
       running system, and will only be executed with
       <option>--boot</option>.</para>
+
+      <para>If the minus sign is used, this line failing to run
+      successfully during create (and only create) will not cause
+      the execution of <command>systemd-tmpfiles</command> to return
+      an error.</para>
+
+      <para>For example:
+      <programlisting># Modify sysfs but don't fail if we are in a container with a read-only /proc
+w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
 
       <para>Note that for all line types that result in creation of any kind of file node
       (i.e. <varname>f</varname>/<varname>F</varname>,
