@@ -8511,6 +8511,7 @@ static int halt_now(enum action a) {
 
 static int logind_schedule_shutdown(void) {
 
+#if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char date[FORMAT_TIMESTAMP_MAX];
         const char *action;
@@ -8562,6 +8563,10 @@ static int logind_schedule_shutdown(void) {
         if (!arg_quiet)
                 log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.", format_timestamp(date, sizeof(date), arg_when));
         return 0;
+#else
+        log_error("Cannot schedule shutdown without logind support, proceeding with immediate shutdown.");
+        return -ENOSYS;
+#endif
 }
 
 static int halt_main(void) {
@@ -8572,11 +8577,7 @@ static int halt_main(void) {
                 return r;
 
         if (arg_when > 0)
-#if ENABLE_LOGIND
                 return logind_schedule_shutdown();
-#else
-                log_error("Cannot schedule shutdown without logind support, proceeding with immediate shutdown.");
-#endif
 
         if (geteuid() != 0) {
                 if (arg_dry_run || arg_force > 0) {
