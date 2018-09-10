@@ -2842,7 +2842,7 @@ acpi:GSC*:
  ID_VENDOR_FROM_DATABASE=General Standards Corporation
 
 acpi:GSM*:
- ID_VENDOR_FROM_DATABASE=LG Electronics
+ ID_VENDOR_FROM_DATABASE=Goldstar Company Ltd
 
 acpi:GSN*:
  ID_VENDOR_FROM_DATABASE=Grandstream Networks, Inc.
