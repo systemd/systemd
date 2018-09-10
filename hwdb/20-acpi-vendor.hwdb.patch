@@ -1,5 +1,5 @@
---- 20-acpi-vendor.hwdb.base	2018-06-12 15:51:50.897235123 +0200
-+++ 20-acpi-vendor.hwdb	2018-06-12 15:51:50.907235139 +0200
+--- 20-acpi-vendor.hwdb.base	2018-09-10 15:32:43.974756901 +0200
++++ 20-acpi-vendor.hwdb	2018-09-10 15:33:36.434997668 +0200
 @@ -3,6 +3,8 @@
  # Data imported from:
  #     http://www.uefi.org/uefi-pnp-export
@@ -166,6 +166,15 @@
  acpi:FCS*:
   ID_VENDOR_FROM_DATABASE=Focus Enhancements, Inc.
  
+@@ -2807,7 +2842,7 @@
+  ID_VENDOR_FROM_DATABASE=General Standards Corporation
+ 
+ acpi:GSM*:
+- ID_VENDOR_FROM_DATABASE=Goldstar Company Ltd
++ ID_VENDOR_FROM_DATABASE=LG Electronics
+ 
+ acpi:GSN*:
+  ID_VENDOR_FROM_DATABASE=Grandstream Networks, Inc.
 @@ -2908,6 +2943,9 @@
  acpi:HEC*:
   ID_VENDOR_FROM_DATABASE=Hisense Electric Co., Ltd.
