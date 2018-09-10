@@ -550,7 +550,7 @@ int mount_all(const char *dest,
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
                 { "tmpfs",           "/tmp",            "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL },
-                { "tmpfs",           "/sys",            "tmpfs", "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                { "tmpfs",           "/sys",            "tmpfs", "mode=555",  MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS },
                 { "sysfs",           "/sys",            "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO },    /* skipped if above was mounted */
