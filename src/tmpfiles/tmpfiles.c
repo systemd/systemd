@@ -128,6 +128,8 @@ typedef struct Item {
 
         bool force:1;
 
+        bool allow_failure:1;
+
         bool done:1;
 } Item;
 
@@ -2271,6 +2273,9 @@ static int process_item(Item *i) {
         r = arg_create ? create_item(i) : 0;
         q = arg_remove ? remove_item(i) : 0;
         p = arg_clean ? clean_item(i) : 0;
+        /* Failure can only be tolerated for create */
+        if (i->allow_failure)
+                r = 0;
 
         return t < 0 ? t :
                 r < 0 ? r :
@@ -2474,7 +2479,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
-        bool force = false, boot = false;
+        bool force = false, boot = false, allow_failure = false;
 
         assert(fname);
         assert(line >= 1);
@@ -2519,6 +2524,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         boot = true;
                 else if (action[pos] == '+' && !force)
                         force = true;
+                else if (action[pos] == '-' && !allow_failure)
+                        allow_failure = true;
                 else {
                         *invalid_config = true;
                         log_error("[%s:%u] Unknown modifiers in command '%s'",
@@ -2535,6 +2542,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
         i.type = action[0];
         i.force = force;
+        i.allow_failure = allow_failure;
 
         r = specifier_printf(path, specifier_table, NULL, &i.path);
         if (r == -ENXIO)
