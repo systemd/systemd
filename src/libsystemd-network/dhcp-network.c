@@ -126,8 +126,6 @@ int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
         const uint8_t *bcast_addr = NULL;
         uint8_t dhcp_hlen = 0;
 
-        assert_return(mac_addr_len > 0, -EINVAL);
-
         if (arp_type == ARPHRD_ETHER) {
                 assert_return(mac_addr_len == ETH_ALEN, -EINVAL);
                 memcpy(&eth_mac, mac_addr, ETH_ALEN);
