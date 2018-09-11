@@ -249,15 +249,6 @@ Features:
   for all units. It should be both a way to pin units into memory as well as a
   wait to retrieve their exit data.
 
-* maybe set a new set of env vars for services, based on RuntimeDirectory=,
-  StateDirectory=, LogsDirectory=, CacheDirectory= and ConfigurationDirectory=
-  automatically. For example, there could be $RUNTIME_DIRECTORY,
-  $STATE_DIRECTORY, $LOGS_DIRECTORY=, $CACHE_DIRECTORY and
-  $CONFIGURATION_DIRECTORY or so. This could be useful to write services that
-  can adapt to varying directories for these purposes. Special care has to be
-  taken if multiple dirs are configured. Maybe avoid setting the env vars in
-  that case?
-
 * expose IO accounting data on the bus, show it in systemd-run --wait and log
   about it in the resource log message
 
