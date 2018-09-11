@@ -71,7 +71,10 @@ char **strv_split_newlines(const char *s);
 
 int strv_split_extract(char ***t, const char *s, const char *separators, ExtractFlags flags);
 
-char *strv_join(char **l, const char *separator);
+char *strv_join_prefix(char **l, const char *separator, const char *prefix);
+static inline char *strv_join(char **l, const char *separator) {
+        return strv_join_prefix(l, separator, NULL);
+}
 
 char **strv_parse_nulstr(const char *s, size_t l);
 char **strv_split_nulstr(const char *s);
