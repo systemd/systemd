@@ -814,15 +814,18 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>These options take a whitespace-separated list of directory names. The specified directory
         names must be relative, and may not include <literal>..</literal>. If set, one or more
         directories by the specified names will be created (including their parents) below the locations
-        defined in the following table, when the unit is started.</para>
+        defined in the following table, when the unit is started. Also, the corresponding environment variable
+        is defined with the full path of directories. If multiple directories are set, then int the environment variable
+        the paths are concatenated with colon (<literal>:</literal>).</para>
         <table>
-          <title>Automatic directory creation</title>
-          <tgroup cols='3'>
+          <title>Automatic directory creation and environment variables</title>
+          <tgroup cols='4'>
             <thead>
               <row>
                 <entry>Locations</entry>
                 <entry>for system</entry>
                 <entry>for users</entry>
+                <entry>Environment variable</entry>
               </row>
             </thead>
             <tbody>
@@ -830,26 +833,31 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry><varname>RuntimeDirectory=</varname></entry>
                 <entry><filename>/run</filename></entry>
                 <entry><varname>$XDG_RUNTIME_DIR</varname></entry>
+                <entry><varname>$RUNTIME_DIRECTORY</varname></entry>
               </row>
               <row>
                 <entry><varname>StateDirectory=</varname></entry>
                 <entry><filename>/var/lib</filename></entry>
                 <entry><varname>$XDG_CONFIG_HOME</varname></entry>
+                <entry><varname>$STATE_DIRECTORY</varname></entry>
               </row>
               <row>
                 <entry><varname>CacheDirectory=</varname></entry>
                 <entry><filename>/var/cache</filename></entry>
                 <entry><varname>$XDG_CACHE_HOME</varname></entry>
+                <entry><varname>$CACHE_DIRECTORY</varname></entry>
               </row>
               <row>
                 <entry><varname>LogsDirectory=</varname></entry>
                 <entry><filename>/var/log</filename></entry>
                 <entry><varname>$XDG_CONFIG_HOME</varname><filename>/log</filename></entry>
+                <entry><varname>$LOGS_DIRECTORY</varname></entry>
               </row>
               <row>
                 <entry><varname>ConfigurationDirectory=</varname></entry>
                 <entry><filename>/etc</filename></entry>
                 <entry><varname>$XDG_CONFIG_HOME</varname></entry>
+                <entry><varname>$CONFIGURATION_DIRECTORY</varname></entry>
               </row>
             </tbody>
           </tgroup>
@@ -899,7 +907,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <filename>/run/foo/bar</filename>, and <filename>/run/baz</filename>. The directories
         <filename>/run/foo/bar</filename> and <filename>/run/baz</filename> except <filename>/run/foo</filename> are
         owned by the user and group specified in <varname>User=</varname> and <varname>Group=</varname>, and removed
-        when the service is stopped.</para></listitem>
+        when the service is stopped.</para>
+
+        <para>Example: if a system service unit has the following,
+        <programlisting>RuntimeDirectory=foo/bar
+StateDirectory=aaa/bbb ccc</programlisting>
+        then the environment variable <literal>RUNTIME_DIRECTORY</literal> is set with <literal>/run/foo/bar</literal>, and
+        <literal>STATE_DIRECTORY</literal> is set with <literal>/var/lib/aaa/bbb:/var/lib/ccc</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
