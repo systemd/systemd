@@ -763,7 +763,7 @@ _public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_devi
  *
  * Returns: Negative error code on failure or 0 on success.
  **/
-_public_ int udev_device_set_sysattr_value(struct udev_device *udev_device, const char *sysattr, char *value) {
+_public_ int udev_device_set_sysattr_value(struct udev_device *udev_device, const char *sysattr, const char *value) {
         int r;
 
         assert_return(udev_device, -EINVAL);
