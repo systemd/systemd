@@ -18,6 +18,7 @@ ExecStart=touch /var/lib/test-dynamicuser-migrate/yay
 ExecStart=touch /var/lib/test-dynamicuser-migrate2/hoge/yayyay
 ExecStart=touch /var/lib/private/test-dynamicuser-migrate/yay
 ExecStart=touch /var/lib/private/test-dynamicuser-migrate2/hoge/yayyay
+ExecStart=/bin/sh -x -c 'test "$$STATE_DIRECTORY" = "%S/test-dynamicuser-migrate:%S/test-dynamicuser-migrate2/hoge"'
 
 Type=oneshot
 DynamicUser=yes
