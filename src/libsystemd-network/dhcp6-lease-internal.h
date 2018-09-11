@@ -37,7 +37,6 @@ struct sd_dhcp6_lease {
         size_t ntp_fqdn_count;
 };
 
-int dhcp6_lease_clear_timers(DHCP6IA *ia);
 int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire);
 DHCP6IA *dhcp6_lease_free_ia(DHCP6IA *ia);
 

@@ -73,8 +73,6 @@ struct DHCP6IA {
                 struct ia_pd ia_pd;
                 struct ia_ta ia_ta;
         };
-        sd_event_source *timeout_t1;
-        sd_event_source *timeout_t2;
 
         LIST_HEAD(DHCP6Address, addresses);
 };

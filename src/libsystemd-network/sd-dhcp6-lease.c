@@ -11,15 +11,6 @@
 #include "strv.h"
 #include "util.h"
 
-int dhcp6_lease_clear_timers(DHCP6IA *ia) {
-        assert_return(ia, -EINVAL);
-
-        ia->timeout_t1 = sd_event_source_unref(ia->timeout_t1);
-        ia->timeout_t2 = sd_event_source_unref(ia->timeout_t2);
-
-        return 0;
-}
-
 int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire) {
         DHCP6Address *addr;
         uint32_t valid = 0, t;
@@ -47,8 +38,6 @@ DHCP6IA *dhcp6_lease_free_ia(DHCP6IA *ia) {
 
         if (!ia)
                 return NULL;
-
-        dhcp6_lease_clear_timers(ia);
 
         while (ia->addresses) {
                 address = ia->addresses;

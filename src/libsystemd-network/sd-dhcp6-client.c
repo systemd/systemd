@@ -47,6 +47,8 @@ struct sd_dhcp6_client {
         uint16_t arp_type;
         DHCP6IA ia_na;
         DHCP6IA ia_pd;
+        sd_event_source *timeout_t1;
+        sd_event_source *timeout_t2;
         int request;
         be32_t transaction_id;
         usec_t transaction_start;
@@ -388,11 +390,6 @@ static void client_notify(sd_dhcp6_client *client, int event) {
 static void client_set_lease(sd_dhcp6_client *client, sd_dhcp6_lease *lease) {
         assert(client);
 
-        if (client->lease) {
-                dhcp6_lease_clear_timers(&client->lease->ia);
-                sd_dhcp6_lease_unref(client->lease);
-        }
-
         client->lease = lease;
 }
 
@@ -406,11 +403,6 @@ static int client_reset(sd_dhcp6_client *client) {
 
         client->transaction_id = 0;
         client->transaction_start = 0;
-
-        client->ia_na.timeout_t1 =
-                sd_event_source_unref(client->ia_na.timeout_t1);
-        client->ia_na.timeout_t2 =
-                sd_event_source_unref(client->ia_na.timeout_t2);
 
         client->retransmit_time = 0;
         client->retransmit_count = 0;
@@ -603,8 +595,8 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         assert(client);
         assert(client->lease);
 
-        client->lease->ia.timeout_t2 =
-                sd_event_source_unref(client->lease->ia.timeout_t2);
+        client->timeout_t2 =
+                sd_event_source_unref(client->timeout_t2);
 
         log_dhcp6_client(client, "Timeout T2");
 
@@ -620,8 +612,8 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         assert(client);
         assert(client->lease);
 
-        client->lease->ia.timeout_t1 =
-                sd_event_source_unref(client->lease->ia.timeout_t1);
+        client->timeout_t1 =
+                sd_event_source_unref(client->timeout_t1);
 
         log_dhcp6_client(client, "Timeout T1");
 
@@ -1332,19 +1324,19 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                                  format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
                 r = sd_event_add_time(client->event,
-                                      &client->lease->ia.timeout_t1,
+                                      &client->timeout_t1,
                                       clock_boottime_or_monotonic(), time_now + timeout,
                                       10 * USEC_PER_SEC, client_timeout_t1,
                                       client);
                 if (r < 0)
                         goto error;
 
-                r = sd_event_source_set_priority(client->lease->ia.timeout_t1,
+                r = sd_event_source_set_priority(client->timeout_t1,
                                                  client->event_priority);
                 if (r < 0)
                         goto error;
 
-                r = sd_event_source_set_description(client->lease->ia.timeout_t1, "dhcp6-t1-timeout");
+                r = sd_event_source_set_description(client->timeout_t1, "dhcp6-t1-timeout");
                 if (r < 0)
                         goto error;
 
@@ -1354,19 +1346,19 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                                  format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
                 r = sd_event_add_time(client->event,
-                                      &client->lease->ia.timeout_t2,
+                                      &client->timeout_t2,
                                       clock_boottime_or_monotonic(), time_now + timeout,
                                       10 * USEC_PER_SEC, client_timeout_t2,
                                       client);
                 if (r < 0)
                         goto error;
 
-                r = sd_event_source_set_priority(client->lease->ia.timeout_t2,
+                r = sd_event_source_set_priority(client->timeout_t2,
                                                  client->event_priority);
                 if (r < 0)
                         goto error;
 
-                r = sd_event_source_set_description(client->lease->ia.timeout_t2, "dhcp6-t2-timeout");
+                r = sd_event_source_set_description(client->timeout_t2, "dhcp6-t2-timeout");
                 if (r < 0)
                         goto error;
 
