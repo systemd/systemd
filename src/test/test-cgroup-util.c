@@ -296,7 +296,7 @@ static void test_shift_path(void) {
         test_shift_path_one("/foobar/waldo", "/", "/foobar/waldo");
         test_shift_path_one("/foobar/waldo", "", "/foobar/waldo");
         test_shift_path_one("/foobar/waldo", "/foobar", "/waldo");
-        test_shift_path_one("/foobar/waldo", "/fuckfuck", "/foobar/waldo");
+        test_shift_path_one("/foobar/waldo", "/hogehoge", "/foobar/waldo");
 }
 
 static void test_mask_supported(void) {
