@@ -19,6 +19,24 @@ char* setup_fake_runtime_dir(void) {
         return p;
 }
 
+bool test_is_running_from_builddir(char **exedir) {
+        _cleanup_free_ char *s = NULL;
+        bool r;
+
+        /* Check if we're running from the builddir. Optionally, this returns
+         * the path to the directory where the binary is located. */
+
+        assert_se(readlink_and_make_absolute("/proc/self/exe", &s) >= 0);
+        r = path_startswith(s, ABS_BUILD_DIR);
+
+        if (exedir) {
+                dirname(s);
+                *exedir = TAKE_PTR(s);
+        }
+
+        return r;
+}
+
 const char* get_testdata_dir(const char *suffix) {
         const char *env;
         /* convenience: caller does not need to free result */
@@ -35,14 +53,13 @@ const char* get_testdata_dir(const char *suffix) {
                 strncpy(testdir, env, sizeof(testdir) - 1);
         } else {
                 _cleanup_free_ char *exedir = NULL;
-                assert_se(readlink_and_make_absolute("/proc/self/exe", &exedir) >= 0);
 
                 /* Check if we're running from the builddir. If so, use the compiled in path. */
-                if (path_startswith(exedir, ABS_BUILD_DIR))
+                if (test_is_running_from_builddir(&exedir))
                         assert_se(snprintf(testdir, sizeof(testdir), "%s/test", ABS_SRC_DIR) > 0);
                 else
                         /* Try relative path, according to the install-test layout */
-                        assert_se(snprintf(testdir, sizeof(testdir), "%s/testdata", dirname(exedir)) > 0);
+                        assert_se(snprintf(testdir, sizeof(testdir), "%s/testdata", exedir) > 0);
 
                 /* test this without the suffix, as it may contain a glob */
                 if (access(testdir, F_OK) < 0) {
