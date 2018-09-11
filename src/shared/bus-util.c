@@ -628,15 +628,43 @@ int bus_connect_user_systemd(sd_bus **_bus) {
         return 0;
 }
 
-#define print_property(name, fmt, ...)                                  \
-        do {                                                            \
-                if (value)                                              \
-                        printf(fmt "\n", __VA_ARGS__);                  \
-                else                                                    \
-                        printf("%s=" fmt "\n", name, __VA_ARGS__);      \
-        } while (0)
+int bus_print_property_value(const char *name, const char *expected_value, bool only_value, const char *fmt, ...) {
+        va_list ap;
+        int r;
 
-int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all) {
+        assert(name);
+        assert(fmt);
+
+        if (expected_value) {
+                _cleanup_free_ char *s = NULL;
+
+                va_start(ap, fmt);
+                r = vasprintf(&s, fmt, ap);
+                va_end(ap);
+                if (r < 0)
+                        return -ENOMEM;
+
+                if (streq_ptr(expected_value, s)) {
+                        if (only_value)
+                                puts(s);
+                        else
+                                printf("%s=%s\n", name, s);
+                }
+
+                return 0;
+        }
+
+        if (!only_value)
+                printf("%s=", name);
+        va_start(ap, fmt);
+        vprintf(fmt, ap);
+        va_end(ap);
+        puts("");
+
+        return 0;
+}
+
+static int bus_print_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
         char type;
         const char *contents;
         int r;
@@ -663,7 +691,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                         /* This property has a single value, so we need to take
                          * care not to print a new line, everything else is OK. */
                         good = !strchr(s, '\n');
-                        print_property(name, "%s", good ? s : "[unprintable]");
+                        bus_print_property_value(name, expected_value, value, "%s", good ? s : "[unprintable]");
                 }
 
                 return 1;
@@ -676,8 +704,10 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                 if (r < 0)
                         return r;
 
-                print_property(name, "%s", yes_no(b));
+                if (expected_value && parse_boolean(expected_value) != b)
+                        return 1;
 
+                bus_print_property_value(name, NULL, value, "%s", yes_no(b));
                 return 1;
         }
 
@@ -698,12 +728,14 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
 
                         t = format_timestamp(timestamp, sizeof(timestamp), u);
                         if (t || all)
-                                print_property(name, "%s", strempty(t));
+                                bus_print_property_value(name, expected_value, value, "%s", strempty(t));
 
                 } else if (strstr(name, "USec")) {
                         char timespan[FORMAT_TIMESPAN_MAX];
 
-                        print_property(name, "%s", format_timespan(timespan, sizeof(timespan), u, 0));
+                        (void) format_timespan(timespan, sizeof(timespan), u, 0);
+                        bus_print_property_value(name, expected_value, value, "%s", timespan);
+
                 } else if (streq(name, "RestrictNamespaces")) {
                         _cleanup_free_ char *s = NULL;
                         const char *result;
@@ -720,7 +752,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                                 result = s;
                         }
 
-                        print_property(name, "%s", result);
+                        bus_print_property_value(name, expected_value, value, "%s", result);
 
                 } else if (streq(name, "MountFlags")) {
                         const char *result;
@@ -729,7 +761,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                         if (!result)
                                 return -EINVAL;
 
-                        print_property(name, "%s", result);
+                        bus_print_property_value(name, expected_value, value, "%s", result);
 
                 } else if (STR_IN_SET(name, "CapabilityBoundingSet", "AmbientCapabilities")) {
                         _cleanup_free_ char *s = NULL;
@@ -738,7 +770,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                         if (r < 0)
                                 return r;
 
-                        print_property(name, "%s", s);
+                        bus_print_property_value(name, expected_value, value, "%s", s);
 
                 } else if ((STR_IN_SET(name, "CPUWeight", "StartupCPUWeight", "IOWeight", "StartupIOWeight") && u == CGROUP_WEIGHT_INVALID) ||
                            (STR_IN_SET(name, "CPUShares", "StartupCPUShares") && u == CGROUP_CPU_SHARES_INVALID) ||
@@ -746,16 +778,16 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                            (STR_IN_SET(name, "MemoryCurrent", "TasksCurrent") && u == (uint64_t) -1) ||
                            (endswith(name, "NSec") && u == (uint64_t) -1))
 
-                        print_property(name, "%s", "[not set]");
+                        bus_print_property_value(name, expected_value, value, "%s", "[not set]");
 
                 else if ((STR_IN_SET(name, "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryLimit") && u == CGROUP_LIMIT_MAX) ||
                          (STR_IN_SET(name, "TasksMax", "DefaultTasksMax") && u == (uint64_t) -1) ||
                          (startswith(name, "Limit") && u == (uint64_t) -1) ||
                          (startswith(name, "DefaultLimit") && u == (uint64_t) -1))
 
-                        print_property(name, "%s", "infinity");
+                        bus_print_property_value(name, expected_value, value, "%s", "infinity");
                 else
-                        print_property(name, "%"PRIu64, u);
+                        bus_print_property_value(name, expected_value, value, "%"PRIu64, u);
 
                 return 1;
         }
@@ -767,8 +799,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                 if (r < 0)
                         return r;
 
-                print_property(name, "%"PRIi64, i);
-
+                bus_print_property_value(name, expected_value, value, "%"PRIi64, i);
                 return 1;
         }
 
@@ -780,19 +811,20 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                         return r;
 
                 if (strstr(name, "UMask") || strstr(name, "Mode"))
-                        print_property(name, "%04o", u);
+                        bus_print_property_value(name, expected_value, value, "%04o", u);
+
                 else if (streq(name, "UID")) {
                         if (u == UID_INVALID)
-                                print_property(name, "%s", "[not set]");
+                                bus_print_property_value(name, expected_value, value, "%s", "[not set]");
                         else
-                                print_property(name, "%"PRIu32, u);
+                                bus_print_property_value(name, expected_value, value, "%"PRIu32, u);
                 } else if (streq(name, "GID")) {
                         if (u == GID_INVALID)
-                                print_property(name, "%s", "[not set]");
+                                bus_print_property_value(name, expected_value, value, "%s", "[not set]");
                         else
-                                print_property(name, "%"PRIu32, u);
+                                bus_print_property_value(name, expected_value, value, "%"PRIu32, u);
                 } else
-                        print_property(name, "%"PRIu32, u);
+                        bus_print_property_value(name, expected_value, value, "%"PRIu32, u);
 
                 return 1;
         }
@@ -804,7 +836,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                 if (r < 0)
                         return r;
 
-                print_property(name, "%"PRIi32, i);
+                bus_print_property_value(name, expected_value, value, "%"PRIi32, i);
                 return 1;
         }
 
@@ -815,7 +847,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                 if (r < 0)
                         return r;
 
-                print_property(name, "%g", d);
+                bus_print_property_value(name, expected_value, value, "%g", d);
                 return 1;
         }
 
@@ -924,8 +956,8 @@ int bus_message_print_all_properties(
                 return r;
 
         while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
-                const char *name;
-                const char *contents;
+                _cleanup_free_ char *name_with_equal = NULL;
+                const char *name, *contents, *expected_value = NULL;
 
                 r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &name);
                 if (r < 0)
@@ -941,7 +973,12 @@ int bus_message_print_all_properties(
                                 return log_oom();
                 }
 
-                if (!filter || strv_find(filter, name)) {
+                name_with_equal = strappend(name, "=");
+                if (!name_with_equal)
+                        return log_oom();
+
+                if (!filter || strv_find(filter, name) ||
+                    (expected_value = strv_find_startswith(filter, name_with_equal))) {
                         r = sd_bus_message_peek_type(m, NULL, &contents);
                         if (r < 0)
                                 return r;
@@ -951,13 +988,13 @@ int bus_message_print_all_properties(
                                 return r;
 
                         if (func)
-                                r = func(name, m, value, all);
+                                r = func(name, expected_value, m, value, all);
                         if (!func || r == 0)
-                                r = bus_print_property(name, m, value, all);
+                                r = bus_print_property(name, expected_value, m, value, all);
                         if (r < 0)
                                 return r;
                         if (r == 0) {
-                                if (all)
+                                if (all && !expected_value)
                                         printf("%s=[unprintable]\n", name);
                                 /* skip what we didn't read */
                                 r = sd_bus_message_skip(m, contents);
