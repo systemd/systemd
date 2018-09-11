@@ -8576,8 +8576,10 @@ static int halt_main(void) {
         if (r < 0)
                 return r;
 
-        if (arg_when > 0)
-                return logind_schedule_shutdown();
+        /* Delayed shutdown requested, and was successful */
+        if (arg_when > 0 && logind_schedule_shutdown() == 0)
+                return 0;
+        /* no delay, or logind failed or is not at all available */
 
         if (geteuid() != 0) {
                 if (arg_dry_run || arg_force > 0) {
