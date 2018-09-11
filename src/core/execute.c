@@ -1728,7 +1728,7 @@ static int build_environment(
         }
 
         our_env[n_env++] = NULL;
-        assert(n_env <= 12);
+        assert(n_env <= 14);
 
         *ret = TAKE_PTR(our_env);
 
