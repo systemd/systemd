@@ -14,14 +14,13 @@
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
+#include "tests.h"
 #include "util.h"
 
-static const char *catalog_dirs[] = {
-        CATALOG_DIR,
-        NULL,
-};
-
+static char** catalog_dirs = NULL;
 static const char *no_catalog_dirs[] = {
         "/bin/hopefully/with/no/catalog",
         NULL
@@ -167,8 +166,8 @@ static void test_catalog_update(const char *database) {
         assert_se(r == 0);
 
         /* Make sure that we at least have some files loaded or the
-           catalog_list below will fail. */
-        r = catalog_update(database, NULL, catalog_dirs);
+         * catalog_list below will fail. */
+        r = catalog_update(database, NULL, (const char * const *) catalog_dirs);
         assert_se(r == 0);
 }
 
@@ -202,13 +201,25 @@ static void test_catalog_file_lang(void) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(unlink_tempfilep) char database[] = "/tmp/test-catalog.XXXXXX";
-        _cleanup_free_ char *text = NULL;
+        _cleanup_free_ char *text = NULL, *catalog_dir = NULL;
         int r;
 
         setlocale(LC_ALL, "de_DE.UTF-8");
 
+        log_set_max_level(LOG_DEBUG);
         log_parse_environment();
         log_open();
+
+        /* If test-catalog is located at the build directory, then use catalogs in that.
+         * If it is not, e.g. installed by systemd-tests package, then use installed catalogs. */
+        if (test_is_running_from_builddir(NULL)) {
+                assert_se(catalog_dir = path_join(NULL, ABS_BUILD_DIR, "catalog"));
+                catalog_dirs = STRV_MAKE(catalog_dir);
+        } else
+                catalog_dirs = STRV_MAKE(CATALOG_DIR);
+
+        assert_se(access(catalog_dirs[0], F_OK) >= 0);
+        log_notice("Using catalog directory '%s'", catalog_dirs[0]);
 
         test_catalog_file_lang();
 
