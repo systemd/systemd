@@ -144,6 +144,38 @@ static void test_strv_join(void) {
         assert_se(streq(w, ""));
 }
 
+static void test_strv_join_prefix(void) {
+        _cleanup_free_ char *p = NULL, *q = NULL, *r = NULL, *s = NULL, *t = NULL, *v = NULL, *w = NULL;
+
+        p = strv_join_prefix((char **)input_table_multiple, ", ", "foo");
+        assert_se(p);
+        assert_se(streq(p, "fooone, footwo, foothree"));
+
+        q = strv_join_prefix((char **)input_table_multiple, ";", "foo");
+        assert_se(q);
+        assert_se(streq(q, "fooone;footwo;foothree"));
+
+        r = strv_join_prefix((char **)input_table_multiple, NULL, "foo");
+        assert_se(r);
+        assert_se(streq(r, "fooone footwo foothree"));
+
+        s = strv_join_prefix((char **)input_table_one, ", ", "foo");
+        assert_se(s);
+        assert_se(streq(s, "fooone"));
+
+        t = strv_join_prefix((char **)input_table_none, ", ", "foo");
+        assert_se(t);
+        assert_se(streq(t, ""));
+
+        v = strv_join_prefix((char **)input_table_two_empties, ", ", "foo");
+        assert_se(v);
+        assert_se(streq(v, "foo, foo"));
+
+        w = strv_join_prefix((char **)input_table_one_empty, ", ", "foo");
+        assert_se(w);
+        assert_se(streq(w, "foo"));
+}
+
 static void test_strv_unquote(const char *quoted, char **list) {
         _cleanup_strv_free_ char **s;
         _cleanup_free_ char *j;
@@ -726,6 +758,7 @@ int main(int argc, char *argv[]) {
         test_strv_find_prefix();
         test_strv_find_startswith();
         test_strv_join();
+        test_strv_join_prefix();
 
         test_strv_unquote("    foo=bar     \"waldo\"    zzz    ", STRV_MAKE("foo=bar", "waldo", "zzz"));
         test_strv_unquote("", STRV_MAKE_EMPTY);
