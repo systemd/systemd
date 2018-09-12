@@ -12,8 +12,11 @@
 #include "dbus-util.h"
 #include "dbus.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "locale-util.h"
 #include "log.h"
+#include "logs-show.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "selinux-access.h"
@@ -450,6 +453,108 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         return sd_bus_reply_method_return(message, NULL);
 }
 
+int bus_unit_method_showlog(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Unit *u = userdata;
+        const char *output_mode_str;
+        int r;
+        OutputMode output_mode;
+        int32_t lines;
+        _cleanup_free_ char *path = NULL;
+        _cleanup_fclose_ FILE *file = NULL;
+        _cleanup_free_ char *data = NULL;
+        long length;
+        size_t write_size;
+
+        assert(message);
+        assert(u);
+
+        r = mac_selinux_unit_access_check(u, message, "showlog", error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "showlog",
+                        CAP_SYS_ADMIN,
+                        N_("Authentication is required to show the log for '$(unit)'."),
+                        true,
+                        message,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = sd_bus_message_read(message, "si", &output_mode_str, &lines);
+        if (r < 0)
+                return r;
+
+        output_mode = output_mode_from_string(output_mode_str);
+        if (output_mode < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid output format %s", output_mode_str);
+
+        if (lines < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid lines %d", lines);
+
+        do {
+                r = tempfn_random("/tmp/systemd", "[showlog]", &path);
+                if (r < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Can not create random path name");
+
+        } while (laccess(path, F_OK) >= 0 || errno != ENOENT);
+
+        file = fopen(path, "w+");
+        if (!file)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Can not open file %s", path);
+
+        r = show_journal_by_unit(
+                        file,                                                          /* f */
+                        u->id,                                                         /* unit */
+                        output_mode,                                                   /* mode */
+                        0,                                                             /* n_columns */
+                        0,                                                             /* not_before */
+                        lines,                                                         /* how_many */
+                        0,                                                             /* uid */
+                        OUTPUT_WARN_CUTOFF | OUTPUT_SHOW_ALL | OUTPUT_BEGIN_NEWLINE,   /* flags */
+                        SD_JOURNAL_LOCAL_ONLY,                                         /* journal_open_flags */
+                        true,                                                          /* system_unit */
+                        NULL                                                           /* ellipsized */
+                );
+        if (r < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Can not write logs to file %s", path);
+
+        r = fseek (file, 0, SEEK_END);
+        if (r == -1)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Can not fseek in file %s", path);
+
+        length = ftell (file);
+        if (length < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Can not ftell in file %s", path);
+
+        r = fseek (file, 0, SEEK_SET);
+        if (r == -1)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Can not fseek in file %s", path);
+        data = malloc (length + 1);
+        if (!data)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Can not aquire %ld bytes", length);
+
+        write_size = fread(data, 1, length, file);
+        if (write_size != (size_t) length)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Error while reading in file %s", path);
+        if (ferror(file))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Error after reading in file %s", path);
+
+        fclose(file);
+        file = NULL;
+
+        r = unlink(path);
+        if (r < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Can not unlink file %s", path);
+
+        data[length] = '\0';
+        return sd_bus_reply_method_return(message, "s", data);
+}
+
 int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Unit *u = userdata;
         int r;
@@ -646,6 +751,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_METHOD("ReloadOrRestart", "s", "o", method_reload_or_restart, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReloadOrTryRestart", "s", "o", method_reload_or_try_restart, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Kill", "si", NULL, bus_unit_method_kill, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ShowLog", "si", "s", bus_unit_method_showlog, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResetFailed", NULL, NULL, bus_unit_method_reset_failed, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetProperties", "ba(sv)", NULL, bus_unit_method_set_properties, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Ref", NULL, NULL, bus_unit_method_ref, SD_BUS_VTABLE_UNPRIVILEGED),
