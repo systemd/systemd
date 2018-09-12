@@ -633,6 +633,13 @@ install_keymaps() {
     done
 }
 
+install_zoneinfo() {
+    for i in /usr/share/zoneinfo/{,*/,*/*/}*; do
+        [[ -f $i ]] || continue
+        inst $i
+    done
+}
+
 install_fonts() {
     for i in \
         /usr/lib/kbd/consolefonts/eurlatgr* \
