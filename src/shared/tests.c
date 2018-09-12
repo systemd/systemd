@@ -37,7 +37,7 @@ bool test_is_running_from_builddir(char **exedir) {
         return r;
 }
 
-const char* get_testdata_dir(const char *suffix) {
+const char* get_testdata_dir(void) {
         const char *env;
         /* convenience: caller does not need to free result */
         static char testdir[PATH_MAX];
@@ -61,14 +61,12 @@ const char* get_testdata_dir(const char *suffix) {
                         /* Try relative path, according to the install-test layout */
                         assert_se(snprintf(testdir, sizeof(testdir), "%s/testdata", exedir) > 0);
 
-                /* test this without the suffix, as it may contain a glob */
                 if (access(testdir, F_OK) < 0) {
                         fputs("ERROR: Cannot find testdata directory, set $SYSTEMD_TEST_DATA\n", stderr);
                         exit(EXIT_FAILURE);
                 }
         }
 
-        strncpy(testdir + strlen(testdir), suffix, sizeof(testdir) - strlen(testdir) - 1);
         return testdir;
 }
 

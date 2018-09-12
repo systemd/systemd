@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -92,6 +93,7 @@ static void test_packet_from_file(const char* filename, bool canonical) {
 
 int main(int argc, char **argv) {
         int i, N;
+        _cleanup_free_ char *pkts_glob = NULL;
         _cleanup_globfree_ glob_t g = {};
         char **fnames;
 
@@ -101,7 +103,8 @@ int main(int argc, char **argv) {
                 N = argc - 1;
                 fnames = argv + 1;
         } else {
-                assert_se(glob(get_testdata_dir("/test-resolve/*.pkts"), GLOB_NOSORT, NULL, &g) == 0);
+                pkts_glob = path_join(NULL, get_testdata_dir(), "test-resolve/*.pkts");
+                assert_se(glob(pkts_glob, GLOB_NOSORT, NULL, &g) == 0);
                 N = g.gl_pathc;
                 fnames = g.gl_pathv;
         }

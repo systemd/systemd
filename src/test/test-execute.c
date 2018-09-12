@@ -815,7 +815,8 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
-        assert_se(set_unit_path(get_testdata_dir("/test-execute")) >= 0);
+        test_execute_path = path_join(NULL, get_testdata_dir(), "test-execute");
+        assert_se(set_unit_path(test_execute_path) >= 0);
 
         /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
          * cases, otherwise (and if they are present in the environment),
