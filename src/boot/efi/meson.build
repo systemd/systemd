@@ -169,9 +169,11 @@ if have_gnu_efi
                                   efi_ldflags + tuple[2] +
                                   ['-lefi', '-lgnuefi', libgcc_file_name])
 
-                test('no-undefined-symbols-' + tuple[0],
-                     no_undefined_symbols,
-                     args : [so])
+                if want_tests != 'false'
+                        test('no-undefined-symbols-' + tuple[0],
+                             no_undefined_symbols,
+                             args : [so])
+                endif
 
                 stub = custom_target(
                         tuple[1],

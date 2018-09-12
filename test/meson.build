@@ -211,16 +211,20 @@ endif
 ############################################################
 
 rule_syntax_check_py = find_program('rule-syntax-check.py')
-test('rule-syntax-check',
-     rule_syntax_check_py,
-     args : all_rules)
+if want_tests != 'false'
+        test('rule-syntax-check',
+             rule_syntax_check_py,
+             args : all_rules)
+endif
 
 ############################################################
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
         sysv_generator_test_py = find_program('sysv-generator-test.py')
-        test('sysv-generator-test',
-             sysv_generator_test_py)
+        if want_tests != 'false'
+                test('sysv-generator-test',
+                     sysv_generator_test_py)
+        endif
 endif
 
 ############################################################
@@ -235,17 +239,21 @@ custom_target(
 
 if perl.found()
         udev_test_pl = find_program('udev-test.pl')
-        test('udev-test',
-             udev_test_pl)
+        if want_tests != 'false'
+                test('udev-test',
+                     udev_test_pl)
+        endif
 else
         message('Skipping udev-test because perl is not available')
 endif
 
 if conf.get('ENABLE_HWDB') == 1
         hwdb_test_sh = find_program('hwdb-test.sh')
-        test('hwdb-test',
-             hwdb_test_sh,
-             timeout : 90)
+        if want_tests != 'false'
+                test('hwdb-test',
+                     hwdb_test_sh,
+                     timeout : 90)
+        endif
 endif
 
 subdir('fuzz-regressions')

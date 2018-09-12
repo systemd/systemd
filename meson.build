@@ -1504,9 +1504,12 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                                          'rm $DESTDIR@0@/libnss_@1@.so'
                                          .format(rootlibdir, module))
 
-                test('dlopen-nss_' + module,
-                     test_dlopen,
-                     args : [nss.full_path()]) # path to dlopen must include a slash
+                if want_tests != 'false'
+                        test('dlopen-nss_' + module,
+                             test_dlopen,
+                             # path to dlopen must include a slash
+                             args : nss.full_path())
+                endif
         endif
 endforeach
 
@@ -1747,9 +1750,12 @@ if conf.get('ENABLE_LOGIND') == 1
                         install : true,
                         install_dir : pamlibdir)
 
-                test('dlopen-pam_systemd',
-                     test_dlopen,
-                     args : [pam_systemd.full_path()]) # path to dlopen must include a slash
+                if want_tests != 'false'
+                        test('dlopen-pam_systemd',
+                             test_dlopen,
+                             # path to dlopen must include a slash
+                             args : [pam_systemd.full_path()])
+                endif
         endif
 endif
 
@@ -2436,10 +2442,12 @@ if conf.get('ENABLE_TMPFILES') == 1
                          install_dir : rootbindir)
         public_programs += exe
 
-        test('test-systemd-tmpfiles',
-             test_systemd_tmpfiles_py,
-             args : exe.full_path())
-        # https://github.com/mesonbuild/meson/issues/2681
+        if want_tests != 'false'
+                test('test-systemd-tmpfiles',
+                     test_systemd_tmpfiles_py,
+                     # https://github.com/mesonbuild/meson/issues/2681
+                     args : exe.full_path())
+        endif
 endif
 
 if conf.get('ENABLE_HWDB') == 1
@@ -2666,7 +2674,9 @@ exe = executable(
         link_with : [libsystemd],
         install : install_tests,
         install_dir : testsdir)
-test('test-libsystemd-sym', exe)
+if want_tests != 'false'
+        test('test-libsystemd-sym', exe)
+endif
 
 exe = executable(
         'test-libsystemd-static-sym',
@@ -2678,7 +2688,7 @@ exe = executable(
         build_by_default : static_libsystemd_pic,
         install : install_tests and static_libsystemd_pic,
         install_dir : testsdir)
-if static_libsystemd_pic
+if want_tests != 'false' and static_libsystemd_pic
         test('test-libsystemd-static-sym', exe)
 endif
 
@@ -2690,7 +2700,9 @@ exe = executable(
         link_with : [libudev],
         install : install_tests,
         install_dir : testsdir)
-test('test-libudev-sym', exe)
+if want_tests != 'false'
+        test('test-libudev-sym', exe)
+endif
 
 exe = executable(
         'test-libudev-static-sym',
@@ -2701,7 +2713,7 @@ exe = executable(
         build_by_default : static_libudev_pic,
         install : install_tests and static_libudev_pic,
         install_dir : testsdir)
-if static_libudev_pic
+if want_tests != 'false' and static_libudev_pic
         test('test-libudev-static-sym', exe)
 endif
 
@@ -2791,9 +2803,11 @@ meson_check_help = find_program('tools/meson-check-help.sh')
 
 foreach exec : public_programs
         name = exec.full_path().split('/')[-1]
-        test('check-help-' + name,
-             meson_check_help,
-             args : [exec.full_path()])
+        if want_tests != 'false'
+                test('check-help-' + name,
+                     meson_check_help,
+                     args : [exec.full_path()])
+        endif
 endforeach
 
 ############################################################
