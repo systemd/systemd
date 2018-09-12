@@ -3,8 +3,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "env-util.h"
 #include "log.h"
+#include "tests.h"
 #include "watchdog.h"
 
 int main(int argc, char *argv[]) {
@@ -15,9 +15,9 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
+        log_open();
 
-        r = getenv_bool("SYSTEMD_SLOW_TESTS");
-        slow = r >= 0 ? r : SYSTEMD_SLOW_TESTS_DEFAULT;
+        slow = slow_tests_enabled();
 
         t = slow ? 10 * USEC_PER_SEC : 1 * USEC_PER_SEC;
         count = slow ? 5 : 3;

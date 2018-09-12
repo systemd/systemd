@@ -7,6 +7,7 @@
 #include <util.h>
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "fileio.h"
 #include "path-util.h"
 #include "strv.h"
@@ -75,4 +76,16 @@ const char* get_catalog_dir(void) {
                 exit(EXIT_FAILURE);
         }
         return env;
+}
+
+bool slow_tests_enabled(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_SLOW_TESTS");
+        if (r >= 0)
+                return r;
+
+        if (r != -ENXIO)
+                log_warning_errno(r, "Cannot parse $SYSTEMD_SLOW_TESTS, ignoring.");
+        return SYSTEMD_SLOW_TESTS_DEFAULT;
 }
