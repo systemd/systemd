@@ -16,6 +16,7 @@
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
@@ -116,9 +117,9 @@ static void test_execute_directory(bool gather_stdout) {
         assert_se(chmod(mask2e, 0755) == 0);
 
         if (gather_stdout)
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL);
+                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL);
         else
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL);
+                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL);
 
         assert_se(chdir(template_lo) == 0);
         assert_se(access("it_works", F_OK) >= 0);
@@ -183,7 +184,7 @@ static void test_execution_order(void) {
         assert_se(chmod(override, 0755) == 0);
         assert_se(chmod(masked, 0755) == 0);
 
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL);
+        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL);
 
         assert_se(read_full_file(output, &contents, NULL) >= 0);
         assert_se(streq(contents, "30-override\n80-foo\n90-bar\nlast\n"));
@@ -265,7 +266,7 @@ static void test_stdout_gathering(void) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL, NULL);
         assert_se(r >= 0);
 
         log_info("got: %s", output);
@@ -276,7 +277,7 @@ static void test_stdout_gathering(void) {
 static void test_environment_gathering(void) {
         char template[] = "/tmp/test-exec-util.XXXXXXX", **p;
         const char *dirs[] = {template, NULL};
-        const char *name, *name2, *name3;
+        const char *name, *name2, *name3, *old;
         int r;
 
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
@@ -322,7 +323,16 @@ static void test_environment_gathering(void) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL);
+        /* When booting in containers or without initramfs there might not be
+         * any PATH in the environ and if there is no PATH /bin/sh built-in
+         * PATH may leak and override systemd's DEFAULT_PATH which is not
+         * good. Force our own PATH in environment, to prevent expansion of sh
+         * built-in $PATH */
+        old = getenv("PATH");
+        r = setenv("PATH", "no-sh-built-in-path", 1);
+        assert_se(r >= 0);
+
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL);
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
@@ -331,7 +341,26 @@ static void test_environment_gathering(void) {
         assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
         assert_se(streq(strv_env_get(env, "B"), "12"));
         assert_se(streq(strv_env_get(env, "C"), "001"));
-        assert_se(endswith(strv_env_get(env, "PATH"), ":/no/such/file"));
+        assert_se(streq(strv_env_get(env, "PATH"), "no-sh-built-in-path:/no/such/file"));
+
+        /* now retest with "default" path passed in, as created by
+         * manager_default_environment */
+        env = strv_free(env);
+        env = strv_new("PATH=" DEFAULT_PATH, NULL);
+
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(p, env)
+                log_info("got env: \"%s\"", *p);
+
+        assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
+        assert_se(streq(strv_env_get(env, "B"), "12"));
+        assert_se(streq(strv_env_get(env, "C"), "001"));
+        assert_se(streq(strv_env_get(env, "PATH"), DEFAULT_PATH ":/no/such/file"));
+
+        /* reset environ PATH */
+        (void) setenv("PATH", old, 1);
 }
 
 int main(int argc, char *argv[]) {

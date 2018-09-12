@@ -71,11 +71,12 @@ static int do_execute(
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
                 int output_fd,
-                char *argv[]) {
+                char *argv[],
+                char *envp[]) {
 
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         _cleanup_strv_free_ char **paths = NULL;
-        char **path;
+        char **path, **e;
         int r;
 
         /* We fork this all off from a child process so that we can somewhat cleanly make
@@ -99,6 +100,9 @@ static int do_execute(
 
         if (timeout != USEC_INFINITY)
                 alarm(DIV_ROUND_UP(timeout, USEC_PER_SEC));
+
+        STRV_FOREACH(e, envp)
+                putenv(*e);
 
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
@@ -166,7 +170,8 @@ int execute_directories(
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
-                char *argv[]) {
+                char *argv[],
+                char *envp[]) {
 
         char **dirs = (char**) directories;
         _cleanup_close_ int fd = -1;
@@ -197,7 +202,7 @@ int execute_directories(
         if (r < 0)
                 return r;
         if (r == 0) {
-                r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv);
+                r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv, envp);
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
