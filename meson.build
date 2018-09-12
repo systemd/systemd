@@ -274,12 +274,10 @@ want_tests = get_option('tests')
 slow_tests = want_tests != 'false' and get_option('slow-tests')
 install_tests = get_option('install-tests')
 
-if want_tests != 'false'
-        cxx = find_program('c++', required : false)
-        if cxx.found()
-                #  Used only for tests
-                add_languages('cpp')
-        endif
+cxx = find_program('c++', required : false)
+if cxx.found()
+        #  Used only for tests
+        add_languages('cpp')
 endif
 
 want_ossfuzz = get_option('oss-fuzz')
@@ -2640,9 +2638,8 @@ foreach tuple : tests
                 timeout = type.split('=')[1].to_int()
                 type = ''
         endif
-        if want_tests == 'false'
-                message('Not compiling @0@ because tests is set to false'.format(name))
-        elif condition == '' or conf.get(condition) == 1
+
+        if condition == '' or conf.get(condition) == 1
                 exe = executable(
                         name,
                         sources,
@@ -2650,6 +2647,7 @@ foreach tuple : tests
                         link_with : link_with,
                         dependencies : dependencies,
                         c_args : defs,
+                        build_by_default : want_tests != 'false',
                         install_rpath : rootlibexecdir,
                         install : install_tests,
                         install_dir : join_paths(testsdir, type))
@@ -2658,7 +2656,7 @@ foreach tuple : tests
                         message('@0@ is a manual test'.format(name))
                 elif type == 'unsafe' and want_tests != 'unsafe'
                         message('@0@ is an unsafe test'.format(name))
-                else
+                elif want_tests != 'false'
                         test(name, exe,
                              env : test_env,
                              timeout : timeout)
