@@ -2,6 +2,6 @@
 Description=Test for Supplementary Group
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$(id -G)" = "0 1"'
+ExecStart=/bin/sh -x -c 'test " $$(id -G) " = *" 0 1 "*'
 Type=oneshot
 SupplementaryGroups=1
