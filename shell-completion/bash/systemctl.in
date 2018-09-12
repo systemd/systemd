@@ -21,44 +21,34 @@ __contains_word () {
         done
 }
 
-__filter_units_by_property () {
-        local mode=$1 property=$2 value=$3 ; shift 3
-        local units=("$@")
-        local props i
-        IFS=$'\n' read -rd '' -a props < \
-            <(__systemctl $mode show --property "$property" -- "${units[@]}")
-        for ((i=0; $i < ${#units[*]}; i++)); do
-                if [[ "${props[i]}" = "$property=$value" ]]; then
-                        echo " ${units[i]}"
-                fi
-        done
-}
-
 __filter_units_by_properties () {
-        local mode=$1 properties=$2 values=$3 ; shift 3
+        local mode=$1 properties=$2; shift 2
         local units=("$@")
-        local props i j conditions=()
-        IFS=$'\n' read -rd '' -a props < \
-            <(__systemctl $mode show --property "$properties" -- "${units[@]}")
-        IFS=$',' read -r -a properties < <(echo $properties)
-        IFS=$',' read -r -a values < <(echo $values)
-        for ((i=0; i < ${#properties[*]}; i++)); do
-                for ((j=0; j < ${#properties[*]}; j++)); do
-                        if [[ ${props[i]%%=*} == ${properties[j]} ]]; then
-                                conditions+=( "${properties[j]}=${values[j]}" )
+        local props i p n
+        local names= count=0
+
+        IFS=$',' read -r -a p < <(echo "Names,$properties")
+        n=${#p[*]}
+        readarray -t props < \
+                  <(__systemctl $mode show --property "Names,$properties" -- "${units[@]}")
+
+        for ((i=0; i < ${#props[*]}; i++)); do
+                if [[ -z ${props[i]} ]]; then
+                        if (( count == n )) && [[ -n $names ]]; then
+                                echo $names
                         fi
-                done
-        done
-        for ((i=0; i < ${#units[*]}; i++)); do
-                for ((j=0; j < ${#conditions[*]}; j++)); do
-                        if [[ "${props[i * ${#conditions[*]} + j]}" != "${conditions[j]}" ]]; then
-                                break
+                        names=
+                        count=0
+                else
+                        (( count++ ))
+                        if [[ ${props[i]%%=*} == 'Names' ]]; then
+                                names=${props[i]#*=}
                         fi
-                done
-                if (( j == ${#conditions[*]} )); then
-                        echo " ${units[i]}"
                 fi
         done
+        if (( count == n )) && [[ -n $names ]]; then
+                echo $names
+        fi
 }
 
 __get_all_units      () { { __systemctl $1 list-unit-files "$2*"; __systemctl $1 list-units --all "$2*"; } \
@@ -67,26 +57,47 @@ __get_non_template_units() { { __systemctl $1 list-unit-files "$2*"; __systemctl
         | { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }; }
 __get_template_names () { __systemctl $1 list-unit-files "$2*" \
         | { while read -r a b; do [[ $a =~ @\. ]] && echo " ${a%%@.*}@"; done; }; }
-
 __get_active_units   () { __systemctl $1 list-units "$2*"      \
         | { while read -r a b; do echo " $a"; done; }; }
+
+__get_not_masked_unit_files() {
+        # filter out masked, not-found, or template units.
+        __systemctl $1 list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$2*" | \
+                { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
+}
+
 __get_startable_units () {
-        # find startable inactive units
-        __filter_units_by_properties $1 ActiveState,CanStart inactive,yes $(
-            { __systemctl $1 list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$2*" | \
-                      { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
-              __systemctl $1 list-units --state inactive,failed "$2*" | \
+        __filter_units_by_properties $1 ActiveState=inactive,CanStart=yes $(
+                { __get_not_masked_unit_files $1 $2
+                  # get inactive template units
+                  __systemctl $1 list-units --state inactive,failed "$2*" | \
                       { while read -r a b c; do [[ $b == "loaded" ]] && echo " $a"; done; }
-            } | sort -u )
+                } | sort -u )
 }
 __get_restartable_units () {
         # filter out masked and not-found
-        __filter_units_by_property $1 CanStart yes $(
-            __systemctl $1 list-unit-files --state enabled,disabled,static "$2*" | \
-                    { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
-            __systemctl $1 list-units "$2*" | \
-                    { while read -r a b; do echo " $a"; done; } )
+        __filter_units_by_properties $1 CanStart=yes $(
+                { __get_not_masked_unit_files $1 $2
+                  __get_active_units $1 $2
+                } | sort -u )
 }
+
+__get_stoppable_units () {
+        # filter out masked and not-found
+        __filter_units_by_properties $1 ActiveState=active,CanStop=yes $(
+                { __get_not_masked_unit_files $1 $2
+                  __get_active_units $1 $2
+                } | sort -u )
+}
+
+__get_reloadable_units () {
+        # filter out masked and not-found
+        __filter_units_by_properties $1 ActiveState=active,CanReload=yes $(
+                { __get_not_masked_unit_files $1 $2
+                  __get_active_units $1 $2
+                } | sort -u )
+}
+
 __get_failed_units   () { __systemctl $1 list-units "$2*"      \
         | { while read -r a b c d; do [[ $c == "failed"   ]] && echo " $a"; done; }; }
 __get_enabled_units  () { __systemctl $1 list-unit-files "$2*" \
@@ -243,17 +254,15 @@ _systemctl () {
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then
-                comps=$( __filter_units_by_property $mode CanStop yes \
-                      $( __get_active_units $mode "$cur" ) )
+                comps=$( __get_stoppable_units $mode "$cur" )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[RELOADABLE_UNITS]}; then
-                comps=$( __filter_units_by_property $mode CanReload yes \
-                      $( __get_active_units $mode "$cur" ) )
+                comps=$( __get_reloadable_units $mode "$cur" )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[ISOLATABLE_UNITS]}; then
-                comps=$( __filter_units_by_property $mode AllowIsolate yes \
+                comps=$( __filter_units_by_properties $mode AllowIsolate=yes \
                       $( __get_all_units $mode "$cur" ) )
                 compopt -o filenames
 
