@@ -317,6 +317,8 @@ static void test_exec_temporaryfilesystem(Manager *m) {
 
 static void test_exec_systemcallfilter(Manager *m) {
 #if HAVE_SECCOMP
+        int r;
+
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
@@ -326,6 +328,13 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-not-failing2.service", 0, CLD_EXITED);
         test(m, "exec-systemcallfilter-failing.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-failing2.service", SIGSYS, CLD_KILLED);
+
+        r = find_binary("python3", NULL);
+        if (r < 0) {
+                log_notice_errno(r, "Skipping remaining tests in %s, could not find python3 binary: %m", __func__);
+                return;
+        }
+
         test(m, "exec-systemcallfilter-with-errno-name.service", errno_from_name("EILSEQ"), CLD_EXITED);
         test(m, "exec-systemcallfilter-with-errno-number.service", 255, CLD_EXITED);
 #endif
@@ -333,8 +342,16 @@ static void test_exec_systemcallfilter(Manager *m) {
 
 static void test_exec_systemcallerrornumber(Manager *m) {
 #if HAVE_SECCOMP
+        int r;
+
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
+                return;
+        }
+
+        r = find_binary("python3", NULL);
+        if (r < 0) {
+                log_notice_errno(r, "Skipping %s, could not find python3 binary: %m", __func__);
                 return;
         }
 
