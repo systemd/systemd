@@ -756,8 +756,7 @@ tests += [
           libshared],
          [threads,
           libxz,
-          liblz4],
-         '', '', '-DCATALOG_DIR="@0@"'.format(catalogdir)],
+          liblz4]],
 
         [['src/journal/test-compress.c'],
          [libjournal_core,
