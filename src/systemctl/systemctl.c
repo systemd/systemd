@@ -4586,15 +4586,7 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
         return 0;
 }
 
-#define print_prop(name, fmt, ...)                                      \
-        do {                                                            \
-                if (arg_value)                                          \
-                        printf(fmt "\n", __VA_ARGS__);                  \
-                else                                                    \
-                        printf("%s=" fmt "\n", name, __VA_ARGS__);      \
-        } while (0)
-
-static int print_property(const char *name, sd_bus_message *m, bool value, bool all) {
+static int print_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
         char bus_type;
         const char *contents;
         int r;
@@ -4621,9 +4613,9 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         if (u > 0)
-                                print_prop(name, "%"PRIu32, u);
+                                bus_print_property_value(name, expected_value, value, "%"PRIu32, u);
                         else if (all)
-                                print_prop(name, "%s", "");
+                                bus_print_property_value(name, expected_value, value, "%s", "");
 
                         return 1;
 
@@ -4635,7 +4627,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         if (all || !isempty(s))
-                                print_prop(name, "%s", s);
+                                bus_print_property_value(name, expected_value, value, "%s", s);
 
                         return 1;
 
@@ -4647,7 +4639,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         if (all || !isempty(a) || !isempty(b))
-                                print_prop(name, "%s \"%s\"", strempty(a), strempty(b));
+                                bus_print_property_value(name, expected_value, value, "%s \"%s\"", strempty(a), strempty(b));
 
                         return 1;
                 } else if (streq_ptr(name, "SystemCallFilter")) {
@@ -4709,7 +4701,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sb)", &path, &ignore)) > 0)
-                                print_prop(name, "%s (ignore_errors=%s)", path, yes_no(ignore));
+                                bus_print_property_value(name, expected_value, value, "%s (ignore_errors=%s)", path, yes_no(ignore));
 
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4728,7 +4720,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                print_prop(name, "%s (%s)", path, type);
+                                bus_print_property_value(name, expected_value, value, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4746,7 +4738,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                print_prop(name, "%s (%s)", path, type);
+                                bus_print_property_value(name, expected_value, value, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4767,9 +4759,9 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                         while ((r = sd_bus_message_read(m, "(stt)", &base, &v, &next_elapse)) > 0) {
                                 char timespan1[FORMAT_TIMESPAN_MAX], timespan2[FORMAT_TIMESPAN_MAX];
 
-                                print_prop(name, "{ %s=%s ; next_elapse=%s }", base,
-                                           format_timespan(timespan1, sizeof(timespan1), v, 0),
-                                           format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
+                                bus_print_property_value(name, expected_value, value, "{ %s=%s ; next_elapse=%s }", base,
+                                                         format_timespan(timespan1, sizeof(timespan1), v, 0),
+                                                         format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4791,8 +4783,8 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                         while ((r = sd_bus_message_read(m, "(sst)", &base, &spec, &next_elapse)) > 0) {
                                 char timestamp[FORMAT_TIMESTAMP_MAX];
 
-                                print_prop(name, "{ %s=%s ; next_elapse=%s }", base, spec,
-                                           format_timestamp(timestamp, sizeof(timestamp), next_elapse));
+                                bus_print_property_value(name, expected_value, value, "{ %s=%s ; next_elapse=%s }", base, spec,
+                                                         format_timestamp(timestamp, sizeof(timestamp), next_elapse));
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4816,18 +4808,18 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
 
                                 tt = strv_join(info.argv, " ");
 
-                                print_prop(name,
-                                           "{ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }",
-                                           strna(info.path),
-                                           strna(tt),
-                                           yes_no(info.ignore),
-                                           strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
-                                           strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
-                                           info.pid,
-                                           sigchld_code_to_string(info.code),
-                                           info.status,
-                                           info.code == CLD_EXITED ? "" : "/",
-                                           strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
+                                 bus_print_property_value(name, expected_value, value,
+                                                          "{ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }",
+                                                          strna(info.path),
+                                                          strna(tt),
+                                                          yes_no(info.ignore),
+                                                          strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
+                                                          strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
+                                                          info.pid,
+                                                          sigchld_code_to_string(info.code),
+                                                          info.status,
+                                                          info.code == CLD_EXITED ? "" : "/",
+                                                          strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
 
                                 free(info.path);
                                 strv_free(info.argv);
@@ -4848,7 +4840,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &path, &rwm)) > 0)
-                                print_prop(name, "%s %s", strna(path), strna(rwm));
+                                bus_print_property_value(name, expected_value, value, "%s %s", strna(path), strna(rwm));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4868,7 +4860,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &weight)) > 0)
-                                print_prop(name, "%s %"PRIu64, strna(path), weight);
+                                bus_print_property_value(name, expected_value, value, "%s %"PRIu64, strna(path), weight);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4889,7 +4881,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &bandwidth)) > 0)
-                                print_prop(name, "%s %"PRIu64, strna(path), bandwidth);
+                                bus_print_property_value(name, expected_value, value, "%s %"PRIu64, strna(path), bandwidth);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4910,8 +4902,8 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &target)) > 0)
-                                print_prop(name, "%s %s", strna(path),
-                                           format_timespan(ts, sizeof(ts), target, 1));
+                                bus_print_property_value(name, expected_value, value, "%s %s", strna(path),
+                                                         format_timespan(ts, sizeof(ts), target, 1));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4935,7 +4927,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                         if (n < 0)
                                 return log_oom();
 
-                        print_prop(name, "%s", h);
+                        bus_print_property_value(name, expected_value, value, "%s", h);
 
                         return 1;
                 }

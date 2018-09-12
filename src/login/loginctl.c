@@ -723,15 +723,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
         return 0;
 }
 
-#define property(name, fmt, ...)                                        \
-        do {                                                            \
-                if (value)                                              \
-                        printf(fmt "\n", __VA_ARGS__);                  \
-                else                                                    \
-                        printf("%s=" fmt "\n", name, __VA_ARGS__);      \
-        } while (0)
-
-static int print_property(const char *name, sd_bus_message *m, bool value, bool all) {
+static int print_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
         char type;
         const char *contents;
         int r;
@@ -755,7 +747,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return bus_log_parse_error(r);
 
                         if (all || !isempty(s))
-                                property(name, "%s", s);
+                                bus_print_property_value(name, expected_value, value, "%s", s);
 
                         return 1;
 
@@ -771,7 +763,7 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
                                 return -EINVAL;
                         }
 
-                        property(name, UID_FMT, uid);
+                        bus_print_property_value(name, expected_value, value, UID_FMT, uid);
                         return 1;
                 }
                 break;

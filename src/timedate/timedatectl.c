@@ -589,15 +589,7 @@ static int show_timesync_status(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-#define property(name, fmt, ...)                                        \
-        do {                                                            \
-                if (value)                                              \
-                        printf(fmt "\n", __VA_ARGS__);                  \
-                else                                                    \
-                        printf("%s=" fmt "\n", name, __VA_ARGS__);      \
-        } while (0)
-
-static int print_timesync_property(const char *name, sd_bus_message *m, bool value, bool all) {
+static int print_timesync_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
         char type;
         const char *contents;
         int r;
@@ -663,7 +655,7 @@ static int print_timesync_property(const char *name, sd_bus_message *m, bool val
                                 return r;
 
                         if (arg_all || !isempty(str))
-                                property(name, "%s", str);
+                                bus_print_property_value(name, expected_value, value, "%s", str);
 
                         return 1;
                 }
