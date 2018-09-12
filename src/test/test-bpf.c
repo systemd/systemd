@@ -110,9 +110,10 @@ int main(int argc, char *argv[]) {
         unit_dump(u, stdout, NULL);
 
         r = bpf_firewall_compile(u);
-        if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM ))
-                /* Kernel doesn't support the necessary bpf bits, or masked out via seccomp? */
+        if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM)) {
+                log_info_errno(r, "Kernel doesn't support the necessary bpf bits, or masked out via seccomp? Skipping tests: %m");
                 return EXIT_TEST_SKIP;
+        }
         assert_se(r >= 0);
 
         assert(u->ip_bpf_ingress);

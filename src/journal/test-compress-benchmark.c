@@ -173,6 +173,7 @@ int main(int argc, char *argv[]) {
         }
         return 0;
 #else
+        log_info("No compression feature is enabled, skipping tests.");
         return EXIT_TEST_SKIP;
 #endif
 }

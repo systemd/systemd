@@ -46,11 +46,21 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
 
         /* skip test if module cannot be loaded */
         r = load_module("ipip");
-        if (r < 0)
+        if (r < 0) {
+                log_info_errno(r, "Skipping tests: failed to load module 'ipip': %m");
                 return EXIT_TEST_SKIP;
+        }
 
-        if (getuid() != 0)
+        r = load_module("sit");
+        if (r < 0) {
+                log_info_errno(r, "Skipping tests: failed to load module 'sit': %m");
                 return EXIT_TEST_SKIP;
+        }
+
+        if (getuid() != 0) {
+                log_info("Skipping tests: not root");
+                return EXIT_TEST_SKIP;
+        }
 
         /* IPIP tunnel */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);
@@ -75,10 +85,6 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(sd_netlink_call(rtnl, m, -1, 0) == 1);
 
         assert_se((m = sd_netlink_message_unref(m)) == NULL);
-
-        r = load_module("sit");
-        if (r < 0)
-                return EXIT_TEST_SKIP;
 
         /* sit */
         assert_se(sd_rtnl_message_new_link(rtnl, &n, RTM_NEWLINK, 0) >= 0);

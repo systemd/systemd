@@ -12,7 +12,8 @@ int main(int argc, char *argv[]) {
         r = get_user_creds(&name, &uid, NULL, NULL, NULL, 0);
         if (r < 0) {
                 log_full_errno(r == -ESRCH ? LOG_NOTICE : LOG_ERR,
-                               r, "Failed to resolve \"%s\": %m", name);
+                               r, "Failed to resolve \"%s\"%s: %m", name,
+                               r == -ESRCH ? ", skipping tests" : "");
                 return r == -ESRCH ? EXIT_TEST_SKIP : EXIT_FAILURE;
         }
 

@@ -121,8 +121,10 @@ static void test_marshal(void) {
         int r;
 
         r = sd_bus_open_user(&bus);
-        if (r < 0)
+        if (r < 0) {
+                log_info("Failed to connect to bus, skipping tests.");
                 exit(EXIT_TEST_SKIP);
+        }
 
         bus->message_version = 2; /* dirty hack to enable gvariant */
 

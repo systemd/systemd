@@ -16,11 +16,14 @@ int main(int argc, char *argv[]) {
         uint8_t *p;
 
 #if HAVE_VALGRIND_VALGRIND_H
-        if (RUNNING_ON_VALGRIND)
+        if (RUNNING_ON_VALGRIND) {
+                puts("This test cannot run on valgrind, skipping tests.");
                 return EXIT_TEST_SKIP;
+        }
 #endif
 
 #ifdef __SANITIZE_ADDRESS__
+        puts("Address sanitization is enabled, skipping tests.");
         return EXIT_TEST_SKIP;
 #endif
         sigbus_install();

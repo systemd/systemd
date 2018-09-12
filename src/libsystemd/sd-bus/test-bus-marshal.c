@@ -121,8 +121,10 @@ int main(int argc, char *argv[]) {
         uint64_t u64;
 
         r = sd_bus_default_user(&bus);
-        if (r < 0)
+        if (r < 0) {
+                log_info("Failed to connect to bus, skipping tests.");
                 return EXIT_TEST_SKIP;
+        }
 
         r = sd_bus_message_new_method_call(bus, &m, "foobar.waldo", "/", "foobar.waldo", "Piep");
         assert_se(r >= 0);

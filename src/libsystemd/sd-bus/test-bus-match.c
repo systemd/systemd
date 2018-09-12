@@ -78,8 +78,10 @@ int main(int argc, char *argv[]) {
         int r;
 
         r = sd_bus_open_user(&bus);
-        if (r < 0)
+        if (r < 0) {
+                log_info("Failed to connect to bus, skipping tests.");
                 return EXIT_TEST_SKIP;
+        }
 
         assert_se(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1) >= 0);
         assert_se(match_add(slots, &root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2) >= 0);

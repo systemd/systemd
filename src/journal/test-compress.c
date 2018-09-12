@@ -305,6 +305,7 @@ int main(int argc, char *argv[]) {
 
         return 0;
 #else
+        log_info("/* XZ and LZ4 tests skipped */");
         return EXIT_TEST_SKIP;
 #endif
 }

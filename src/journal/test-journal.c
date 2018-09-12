@@ -239,8 +239,10 @@ int main(int argc, char *argv[]) {
         arg_keep = argc > 1;
 
         /* journal_file_open requires a valid machine id */
-        if (access("/etc/machine-id", F_OK) != 0)
+        if (access("/etc/machine-id", F_OK) != 0) {
+                log_info("/etc/machine-id not found, skipping tests.");
                 return EXIT_TEST_SKIP;
+        }
 
         test_non_empty();
         test_empty();
