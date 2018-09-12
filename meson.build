@@ -270,7 +270,11 @@ pkgconfig = import('pkgconfig')
 check_compilation_sh = find_program('tools/meson-check-compilation.sh')
 meson_build_sh = find_program('tools/meson-build.sh')
 
-if get_option('tests') != 'false'
+want_tests = get_option('tests')
+slow_tests = want_tests != 'false' and get_option('slow-tests')
+install_tests = get_option('install-tests')
+
+if want_tests != 'false'
         cxx = find_program('c++', required : false)
         if cxx.found()
                 #  Used only for tests
@@ -1291,9 +1295,6 @@ conf.set10('ENABLE_NSS', enable_nss)
 
 conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesyncd'))
 
-want_tests = get_option('tests')
-install_tests = get_option('install-tests')
-slow_tests = get_option('slow-tests')
 tests = []
 fuzzers = []
 
