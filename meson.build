@@ -1466,7 +1466,8 @@ test_dlopen = executable(
         test_dlopen_c,
         include_directories : includes,
         link_with : [libbasic],
-        dependencies : [libdl])
+        dependencies : [libdl],
+        build_by_default : want_tests != 'false')
 
 foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                  ['systemd',    'ENABLE_NSS_SYSTEMD'],
@@ -2672,6 +2673,7 @@ exe = executable(
         test_libsystemd_sym_c,
         include_directories : includes,
         link_with : [libsystemd],
+        build_by_default : want_tests != 'false',
         install : install_tests,
         install_dir : testsdir)
 if want_tests != 'false'
@@ -2685,7 +2687,7 @@ exe = executable(
         link_with : [install_libsystemd_static],
         dependencies : [threads], # threads is already included in dependencies on the library,
                                   # but does not seem to get propagated. Add here as a work-around.
-        build_by_default : static_libsystemd_pic,
+        build_by_default : want_tests != 'false' and static_libsystemd_pic,
         install : install_tests and static_libsystemd_pic,
         install_dir : testsdir)
 if want_tests != 'false' and static_libsystemd_pic
@@ -2698,6 +2700,7 @@ exe = executable(
         include_directories : includes,
         c_args : ['-Wno-deprecated-declarations'],
         link_with : [libudev],
+        build_by_default : want_tests != 'false',
         install : install_tests,
         install_dir : testsdir)
 if want_tests != 'false'
@@ -2710,7 +2713,7 @@ exe = executable(
         include_directories : includes,
         c_args : ['-Wno-deprecated-declarations'],
         link_with : [install_libudev_static],
-        build_by_default : static_libudev_pic,
+        build_by_default : want_tests != 'false' and static_libudev_pic,
         install : install_tests and static_libudev_pic,
         install_dir : testsdir)
 if want_tests != 'false' and static_libudev_pic

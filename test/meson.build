@@ -235,7 +235,7 @@ custom_target(
         'sys',
         command : [sys_script_py, meson.current_build_dir()],
         output : 'sys',
-        build_by_default : true)
+        build_by_default : want_tests != 'false')
 
 if perl.found()
         udev_test_pl = find_program('udev-test.pl')
