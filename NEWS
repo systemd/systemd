@@ -594,10 +594,9 @@ CHANGES WITH 237:
           different from what the documentation said, and not particularly
           useful, as repeated systemd-tmpfiles invocations would not be
           idempotent and grow such files without bounds. With this release
-          behaviour has been altered slightly, to match what the documentation
-          says: lines of this type only have an effect if the indicated files
-          don't exist yet, and only then the argument string is written to the
-          file.
+          behaviour has been altered to match what the documentation says:
+          lines of this type only have an effect if the indicated files don't
+          exist yet, and only then the argument string is written to the file.
 
         * FUTURE INCOMPATIBILITY: In systemd v238 we intend to slightly change
           systemd-tmpfiles behaviour: previously, read-only files owned by root
