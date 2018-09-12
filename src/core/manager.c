@@ -3788,7 +3788,7 @@ static int manager_run_environment_generators(Manager *m) {
         if (!generator_path_any(paths))
                 return 0;
 
-        return execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL);
+        return execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, m->environment);
 }
 
 static int manager_run_generators(Manager *m) {
