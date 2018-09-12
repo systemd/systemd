@@ -679,6 +679,7 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_free_ char *test_execute_path = NULL;
         static const test_function_t user_tests[] = {
                 test_exec_basic,
                 test_exec_ambientcapabilities,
@@ -744,7 +745,8 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
-        assert_se(set_unit_path(get_testdata_dir("/test-execute")) >= 0);
+        test_execute_path = path_join(NULL, get_testdata_dir(), "test-execute");
+        assert_se(set_unit_path(test_execute_path) >= 0);
 
         /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
          * cases, otherwise (and if they are present in the environment),
