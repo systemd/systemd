@@ -54,9 +54,8 @@ static int test_basic(sd_event *event) {
         test_pool(&address_lo, 1, 0);
 
         r = sd_dhcp_server_start(server);
-
         if (r == -EPERM)
-                return EXIT_TEST_SKIP;
+                return log_info_errno(r, "sd_dhcp_server_start failed: %m");
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_server_start(server) == -EBUSY);
@@ -236,8 +235,10 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_new(&e) >= 0);
 
         r = test_basic(e);
-        if (r != 0)
-                return r;
+        if (r != 0) {
+                log_notice("%s: skipping tests.", program_invocation_short_name);
+                return EXIT_TEST_SKIP;
+        }
 
         test_message_handler();
         test_client_id_hash();

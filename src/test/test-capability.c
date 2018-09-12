@@ -91,10 +91,9 @@ static int setup_tests(bool *run_ambient) {
         int r;
 
         nobody = getpwnam(NOBODY_USER_NAME);
-        if (!nobody) {
-                log_error_errno(errno, "Could not find nobody user: %m");
-                return -EXIT_TEST_SKIP;
-        }
+        if (!nobody)
+                return log_error_errno(errno, "Could not find nobody user: %m");
+
         test_uid = nobody->pw_uid;
         test_gid = nobody->pw_gid;
 
@@ -229,12 +228,16 @@ int main(int argc, char *argv[]) {
 
         log_info("have ambient caps: %s", yes_no(ambient_capabilities_supported()));
 
-        if (getuid() != 0)
+        if (getuid() != 0) {
+                log_notice("%s: not root, skipping tests.", program_invocation_short_name);
                 return EXIT_TEST_SKIP;
+        }
 
         r = setup_tests(&run_ambient);
-        if (r < 0)
-                return -r;
+        if (r < 0) {
+                log_notice("%s: skipping tests.", program_invocation_short_name);
+                return EXIT_TEST_SKIP;
+        }
 
         show_capabilities();
 

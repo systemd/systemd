@@ -91,5 +91,10 @@ int main(int argc, char* argv[]) {
         r = test_boot_timestamps();
         assert(r >= 0);
 
-        return (p > 0 || q > 0 || r >> 0) ? EXIT_SUCCESS : EXIT_TEST_SKIP;
+        bool any = p > 0 || q > 0 || r > 0;
+        if (!any)
+                log_notice("%s: access to firmware variable not possible, skipping tests.",
+                           program_invocation_short_name);
+
+        return any ? EXIT_SUCCESS : EXIT_TEST_SKIP;
 }
