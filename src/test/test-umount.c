@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include "alloc-util.h"
 #include "log.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "umount.h"
@@ -8,9 +10,13 @@
 
 static void test_mount_points_list(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
+        _cleanup_free_ char *testdata_fname = NULL;
         MountPoint *m;
 
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/self/mountinfo");
+
+        if (fname)
+                fname = testdata_fname = path_join(NULL, get_testdata_dir(), fname);
 
         LIST_HEAD_INIT(mp_list_head);
         assert_se(mount_points_list_get(fname, &mp_list_head) >= 0);
@@ -26,9 +32,13 @@ static void test_mount_points_list(const char *fname) {
 
 static void test_swap_list(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
+        _cleanup_free_ char *testdata_fname = NULL;
         MountPoint *m;
 
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/swaps");
+
+        if (fname)
+                fname = testdata_fname = path_join(NULL, get_testdata_dir(), fname);
 
         LIST_HEAD_INIT(mp_list_head);
         assert_se(swap_list_get(fname, &mp_list_head) >= 0);
@@ -48,10 +58,10 @@ int main(int argc, char **argv) {
         log_open();
 
         test_mount_points_list(NULL);
-        test_mount_points_list(get_testdata_dir("/test-umount/empty.mountinfo"));
-        test_mount_points_list(get_testdata_dir("/test-umount/garbled.mountinfo"));
-        test_mount_points_list(get_testdata_dir("/test-umount/rhbug-1554943.mountinfo"));
+        test_mount_points_list("/test-umount/empty.mountinfo");
+        test_mount_points_list("/test-umount/garbled.mountinfo");
+        test_mount_points_list("/test-umount/rhbug-1554943.mountinfo");
 
         test_swap_list(NULL);
-        test_swap_list(get_testdata_dir("/test-umount/example.swaps"));
+        test_swap_list("/test-umount/example.swaps");
 }

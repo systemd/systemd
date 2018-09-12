@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "manager.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
@@ -247,6 +248,7 @@ int main(int argc, char *argv[]) {
         };
 
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_free_ char *test_path = NULL;
         const test_function_t *test = NULL;
         Manager *m = NULL;
 
@@ -255,7 +257,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        assert_se(set_unit_path(get_testdata_dir("/test-path")) >= 0);
+        test_path = path_join(NULL, get_testdata_dir(), "test-path");
+        assert_se(set_unit_path(test_path) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         for (test = tests; test && *test; test++) {

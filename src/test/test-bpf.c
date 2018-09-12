@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
 
-        assert_se(set_unit_path(get_testdata_dir("")) >= 0);
+        assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &p);
