@@ -207,6 +207,7 @@ conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
 conf.set_quoted('SYSTEMD_KBD_MODEL_MAP',                      join_paths(pkgdatadir, 'kbd-model-map'))
 conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              join_paths(pkgdatadir, 'language-fallback-map'))
 conf.set_quoted('SYSTEMD_TEST_DATA',                          join_paths(testsdir, 'testdata'))
+conf.set_quoted('SYSTEMD_CATALOG_DIR',                        catalogdir)
 conf.set_quoted('UDEVLIBEXECDIR',                             udevlibexecdir)
 conf.set_quoted('POLKIT_AGENT_BINARY_PATH',                   join_paths(bindir, 'pkttyagent'))
 conf.set_quoted('LIBDIR',                                     libdir)
@@ -221,8 +222,6 @@ conf.set_quoted('USER_KEYRING_PATH',                          join_paths(pkgsysc
 conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdatadir, 'gatewayd'))
 conf.set('MEMORY_ACCOUNTING_DEFAULT',                         memory_accounting_default ? 'true' : 'false')
 conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_YES_NO',           memory_accounting_default ? 'yes' : 'no')
-
-conf.set_quoted('ABS_BUILD_DIR',                              meson.build_root())
 
 substs.set('prefix',                                          prefixdir)
 substs.set('exec_prefix',                                     prefixdir)
@@ -2612,6 +2611,7 @@ custom_target(
         output : 'systemd-runtest.env',
         command : ['sh', '-c', '{ ' +
                    'echo SYSTEMD_TEST_DATA=@0@; '.format(join_paths(meson.current_source_dir(), 'test')) +
+                   'echo SYSTEMD_CATALOG_DIR=@0@; '.format(join_paths(meson.current_build_dir(), 'catalog')) +
                    '} >@OUTPUT@'],
         build_by_default : true)
 

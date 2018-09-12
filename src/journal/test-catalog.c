@@ -212,11 +212,7 @@ int main(int argc, char *argv[]) {
 
         /* If test-catalog is located at the build directory, then use catalogs in that.
          * If it is not, e.g. installed by systemd-tests package, then use installed catalogs. */
-        if (test_is_running_from_builddir(NULL)) {
-                assert_se(catalog_dir = path_join(NULL, ABS_BUILD_DIR, "catalog"));
-                catalog_dirs = STRV_MAKE(catalog_dir);
-        } else
-                catalog_dirs = STRV_MAKE(CATALOG_DIR);
+        catalog_dirs = STRV_MAKE(get_catalog_dir());
 
         assert_se(access(catalog_dirs[0], F_OK) >= 0);
         log_notice("Using catalog directory '%s'", catalog_dirs[0]);
