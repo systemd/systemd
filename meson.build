@@ -206,6 +206,7 @@ conf.set_quoted('SYSTEM_SHUTDOWN_PATH',                       systemshutdowndir)
 conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
 conf.set_quoted('SYSTEMD_KBD_MODEL_MAP',                      join_paths(pkgdatadir, 'kbd-model-map'))
 conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              join_paths(pkgdatadir, 'language-fallback-map'))
+conf.set_quoted('SYSTEMD_TEST_DATA',                          join_paths(testsdir, 'testdata'))
 conf.set_quoted('UDEVLIBEXECDIR',                             udevlibexecdir)
 conf.set_quoted('POLKIT_AGENT_BINARY_PATH',                   join_paths(bindir, 'pkttyagent'))
 conf.set_quoted('LIBDIR',                                     libdir)
@@ -222,7 +223,6 @@ conf.set('MEMORY_ACCOUNTING_DEFAULT',                         memory_accounting_
 conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_YES_NO',           memory_accounting_default ? 'yes' : 'no')
 
 conf.set_quoted('ABS_BUILD_DIR',                              meson.build_root())
-conf.set_quoted('ABS_SRC_DIR',                                meson.source_root())
 
 substs.set('prefix',                                          prefixdir)
 substs.set('exec_prefix',                                     prefixdir)
@@ -2606,6 +2606,14 @@ executable('systemd-sulogin-shell',
            install_dir : rootlibexecdir)
 
 ############################################################
+
+custom_target(
+        'systemd-runtest.env',
+        output : 'systemd-runtest.env',
+        command : ['sh', '-c', '{ ' +
+                   'echo SYSTEMD_TEST_DATA=@0@; '.format(join_paths(meson.current_source_dir(), 'test')) +
+                   '} >@OUTPUT@'],
+        build_by_default : true)
 
 foreach tuple : tests
         sources = tuple[0]

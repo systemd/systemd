@@ -6,8 +6,11 @@
 #include <stdlib.h>
 #include <util.h>
 
-#include "tests.h"
+#include "alloc-util.h"
+#include "fileio.h"
 #include "path-util.h"
+#include "strv.h"
+#include "tests.h"
 
 char* setup_fake_runtime_dir(void) {
         char t[] = "/tmp/fake-xdg-runtime-XXXXXX", *p;
@@ -19,53 +22,47 @@ char* setup_fake_runtime_dir(void) {
         return p;
 }
 
-bool test_is_running_from_builddir(char **exedir) {
+static void load_testdata_env(void) {
+        static bool called = false;
         _cleanup_free_ char *s = NULL;
-        bool r;
+        _cleanup_free_ char *envpath = NULL;
+        _cleanup_strv_free_ char **pairs = NULL;
+        char **k, **v;
 
-        /* Check if we're running from the builddir. Optionally, this returns
-         * the path to the directory where the binary is located. */
+        if (called)
+                return;
+        called = true;
 
         assert_se(readlink_and_make_absolute("/proc/self/exe", &s) >= 0);
-        r = path_startswith(s, ABS_BUILD_DIR);
+        dirname(s);
 
-        if (exedir) {
-                dirname(s);
-                *exedir = TAKE_PTR(s);
-        }
+        envpath = path_join(NULL, s, "systemd-runtest.env");
+        if (load_env_file_pairs(NULL, envpath, NULL, &pairs) < 0)
+                return;
 
-        return r;
+        STRV_FOREACH_PAIR(k, v, pairs)
+                setenv(*k, *v, 0);
+}
+
+bool test_is_running_from_builddir(char **exedir) {
+        load_testdata_env();
+
+        return !!getenv("SYSTEMD_TEST_DATA");
 }
 
 const char* get_testdata_dir(void) {
         const char *env;
-        /* convenience: caller does not need to free result */
-        static char testdir[PATH_MAX];
+
+        load_testdata_env();
 
         /* if the env var is set, use that */
         env = getenv("SYSTEMD_TEST_DATA");
-        testdir[sizeof(testdir) - 1] = '\0';
-        if (env) {
-                if (access(env, F_OK) < 0) {
-                        fputs("ERROR: $SYSTEMD_TEST_DATA directory does not exist\n", stderr);
-                        exit(EXIT_FAILURE);
-                }
-                strncpy(testdir, env, sizeof(testdir) - 1);
-        } else {
-                _cleanup_free_ char *exedir = NULL;
-
-                /* Check if we're running from the builddir. If so, use the compiled in path. */
-                if (test_is_running_from_builddir(&exedir))
-                        assert_se(snprintf(testdir, sizeof(testdir), "%s/test", ABS_SRC_DIR) > 0);
-                else
-                        /* Try relative path, according to the install-test layout */
-                        assert_se(snprintf(testdir, sizeof(testdir), "%s/testdata", exedir) > 0);
-
-                if (access(testdir, F_OK) < 0) {
-                        fputs("ERROR: Cannot find testdata directory, set $SYSTEMD_TEST_DATA\n", stderr);
-                        exit(EXIT_FAILURE);
-                }
+        if (!env)
+                env = SYSTEMD_TEST_DATA;
+        if (access(env, F_OK) < 0) {
+                fprintf(stderr, "ERROR: $SYSTEMD_TEST_DATA directory [%s] does not exist\n", env);
+                exit(EXIT_FAILURE);
         }
 
-        return testdir;
+        return env;
 }
