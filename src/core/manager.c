@@ -3820,7 +3820,7 @@ static int manager_run_generators(Manager *m) {
 
         RUN_WITH_UMASK(0022)
                 execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC,
-                                    NULL, NULL, (char**) argv, NULL);
+                                    NULL, NULL, (char**) argv, m->environment);
 
 finish:
         lookup_paths_trim_generator(&m->lookup_paths);
