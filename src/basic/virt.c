@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "dirent-util.h"
+#include "def.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -259,21 +260,38 @@ static int detect_vm_hypervisor(void) {
 }
 
 static int detect_vm_uml(void) {
-        _cleanup_free_ char *cpuinfo_contents = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         /* Detect User-Mode Linux by reading /proc/cpuinfo */
-        r = read_full_file("/proc/cpuinfo", &cpuinfo_contents, NULL);
-        if (r == -ENOENT) {
-                log_debug("/proc/cpuinfo not found, assuming no UML virtualization.");
-                return VIRTUALIZATION_NONE;
+        f = fopen("/proc/cpuinfo", "re");
+        if (!f) {
+                if (errno == ENOENT) {
+                        log_debug("/proc/cpuinfo not found, assuming no UML virtualization.");
+                        return VIRTUALIZATION_NONE;
+                }
+                return -errno;
         }
-        if (r < 0)
-                return r;
 
-        if (strstr(cpuinfo_contents, "\nvendor_id\t: User Mode Linux\n")) {
-                log_debug("UML virtualization found in /proc/cpuinfo");
-                return VIRTUALIZATION_UML;
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *t;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                t = startswith(line, "vendor_id\t: ");
+                if (t) {
+                        if (startswith(t, "User Mode Linux")) {
+                                log_debug("UML virtualization found in /proc/cpuinfo");
+                                return VIRTUALIZATION_UML;
+                        }
+
+                        break;
+                }
         }
 
         log_debug("UML virtualization not found in /proc/cpuinfo.");
