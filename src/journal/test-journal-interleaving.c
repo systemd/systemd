@@ -15,9 +15,9 @@
 #include "parse-util.h"
 #include "rm-rf.h"
 #include "util.h"
+#include "tests.h"
 
-/* This program tests skipping around in a multi-file journal.
- */
+/* This program tests skipping around in a multi-file journal. */
 
 static bool arg_keep = false;
 
@@ -277,10 +277,8 @@ int main(int argc, char *argv[]) {
         log_set_max_level(LOG_DEBUG);
 
         /* journal_file_open requires a valid machine id */
-        if (access("/etc/machine-id", F_OK) != 0) {
-                log_info("/etc/machine-id not found, skipping tests.");
-                return EXIT_TEST_SKIP;
-        }
+        if (access("/etc/machine-id", F_OK) != 0)
+                return log_tests_skipped("/etc/machine-id not found");
 
         arg_keep = argc > 1;
 

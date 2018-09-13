@@ -20,10 +20,8 @@ int main(int argc, char *argv[]) {
         int r;
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice_errno(r, "Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         /* prepare the test */
         assert_se(set_unit_path(get_testdata_dir()) >= 0);

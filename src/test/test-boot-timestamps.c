@@ -4,6 +4,7 @@
 #include "boot-timestamps.h"
 #include "efivars.h"
 #include "log.h"
+#include "tests.h"
 #include "util.h"
 
 static int test_acpi_fpdt(void) {
@@ -91,10 +92,8 @@ int main(int argc, char* argv[]) {
         r = test_boot_timestamps();
         assert(r >= 0);
 
-        bool any = p > 0 || q > 0 || r > 0;
-        if (!any)
-                log_notice("%s: access to firmware variable not possible, skipping tests.",
-                           program_invocation_short_name);
+        if (p == 0 && q == 0 && r == 0)
+                return log_tests_skipped("access to firmware variables not possible");
 
-        return any ? EXIT_SUCCESS : EXIT_TEST_SKIP;
+        return EXIT_SUCCESS;
 }

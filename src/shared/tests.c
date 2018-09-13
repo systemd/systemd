@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "env-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "path-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -88,4 +89,10 @@ bool slow_tests_enabled(void) {
         if (r != -ENXIO)
                 log_warning_errno(r, "Cannot parse $SYSTEMD_SLOW_TESTS, ignoring.");
         return SYSTEMD_SLOW_TESTS_DEFAULT;
+}
+
+int log_tests_skipped(const char *message) {
+        log_notice("%s: %s, skipping tests.",
+                   program_invocation_short_name, message);
+        return EXIT_TEST_SKIP;
 }

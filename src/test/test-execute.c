@@ -733,16 +733,12 @@ int main(int argc, char *argv[]) {
         (void) unsetenv("SHELL");
 
         /* It is needed otherwise cgroup creation fails */
-        if (getuid() != 0) {
-                puts("Skipping test: not root");
-                return EXIT_TEST_SKIP;
-        }
+        if (getuid() != 0)
+                return log_tests_skipped("not root");
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                puts("Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
         test_execute_path = path_join(NULL, get_testdata_dir(), "test-execute");

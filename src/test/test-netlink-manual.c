@@ -10,6 +10,7 @@
 
 #include "macro.h"
 #include "module-util.h"
+#include "tests.h"
 #include "util.h"
 
 static int load_module(const char *mod_name) {
@@ -57,10 +58,8 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
                 return EXIT_TEST_SKIP;
         }
 
-        if (getuid() != 0) {
-                log_info("Skipping tests: not root");
-                return EXIT_TEST_SKIP;
-        }
+        if (getuid() != 0)
+                return log_tests_skipped("not root");
 
         /* IPIP tunnel */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);

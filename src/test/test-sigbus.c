@@ -2,12 +2,14 @@
 
 #include <sys/mman.h>
 
+#if HAVE_VALGRIND_VALGRIND_H
+#  include <valgrind/valgrind.h>
+#endif
+
 #include "fd-util.h"
 #include "sigbus.h"
+#include "tests.h"
 #include "util.h"
-#if HAVE_VALGRIND_VALGRIND_H
-#include <valgrind/valgrind.h>
-#endif
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int fd = -1;
@@ -15,17 +17,14 @@ int main(int argc, char *argv[]) {
         void *addr = NULL;
         uint8_t *p;
 
+#ifdef __SANITIZE_ADDRESS__
+        return log_tests_skipped("address-sanitizer is enabled");
+#endif
 #if HAVE_VALGRIND_VALGRIND_H
-        if (RUNNING_ON_VALGRIND) {
-                puts("This test cannot run on valgrind, skipping tests.");
-                return EXIT_TEST_SKIP;
-        }
+        if (RUNNING_ON_VALGRIND)
+                return log_tests_skipped("This test cannot run on valgrind");
 #endif
 
-#ifdef __SANITIZE_ADDRESS__
-        puts("Address sanitization is enabled, skipping tests.");
-        return EXIT_TEST_SKIP;
-#endif
         sigbus_install();
 
         assert_se(sigbus_pop(&addr) == 0);

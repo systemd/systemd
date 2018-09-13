@@ -8,6 +8,7 @@
 #include "journal-vacuum.h"
 #include "log.h"
 #include "rm-rf.h"
+#include "tests.h"
 
 static bool arg_keep = false;
 
@@ -239,10 +240,8 @@ int main(int argc, char *argv[]) {
         arg_keep = argc > 1;
 
         /* journal_file_open requires a valid machine id */
-        if (access("/etc/machine-id", F_OK) != 0) {
-                log_info("/etc/machine-id not found, skipping tests.");
-                return EXIT_TEST_SKIP;
-        }
+        if (access("/etc/machine-id", F_OK) != 0)
+                return log_tests_skipped("/etc/machine-id not found");
 
         test_non_empty();
         test_empty();

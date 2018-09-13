@@ -2,6 +2,7 @@
 
 #include "architecture.h"
 #include "log.h"
+#include "tests.h"
 #include "util.h"
 #include "virt.h"
 
@@ -17,10 +18,8 @@ int main(int argc, char *argv[]) {
         assert_se(architecture_from_string(architecture_to_string(1)) == 1);
 
         v = detect_virtualization();
-        if (IN_SET(v, -EPERM, -EACCES)) {
-                log_info_errno(v, "Skipping tests: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (IN_SET(v, -EPERM, -EACCES))
+                return log_tests_skipped("Cannot detect virtualization");
 
         assert_se(v >= 0);
 

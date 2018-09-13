@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "tests.h"
 #include "util.h"
 
 static uid_t test_uid = -1;
@@ -217,7 +218,6 @@ static void test_set_ambient_caps(void) {
 }
 
 int main(int argc, char *argv[]) {
-        int r;
         bool run_ambient;
 
         test_last_cap_file();
@@ -228,16 +228,11 @@ int main(int argc, char *argv[]) {
 
         log_info("have ambient caps: %s", yes_no(ambient_capabilities_supported()));
 
-        if (getuid() != 0) {
-                log_notice("%s: not root, skipping tests.", program_invocation_short_name);
-                return EXIT_TEST_SKIP;
-        }
+        if (getuid() != 0)
+                return log_tests_skipped("not running as root");
 
-        r = setup_tests(&run_ambient);
-        if (r < 0) {
-                log_notice("%s: skipping tests.", program_invocation_short_name);
-                return EXIT_TEST_SKIP;
-        }
+        if (setup_tests(&run_ambient) < 0)
+                return log_tests_skipped("setup failed");
 
         show_capabilities();
 

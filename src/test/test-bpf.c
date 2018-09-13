@@ -33,10 +33,8 @@ int main(int argc, char *argv[]) {
         log_open();
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice("cgroupfs not available, skipping tests");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
@@ -47,16 +45,12 @@ int main(int argc, char *argv[]) {
         r = bpf_program_add_instructions(p, exit_insn, ELEMENTSOF(exit_insn));
         assert(r == 0);
 
-        if (getuid() != 0) {
-                log_notice("Not running as root, skipping kernel related tests.");
-                return EXIT_TEST_SKIP;
-        }
+        if (getuid() != 0)
+                return log_tests_skipped("not running as root");
 
         r = bpf_firewall_supported();
-        if (r == BPF_FIREWALL_UNSUPPORTED) {
-                log_notice("BPF firewalling not supported, skipping");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == BPF_FIREWALL_UNSUPPORTED)
+                return log_tests_skipped("BPF firewalling not supported");
         assert_se(r > 0);
 
         if (r == BPF_FIREWALL_SUPPORTED_WITH_MULTI)
@@ -110,10 +104,8 @@ int main(int argc, char *argv[]) {
         unit_dump(u, stdout, NULL);
 
         r = bpf_firewall_compile(u);
-        if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM)) {
-                log_info_errno(r, "Kernel doesn't support the necessary bpf bits, or masked out via seccomp? Skipping tests: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM))
+                return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
         assert_se(r >= 0);
 
         assert(u->ip_bpf_ingress);

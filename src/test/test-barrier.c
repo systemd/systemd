@@ -424,11 +424,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        if (!slow_tests_enabled()) {
-                log_notice("%s: slow tests are disabled, exiting.",
-                           program_invocation_short_name);
-                return EXIT_TEST_SKIP;
-        }
+        if (!slow_tests_enabled())
+                return log_tests_skipped("slow tests are disabled");
 
         test_barrier_sync();
         test_barrier_wait_next();

@@ -9,6 +9,7 @@
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "tests.h"
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
@@ -235,10 +236,8 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_new(&e) >= 0);
 
         r = test_basic(e);
-        if (r != 0) {
-                log_notice("%s: skipping tests.", program_invocation_short_name);
-                return EXIT_TEST_SKIP;
-        }
+        if (r != 0)
+                return log_tests_skipped("cannot start dhcp server");
 
         test_message_handler();
         test_client_id_hash();
