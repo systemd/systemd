@@ -82,8 +82,7 @@ static int test_boot_timestamps(void) {
 int main(int argc, char* argv[]) {
         int p, q, r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         p = test_acpi_fpdt();
         assert(p >= 0);

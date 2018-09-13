@@ -8,13 +8,14 @@
 #include "journal-internal.h"
 #include "log.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_(sd_journal_closep) sd_journal*j = NULL;
         _cleanup_free_ char *t;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(sd_journal_open(&j, 0) >= 0);
 

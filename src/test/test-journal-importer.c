@@ -69,8 +69,7 @@ static void test_bad_input(void) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         test_basic_parsing();
         test_bad_input();

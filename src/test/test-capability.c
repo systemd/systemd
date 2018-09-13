@@ -220,11 +220,10 @@ static void test_set_ambient_caps(void) {
 int main(int argc, char *argv[]) {
         bool run_ambient;
 
+        test_setup_logging(LOG_INFO);
+
         test_last_cap_file();
         test_last_cap_probe();
-
-        log_parse_environment();
-        log_open();
 
         log_info("have ambient caps: %s", yes_no(ambient_capabilities_supported()));
 

@@ -7,6 +7,7 @@
 #include "log.h"
 #include "selinux-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "time-util.h"
 #include "util.h"
 
@@ -92,8 +93,7 @@ int main(int argc, char **argv) {
         if (argc >= 2)
                 path = argv[1];
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         test_testing();
         test_loading();

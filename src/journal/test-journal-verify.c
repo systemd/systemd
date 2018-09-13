@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);

@@ -19,6 +19,7 @@
 #include "fd-util.h"
 #include "macro.h"
 #include "socket-util.h"
+#include "tests.h"
 #include "virt.h"
 
 static struct ether_addr mac_addr = {
@@ -910,9 +911,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_event_new(&e) >= 0);
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_client_basic(e);
         test_option(e);

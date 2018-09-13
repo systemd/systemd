@@ -15,6 +15,7 @@
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
@@ -95,9 +96,7 @@ static int test_ll(const char *ifname, const char *seed) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         if (argc == 2)
                 return test_ll(argv[1], NULL);

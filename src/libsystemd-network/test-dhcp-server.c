@@ -229,9 +229,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(sd_event_new(&e) >= 0);
 

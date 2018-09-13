@@ -4,6 +4,7 @@
 
 #include "log.h"
 #include "os-util.h"
+#include "tests.h"
 
 static void test_path_is_os_tree(void) {
         assert_se(path_is_os_tree("/") > 0);
@@ -12,9 +13,7 @@ static void test_path_is_os_tree(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_path_is_os_tree();
 

@@ -13,6 +13,7 @@
 #include "bus-message.h"
 #include "bus-util.h"
 #include "macro.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_bus_gvariant_is_fixed_size(void) {
@@ -199,6 +200,7 @@ static void test_marshal(void) {
 }
 
 int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_INFO);
 
         test_bus_gvariant_is_fixed_size();
         test_bus_gvariant_get_size();

@@ -9,6 +9,7 @@
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_rule_serialization(const char *title, const char *ruleset, const char *expected) {
         char pattern[] = "/tmp/systemd-test-routing-policy-rule.XXXXXX",
@@ -57,9 +58,7 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
 int main(int argc, char **argv) {
         _cleanup_free_ char *p = NULL;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_rule_serialization("basic parsing",
                                 "RULE=from=1.2.3.4/32 to=2.3.4.5/32 tos=5 fwmark=1/2 table=10", NULL);

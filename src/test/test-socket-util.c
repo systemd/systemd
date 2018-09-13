@@ -17,6 +17,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "util.h"
+#include "tests.h"
 
 static void test_ifname_valid(void) {
         assert(ifname_valid("foo"));
@@ -698,7 +699,7 @@ static void test_send_emptydata(void) {
 
 int main(int argc, char *argv[]) {
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         test_ifname_valid();
 

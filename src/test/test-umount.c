@@ -53,9 +53,7 @@ static void test_swap_list(const char *fname) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_mount_points_list(NULL);
         test_mount_points_list("/test-umount/empty.mountinfo");

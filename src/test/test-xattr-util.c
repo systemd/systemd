@@ -12,6 +12,7 @@
 #include "fs-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
 #include "xattr-util.h"
 
 static void test_fgetxattrat_fake(void) {
@@ -78,9 +79,7 @@ static void test_getcrtime(void) {
 }
 
 int main(void) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_fgetxattrat_fake();
         test_getcrtime();

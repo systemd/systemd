@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "install.h"
+#include "tests.h"
 
 static void dump_changes(UnitFileChange *c, unsigned n) {
         unsigned i;
@@ -29,8 +30,7 @@ int main(int argc, char* argv[]) {
         size_t n_changes = 0;
         UnitFileState state = 0;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         h = hashmap_new(&string_hash_ops);
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h, NULL, NULL);

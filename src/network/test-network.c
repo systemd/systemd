@@ -224,6 +224,8 @@ int main(void) {
         _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
         int ifindex, r;
 
+        test_setup_logging(LOG_INFO);
+
         test_deserialize_in_addr();
         test_deserialize_dhcp_routes();
         test_address_equality();

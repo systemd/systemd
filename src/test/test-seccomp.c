@@ -20,6 +20,7 @@
 #include "seccomp-util.h"
 #include "set.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 #include "virt.h"
 
@@ -668,7 +669,7 @@ static void test_filter_sets_ordered(void) {
 
 int main(int argc, char *argv[]) {
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         test_seccomp_arch_to_string();
         test_architecture_table();

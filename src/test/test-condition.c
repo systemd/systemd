@@ -26,6 +26,7 @@
 #include "strv.h"
 #include "tomoyo-util.h"
 #include "user-util.h"
+#include "tests.h"
 #include "util.h"
 #include "virt.h"
 
@@ -673,9 +674,7 @@ static void test_condition_test_group(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_condition_test_path();
         test_condition_test_ac_power();

@@ -109,8 +109,7 @@ int main(int argc, char *argv[]) {
         char boot_id[SD_ID128_STRING_MAX];
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *zz = NULL;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         assert_se(sd_id128_get_boot(&bid) >= 0);
         sd_id128_to_string(bid, boot_id);

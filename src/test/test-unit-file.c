@@ -896,8 +896,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int r;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         r = enter_cgroup_subroot();
         if (r == -ENOMEDIUM)

@@ -274,7 +274,7 @@ static void test_sequence_numbers(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         /* journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)

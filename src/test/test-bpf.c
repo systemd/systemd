@@ -28,9 +28,7 @@ int main(int argc, char *argv[]) {
         char log_buf[65535];
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         r = enter_cgroup_subroot();
         if (r == -ENOMEDIUM)

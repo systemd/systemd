@@ -48,6 +48,8 @@ int main(int argc, char *argv[]) {
         const char *unique;
         int r;
 
+        test_setup_logging(LOG_INFO);
+
         r = sd_event_default(&event);
         assert_se(r >= 0);
 

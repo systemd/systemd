@@ -3,6 +3,7 @@
 #include "hexdecoct.h"
 #include "random-util.h"
 #include "log.h"
+#include "tests.h"
 
 static void test_acquire_random_bytes(bool high_quality_required) {
         uint8_t buf[16] = {};
@@ -51,9 +52,7 @@ static void test_rdrand64(void) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_acquire_random_bytes(false);
         test_acquire_random_bytes(true);

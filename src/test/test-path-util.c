@@ -12,6 +12,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
 
 #define test_path_compare(a, b, result) {                 \
@@ -506,9 +507,7 @@ static void test_empty_or_root(void) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_path();
         test_path_equal_root();

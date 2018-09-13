@@ -4,6 +4,7 @@
 #include "dns-domain.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_dns_label_unescape_one(const char *what, const char *expect, size_t buffer_sz, int ret) {
         char buffer[buffer_sz];
@@ -687,9 +688,7 @@ static void test_dns_name_is_valid_or_address(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_dns_label_unescape();
         test_dns_label_unescape_suffix();

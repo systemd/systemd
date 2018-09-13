@@ -252,8 +252,7 @@ int main(int argc, char *argv[]) {
 
         umask(022);
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         test_path = path_join(NULL, get_testdata_dir(), "test-path");
         assert_se(set_unit_path(test_path) >= 0);

@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ char *s = NULL;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(khash_new(&h, NULL) == -EINVAL);
         assert_se(khash_new(&h, "") == -EINVAL);

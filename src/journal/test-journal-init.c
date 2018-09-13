@@ -5,6 +5,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "rm-rf.h"
+#include "tests.h"
 #include "util.h"
 
 int main(int argc, char *argv[]) {
@@ -12,7 +13,7 @@ int main(int argc, char *argv[]) {
         int r, i, I = 100;
         char t[] = "/tmp/journal-stream-XXXXXX";
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         if (argc >= 2) {
                 r = safe_atoi(argv[1], &I);

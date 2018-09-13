@@ -121,6 +121,8 @@ int main(int argc, char *argv[]) {
         double dbl;
         uint64_t u64;
 
+        test_setup_logging(LOG_INFO);
+
         r = sd_bus_default_user(&bus);
         if (r < 0)
                 return log_tests_skipped("Failed to connect to bus");

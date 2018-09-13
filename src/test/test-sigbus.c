@@ -17,6 +17,8 @@ int main(int argc, char *argv[]) {
         void *addr = NULL;
         uint8_t *p;
 
+        test_setup_logging(LOG_INFO);
+
 #ifdef __SANITIZE_ADDRESS__
         return log_tests_skipped("address-sanitizer is enabled");
 #endif

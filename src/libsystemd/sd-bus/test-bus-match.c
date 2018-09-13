@@ -78,6 +78,8 @@ int main(int argc, char *argv[]) {
         sd_bus_slot slots[19];
         int r;
 
+        test_setup_logging(LOG_INFO);
+
         r = sd_bus_open_user(&bus);
         if (r < 0)
                 return log_tests_skipped("Failed to connect to bus");

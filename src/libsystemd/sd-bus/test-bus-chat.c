@@ -510,6 +510,8 @@ int main(int argc, char *argv[]) {
         void *p;
         int q, r;
 
+        test_setup_logging(LOG_INFO);
+
         r = server_init(&bus);
         if (r < 0)
                 return log_tests_skipped("Failed to connect to bus");

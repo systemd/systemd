@@ -22,7 +22,7 @@ static void test_non_empty(void) {
         sd_id128_t fake_boot_id;
         char t[] = "/tmp/journal-XXXXXX";
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
@@ -113,7 +113,7 @@ static void test_empty(void) {
         JournalFile *f1, *f2, *f3, *f4;
         char t[] = "/tmp/journal-XXXXXX";
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
@@ -165,7 +165,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         assert_se(data_size <= sizeof(data));
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
@@ -238,6 +238,8 @@ static void test_min_compress_size(void) {
 
 int main(int argc, char *argv[]) {
         arg_keep = argc > 1;
+
+        test_setup_logging(LOG_INFO);
 
         /* journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)

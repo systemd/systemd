@@ -118,6 +118,8 @@ int main(int argc, char *argv[]) {
         sd_netlink *rtnl;
         int r;
 
+        test_setup_logging(LOG_INFO);
+
         assert_se(sd_netlink_open(&rtnl) >= 0);
         assert_se(rtnl);
 

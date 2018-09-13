@@ -4,6 +4,7 @@
 #include "log.h"
 #include "fileio.h"
 #include "fuzz.h"
+#include "tests.h"
 
 /* This is a test driver for the systemd fuzzers that provides main function
  * for regression testing outside of oss-fuzz (https://github.com/google/oss-fuzz)
@@ -16,9 +17,7 @@ int main(int argc, char **argv) {
         size_t size;
         char *name;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         for (i = 1; i < argc; i++) {
                 _cleanup_free_ char *buf = NULL;

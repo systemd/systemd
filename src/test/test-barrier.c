@@ -420,9 +420,7 @@ TEST_BARRIER(test_barrier_pending_exit,
         TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_INFO);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         if (!slow_tests_enabled())
                 return log_tests_skipped("slow tests are disabled");

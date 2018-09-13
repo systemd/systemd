@@ -10,6 +10,8 @@ int main(int argc, char *argv[]) {
         int a, v;
         const char *p;
 
+        test_setup_logging(LOG_INFO);
+
         assert_se(architecture_from_string("") < 0);
         assert_se(architecture_from_string(NULL) < 0);
         assert_se(architecture_from_string("hoge") < 0);

@@ -14,6 +14,7 @@
 #include "socket-util.h"
 #include "strv.h"
 #include "ndisc-internal.h"
+#include "tests.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
@@ -407,9 +408,7 @@ static void test_timeout(void) {
 
 int main(int argc, char *argv[]) {
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_rs();
         test_timeout();

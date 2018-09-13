@@ -16,6 +16,7 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -93,9 +94,7 @@ static void test_conf_files_list(bool use_root) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_conf_files_list(false);
         test_conf_files_list(true);

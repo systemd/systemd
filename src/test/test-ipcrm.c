@@ -10,6 +10,8 @@ int main(int argc, char *argv[]) {
         int r;
         const char* name = argv[1] ?: NOBODY_USER_NAME;
 
+        test_setup_logging(LOG_INFO);
+
         r = get_user_creds(&name, &uid, NULL, NULL, NULL, 0);
         if (r == -ESRCH)
                 return log_tests_skipped("Failed to resolve user");

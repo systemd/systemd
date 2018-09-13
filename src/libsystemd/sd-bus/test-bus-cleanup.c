@@ -60,8 +60,7 @@ static void test_bus_new_signal(void) {
 }
 
 int main(int argc, char **argv) {
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         test_bus_new();
 

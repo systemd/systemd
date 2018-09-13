@@ -13,9 +13,7 @@ int main(int argc, char *argv[]) {
         int r;
         bool slow;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         slow = slow_tests_enabled();
 

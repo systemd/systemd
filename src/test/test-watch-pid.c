@@ -13,9 +13,7 @@ int main(int argc, char *argv[]) {
         Unit *a, *b, *c, *u;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         if (getuid() != 0)
                 return log_tests_skipped("not root");

@@ -118,8 +118,7 @@ static void test_cg_mask_to_string(void) {
 int main(int argc, char* argv[]) {
         int rc = EXIT_SUCCESS;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_cg_mask_to_string();
         TEST_REQ_RUNNING_SYSTEMD(rc = test_cgroup_mask());

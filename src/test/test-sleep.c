@@ -80,8 +80,7 @@ static void test_sleep(void) {
 int main(int argc, char* argv[]) {
         int i, r = 0, k;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         if (getuid() != 0)
                 log_warning("This program is unlikely to work for unprivileged users");

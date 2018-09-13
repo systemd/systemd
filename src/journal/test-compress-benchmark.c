@@ -143,11 +143,7 @@ static void test_compress_decompress(const char* label, const char* type,
 
 int main(int argc, char *argv[]) {
 #if HAVE_XZ || HAVE_LZ4
-        const char *i;
-
-        log_set_max_level(LOG_INFO);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         if (argc >= 2) {
                 unsigned x;
@@ -163,6 +159,7 @@ int main(int argc, char *argv[]) {
         else
                 arg_start = getpid_cached();
 
+        const char *i;
         NULSTR_FOREACH(i, "zeros\0simple\0random\0") {
 #if HAVE_XZ
                 test_compress_decompress("XZ", i, compress_blob_xz, decompress_blob_xz);
