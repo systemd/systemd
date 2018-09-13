@@ -205,10 +205,8 @@ static int test_unit_printf(void) {
         assert_se(get_shell(&shell) >= 0);
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (MANAGER_SKIP_TEST(r))
+                return log_tests_skipped_errno(r, "manager_new");
         assert_se(r == 0);
 
 #define expect(unit, pattern, expected)                                 \

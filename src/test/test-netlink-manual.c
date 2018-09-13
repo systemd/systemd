@@ -47,16 +47,12 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
 
         /* skip test if module cannot be loaded */
         r = load_module("ipip");
-        if (r < 0) {
-                log_info_errno(r, "Skipping tests: failed to load module 'ipip': %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (r < 0)
+                return log_tests_skipped_errno(r, "failed to load module 'ipip'");
 
         r = load_module("sit");
-        if (r < 0) {
-                log_info_errno(r, "Skipping tests: failed to load module 'sit': %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (r < 0)
+                return log_tests_skipped_errno(r, "failed to load module 'sit'");
 
         if (getuid() != 0)
                 return log_tests_skipped("not root");

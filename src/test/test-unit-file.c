@@ -39,11 +39,8 @@ static int test_unit_file_get_set(void) {
         assert_se(h);
 
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h, NULL, NULL);
-
-        if (IN_SET(r, -EPERM, -EACCES)) {
-                log_notice_errno(r, "Skipping test: unit_file_get_list: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (IN_SET(r, -EPERM, -EACCES))
+                return log_tests_skipped_errno(r, "unit_file_get_list");
 
         log_full_errno(r == 0 ? LOG_INFO : LOG_ERR, r,
                        "unit_file_get_list: %m");

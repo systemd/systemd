@@ -664,10 +664,8 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
         assert_se(tests);
 
         r = manager_new(scope, MANAGER_TEST_RUN_BASIC, &m);
-        if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (MANAGER_SKIP_TEST(r))
+                return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);
 

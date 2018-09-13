@@ -37,10 +37,8 @@ static int setup_test(Manager **m) {
                 return log_tests_skipped("cgroupfs not available");
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &tmp);
-        if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (MANAGER_SKIP_TEST(r))
+                return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
         assert_se(manager_startup(tmp, NULL, NULL) >= 0);
 
