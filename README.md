@@ -16,11 +16,11 @@ Information about build requirements are provided in the [README file](../master
 
 Consult our [NEWS file](../master/NEWS) for information about what's new in the most recent systemd versions.
 
-Please see the [HACKING file](../master/doc/HACKING) for information how to hack on systemd and test your modifications.
+Please see the [HACKING file](../master/docs/HACKING) for information how to hack on systemd and test your modifications.
 
 Please see our [Contribution Guidelines](../master/.github/CONTRIBUTING.md) for more information about filing GitHub Issues and posting GitHub Pull Requests.
 
-When preparing patches for systemd, please follow our [Coding Style Guidelines](../master/doc/CODING_STYLE).
+When preparing patches for systemd, please follow our [Coding Style Guidelines](../master/docs/CODING_STYLE).
 
 If you are looking for support, please contact our [mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel) or join our [IRC channel](irc://irc.freenode.org/%23systemd).
 

@@ -38,13 +38,13 @@
 
     <itemizedlist>
       <listitem><para>Boot entries defined with <ulink
-      url="https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md">Boot Loader
+      url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader
       Specification</ulink> description files located in <filename>/loader/entries/</filename> on the ESP. These
       usually describe Linux kernel images with associated initrd images, but alternatively may also describe
       arbitrary other EFI executables.</para></listitem>
 
       <listitem><para>Unified kernel images following the <ulink
-      url="https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md">Boot Loader
+      url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader
       Specification</ulink>, as executable EFI binaries in <filename>/EFI/Linux/</filename> on the ESP.
       </para></listitem>
 
@@ -231,9 +231,9 @@
     <filename>/loader/loader.conf</filename> on the ESP (in combination with data read from EFI variables). See
     <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Boot entry
     description files following the <ulink
-    url="https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md">Boot Loader
+    url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader
     Specification</ulink> are read from <filename>/loader/entries/</filename> on the ESP. Unified kernel boot entries
-    following the <ulink url="https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md">Boot
+    following the <ulink url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot
     Loader Specification</ulink> are read from <filename>/EFI/Linux/</filename> on the ESP.</para>
   </refsect1>
 
@@ -242,7 +242,7 @@
     <para>
       <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <ulink url="https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md">Boot Loader Specification</ulink>,
+      <ulink url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader Specification</ulink>,
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>
     </para>
   </refsect1>
