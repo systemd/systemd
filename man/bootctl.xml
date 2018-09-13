@@ -126,7 +126,7 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <ulink url="https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md">Boot Loader Specification</ulink>,
+      <ulink url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader Specification</ulink>,
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>
     </para>
   </refsect1>
