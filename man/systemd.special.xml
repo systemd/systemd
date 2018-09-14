@@ -596,14 +596,18 @@
           <listitem>
             <para>A special target unit that sets up all slice units (see
             <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details) that shall be active after boot. By default the generic
-            <filename>system.slice</filename> slice unit, as well as the root slice unit
-            <filename>-.slice</filename>, is pulled in and ordered before this unit (see
+            for details) that shall always be active after boot. By default the generic
+            <filename>system.slice</filename> slice unit as well as the root slice unit
+            <filename>-.slice</filename> are pulled in and ordered before this unit (see
             below).</para>
 
-            <para>It's a good idea to add <varname>WantedBy=slices.target</varname> lines to the
-            <literal>[Install]</literal> section of all slices units that may be installed
-            dynamically.</para>
+            <para>Adding slice units to <filename>slices.target</filename> is generally not
+            necessary. Instead, when some unit that uses <varname>Slice=</varname> is started, the
+            specified slice will be started automatically. Adding
+            <varname>WantedBy=slices.target</varname> lines to the <literal>[Install]</literal>
+            section should only be done for units that need to be always active. In that case care
+            needs to be taken to avoid creating a loop through the automatic dependencies on
+            "parent" slices.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
