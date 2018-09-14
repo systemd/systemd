@@ -19,11 +19,12 @@ systemd_udevd_sources = files('udevd.c')
 
 libudev_core_sources = '''
         udev.h
+        udev-ctrl.c
         udev-event.c
-        udev-watch.c
         udev-node.c
         udev-rules.c
-        udev-ctrl.c
+        udev-watch.c
+        udev-watch.h
         udev-builtin.c
         udev-builtin-btrfs.c
         udev-builtin-hwdb.c

@@ -34,12 +34,14 @@
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "libudev-device-internal.h"
 #include "list.h"
 #include "netlink-util.h"
 #include "parse-util.h"
@@ -51,6 +53,7 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "udev-util.h"
+#include "udev-watch.h"
 #include "udev.h"
 #include "user-util.h"
 
@@ -451,7 +454,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
 
                         /* apply/restore inotify watch */
                         if (udev_event->inotify_watch) {
-                                udev_watch_begin(dev);
+                                udev_watch_begin(dev->device);
                                 udev_device_update_db(dev);
                         }
 
@@ -997,18 +1000,38 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
         return 1;
 }
 
-static int synthesize_change(struct udev_device *dev) {
-        char filename[UTIL_PATH_SIZE];
+static int synthesize_change(sd_device *dev) {
+        const char *subsystem, *sysname, *devname, *syspath, *devtype;
+        char filename[PATH_MAX];
         int r;
 
-        if (streq_ptr("block", udev_device_get_subsystem(dev)) &&
-            streq_ptr("disk", udev_device_get_devtype(dev)) &&
-            !startswith(udev_device_get_sysname(dev), "dm-")) {
-                bool part_table_read = false;
-                bool has_partitions = false;
+        r = sd_device_get_subsystem(dev, &subsystem);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devname(dev, &devname);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_syspath(dev, &syspath);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devtype(dev, &devtype);
+        if (r < 0)
+                return r;
+
+        if (streq_ptr("block", subsystem) &&
+            streq_ptr("disk", devtype) &&
+            !startswith(sysname, "dm-")) {
+                _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+                bool part_table_read = false, has_partitions = false;
+                sd_device *d;
                 int fd;
-                _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
-                struct udev_list_entry *item;
 
                 /*
                  * Try to re-read the partition table. This only succeeds if
@@ -1016,7 +1039,7 @@ static int synthesize_change(struct udev_device *dev) {
                  * partition table is found, and we will not get an event for
                  * the disk.
                  */
-                fd = open(udev_device_get_devnode(dev), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                fd = open(devname, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
                 if (fd >= 0) {
                         r = flock(fd, LOCK_EX|LOCK_NB);
                         if (r >= 0)
@@ -1028,30 +1051,27 @@ static int synthesize_change(struct udev_device *dev) {
                 }
 
                 /* search for partitions */
-                e = udev_enumerate_new(NULL);
-                if (!e)
-                        return -ENOMEM;
-
-                r = udev_enumerate_add_match_parent(e, dev);
+                r = sd_device_enumerator_new(&e);
                 if (r < 0)
                         return r;
 
-                r = udev_enumerate_add_match_subsystem(e, "block");
+                r = sd_device_enumerator_allow_uninitialized(e);
                 if (r < 0)
                         return r;
 
-                r = udev_enumerate_scan_devices(e);
+                r = sd_device_enumerator_add_match_parent(e, dev);
                 if (r < 0)
                         return r;
 
-                udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
-                        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+                r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+                if (r < 0)
+                        return r;
 
-                        d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
-                        if (!d)
-                                continue;
+                FOREACH_DEVICE(e, d) {
+                        const char *t;
 
-                        if (!streq_ptr("partition", udev_device_get_devtype(d)))
+                        if (sd_device_get_devtype(d, &t) < 0 ||
+                            !streq("partition", t))
                                 continue;
 
                         has_partitions = true;
@@ -1070,31 +1090,31 @@ static int synthesize_change(struct udev_device *dev) {
                  * We have partitions but re-reading the partition table did not
                  * work, synthesize "change" for the disk and all partitions.
                  */
-                log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
-                strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
+                log_debug("Device '%s' is closed, synthesising 'change'", devname);
+                strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
                 write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
 
-                udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
-                        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+                FOREACH_DEVICE(e, d) {
+                        const char *t, *n, *s;
 
-                        d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
-                        if (!d)
+                        if (sd_device_get_devtype(d, &t) < 0 ||
+                            !streq("partition", t))
                                 continue;
 
-                        if (!streq_ptr("partition", udev_device_get_devtype(d)))
+                        if (sd_device_get_devname(d, &n) < 0 ||
+                            sd_device_get_syspath(d, &s) < 0)
                                 continue;
 
-                        log_debug("device %s closed, synthesising partition '%s' 'change'",
-                                  udev_device_get_devnode(dev), udev_device_get_devnode(d));
-                        strscpyl(filename, sizeof(filename), udev_device_get_syspath(d), "/uevent", NULL);
+                        log_debug("Device '%s' is closed, synthesising partition '%s' 'change'", devname, n);
+                        strscpyl(filename, sizeof(filename), s, "/uevent", NULL);
                         write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
                 }
 
                 return 0;
         }
 
-        log_debug("device %s closed, synthesising 'change'", udev_device_get_devnode(dev));
-        strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
+        log_debug("Device %s is closed, synthesising 'change'", devname);
+        strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
         write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
 
         return 0;
@@ -1117,13 +1137,16 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
         }
 
         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                const char *devnode;
 
-                dev = udev_watch_lookup(e->wd);
-                if (!dev)
+                if (udev_watch_lookup(e->wd, &dev) < 0)
                         continue;
 
-                log_debug("inotify event: %x for %s", e->mask, udev_device_get_devnode(dev));
+                if (sd_device_get_devname(dev, &devnode) < 0)
+                        continue;
+
+                log_debug("inotify event: %x for %s", e->mask, devnode);
                 if (e->mask & IN_CLOSE_WRITE) {
                         synthesize_change(dev);
 

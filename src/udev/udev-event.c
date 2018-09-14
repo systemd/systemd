@@ -18,11 +18,13 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "libudev-device-internal.h"
 #include "netlink-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "udev-watch.h"
 #include "udev.h"
 
 typedef struct Spawn {
@@ -799,7 +801,7 @@ void udev_event_execute_rules(struct udev_event *event,
                 udev_device_delete_db(dev);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
-                        udev_watch_end(dev);
+                        udev_watch_end(dev->device);
 
                 udev_rules_apply_to_event(rules, event,
                                           timeout_usec, timeout_warn_usec,
@@ -812,7 +814,7 @@ void udev_event_execute_rules(struct udev_event *event,
                 if (event->dev_db != NULL) {
                         /* disable watch during event processing */
                         if (major(udev_device_get_devnum(dev)) != 0)
-                                udev_watch_end(event->dev_db);
+                                udev_watch_end(event->dev_db->device);
 
                         if (major(udev_device_get_devnum(dev)) == 0 &&
                             streq(udev_device_get_action(dev), "move"))

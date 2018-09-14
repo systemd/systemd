@@ -10,6 +10,7 @@
 #include <sys/types.h>
 
 #include "libudev.h"
+#include "sd-device.h"
 #include "sd-netlink.h"
 
 #include "label.h"
@@ -75,13 +76,6 @@ void udev_event_execute_rules(struct udev_event *event,
                               struct udev_list *properties_list,
                               struct udev_rules *rules);
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec);
-
-/* udev-watch.c */
-int udev_watch_init(void);
-void udev_watch_restore(void);
-void udev_watch_begin(struct udev_device *dev);
-void udev_watch_end(struct udev_device *dev);
-struct udev_device *udev_watch_lookup(int wd);
 
 /* udev-node.c */
 void udev_node_add(struct udev_device *dev, bool apply,
