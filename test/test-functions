@@ -449,7 +449,7 @@ EOF
 }
 
 check_result_nspawn() {
-    ret=1
+    local ret=1
     [[ -e $TESTDIR/$1/testok ]] && ret=0
     [[ -f $TESTDIR/$1/failed ]] && cp -a $TESTDIR/$1/failed $TESTDIR
     cp -a $TESTDIR/$1/var/log/journal $TESTDIR
@@ -462,7 +462,7 @@ check_result_nspawn() {
 
 # can be overridden in specific test
 check_result_qemu() {
-    ret=1
+    local ret=1
     mkdir -p $TESTDIR/root
     mount ${LOOPDEV}p1 $TESTDIR/root
     [[ -e $TESTDIR/root/testok ]] && ret=0
@@ -1527,7 +1527,9 @@ do_test() {
         case $1 in
             --run)
                 echo "TEST RUN: $TEST_DESCRIPTION"
-                if test_run; then
+                test_run
+                ret=$?
+                if (( $ret == 0 )); then
                     echo "TEST RUN: $TEST_DESCRIPTION [OK]"
                 else
                     echo "TEST RUN: $TEST_DESCRIPTION [FAILED]"
