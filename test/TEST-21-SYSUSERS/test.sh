@@ -15,6 +15,7 @@ prepare_testdir() {
         for i in $1.initial-{passwd,group,shadow}; do
                 test -f $i && cp $i $TESTDIR/etc/${i#*.initial-}
         done
+        return 0
 }
 
 preprocess() {
