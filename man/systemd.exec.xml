@@ -1350,10 +1350,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         settings (see the discussion in <varname>PrivateMounts=</varname> above) will implicitly disable mount and
         unmount propagation from the unit's processes towards the host by changing the propagation setting of all mount
         points in the unit's file system namepace to <option>slave</option> first. Setting this option to
-        <option>shared</option> does not reestablish propagation in that case. Conversely, if this option is set, but
-        no other file system namespace setting is used, then new file system namespaces will be created for the unit's
-        processes and this propagation flag will be applied right away to all mounts within it, without the
-        intermediary application of <option>slave</option>.</para>
+        <option>shared</option> does not reestablish propagation in that case.</para>
 
         <para>If not set – but file system namespaces are enabled through another file system namespace unit setting –
         <option>shared</option> mount propagation is used, but — as mentioned — as <option>slave</option> is applied
