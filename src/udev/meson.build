@@ -2,14 +2,15 @@
 
 udevadm_sources = files('''
         udevadm.c
-        udevadm-info.c
+        udevadm.h
         udevadm-control.c
-        udevadm-monitor.c
         udevadm-hwdb.c
+        udevadm-info.c
+        udevadm-monitor.c
         udevadm-settle.c
-        udevadm-trigger.c
         udevadm-test.c
         udevadm-test-builtin.c
+        udevadm-trigger.c
         udevadm-util.c
         udevadm-util.h
 '''.split())
@@ -159,7 +160,6 @@ libudev_core = static_library(
 
 foreach prog : [['ata_id/ata_id.c'],
                 ['cdrom_id/cdrom_id.c'],
-                ['collect/collect.c'],
                 ['scsi_id/scsi_id.c',
                  'scsi_id/scsi_id.h',
                  'scsi_id/scsi_serial.c',

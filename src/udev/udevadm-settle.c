@@ -13,22 +13,26 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "parse-util.h"
+#include "time-util.h"
+#include "udevadm.h"
 #include "udev.h"
-#include "udevadm-util.h"
-#include "util.h"
 
-static void help(void) {
+static usec_t arg_timeout = 120 * USEC_PER_SEC;
+static const char *arg_exists = NULL;
+
+static int help(void) {
         printf("%s settle [OPTIONS]\n\n"
                "Wait for pending udev events.\n\n"
                "  -h --help                 Show this help\n"
                "  -V --version              Show package version\n"
-               "  -t --timeout=SECONDS      Maximum time to wait for events\n"
+               "  -t --timeout=SEC          Maximum time to wait for events\n"
                "  -E --exit-if-exists=FILE  Stop waiting if file exists\n"
                , program_invocation_short_name);
+
+        return 0;
 }
 
-static int adm_settle(struct udev *udev, int argc, char *argv[]) {
+static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "timeout",        required_argument, NULL, 't' },
                 { "exit-if-exists", required_argument, NULL, 'E' },
@@ -39,117 +43,95 @@ static int adm_settle(struct udev *udev, int argc, char *argv[]) {
                 { "quiet",          no_argument,       NULL, 'q' }, /* removed */
                 {}
         };
-        usec_t deadline;
-        const char *exists = NULL;
-        unsigned int timeout = 120;
-        struct pollfd pfd[1] = { {.fd = -1}, };
-        int c;
-        struct udev_queue *queue;
-        int rc = EXIT_FAILURE;
+
+        int c, r;
 
         while ((c = getopt_long(argc, argv, "t:E:Vhs:e:q", options, NULL)) >= 0) {
                 switch (c) {
-
-                case 't': {
-                        int r;
-
-                        r = safe_atou(optarg, &timeout);
-                        if (r < 0) {
-                                log_error_errno(r, "Invalid timeout value '%s': %m", optarg);
-                                return EXIT_FAILURE;
-                        }
+                case 't':
+                        r = parse_sec(optarg, &arg_timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
                         break;
-                }
-
                 case 'E':
-                        exists = optarg;
+                        arg_exists = optarg;
                         break;
-
                 case 'V':
-                        print_version();
-                        return EXIT_SUCCESS;
-
+                        return version();
                 case 'h':
-                        help();
-                        return EXIT_SUCCESS;
-
+                        return help();
                 case 's':
                 case 'e':
                 case 'q':
                         log_info("Option -%c no longer supported.", c);
-                        return EXIT_FAILURE;
-
+                        return -EINVAL;
                 case '?':
-                        return EXIT_FAILURE;
-
+                        return -EINVAL;
                 default:
-                        assert_not_reached("Unknown argument");
+                        assert_not_reached("Unknown option.");
                 }
         }
 
-        if (optind < argc) {
-                fprintf(stderr, "Extraneous argument: '%s'\n", argv[optind]);
-                return EXIT_FAILURE;
-        }
+        return 1;
+}
 
-        deadline = now(CLOCK_MONOTONIC) + timeout * USEC_PER_SEC;
+int settle_main(int argc, char *argv[], void *userdata) {
+        _cleanup_(udev_queue_unrefp) struct udev_queue *queue = NULL;
+        struct pollfd pfd;
+        usec_t deadline;
+        int r;
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        deadline = now(CLOCK_MONOTONIC) + arg_timeout;
 
         /* guarantee that the udev daemon isn't pre-processing */
         if (getuid() == 0) {
-                struct udev_ctrl *uctrl;
+                _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
 
-                uctrl = udev_ctrl_new(udev);
-                if (uctrl != NULL) {
-                        if (udev_ctrl_send_ping(uctrl, MAX(5U, timeout)) < 0) {
-                                log_debug("no connection to daemon");
-                                udev_ctrl_unref(uctrl);
-                                return EXIT_SUCCESS;
+                uctrl = udev_ctrl_new();
+                if (uctrl) {
+                        r = udev_ctrl_send_ping(uctrl, MAX(5U, arg_timeout / USEC_PER_SEC));
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to connect to udev daemon.");
+                                return 0;
                         }
-                        udev_ctrl_unref(uctrl);
                 }
         }
 
-        queue = udev_queue_new(udev);
-        if (!queue) {
-                log_error("unable to get udev queue");
-                return EXIT_FAILURE;
+        queue = udev_queue_new(NULL);
+        if (!queue)
+                return log_error_errno(errno, "Failed to get udev queue: %m");
+
+        r = udev_queue_get_fd(queue);
+        if (r < 0) {
+                log_debug_errno(r, "Queue is empty, nothing to watch.");
+                return 0;
         }
 
-        pfd[0].events = POLLIN;
-        pfd[0].fd = udev_queue_get_fd(queue);
-        if (pfd[0].fd < 0) {
-                log_debug("queue is empty, nothing to watch");
-                rc = EXIT_SUCCESS;
-                goto out;
-        }
+        pfd = (struct pollfd) {
+                .events = POLLIN,
+                .fd = r,
+        };
 
         for (;;) {
-                if (exists && access(exists, F_OK) >= 0) {
-                        rc = EXIT_SUCCESS;
-                        break;
-                }
+                if (arg_exists && access(arg_exists, F_OK) >= 0)
+                        return 0;
 
                 /* exit if queue is empty */
-                if (udev_queue_get_queue_is_empty(queue)) {
-                        rc = EXIT_SUCCESS;
-                        break;
-                }
+                if (udev_queue_get_queue_is_empty(queue))
+                        return 0;
 
                 if (now(CLOCK_MONOTONIC) >= deadline)
-                        break;
+                        return -ETIMEDOUT;
 
-                /* wake up when queue is empty */
-                if (poll(pfd, 1, MSEC_PER_SEC) > 0 && pfd[0].revents & POLLIN)
-                        udev_queue_flush(queue);
+                /* wake up when queue becomes empty */
+                if (poll(&pfd, 1, MSEC_PER_SEC) > 0 && pfd.revents & POLLIN) {
+                        r = udev_queue_flush(queue);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to flush queue: %m");
+                }
         }
-
-out:
-        udev_queue_unref(queue);
-        return rc;
 }
-
-const struct udevadm_cmd udevadm_settle = {
-        .name = "settle",
-        .cmd = adm_settle,
-        .help = "Wait for pending udev events",
-};

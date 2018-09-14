@@ -15,8 +15,6 @@ Janitorial Clean-ups:
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
-* udev: drop "collect", it's nonsense
-
 Features:
 
 * optionally, if a per-partition GPT flag is set for the root/home/… partitions

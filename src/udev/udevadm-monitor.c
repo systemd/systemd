@@ -10,40 +10,113 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include "libudev.h"
+#include "sd-device.h"
+
+#include "alloc-util.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "udev.h"
-#include "udevadm-util.h"
+#include "hashmap.h"
+#include "libudev-private.h"
+#include "set.h"
+#include "string-util.h"
+#include "udevadm.h"
 
-static bool udev_exit;
+static bool udev_exit = false;
+static bool arg_show_property = false;
+static bool arg_print_kernel = false;
+static bool arg_print_udev = false;
+static Set *arg_tag_filter = NULL;
+static Hashmap *arg_subsystem_filter = NULL;
 
 static void sig_handler(int signum) {
         if (IN_SET(signum, SIGINT, SIGTERM))
                 udev_exit = true;
 }
 
-static void print_device(struct udev_device *device, const char *source, int prop) {
+static int receive_and_print_device(struct udev_monitor *monitor, const char *source) {
+        const char *action = NULL, *devpath = NULL, *subsystem = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         struct timespec ts;
+        int r;
+
+        r = udev_monitor_receive_sd_device(monitor, &device);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to receive device from %s, ignoring: %m", source);
+
+        (void) sd_device_get_property_value(device, "ACTION", &action);
+        (void) sd_device_get_devpath(device, &devpath);
+        (void) sd_device_get_subsystem(device, &subsystem);
 
         assert_se(clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
+
         printf("%-6s[%"PRI_TIME".%06"PRI_NSEC"] %-8s %s (%s)\n",
                source,
                ts.tv_sec, (nsec_t)ts.tv_nsec/1000,
-               udev_device_get_action(device),
-               udev_device_get_devpath(device),
-               udev_device_get_subsystem(device));
-        if (prop) {
-                struct udev_list_entry *list_entry;
+               action, devpath, subsystem);
 
-                udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
-                        printf("%s=%s\n",
-                               udev_list_entry_get_name(list_entry),
-                               udev_list_entry_get_value(list_entry));
+        if (arg_show_property) {
+                const char *key, *value;
+
+                FOREACH_DEVICE_PROPERTY(device, key, value)
+                        printf("%s=%s\n", key, value);
+
                 printf("\n");
         }
+
+        return 0;
 }
 
-static void help(void) {
+static int setup_monitor(const char *sender, int fd_epoll, struct udev_monitor **ret) {
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
+        const char *subsystem, *devtype, *tag;
+        struct epoll_event ep = {};
+        Iterator i;
+        int fd, r;
+
+        monitor = udev_monitor_new_from_netlink(NULL, sender);
+        if (!monitor)
+                return log_error_errno(errno, "Failed to create netlink socket: %m");
+
+        r = udev_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set receive buffer size: %m");
+
+        fd = udev_monitor_get_fd(monitor);
+        if (fd < 0)
+                return log_error_errno(r, "Failed to get socket fd for monitoring: %m");
+
+        HASHMAP_FOREACH_KEY(devtype, subsystem, arg_subsystem_filter, i) {
+                r = udev_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, devtype);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to apply subsystem filter '%s%s%s': %m",
+                                               subsystem, devtype ? "/" : "", strempty(devtype));
+        }
+
+        SET_FOREACH(tag, arg_tag_filter, i) {
+                r = udev_monitor_filter_add_match_tag(monitor, tag);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to apply tag filter '%s': %m", tag);
+        }
+
+        r = udev_monitor_enable_receiving(monitor);
+        if (r < 0)
+                return log_error_errno(r, "Failed to subscribe %s events: %m", sender);
+
+        ep = (struct epoll_event) {
+                .events = EPOLLIN,
+                .data.fd = fd,
+        };
+
+        if (epoll_ctl(fd_epoll, EPOLL_CTL_ADD, fd, &ep) < 0)
+                return log_error_errno(errno, "Failed to add fd to epoll: %m");
+
+        *ret = TAKE_PTR(monitor);
+        return fd;
+}
+
+static int help(void) {
         printf("%s monitor [OPTIONS]\n\n"
                "Listen to kernel and udev events.\n\n"
                "  -h --help                                Show this help\n"
@@ -54,23 +127,11 @@ static void help(void) {
                "  -s --subsystem-match=SUBSYSTEM[/DEVTYPE] Filter events by subsystem\n"
                "  -t --tag-match=TAG                       Filter events by tag\n"
                , program_invocation_short_name);
+
+        return 0;
 }
 
-static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
-        struct sigaction act = {};
-        sigset_t mask;
-        bool prop = false;
-        bool print_kernel = false;
-        bool print_udev = false;
-        _cleanup_(udev_list_cleanup) struct udev_list subsystem_match_list;
-        _cleanup_(udev_list_cleanup) struct udev_list tag_match_list;
-        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor = NULL;
-        _cleanup_(udev_monitor_unrefp) struct udev_monitor *kernel_monitor = NULL;
-        _cleanup_close_ int fd_ep = -1;
-        int fd_kernel = -1, fd_udev = -1;
-        struct epoll_event ep_kernel, ep_udev;
-        int c;
-
+static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "property",        no_argument,       NULL, 'p' },
                 { "environment",     no_argument,       NULL, 'e' }, /* alias for -p */
@@ -83,56 +144,101 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
                 {}
         };
 
-        udev_list_init(udev, &subsystem_match_list, true);
-        udev_list_init(udev, &tag_match_list, true);
+        int r, c;
 
         while ((c = getopt_long(argc, argv, "pekus:t:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'p':
                 case 'e':
-                        prop = true;
+                        arg_show_property = true;
                         break;
                 case 'k':
-                        print_kernel = true;
+                        arg_print_kernel = true;
                         break;
                 case 'u':
-                        print_udev = true;
+                        arg_print_udev = true;
                         break;
-                case 's':
-                        {
-                                char subsys[UTIL_NAME_SIZE];
-                                char *devtype;
+                case 's': {
+                        _cleanup_free_ char *subsystem = NULL, *devtype = NULL;
+                        const char *slash;
 
-                                strscpy(subsys, sizeof(subsys), optarg);
-                                devtype = strchr(subsys, '/');
-                                if (devtype != NULL) {
-                                        devtype[0] = '\0';
-                                        devtype++;
-                                }
-                                udev_list_entry_add(&subsystem_match_list, subsys, devtype);
-                                break;
-                        }
-                case 't':
-                        udev_list_entry_add(&tag_match_list, optarg, NULL);
+                        slash = strchr(optarg, '/');
+                        if (slash) {
+                                devtype = strdup(devtype + 1);
+                                if (!devtype)
+                                        return -ENOMEM;
+
+                                subsystem = strndup(optarg, devtype - optarg);
+                        } else
+                                subsystem = strdup(optarg);
+
+                        if (!subsystem)
+                                return -ENOMEM;
+
+                        r = hashmap_ensure_allocated(&arg_subsystem_filter, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = hashmap_put(arg_subsystem_filter, subsystem, devtype);
+                        if (r < 0)
+                                return r;
+
+                        subsystem = devtype = NULL;
                         break;
+                }
+                case 't': {
+                        _cleanup_free_ char *tag = NULL;
+
+                        r = set_ensure_allocated(&arg_tag_filter, &string_hash_ops);
+                        if (r < 0)
+                                return r;
+
+                        tag = strdup(optarg);
+                        if (!tag)
+                                return -ENOMEM;
+
+                        r = set_put(arg_tag_filter, tag);
+                        if (r < 0)
+                                return r;
+
+                        tag = NULL;
+                        break;
+                }
                 case 'V':
-                        print_version();
-                        return 0;
+                        return version();
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
+                case '?':
+                        return -EINVAL;
                 default:
-                        return 1;
+                        assert_not_reached("Unknown option.");
                 }
 
-        if (!print_kernel && !print_udev) {
-                print_kernel = true;
-                print_udev = true;
+        if (!arg_print_kernel && !arg_print_udev) {
+                arg_print_kernel = true;
+                arg_print_udev = true;
         }
 
+        return 1;
+}
+
+int monitor_main(int argc, char *argv[], void *userdata) {
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *kernel_monitor = NULL, *udev_monitor = NULL;
+        int fd_kernel = -1, fd_udev = -1;
+        _cleanup_close_ int fd_ep = -1;
+        struct sigaction act;
+        sigset_t mask;
+        int r;
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                goto finalize;
+
         /* set signal handlers */
-        act.sa_handler = sig_handler;
-        act.sa_flags = SA_RESTART;
+        act = (struct sigaction) {
+                .sa_handler = sig_handler,
+                .sa_flags = SA_RESTART,
+        };
         assert_se(sigaction(SIGINT, &act, NULL) == 0);
         assert_se(sigaction(SIGTERM, &act, NULL) == 0);
         assert_se(sigemptyset(&mask) == 0);
@@ -145,82 +251,26 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         if (fd_ep < 0) {
-                log_error_errno(errno, "error creating epoll fd: %m");
-                return 1;
+                r = log_error_errno(errno, "Failed to create epoll fd: %m");
+                goto finalize;
         }
 
         printf("monitor will print the received events for:\n");
-        if (print_udev) {
-                struct udev_list_entry *entry;
-
-                udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
-                if (udev_monitor == NULL) {
-                        fprintf(stderr, "error: unable to create netlink socket\n");
-                        return 1;
-                }
-                udev_monitor_set_receive_buffer_size(udev_monitor, 128*1024*1024);
-                fd_udev = udev_monitor_get_fd(udev_monitor);
-
-                udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
-                        const char *subsys = udev_list_entry_get_name(entry);
-                        const char *devtype = udev_list_entry_get_value(entry);
-
-                        if (udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, subsys, devtype) < 0)
-                                fprintf(stderr, "error: unable to apply subsystem filter '%s'\n", subsys);
-                }
-
-                udev_list_entry_foreach(entry, udev_list_get_entry(&tag_match_list)) {
-                        const char *tag = udev_list_entry_get_name(entry);
-
-                        if (udev_monitor_filter_add_match_tag(udev_monitor, tag) < 0)
-                                fprintf(stderr, "error: unable to apply tag filter '%s'\n", tag);
-                }
-
-                if (udev_monitor_enable_receiving(udev_monitor) < 0) {
-                        fprintf(stderr, "error: unable to subscribe to udev events\n");
-                        return 2;
-                }
-
-                memzero(&ep_udev, sizeof(struct epoll_event));
-                ep_udev.events = EPOLLIN;
-                ep_udev.data.fd = fd_udev;
-                if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_udev, &ep_udev) < 0) {
-                        log_error_errno(errno, "fail to add fd to epoll: %m");
-                        return 2;
+        if (arg_print_udev) {
+                fd_udev = setup_monitor("udev", fd_ep, &udev_monitor);
+                if (fd_udev < 0) {
+                        r = fd_udev;
+                        goto finalize;
                 }
 
                 printf("UDEV - the event which udev sends out after rule processing\n");
         }
 
-        if (print_kernel) {
-                struct udev_list_entry *entry;
-
-                kernel_monitor = udev_monitor_new_from_netlink(udev, "kernel");
-                if (kernel_monitor == NULL) {
-                        fprintf(stderr, "error: unable to create netlink socket\n");
-                        return 3;
-                }
-                udev_monitor_set_receive_buffer_size(kernel_monitor, 128*1024*1024);
-                fd_kernel = udev_monitor_get_fd(kernel_monitor);
-
-                udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
-                        const char *subsys = udev_list_entry_get_name(entry);
-
-                        if (udev_monitor_filter_add_match_subsystem_devtype(kernel_monitor, subsys, NULL) < 0)
-                                fprintf(stderr, "error: unable to apply subsystem filter '%s'\n", subsys);
-                }
-
-                if (udev_monitor_enable_receiving(kernel_monitor) < 0) {
-                        fprintf(stderr, "error: unable to subscribe to kernel events\n");
-                        return 4;
-                }
-
-                memzero(&ep_kernel, sizeof(struct epoll_event));
-                ep_kernel.events = EPOLLIN;
-                ep_kernel.data.fd = fd_kernel;
-                if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_kernel, &ep_kernel) < 0) {
-                        log_error_errno(errno, "fail to add fd to epoll: %m");
-                        return 5;
+        if (arg_print_kernel) {
+                fd_kernel = setup_monitor("kernel", fd_ep, &kernel_monitor);
+                if (fd_kernel < 0) {
+                        r = fd_kernel;
+                        goto finalize;
                 }
 
                 printf("KERNEL - the kernel uevent\n");
@@ -228,43 +278,28 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
         printf("\n");
 
         while (!udev_exit) {
-                int fdcount;
                 struct epoll_event ev[4];
-                int i;
+                int fdcount, i;
 
                 fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), -1);
                 if (fdcount < 0) {
                         if (errno != EINTR)
-                                fprintf(stderr, "error receiving uevent message: %m\n");
+                                log_debug_errno(errno, "Failed to receive uevent message, ignoring: %m");
                         continue;
                 }
 
-                for (i = 0; i < fdcount; i++) {
-                        if (ev[i].data.fd == fd_kernel && ev[i].events & EPOLLIN) {
-                                struct udev_device *device;
-
-                                device = udev_monitor_receive_device(kernel_monitor);
-                                if (device == NULL)
-                                        continue;
-                                print_device(device, "KERNEL", prop);
-                                udev_device_unref(device);
-                        } else if (ev[i].data.fd == fd_udev && ev[i].events & EPOLLIN) {
-                                struct udev_device *device;
-
-                                device = udev_monitor_receive_device(udev_monitor);
-                                if (device == NULL)
-                                        continue;
-                                print_device(device, "UDEV", prop);
-                                udev_device_unref(device);
-                        }
-                }
+                for (i = 0; i < fdcount; i++)
+                        if (ev[i].data.fd == fd_kernel && ev[i].events & EPOLLIN)
+                                (void) receive_and_print_device(kernel_monitor, "KERNEL");
+                        else if (ev[i].data.fd == fd_udev && ev[i].events & EPOLLIN)
+                                (void) receive_and_print_device(udev_monitor, "UDEV");
         }
 
-        return 0;
-}
+        r = 0;
 
-const struct udevadm_cmd udevadm_monitor = {
-        .name = "monitor",
-        .cmd = adm_monitor,
-        .help = "Listen to kernel and udev events",
-};
+finalize:
+        hashmap_free_free_free(arg_subsystem_filter);
+        set_free_free(arg_tag_filter);
+
+        return r;
+}

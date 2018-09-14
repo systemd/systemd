@@ -66,6 +66,9 @@ void strbuf_complete(struct strbuf *str) {
 
 /* clean up everything */
 void strbuf_cleanup(struct strbuf *str) {
+        if (!str)
+                return;
+
         strbuf_complete(str);
         free(str->buf);
         free(str);

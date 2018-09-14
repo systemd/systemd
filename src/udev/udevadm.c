@@ -5,43 +5,26 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "selinux-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
+#include "udevadm.h"
 #include "udev-util.h"
-#include "udev.h"
+#include "verbs.h"
+#include "util.h"
 
-static int adm_version(struct udev *udev, int argc, char *argv[]) {
-        printf("%s\n", PACKAGE_VERSION);
-        return 0;
-}
+static int help(void) {
+        static const char * short_descriptions[][2] = {
+                { "info",         "Query sysfs or the udev database" },
+                { "trigger",      "Request events from the kernel"   },
+                { "settle",       "Wait for pending udev events"     },
+                { "control",      "Control the udev daemon"          },
+                { "monitor",      "Listen to kernel and udev events" },
+                { "test",         "Test an event run"                },
+                { "test-builtin", "Test a built-in command"          },
+        };
 
-static const struct udevadm_cmd udevadm_version = {
-        .name = "version",
-        .cmd = adm_version,
-};
-
-static int adm_help(struct udev *udev, int argc, char *argv[]);
-
-static const struct udevadm_cmd udevadm_help = {
-        .name = "help",
-        .cmd = adm_help,
-};
-
-static const struct udevadm_cmd *udevadm_cmds[] = {
-        &udevadm_info,
-        &udevadm_trigger,
-        &udevadm_settle,
-        &udevadm_control,
-        &udevadm_monitor,
-        &udevadm_hwdb,
-        &udevadm_test,
-        &udevadm_test_builtin,
-        &udevadm_version,
-        &udevadm_help,
-};
-
-static int adm_help(struct udev *udev, int argc, char *argv[]) {
         _cleanup_free_ char *link = NULL;
         size_t i;
         int r;
@@ -55,42 +38,24 @@ static int adm_help(struct udev *udev, int argc, char *argv[]) {
                "Commands:\n"
                , program_invocation_short_name);
 
-        for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++)
-                if (udevadm_cmds[i]->help != NULL)
-                        printf("  %-12s  %s\n", udevadm_cmds[i]->name, udevadm_cmds[i]->help);
+        for (i = 0; i < ELEMENTSOF(short_descriptions); i++)
+                printf("  %-12s  %s\n", short_descriptions[i][0], short_descriptions[i][1]);
 
         printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int run_command(struct udev *udev, const struct udevadm_cmd *cmd, int argc, char *argv[]) {
-        if (cmd->debug)
-                log_set_max_level(LOG_DEBUG);
-        log_debug("calling: %s", cmd->name);
-        return cmd->cmd(udev, argc, argv);
-}
-
-int main(int argc, char *argv[]) {
-        struct udev *udev;
+static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
-                { "debug", no_argument, NULL, 'd' },
-                { "help", no_argument, NULL, 'h' },
+                { "debug",   no_argument, NULL, 'd' },
+                { "help",    no_argument, NULL, 'h' },
                 { "version", no_argument, NULL, 'V' },
                 {}
         };
-        const char *command;
-        unsigned int i;
-        int rc = 1, c;
+        int c;
 
-        udev_parse_config();
-        log_parse_environment();
-        log_open();
-
-        mac_selinux_init();
-
-        udev = udev_new();
-        if (udev == NULL)
-                goto out;
+        assert(argc >= 0);
+        assert(argv);
 
         while ((c = getopt_long(argc, argv, "+dhV", options, NULL)) >= 0)
                 switch (c) {
@@ -100,35 +65,66 @@ int main(int argc, char *argv[]) {
                         break;
 
                 case 'h':
-                        rc = adm_help(udev, argc, argv);
-                        goto out;
+                        return help();
 
                 case 'V':
-                        rc = adm_version(udev, argc, argv);
-                        goto out;
+                        return version();
+
+                case '?':
+                        return -EINVAL;
 
                 default:
-                        goto out;
+                        assert_not_reached("Unhandled option");
                 }
 
-        command = argv[optind];
+        return 1; /* work to do */
+}
 
-        if (command != NULL)
-                for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++)
-                        if (streq(udevadm_cmds[i]->name, command)) {
-                                argc -= optind;
-                                argv += optind;
-                                /* we need '0' here to reset the internal state */
-                                optind = 0;
-                                rc = run_command(udev, udevadm_cmds[i], argc, argv);
-                                goto out;
-                        }
+static int version_main(int argc, char *argv[], void *userdata) {
+        return version();
+}
 
-        fprintf(stderr, "%s: missing or unknown command\n", program_invocation_short_name);
-        rc = 2;
-out:
+static int help_main(int argc, char *argv[], void *userdata) {
+        return help();
+}
+
+static int udevadm_main(int argc, char *argv[]) {
+        static const Verb verbs[] = {
+                { "info",         VERB_ANY, VERB_ANY, 0, info_main    },
+                { "trigger",      VERB_ANY, VERB_ANY, 0, trigger_main },
+                { "settle",       VERB_ANY, VERB_ANY, 0, settle_main  },
+                { "control",      VERB_ANY, VERB_ANY, 0, control_main },
+                { "monitor",      VERB_ANY, VERB_ANY, 0, monitor_main },
+                { "hwdb",         VERB_ANY, VERB_ANY, 0, hwdb_main    },
+                { "test",         VERB_ANY, VERB_ANY, 0, test_main    },
+                { "test-builtin", VERB_ANY, VERB_ANY, 0, builtin_main },
+                { "version",      VERB_ANY, VERB_ANY, 0, version_main },
+                { "help",         VERB_ANY, VERB_ANY, 0, help_main    },
+                {}
+        };
+
+        return dispatch_verb(argc, argv, verbs, NULL);
+}
+
+int main(int argc, char *argv[]) {
+        int r;
+
+        udev_parse_config();
+        log_parse_environment();
+        log_open();
+        mac_selinux_init();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                goto finish;
+
+        r = udevadm_main(argc, argv);
+
+finish:
         mac_selinux_finish();
-        udev_unref(udev);
         log_close();
-        return rc;
+
+        /* TODO: fix this later.
+         * Currently, verbs return positive values on failure. */
+        return r < 0 ? EXIT_FAILURE : r;
 }
