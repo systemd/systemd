@@ -18,9 +18,6 @@
 /**
  * SECTION:libudev
  * @short_description: libudev context
- *
- * The context contains the default values read from the udev config file,
- * and is passed to all library operations.
  */
 
 /**
@@ -29,10 +26,7 @@
  * Opaque object representing the library context.
  */
 struct udev {
-        int refcount;
-        void (*log_fn)(struct udev *udev,
-                       int priority, const char *file, int line, const char *fn,
-                       const char *format, va_list args);
+        unsigned n_ref;
         void *userdata;
 };
 
@@ -46,8 +40,8 @@ struct udev {
  * Returns: stored userdata
  **/
 _public_ void *udev_get_userdata(struct udev *udev) {
-        if (udev == NULL)
-                return NULL;
+        assert_return(udev, NULL);
+
         return udev->userdata;
 }
 
@@ -59,8 +53,9 @@ _public_ void *udev_get_userdata(struct udev *udev) {
  * Store custom @userdata in the library context.
  **/
 _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
-        if (udev == NULL)
+        if (!udev)
                 return;
+
         udev->userdata = userdata;
 }
 
@@ -77,12 +72,15 @@ _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
 _public_ struct udev *udev_new(void) {
         struct udev *udev;
 
-        udev = new0(struct udev, 1);
+        udev = new(struct udev, 1);
         if (!udev) {
                 errno = ENOMEM;
                 return NULL;
         }
-        udev->refcount = 1;
+
+        *udev = (struct udev) {
+                .n_ref = 1,
+        };
 
         return udev;
 }
@@ -95,12 +93,7 @@ _public_ struct udev *udev_new(void) {
  *
  * Returns: the passed udev library context
  **/
-_public_ struct udev *udev_ref(struct udev *udev) {
-        if (udev == NULL)
-                return NULL;
-        udev->refcount++;
-        return udev;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_FUNC(struct udev, udev);
 
 /**
  * udev_unref:
@@ -112,11 +105,17 @@ _public_ struct udev *udev_ref(struct udev *udev) {
  * Returns: the passed udev library context if it has still an active reference, or #NULL otherwise.
  **/
 _public_ struct udev *udev_unref(struct udev *udev) {
-        if (udev == NULL)
+        if (!udev)
                 return NULL;
-        udev->refcount--;
-        if (udev->refcount > 0)
+
+        assert(udev->n_ref > 0);
+        udev->n_ref--;
+        if (udev->n_ref > 0)
+                /* This is different from our convetion, but let's keep backward
+                 * compatibility. So, do not use DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC()
+                 * macro to define this function. */
                 return udev;
+
         return mfree(udev);
 }
 
@@ -128,10 +127,11 @@ _public_ struct udev *udev_unref(struct udev *udev) {
  * This function is deprecated.
  *
  **/
-_public_ void udev_set_log_fn(struct udev *udev,
-                     void (*log_fn)(struct udev *udev,
-                                    int priority, const char *file, int line, const char *fn,
-                                    const char *format, va_list args)) {
+_public_ void udev_set_log_fn(
+                        struct udev *udev,
+                        void (*log_fn)(struct udev *udev,
+                                       int priority, const char *file, int line, const char *fn,
+                                       const char *format, va_list args)) {
         return;
 }
 

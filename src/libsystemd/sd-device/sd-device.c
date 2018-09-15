@@ -1822,7 +1822,7 @@ static void device_remove_sysattr_value(sd_device *device, const char *_key) {
 
 /* set the attribute and save it in the cache. If a NULL value is passed the
  * attribute is cleared from the cache */
-_public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, char *_value) {
+_public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *_value) {
         _cleanup_close_ int fd = -1;
         _cleanup_free_ char *value = NULL;
         const char *syspath;

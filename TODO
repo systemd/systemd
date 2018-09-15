@@ -447,8 +447,6 @@ Features:
 
 * hostnamectl: show root image uuid
 
-* sysfs set api in libudev is not const
-
 * Find a solution for SMACK capabilities stuff:
   http://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
 

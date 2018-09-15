@@ -19,17 +19,14 @@
  * Opaque object representing the hardware database.
  */
 struct udev_hwdb {
-        struct udev *udev;
-        int refcount;
-
+        unsigned n_ref;
         sd_hwdb *hwdb;
-
         struct udev_list properties_list;
 };
 
 /**
  * udev_hwdb_new:
- * @udev: udev library context
+ * @udev: udev library context (unused)
  *
  * Create a hardware database context to query properties for devices.
  *
@@ -46,18 +43,28 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
                 return NULL;
         }
 
-        hwdb = new0(struct udev_hwdb, 1);
+        hwdb = new(struct udev_hwdb, 1);
         if (!hwdb) {
                 errno = ENOMEM;
                 return NULL;
         }
 
-        hwdb->refcount = 1;
-        hwdb->hwdb = TAKE_PTR(hwdb_internal);
+        *hwdb = (struct udev_hwdb) {
+                .n_ref = 1,
+                .hwdb = TAKE_PTR(hwdb_internal),
+        };
 
         udev_list_init(udev, &hwdb->properties_list, true);
 
         return hwdb;
+}
+
+static struct udev_hwdb *udev_hwdb_free(struct udev_hwdb *hwdb) {
+        assert(hwdb);
+
+        sd_hwdb_unref(hwdb->hwdb);
+        udev_list_cleanup(&hwdb->properties_list);
+        return mfree(hwdb);
 }
 
 /**
@@ -68,12 +75,6 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
  *
  * Returns: the passed enumeration context
  **/
-_public_ struct udev_hwdb *udev_hwdb_ref(struct udev_hwdb *hwdb) {
-        if (!hwdb)
-                return NULL;
-        hwdb->refcount++;
-        return hwdb;
-}
 
 /**
  * udev_hwdb_unref:
@@ -84,16 +85,7 @@ _public_ struct udev_hwdb *udev_hwdb_ref(struct udev_hwdb *hwdb) {
  *
  * Returns: #NULL
  **/
-_public_ struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb) {
-        if (!hwdb)
-                return NULL;
-        hwdb->refcount--;
-        if (hwdb->refcount > 0)
-                return NULL;
-        sd_hwdb_unref(hwdb->hwdb);
-        udev_list_cleanup(&hwdb->properties_list);
-        return mfree(hwdb);
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_hwdb, udev_hwdb, udev_hwdb_free);
 
 /**
  * udev_hwdb_get_properties_list_entry:
@@ -112,10 +104,8 @@ _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev
         const char *key, *value;
         struct udev_list_entry *e;
 
-        if (!hwdb || !modalias) {
-                errno = EINVAL;
-                return NULL;
-        }
+        assert_return_errno(hwdb, NULL, EINVAL);
+        assert_return_errno(modalias, NULL, EINVAL);
 
         udev_list_cleanup(&hwdb->properties_list);
 
