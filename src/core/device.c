@@ -380,7 +380,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                                 return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
                 }
 
-                r = unit_add_dependency_by_name(u, UNIT_WANTS, k, NULL, true, UNIT_DEPENDENCY_UDEV);
+                r = unit_add_dependency_by_name(u, UNIT_WANTS, k, true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to add Wants= dependency: %m");
 

@@ -617,7 +617,7 @@ static int service_add_default_dependencies(Service *s) {
                 /* In the --user instance there's no sysinit.target,
                  * in that case require basic.target instead. */
 
-                r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_BASIC_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
@@ -625,7 +625,7 @@ static int service_add_default_dependencies(Service *s) {
         /* Second, if the rest of the base system is in the same
          * transaction, order us after it, but do not pull it in or
          * even require it. */
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_BASIC_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_BASIC_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -661,12 +661,12 @@ static int service_setup_bus_name(Service *s) {
         if (!s->bus_name)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true, UNIT_DEPENDENCY_FILE);
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
 
         /* We always want to be ordered against dbus.socket if both are in the transaction. */
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, NULL, true, UNIT_DEPENDENCY_FILE);
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
 

@@ -88,7 +88,7 @@ static int timer_add_default_dependencies(Timer *t) {
         if (!UNIT(t)->default_dependencies)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_TIMERS_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_TIMERS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -99,7 +99,7 @@ static int timer_add_default_dependencies(Timer *t) {
 
                 LIST_FOREACH(value, v, t->values) {
                         if (v->base == TIMER_CALENDAR) {
-                                r = unit_add_dependency_by_name(UNIT(t), UNIT_AFTER, SPECIAL_TIME_SYNC_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
+                                r = unit_add_dependency_by_name(UNIT(t), UNIT_AFTER, SPECIAL_TIME_SYNC_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
                                 if (r < 0)
                                         return r;
                                 break;

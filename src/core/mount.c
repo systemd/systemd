@@ -456,7 +456,7 @@ static int mount_add_default_dependencies(Mount *m) {
                  * network.target, so that they are shut down only
                  * after this mount unit is stopped. */
 
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET, NULL, true, mask);
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET, true, mask);
                 if (r < 0)
                         return r;
 
@@ -475,7 +475,7 @@ static int mount_add_default_dependencies(Mount *m) {
         } else
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
 
-        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, NULL, true, mask);
+        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, true, mask);
         if (r < 0)
                 return r;
 
@@ -485,7 +485,7 @@ static int mount_add_default_dependencies(Mount *m) {
 
         /* If this is a tmpfs mount then we have to unmount it before we try to deactivate swaps */
         if (streq_ptr(p->fstype, "tmpfs")) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET, NULL, true, mask);
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET, true, mask);
                 if (r < 0)
                         return r;
         }
@@ -1436,11 +1436,11 @@ static int mount_setup_new_unit(
                 int r;
 
                 target = mount_is_network(p) ? SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
-                r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, NULL, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
+                r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
                 if (r < 0)
                         return r;
 
-                r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
+                r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
                 if (r < 0)
                         return r;
         }
@@ -1498,7 +1498,7 @@ static int mount_setup_existing_unit(
                  * in the dependency "Set*" objects who created a
                  * dependency), we can only add deps, never lose them,
                  * until the next full daemon-reload. */
-                unit_add_dependency_by_name(u, UNIT_BEFORE, SPECIAL_REMOTE_FS_TARGET, NULL, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
+                unit_add_dependency_by_name(u, UNIT_BEFORE, SPECIAL_REMOTE_FS_TARGET, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
                 load_extras = true;
         }
 

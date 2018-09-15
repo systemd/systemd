@@ -197,7 +197,7 @@ static int swap_add_device_dependencies(Swap *s) {
                 /* File based swap devices need to be ordered after
                  * systemd-remount-fs.service, since they might need a
                  * writable file system. */
-                return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, NULL, true, UNIT_DEPENDENCY_FILE);
+                return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, true, UNIT_DEPENDENCY_FILE);
 }
 
 static int swap_add_default_dependencies(Swap *s) {
@@ -216,7 +216,7 @@ static int swap_add_default_dependencies(Swap *s) {
 
         /* swap units generated for the swap dev links are missing the
          * ordering dep against the swap target. */
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SWAP_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SWAP_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
