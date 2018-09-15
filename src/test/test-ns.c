@@ -6,6 +6,7 @@
 
 #include "log.h"
 #include "namespace.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         const char * const writable[] = {
@@ -43,7 +44,7 @@ int main(int argc, char *argv[]) {
         char tmp_dir[] = "/tmp/systemd-private-XXXXXX",
              var_tmp_dir[] = "/var/tmp/systemd-private-XXXXXX";
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp(tmp_dir));
         assert_se(mkdtemp(var_tmp_dir));

@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "macro.h"
+#include "tests.h"
 
 static void test_cescape(void) {
         _cleanup_free_ char *escaped;
@@ -119,9 +120,7 @@ static void test_shell_maybe_quote(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_cescape();
         test_cunescape();

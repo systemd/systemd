@@ -13,20 +13,13 @@ int main(int argc, char *argv[]) {
         Unit *a, *b, *c, *u;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
-        if (getuid() != 0) {
-                log_notice("Not running as root, skipping kernel related tests.");
-                return EXIT_TEST_SKIP;
-        }
-
+        if (getuid() != 0)
+                return log_tests_skipped("not root");
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice("cgroupfs not available, skipping tests");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());

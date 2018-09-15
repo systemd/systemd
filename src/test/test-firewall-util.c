@@ -2,12 +2,13 @@
 
 #include "firewall-util.h"
 #include "log.h"
+#include "tests.h"
 
 #define MAKE_IN_ADDR_UNION(a,b,c,d) (union in_addr_union) { .in.s_addr = htobe32((uint32_t) (a) << 24 | (uint32_t) (b) << 16 | (uint32_t) (c) << 8 | (uint32_t) (d))}
 
 int main(int argc, char *argv[]) {
         int r;
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         r = fw_add_masquerade(true, AF_INET, 0, NULL, 0, "foobar", NULL, 0);
         if (r < 0)

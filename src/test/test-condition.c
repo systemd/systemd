@@ -26,6 +26,7 @@
 #include "strv.h"
 #include "tomoyo-util.h"
 #include "user-util.h"
+#include "tests.h"
 #include "util.h"
 #include "virt.h"
 
@@ -113,7 +114,7 @@ static void test_condition_test_path(void) {
         condition_free(condition);
 }
 
-static int test_condition_test_control_group_controller(void) {
+static void test_condition_test_control_group_controller(void) {
         Condition *condition;
         CGroupMask system_mask;
         CGroupController controller;
@@ -123,7 +124,7 @@ static int test_condition_test_control_group_controller(void) {
         r = cg_unified_flush();
         if (r < 0) {
                 log_notice_errno(r, "Skipping ConditionControlGroupController tests: %m");
-                return EXIT_TEST_SKIP;
+                return;
         }
 
         /* Invalid controllers are ignored */
@@ -180,8 +181,6 @@ static int test_condition_test_control_group_controller(void) {
         assert_se(condition);
         assert_se(!condition_test(condition));
         condition_free(condition);
-
-        return EXIT_SUCCESS;
 }
 
 static void test_condition_test_ac_power(void) {
@@ -675,9 +674,7 @@ static void test_condition_test_group(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_condition_test_path();
         test_condition_test_ac_power();

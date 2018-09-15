@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "path-util.h"
 #include "random-util.h"
+#include "tests.h"
 #include "util.h"
 
 #if HAVE_XZ
@@ -253,7 +254,7 @@ int main(int argc, char *argv[]) {
         memcpy(huge, "HUGE=", 5);
         char_array_0(huge);
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         random_bytes(data + 7, sizeof(data) - 7);
 
@@ -305,6 +306,7 @@ int main(int argc, char *argv[]) {
 
         return 0;
 #else
+        log_info("/* XZ and LZ4 tests skipped */");
         return EXIT_TEST_SKIP;
 #endif
 }

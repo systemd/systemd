@@ -15,6 +15,7 @@
 #include "arp-util.h"
 #include "fd-util.h"
 #include "socket-util.h"
+#include "tests.h"
 #include "util.h"
 
 static bool verbose = false;
@@ -193,9 +194,7 @@ static void test_basic_request(sd_event *e) {
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(sd_event_new(&e) >= 0);
 

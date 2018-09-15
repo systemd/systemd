@@ -17,19 +17,18 @@ static int test_cgroup_mask(void) {
         int r;
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                puts("Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         /* Prepare the manager. */
         assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (IN_SET(r, -EPERM, -EACCES)) {
-                puts("manager_new: Permission denied. Skipping test.");
-                return EXIT_TEST_SKIP;
+                log_error_errno(r, "manager_new: %m");
+                return log_tests_skipped("cannot create manager");
         }
+
         assert_se(r >= 0);
 
         /* Turn off all kinds of default accouning, so that we can
@@ -117,13 +116,12 @@ static void test_cg_mask_to_string(void) {
 }
 
 int main(int argc, char* argv[]) {
-        int rc = 0;
+        int rc = EXIT_SUCCESS;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
-        TEST_REQ_RUNNING_SYSTEMD(rc = test_cgroup_mask());
         test_cg_mask_to_string();
+        TEST_REQ_RUNNING_SYSTEMD(rc = test_cgroup_mask());
 
         return rc;
 }

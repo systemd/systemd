@@ -270,12 +270,14 @@ pkgconfig = import('pkgconfig')
 check_compilation_sh = find_program('tools/meson-check-compilation.sh')
 meson_build_sh = find_program('tools/meson-build.sh')
 
-if get_option('tests') != 'false'
-        cxx = find_program('c++', required : false)
-        if cxx.found()
-                #  Used only for tests
-                add_languages('cpp')
-        endif
+want_tests = get_option('tests')
+slow_tests = want_tests != 'false' and get_option('slow-tests')
+install_tests = get_option('install-tests')
+
+cxx = find_program('c++', required : false)
+if cxx.found()
+        #  Used only for tests
+        add_languages('cpp')
 endif
 
 want_ossfuzz = get_option('oss-fuzz')
@@ -1291,9 +1293,6 @@ conf.set10('ENABLE_NSS', enable_nss)
 
 conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesyncd'))
 
-want_tests = get_option('tests')
-install_tests = get_option('install-tests')
-slow_tests = get_option('slow-tests')
 tests = []
 fuzzers = []
 
@@ -1465,7 +1464,8 @@ test_dlopen = executable(
         test_dlopen_c,
         include_directories : includes,
         link_with : [libbasic],
-        dependencies : [libdl])
+        dependencies : [libdl],
+        build_by_default : want_tests != 'false')
 
 foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                  ['systemd',    'ENABLE_NSS_SYSTEMD'],
@@ -1503,9 +1503,12 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                                          'rm $DESTDIR@0@/libnss_@1@.so'
                                          .format(rootlibdir, module))
 
-                test('dlopen-nss_' + module,
-                     test_dlopen,
-                     args : [nss.full_path()]) # path to dlopen must include a slash
+                if want_tests != 'false'
+                        test('dlopen-nss_' + module,
+                             test_dlopen,
+                             # path to dlopen must include a slash
+                             args : nss.full_path())
+                endif
         endif
 endforeach
 
@@ -1746,9 +1749,12 @@ if conf.get('ENABLE_LOGIND') == 1
                         install : true,
                         install_dir : pamlibdir)
 
-                test('dlopen-pam_systemd',
-                     test_dlopen,
-                     args : [pam_systemd.full_path()]) # path to dlopen must include a slash
+                if want_tests != 'false'
+                        test('dlopen-pam_systemd',
+                             test_dlopen,
+                             # path to dlopen must include a slash
+                             args : pam_systemd.full_path())
+                endif
         endif
 endif
 
@@ -2435,10 +2441,12 @@ if conf.get('ENABLE_TMPFILES') == 1
                          install_dir : rootbindir)
         public_programs += exe
 
-        test('test-systemd-tmpfiles',
-             test_systemd_tmpfiles_py,
-             args : exe.full_path())
-        # https://github.com/mesonbuild/meson/issues/2681
+        if want_tests != 'false'
+                test('test-systemd-tmpfiles',
+                     test_systemd_tmpfiles_py,
+                     # https://github.com/mesonbuild/meson/issues/2681
+                     args : exe.full_path())
+        endif
 endif
 
 if conf.get('ENABLE_HWDB') == 1
@@ -2476,7 +2484,7 @@ public_programs += exe
 exe = executable('systemd-udevd',
                  systemd_udevd_sources,
                  include_directories : includes,
-                 c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
+                 c_args : '-DLOG_REALM=LOG_REALM_UDEV',
                  link_with : [libudev_core,
                               libsystemd_network,
                               libudev_static],
@@ -2492,7 +2500,7 @@ public_programs += exe
 
 exe = executable('udevadm',
                  udevadm_sources,
-                 c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
+                 c_args : '-DLOG_REALM=LOG_REALM_UDEV',
                  include_directories : includes,
                  link_with : [libudev_core,
                               libsystemd_network,
@@ -2630,9 +2638,8 @@ foreach tuple : tests
                 timeout = type.split('=')[1].to_int()
                 type = ''
         endif
-        if want_tests == 'false'
-                message('Not compiling @0@ because tests is set to false'.format(name))
-        elif condition == '' or conf.get(condition) == 1
+
+        if condition == '' or conf.get(condition) == 1
                 exe = executable(
                         name,
                         sources,
@@ -2640,6 +2647,7 @@ foreach tuple : tests
                         link_with : link_with,
                         dependencies : dependencies,
                         c_args : defs,
+                        build_by_default : want_tests != 'false',
                         install_rpath : rootlibexecdir,
                         install : install_tests,
                         install_dir : join_paths(testsdir, type))
@@ -2648,7 +2656,7 @@ foreach tuple : tests
                         message('@0@ is a manual test'.format(name))
                 elif type == 'unsafe' and want_tests != 'unsafe'
                         message('@0@ is an unsafe test'.format(name))
-                else
+                elif want_tests != 'false'
                         test(name, exe,
                              env : test_env,
                              timeout : timeout)
@@ -2663,9 +2671,12 @@ exe = executable(
         test_libsystemd_sym_c,
         include_directories : includes,
         link_with : [libsystemd],
+        build_by_default : want_tests != 'false',
         install : install_tests,
         install_dir : testsdir)
-test('test-libsystemd-sym', exe)
+if want_tests != 'false'
+        test('test-libsystemd-sym', exe)
+endif
 
 exe = executable(
         'test-libsystemd-static-sym',
@@ -2674,10 +2685,10 @@ exe = executable(
         link_with : [install_libsystemd_static],
         dependencies : [threads], # threads is already included in dependencies on the library,
                                   # but does not seem to get propagated. Add here as a work-around.
-        build_by_default : static_libsystemd_pic,
+        build_by_default : want_tests != 'false' and static_libsystemd_pic,
         install : install_tests and static_libsystemd_pic,
         install_dir : testsdir)
-if static_libsystemd_pic
+if want_tests != 'false' and static_libsystemd_pic
         test('test-libsystemd-static-sym', exe)
 endif
 
@@ -2685,22 +2696,25 @@ exe = executable(
         'test-libudev-sym',
         test_libudev_sym_c,
         include_directories : includes,
-        c_args : ['-Wno-deprecated-declarations'],
+        c_args : '-Wno-deprecated-declarations',
         link_with : [libudev],
+        build_by_default : want_tests != 'false',
         install : install_tests,
         install_dir : testsdir)
-test('test-libudev-sym', exe)
+if want_tests != 'false'
+        test('test-libudev-sym', exe)
+endif
 
 exe = executable(
         'test-libudev-static-sym',
         test_libudev_sym_c,
         include_directories : includes,
-        c_args : ['-Wno-deprecated-declarations'],
+        c_args : '-Wno-deprecated-declarations',
         link_with : [install_libudev_static],
-        build_by_default : static_libudev_pic,
+        build_by_default : want_tests != 'false' and static_libudev_pic,
         install : install_tests and static_libudev_pic,
         install_dir : testsdir)
-if static_libudev_pic
+if want_tests != 'false' and static_libudev_pic
         test('test-libudev-static-sym', exe)
 endif
 
@@ -2790,9 +2804,11 @@ meson_check_help = find_program('tools/meson-check-help.sh')
 
 foreach exec : public_programs
         name = exec.full_path().split('/')[-1]
-        test('check-help-' + name,
-             meson_check_help,
-             args : [exec.full_path()])
+        if want_tests != 'false'
+                test('check-help-' + name,
+                     meson_check_help,
+                     args : exec.full_path())
+        endif
 endforeach
 
 ############################################################

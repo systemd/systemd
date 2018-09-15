@@ -10,6 +10,7 @@
 
 #include "macro.h"
 #include "module-util.h"
+#include "tests.h"
 #include "util.h"
 
 static int load_module(const char *mod_name) {
@@ -47,10 +48,14 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         /* skip test if module cannot be loaded */
         r = load_module("ipip");
         if (r < 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped_errno(r, "failed to load module 'ipip'");
+
+        r = load_module("sit");
+        if (r < 0)
+                return log_tests_skipped_errno(r, "failed to load module 'sit'");
 
         if (getuid() != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("not root");
 
         /* IPIP tunnel */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);
@@ -75,10 +80,6 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(sd_netlink_call(rtnl, m, -1, 0) == 1);
 
         assert_se((m = sd_netlink_message_unref(m)) == NULL);
-
-        r = load_module("sit");
-        if (r < 0)
-                return EXIT_TEST_SKIP;
 
         /* sit */
         assert_se(sd_rtnl_message_new_link(rtnl, &n, RTM_NEWLINK, 0) >= 0);
@@ -112,6 +113,8 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
 int main(int argc, char *argv[]) {
         sd_netlink *rtnl;
         int r;
+
+        test_setup_logging(LOG_INFO);
 
         assert_se(sd_netlink_open(&rtnl) >= 0);
         assert_se(rtnl);

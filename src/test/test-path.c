@@ -33,16 +33,12 @@ static int setup_test(Manager **m) {
         assert_se(m);
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice_errno(r, "Skipping test: cgroupfs not available");
-                return -EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &tmp);
-        if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return -EXIT_TEST_SKIP;
-        }
+        if (MANAGER_SKIP_TEST(r))
+                return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
         assert_se(manager_startup(tmp, NULL, NULL) >= 0);
 
@@ -254,8 +250,7 @@ int main(int argc, char *argv[]) {
 
         umask(022);
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         test_path = path_join(NULL, get_testdata_dir(), "test-path");
         assert_se(set_unit_path(test_path) >= 0);
@@ -266,8 +261,8 @@ int main(int argc, char *argv[]) {
 
                 /* We create a clean environment for each test */
                 r = setup_test(&m);
-                if (r < 0)
-                        return -r;
+                if (r != 0)
+                        return r;
 
                 (*test)(m);
 

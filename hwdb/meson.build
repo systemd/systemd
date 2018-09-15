@@ -36,9 +36,11 @@ endif
 ############################################################
 
 parse_hwdb_py = find_program('parse_hwdb.py')
-test('parse-hwdb',
-     parse_hwdb_py,
-     timeout : 90)
+if want_tests != 'false'
+        test('parse-hwdb',
+             parse_hwdb_py,
+             timeout : 90)
+endif
 
 ############################################################
 

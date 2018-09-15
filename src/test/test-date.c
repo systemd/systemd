@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_should_pass(const char *p) {
@@ -66,9 +67,7 @@ static void test_one_noutc(const char *p) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_one("17:41");
         test_one("18:42:44");

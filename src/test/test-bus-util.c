@@ -2,6 +2,7 @@
 
 #include "bus-util.h"
 #include "log.h"
+#include "tests.h"
 
 static void test_name_async(unsigned n_messages) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -78,9 +79,7 @@ static void test_destroy_callback(void) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_name_async(0);
         test_name_async(20);

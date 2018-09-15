@@ -13,6 +13,7 @@
 #include "icmp6-util.h"
 #include "socket-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = { 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53 }
@@ -357,9 +358,7 @@ static void test_ra(void) {
 
 int main(int argc, char *argv[]) {
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_radv_prefix();
         test_radv();

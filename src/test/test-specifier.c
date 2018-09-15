@@ -5,6 +5,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static void test_specifier_escape_one(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL;
@@ -39,7 +40,7 @@ static void test_specifier_escape_strv(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         test_specifier_escape();
         test_specifier_escape_strv();

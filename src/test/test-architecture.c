@@ -2,12 +2,15 @@
 
 #include "architecture.h"
 #include "log.h"
+#include "tests.h"
 #include "util.h"
 #include "virt.h"
 
 int main(int argc, char *argv[]) {
         int a, v;
         const char *p;
+
+        test_setup_logging(LOG_INFO);
 
         assert_se(architecture_from_string("") < 0);
         assert_se(architecture_from_string(NULL) < 0);
@@ -18,7 +21,7 @@ int main(int argc, char *argv[]) {
 
         v = detect_virtualization();
         if (IN_SET(v, -EPERM, -EACCES))
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("Cannot detect virtualization");
 
         assert_se(v >= 0);
 

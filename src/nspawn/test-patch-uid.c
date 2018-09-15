@@ -5,15 +5,14 @@
 #include "log.h"
 #include "nspawn-patch-uid.h"
 #include "user-util.h"
+#include "tests.h"
 #include "util.h"
 
 int main(int argc, char *argv[]) {
         uid_t shift, range;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         if (argc != 4) {
                 log_error("Expected PATH SHIFT RANGE parameters.");

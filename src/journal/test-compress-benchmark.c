@@ -8,6 +8,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 typedef int (compress_t)(const void *src, uint64_t src_size, void *dst,
@@ -142,30 +143,23 @@ static void test_compress_decompress(const char* label, const char* type,
 
 int main(int argc, char *argv[]) {
 #if HAVE_XZ || HAVE_LZ4
-        const char *i;
-        int r;
-
-        log_set_max_level(LOG_INFO);
+        test_setup_logging(LOG_INFO);
 
         if (argc >= 2) {
                 unsigned x;
 
                 assert_se(safe_atou(argv[1], &x) >= 0);
                 arg_duration = x * USEC_PER_SEC;
-        } else {
-                bool slow;
-
-                r = getenv_bool("SYSTEMD_SLOW_TESTS");
-                slow = r >= 0 ? r : SYSTEMD_SLOW_TESTS_DEFAULT;
-
-                arg_duration = slow ? 2 * USEC_PER_SEC : USEC_PER_SEC / 50;
-        }
+        } else
+                arg_duration = slow_tests_enabled() ?
+                        2 * USEC_PER_SEC : USEC_PER_SEC / 50;
 
         if (argc == 3)
                 (void) safe_atozu(argv[2], &arg_start);
         else
                 arg_start = getpid_cached();
 
+        const char *i;
         NULSTR_FOREACH(i, "zeros\0simple\0random\0") {
 #if HAVE_XZ
                 test_compress_decompress("XZ", i, compress_blob_xz, decompress_blob_xz);
@@ -176,6 +170,6 @@ int main(int argc, char *argv[]) {
         }
         return 0;
 #else
-        return EXIT_TEST_SKIP;
+        return log_tests_skipped("No compression feature is enabled");
 #endif
 }

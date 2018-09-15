@@ -10,6 +10,7 @@
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -223,6 +224,8 @@ int main(void) {
         _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
         int ifindex, r;
 
+        test_setup_logging(LOG_INFO);
+
         test_deserialize_in_addr();
         test_deserialize_dhcp_routes();
         test_address_equality();
@@ -232,7 +235,8 @@ int main(void) {
 
         r = test_load_config(manager);
         if (r == -EPERM)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("Cannot load configuration");
+        assert_se(r == 0);
 
         assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
         assert_se(loopback);

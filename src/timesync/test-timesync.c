@@ -5,6 +5,7 @@
 #include "log.h"
 #include "macro.h"
 #include "timesyncd-conf.h"
+#include "tests.h"
 
 static void test_manager_parse_string(void) {
         /* Make sure that NTP_SERVERS is configured to something
@@ -25,8 +26,7 @@ static void test_manager_parse_string(void) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         test_manager_parse_string();
 

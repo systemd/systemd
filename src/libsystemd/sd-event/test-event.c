@@ -16,6 +16,7 @@
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 static int prepare_handler(sd_event_source *s, void *userdata) {
@@ -481,9 +482,7 @@ static void test_inotify(unsigned n_create_events) {
 }
 
 int main(int argc, char *argv[]) {
-
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         test_basic();
         test_sd_event_now();

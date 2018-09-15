@@ -7,6 +7,7 @@
 #include "rm-rf.h"
 #include "special.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_basic_mask_and_enable(const char *root) {
         const char *p;
@@ -14,7 +15,7 @@ static void test_basic_mask_and_enable(const char *root) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "a.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "b.service", NULL) == -ENOENT);

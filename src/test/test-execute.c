@@ -664,10 +664,8 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
         assert_se(tests);
 
         r = manager_new(scope, MANAGER_TEST_RUN_BASIC, &m);
-        if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return EXIT_TEST_SKIP;
-        }
+        if (MANAGER_SKIP_TEST(r))
+                return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);
 
@@ -724,25 +722,19 @@ int main(int argc, char *argv[]) {
         };
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         (void) unsetenv("USER");
         (void) unsetenv("LOGNAME");
         (void) unsetenv("SHELL");
 
         /* It is needed otherwise cgroup creation fails */
-        if (getuid() != 0) {
-                puts("Skipping test: not root");
-                return EXIT_TEST_SKIP;
-        }
+        if (getuid() != 0)
+                return log_tests_skipped("not root");
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                puts("Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
         test_execute_path = path_join(NULL, get_testdata_dir(), "test-execute");

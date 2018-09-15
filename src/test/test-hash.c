@@ -7,23 +7,22 @@
 #include "log.h"
 #include "string-util.h"
 #include "khash.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_(khash_unrefp) khash *h = NULL, *copy = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(khash_new(&h, NULL) == -EINVAL);
         assert_se(khash_new(&h, "") == -EINVAL);
 
         r = khash_supported();
         assert_se(r >= 0);
-        if (r == 0) {
-                puts("khash not supported on this kernel, skipping");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == 0)
+                return log_tests_skipped("khash not supported on this kernel");
 
         assert_se(khash_new(&h, "foobar") == -EOPNOTSUPP); /* undefined hash function */
 

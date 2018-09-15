@@ -6,6 +6,7 @@
 #include "bus-util.h"
 #include "log.h"
 #include "macro.h"
+#include "tests.h"
 
 static bool mask[32];
 
@@ -77,9 +78,11 @@ int main(int argc, char *argv[]) {
         sd_bus_slot slots[19];
         int r;
 
+        test_setup_logging(LOG_INFO);
+
         r = sd_bus_open_user(&bus);
         if (r < 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("Failed to connect to bus");
 
         assert_se(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1) >= 0);
         assert_se(match_add(slots, &root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2) >= 0);

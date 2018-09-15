@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "tests.h"
 #include "util.h"
 
 static uid_t test_uid = -1;
@@ -91,10 +92,9 @@ static int setup_tests(bool *run_ambient) {
         int r;
 
         nobody = getpwnam(NOBODY_USER_NAME);
-        if (!nobody) {
-                log_error_errno(errno, "Could not find nobody user: %m");
-                return -EXIT_TEST_SKIP;
-        }
+        if (!nobody)
+                return log_error_errno(errno, "Could not find nobody user: %m");
+
         test_uid = nobody->pw_uid;
         test_gid = nobody->pw_gid;
 
@@ -218,23 +218,20 @@ static void test_set_ambient_caps(void) {
 }
 
 int main(int argc, char *argv[]) {
-        int r;
         bool run_ambient;
+
+        test_setup_logging(LOG_INFO);
 
         test_last_cap_file();
         test_last_cap_probe();
 
-        log_parse_environment();
-        log_open();
-
         log_info("have ambient caps: %s", yes_no(ambient_capabilities_supported()));
 
         if (getuid() != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("not running as root");
 
-        r = setup_tests(&run_ambient);
-        if (r < 0)
-                return -r;
+        if (setup_tests(&run_ambient) < 0)
+                return log_tests_skipped("setup failed");
 
         show_capabilities();
 

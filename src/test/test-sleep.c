@@ -8,6 +8,7 @@
 #include "log.h"
 #include "sleep-config.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_parse_sleep_config(void) {
@@ -26,10 +27,8 @@ static int test_fiemap(const char *path) {
         if (fd < 0)
                 return log_error_errno(errno, "failed to open %s: %m", path);
         r = read_fiemap(fd, &fiemap);
-        if (r == -EOPNOTSUPP) {
-                log_info("Skipping test, not supported");
-                exit(EXIT_TEST_SKIP);
-        }
+        if (r == -EOPNOTSUPP)
+                exit(log_tests_skipped("Not supported"));
         if (r < 0)
                 return log_error_errno(r, "Unable to read extent map for '%s': %m", path);
         log_info("extent map information for %s:", path);
@@ -81,8 +80,7 @@ static void test_sleep(void) {
 int main(int argc, char* argv[]) {
         int i, r = 0, k;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         if (getuid() != 0)
                 log_warning("This program is unlikely to work for unprivileged users");

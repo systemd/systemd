@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
-#include "env-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
-
-static bool arg_slow = false;
 
 void test_hashmap_funcs(void);
 
@@ -739,15 +737,16 @@ static void test_hashmap_many(void) {
         Hashmap *h;
         unsigned i, j;
         void *v, *k;
+        bool slow = slow_tests_enabled();
         const struct {
                 const struct hash_ops *ops;
                 unsigned n_entries;
         } tests[] = {
-                { .ops = NULL,                  .n_entries = arg_slow ? 1 << 20 : 240 },
-                { .ops = &crippled_hashmap_ops, .n_entries = arg_slow ? 1 << 14 : 140 },
+                { .ops = NULL,                  .n_entries = slow ? 1 << 20 : 240 },
+                { .ops = &crippled_hashmap_ops, .n_entries = slow ? 1 << 14 : 140 },
         };
 
-        log_info("%s (%s)", __func__, arg_slow ? "slow" : "fast");
+        log_info("%s (%s)", __func__, slow ? "slow" : "fast");
 
         for (j = 0; j < ELEMENTSOF(tests); j++) {
                 assert_se(h = hashmap_new(tests[j].ops));
@@ -886,13 +885,8 @@ static void test_hashmap_reserve(void) {
 }
 
 void test_hashmap_funcs(void) {
-        int r;
-
         log_parse_environment();
         log_open();
-
-        r = getenv_bool("SYSTEMD_SLOW_TESTS");
-        arg_slow = r >= 0 ? r : SYSTEMD_SLOW_TESTS_DEFAULT;
 
         test_hashmap_copy();
         test_hashmap_get_strv();

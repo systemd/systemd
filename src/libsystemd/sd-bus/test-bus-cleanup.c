@@ -8,6 +8,7 @@
 #include "bus-message.h"
 #include "bus-util.h"
 #include "refcnt.h"
+#include "tests.h"
 
 static void test_bus_new(void) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
@@ -59,17 +60,12 @@ static void test_bus_new_signal(void) {
 }
 
 int main(int argc, char **argv) {
-        int r;
-
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         test_bus_new();
-        r = test_bus_open();
-        if (r < 0) {
-                log_info("Failed to connect to bus, skipping tests.");
-                return EXIT_TEST_SKIP;
-        }
+
+        if (test_bus_open() < 0)
+                return log_tests_skipped("Failed to connect to bus");
 
         test_bus_new_method_call();
         test_bus_new_signal();

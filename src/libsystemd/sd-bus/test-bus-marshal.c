@@ -21,6 +21,7 @@
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "log.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_bus_path_encode_unique(void) {
@@ -120,9 +121,11 @@ int main(int argc, char *argv[]) {
         double dbl;
         uint64_t u64;
 
+        test_setup_logging(LOG_INFO);
+
         r = sd_bus_default_user(&bus);
         if (r < 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("Failed to connect to bus");
 
         r = sd_bus_message_new_method_call(bus, &m, "foobar.waldo", "/", "foobar.waldo", "Piep");
         assert_se(r >= 0);

@@ -16,6 +16,7 @@
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_parse_env_file(void) {
@@ -710,9 +711,7 @@ static void test_read_line3(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_parse_env_file();
         test_parse_multiline_env_file();

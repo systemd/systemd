@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "rm-rf.h"
+#include "tests.h"
 #include "util.h"
 
 #define N_ENTRIES 200
@@ -68,9 +69,9 @@ int main(int argc, char *argv[]) {
 
         /* journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("/etc/machine-id not found");
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);

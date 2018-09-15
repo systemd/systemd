@@ -6,6 +6,7 @@
 #include "sd-bus.h"
 
 #include "macro.h"
+#include "tests.h"
 
 static bool track_cb_called_x = false;
 static bool track_cb_called_y = false;
@@ -47,14 +48,14 @@ int main(int argc, char *argv[]) {
         const char *unique;
         int r;
 
+        test_setup_logging(LOG_INFO);
+
         r = sd_event_default(&event);
         assert_se(r >= 0);
 
         r = sd_bus_open_user(&a);
-        if (IN_SET(r, -ECONNREFUSED, -ENOENT)) {
-                log_info("Failed to connect to bus, skipping tests.");
-                return EXIT_TEST_SKIP;
-        }
+        if (IN_SET(r, -ECONNREFUSED, -ENOENT))
+                return log_tests_skipped("Failed to connect to bus");
         assert_se(r >= 0);
 
         r = sd_bus_attach_event(a, event, SD_EVENT_PRIORITY_NORMAL);

@@ -7,7 +7,9 @@
 #include <util.h>
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "path-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -75,4 +77,34 @@ const char* get_catalog_dir(void) {
                 exit(EXIT_FAILURE);
         }
         return env;
+}
+
+bool slow_tests_enabled(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_SLOW_TESTS");
+        if (r >= 0)
+                return r;
+
+        if (r != -ENXIO)
+                log_warning_errno(r, "Cannot parse $SYSTEMD_SLOW_TESTS, ignoring.");
+        return SYSTEMD_SLOW_TESTS_DEFAULT;
+}
+
+void test_setup_logging(int level) {
+        log_set_max_level(level);
+        log_parse_environment();
+        log_open();
+}
+
+int log_tests_skipped(const char *message) {
+        log_notice("%s: %s, skipping tests.",
+                   program_invocation_short_name, message);
+        return EXIT_TEST_SKIP;
+}
+
+int log_tests_skipped_errno(int r, const char *message) {
+        log_notice_errno(r, "%s: %s, skipping tests: %m",
+                         program_invocation_short_name, message);
+        return EXIT_TEST_SKIP;
 }

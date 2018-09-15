@@ -13,6 +13,7 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_mount_propagation_flags(const char *name, int ret, unsigned long expected) {
         long unsigned flags;
@@ -295,7 +296,7 @@ static void test_mount_option_mangle(void) {
 
 int main(int argc, char *argv[]) {
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         test_mount_propagation_flags("shared", 0, MS_SHARED);
         test_mount_propagation_flags("slave", 0, MS_SLAVE);
