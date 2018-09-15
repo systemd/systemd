@@ -186,6 +186,13 @@ evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLati
  EVDEV_ABS_35=79:1841:22
  EVDEV_ABS_36=140:1325:29
 
+# Dell Latitude E6530
+evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6530*
+ EVDEV_ABS_00=105:1945:25:5
+ EVDEV_ABS_01=102:1434:32:5
+ EVDEV_ABS_35=105:1945:25:5
+ EVDEV_ABS_36=102:1434:32:5
+
 # Dell Latitude E7470
 evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE7470*
  EVDEV_ABS_00=29:2930:30
