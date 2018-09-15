@@ -330,7 +330,8 @@ create_asan_wrapper() {
 set -x
 
 DEFAULT_ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
-DEFAULT_ENVIRONMENT=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS
+DEFAULT_UBSAN_OPTIONS=print_stacktrace=1:print_summary=1
+DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS"
 
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
@@ -353,7 +354,7 @@ JOURNALD_CONF_DIR=/etc/systemd/system/systemd-journald.service.d
 mkdir -p "\$JOURNALD_CONF_DIR"
 printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd-journald.asan.log\n" >"\$JOURNALD_CONF_DIR/env.conf"
 
-export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log
+export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec  $ROOTLIBDIR/systemd "\$@"
 EOF
 
