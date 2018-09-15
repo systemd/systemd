@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "def.h"
-#include "device-enumerator-private.h"
+#include "device-util.h"
 #include "escape.h"
 #include "fileio.h"
 #include "mkdir.h"
@@ -156,11 +156,7 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return r;
 
-        r = device_enumerator_scan_devices(enumerate);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(enumerate, other) {
+        FOREACH_DEVICE(enumerate, other) {
                 const char *other_subsystem;
                 sd_device *other_parent;
 

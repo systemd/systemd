@@ -13,7 +13,7 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
-#include "device-enumerator-private.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "logind.h"
 #include "parse-util.h"
@@ -571,11 +571,7 @@ static int manager_count_external_displays(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = device_enumerator_scan_devices(e);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
+        FOREACH_DEVICE(e, d) {
                 sd_device *p;
                 const char *status, *enabled, *dash, *nn, *i, *subsys;
                 bool external = false;

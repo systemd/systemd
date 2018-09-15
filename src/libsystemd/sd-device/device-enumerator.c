@@ -7,7 +7,6 @@
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
-#include "prioq.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
@@ -26,7 +25,8 @@ struct sd_device_enumerator {
         unsigned n_ref;
 
         DeviceEnumerationType type;
-        Prioq *devices;
+        sd_device **devices;
+        size_t n_devices, n_allocated, current_device_index;
         bool scan_uptodate;
 
         Set *match_subsystem;
@@ -60,15 +60,14 @@ _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
 }
 
 static sd_device_enumerator *device_enumerator_free(sd_device_enumerator *enumerator) {
-        sd_device *device;
+        size_t i;
 
         assert(enumerator);
 
-        while ((device = prioq_pop(enumerator->devices)))
-                sd_device_unref(device);
+        for (i = 0; i < enumerator->n_devices; i++)
+                sd_device_unref(enumerator->devices[i]);
 
-        prioq_free(enumerator->devices);
-
+        free(enumerator->devices);
         set_free_free(enumerator->match_subsystem);
         set_free_free(enumerator->nomatch_subsystem);
         hashmap_free_free_free(enumerator->match_sysattr);
@@ -251,7 +250,7 @@ int device_enumerator_add_match_is_initialized(sd_device_enumerator *enumerator)
 }
 
 static int device_compare(const void *_a, const void *_b) {
-        sd_device *a = (sd_device *)_a, *b = (sd_device *)_b;
+        sd_device *a = *(sd_device **)_a, *b = *(sd_device **)_b;
         const char *devpath_a, *devpath_b, *sound_a;
         bool delay_a, delay_b;
 
@@ -301,20 +300,13 @@ static int device_compare(const void *_a, const void *_b) {
 }
 
 int device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *device) {
-        int r;
-
         assert_return(enumerator, -EINVAL);
         assert_return(device, -EINVAL);
 
-        r = prioq_ensure_allocated(&enumerator->devices, device_compare);
-        if (r < 0)
-                return r;
+        if (!GREEDY_REALLOC(enumerator->devices, enumerator->n_allocated, enumerator->n_devices + 1))
+                return -ENOMEM;
 
-        r = prioq_put(enumerator->devices, device, NULL);
-        if (r < 0)
-                return r;
-
-        sd_device_ref(device);
+        enumerator->devices[enumerator->n_devices++] = sd_device_ref(device);
 
         return 0;
 }
@@ -810,8 +802,8 @@ static int enumerator_scan_devices_all(sd_device_enumerator *enumerator) {
 }
 
 int device_enumerator_scan_devices(sd_device_enumerator *enumerator) {
-        sd_device *device;
         int r = 0, k;
+        size_t i;
 
         assert(enumerator);
 
@@ -819,8 +811,10 @@ int device_enumerator_scan_devices(sd_device_enumerator *enumerator) {
             enumerator->type == DEVICE_ENUMERATION_TYPE_DEVICES)
                 return 0;
 
-        while ((device = prioq_pop(enumerator->devices)))
-                sd_device_unref(device);
+        for (i = 0; i < enumerator->n_devices; i++)
+                sd_device_unref(enumerator->devices[i]);
+
+        enumerator->n_devices = 0;
 
         if (!set_isempty(enumerator->match_tag)) {
                 k = enumerator_scan_devices_tags(enumerator);
@@ -836,7 +830,10 @@ int device_enumerator_scan_devices(sd_device_enumerator *enumerator) {
                         r = k;
         }
 
+        qsort(enumerator->devices, enumerator->n_devices, sizeof(sd_device *), device_compare);
+
         enumerator->scan_uptodate = true;
+        enumerator->type = DEVICE_ENUMERATION_TYPE_DEVICES;
 
         return r;
 }
@@ -850,27 +847,29 @@ _public_ sd_device *sd_device_enumerator_get_device_first(sd_device_enumerator *
         if (r < 0)
                 return NULL;
 
-        enumerator->type = DEVICE_ENUMERATION_TYPE_DEVICES;
+        enumerator->current_device_index = 0;
 
-        return prioq_peek(enumerator->devices);
+        if (enumerator->n_devices == 0)
+                return NULL;
+
+        return enumerator->devices[0];
 }
 
 _public_ sd_device *sd_device_enumerator_get_device_next(sd_device_enumerator *enumerator) {
         assert_return(enumerator, NULL);
 
         if (!enumerator->scan_uptodate ||
-            enumerator->type != DEVICE_ENUMERATION_TYPE_DEVICES)
+            enumerator->type != DEVICE_ENUMERATION_TYPE_DEVICES ||
+            enumerator->current_device_index + 1 >= enumerator->n_devices)
                 return NULL;
 
-        sd_device_unref(prioq_pop(enumerator->devices));
-
-        return prioq_peek(enumerator->devices);
+        return enumerator->devices[++enumerator->current_device_index];
 }
 
 int device_enumerator_scan_subsystems(sd_device_enumerator *enumerator) {
-        sd_device *device;
         const char *subsysdir;
         int r = 0, k;
+        size_t i;
 
         assert(enumerator);
 
@@ -878,8 +877,10 @@ int device_enumerator_scan_subsystems(sd_device_enumerator *enumerator) {
             enumerator->type == DEVICE_ENUMERATION_TYPE_SUBSYSTEMS)
                 return 0;
 
-        while ((device = prioq_pop(enumerator->devices)))
-                sd_device_unref(device);
+        for (i = 0; i < enumerator->n_devices; i++)
+                sd_device_unref(enumerator->devices[i]);
+
+        enumerator->n_devices = 0;
 
         /* modules */
         if (match_subsystem(enumerator, "module")) {
@@ -913,7 +914,10 @@ int device_enumerator_scan_subsystems(sd_device_enumerator *enumerator) {
                 }
         }
 
+        qsort(enumerator->devices, enumerator->n_devices, sizeof(sd_device *), device_compare);
+
         enumerator->scan_uptodate = true;
+        enumerator->type = DEVICE_ENUMERATION_TYPE_SUBSYSTEMS;
 
         return r;
 }
@@ -927,33 +931,56 @@ _public_ sd_device *sd_device_enumerator_get_subsystem_first(sd_device_enumerato
         if (r < 0)
                 return NULL;
 
-        enumerator->type = DEVICE_ENUMERATION_TYPE_SUBSYSTEMS;
+        enumerator->current_device_index = 0;
 
-        return prioq_peek(enumerator->devices);
+        if (enumerator->n_devices == 0)
+                return NULL;
+
+        return enumerator->devices[0];
 }
 
 _public_ sd_device *sd_device_enumerator_get_subsystem_next(sd_device_enumerator *enumerator) {
         assert_return(enumerator, NULL);
 
         if (!enumerator->scan_uptodate ||
-            enumerator->type != DEVICE_ENUMERATION_TYPE_SUBSYSTEMS)
+            enumerator->type != DEVICE_ENUMERATION_TYPE_SUBSYSTEMS ||
+            enumerator->current_device_index + 1 >= enumerator->n_devices)
                 return NULL;
 
-        sd_device_unref(prioq_pop(enumerator->devices));
-
-        return prioq_peek(enumerator->devices);
+        return enumerator->devices[++enumerator->current_device_index];
 }
 
 sd_device *device_enumerator_get_first(sd_device_enumerator *enumerator) {
         assert_return(enumerator, NULL);
 
-        return prioq_peek(enumerator->devices);
+        if (!enumerator->scan_uptodate)
+                return NULL;
+
+        enumerator->current_device_index = 0;
+
+        if (enumerator->n_devices == 0)
+                return NULL;
+
+        return enumerator->devices[0];
 }
 
 sd_device *device_enumerator_get_next(sd_device_enumerator *enumerator) {
         assert_return(enumerator, NULL);
 
-        sd_device_unref(prioq_pop(enumerator->devices));
+        if (!enumerator->scan_uptodate ||
+            enumerator->current_device_index + 1 >= enumerator->n_devices)
+                return NULL;
 
-        return prioq_peek(enumerator->devices);
+        return enumerator->devices[++enumerator->current_device_index];
+}
+
+sd_device **device_enumerator_get_devices(sd_device_enumerator *enumerator, size_t *ret_n_devices) {
+        assert(enumerator);
+        assert(ret_n_devices);
+
+        if (!enumerator->scan_uptodate)
+                return NULL;
+
+        *ret_n_devices = enumerator->n_devices;
+        return enumerator->devices;
 }

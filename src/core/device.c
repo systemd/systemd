@@ -7,7 +7,6 @@
 #include "bus-error.h"
 #include "dbus-device.h"
 #include "device-private.h"
-#include "device-enumerator-private.h"
 #include "device-util.h"
 #include "device.h"
 #include "libudev-private.h"
@@ -831,13 +830,7 @@ static void device_enumerate(Manager *m) {
                 goto fail;
         }
 
-        r = device_enumerator_scan_devices(e);
-        if (r < 0) {
-                log_error_errno(r, "Failed to enumerate devices: %m");
-                goto fail;
-        }
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, dev) {
+        FOREACH_DEVICE(e, dev) {
                 const char *sysfs;
 
                 if (!device_is_ready(dev))

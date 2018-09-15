@@ -7,7 +7,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
-#include "device-enumerator-private.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -193,11 +193,7 @@ int devnode_acl_all(const char *seat,
         if (r < 0)
                 return r;
 
-        r = device_enumerator_scan_devices(e);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
+        FOREACH_DEVICE(e, d) {
                 const char *node, *sn;
 
                 if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
