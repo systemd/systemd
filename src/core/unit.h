@@ -603,7 +603,7 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask);
 
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, bool add_reference, UnitDependencyMask mask);
-int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference, UnitDependencyMask mask);
+int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, bool add_reference, UnitDependencyMask mask);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 

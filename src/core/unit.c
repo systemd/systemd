@@ -1398,7 +1398,7 @@ static int unit_add_slice_dependencies(Unit *u) {
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
 
-        return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_ROOT_SLICE, NULL, true, mask);
+        return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_ROOT_SLICE, true, mask);
 }
 
 static int unit_add_mount_dependencies(Unit *u) {
@@ -2948,19 +2948,19 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, boo
         return unit_add_dependency(u, d, other, add_reference, mask);
 }
 
-int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference, UnitDependencyMask mask) {
+int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, bool add_reference, UnitDependencyMask mask) {
         _cleanup_free_ char *buf = NULL;
         Unit *other;
         int r;
 
         assert(u);
-        assert(name || path);
+        assert(name);
 
-        r = resolve_template(u, name, path, &buf, &name);
+        r = resolve_template(u, name, NULL, &buf, &name);
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(u->manager, name, path, NULL, &other);
+        r = manager_load_unit(u->manager, name, NULL, NULL, &other);
         if (r < 0)
                 return r;
 
