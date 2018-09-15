@@ -201,7 +201,7 @@ static void test_catalog_file_lang(void) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(unlink_tempfilep) char database[] = "/tmp/test-catalog.XXXXXX";
-        _cleanup_free_ char *text = NULL, *catalog_dir = NULL;
+        _cleanup_free_ char *text = NULL;
         int r;
 
         setlocale(LC_ALL, "de_DE.UTF-8");
