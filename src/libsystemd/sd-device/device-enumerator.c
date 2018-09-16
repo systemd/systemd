@@ -830,7 +830,7 @@ int device_enumerator_scan_devices(sd_device_enumerator *enumerator) {
                         r = k;
         }
 
-        qsort(enumerator->devices, enumerator->n_devices, sizeof(sd_device *), device_compare);
+        qsort_safe(enumerator->devices, enumerator->n_devices, sizeof(sd_device *), device_compare);
 
         enumerator->scan_uptodate = true;
         enumerator->type = DEVICE_ENUMERATION_TYPE_DEVICES;
@@ -914,7 +914,7 @@ int device_enumerator_scan_subsystems(sd_device_enumerator *enumerator) {
                 }
         }
 
-        qsort(enumerator->devices, enumerator->n_devices, sizeof(sd_device *), device_compare);
+        qsort_safe(enumerator->devices, enumerator->n_devices, sizeof(sd_device *), device_compare);
 
         enumerator->scan_uptodate = true;
         enumerator->type = DEVICE_ENUMERATION_TYPE_SUBSYSTEMS;
