@@ -10,16 +10,8 @@
 
 #define SET_SIZE 1024*4
 
-static int unsigned_compare(const void *a, const void *b) {
-        const unsigned *x = a, *y = b;
-
-        if (*x < *y)
-                return -1;
-
-        if (*x > *y)
-                return 1;
-
-        return 0;
+static int unsigned_compare(const unsigned *a, const unsigned *b) {
+        return CMP(*a, *b);
 }
 
 static void test_unsigned(void) {
@@ -39,7 +31,7 @@ static void test_unsigned(void) {
                 assert_se(prioq_put(q, UINT_TO_PTR(u), NULL) >= 0);
         }
 
-        qsort(buffer, ELEMENTSOF(buffer), sizeof(buffer[0]), unsigned_compare);
+        typesafe_qsort(buffer, ELEMENTSOF(buffer), unsigned_compare);
 
         for (i = 0; i < ELEMENTSOF(buffer); i++) {
                 unsigned u;

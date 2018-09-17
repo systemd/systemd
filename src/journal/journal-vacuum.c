@@ -29,30 +29,21 @@ struct vacuum_info {
         bool have_seqnum;
 };
 
-static int vacuum_compare(const void *_a, const void *_b) {
-        const struct vacuum_info *a, *b;
-
-        a = _a;
-        b = _b;
+static int vacuum_compare(const struct vacuum_info *a, const struct vacuum_info *b) {
+        int r;
 
         if (a->have_seqnum && b->have_seqnum &&
-            sd_id128_equal(a->seqnum_id, b->seqnum_id)) {
-                if (a->seqnum < b->seqnum)
-                        return -1;
-                else if (a->seqnum > b->seqnum)
-                        return 1;
-                else
-                        return 0;
-        }
+            sd_id128_equal(a->seqnum_id, b->seqnum_id))
+                return CMP(a->seqnum, b->seqnum);
 
-        if (a->realtime < b->realtime)
-                return -1;
-        else if (a->realtime > b->realtime)
-                return 1;
-        else if (a->have_seqnum && b->have_seqnum)
+        r = CMP(a->realtime, b->realtime);
+        if (r != 0)
+                return r;
+
+        if (a->have_seqnum && b->have_seqnum)
                 return memcmp(&a->seqnum_id, &b->seqnum_id, 16);
-        else
-                return strcmp(a->filename, b->filename);
+
+        return strcmp(a->filename, b->filename);
 }
 
 static void patch_realtime(
@@ -292,7 +283,7 @@ int journal_directory_vacuum(
                 sum += size;
         }
 
-        qsort_safe(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
+        typesafe_qsort(list, n_list, vacuum_compare);
 
         for (i = 0; i < n_list; i++) {
                 unsigned left;

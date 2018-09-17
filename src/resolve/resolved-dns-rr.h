@@ -244,7 +244,7 @@ struct DnsResourceRecord {
         };
 };
 
-static inline const void* DNS_RESOURCE_RECORD_RDATA(DnsResourceRecord *rr) {
+static inline const void* DNS_RESOURCE_RECORD_RDATA(const DnsResourceRecord *rr) {
         if (!rr)
                 return NULL;
 
@@ -255,7 +255,7 @@ static inline const void* DNS_RESOURCE_RECORD_RDATA(DnsResourceRecord *rr) {
         return (uint8_t*) rr->wire_format + rr->wire_format_rdata_offset;
 }
 
-static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(DnsResourceRecord *rr) {
+static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(const DnsResourceRecord *rr) {
         if (!rr)
                 return 0;
         if (!rr->wire_format)
@@ -265,7 +265,7 @@ static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(DnsResourceRecord *rr) {
         return rr->wire_format_size - rr->wire_format_rdata_offset;
 }
 
-static inline uint8_t DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(DnsResourceRecord *rr) {
+static inline uint8_t DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(const DnsResourceRecord *rr) {
         assert(rr);
         assert(rr->key->type == DNS_TYPE_OPT);
 

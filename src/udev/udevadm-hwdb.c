@@ -72,11 +72,8 @@ struct trie_value_entry {
         size_t value_off;
 };
 
-static int trie_children_cmp(const void *v1, const void *v2) {
-        const struct trie_child_entry *n1 = v1;
-        const struct trie_child_entry *n2 = v2;
-
-        return n1->c - n2->c;
+static int trie_children_cmp(const struct trie_child_entry *a, const struct trie_child_entry *b) {
+        return CMP(a->c, b->c);
 }
 
 static int node_add_child(struct trie *trie, struct trie_node *node, struct trie_node *node_child, uint8_t c) {
@@ -92,7 +89,7 @@ static int node_add_child(struct trie *trie, struct trie_node *node, struct trie
         node->children[node->children_count].c = c;
         node->children[node->children_count].child = node_child;
         node->children_count++;
-        qsort(node->children, node->children_count, sizeof(struct trie_child_entry), trie_children_cmp);
+        typesafe_qsort(node->children, node->children_count, trie_children_cmp);
         trie->nodes_count++;
 
         return 0;
@@ -105,7 +102,7 @@ static struct trie_node *node_lookup(const struct trie_node *node, uint8_t c) {
         search.c = c;
         child = bsearch_safe(&search,
                              node->children, node->children_count, sizeof(struct trie_child_entry),
-                             trie_children_cmp);
+                             (comparison_fn_t) trie_children_cmp);
         if (child)
                 return child->child;
         return NULL;

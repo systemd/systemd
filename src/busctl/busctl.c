@@ -739,10 +739,8 @@ static int member_compare_func(const void *a, const void *b) {
         return strcmp_ptr(x->name, y->name);
 }
 
-static int member_compare_funcp(const void *a, const void *b) {
-        const Member *const * x = (const Member *const *) a, * const *y = (const Member *const *) b;
-
-        return member_compare_func(*x, *y);
+static int member_compare_funcp(Member * const *a, Member * const *b) {
+        return member_compare_func(*a, *b);
 }
 
 static void member_free(Member *m) {
@@ -1063,7 +1061,7 @@ static int introspect(int argc, char **argv, void *userdata) {
         if (result_width > 40)
                 result_width = 40;
 
-        qsort(sorted, k, sizeof(Member*), member_compare_funcp);
+        typesafe_qsort(sorted, k, member_compare_funcp);
 
         if (arg_legend) {
                 printf("%-*s %-*s %-*s %-*s %s\n",

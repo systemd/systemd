@@ -56,23 +56,22 @@ static void catalog_hash_func(const void *p, struct siphash *state) {
         siphash24_compress(i->language, strlen(i->language), state);
 }
 
-static int catalog_compare_func(const void *a, const void *b) {
-        const CatalogItem *i = a, *j = b;
+static int catalog_compare_func(const CatalogItem *a, const CatalogItem *b) {
         unsigned k;
         int r;
 
-        for (k = 0; k < ELEMENTSOF(j->id.bytes); k++) {
-                r = CMP(i->id.bytes[k], j->id.bytes[k]);
+        for (k = 0; k < ELEMENTSOF(b->id.bytes); k++) {
+                r = CMP(a->id.bytes[k], b->id.bytes[k]);
                 if (r != 0)
                         return r;
         }
 
-        return strcmp(i->language, j->language);
+        return strcmp(a->language, b->language);
 }
 
 const struct hash_ops catalog_hash_ops = {
         .hash = catalog_hash_func,
-        .compare = catalog_compare_func
+        .compare = (comparison_fn_t) catalog_compare_func,
 };
 
 static bool next_header(const char **s) {
@@ -495,7 +494,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
         }
 
         assert(n == hashmap_size(h));
-        qsort_safe(items, n, sizeof(CatalogItem), catalog_compare_func);
+        typesafe_qsort(items, n, catalog_compare_func);
 
         strbuf_complete(sb);
 
@@ -567,21 +566,21 @@ static const char *find_id(void *p, sd_id128_t id) {
                 strncpy(key.language, loc, sizeof(key.language));
                 key.language[strcspn(key.language, ".@")] = 0;
 
-                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), catalog_compare_func);
+                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), (comparison_fn_t) catalog_compare_func);
                 if (!f) {
                         char *e;
 
                         e = strchr(key.language, '_');
                         if (e) {
                                 *e = 0;
-                                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), catalog_compare_func);
+                                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), (comparison_fn_t) catalog_compare_func);
                         }
                 }
         }
 
         if (!f) {
                 zero(key.language);
-                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), catalog_compare_func);
+                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), (comparison_fn_t) catalog_compare_func);
         }
 
         if (!f)

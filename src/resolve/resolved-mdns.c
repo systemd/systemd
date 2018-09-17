@@ -53,50 +53,41 @@ eaddrinuse:
         return 0;
 }
 
-static int mdns_rr_compare(const void *a, const void *b) {
-        DnsResourceRecord **x = (DnsResourceRecord**) a, **y = (DnsResourceRecord**) b;
+static int mdns_rr_compare(DnsResourceRecord * const *a, DnsResourceRecord * const *b) {
+        DnsResourceRecord *x = *(DnsResourceRecord **) a, *y = *(DnsResourceRecord **) b;
         size_t m;
         int r;
 
         assert(x);
-        assert(*x);
         assert(y);
-        assert(*y);
 
-        if (CLEAR_CACHE_FLUSH((*x)->key->class) < CLEAR_CACHE_FLUSH((*y)->key->class))
-                return -1;
-        else if (CLEAR_CACHE_FLUSH((*x)->key->class) > CLEAR_CACHE_FLUSH((*y)->key->class))
-                return 1;
-
-        if ((*x)->key->type < (*y)->key->type)
-                return -1;
-        else if ((*x)->key->type > (*y)->key->type)
-                return 1;
-
-        r = dns_resource_record_to_wire_format(*x, false);
-        if (r < 0) {
-                log_warning_errno(r, "Can't wire-format RR: %m");
-                return 0;
-        }
-
-        r = dns_resource_record_to_wire_format(*y, false);
-        if (r < 0) {
-                log_warning_errno(r, "Can't wire-format RR: %m");
-                return 0;
-        }
-
-        m = MIN(DNS_RESOURCE_RECORD_RDATA_SIZE(*x), DNS_RESOURCE_RECORD_RDATA_SIZE(*y));
-
-        r = memcmp(DNS_RESOURCE_RECORD_RDATA(*x), DNS_RESOURCE_RECORD_RDATA(*y), m);
+        r = CMP(CLEAR_CACHE_FLUSH(x->key->class), CLEAR_CACHE_FLUSH(y->key->class));
         if (r != 0)
                 return r;
 
-        if (DNS_RESOURCE_RECORD_RDATA_SIZE(*x) < DNS_RESOURCE_RECORD_RDATA_SIZE(*y))
-                return -1;
-        else if (DNS_RESOURCE_RECORD_RDATA_SIZE(*x) > DNS_RESOURCE_RECORD_RDATA_SIZE(*y))
-                return 1;
+        r = CMP(x->key->type, y->key->type);
+        if (r != 0)
+                return r;
 
-        return 0;
+        r = dns_resource_record_to_wire_format(x, false);
+        if (r < 0) {
+                log_warning_errno(r, "Can't wire-format RR: %m");
+                return 0;
+        }
+
+        r = dns_resource_record_to_wire_format(y, false);
+        if (r < 0) {
+                log_warning_errno(r, "Can't wire-format RR: %m");
+                return 0;
+        }
+
+        m = MIN(DNS_RESOURCE_RECORD_RDATA_SIZE(x), DNS_RESOURCE_RECORD_RDATA_SIZE(y));
+
+        r = memcmp(DNS_RESOURCE_RECORD_RDATA(x), DNS_RESOURCE_RECORD_RDATA(y), m);
+        if (r != 0)
+                return r;
+
+        return CMP(DNS_RESOURCE_RECORD_RDATA_SIZE(x), DNS_RESOURCE_RECORD_RDATA_SIZE(y));
 }
 
 static int proposed_rrs_cmp(DnsResourceRecord **x, unsigned x_size, DnsResourceRecord **y, unsigned y_size) {
@@ -151,7 +142,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
                         list[n++] = p->answer->items[i].rr;
         }
         assert(n == size);
-        qsort_safe(list, size, sizeof(DnsResourceRecord*), mdns_rr_compare);
+        typesafe_qsort(list, size, mdns_rr_compare);
 
         *ret_rrs = TAKE_PTR(list);
 
@@ -171,7 +162,8 @@ static int mdns_do_tiebreak(DnsResourceKey *key, DnsAnswer *answer, DnsPacket *p
 
         DNS_ANSWER_FOREACH(rr, answer)
                 our[i++] = rr;
-        qsort_safe(our, size, sizeof(DnsResourceRecord*), mdns_rr_compare);
+
+        typesafe_qsort(our, size, mdns_rr_compare);
 
         r = mdns_packet_extract_matching_rrs(p, key, &remote);
         if (r < 0)

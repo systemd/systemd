@@ -563,10 +563,8 @@ static int boot_id_hex(const char s[4]) {
         return id;
 }
 
-static int cmp_uint16(const void *_a, const void *_b) {
-        const uint16_t *a = _a, *b = _b;
-
-        return (int)*a - (int)*b;
+static int cmp_uint16(const uint16_t *a, const uint16_t *b) {
+        return CMP(*a, *b);
 }
 
 int efi_get_boot_options(uint16_t **options) {
@@ -604,7 +602,7 @@ int efi_get_boot_options(uint16_t **options) {
                 list[count++] = id;
         }
 
-        qsort_safe(list, count, sizeof(uint16_t), cmp_uint16);
+        typesafe_qsort(list, count, cmp_uint16);
 
         *options = TAKE_PTR(list);
 

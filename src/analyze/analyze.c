@@ -41,8 +41,6 @@
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y (20.0)
 
-#define compare(a, b) (((a) > (b))? 1 : (((b) > (a))? -1 : 0))
-
 #define svg(...) printf(__VA_ARGS__)
 
 #define svg_bar(class, x1, x2, y)                                       \
@@ -191,14 +189,12 @@ static int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char 
         return 0;
 }
 
-static int compare_unit_time(const void *a, const void *b) {
-        return compare(((struct unit_times *)b)->time,
-                       ((struct unit_times *)a)->time);
+static int compare_unit_time(const struct unit_times *a, const struct unit_times *b) {
+        return CMP(b->time, a->time);
 }
 
-static int compare_unit_start(const void *a, const void *b) {
-        return compare(((struct unit_times *)a)->activating,
-                       ((struct unit_times *)b)->activating);
+static int compare_unit_start(const struct unit_times *a, const struct unit_times *b) {
+        return CMP(a->activating, b->activating);
 }
 
 static void unit_times_free(struct unit_times *t) {
@@ -629,7 +625,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         if (n <= 0)
                 return n;
 
-        qsort(times, n, sizeof(struct unit_times), compare_unit_start);
+        typesafe_qsort(times, n, compare_unit_start);
 
         width = SCALE_X * (boot->firmware_time + boot->finish_time);
         if (width < 800.0)
@@ -854,8 +850,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
 
 static Hashmap *unit_times_hashmap;
 
-static int list_dependencies_compare(const void *_a, const void *_b) {
-        const char **a = (const char**) _a, **b = (const char**) _b;
+static int list_dependencies_compare(char * const *a, char * const *b) {
         usec_t usa = 0, usb = 0;
         struct unit_times *times;
 
@@ -866,7 +861,7 @@ static int list_dependencies_compare(const void *_a, const void *_b) {
         if (times)
                 usb = times->activated;
 
-        return usb - usa;
+        return CMP(usb, usa);
 }
 
 static bool times_in_range(const struct unit_times *times, const struct boot_times *boot) {
@@ -891,7 +886,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
         if (r < 0)
                 return r;
 
-        qsort_safe(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
+        typesafe_qsort(deps, strv_length(deps), list_dependencies_compare);
 
         r = acquire_boot_times(bus, &boot);
         if (r < 0)
@@ -1056,7 +1051,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         if (n <= 0)
                 return n;
 
-        qsort(times, n, sizeof(struct unit_times), compare_unit_time);
+        typesafe_qsort(times, n, compare_unit_time);
 
         (void) pager_open(arg_no_pager, false);
 

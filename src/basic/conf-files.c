@@ -134,12 +134,8 @@ static int files_add(
         return 0;
 }
 
-static int base_cmp(const void *a, const void *b) {
-        const char *s1, *s2;
-
-        s1 = *(char * const *)a;
-        s2 = *(char * const *)b;
-        return strcmp(basename(s1), basename(s2));
+static int base_cmp(char * const *a, char * const *b) {
+        return strcmp(basename(*a), basename(*b));
 }
 
 static int conf_files_list_strv_internal(char ***strv, const char *suffix, const char *root, unsigned flags, char **dirs) {
@@ -176,7 +172,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
         if (!files)
                 return -ENOMEM;
 
-        qsort_safe(files, hashmap_size(fh), sizeof(char *), base_cmp);
+        typesafe_qsort(files, hashmap_size(fh), base_cmp);
         *strv = files;
 
         return 0;
@@ -200,7 +196,7 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         for (i = 0; i < strv_length(*strv); i++) {
                 int c;
 
-                c = base_cmp(*strv + i, &path);
+                c = base_cmp((char* const*) *strv + i, (char* const*) &path);
                 if (c == 0) {
                         char **dir;
 

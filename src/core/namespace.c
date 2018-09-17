@@ -397,22 +397,16 @@ static int append_protect_system(MountEntry **p, ProtectSystem protect_system, b
         }
 }
 
-static int mount_path_compare(const void *a, const void *b) {
-        const MountEntry *p = a, *q = b;
+static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
         int d;
 
         /* If the paths are not equal, then order prefixes first */
-        d = path_compare(mount_entry_path(p), mount_entry_path(q));
+        d = path_compare(mount_entry_path(a), mount_entry_path(b));
         if (d != 0)
                 return d;
 
         /* If the paths are equal, check the mode */
-        if (p->mode < q->mode)
-                return -1;
-        if (p->mode > q->mode)
-                return 1;
-
-        return 0;
+        return CMP((int) a->mode, (int) b->mode);
 }
 
 static int prefix_where_needed(MountEntry *m, size_t n, const char *root_directory) {
@@ -1132,7 +1126,7 @@ static void normalize_mounts(const char *root_directory, MountEntry *mounts, siz
         assert(n_mounts);
         assert(mounts || *n_mounts == 0);
 
-        qsort_safe(mounts, *n_mounts, sizeof(MountEntry), mount_path_compare);
+        typesafe_qsort(mounts, *n_mounts, mount_path_compare);
 
         drop_duplicates(mounts, n_mounts);
         drop_outside_root(root_directory, mounts, n_mounts);

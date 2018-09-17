@@ -2378,10 +2378,8 @@ typedef struct TransferInfo {
         double progress;
 } TransferInfo;
 
-static int compare_transfer_info(const void *a, const void *b) {
-        const TransferInfo *x = a, *y = b;
-
-        return strcmp(x->local, y->local);
+static int compare_transfer_info(const TransferInfo *a, const TransferInfo *b) {
+        return strcmp(a->local, b->local);
 }
 
 static int list_transfers(int argc, char *argv[], void *userdata) {
@@ -2449,7 +2447,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        qsort_safe(transfers, n_transfers, sizeof(TransferInfo), compare_transfer_info);
+        typesafe_qsort(transfers, n_transfers, compare_transfer_info);
 
         if (arg_legend && n_transfers > 0)
                 printf("%-*s %-*s %-*s %-*s %-*s\n",

@@ -371,10 +371,8 @@ _public_ int sd_lldp_new(sd_lldp **ret) {
         return 0;
 }
 
-static int neighbor_compare_func(const void *a, const void *b) {
-        const sd_lldp_neighbor * const*x = a, * const *y = b;
-
-        return lldp_neighbor_id_hash_ops.compare(&(*x)->id, &(*y)->id);
+static int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
+        return lldp_neighbor_id_hash_ops.compare(&(*a)->id, &(*b)->id);
 }
 
 static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -462,7 +460,7 @@ _public_ int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***ret) {
         assert((size_t) k == hashmap_size(lldp->neighbor_by_id));
 
         /* Return things in a stable order */
-        qsort(l, k, sizeof(sd_lldp_neighbor*), neighbor_compare_func);
+        typesafe_qsort(l, k, neighbor_compare_func);
         *ret = l;
 
         return k;

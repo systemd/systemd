@@ -524,8 +524,9 @@ static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration)
         return 0;
 }
 
-static int group_compare(const void*a, const void *b) {
-        const Group *x = *(Group**)a, *y = *(Group**)b;
+static int group_compare(Group * const *a, Group * const *b) {
+        const Group *x = *a, *y = *b;
+        int r;
 
         if (arg_order != ORDER_TASKS || arg_recursive) {
                 /* Let's make sure that the parent is always before
@@ -547,29 +548,26 @@ static int group_compare(const void*a, const void *b) {
         case ORDER_CPU:
                 if (arg_cpu_type == CPU_PERCENT) {
                         if (x->cpu_valid && y->cpu_valid) {
-                                if (x->cpu_fraction > y->cpu_fraction)
-                                        return -1;
-                                else if (x->cpu_fraction < y->cpu_fraction)
-                                        return 1;
+                                r = CMP(y->cpu_fraction, x->cpu_fraction);
+                                if (r != 0)
+                                        return r;
                         } else if (x->cpu_valid)
                                 return -1;
                         else if (y->cpu_valid)
                                 return 1;
                 } else {
-                        if (x->cpu_usage > y->cpu_usage)
-                                return -1;
-                        else if (x->cpu_usage < y->cpu_usage)
-                                return 1;
+                        r = CMP(y->cpu_usage, x->cpu_usage);
+                        if (r != 0)
+                                return r;
                 }
 
                 break;
 
         case ORDER_TASKS:
                 if (x->n_tasks_valid && y->n_tasks_valid) {
-                        if (x->n_tasks > y->n_tasks)
-                                return -1;
-                        else if (x->n_tasks < y->n_tasks)
-                                return 1;
+                        r = CMP(y->n_tasks, x->n_tasks);
+                        if (r != 0)
+                                return r;
                 } else if (x->n_tasks_valid)
                         return -1;
                 else if (y->n_tasks_valid)
@@ -579,10 +577,9 @@ static int group_compare(const void*a, const void *b) {
 
         case ORDER_MEMORY:
                 if (x->memory_valid && y->memory_valid) {
-                        if (x->memory > y->memory)
-                                return -1;
-                        else if (x->memory < y->memory)
-                                return 1;
+                        r = CMP(y->memory, x->memory);
+                        if (r != 0)
+                                return r;
                 } else if (x->memory_valid)
                         return -1;
                 else if (y->memory_valid)
@@ -592,10 +589,9 @@ static int group_compare(const void*a, const void *b) {
 
         case ORDER_IO:
                 if (x->io_valid && y->io_valid) {
-                        if (x->io_input_bps + x->io_output_bps > y->io_input_bps + y->io_output_bps)
-                                return -1;
-                        else if (x->io_input_bps + x->io_output_bps < y->io_input_bps + y->io_output_bps)
-                                return 1;
+                        r = CMP(y->io_input_bps + y->io_output_bps, x->io_input_bps + x->io_output_bps);
+                        if (r != 0)
+                                return r;
                 } else if (x->io_valid)
                         return -1;
                 else if (y->io_valid)
@@ -624,7 +620,7 @@ static void display(Hashmap *a) {
                 if (g->n_tasks_valid || g->cpu_valid || g->memory_valid || g->io_valid)
                         array[n++] = g;
 
-        qsort_safe(array, n, sizeof(Group*), group_compare);
+        typesafe_qsort(array, n, group_compare);
 
         /* Find the longest names in one run */
         for (j = 0; j < n; j++) {
