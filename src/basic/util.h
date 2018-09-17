@@ -88,7 +88,7 @@ static inline void* bsearch_safe(const void *key, const void *base,
  * Normal qsort requires base to be nonnull. Here were require
  * that only if nmemb > 0.
  */
-static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_fn_t compar) {
+static inline void qsort_safe(void *base, size_t nmemb, size_t size, __compar_fn_t compar) {
         if (nmemb <= 1)
                 return;
 
@@ -104,13 +104,19 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_
                 qsort_safe((p), (n), sizeof((p)[0]), (__compar_fn_t) _func_); \
         })
 
-static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, int (*compar)(const void*, const void*, void*), void *userdata) {
+static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, __compar_d_fn_t compar, void *userdata) {
         if (nmemb <= 1)
                 return;
 
         assert(base);
         qsort_r(base, nmemb, size, compar, userdata);
 }
+
+#define typesafe_qsort_r(p, n, func, userdata)                          \
+        ({                                                              \
+                int (*_func_)(const typeof(p[0])*, const typeof(p[0])*, typeof(userdata)) = func; \
+                qsort_r_safe((p), (n), sizeof((p)[0]), (__compar_d_fn_t) _func_, userdata); \
+        })
 
 /* Normal memcpy requires src to be nonnull. We do nothing if n is 0. */
 static inline void memcpy_safe(void *dst, const void *src, size_t n) {
