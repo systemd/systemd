@@ -729,9 +729,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
         return 0;
 }
 
-static int table_data_compare(const void *x, const void *y, void *userdata) {
-        const size_t *a = x, *b = y;
-        Table *t = userdata;
+static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
         size_t i;
         int r;
 
@@ -759,12 +757,7 @@ static int table_data_compare(const void *x, const void *y, void *userdata) {
         }
 
         /* Order identical lines by the order there were originally added in */
-        if (*a < *b)
-                return -1;
-        if (*a > *b)
-                return 1;
-
-        return 0;
+        return CMP(*a, *b);
 }
 
 static const char *table_data_format(TableData *d) {
@@ -944,7 +937,7 @@ int table_print(Table *t, FILE *f) {
                 for (i = 0; i < n_rows; i++)
                         sorted[i] = i * t->n_columns;
 
-                qsort_r_safe(sorted, n_rows, sizeof(size_t), table_data_compare, t);
+                typesafe_qsort_r(sorted, n_rows, table_data_compare, t);
         }
 
         if (t->display_map)
