@@ -153,7 +153,7 @@ Table *table_new_internal(const char *first_header, ...) {
         if (!t)
                 return NULL;
 
-        r = table_add_cell(t, NULL, TABLE_STRING, first_header);
+        r = table_add_cell(t, NULL, TABLE_STRING, first_header, false);
         if (r < 0)
                 return NULL;
 
@@ -165,7 +165,7 @@ Table *table_new_internal(const char *first_header, ...) {
                 if (!h)
                         break;
 
-                r = table_add_cell(t, NULL, TABLE_STRING, h);
+                r = table_add_cell(t, NULL, TABLE_STRING, h, false);
                 if (r < 0) {
                         va_end(ap);
                         return NULL;
@@ -313,6 +313,7 @@ int table_add_cell_full(
                 TableCell **ret_cell,
                 TableDataType type,
                 const void *data,
+                bool is_full,
                 size_t minimum_width,
                 size_t maximum_width,
                 unsigned weight,
@@ -614,7 +615,7 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
         return 0;
 }
 
-int table_add_many_internal(Table *t, TableDataType first_type, ...) {
+int table_add_many_internal(Table *t, bool is_full, TableDataType first_type, ...) {
         TableDataType type;
         va_list ap;
         int r;
@@ -687,7 +688,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         assert_not_reached("Uh? Unexpected data type.");
                 }
 
-                r = table_add_cell(t, NULL, type, data);
+                r = table_add_cell(t, NULL, type, data, is_full);
                 if (r < 0) {
                         va_end(ap);
                         return r;

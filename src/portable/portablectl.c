@@ -521,14 +521,14 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = table_add_many(table,
+                r = table_add_many(table, false,
                                    TABLE_STRING, name,
                                    TABLE_STRING, type);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add row to table: %m");
 
                 ro_bool = ro_int;
-                r = table_add_cell(table, &cell, TABLE_BOOLEAN, &ro_bool);
+                r = table_add_cell(table, &cell, TABLE_BOOLEAN, &ro_bool, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add row to table: %m");
 
@@ -538,14 +538,14 @@ static int list_images(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to set table cell color: %m");
                 }
 
-                r = table_add_many(table,
+                r = table_add_many(table, false,
                                    TABLE_TIMESTAMP, crtime,
                                    TABLE_TIMESTAMP, mtime,
                                    TABLE_SIZE, usage);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add row to table: %m");
 
-                r = table_add_cell(table, &cell, TABLE_STRING, state);
+                r = table_add_cell(table, &cell, TABLE_STRING, state, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add row to table: %m");
 

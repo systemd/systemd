@@ -1457,38 +1457,38 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         if (d)
                                 description = d;
 
-                        r = table_add_cell_full(details_table, &cell, TABLE_STRING, checkmark, 1, 1, 0, 0, 0);
+                        r = table_add_cell_full(details_table, &cell, TABLE_STRING, checkmark, false, 1, 1, 0, 0, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add cell to table: %m");
                         if (color)
                                 (void) table_set_color(details_table, cell, color);
 
-                        r = table_add_cell(details_table, &cell, TABLE_STRING, a->id);
+                        r = table_add_cell(details_table, &cell, TABLE_STRING, a->id, false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add cell to table: %m");
                         if (a->url)
                                 (void) table_set_url(details_table, cell, a->url);
 
-                        r = table_add_cell(details_table, NULL, TABLE_STRING, description);
+                        r = table_add_cell(details_table, NULL, TABLE_STRING, description, false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add cell to table: %m");
 
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &a->weight);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
-
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &badness);
+                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &a->weight, false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add cell to table: %m");
                         (void) table_set_align_percent(details_table, cell, 100);
 
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &a->range);
+                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &badness, false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add cell to table: %m");
                         (void) table_set_align_percent(details_table, cell, 100);
 
-                        r = table_add_cell(details_table, &cell, TABLE_EMPTY, NULL);
+                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &a->range, false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add cell to table: %m");
+                        (void) table_set_align_percent(details_table, cell, 100);
+
+                        r = table_add_cell(details_table, &cell, TABLE_EMPTY, NULL, false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add cell to table: %m");
                         (void) table_set_align_percent(details_table, cell, 100);
@@ -1567,7 +1567,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                 char buf[DECIMAL_STR_MAX(uint64_t) + 1 + DECIMAL_STR_MAX(uint64_t) + 1];
                 TableCell *cell;
 
-                r = table_add_cell(overview_table, &cell, TABLE_STRING, info->id);
+                r = table_add_cell(overview_table, &cell, TABLE_STRING, info->id, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add cell to table: %m");
                 if (info->fragment_path) {
@@ -1581,17 +1581,17 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                 }
 
                 xsprintf(buf, "%" PRIu64 ".%" PRIu64, exposure / 10, exposure % 10);
-                r = table_add_cell(overview_table, &cell, TABLE_STRING, buf);
+                r = table_add_cell(overview_table, &cell, TABLE_STRING, buf, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add cell to table: %m");
                 (void) table_set_align_percent(overview_table, cell, 100);
 
-                r = table_add_cell(overview_table, &cell, TABLE_STRING, badness_table[i].name);
+                r = table_add_cell(overview_table, &cell, TABLE_STRING, badness_table[i].name, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add cell to table: %m");
                 (void) table_set_color(overview_table, cell, strempty(badness_table[i].color));
 
-                r = table_add_cell(overview_table, NULL, TABLE_STRING, special_glyph(badness_table[i].smiley));
+                r = table_add_cell(overview_table, NULL, TABLE_STRING, special_glyph(badness_table[i].smiley), false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add cell to table: %m");
         }

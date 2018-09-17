@@ -11,7 +11,7 @@ static void test_issue_9549(void) {
 
         assert_se(table = table_new("NAME", "TYPE", "RO", "USAGE", "CREATED", "MODIFIED"));
         assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(3), 100) >= 0);
-        assert_se(table_add_many(table,
+        assert_se(table_add_many(table, false,
                                  TABLE_STRING, "foooo",
                                  TABLE_STRING, "raw",
                                  TABLE_BOOLEAN, false,
@@ -40,12 +40,12 @@ int main(int argc, char *argv[]) {
 
         assert_se(table_set_align_percent(t, TABLE_HEADER_CELL(2), 100) >= 0);
 
-        assert_se(table_add_many(t,
+        assert_se(table_add_many(t, false,
                                  TABLE_STRING, "xxx",
                                  TABLE_STRING, "yyy",
                                  TABLE_BOOLEAN, true) >= 0);
 
-        assert_se(table_add_many(t,
+        assert_se(table_add_many(t, false,
                                  TABLE_STRING, "a long field",
                                  TABLE_STRING, "yyy",
                                  TABLE_BOOLEAN, false) >= 0);
@@ -120,17 +120,17 @@ int main(int argc, char *argv[]) {
 
         table_set_header(t, false);
 
-        assert_se(table_add_many(t,
+        assert_se(table_add_many(t, false,
                                  TABLE_STRING, "fäää",
                                  TABLE_STRING, "uuu",
                                  TABLE_BOOLEAN, true) >= 0);
 
-        assert_se(table_add_many(t,
+        assert_se(table_add_many(t, false,
                                  TABLE_STRING, "fäää",
                                  TABLE_STRING, "zzz",
                                  TABLE_BOOLEAN, false) >= 0);
 
-        assert_se(table_add_many(t,
+        assert_se(table_add_many(t, false,
                                  TABLE_EMPTY,
                                  TABLE_SIZE, (uint64_t) 4711,
                                  TABLE_TIMESPAN, (usec_t) 5*USEC_PER_MINUTE) >= 0);

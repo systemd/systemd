@@ -180,7 +180,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                                 return bus_log_parse_error(r);
                 }
 
-                r = table_add_many(table,
+                r = table_add_many(table, false,
                                    TABLE_STRING, id,
                                    TABLE_UINT32, uid,
                                    TABLE_STRING, user,
@@ -240,7 +240,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = table_add_many(table,
+                r = table_add_many(table, false,
                                    TABLE_UINT32, uid,
                                    TABLE_STRING, user);
                 if (r < 0)
@@ -294,7 +294,7 @@ static int list_seats(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = table_add_cell(table, NULL, TABLE_STRING, seat);
+                r = table_add_cell(table, NULL, TABLE_STRING, seat, arg_full);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add row to table: %m");
         }

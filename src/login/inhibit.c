@@ -111,7 +111,7 @@ static int print_inhibitors(sd_bus *bus) {
                 (void) get_process_comm(pid, &comm);
                 u = uid_to_name(uid);
 
-                r = table_add_many(table,
+                r = table_add_many(table, false,
                                    TABLE_STRING, who,
                                    TABLE_UINT32, uid,
                                    TABLE_STRING, strna(u),

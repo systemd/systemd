@@ -31,9 +31,9 @@ Table *table_unref(Table *t);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Table*, table_unref);
 
-int table_add_cell_full(Table *t, TableCell **ret_cell, TableDataType type, const void *data, size_t minimum_width, size_t maximum_width, unsigned weight, unsigned align_percent, unsigned ellipsize_percent);
-static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType type, const void *data) {
-        return table_add_cell_full(t, ret_cell, type, data, (size_t) -1, (size_t) -1, (unsigned) -1, (unsigned) -1, (unsigned) -1);
+int table_add_cell_full(Table *t, TableCell **ret_cell, TableDataType type, const void *data, bool is_full, size_t minimum_width, size_t maximum_width, unsigned weight, unsigned align_percent, unsigned ellipsize_percent);
+static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType type, const void *data, bool is_full) {
+        return table_add_cell_full(t, ret_cell, type, data, is_full, (size_t) -1, (size_t) -1, (unsigned) -1, (unsigned) -1, (unsigned) -1);
 }
 
 int table_dup_cell(Table *t, TableCell *cell);
@@ -48,8 +48,8 @@ int table_set_url(Table *t, TableCell *cell, const char *color);
 
 int table_update(Table *t, TableCell *cell, TableDataType type, const void *data);
 
-int table_add_many_internal(Table *t, TableDataType first_type, ...);
-#define table_add_many(t, ...) table_add_many_internal(t, __VA_ARGS__, _TABLE_DATA_TYPE_MAX)
+int table_add_many_internal(Table *t, bool is_full, TableDataType first_type, ...);
+#define table_add_many(t, f, ...) table_add_many_internal(t, f, __VA_ARGS__, _TABLE_DATA_TYPE_MAX)
 
 void table_set_header(Table *table, bool b);
 void table_set_width(Table *t, size_t width);

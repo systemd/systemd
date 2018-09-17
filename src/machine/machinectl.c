@@ -336,7 +336,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                 arg_addrs,
                                 &addresses);
 
-                r = table_add_many(table,
+                r = table_add_many(table, false,
                                    TABLE_STRING, name,
                                    TABLE_STRING, class,
                                    TABLE_STRING, empty_to_dash(service),
@@ -403,16 +403,16 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 if (name[0] == '.' && !arg_all)
                         continue;
 
-                r = table_add_many(table,
+                r = table_add_many(table, false,
                                    TABLE_STRING, name,
                                    TABLE_STRING, type);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add table row: %m");
 
                 ro_bool = ro_int;
-                r = table_add_cell(table, &cell, TABLE_BOOLEAN, &ro_bool);
+                r = table_add_cell(table, &cell, TABLE_BOOLEAN, &ro_bool, arg_full);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add table cell: %m");
+                        return log_error_errno(r, "Failed to add table cell for ro: %m");
 
                 if (ro_bool) {
                         r = table_set_color(table, cell, ansi_highlight_red());
@@ -420,7 +420,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to set table cell color: %m");
                 }
 
-                r = table_add_many(table,
+                r = table_add_many(table, false,
                                    TABLE_SIZE, size,
                                    TABLE_TIMESTAMP, crtime,
                                    TABLE_TIMESTAMP, mtime);
