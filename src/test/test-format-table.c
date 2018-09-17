@@ -29,6 +29,54 @@ static void test_issue_9549(void) {
                         ));
 }
 
+static void test_narrow_width(void) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(table = table_new("MACHINE", "CLASS", "SERVICE", "OS", "VERSION", "ADDRESSES"));
+        assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(3), 100) >= 0);
+        assert_se(table_add_many(table, false,
+                                 TABLE_STRING, "rawhide",
+                                 TABLE_STRING, "container",
+                                 TABLE_STRING, "systemd-nspawn",
+                                 TABLE_STRING, "-",
+                                 TABLE_STRING, "-",
+                                 TABLE_STRING, "-") >= 0);
+
+        table_set_width(table, 75);
+        assert_se(table_format(table, &formatted) >= 0);
+
+        printf("%s\n", formatted);
+        assert_se(streq(formatted,
+                        "MACHINE    CLASS        SERVICE                OS VERSION     ADDRESSES    \n"
+                        "rawhide    container    systemd-nspawn          - -           -            \n"
+                        ));
+}
+
+static void test_full_width(void) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(table = table_new("NAME", "TYPE", "RO", "USAGE", "CREATED", "MODIFIED"));
+        assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(3), 100) >= 0);
+        assert_se(table_add_many(table, true,
+                                 TABLE_STRING, "one-machine-with-a-long-name",
+                                 TABLE_STRING, "raw",
+                                 TABLE_BOOLEAN, false,
+                                 TABLE_SIZE, (uint64_t) (673.7*1024*1024),
+                                 TABLE_STRING, "Sun 2018-09-16 21:08:51 CEST",
+                                 TABLE_STRING, "Sun 2018-09-16 21:22:24 CEST") >= 0);
+
+        table_set_width(table, table_get_maximum_width(table) + 1);
+        assert_se(table_format(table, &formatted) >= 0);
+
+        printf("%s\n", formatted);
+        assert_se(streq(formatted,
+                        "NAME                         TYPE RO    USAGE CREATED                       MODIFIED                     \n"
+                        "one-machine-with-a-long-name raw  no   673.6M Sun 2018-09-16 21:08:51 CEST  Sun 2018-09-16 21:22:24 CEST \n"
+                        ));
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -160,6 +208,8 @@ int main(int argc, char *argv[]) {
                         "5min           5min                     \n"));
 
         test_issue_9549();
+        test_narrow_width();
+        test_full_width();
 
         return 0;
 }

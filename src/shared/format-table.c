@@ -189,6 +189,8 @@ static TableData *table_data_free(TableData *d) {
 DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(TableData, table_data, table_data_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(TableData*, table_data_unref);
 
+static int table_data_printable_length(Table *t, TableCell *cell, TableDataType type, const void *data);
+
 Table *table_unref(Table *t) {
         size_t i;
 
@@ -322,6 +324,7 @@ int table_add_cell_full(
 
         _cleanup_(table_data_unrefp) TableData *d = NULL;
         TableData *p;
+        TableCell *cell;
 
         assert(t);
         assert(type >= 0);
@@ -363,10 +366,25 @@ int table_add_cell_full(
         if (!GREEDY_REALLOC(t->data, t->n_allocated, MAX(t->n_cells + 1, t->n_columns)))
                 return -ENOMEM;
 
-        if (ret_cell)
-                *ret_cell = TABLE_INDEX_TO_CELL(t->n_cells);
+        cell = TABLE_INDEX_TO_CELL(t->n_cells);
 
         t->data[t->n_cells++] = TAKE_PTR(d);
+
+        if (is_full) {
+                int data_size, r;
+
+                data_size = table_data_printable_length(t, cell, type, data);
+                if (data_size < 0)
+                        return log_error_errno(r, "Failed to get printable length: %m");
+
+                /* size of the data itself + 1 byte for a delimiter */
+                r = table_set_maximum_width(t, cell, data_size + 1);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set maximum width: %m");
+        }
+
+        if (ret_cell)
+                *ret_cell = cell;
 
         return 0;
 }
@@ -971,6 +989,31 @@ static int table_data_requested_width(TableData *d, size_t *ret) {
         return 0;
 }
 
+static int table_data_printable_length(Table *t, TableCell *cell, TableDataType type, const void *data) {
+        int r;
+        TableData *d;
+        const char *out_data;
+
+        assert(t);
+        assert(cell);
+
+        /* Get a human-readable printable string of the given (type,data),
+         * and return the length of the string. */
+        r = table_dedup_cell(t, cell);
+        if (r < 0)
+                return r;
+
+        d = table_get_data(t, cell);
+        if (!d)
+                return -ENXIO;
+
+        out_data = table_data_format(d);
+        if (!out_data)
+                return -ENOMEM;
+
+        return strlen(out_data);
+}
+
 static char *align_string_mem(const char *str, const char *url, size_t new_length, unsigned percent) {
         size_t w = 0, space, lspace, old_length, clickable_length;
         _cleanup_free_ char *clickable = NULL;
@@ -1414,4 +1457,115 @@ const void* table_get_at(Table *t, size_t row, size_t column) {
                 return NULL;
 
         return table_get(t, cell);
+}
+
+static void table_get_max_width_column(Table *t, size_t *max_widths) {
+        size_t n_rows, i, j;
+
+        assert(t);
+
+        /* Ensure we have no incomplete rows */
+        assert(t->n_cells % t->n_columns == 0);
+
+        n_rows = t->n_cells / t->n_columns;
+        assert(n_rows > 0); /* at least the header row must be complete */
+
+        assert(max_widths);
+
+        for (j = 0; j < t->n_columns; j++)
+                max_widths[j] = 0;
+
+        for (i = 0; i < n_rows; i++) {
+                TableData **row;
+
+                row = t->data + i * t->n_columns;
+
+                for (j = 0; j < t->n_columns; j++) {
+                        TableData *d;
+                        size_t col_width;
+                        assert_se(d = row[t->display_map ? t->display_map[j] : j]);
+
+                        /* maximum_width is uninitialized (-1) for header strings,
+                         * so we need to get the string length manually. */
+                        if (d->maximum_width == (size_t) -1) {
+                                col_width = strlen((const char *)d->data);
+                        } else {
+                                col_width = d->maximum_width;
+                        }
+
+                        if (d->maximum_width > max_widths[j])
+                                max_widths[j] = col_width;
+                }
+        }
+
+}
+
+size_t table_get_maximum_width(Table *t) {
+        size_t j, maximum_width = 0;
+        _cleanup_free_ size_t *max_widths = NULL;
+
+        assert(t);
+
+        /* Ensure we have no incomplete rows */
+        assert(t->n_cells % t->n_columns == 0);
+
+        /* max_widths represents an array of the greatest width in a certain
+         * column, over the entire rows. For example, max_widths[0] is the
+         * greatest width of all entries of the 1st column for the given row. */
+        max_widths = new(size_t, t->n_columns);
+        if (!max_widths)
+                return -ENOMEM;
+
+        table_get_max_width_column(t, max_widths);
+
+        /* Now max_widths[] contains the maximum widths for all columns.
+         * Then we need to calculate a sum of maximum_width of each column,
+         * to return the maximum value of the sums obtained from the columns. */
+        for (j = 0; j < t->n_columns; j++) {
+                maximum_width += (max_widths[j] + 1);
+        }
+
+        return maximum_width;
+
+}
+
+int table_convert_to_wide(Table *t) {
+        size_t n_rows, i, j;
+        _cleanup_free_ size_t *max_widths = NULL;
+
+        assert(t);
+
+        /* Ensure we have no incomplete rows */
+        assert(t->n_cells % t->n_columns == 0);
+
+        n_rows = t->n_cells / t->n_columns;
+        assert(n_rows > 0); /* at least the header row must be complete */
+
+        /* max_widths represents an array of the greatest width in a certain
+         * column, over the entire rows. For example, max_widths[0] is the
+         * greatest width of all entries of the 1st column, from row[0] to
+         * row[n_rows-1]. */
+        max_widths = new(size_t, t->n_columns);
+        if (!max_widths)
+                return -ENOMEM;
+
+        table_get_max_width_column(t, max_widths);
+
+        /* Now max_widths[] contains the maximum widths for all columns.
+         * Then we need to update maximum_width of each table data, to be able
+         * to print out a wide table in table_print(). */
+        for (i = 0; i < n_rows; i++) {
+                TableData **row;
+
+                row = t->data + i * t->n_columns;
+
+                for (j = 0; j < t->n_columns; j++) {
+                        TableData *d;
+                        assert_se(d = row[t->display_map ? t->display_map[j] : j]);
+
+                        d->maximum_width = max_widths[j];
+                }
+        }
+
+        return 0;
 }

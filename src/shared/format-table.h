@@ -71,3 +71,6 @@ TableCell *table_get_cell(Table *t, size_t row, size_t column);
 
 const void *table_get(Table *t, TableCell *cell);
 const void *table_get_at(Table *t, size_t row, size_t column);
+
+size_t table_get_maximum_width(Table *t);
+int table_convert_to_wide(Table *t);
