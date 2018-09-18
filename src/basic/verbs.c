@@ -59,7 +59,9 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         assert(argc >= optind);
 
         left = argc - optind;
-        name = argv[optind];
+        argv += optind;
+        optind = 0;
+        name = argv[0];
 
         for (i = 0;; i++) {
                 bool found;
@@ -116,7 +118,7 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         }
 
         if (name)
-                return verb->dispatch(left, argv + optind, userdata);
+                return verb->dispatch(left, argv, userdata);
         else {
                 char* fake[2] = {
                         (char*) verb->verb,
