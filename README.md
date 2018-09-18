@@ -18,7 +18,7 @@ Consult our [NEWS file](../master/NEWS) for information about what's new in the 
 
 Please see the [HACKING file](../master/docs/HACKING) for information how to hack on systemd and test your modifications.
 
-Please see our [Contribution Guidelines](../master/.github/CONTRIBUTING.md) for more information about filing GitHub Issues and posting GitHub Pull Requests.
+Please see our [Contribution Guidelines](../master/docs/CONTRIBUTING.md) for more information about filing GitHub Issues and posting GitHub Pull Requests.
 
 When preparing patches for systemd, please follow our [Coding Style Guidelines](../master/docs/CODING_STYLE).
 
