@@ -7,7 +7,6 @@
 #include "alloc-util.h"
 #include "hwdb-util.h"
 #include "selinux-util.h"
-#include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
@@ -17,24 +16,7 @@ static const char *arg_root = NULL;
 static bool arg_strict = false;
 
 static int verb_query(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        const char *key, *value;
-        const char *modalias;
-        int r;
-
-        assert(argc >= 2);
-        assert(argv);
-
-        modalias = argv[1];
-
-        r = sd_hwdb_new(&hwdb);
-        if (r < 0)
-                return r;
-
-        SD_HWDB_FOREACH_PROPERTY(hwdb, modalias, key, value)
-                printf("%s=%s\n", key, value);
-
-        return 0;
+        return hwdb_query(argv[1]);
 }
 
 static int verb_update(int argc, char *argv[], void *userdata) {

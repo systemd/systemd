@@ -2,11 +2,7 @@
 
 #include <getopt.h>
 
-#include "sd-hwdb.h"
-
-#include "alloc-util.h"
 #include "hwdb-util.h"
-#include "string-util.h"
 #include "udevadm.h"
 #include "util.h"
 
@@ -15,21 +11,6 @@ static const char *arg_root = NULL;
 static const char *arg_hwdb_bin_dir = NULL;
 static bool arg_update = false;
 static bool arg_strict = false;
-
-static int hwdb_test(void) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        const char *key, *value;
-        int r;
-
-        r = sd_hwdb_new(&hwdb);
-        if (r < 0)
-                return r;
-
-        SD_HWDB_FOREACH_PROPERTY(hwdb, arg_test, key, value)
-                printf("%s=%s\n", key, value);
-
-        return 0;
-}
 
 static int help(void) {
         printf("%s hwdb [OPTIONS]\n\n"
@@ -117,7 +98,7 @@ int hwdb_main(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_test)
-                return hwdb_test();
+                return hwdb_query(arg_test);
 
         return 0;
 }

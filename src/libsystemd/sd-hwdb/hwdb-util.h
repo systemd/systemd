@@ -7,3 +7,4 @@
 
 bool hwdb_validate(sd_hwdb *hwdb);
 int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool compat);
+int hwdb_query(const char *modalias);

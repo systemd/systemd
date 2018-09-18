@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <ctype.h>
+#include <stdio.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
@@ -658,4 +659,21 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
                 return err;
 
         return r;
+}
+
+int hwdb_query(const char *modalias) {
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        const char *key, *value;
+        int r;
+
+        assert(modalias);
+
+        r = sd_hwdb_new(&hwdb);
+        if (r < 0)
+                return r;
+
+        SD_HWDB_FOREACH_PROPERTY(hwdb, modalias, key, value)
+                printf("%s=%s\n", key, value);
+
+        return 0;
 }
