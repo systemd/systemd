@@ -133,7 +133,7 @@ void in_initrd_force(bool value) {
 
 /* hey glibc, APIs with callbacks without a user pointer are so useless */
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
-                 int (*compar) (const void *, const void *, void *), void *arg) {
+                 __compar_d_fn_t compar, void *arg) {
         size_t l, u, idx;
         const void *p;
         int comparison;
