@@ -2934,7 +2934,8 @@ static int outer_child(
                         }
                 }
 
-                log_info("Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
+                if (!arg_quiet)
+                        log_info("Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
         }
 
         if (dissected_image) {
