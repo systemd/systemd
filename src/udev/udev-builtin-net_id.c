@@ -246,7 +246,7 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
         /* kernel provided port index for multiple ports on a single PCI function */
         attr = udev_device_get_sysattr_value(dev, "dev_port");
         if (attr)
-                dev_port = strtol(attr, NULL, 10);
+                dev_port = strtoul(attr, NULL, 10);
 
         /* kernel provided front panel port name for multiple port PCI device */
         port_name = udev_device_get_sysattr_value(dev, "phys_port_name");
@@ -312,7 +312,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         /* kernel provided port index for multiple ports on a single PCI function */
         attr = udev_device_get_sysattr_value(dev, "dev_port");
         if (attr) {
-                dev_port = strtol(attr, NULL, 10);
+                dev_port = strtoul(attr, NULL, 10);
                 /* With older kernels IP-over-InfiniBand network interfaces sometimes erroneously
                  * provide the port number in the 'dev_id' sysfs attribute instead of 'dev_port',
                  * which thus stays initialized as 0. */
@@ -323,7 +323,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                         if (type == ARPHRD_INFINIBAND) {
                                 attr = udev_device_get_sysattr_value(dev, "dev_id");
                                 if (attr)
-                                        dev_port = strtol(attr, NULL, 16);
+                                        dev_port = strtoul(attr, NULL, 16);
                         }
                 }
         }
