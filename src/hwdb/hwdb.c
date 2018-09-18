@@ -113,6 +113,9 @@ static struct trie_node *node_lookup(const struct trie_node *node, uint8_t c) {
 static void trie_node_cleanup(struct trie_node *node) {
         size_t i;
 
+        if (!node)
+                return;
+
         for (i = 0; i < node->children_count; i++)
                 trie_node_cleanup(node->children[i].child);
         free(node->children);
@@ -124,9 +127,7 @@ static void trie_free(struct trie *trie) {
         if (!trie)
                 return;
 
-        if (trie->root)
-                trie_node_cleanup(trie->root);
-
+        trie_node_cleanup(trie->root);
         strbuf_cleanup(trie->strings);
         free(trie);
 }
