@@ -100,9 +100,7 @@ static struct trie_node *node_lookup(const struct trie_node *node, uint8_t c) {
         struct trie_child_entry search;
 
         search.c = c;
-        child = bsearch_safe(&search,
-                             node->children, node->children_count, sizeof(struct trie_child_entry),
-                             (comparison_fn_t) trie_children_cmp);
+        child = typesafe_bsearch(&search, node->children, node->children_count, trie_children_cmp);
         if (child)
                 return child->child;
         return NULL;
@@ -155,7 +153,7 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                         .value_off = v,
                 };
 
-                val = xbsearch_r(&search, node->values, node->values_count, sizeof(struct trie_value_entry), (__compar_d_fn_t) trie_values_cmp, trie);
+                val = typesafe_bsearch_r(&search, node->values, node->values_count, trie_values_cmp, trie);
                 if (val) {
                         /* replace existing earlier key with new value */
                         val->value_off = v;
