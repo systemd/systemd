@@ -719,8 +719,7 @@ static void member_hash_func(const void *p, struct siphash *state) {
                 string_hash_func(m->interface, state);
 }
 
-static int member_compare_func(const void *a, const void *b) {
-        const Member *x = a, *y = b;
+static int member_compare_func(const Member *x, const Member *y) {
         int d;
 
         assert(x);
@@ -911,7 +910,7 @@ static int on_property(const char *interface, const char *name, const char *sign
 static int introspect(int argc, char **argv, void *userdata) {
         static const struct hash_ops member_hash_ops = {
                 .hash = member_hash_func,
-                .compare = member_compare_func,
+                .compare = (__compar_fn_t) member_compare_func,
         };
 
         static const XMLIntrospectOps ops = {

@@ -372,7 +372,7 @@ _public_ int sd_lldp_new(sd_lldp **ret) {
 }
 
 static int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
-        return lldp_neighbor_id_hash_ops.compare(&(*a)->id, &(*b)->id);
+        return lldp_neighbor_id_compare_func(&(*a)->id, &(*b)->id);
 }
 
 static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {

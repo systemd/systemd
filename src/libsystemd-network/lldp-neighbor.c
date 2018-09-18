@@ -18,8 +18,7 @@ static void lldp_neighbor_id_hash_func(const void *p, struct siphash *state) {
         siphash24_compress(&id->port_id_size, sizeof(id->port_id_size), state);
 }
 
-static int lldp_neighbor_id_compare_func(const void *a, const void *b) {
-        const LLDPNeighborID *x = a, *y = b;
+int lldp_neighbor_id_compare_func(const LLDPNeighborID *x, const LLDPNeighborID *y) {
         int r;
 
         r = memcmp(x->chassis_id, y->chassis_id, MIN(x->chassis_id_size, y->chassis_id_size));
@@ -39,7 +38,7 @@ static int lldp_neighbor_id_compare_func(const void *a, const void *b) {
 
 const struct hash_ops lldp_neighbor_id_hash_ops = {
         .hash = lldp_neighbor_id_hash_func,
-        .compare = lldp_neighbor_id_compare_func
+        .compare = (__compar_fn_t) lldp_neighbor_id_compare_func,
 };
 
 int lldp_neighbor_prioq_compare_func(const void *a, const void *b) {
