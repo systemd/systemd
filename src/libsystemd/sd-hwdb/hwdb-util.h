@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include "sd-hwdb.h"
+#include <stdbool.h>
 
-#include "util.h"
+#include "sd-hwdb.h"
 
 bool hwdb_validate(sd_hwdb *hwdb);
