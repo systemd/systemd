@@ -202,9 +202,9 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                 struct trie_node *child;
 
                 for (p = 0; (c = trie->strings->buf[node->prefix_off + p]); p++) {
+                        _cleanup_free_ struct trie_node *new_child = NULL;
                         _cleanup_free_ char *s = NULL;
                         ssize_t off;
-                        _cleanup_free_ struct trie_node *new_child = NULL;
 
                         if (c == search[i + p])
                                 continue;
@@ -250,26 +250,24 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
 
                 child = node_lookup(node, c);
                 if (!child) {
+                        _cleanup_free_ struct trie_node *new_child = NULL;
                         ssize_t off;
 
                         /* new child */
-                        child = new0(struct trie_node, 1);
-                        if (!child)
+                        new_child = new0(struct trie_node, 1);
+                        if (!new_child)
                                 return -ENOMEM;
 
                         off = strbuf_add_string(trie->strings, search + i+1, strlen(search + i+1));
-                        if (off < 0) {
-                                free(child);
+                        if (off < 0)
                                 return off;
-                        }
 
-                        child->prefix_off = off;
-                        r = node_add_child(trie, node, child, c);
-                        if (r < 0) {
-                                free(child);
+                        new_child->prefix_off = off;
+                        r = node_add_child(trie, node, new_child, c);
+                        if (r < 0)
                                 return r;
-                        }
 
+                        child = TAKE_PTR(new_child);
                         return trie_node_add_value(trie, child, key, value, filename, file_priority, line_number);
                 }
 
