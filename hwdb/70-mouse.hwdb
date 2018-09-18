@@ -281,6 +281,14 @@ mouse:usb:v04b3p3107:name:*
  MOUSE_DPI=800@125
 
 ##########################################
+# Kensington
+##########################################
+
+# Kensington Expert Mouse trackball
+mouse:usb:v047dp1020:*Kensington Expert Mouse*
+ ID_INPUT_TRACKBALL=1
+
+##########################################
 # Lenovo
 ##########################################
 
