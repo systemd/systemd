@@ -172,11 +172,13 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                 return -ENOMEM;
         trie->values_count++;
         node->values = val;
-        node->values[node->values_count].key_off = k;
-        node->values[node->values_count].value_off = v;
-        node->values[node->values_count].filename_off = fn;
-        node->values[node->values_count].file_priority = file_priority;
-        node->values[node->values_count].line_number = line_number;
+        node->values[node->values_count] = (struct trie_value_entry) {
+                .key_off = k,
+                .value_off = v,
+                .filename_off = fn,
+                .file_priority = file_priority,
+                .line_number = line_number,
+        };
         node->values_count++;
         typesafe_qsort_r(node->values, node->values_count, trie_values_cmp, trie);
         return 0;
@@ -202,16 +204,18 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                                 continue;
 
                         /* split node */
-                        new_child = new0(struct trie_node, 1);
+                        new_child = new(struct trie_node, 1);
                         if (!new_child)
                                 return -ENOMEM;
 
                         /* move values from parent to child */
-                        new_child->prefix_off = node->prefix_off + p+1;
-                        new_child->children = node->children;
-                        new_child->children_count = node->children_count;
-                        new_child->values = node->values;
-                        new_child->values_count = node->values_count;
+                        *new_child = (struct trie_node) {
+                                .prefix_off = node->prefix_off + p+1,
+                                .children = node->children,
+                                .children_count = node->children_count,
+                                .values = node->values,
+                                .values_count = node->values_count,
+                        };
 
                         /* update parent; use strdup() because the source gets realloc()d */
                         s = strndup(trie->strings->buf + node->prefix_off, p);
@@ -222,11 +226,9 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         if (off < 0)
                                 return off;
 
-                        node->prefix_off = off;
-                        node->children = NULL;
-                        node->children_count = 0;
-                        node->values = NULL;
-                        node->values_count = 0;
+                        *node = (struct trie_node) {
+                                .prefix_off = off,
+                        };
                         r = node_add_child(trie, node, new_child, c);
                         if (r < 0)
                                 return r;
@@ -246,7 +248,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         ssize_t off;
 
                         /* new child */
-                        new_child = new0(struct trie_node, 1);
+                        new_child = new(struct trie_node, 1);
                         if (!new_child)
                                 return -ENOMEM;
 
@@ -254,7 +256,10 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         if (off < 0)
                                 return off;
 
-                        new_child->prefix_off = off;
+                        *new_child = (struct trie_node) {
+                                .prefix_off = off,
+                        };
+
                         r = node_add_child(trie, node, new_child, c);
                         if (r < 0)
                                 return r;
