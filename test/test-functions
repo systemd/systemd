@@ -624,10 +624,14 @@ install_pam() {
 }
 
 install_keymaps() {
+    # The first three paths may be deprecated.
+    # It seems now the last two paths are used by many distributions.
     for i in \
         /usr/lib/kbd/keymaps/include/* \
         /usr/lib/kbd/keymaps/i386/include/* \
-        /usr/lib/kbd/keymaps/i386/qwerty/us.*; do
+        /usr/lib/kbd/keymaps/i386/qwerty/us.* \
+        /usr/lib/kbd/keymaps/legacy/include/* \
+        /usr/lib/kbd/keymaps/legacy/i386/qwerty/us.*; do
             [[ -f $i ]] || continue
             inst $i
     done
