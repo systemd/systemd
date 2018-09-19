@@ -152,7 +152,8 @@ m4_define(`KILL_CONTEXT_CONFIG_ITEMS',
 $1.SendSIGHUP,                   config_parse_bool,                  0,                             offsetof($1, kill_context.send_sighup)
 $1.KillMode,                     config_parse_kill_mode,             0,                             offsetof($1, kill_context.kill_mode)
 $1.KillSignal,                   config_parse_signal,                0,                             offsetof($1, kill_context.kill_signal)
-$1.FinalKillSignal,              config_parse_signal,                0,                             offsetof($1, kill_context.final_kill_signal)'
+$1.FinalKillSignal,              config_parse_signal,                0,                             offsetof($1, kill_context.final_kill_signal)
+$1.WatchdogSignal,               config_parse_signal,                0,                             offsetof($1, kill_context.watchdog_signal)'
 )m4_dnl
 m4_define(`CGROUP_CONTEXT_CONFIG_ITEMS',
 `$1.Slice,                       config_parse_unit_slice,            0,                             0

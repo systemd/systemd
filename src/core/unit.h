@@ -19,7 +19,7 @@ typedef enum KillOperation {
         KILL_TERMINATE,
         KILL_TERMINATE_AND_LOG,
         KILL_KILL,
-        KILL_ABORT,
+        KILL_WATCHDOG,
         _KILL_OPERATION_MAX,
         _KILL_OPERATION_INVALID = -1
 } KillOperation;

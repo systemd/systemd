@@ -108,7 +108,7 @@ typedef enum ServiceState {
         SERVICE_EXITED,            /* Nothing is running anymore, but RemainAfterExit is true hence this is OK */
         SERVICE_RELOAD,
         SERVICE_STOP,              /* No STOP_PRE state, instead just register multiple STOP executables */
-        SERVICE_STOP_SIGABRT,      /* Watchdog timeout */
+        SERVICE_STOP_WATCHDOG,
         SERVICE_STOP_SIGTERM,
         SERVICE_STOP_SIGKILL,
         SERVICE_STOP_POST,

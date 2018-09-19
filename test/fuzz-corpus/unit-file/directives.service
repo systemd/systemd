@@ -769,6 +769,7 @@ KeyringMode=
 KillExcludeUsers=
 KillOnlyUsers=
 KillSignal=
+WatchdogSignal=
 KillUserProcesses=
 LOCATION=
 LidSwitchIgnoreInhibited=
