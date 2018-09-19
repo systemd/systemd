@@ -1248,6 +1248,7 @@ static int dhcp6_route_add_callback(sd_netlink *nl, sd_netlink_message *m,
         if (r < 0 && r != -EEXIST)
                 log_link_debug_errno(l, r, "Received error adding DHCPv6 Prefix Delegation route: %m");
 
+        l = link_unref(l);
 
         return 0;
 }
@@ -1273,6 +1274,8 @@ int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
         (void) in_addr_to_string(AF_INET6, (union in_addr_union *) addr, &buf);
         log_link_debug(link, "Adding prefix route %s/64", strnull(buf));
 
+        link = link_ref(link);
+
         return hashmap_put(m->dhcp6_prefixes, addr, link);
 }
 
@@ -1285,6 +1288,7 @@ static int dhcp6_route_remove_callback(sd_netlink *nl, sd_netlink_message *m,
         if (r < 0)
                 log_link_debug_errno(l, r, "Received error on DHCPv6 Prefix Delegation route removal: %m");
 
+        l = link_unref(l);
 
         return 0;
 }
@@ -1315,6 +1319,8 @@ int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
 
         (void) in_addr_to_string(AF_INET6, (union in_addr_union *) addr, &buf);
         log_link_debug(l, "Removing prefix route %s/64", strnull(buf));
+
+        l = link_ref(l);
 
         return 0;
 }
@@ -1438,11 +1444,18 @@ void manager_free(Manager *m) {
                 network_free(network);
 
         while ((link = hashmap_first(m->dhcp6_prefixes)))
-                link_unref(link);
+                manager_dhcp6_prefix_remove_all(m, link);
         hashmap_free(m->dhcp6_prefixes);
 
-        while ((link = hashmap_first(m->links)))
+        while ((link = hashmap_first(m->links))) {
+                if (link->dhcp6_client)
+                        (void) dhcp6_lease_pd_prefix_lost(link->dhcp6_client,
+                                                          link);
+
+                hashmap_remove(m->links, INT_TO_PTR(link->ifindex));
+
                 link_unref(link);
+        }
         hashmap_free(m->links);
 
         set_free(m->links_requesting_uuid);

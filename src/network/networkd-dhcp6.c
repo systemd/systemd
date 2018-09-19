@@ -117,7 +117,7 @@ static int dhcp6_route_remove_cb(sd_netlink *nl, sd_netlink_message *m,
         return 0;
 }
 
-static int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
+int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
         int r;
         sd_dhcp6_lease *lease;
         union in_addr_union pd_prefix;
