@@ -711,14 +711,12 @@ bool strv_overlap(char **a, char **b) {
         return false;
 }
 
-static int str_compare(const void *_a, const void *_b) {
-        const char **a = (const char**) _a, **b = (const char**) _b;
-
+static int str_compare(char * const *a, char * const *b) {
         return strcmp(*a, *b);
 }
 
 char **strv_sort(char **l) {
-        qsort_safe(l, strv_length(l), sizeof(char*), str_compare);
+        typesafe_qsort(l, strv_length(l), str_compare);
         return l;
 }
 

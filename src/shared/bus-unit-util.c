@@ -2206,13 +2206,8 @@ static void remove_cgroup(Hashmap *cgroups, struct CGroupInfo *cg) {
         free(cg);
 }
 
-static int cgroup_info_compare_func(const void *a, const void *b) {
-        const struct CGroupInfo *x = *(const struct CGroupInfo* const*) a, *y = *(const struct CGroupInfo* const*) b;
-
-        assert(x);
-        assert(y);
-
-        return strcmp(x->cgroup_path, y->cgroup_path);
+static int cgroup_info_compare_func(struct CGroupInfo * const *a, struct CGroupInfo * const *b) {
+        return strcmp((*a)->cgroup_path, (*b)->cgroup_path);
 }
 
 static int dump_processes(
@@ -2249,7 +2244,7 @@ static int dump_processes(
                         pids[n++] = PTR_TO_PID(pidp);
 
                 assert(n == hashmap_size(cg->pids));
-                qsort_safe(pids, n, sizeof(pid_t), pid_compare_func);
+                typesafe_qsort(pids, n, pid_compare_func);
 
                 width = DECIMAL_STR_WIDTH(pids[n-1]);
 
@@ -2291,7 +2286,7 @@ static int dump_processes(
                 LIST_FOREACH(siblings, child, cg->children)
                         children[n++] = child;
                 assert(n == cg->n_children);
-                qsort_safe(children, n, sizeof(struct CGroupInfo*), cgroup_info_compare_func);
+                typesafe_qsort(children, n, cgroup_info_compare_func);
 
                 if (n_columns != 0)
                         n_columns = MAX(LESS_BY(n_columns, 2U), 20U);
@@ -2378,7 +2373,7 @@ static int dump_extra_processes(
         if (n == 0)
                 return 0;
 
-        qsort_safe(pids, n, sizeof(pid_t), pid_compare_func);
+        typesafe_qsort(pids, n, pid_compare_func);
         width = DECIMAL_STR_WIDTH(pids[n-1]);
 
         for (k = 0; k < n; k++) {

@@ -76,11 +76,8 @@ struct trie_value_entry {
         uint16_t file_priority;
 };
 
-static int trie_children_cmp(const void *v1, const void *v2) {
-        const struct trie_child_entry *n1 = v1;
-        const struct trie_child_entry *n2 = v2;
-
-        return n1->c - n2->c;
+static int trie_children_cmp(const struct trie_child_entry *a, const struct trie_child_entry *b) {
+        return CMP(a->c, b->c);
 }
 
 static int node_add_child(struct trie *trie, struct trie_node *node, struct trie_node *node_child, uint8_t c) {
@@ -96,7 +93,7 @@ static int node_add_child(struct trie *trie, struct trie_node *node, struct trie
         node->children[node->children_count].c = c;
         node->children[node->children_count].child = node_child;
         node->children_count++;
-        qsort(node->children, node->children_count, sizeof(struct trie_child_entry), trie_children_cmp);
+        typesafe_qsort(node->children, node->children_count, trie_children_cmp);
         trie->nodes_count++;
 
         return 0;
@@ -107,7 +104,7 @@ static struct trie_node *node_lookup(const struct trie_node *node, uint8_t c) {
         struct trie_child_entry search;
 
         search.c = c;
-        child = bsearch_safe(&search, node->children, node->children_count, sizeof(struct trie_child_entry), trie_children_cmp);
+        child = typesafe_bsearch(&search, node->children, node->children_count, trie_children_cmp);
         if (child)
                 return child->child;
         return NULL;
@@ -136,13 +133,9 @@ static void trie_free(struct trie *trie) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct trie*, trie_free);
 
-static int trie_values_cmp(const void *v1, const void *v2, void *arg) {
-        const struct trie_value_entry *val1 = v1;
-        const struct trie_value_entry *val2 = v2;
-        struct trie *trie = arg;
-
-        return strcmp(trie->strings->buf + val1->key_off,
-                      trie->strings->buf + val2->key_off);
+static int trie_values_cmp(const struct trie_value_entry *a, const struct trie_value_entry *b, struct trie *trie) {
+        return strcmp(trie->strings->buf + a->key_off,
+                      trie->strings->buf + b->key_off);
 }
 
 static int trie_node_add_value(struct trie *trie, struct trie_node *node,
@@ -167,7 +160,7 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                         .value_off = v,
                 };
 
-                val = xbsearch_r(&search, node->values, node->values_count, sizeof(struct trie_value_entry), trie_values_cmp, trie);
+                val = typesafe_bsearch_r(&search, node->values, node->values_count, trie_values_cmp, trie);
                 if (val) {
                         /* At this point we have 2 identical properties on the same match-string.
                          * Since we process files in order, we just replace the previous value.
@@ -192,7 +185,7 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
         node->values[node->values_count].file_priority = file_priority;
         node->values[node->values_count].line_number = line_number;
         node->values_count++;
-        qsort_r(node->values, node->values_count, sizeof(struct trie_value_entry), trie_values_cmp, trie);
+        typesafe_qsort_r(node->values, node->values_count, trie_values_cmp, trie);
         return 0;
 }
 

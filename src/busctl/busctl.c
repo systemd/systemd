@@ -719,8 +719,7 @@ static void member_hash_func(const void *p, struct siphash *state) {
                 string_hash_func(m->interface, state);
 }
 
-static int member_compare_func(const void *a, const void *b) {
-        const Member *x = a, *y = b;
+static int member_compare_func(const Member *x, const Member *y) {
         int d;
 
         assert(x);
@@ -739,10 +738,8 @@ static int member_compare_func(const void *a, const void *b) {
         return strcmp_ptr(x->name, y->name);
 }
 
-static int member_compare_funcp(const void *a, const void *b) {
-        const Member *const * x = (const Member *const *) a, * const *y = (const Member *const *) b;
-
-        return member_compare_func(*x, *y);
+static int member_compare_funcp(Member * const *a, Member * const *b) {
+        return member_compare_func(*a, *b);
 }
 
 static void member_free(Member *m) {
@@ -913,7 +910,7 @@ static int on_property(const char *interface, const char *name, const char *sign
 static int introspect(int argc, char **argv, void *userdata) {
         static const struct hash_ops member_hash_ops = {
                 .hash = member_hash_func,
-                .compare = member_compare_func,
+                .compare = (__compar_fn_t) member_compare_func,
         };
 
         static const XMLIntrospectOps ops = {
@@ -1063,7 +1060,7 @@ static int introspect(int argc, char **argv, void *userdata) {
         if (result_width > 40)
                 result_width = 40;
 
-        qsort(sorted, k, sizeof(Member*), member_compare_funcp);
+        typesafe_qsort(sorted, k, member_compare_funcp);
 
         if (arg_legend) {
                 printf("%-*s %-*s %-*s %-*s %s\n",

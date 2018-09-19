@@ -7,8 +7,8 @@
 #include "macro.h"
 #include "netlink-util.h"
 
-static int address_compare(const void *_a, const void *_b) {
-        const struct local_address *a = _a, *b = _b;
+static int address_compare(const struct local_address *a, const struct local_address *b) {
+        int r;
 
         /* Order lowest scope first, IPv4 before IPv6, lowest interface index first */
 
@@ -17,20 +17,17 @@ static int address_compare(const void *_a, const void *_b) {
         if (a->family == AF_INET6 && b->family == AF_INET)
                 return 1;
 
-        if (a->scope < b->scope)
-                return -1;
-        if (a->scope > b->scope)
-                return 1;
+        r = CMP(a->scope, b->scope);
+        if (r != 0)
+                return r;
 
-        if (a->metric < b->metric)
-                return -1;
-        if (a->metric > b->metric)
-                return 1;
+        r = CMP(a->metric, b->metric);
+        if (r != 0)
+                return r;
 
-        if (a->ifindex < b->ifindex)
-                return -1;
-        if (a->ifindex > b->ifindex)
-                return 1;
+        r = CMP(a->ifindex, b->ifindex);
+        if (r != 0)
+                return r;
 
         return memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(a->family));
 }
@@ -137,7 +134,7 @@ int local_addresses(sd_netlink *context, int ifindex, int af, struct local_addre
                 n_list++;
         };
 
-        qsort_safe(list, n_list, sizeof(struct local_address), address_compare);
+        typesafe_qsort(list, n_list, address_compare);
 
         *ret = TAKE_PTR(list);
 
@@ -248,8 +245,7 @@ int local_gateways(sd_netlink *context, int ifindex, int af, struct local_addres
                 n_list++;
         }
 
-        if (n_list > 0)
-                qsort(list, n_list, sizeof(struct local_address), address_compare);
+        typesafe_qsort(list, n_list, address_compare);
 
         *ret = TAKE_PTR(list);
 

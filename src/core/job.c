@@ -1384,15 +1384,8 @@ void job_add_to_gc_queue(Job *j) {
         j->in_gc_queue = true;
 }
 
-static int job_compare(const void *a, const void *b) {
-        Job *x = *(Job**) a, *y = *(Job**) b;
-
-        if (x->id < y->id)
-                return -1;
-        if (x->id > y->id)
-                return 1;
-
-        return 0;
+static int job_compare(Job * const *a, Job * const *b) {
+        return CMP((*a)->id, (*b)->id);
 }
 
 static size_t sort_job_list(Job **list, size_t n) {
@@ -1400,7 +1393,7 @@ static size_t sort_job_list(Job **list, size_t n) {
         size_t a, b;
 
         /* Order by numeric IDs */
-        qsort_safe(list, n, sizeof(Job*), job_compare);
+        typesafe_qsort(list, n, job_compare);
 
         /* Filter out duplicates */
         for (a = 0, b = 0; a < n; a++) {

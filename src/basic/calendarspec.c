@@ -57,25 +57,18 @@ CalendarSpec* calendar_spec_free(CalendarSpec *c) {
         return mfree(c);
 }
 
-static int component_compare(const void *_a, const void *_b) {
-        CalendarComponent * const *a = _a, * const *b = _b;
+static int component_compare(CalendarComponent * const *a, CalendarComponent * const *b) {
+        int r;
 
-        if ((*a)->start < (*b)->start)
-                return -1;
-        if ((*a)->start > (*b)->start)
-                return 1;
+        r = CMP((*a)->start, (*b)->start);
+        if (r != 0)
+                return r;
 
-        if ((*a)->stop < (*b)->stop)
-                return -1;
-        if ((*a)->stop > (*b)->stop)
-                return 1;
+        r = CMP((*a)->stop, (*b)->stop);
+        if (r != 0)
+                return r;
 
-        if ((*a)->repeat < (*b)->repeat)
-                return -1;
-        if ((*a)->repeat > (*b)->repeat)
-                return 1;
-
-        return 0;
+        return CMP((*a)->repeat, (*b)->repeat);
 }
 
 static void normalize_chain(CalendarComponent **c) {
@@ -103,7 +96,7 @@ static void normalize_chain(CalendarComponent **c) {
         for (i = *c; i; i = i->next)
                 *(j++) = i;
 
-        qsort(b, n, sizeof(CalendarComponent*), component_compare);
+        typesafe_qsort(b, n, component_compare);
 
         b[n-1]->next = NULL;
         next = b[n-1];

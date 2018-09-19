@@ -2317,18 +2317,16 @@ static void item_array_free(ItemArray *a) {
         free(a);
 }
 
-static int item_compare(const void *a, const void *b) {
-        const Item *x = a, *y = b;
-
+static int item_compare(const Item *a, const Item *b) {
         /* Make sure that the ownership taking item is put first, so
          * that we first create the node, and then can adjust it */
 
-        if (takes_ownership(x->type) && !takes_ownership(y->type))
+        if (takes_ownership(a->type) && !takes_ownership(b->type))
                 return -1;
-        if (!takes_ownership(x->type) && takes_ownership(y->type))
+        if (!takes_ownership(a->type) && takes_ownership(b->type))
                 return 1;
 
-        return (int) x->type - (int) y->type;
+        return CMP(a->type, b->type);
 }
 
 static bool item_compatible(Item *a, Item *b) {
@@ -2793,7 +2791,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         memcpy(existing->items + existing->count++, &i, sizeof(i));
 
         /* Sort item array, to enforce stable ordering of application */
-        qsort_safe(existing->items, existing->count, sizeof(Item), item_compare);
+        typesafe_qsort(existing->items, existing->count, item_compare);
 
         zero(i);
         return 0;

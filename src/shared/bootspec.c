@@ -202,10 +202,8 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
         return 0;
 }
 
-static int boot_entry_compare(const void *a, const void *b) {
-        const BootEntry *aa = a, *bb = b;
-
-        return str_verscmp(aa->filename, bb->filename);
+static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
+        return str_verscmp(a->filename, b->filename);
 }
 
 int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_entries) {
@@ -234,7 +232,7 @@ int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_en
                 n++;
         }
 
-        qsort_safe(array, n, sizeof(BootEntry), boot_entry_compare);
+        typesafe_qsort(array, n, boot_entry_compare);
 
         *ret_entries = array;
         *ret_n_entries = n;

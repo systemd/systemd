@@ -1933,14 +1933,8 @@ int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t)
         return r;
 }
 
-static int entry_item_cmp(const void *_a, const void *_b) {
-        const EntryItem *a = _a, *b = _b;
-
-        if (le64toh(a->object_offset) < le64toh(b->object_offset))
-                return -1;
-        if (le64toh(a->object_offset) > le64toh(b->object_offset))
-                return 1;
-        return 0;
+static int entry_item_cmp(const EntryItem *a, const EntryItem *b) {
+        return CMP(le64toh(a->object_offset), le64toh(b->object_offset));
 }
 
 int journal_file_append_entry(
@@ -1999,7 +1993,7 @@ int journal_file_append_entry(
 
         /* Order by the position on disk, in order to improve seek
          * times for rotating media. */
-        qsort_safe(items, n_iovec, sizeof(EntryItem), entry_item_cmp);
+        typesafe_qsort(items, n_iovec, entry_item_cmp);
 
         r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret, offset);
 

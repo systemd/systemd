@@ -38,7 +38,7 @@ static void show_pid_array(
         if (n_pids == 0)
                 return;
 
-        qsort(pids, n_pids, sizeof(pid_t), pid_compare_func);
+        typesafe_qsort(pids, n_pids, pid_compare_func);
 
         /* Filter duplicates */
         for (j = 0, i = 1; i < n_pids; i++) {

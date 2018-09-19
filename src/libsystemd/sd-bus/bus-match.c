@@ -760,15 +760,8 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
         return -EINVAL;
 }
 
-static int match_component_compare(const void *a, const void *b) {
-        const struct bus_match_component *x = a, *y = b;
-
-        if (x->type < y->type)
-                return -1;
-        if (x->type > y->type)
-                return 1;
-
-        return 0;
+static int match_component_compare(const struct bus_match_component *a, const struct bus_match_component *b) {
+        return CMP(a->type, b->type);
 }
 
 void bus_match_parse_free(struct bus_match_component *components, unsigned n_components) {
@@ -901,7 +894,7 @@ int bus_match_parse(
         }
 
         /* Order the whole thing, so that we always generate the same tree */
-        qsort_safe(components, n_components, sizeof(struct bus_match_component), match_component_compare);
+        typesafe_qsort(components, n_components, match_component_compare);
 
         /* Check for duplicates */
         for (i = 0; i+1 < n_components; i++)

@@ -69,20 +69,14 @@ void custom_mount_free_all(CustomMount *l, size_t n) {
         free(l);
 }
 
-static int custom_mount_compare(const void *a, const void *b) {
-        const CustomMount *x = a, *y = b;
+static int custom_mount_compare(const CustomMount *a, const CustomMount *b) {
         int r;
 
-        r = path_compare(x->destination, y->destination);
+        r = path_compare(a->destination, b->destination);
         if (r != 0)
                 return r;
 
-        if (x->type < y->type)
-                return -1;
-        if (x->type > y->type)
-                return 1;
-
-        return 0;
+        return CMP(a->type, b->type);
 }
 
 static bool source_path_is_valid(const char *p) {
@@ -116,7 +110,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
         assert(l || n == 0);
 
         /* Order the custom mounts, and make sure we have a working directory */
-        qsort_safe(l, n, sizeof(CustomMount), custom_mount_compare);
+        typesafe_qsort(l, n, custom_mount_compare);
 
         for (i = 0; i < n; i++) {
                 CustomMount *m = l + i;

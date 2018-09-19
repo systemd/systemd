@@ -104,10 +104,8 @@ typedef struct LinkInfo {
         bool has_mtu:1;
 } LinkInfo;
 
-static int link_info_compare(const void *a, const void *b) {
-        const LinkInfo *x = a, *y = b;
-
-        return x->ifindex - y->ifindex;
+static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
+        return CMP(a->ifindex, b->ifindex);
 }
 
 static int decode_link(sd_netlink_message *m, LinkInfo *info) {
@@ -190,7 +188,7 @@ static int acquire_link_info_strv(sd_netlink *rtnl, char **l, LinkInfo **ret) {
                         c++;
         }
 
-        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
+        typesafe_qsort(links, c, link_info_compare);
 
         *ret = TAKE_PTR(links);
 
@@ -230,7 +228,7 @@ static int acquire_link_info_all(sd_netlink *rtnl, LinkInfo **ret) {
                         c++;
         }
 
-        qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
+        typesafe_qsort(links, c, link_info_compare);
 
         *ret = TAKE_PTR(links);
 

@@ -1372,17 +1372,15 @@ struct item {
         char* columns[_COLUMN_MAX];
 };
 
-static int compare_item(const void *a, const void *b) {
-        const struct item *x = a, *y = b;
-
-        if (x->columns[COLUMN_NODE] == y->columns[COLUMN_NODE])
+static int compare_item(const struct item *a, const struct item *b) {
+        if (a->columns[COLUMN_NODE] == b->columns[COLUMN_NODE])
                 return 0;
-        if (!x->columns[COLUMN_NODE])
+        if (!a->columns[COLUMN_NODE])
                 return 1;
-        if (!y->columns[COLUMN_NODE])
+        if (!b->columns[COLUMN_NODE])
                 return -1;
 
-        return path_compare(x->columns[COLUMN_NODE], y->columns[COLUMN_NODE]);
+        return path_compare(a->columns[COLUMN_NODE], b->columns[COLUMN_NODE]);
 }
 
 static int list_devices(void) {
@@ -1485,7 +1483,7 @@ static int list_devices(void) {
                 goto finish;
         }
 
-        qsort_safe(items, n, sizeof(struct item), compare_item);
+        typesafe_qsort(items, n, compare_item);
 
         (void) pager_open(arg_no_pager, false);
 

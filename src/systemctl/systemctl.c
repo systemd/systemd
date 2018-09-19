@@ -316,25 +316,24 @@ static bool install_client_side(void) {
         return false;
 }
 
-static int compare_unit_info(const void *a, const void *b) {
-        const UnitInfo *u = a, *v = b;
+static int compare_unit_info(const UnitInfo *a, const UnitInfo *b) {
         const char *d1, *d2;
         int r;
 
         /* First, order by machine */
-        if (!u->machine && v->machine)
+        if (!a->machine && b->machine)
                 return -1;
-        if (u->machine && !v->machine)
+        if (a->machine && !b->machine)
                 return 1;
-        if (u->machine && v->machine) {
-                r = strcasecmp(u->machine, v->machine);
+        if (a->machine && b->machine) {
+                r = strcasecmp(a->machine, b->machine);
                 if (r != 0)
                         return r;
         }
 
         /* Second, order by unit type */
-        d1 = strrchr(u->id, '.');
-        d2 = strrchr(v->id, '.');
+        d1 = strrchr(a->id, '.');
+        d2 = strrchr(b->id, '.');
         if (d1 && d2) {
                 r = strcasecmp(d1, d2);
                 if (r != 0)
@@ -342,7 +341,7 @@ static int compare_unit_info(const void *a, const void *b) {
         }
 
         /* Third, order by name */
-        return strcasecmp(u->id, v->id);
+        return strcasecmp(a->id, b->id);
 }
 
 static const char* unit_type_suffix(const char *name) {
@@ -756,7 +755,7 @@ static int list_units(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        qsort_safe(unit_infos, r, sizeof(UnitInfo), compare_unit_info);
+        typesafe_qsort(unit_infos, r, compare_unit_info);
         return output_units_list(unit_infos, r);
 }
 
@@ -851,7 +850,7 @@ struct socket_info {
 };
 
 static int socket_info_compare(const struct socket_info *a, const struct socket_info *b) {
-        int o;
+        int r;
 
         assert(a);
         assert(b);
@@ -861,16 +860,16 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
         if (a->machine && !b->machine)
                 return 1;
         if (a->machine && b->machine) {
-                o = strcasecmp(a->machine, b->machine);
-                if (o != 0)
-                        return o;
+                r = strcasecmp(a->machine, b->machine);
+                if (r != 0)
+                        return r;
         }
 
-        o = strcmp(a->path, b->path);
-        if (o == 0)
-                o = strcmp(a->type, b->type);
+        r = strcmp(a->path, b->path);
+        if (r == 0)
+                r = strcmp(a->type, b->type);
 
-        return o;
+        return r;
 }
 
 static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
@@ -1006,8 +1005,7 @@ static int list_sockets(int argc, char *argv[], void *userdata) {
                 listening = triggered = NULL; /* avoid cleanup */
         }
 
-        qsort_safe(socket_infos, cs, sizeof(struct socket_info),
-                   (__compar_fn_t) socket_info_compare);
+        typesafe_qsort(socket_infos, cs, socket_info_compare);
 
         output_sockets_list(socket_infos, cs);
 
@@ -1100,7 +1098,7 @@ struct timer_info {
 };
 
 static int timer_info_compare(const struct timer_info *a, const struct timer_info *b) {
-        int o;
+        int r;
 
         assert(a);
         assert(b);
@@ -1110,15 +1108,14 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
         if (a->machine && !b->machine)
                 return 1;
         if (a->machine && b->machine) {
-                o = strcasecmp(a->machine, b->machine);
-                if (o != 0)
-                        return o;
+                r = strcasecmp(a->machine, b->machine);
+                if (r != 0)
+                        return r;
         }
 
-        if (a->next_elapse < b->next_elapse)
-                return -1;
-        if (a->next_elapse > b->next_elapse)
-                return 1;
+        r = CMP(a->next_elapse, b->next_elapse);
+        if (r != 0)
+                return r;
 
         return strcmp(a->id, b->id);
 }
@@ -1311,8 +1308,7 @@ static int list_timers(int argc, char *argv[], void *userdata) {
                 };
         }
 
-        qsort_safe(timer_infos, c, sizeof(struct timer_info),
-                   (__compar_fn_t) timer_info_compare);
+        typesafe_qsort(timer_infos, c, timer_info_compare);
 
         output_timers_list(timer_infos, c);
 
@@ -1323,12 +1319,11 @@ static int list_timers(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int compare_unit_file_list(const void *a, const void *b) {
+static int compare_unit_file_list(const UnitFileList *a, const UnitFileList *b) {
         const char *d1, *d2;
-        const UnitFileList *u = a, *v = b;
 
-        d1 = strrchr(u->path, '.');
-        d2 = strrchr(v->path, '.');
+        d1 = strrchr(a->path, '.');
+        d2 = strrchr(b->path, '.');
 
         if (d1 && d2) {
                 int r;
@@ -1338,7 +1333,7 @@ static int compare_unit_file_list(const void *a, const void *b) {
                         return r;
         }
 
-        return strcasecmp(basename(u->path), basename(v->path));
+        return strcasecmp(basename(a->path), basename(b->path));
 }
 
 static bool output_show_unit_file(const UnitFileList *u, char **states, char **patterns) {
@@ -1558,7 +1553,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_no_pager, false);
 
-        qsort_safe(units, c, sizeof(UnitFileList), compare_unit_file_list);
+        typesafe_qsort(units, c, compare_unit_file_list);
         output_unit_file_list(units, c);
 
         if (install_client_side())
@@ -1680,9 +1675,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
         return 0;
 }
 
-static int list_dependencies_compare(const void *_a, const void *_b) {
-        const char **a = (const char**) _a, **b = (const char**) _b;
-
+static int list_dependencies_compare(char * const *a, char * const *b) {
         if (unit_name_to_type(*a) == UNIT_TARGET && unit_name_to_type(*b) != UNIT_TARGET)
                 return 1;
         if (unit_name_to_type(*a) != UNIT_TARGET && unit_name_to_type(*b) == UNIT_TARGET)
@@ -1714,7 +1707,7 @@ static int list_dependencies_one(
         if (r < 0)
                 return r;
 
-        qsort_safe(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
+        typesafe_qsort(deps, strv_length(deps), list_dependencies_compare);
 
         STRV_FOREACH(c, deps) {
                 if (strv_contains(*units, *c)) {
@@ -1839,13 +1832,14 @@ static void free_machines_list(struct machine_info *machine_infos, int n) {
         free(machine_infos);
 }
 
-static int compare_machine_info(const void *a, const void *b) {
-        const struct machine_info *u = a, *v = b;
+static int compare_machine_info(const struct machine_info *a, const struct machine_info *b) {
+        int r;
 
-        if (u->is_host != v->is_host)
-                return u->is_host > v->is_host ? -1 : 1;
+        r = CMP(b->is_host, a->is_host);
+        if (r != 0)
+                return r;
 
-        return strcasecmp(u->name, v->name);
+        return strcasecmp(a->name, b->name);
 }
 
 static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
@@ -2033,7 +2027,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_no_pager, false);
 
-        qsort_safe(machine_infos, r, sizeof(struct machine_info), compare_machine_info);
+        typesafe_qsort(machine_infos, r, compare_machine_info);
         output_machines_list(machine_infos, r);
         free_machines_list(machine_infos, r);
 
@@ -5169,7 +5163,7 @@ static int show_all(
 
         c = (unsigned) r;
 
-        qsort_safe(unit_infos, c, sizeof(UnitInfo), compare_unit_info);
+        typesafe_qsort(unit_infos, c, compare_unit_info);
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 _cleanup_free_ char *p = NULL;
