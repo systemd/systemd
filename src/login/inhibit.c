@@ -64,8 +64,8 @@ static int print_inhibitors(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *what, *who, *why, *mode;
-        unsigned int uid, pid;
-        unsigned n = 0;
+        uint32_t uid, pid;
+        size_t n = 0;
         int r;
 
         (void) pager_open(arg_no_pager, false);
@@ -95,7 +95,7 @@ static int print_inhibitors(sd_bus *bus) {
                 get_process_comm(pid, &comm);
                 u = uid_to_name(uid);
 
-                printf("     Who: %s (UID "UID_FMT"/%s, PID "PID_FMT"/%s)\n"
+                printf("     Who: %s (UID %" PRIu32 "/%s, PID %" PRIu32"/%s)\n"
                        "    What: %s\n"
                        "     Why: %s\n"
                        "    Mode: %s\n\n",
@@ -113,7 +113,7 @@ static int print_inhibitors(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("%u inhibitors listed.\n", n);
+        printf("%zu inhibitors listed.\n", n);
         return 0;
 }
 
