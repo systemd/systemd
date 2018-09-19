@@ -634,6 +634,16 @@ install_keymaps() {
             [[ -f $i ]] || continue
             inst $i
     done
+
+    # When it takes any argument, then install more keymaps.
+    if [[ -n $1 ]]; then
+        for i in \
+        /usr/lib/kbd/keymaps/i386/*/* \
+        /usr/lib/kbd/keymaps/legacy/i386/*/*; do
+            [[ -f $i ]] || continue
+            inst $i
+        done
+    fi
 }
 
 install_zoneinfo() {
