@@ -60,7 +60,8 @@ static int inhibit(sd_bus *bus, sd_bus_error *error) {
         return r;
 }
 
-static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
+static int print_inhibitors(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *what, *who, *why, *mode;
         unsigned int uid, pid;
@@ -75,11 +76,11 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "ListInhibitors",
-                        error,
+                        &error,
                         &reply,
                         "");
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Could not get active inhibitors: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
         if (r < 0)
@@ -227,7 +228,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -248,14 +248,13 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_LIST) {
 
-                r = print_inhibitors(bus, &error);
+                r = print_inhibitors(bus);
                 pager_close();
-                if (r < 0) {
-                        log_error("Failed to list inhibitors: %s", bus_error_message(&error, -r));
+                if (r < 0)
                         return EXIT_FAILURE;
-                }
 
         } else {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_close_ int fd = -1;
                 _cleanup_free_ char *w = NULL;
                 pid_t pid;
