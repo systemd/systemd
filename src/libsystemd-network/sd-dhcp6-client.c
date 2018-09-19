@@ -390,7 +390,8 @@ static void client_notify(sd_dhcp6_client *client, int event) {
 static void client_set_lease(sd_dhcp6_client *client, sd_dhcp6_lease *lease) {
         assert(client);
 
-        client->lease = lease;
+        (void) sd_dhcp6_lease_unref(client->lease);
+        client->lease = sd_dhcp6_lease_ref(lease);
 }
 
 static int client_reset(sd_dhcp6_client *client) {
