@@ -103,14 +103,6 @@ static int dhcp6_pd_prefix_assign(Link *link, struct in6_addr *prefix,
         return sd_radv_start(radv);
 }
 
-static Network *dhcp6_reset_pd_prefix_network(Link *link) {
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->networks);
-
-        return link->manager->networks;
-}
-
 static int dhcp6_route_remove_cb(sd_netlink *nl, sd_netlink_message *m,
                                  void *userdata) {
         Link *l = userdata;
@@ -136,7 +128,6 @@ static int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
         if (r < 0)
                 return r;
 
-        dhcp6_reset_pd_prefix_network(link);
         sd_dhcp6_lease_reset_pd_prefix_iter(lease);
 
         while (sd_dhcp6_lease_get_pd(lease, &pd_prefix.in6, &pd_prefix_len,
@@ -289,7 +280,6 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
         if (r < 0)
                 return r;
 
-        dhcp6_reset_pd_prefix_network(link);
         sd_dhcp6_lease_reset_pd_prefix_iter(lease);
 
         while (sd_dhcp6_lease_get_pd(lease, &pd_prefix.in6, &pd_prefix_len,
