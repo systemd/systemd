@@ -160,6 +160,14 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>WatchdogSignal=</varname></term>
+        <listitem><para>Specifies which signal to use to terminate the
+        service when the watchdog timeout expires (enabled through
+        <varname>WatchdogSec=</varname>). Defaults to <constant>SIGABRT</constant>.
+        </para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

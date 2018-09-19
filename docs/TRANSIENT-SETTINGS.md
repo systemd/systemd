@@ -257,6 +257,7 @@ All process killing settings are available for transient units:
 ✓ KillMode=
 ✓ KillSignal=
 ✓ FinalKillSignal=
+✓ WatchdogSignal=
 ```
 
 ## Service Unit Settings

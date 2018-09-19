@@ -4509,8 +4509,8 @@ static int operation_to_signal(KillContext *c, KillOperation k) {
         case KILL_KILL:
                 return c->final_kill_signal;
 
-        case KILL_ABORT:
-                return SIGABRT;
+        case KILL_WATCHDOG:
+                return c->watchdog_signal;
 
         default:
                 assert_not_reached("KillOperation unknown");

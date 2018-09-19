@@ -12,6 +12,7 @@ void kill_context_init(KillContext *c) {
         c->final_kill_signal = SIGKILL;
         c->send_sigkill = true;
         c->send_sighup = false;
+        c->watchdog_signal = SIGABRT;
 }
 
 void kill_context_dump(KillContext *c, FILE *f, const char *prefix) {

@@ -599,7 +599,8 @@
         "keep-alive ping"). If the time between two such calls is
         larger than the configured time, then the service is placed in
         a failed state and it will be terminated with
-        <constant>SIGABRT</constant>. By setting
+        <constant>SIGABRT</constant> (or the signal specified by
+        <varname>WatchdogSignal=</varname>). By setting
         <varname>Restart=</varname> to <option>on-failure</option>,
         <option>on-watchdog</option>, <option>on-abnormal</option> or
         <option>always</option>, the service will be automatically
