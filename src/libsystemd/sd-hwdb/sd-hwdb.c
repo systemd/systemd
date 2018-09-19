@@ -20,6 +20,7 @@
 #include "hwdb-util.h"
 #include "refcnt.h"
 #include "string-util.h"
+#include "util.h"
 
 struct sd_hwdb {
         RefCount n_ref;
