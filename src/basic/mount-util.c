@@ -471,7 +471,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
 
                                         if (path_startswith(p, *i)) {
                                                 blacklisted = true;
-                                                log_debug("Not remounting %s, because blacklisted by %s, called for %s", p, *i, cleaned);
+                                                log_debug("Not remounting %s blacklisted by %s, called for %s", p, *i, cleaned);
                                                 break;
                                         }
                                 }
