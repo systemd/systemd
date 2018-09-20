@@ -181,15 +181,19 @@ static void test_get_process_cmdline_harder(void) {
         _cleanup_free_ char *line = NULL;
         pid_t pid;
 
-        if (geteuid() != 0)
+        if (geteuid() != 0) {
+                log_info("Skipping %s: not root", __func__);
                 return;
+        }
 
 #if HAVE_VALGRIND_VALGRIND_H
         /* valgrind patches open(/proc//cmdline)
          * so, test_get_process_cmdline_harder fails always
          * See https://github.com/systemd/systemd/pull/3555#issuecomment-226564908 */
-        if (RUNNING_ON_VALGRIND)
+        if (RUNNING_ON_VALGRIND) {
+                log_info("Skipping %s: running on valgrind", __func__);
                 return;
+        }
 #endif
 
         pid = fork();
