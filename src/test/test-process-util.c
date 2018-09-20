@@ -401,12 +401,17 @@ static void test_rename_process_now(const char *p, int ret) {
         log_info("comm = <%s>", comm);
         assert_se(strneq(comm, p, TASK_COMM_LEN-1));
 
-        assert_se(get_process_cmdline(0, 0, false, &cmdline) >= 0);
+        r = get_process_cmdline(0, 0, false, &cmdline);
+        assert_se(r >= 0);
         /* we cannot expect cmdline to be renamed properly without privileges */
         if (geteuid() == 0) {
-                log_info("cmdline = <%s>", cmdline);
-                assert_se(strneq(p, cmdline, STRLEN("test-process-util")));
-                assert_se(startswith(p, cmdline));
+                if (r == 0 && detect_container() > 0)
+                        log_info("cmdline = <%s> (not verified, Running in unprivileged container?)", cmdline);
+                else {
+                        log_info("cmdline = <%s>", cmdline);
+                        assert_se(strneq(p, cmdline, STRLEN("test-process-util")));
+                        assert_se(startswith(p, cmdline));
+                }
         } else
                 log_info("cmdline = <%s> (not verified)", cmdline);
 }
