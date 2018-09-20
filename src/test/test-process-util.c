@@ -181,15 +181,19 @@ static void test_get_process_cmdline_harder(void) {
         _cleanup_free_ char *line = NULL;
         pid_t pid;
 
-        if (geteuid() != 0)
+        if (geteuid() != 0) {
+                log_info("Skipping %s: not root", __func__);
                 return;
+        }
 
 #if HAVE_VALGRIND_VALGRIND_H
         /* valgrind patches open(/proc//cmdline)
          * so, test_get_process_cmdline_harder fails always
          * See https://github.com/systemd/systemd/pull/3555#issuecomment-226564908 */
-        if (RUNNING_ON_VALGRIND)
+        if (RUNNING_ON_VALGRIND) {
+                log_info("Skipping %s: running on valgrind", __func__);
                 return;
+        }
 #endif
 
         pid = fork();
@@ -401,12 +405,17 @@ static void test_rename_process_now(const char *p, int ret) {
         log_info("comm = <%s>", comm);
         assert_se(strneq(comm, p, TASK_COMM_LEN-1));
 
-        assert_se(get_process_cmdline(0, 0, false, &cmdline) >= 0);
+        r = get_process_cmdline(0, 0, false, &cmdline);
+        assert_se(r >= 0);
         /* we cannot expect cmdline to be renamed properly without privileges */
         if (geteuid() == 0) {
-                log_info("cmdline = <%s>", cmdline);
-                assert_se(strneq(p, cmdline, STRLEN("test-process-util")));
-                assert_se(startswith(p, cmdline));
+                if (r == 0 && detect_container() > 0)
+                        log_info("cmdline = <%s> (not verified, Running in unprivileged container?)", cmdline);
+                else {
+                        log_info("cmdline = <%s>", cmdline);
+                        assert_se(strneq(p, cmdline, STRLEN("test-process-util")));
+                        assert_se(startswith(p, cmdline));
+                }
         } else
                 log_info("cmdline = <%s> (not verified)", cmdline);
 }

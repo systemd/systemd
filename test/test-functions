@@ -421,7 +421,7 @@ get_ldpath() {
 
 install_missing_libraries() {
     # install possible missing libraries
-    for i in $initdir{,/usr}/{sbin,bin}/* $initdir{,/usr}/lib/systemd/*; do
+    for i in $initdir{,/usr}/{sbin,bin}/* $initdir{,/usr}/lib/systemd/{,tests/{,manual/,unsafe/}}*; do
         LD_LIBRARY_PATH=$(get_ldpath $i) inst_libs $i
     done
 }
@@ -454,7 +454,7 @@ EOF
 }
 
 check_result_nspawn() {
-    ret=1
+    local ret=1
     [[ -e $TESTDIR/$1/testok ]] && ret=0
     [[ -f $TESTDIR/$1/failed ]] && cp -a $TESTDIR/$1/failed $TESTDIR
     cp -a $TESTDIR/$1/var/log/journal $TESTDIR
@@ -467,7 +467,7 @@ check_result_nspawn() {
 
 # can be overridden in specific test
 check_result_qemu() {
-    ret=1
+    local ret=1
     mkdir -p $TESTDIR/root
     mount ${LOOPDEV}p1 $TESTDIR/root
     [[ -e $TESTDIR/root/testok ]] && ret=0
@@ -624,12 +624,33 @@ install_pam() {
 }
 
 install_keymaps() {
+    # The first three paths may be deprecated.
+    # It seems now the last two paths are used by many distributions.
     for i in \
         /usr/lib/kbd/keymaps/include/* \
         /usr/lib/kbd/keymaps/i386/include/* \
-        /usr/lib/kbd/keymaps/i386/qwerty/us.*; do
+        /usr/lib/kbd/keymaps/i386/qwerty/us.* \
+        /usr/lib/kbd/keymaps/legacy/include/* \
+        /usr/lib/kbd/keymaps/legacy/i386/qwerty/us.*; do
             [[ -f $i ]] || continue
             inst $i
+    done
+
+    # When it takes any argument, then install more keymaps.
+    if [[ -n $1 ]]; then
+        for i in \
+        /usr/lib/kbd/keymaps/i386/*/* \
+        /usr/lib/kbd/keymaps/legacy/i386/*/*; do
+            [[ -f $i ]] || continue
+            inst $i
+        done
+    fi
+}
+
+install_zoneinfo() {
+    for i in /usr/share/zoneinfo/{,*/,*/*/}*; do
+        [[ -f $i ]] || continue
+        inst $i
     done
 }
 
@@ -1527,7 +1548,9 @@ do_test() {
         case $1 in
             --run)
                 echo "TEST RUN: $TEST_DESCRIPTION"
-                if test_run; then
+                test_run
+                ret=$?
+                if (( $ret == 0 )); then
                     echo "TEST RUN: $TEST_DESCRIPTION [OK]"
                 else
                     echo "TEST RUN: $TEST_DESCRIPTION [FAILED]"
