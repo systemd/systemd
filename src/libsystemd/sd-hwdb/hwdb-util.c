@@ -133,7 +133,7 @@ static int trie_values_cmp(const struct trie_value_entry *a, const struct trie_v
 static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                                const char *key, const char *value,
                                const char *filename, uint16_t file_priority, uint32_t line_number, bool compat) {
-        ssize_t k, v, fn;
+        ssize_t k, v, fn = 0;
         struct trie_value_entry *val;
 
         k = strbuf_add_string(trie->strings, key, strlen(key));
