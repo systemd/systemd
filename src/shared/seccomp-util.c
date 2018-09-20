@@ -891,9 +891,13 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
                 r = seccomp_rule_add_exact(seccomp, action, id, 0);
                 if (r < 0) {
                         /* If the system call is not known on this architecture, then that's fine, let's ignore it */
-                        if (log_missing)
-                                log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m",
-                                                name, id);
+                        bool ignore = r == -EDOM;
+
+                        if (!ignore || log_missing)
+                                log_debug_errno(r, "Failed to add rule for system call %s() / %d%s: %m",
+                                                name, id, ignore ? ", ignoring" : "");
+                        if (!ignore)
+                                return r;
                 }
 
                 return 0;
@@ -941,10 +945,8 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                         return r;
 
                 r = seccomp_add_syscall_filter_set(seccomp, set, action, NULL, log_missing);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to add filter set, ignoring: %m");
-                        continue;
-                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to add filter set: %m");
 
                 r = seccomp_load(seccomp);
                 if (IN_SET(r, -EPERM, -EACCES))
@@ -989,11 +991,15 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
                         if (r < 0) {
                                 /* If the system call is not known on this architecture, then that's fine, let's ignore it */
                                 _cleanup_free_ char *n = NULL;
+                                bool ignore;
 
                                 n = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, id);
-                                if (log_missing)
-                                        log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m",
-                                                        strna(n), id);
+                                ignore = r == -EDOM;
+                                if (!ignore || log_missing)
+                                        log_debug_errno(r, "Failed to add rule for system call %s() / %d%s: %m",
+                                                        strna(n), id, ignore ? ", ignoring" : "");
+                                if (!ignore)
+                                        return r;
                         }
                 }
 

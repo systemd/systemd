@@ -140,7 +140,7 @@ static int seccomp_add_default_syscall_filter(
                  */
         };
 
-        int r, c = 0;
+        int r;
         size_t i;
         char **p;
 
@@ -150,21 +150,17 @@ static int seccomp_add_default_syscall_filter(
 
                 r = seccomp_add_syscall_filter_item(ctx, whitelist[i].name, SCMP_ACT_ALLOW, syscall_blacklist, false);
                 if (r < 0)
-                        /* If the system call is not known on this architecture, then that's fine, let's ignore it */
-                        log_debug_errno(r, "Failed to add rule for system call %s on %s, ignoring: %m", whitelist[i].name, seccomp_arch_to_string(arch));
-                else
-                        c++;
+                        return log_error_errno(r, "Failed to add syscall filter item %s: %m", whitelist[i].name);
         }
 
         STRV_FOREACH(p, syscall_whitelist) {
                 r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_blacklist, false);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to add rule for system call %s on %s, ignoring: %m", *p, seccomp_arch_to_string(arch));
-                else
-                        c++;
+                        log_warning_errno(r, "Failed to add rule for system call %s on %s, ignoring: %m",
+                                          *p, seccomp_arch_to_string(arch));
         }
 
-        return c;
+        return 0;
 }
 
 int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **syscall_blacklist) {
