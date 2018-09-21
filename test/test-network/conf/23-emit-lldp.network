@@ -1,0 +1,5 @@
+[Match]
+Name=veth-peer
+
+[Network]
+EmitLLDP=yes
