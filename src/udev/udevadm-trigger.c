@@ -232,7 +232,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 }
 
                 case 'V':
-                        return version();
+                        return print_version();
                 case 'h':
                         return help();
                 case '?':

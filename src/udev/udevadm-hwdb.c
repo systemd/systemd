@@ -65,7 +65,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_root = optarg;
                         break;
                 case 'V':
-                        return version();
+                        return print_version();
                 case 'h':
                         return help();
                 case '?':
