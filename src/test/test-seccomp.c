@@ -36,6 +36,8 @@ static void test_seccomp_arch_to_string(void) {
         uint32_t a, b;
         const char *name;
 
+        log_info("/* %s */", __func__);
+
         a = seccomp_arch_native();
         assert_se(a > 0);
         name = seccomp_arch_to_string(a);
@@ -46,6 +48,8 @@ static void test_seccomp_arch_to_string(void) {
 
 static void test_architecture_table(void) {
         const char *n, *n2;
+
+        log_info("/* %s */", __func__);
 
         NULSTR_FOREACH(n,
                        "native\0"
@@ -75,6 +79,8 @@ static void test_architecture_table(void) {
 }
 
 static void test_syscall_filter_set_find(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(!syscall_filter_set_find(NULL));
         assert_se(!syscall_filter_set_find(""));
         assert_se(!syscall_filter_set_find("quux"));
@@ -88,6 +94,8 @@ static void test_syscall_filter_set_find(void) {
 static void test_filter_sets(void) {
         unsigned i;
         int r;
+
+        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -136,6 +144,8 @@ static void test_filter_sets(void) {
 static void test_filter_sets_ordered(void) {
         size_t i;
 
+        log_info("/* %s */", __func__);
+
         /* Ensure "@default" always remains at the beginning of the list */
         assert_se(SYSCALL_FILTER_SET_DEFAULT == 0);
         assert_se(streq(syscall_filter_sets[0].name, "@default"));
@@ -167,6 +177,8 @@ static void test_restrict_namespace(void) {
         char *s = NULL;
         unsigned long ul;
         pid_t pid;
+
+        log_info("/* %s */", __func__);
 
         assert_se(namespace_flags_to_string(0, &s) == 0 && streq(s, ""));
         s = mfree(s);
@@ -262,6 +274,8 @@ static void test_restrict_namespace(void) {
 static void test_protect_sysctl(void) {
         pid_t pid;
 
+        log_info("/* %s */", __func__);
+
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
@@ -301,6 +315,8 @@ static void test_protect_sysctl(void) {
 
 static void test_restrict_address_families(void) {
         pid_t pid;
+
+        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -389,6 +405,8 @@ static void test_restrict_address_families(void) {
 static void test_restrict_realtime(void) {
         pid_t pid;
 
+        log_info("/* %s */", __func__);
+
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
@@ -433,6 +451,8 @@ static void test_restrict_realtime(void) {
 
 static void test_memory_deny_write_execute_mmap(void) {
         pid_t pid;
+
+        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -481,6 +501,8 @@ static void test_memory_deny_write_execute_mmap(void) {
 static void test_memory_deny_write_execute_shmat(void) {
         int shmid;
         pid_t pid;
+
+        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -532,6 +554,8 @@ static void test_memory_deny_write_execute_shmat(void) {
 static void test_restrict_archs(void) {
         pid_t pid;
 
+        log_info("/* %s */", __func__);
+
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
@@ -569,6 +593,8 @@ static void test_restrict_archs(void) {
 
 static void test_load_syscall_filter_set_raw(void) {
         pid_t pid;
+
+        log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
@@ -666,6 +692,8 @@ static void test_lock_personality(void) {
         unsigned long current;
         pid_t pid;
 
+        log_info("/* %s */", __func__);
+
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
@@ -714,7 +742,6 @@ static void test_lock_personality(void) {
 }
 
 int main(int argc, char *argv[]) {
-
         test_setup_logging(LOG_DEBUG);
 
         test_seccomp_arch_to_string();
