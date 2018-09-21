@@ -630,7 +630,7 @@ tests += [
           libblkid,
           libkmod,
           libacl],
-         '', 'manual'],
+         '', 'manual', '-DLOG_REALM=LOG_REALM_UDEV'],
 
         [['src/test/test-id128.c'],
          [],
