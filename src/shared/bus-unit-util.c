@@ -667,13 +667,25 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                                 return bus_log_create_error(r);
 
                 } else {
-                        r = in_addr_prefix_from_string_auto(eq, &family, &prefix, &prefixlen);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse IP address prefix: %s", eq);
+                        for (;;) {
+                                _cleanup_free_ char *word = NULL;
 
-                        r = bus_append_ip_address_access(m, family, &prefix, prefixlen);
-                        if (r < 0)
-                                return bus_log_create_error(r);
+                                r = extract_first_word(&eq, &word, NULL, 0);
+                                if (r == 0)
+                                        break;
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse %s: %s", field, eq);
+
+                                r = in_addr_prefix_from_string_auto(word, &family, &prefix, &prefixlen);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse IP address prefix: %s", word);
+
+                                r = bus_append_ip_address_access(m, family, &prefix, prefixlen);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        }
                 }
 
                 r = sd_bus_message_close_container(m);
