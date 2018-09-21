@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import dataclasses
 import glob
 import os
@@ -22,7 +23,18 @@ class Total:
     skip:int = 0
     fail:int = 0
 
+def argument_parser():
+    p = argparse.ArgumentParser()
+    p.add_argument('-u', '--unsafe', action='store_true',
+                   help='run "unsafe" tests too')
+    return p
+
+opts = argument_parser().parse_args()
+
 tests = glob.glob('/usr/lib/systemd/tests/test-*')
+if opts.unsafe:
+    tests += glob.glob('/usr/lib/systemd/tests/unsafe/test-*')
+
 total = Total(total=len(tests))
 for test in tests:
     name = os.path.basename(test)
