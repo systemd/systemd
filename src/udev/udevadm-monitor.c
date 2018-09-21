@@ -205,7 +205,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
                 case 'V':
-                        return version();
+                        return print_version();
                 case 'h':
                         return help();
                 case '?':

@@ -40,7 +40,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'V':
-                        return version();
+                        return print_version();
                 case 'h':
                         return help();
                 case '?':

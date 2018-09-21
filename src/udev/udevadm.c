@@ -68,7 +68,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return help();
 
                 case 'V':
-                        return version();
+                        return print_version();
 
                 case '?':
                         return -EINVAL;
@@ -81,7 +81,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int version_main(int argc, char *argv[], void *userdata) {
-        return version();
+        return print_version();
 }
 
 static int help_main(int argc, char *argv[], void *userdata) {

@@ -144,7 +144,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                         break;
                 }
                 case 'V':
-                        return version();
+                        return print_version();
                 case 'h':
                         return help();
                 case '?':

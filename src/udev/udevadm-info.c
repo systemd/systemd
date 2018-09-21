@@ -357,7 +357,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                         export_prefix = optarg;
                         break;
                 case 'V':
-                        return version();
+                        return print_version();
                 case 'h':
                         return help();
                 case '?':
