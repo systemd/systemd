@@ -1,0 +1,9 @@
+[Unit]
+Description=Test active Service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/systemd-socket-activate -l 2000 --inetd -a cat
+
+[Install]
+WantedBy=multi-user.target
