@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Tom Gundersen
-  Copyright (C) 2014 Susant Sahani
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <arpa/inet.h>
 #include <linux/sockios.h>
@@ -348,27 +329,8 @@ _public_ int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex) {
         return 0;
 }
 
-_public_ sd_lldp* sd_lldp_ref(sd_lldp *lldp) {
-
-        if (!lldp)
-                return NULL;
-
-        assert(lldp->n_ref > 0);
-        lldp->n_ref++;
-
-        return lldp;
-}
-
-_public_ sd_lldp* sd_lldp_unref(sd_lldp *lldp) {
-
-        if (!lldp)
-                return NULL;
-
-        assert(lldp->n_ref > 0);
-        lldp->n_ref --;
-
-        if (lldp->n_ref > 0)
-                return NULL;
+static sd_lldp* lldp_free(sd_lldp *lldp) {
+        assert(lldp);
 
         lldp_reset(lldp);
         sd_lldp_detach_event(lldp);
@@ -378,6 +340,8 @@ _public_ sd_lldp* sd_lldp_unref(sd_lldp *lldp) {
         prioq_free(lldp->neighbor_by_expiry);
         return mfree(lldp);
 }
+
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_lldp, sd_lldp, lldp_free);
 
 _public_ int sd_lldp_new(sd_lldp **ret) {
         _cleanup_(sd_lldp_unrefp) sd_lldp *lldp = NULL;
@@ -402,29 +366,26 @@ _public_ int sd_lldp_new(sd_lldp **ret) {
         if (r < 0)
                 return r;
 
-        *ret = lldp;
-        lldp = NULL;
+        *ret = TAKE_PTR(lldp);
 
         return 0;
 }
 
-static int neighbor_compare_func(const void *a, const void *b) {
-        const sd_lldp_neighbor * const*x = a, * const *y = b;
-
-        return lldp_neighbor_id_hash_ops.compare(&(*x)->id, &(*y)->id);
+static int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
+        return lldp_neighbor_id_compare_func(&(*a)->id, &(*b)->id);
 }
 
 static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_lldp *lldp = userdata;
-        int r, q;
+        int r;
 
         r = lldp_make_space(lldp, 0);
         if (r < 0)
                 return log_lldp_errno(r, "Failed to make space: %m");
 
-        q = lldp_start_timer(lldp, NULL);
-        if (q < 0)
-                return log_lldp_errno(q, "Failed to restart timer: %m");
+        r = lldp_start_timer(lldp, NULL);
+        if (r < 0)
+                return log_lldp_errno(r, "Failed to restart timer: %m");
 
         return 0;
 }
@@ -499,7 +460,7 @@ _public_ int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***ret) {
         assert((size_t) k == hashmap_size(lldp->neighbor_by_id));
 
         /* Return things in a stable order */
-        qsort(l, k, sizeof(sd_lldp_neighbor*), neighbor_compare_func);
+        typesafe_qsort(l, k, neighbor_compare_func);
         *ret = l;
 
         return k;

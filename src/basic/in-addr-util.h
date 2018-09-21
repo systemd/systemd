@@ -1,29 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <netinet/in.h>
 #include <stddef.h>
 #include <sys/socket.h>
 
+#include "hash-funcs.h"
 #include "macro.h"
 #include "util.h"
 
@@ -72,3 +54,7 @@ static inline size_t FAMILY_ADDRESS_SIZE(int family) {
 }
 
 #define IN_ADDR_NULL ((union in_addr_union) {})
+
+void in_addr_data_hash_func(const void *p, struct siphash *state);
+int in_addr_data_compare_func(const void *a, const void *b);
+extern const struct hash_ops in_addr_data_hash_ops;

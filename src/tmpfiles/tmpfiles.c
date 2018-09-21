@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering, Kay Sievers
-  Copyright 2015 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -33,8 +14,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
+#include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "sd-path.h"
 
 #include "acl-util.h"
 #include "alloc-util.h"
@@ -58,7 +42,9 @@
 #include "missing.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "pager.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
@@ -69,6 +55,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 #include "util.h"
@@ -150,16 +137,26 @@ typedef struct ItemArray {
         size_t size;
 } ItemArray;
 
+typedef enum DirectoryType {
+        DIRECTORY_RUNTIME = 0,
+        DIRECTORY_STATE,
+        DIRECTORY_CACHE,
+        DIRECTORY_LOGS,
+        _DIRECTORY_TYPE_MAX,
+} DirectoryType;
+
+static bool arg_cat_config = false;
+static bool arg_user = false;
 static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
 static bool arg_boot = false;
+static bool arg_no_pager = false;
 
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
-
-static const char conf_file_dirs[] = CONF_PATHS_NULSTR("tmpfiles.d");
+static char *arg_replace = NULL;
 
 #define MAX_DEPTH 256
 
@@ -167,45 +164,141 @@ static OrderedHashmap *items = NULL, *globs = NULL;
 static Set *unix_sockets = NULL;
 
 static int specifier_machine_id_safe(char specifier, void *data, void *userdata, char **ret);
+static int specifier_directory(char specifier, void *data, void *userdata, char **ret);
 
 static const Specifier specifier_table[] = {
         { 'm', specifier_machine_id_safe, NULL },
-        { 'b', specifier_boot_id, NULL },
-        { 'H', specifier_host_name, NULL },
-        { 'v', specifier_kernel_release, NULL },
+        { 'b', specifier_boot_id,         NULL },
+        { 'H', specifier_host_name,       NULL },
+        { 'v', specifier_kernel_release,  NULL },
+
+        { 'U', specifier_user_id,         NULL },
+        { 'u', specifier_user_name,       NULL },
+        { 'h', specifier_user_home,       NULL },
+
+        { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
+        { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE) },
+        { 'C', specifier_directory,       UINT_TO_PTR(DIRECTORY_CACHE) },
+        { 'L', specifier_directory,       UINT_TO_PTR(DIRECTORY_LOGS) },
+        { 'T', specifier_tmp_dir,         NULL },
+        { 'V', specifier_var_tmp_dir,     NULL },
         {}
 };
 
 static int specifier_machine_id_safe(char specifier, void *data, void *userdata, char **ret) {
         int r;
 
-        /* If /etc/machine_id is missing (e.g. in a chroot environment), returns
-         * a recognizable error so that the caller can skip the rule
+        /* If /etc/machine_id is missing or empty (e.g. in a chroot environment)
+         * return a recognizable error so that the caller can skip the rule
          * gracefully. */
 
         r = specifier_machine_id(specifier, data, userdata, ret);
-        if (r == -ENOENT)
-                return -ENOKEY;
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
+                return -ENXIO;
 
         return r;
+}
+
+static int specifier_directory(char specifier, void *data, void *userdata, char **ret) {
+        struct table_entry {
+                uint64_t type;
+                const char *suffix;
+        };
+
+        static const struct table_entry paths_system[] = {
+                [DIRECTORY_RUNTIME] = { SD_PATH_SYSTEM_RUNTIME            },
+                [DIRECTORY_STATE] =   { SD_PATH_SYSTEM_STATE_PRIVATE      },
+                [DIRECTORY_CACHE] =   { SD_PATH_SYSTEM_STATE_CACHE        },
+                [DIRECTORY_LOGS] =    { SD_PATH_SYSTEM_STATE_LOGS         },
+        };
+
+        static const struct table_entry paths_user[] = {
+                [DIRECTORY_RUNTIME] = { SD_PATH_USER_RUNTIME              },
+                [DIRECTORY_STATE] =   { SD_PATH_USER_CONFIGURATION        },
+                [DIRECTORY_CACHE] =   { SD_PATH_USER_STATE_CACHE          },
+                [DIRECTORY_LOGS] =    { SD_PATH_USER_CONFIGURATION, "log" },
+        };
+
+        unsigned i;
+        const struct table_entry *paths;
+
+        assert_cc(ELEMENTSOF(paths_system) == ELEMENTSOF(paths_user));
+        paths = arg_user ? paths_user : paths_system;
+
+        i = PTR_TO_UINT(data);
+        assert(i < ELEMENTSOF(paths_system));
+
+        return sd_path_home(paths[i].type, paths[i].suffix, ret);
 }
 
 static int log_unresolvable_specifier(const char *filename, unsigned line) {
         static bool notified = false;
 
-        /* This is called when /etc is not fully initialized (e.g. in a chroot
-         * environment) where some specifiers are unresolvable. These cases are
-         * not considered as an error so log at LOG_NOTICE only for the first
-         * time and then downgrade this to LOG_DEBUG for the rest. */
+        /* In system mode, this is called when /etc is not fully initialized (e.g.
+         * in a chroot environment) where some specifiers are unresolvable. In user
+         * mode, this is called when some variables are not defined. These cases are
+         * not considered as an error so log at LOG_NOTICE only for the first time
+         * and then downgrade this to LOG_DEBUG for the rest. */
 
         log_full(notified ? LOG_DEBUG : LOG_NOTICE,
-                 "[%s:%u] Failed to resolve specifier: uninitialized /etc detected, skipping",
-                 filename, line);
+                 "[%s:%u] Failed to resolve specifier: %s, skipping",
+                 filename, line,
+                 arg_user ? "Required $XDG_... variable not defined" : "uninitialized /etc detected");
 
         if (!notified)
                 log_notice("All rules containing unresolvable specifiers will be skipped.");
 
         notified = true;
+        return 0;
+}
+
+static int user_config_paths(char*** ret) {
+        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        _cleanup_free_ char *persistent_config = NULL, *runtime_config = NULL, *data_home = NULL;
+        _cleanup_strv_free_ char **res = NULL;
+        int r;
+
+        r = xdg_user_dirs(&config_dirs, &data_dirs);
+        if (r < 0)
+                return r;
+
+        r = xdg_user_config_dir(&persistent_config, "/user-tmpfiles.d");
+        if (r < 0 && r != -ENXIO)
+                return r;
+
+        r = xdg_user_runtime_dir(&runtime_config, "/user-tmpfiles.d");
+        if (r < 0 && r != -ENXIO)
+                return r;
+
+        r = xdg_user_data_dir(&data_home, "/user-tmpfiles.d");
+        if (r < 0 && r != -ENXIO)
+                return r;
+
+        r = strv_extend_strv_concat(&res, config_dirs, "/user-tmpfiles.d");
+        if (r < 0)
+                return r;
+
+        r = strv_extend(&res, persistent_config);
+        if (r < 0)
+                return r;
+
+        r = strv_extend(&res, runtime_config);
+        if (r < 0)
+                return r;
+
+        r = strv_extend(&res, data_home);
+        if (r < 0)
+                return r;
+
+        r = strv_extend_strv_concat(&res, data_dirs, "/user-tmpfiles.d");
+        if (r < 0)
+                return r;
+
+        r = path_strv_make_absolute_cwd(res);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(res);
         return 0;
 }
 
@@ -270,34 +363,48 @@ static struct Item* find_glob(OrderedHashmap *h, const char *match) {
 
 static void load_unix_sockets(void) {
         _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
+        int r;
 
         if (unix_sockets)
                 return;
 
-        /* We maintain a cache of the sockets we found in
-         * /proc/net/unix to speed things up a little. */
+        /* We maintain a cache of the sockets we found in /proc/net/unix to speed things up a little. */
 
-        unix_sockets = set_new(&string_hash_ops);
-        if (!unix_sockets)
+        unix_sockets = set_new(&path_hash_ops);
+        if (!unix_sockets) {
+                log_oom();
                 return;
+        }
 
         f = fopen("/proc/net/unix", "re");
-        if (!f)
-                return;
+        if (!f) {
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to open /proc/net/unix, ignoring: %m");
+                goto fail;
+        }
 
         /* Skip header */
-        if (!fgets(line, sizeof(line), f))
+        r = read_line(f, LONG_LINE_MAX, NULL);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to skip /proc/net/unix header line: %m");
                 goto fail;
+        }
+        if (r == 0) {
+                log_warning("Premature end of file reading /proc/net/unix.");
+                goto fail;
+        }
 
         for (;;) {
+                _cleanup_free_ char *line = NULL;
                 char *p, *s;
-                int k;
 
-                if (!fgets(line, sizeof(line), f))
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read /proc/net/unix line, ignoring: %m");
+                        goto fail;
+                }
+                if (r == 0) /* EOF */
                         break;
-
-                truncate_nl(line);
 
                 p = strchr(line, ':');
                 if (!p)
@@ -315,21 +422,24 @@ static void load_unix_sockets(void) {
                         continue;
 
                 s = strdup(p);
-                if (!s)
+                if (!s) {
+                        log_oom();
                         goto fail;
+                }
 
-                path_kill_slashes(s);
+                path_simplify(s, false);
 
-                k = set_consume(unix_sockets, s);
-                if (k < 0 && k != -EEXIST)
+                r = set_consume(unix_sockets, s);
+                if (r < 0 && r != -EEXIST) {
+                        log_warning_errno(r, "Failed to add AF_UNIX socket to set, ignoring: %m");
                         goto fail;
+                }
         }
 
         return;
 
 fail:
-        set_free_free(unix_sockets);
-        unix_sockets = NULL;
+        unix_sockets = set_free_free(unix_sockets);
 }
 
 static bool unix_socket_alive(const char *fn) {
@@ -427,11 +537,8 @@ static int dir_cleanup(
                                 continue;
 
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        if (errno == EACCES)
-                                log_debug_errno(errno, "stat(%s/%s) failed: %m", p, dent->d_name);
-                        else
-                                log_error_errno(errno, "stat(%s/%s) failed: %m", p, dent->d_name);
-                        r = -errno;
+                        r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                           "stat(%s/%s) failed: %m", p, dent->d_name);
                         continue;
                 }
 
@@ -447,12 +554,6 @@ static int dir_cleanup(
                 if (S_ISDIR(s.st_mode) && dir_is_mount_point(d, dent->d_name) > 0) {
                         log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.",
                                   p, dent->d_name);
-                        continue;
-                }
-
-                /* Do not delete read-only files owned by root */
-                if (s.st_uid == 0 && !(s.st_mode & S_IWUSR)) {
-                        log_debug("Ignoring \"%s/%s\": read-only and owner by root.", p, dent->d_name);
                         continue;
                 }
 
@@ -535,10 +636,8 @@ static int dir_cleanup(
 
                         log_debug("Removing directory \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0)
-                                if (!IN_SET(errno, ENOENT, ENOTEMPTY)) {
-                                        log_error_errno(errno, "rmdir(%s): %m", sub_path);
-                                        r = -errno;
-                                }
+                                if (!IN_SET(errno, ENOENT, ENOTEMPTY))
+                                        r = log_error_errno(errno, "rmdir(%s): %m", sub_path);
 
                 } else {
                         /* Skip files for which the sticky bit is
@@ -638,83 +737,162 @@ finish:
         return r;
 }
 
+static bool dangerous_hardlinks(void) {
+        _cleanup_free_ char *value = NULL;
+        static int cached = -1;
+        int r;
+
+        /* Check whether the fs.protected_hardlinks sysctl is on. If we can't determine it we assume its off, as that's
+         * what the upstream default is. */
+
+        if (cached >= 0)
+                return cached;
+
+        r = read_one_line_file("/proc/sys/fs/protected_hardlinks", &value);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read fs.protected_hardlinks sysctl: %m");
+                return true;
+        }
+
+        r = parse_boolean(value);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse fs.protected_hardlinks sysctl: %m");
+                return true;
+        }
+
+        cached = r == 0;
+        return cached;
+}
+
+static bool hardlink_vulnerable(const struct stat *st) {
+        assert(st);
+
+        return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
+}
+
+static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st) {
+        struct stat stbuf;
+
+        assert(i);
+        assert(fd);
+        assert(path);
+
+        if (!i->mode_set && !i->uid_set && !i->gid_set)
+                goto shortcut;
+
+        if (!st) {
+                if (fstat(fd, &stbuf) < 0)
+                        return log_error_errno(errno, "fstat(%s) failed: %m", path);
+                st = &stbuf;
+        }
+
+        if (hardlink_vulnerable(st)) {
+                log_error("Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
+                return -EPERM;
+        }
+
+        if (i->mode_set) {
+                if (S_ISLNK(st->st_mode))
+                        log_debug("Skipping mode fix for symlink %s.", path);
+                else {
+                        mode_t m = i->mode;
+
+                        if (i->mask_perms) {
+                                if (!(st->st_mode & 0111))
+                                        m &= ~0111;
+                                if (!(st->st_mode & 0222))
+                                        m &= ~0222;
+                                if (!(st->st_mode & 0444))
+                                        m &= ~0444;
+                                if (!S_ISDIR(st->st_mode))
+                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
+                        }
+
+                        if (m == (st->st_mode & 07777))
+                                log_debug("\"%s\" has correct mode %o already.", path, st->st_mode);
+                        else {
+                                log_debug("Changing \"%s\" to mode %o.", path, m);
+                                if (fchmod_opath(fd, m) < 0)
+                                        return log_error_errno(errno, "fchmod() of %s failed: %m", path);
+                        }
+                }
+        }
+
+        if ((i->uid_set && i->uid != st->st_uid) ||
+            (i->gid_set && i->gid != st->st_gid)) {
+                log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT,
+                          path,
+                          i->uid_set ? i->uid : UID_INVALID,
+                          i->gid_set ? i->gid : GID_INVALID);
+
+                if (fchownat(fd,
+                             "",
+                             i->uid_set ? i->uid : UID_INVALID,
+                             i->gid_set ? i->gid : GID_INVALID,
+                             AT_EMPTY_PATH) < 0)
+                        return log_error_errno(errno, "fchownat() of %s failed: %m", path);
+        }
+
+shortcut:
+        return label_fix(path, 0);
+}
+
+static int path_open_parent_safe(const char *path) {
+        _cleanup_free_ char *dn = NULL;
+        int fd;
+
+        if (path_equal(path, "/") || !path_is_normalized(path)) {
+                log_error("Failed to open parent of '%s': invalid path.", path);
+                return -EINVAL;
+        }
+
+        dn = dirname_malloc(path);
+        if (!dn)
+                return log_oom();
+
+        fd = chase_symlinks(dn, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
+        if (fd == -EPERM)
+                return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to validate path %s: %m", path);
+
+        return fd;
+}
+
+static int path_open_safe(const char *path) {
+        int fd;
+
+        /* path_open_safe() returns a file descriptor opened with O_PATH after
+         * verifying that the path doesn't contain unsafe transitions, except
+         * for its final component as the function does not follow symlink. */
+
+        assert(path);
+
+        if (!path_is_normalized(path)) {
+                log_error("Failed to open invalid path '%s'.", path);
+                return -EINVAL;
+        }
+
+        fd = chase_symlinks(path, NULL, CHASE_OPEN|CHASE_SAFE|CHASE_NOFOLLOW, NULL);
+        if (fd == -EPERM)
+                return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to validate path %s: %m", path);
+
+        return fd;
+}
+
 static int path_set_perms(Item *i, const char *path) {
         _cleanup_close_ int fd = -1;
-        struct stat st;
 
         assert(i);
         assert(path);
 
-        /* We open the file with O_PATH here, to make the operation
-         * somewhat atomic. Also there's unfortunately no fchmodat()
-         * with AT_SYMLINK_NOFOLLOW, hence we emulate it here via
-         * O_PATH. */
+        fd = path_open_safe(path);
+        if (fd < 0)
+                return fd;
 
-        fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-        if (fd < 0) {
-                int level = LOG_ERR, r = -errno;
-
-                /* Option "e" operates only on existing objects. Do not
-                 * print errors about non-existent files or directories */
-                if (i->type == EMPTY_DIRECTORY && errno == ENOENT) {
-                        level = LOG_DEBUG;
-                        r = 0;
-                }
-
-                log_full_errno(level, errno, "Adjusting owner and mode for %s failed: %m", path);
-
-                return r;
-        }
-
-        if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
-                return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
-
-        if (S_ISLNK(st.st_mode))
-                log_debug("Skipping mode an owner fix for symlink %s.", path);
-        else {
-                char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-                xsprintf(fn, "/proc/self/fd/%i", fd);
-
-                /* not using i->path directly because it may be a glob */
-                if (i->mode_set) {
-                        mode_t m = i->mode;
-
-                        if (i->mask_perms) {
-                                if (!(st.st_mode & 0111))
-                                        m &= ~0111;
-                                if (!(st.st_mode & 0222))
-                                        m &= ~0222;
-                                if (!(st.st_mode & 0444))
-                                        m &= ~0444;
-                                if (!S_ISDIR(st.st_mode))
-                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
-                        }
-
-                        if (m == (st.st_mode & 07777))
-                                log_debug("\"%s\" has right mode %o", path, st.st_mode);
-                        else {
-                                log_debug("chmod \"%s\" to mode %o", path, m);
-                                if (chmod(fn, m) < 0)
-                                        return log_error_errno(errno, "chmod() of %s via %s failed: %m", path, fn);
-                        }
-                }
-
-                if ((i->uid != st.st_uid || i->gid != st.st_gid) &&
-                    (i->uid_set || i->gid_set)) {
-                        log_debug("chown \"%s\" to "UID_FMT"."GID_FMT,
-                                  path,
-                                  i->uid_set ? i->uid : UID_INVALID,
-                                  i->gid_set ? i->gid : GID_INVALID);
-                        if (chown(fn,
-                                  i->uid_set ? i->uid : UID_INVALID,
-                                  i->gid_set ? i->gid : GID_INVALID) < 0)
-                                return log_error_errno(errno, "chown() of %s via %s failed: %m", path, fn);
-                }
-        }
-
-        fd = safe_close(fd);
-
-        return label_fix(path, false, false);
+        return fd_set_perms(i, fd, path, NULL);
 }
 
 static int parse_xattrs_from_arg(Item *i) {
@@ -755,22 +933,36 @@ static int parse_xattrs_from_arg(Item *i) {
         return 0;
 }
 
-static int path_set_xattrs(Item *i, const char *path) {
+static int fd_set_xattrs(Item *i, int fd, const char *path, const struct stat *st) {
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         char **name, **value;
 
         assert(i);
+        assert(fd);
         assert(path);
 
-        STRV_FOREACH_PAIR(name, value, i->xattrs) {
-                int n;
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
-                n = strlen(*value);
+        STRV_FOREACH_PAIR(name, value, i->xattrs) {
                 log_debug("Setting extended attribute '%s=%s' on %s.", *name, *value, path);
-                if (lsetxattr(path, *name, *value, n, 0) < 0)
+                if (setxattr(procfs_path, *name, *value, strlen(*value), 0) < 0)
                         return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m",
                                                *name, *value, path);
         }
         return 0;
+}
+
+static int path_set_xattrs(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
+
+        assert(i);
+        assert(path);
+
+        fd = path_open_safe(path);
+        if (fd < 0)
+                return fd;
+
+        return fd_set_xattrs(i, fd, path, NULL);
 }
 
 static int parse_acls_from_arg(Item *item) {
@@ -838,43 +1030,66 @@ static int path_set_acl(const char *path, const char *pretty, acl_type_t type, a
 }
 #endif
 
-static int path_set_acls(Item *item, const char *path) {
+static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *st) {
         int r = 0;
 #if HAVE_ACL
-        char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-        _cleanup_close_ int fd = -1;
-        struct stat st;
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        struct stat stbuf;
 
         assert(item);
+        assert(fd);
         assert(path);
 
-        fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-        if (fd < 0)
-                return log_error_errno(errno, "Adjusting ACL of %s failed: %m", path);
+        if (!st) {
+                if (fstat(fd, &stbuf) < 0)
+                        return log_error_errno(errno, "fstat(%s) failed: %m", path);
+                st = &stbuf;
+        }
 
-        if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
-                return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
+        if (hardlink_vulnerable(st)) {
+                log_error("Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
+                return -EPERM;
+        }
 
-        if (S_ISLNK(st.st_mode)) {
+        if (S_ISLNK(st->st_mode)) {
                 log_debug("Skipping ACL fix for symlink %s.", path);
                 return 0;
         }
 
-        xsprintf(fn, "/proc/self/fd/%i", fd);
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
         if (item->acl_access)
-                r = path_set_acl(fn, path, ACL_TYPE_ACCESS, item->acl_access, item->force);
+                r = path_set_acl(procfs_path, path, ACL_TYPE_ACCESS, item->acl_access, item->force);
 
-        if (r == 0 && item->acl_default)
-                r = path_set_acl(fn, path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
+        /* set only default acls to folders */
+        if (r == 0 && item->acl_default && S_ISDIR(st->st_mode))
+                r = path_set_acl(procfs_path, path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
 
         if (r > 0)
                 return -r; /* already warned */
-        else if (r == -EOPNOTSUPP) {
+        if (r == -EOPNOTSUPP) {
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
                 return 0;
-        } else if (r < 0)
-                log_error_errno(r, "ACL operation on \"%s\" failed: %m", path);
+        }
+        if (r < 0)
+                return log_error_errno(r, "ACL operation on \"%s\" failed: %m", path);
+#endif
+        return r;
+}
+
+static int path_set_acls(Item *item, const char *path) {
+        int r = 0;
+#if HAVE_ACL
+        _cleanup_close_ int fd = -1;
+
+        assert(item);
+        assert(path);
+
+        fd = path_open_safe(path);
+        if (fd < 0)
+                return fd;
+
+        r = fd_set_acls(item, fd, path, NULL);
 #endif
         return r;
 }
@@ -978,30 +1193,29 @@ static int parse_attribute_from_arg(Item *item) {
         return 0;
 }
 
-static int path_set_attribute(Item *item, const char *path) {
-        _cleanup_close_ int fd = -1;
-        struct stat st;
+static int fd_set_attribute(Item *item, int fd, const char *path, const struct stat *st) {
+        _cleanup_close_ int procfs_fd = -1;
+        struct stat stbuf;
         unsigned f;
         int r;
+
+        assert(item);
+        assert(fd);
+        assert(path);
 
         if (!item->attribute_set || item->attribute_mask == 0)
                 return 0;
 
-        fd = open(path, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOATIME|O_NOFOLLOW);
-        if (fd < 0) {
-                if (errno == ELOOP)
-                        return log_error_errno(errno, "Skipping file attributes adjustment on symlink %s.", path);
-
-                return log_error_errno(errno, "Cannot open '%s': %m", path);
+        if (!st) {
+                if (fstat(fd, &stbuf) < 0)
+                        return log_error_errno(errno, "fstat(%s) failed: %m", path);
+                st = &stbuf;
         }
-
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Cannot stat '%s': %m", path);
 
         /* Issuing the file attribute ioctls on device nodes is not
          * safe, as that will be delivered to the drivers, not the
          * file system containing the device node. */
-        if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
+        if (!S_ISREG(st->st_mode) && !S_ISDIR(st->st_mode)) {
                 log_error("Setting file flags is only supported on regular files and directories, cannot set on '%s'.", path);
                 return -EINVAL;
         }
@@ -1009,143 +1223,275 @@ static int path_set_attribute(Item *item, const char *path) {
         f = item->attribute_value & item->attribute_mask;
 
         /* Mask away directory-specific flags */
-        if (!S_ISDIR(st.st_mode))
+        if (!S_ISDIR(st->st_mode))
                 f &= ~FS_DIRSYNC_FL;
 
-        r = chattr_fd(fd, f, item->attribute_mask);
+        procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
+        if (procfs_fd < 0)
+                return log_error_errno(procfs_fd, "Failed to re-open '%s': %m", path);
+
+        r = chattr_fd(procfs_fd, f, item->attribute_mask);
         if (r < 0)
                 log_full_errno(IN_SET(r, -ENOTTY, -EOPNOTSUPP) ? LOG_DEBUG : LOG_WARNING,
                                r,
-                               "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x: %m",
+                               "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
                                path, item->attribute_value, item->attribute_mask);
 
         return 0;
 }
 
-static int write_one_file(Item *i, const char *path) {
+static int path_set_attribute(Item *item, const char *path) {
         _cleanup_close_ int fd = -1;
-        int flags, r = 0;
-        struct stat st;
+
+        if (!item->attribute_set || item->attribute_mask == 0)
+                return 0;
+
+        fd = path_open_safe(path);
+        if (fd < 0)
+                return fd;
+
+        return fd_set_attribute(item, fd, path, NULL);
+}
+
+static int write_one_file(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1, dir_fd = -1;
+        char *bn;
+        int r;
 
         assert(i);
         assert(path);
+        assert(i->argument);
+        assert(i->type == WRITE_FILE);
 
-        flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND|O_NOFOLLOW :
-                i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC|O_NOFOLLOW : 0;
+        /* Validate the path and keep the fd on the directory for opening the
+         * file so we're sure that it can't be changed behind our back. */
+        dir_fd = path_open_parent_safe(path);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        bn = basename(path);
+
+        /* Follows symlinks */
+        fd = openat(dir_fd, bn, O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+        if (fd < 0) {
+                if (errno == ENOENT) {
+                        log_debug_errno(errno, "Not writing missing file \"%s\": %m", path);
+                        return 0;
+                }
+                return log_error_errno(errno, "Failed to open file \"%s\": %m", path);
+        }
+
+        /* 'w' is allowed to write into any kind of files. */
+        log_debug("Writing to \"%s\".", path);
+
+        r = loop_write(fd, i->argument, strlen(i->argument), false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+
+        return fd_set_perms(i, fd, path, NULL);
+}
+
+static int create_file(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1, dir_fd = -1;
+        struct stat stbuf, *st = NULL;
+        int r = 0;
+        char *bn;
+
+        assert(i);
+        assert(path);
+        assert(i->type == CREATE_FILE);
+
+        /* 'f' operates on regular files exclusively. */
+
+        /* Validate the path and keep the fd on the directory for opening the
+         * file so we're sure that it can't be changed behind our back. */
+        dir_fd = path_open_parent_safe(path);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        bn = basename(path);
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                fd = openat(dir_fd, bn, O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
                 mac_selinux_create_file_clear();
         }
 
         if (fd < 0) {
-                if (i->type == WRITE_FILE && errno == ENOENT) {
-                        log_debug_errno(errno, "Not writing \"%s\": %m", path);
-                        return 0;
+                /* Even on a read-only filesystem, open(2) returns EEXIST if the
+                 * file already exists. It returns EROFS only if it needs to
+                 * create the file. */
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create file %s: %m", path);
+
+                /* Re-open the file. At that point it must exist since open(2)
+                 * failed with EEXIST. We still need to check if the perms/mode
+                 * need to be changed. For read-only filesystems, we let
+                 * fd_set_perms() report the error if the perms need to be
+                 * modified. */
+                fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to re-open file %s: %m", path);
+
+                if (fstat(fd, &stbuf) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", path);
+
+                if (!S_ISREG(stbuf.st_mode)) {
+                        log_error("%s exists and is not a regular file.", path);
+                        return -EEXIST;
                 }
 
-                r = -errno;
-                if (!i->argument && errno == EROFS && stat(path, &st) == 0 &&
-                    (i->type == CREATE_FILE || st.st_size == 0))
-                        goto check_mode;
+                st = &stbuf;
+        } else {
 
-                return log_error_errno(r, "Failed to create file %s: %m", path);
-        }
-
-        if (i->argument) {
-                log_debug("%s to \"%s\".", i->type == CREATE_FILE ? "Appending" : "Writing", path);
-
-                r = loop_write(fd, i->argument, strlen(i->argument), false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write file \"%s\": %m", path);
-        } else
                 log_debug("\"%s\" has been created.", path);
 
-        fd = safe_close(fd);
+                if (i->argument) {
+                        log_debug("Writing to \"%s\".", path);
 
-        if (stat(path, &st) < 0)
-                return log_error_errno(errno, "stat(%s) failed: %m", path);
-
- check_mode:
-        if (!S_ISREG(st.st_mode)) {
-                log_error("%s is not a file.", path);
-                return -EEXIST;
+                        r = loop_write(fd, i->argument, strlen(i->argument), false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+                }
         }
 
-        r = path_set_perms(i, path);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return fd_set_perms(i, fd, path, st);
 }
 
-typedef int (*action_t)(Item *, const char *);
-
-static int item_do_children(Item *i, const char *path, action_t action) {
-        _cleanup_closedir_ DIR *d;
-        struct dirent *de;
+static int truncate_file(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1, dir_fd = -1;
+        struct stat stbuf, *st = NULL;
+        bool erofs = false;
         int r = 0;
+        char *bn;
 
         assert(i);
         assert(path);
+        assert(i->type == TRUNCATE_FILE);
 
-        /* This returns the first error we run into, but nevertheless
-         * tries to go on */
+        /* We want to operate on regular file exclusively especially since
+         * O_TRUNC is unspecified if the file is neither a regular file nor a
+         * fifo nor a terminal device. Therefore we first open the file and make
+         * sure it's a regular one before truncating it. */
 
-        d = opendir_nomod(path);
-        if (!d)
-                return IN_SET(errno, ENOENT, ENOTDIR, ELOOP) ? 0 : -errno;
+        /* Validate the path and keep the fd on the directory for opening the
+         * file so we're sure that it can't be changed behind our back. */
+        dir_fd = path_open_parent_safe(path);
+        if (dir_fd < 0)
+                return dir_fd;
 
-        FOREACH_DIRENT_ALL(de, d, r = -errno) {
-                _cleanup_free_ char *p = NULL;
-                int q;
+        bn = basename(path);
 
-                if (dot_or_dot_dot(de->d_name))
-                        continue;
+        RUN_WITH_UMASK(0000) {
+                mac_selinux_create_file_prepare(path, S_IFREG);
+                fd = openat(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                mac_selinux_create_file_clear();
+        }
 
-                p = strjoin(path, "/", de->d_name);
-                if (!p)
-                        return -ENOMEM;
+        if (fd < 0) {
+                if (errno != EROFS)
+                        return log_error_errno(errno, "Failed to open/create file %s: %m", path);
 
-                q = action(i, p);
-                if (q < 0 && q != -ENOENT && r == 0)
-                        r = q;
+                /* On a read-only filesystem, we don't want to fail if the
+                 * target is already empty and the perms are set. So we still
+                 * proceed with the sanity checks and let the remaining
+                 * operations fail with EROFS if they try to modify the target
+                 * file. */
 
-                if (IN_SET(de->d_type, DT_UNKNOWN, DT_DIR)) {
-                        q = item_do_children(i, p, action);
-                        if (q < 0 && r == 0)
-                                r = q;
+                fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
+                if (fd < 0) {
+                        if (errno == ENOENT) {
+                                log_error("Cannot create file %s on a read-only file system.", path);
+                                return -EROFS;
+                        }
+
+                        return log_error_errno(errno, "Failed to re-open file %s: %m", path);
+                }
+
+                erofs = true;
+        }
+
+        if (fstat(fd, &stbuf) < 0)
+                return log_error_errno(errno, "stat(%s) failed: %m", path);
+
+        if (!S_ISREG(stbuf.st_mode)) {
+                log_error("%s exists and is not a regular file.", path);
+                return -EEXIST;
+        }
+
+        if (stbuf.st_size > 0) {
+                if (ftruncate(fd, 0) < 0) {
+                        r = erofs ? -EROFS : -errno;
+                        return log_error_errno(r, "Failed to truncate file %s: %m", path);
+                }
+        } else
+                st = &stbuf;
+
+        log_debug("\"%s\" has been created.", path);
+
+        if (i->argument) {
+                log_debug("Writing to \"%s\".", path);
+
+                r = loop_write(fd, i->argument, strlen(i->argument), false);
+                if (r < 0) {
+                        r = erofs ? -EROFS : r;
+                        return log_error_errno(r, "Failed to write file %s: %m", path);
                 }
         }
 
-        return r;
+        return fd_set_perms(i, fd, path, st);
 }
 
-static int glob_item(Item *i, action_t action, bool recursive) {
-        _cleanup_globfree_ glob_t g = {
-                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
-        };
-        int r = 0, k;
-        char **fn;
+static int copy_files(Item *i) {
+        _cleanup_close_ int dfd = -1, fd = -1;
+        char *bn;
+        int r;
 
-        k = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
-        if (k < 0 && k != -ENOENT)
-                return log_error_errno(k, "glob(%s) failed: %m", i->path);
+        log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
 
-        STRV_FOREACH(fn, g.gl_pathv) {
-                k = action(i, *fn);
-                if (k < 0 && r == 0)
-                        r = k;
+        bn = basename(i->path);
 
-                if (recursive) {
-                        k = item_do_children(i, *fn, action);
-                        if (k < 0 && r == 0)
-                                r = k;
+        /* Validate the path and use the returned directory fd for copying the
+         * target so we're sure that the path can't be changed behind our
+         * back. */
+        dfd = path_open_parent_safe(i->path);
+        if (dfd < 0)
+                return dfd;
+
+        r = copy_tree_at(AT_FDCWD, i->argument,
+                         dfd, bn,
+                         i->uid_set ? i->uid : UID_INVALID,
+                         i->gid_set ? i->gid : GID_INVALID,
+                         COPY_REFLINK);
+        if (r < 0) {
+                struct stat a, b;
+
+                /* If the target already exists on read-only filesystems, trying
+                 * to create the target will not fail with EEXIST but with
+                 * EROFS. */
+                if (r == -EROFS && faccessat(dfd, bn, F_OK, AT_SYMLINK_NOFOLLOW) == 0)
+                        r = -EEXIST;
+
+                if (r != -EEXIST)
+                        return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
+
+                if (stat(i->argument, &a) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
+
+                if (fstatat(dfd, bn, &b, AT_SYMLINK_NOFOLLOW) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", i->path);
+
+                if ((a.st_mode ^ b.st_mode) & S_IFMT) {
+                        log_debug("Can't copy to %s, file exists already and is of different type", i->path);
+                        return 0;
                 }
         }
 
-        return r;
+        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+
+        return fd_set_perms(i, fd, i->path, NULL);
 }
 
 typedef enum {
@@ -1164,11 +1510,407 @@ static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
-static int create_item(Item *i) {
-        struct stat st;
-        int r = 0;
-        int q = 0;
+static int create_directory_or_subvolume(const char *path, mode_t mode, bool subvol, CreationMode *creation) {
+        _cleanup_close_ int pfd = -1;
+        CreationMode c;
+        int r;
+
+        assert(path);
+
+        if (!creation)
+                creation = &c;
+
+        pfd = path_open_parent_safe(path);
+        if (pfd < 0)
+                return pfd;
+
+        if (subvol) {
+                if (btrfs_is_subvol(empty_to_root(arg_root)) <= 0)
+
+                        /* Don't create a subvolume unless the root directory is
+                         * one, too. We do this under the assumption that if the
+                         * root directory is just a plain directory (i.e. very
+                         * light-weight), we shouldn't try to split it up into
+                         * subvolumes (i.e. more heavy-weight). Thus, chroot()
+                         * environments and suchlike will get a full brtfs
+                         * subvolume set up below their tree only if they
+                         * specifically set up a btrfs subvolume for the root
+                         * dir too. */
+
+                        subvol = false;
+                else {
+                        RUN_WITH_UMASK((~mode) & 0777)
+                                r = btrfs_subvol_make_fd(pfd, basename(path));
+                }
+        } else
+                r = 0;
+
+        if (!subvol || r == -ENOTTY)
+                RUN_WITH_UMASK(0000)
+                        r = mkdirat_label(pfd, basename(path), mode);
+
+        if (r < 0) {
+                int k;
+
+                if (!IN_SET(r, -EEXIST, -EROFS))
+                        return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", path);
+
+                k = is_dir_fd(pfd);
+                if (k == -ENOENT && r == -EROFS)
+                        return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", path);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to check if %s exists: %m", path);
+                if (!k) {
+                        log_warning("\"%s\" already exists and is not a directory.", path);
+                        return -EEXIST;
+                }
+
+                *creation = CREATION_EXISTING;
+        } else
+                *creation = CREATION_NORMAL;
+
+        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(*creation), path);
+
+        r = openat(pfd, basename(path), O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to open directory '%s': %m", basename(path));
+
+        return r;
+}
+
+static int create_directory(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
+
+        assert(i);
+        assert(IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY));
+
+        fd = create_directory_or_subvolume(path, i->mode, false, NULL);
+        if (fd == -EEXIST)
+                return 0;
+        if (fd < 0)
+                return fd;
+
+        return fd_set_perms(i, fd, path, NULL);
+}
+
+static int create_subvolume(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
         CreationMode creation;
+        int r, q = 0;
+
+        assert(i);
+        assert(IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
+
+        fd = create_directory_or_subvolume(path, i->mode, true, &creation);
+        if (fd == -EEXIST)
+                return 0;
+        if (fd < 0)
+                return fd;
+
+        if (creation == CREATION_NORMAL &&
+            IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
+                r = btrfs_subvol_auto_qgroup_fd(fd, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
+                if (r == -ENOTTY)
+                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
+                else if (r == -EROFS)
+                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (fs is read-only).", i->path);
+                else if (r == -ENOPROTOOPT)
+                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (quota support is disabled).", i->path);
+                else if (r < 0)
+                        q = log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
+                else if (r > 0)
+                        log_debug("Adjusted quota for subvolume \"%s\".", i->path);
+                else if (r == 0)
+                        log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
+        }
+
+        r = fd_set_perms(i, fd, path, NULL);
+        if (q < 0) /* prefer the quota change error from above */
+                return q;
+
+        return r;
+}
+
+static int empty_directory(Item *i, const char *path) {
+        int r;
+
+        assert(i);
+        assert(i->type == EMPTY_DIRECTORY);
+
+        r = is_dir(path, false);
+        if (r == -ENOENT) {
+                /* Option "e" operates only on existing objects. Do not
+                 * print errors about non-existent files or directories */
+                log_debug("Skipping missing directory: %s", path);
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "is_dir() failed on path %s: %m", path);
+        if (r == 0) {
+                log_error("'%s' already exists and is not a directory.", path);
+                return -EEXIST;
+        }
+
+        return path_set_perms(i, path);
+}
+
+static int create_device(Item *i, mode_t file_type) {
+        _cleanup_close_ int dfd = -1, fd = -1;
+        CreationMode creation;
+        char *bn;
+        int r;
+
+        assert(i);
+        assert(IN_SET(file_type, S_IFBLK, S_IFCHR));
+
+        bn = basename(i->path);
+
+        /* Validate the path and use the returned directory fd for copying the
+         * target so we're sure that the path can't be changed behind our
+         * back. */
+        dfd = path_open_parent_safe(i->path);
+        if (dfd < 0)
+                return dfd;
+
+        RUN_WITH_UMASK(0000) {
+                mac_selinux_create_file_prepare(i->path, file_type);
+                r = mknodat(dfd, bn, i->mode | file_type, i->major_minor);
+                mac_selinux_create_file_clear();
+        }
+
+        if (r < 0) {
+                struct stat st;
+
+                if (errno == EPERM) {
+                        log_debug("We lack permissions, possibly because of cgroup configuration; "
+                                  "skipping creation of device node %s.", i->path);
+                        return 0;
+                }
+
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
+
+                if (fstatat(dfd, bn, &st, 0) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", i->path);
+
+                if ((st.st_mode & S_IFMT) != file_type) {
+
+                        if (i->force) {
+
+                                RUN_WITH_UMASK(0000) {
+                                        mac_selinux_create_file_prepare(i->path, file_type);
+                                        /* FIXME: need to introduce mknodat_atomic() */
+                                        r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
+                                        mac_selinux_create_file_clear();
+                                }
+
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
+                                creation = CREATION_FORCE;
+                        } else {
+                                log_debug("%s is not a device node.", i->path);
+                                return 0;
+                        }
+                } else
+                        creation = CREATION_EXISTING;
+        } else
+                creation = CREATION_NORMAL;
+
+        log_debug("%s %s device node \"%s\" %u:%u.",
+                  creation_mode_verb_to_string(creation),
+                  i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
+                  i->path, major(i->mode), minor(i->mode));
+
+        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+
+        return fd_set_perms(i, fd, i->path, NULL);
+}
+
+static int create_fifo(Item *i, const char *path) {
+        _cleanup_close_ int pfd = -1, fd = -1;
+        CreationMode creation;
+        struct stat st;
+        char *bn;
+        int r;
+
+        pfd = path_open_parent_safe(path);
+        if (pfd < 0)
+                return pfd;
+
+        bn = basename(path);
+
+        RUN_WITH_UMASK(0000) {
+                mac_selinux_create_file_prepare(path, S_IFIFO);
+                r = mkfifoat(pfd, bn, i->mode);
+                mac_selinux_create_file_clear();
+        }
+
+        if (r < 0) {
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create fifo %s: %m", path);
+
+                if (fstatat(pfd, bn, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", path);
+
+                if (!S_ISFIFO(st.st_mode)) {
+
+                        if (i->force) {
+                                RUN_WITH_UMASK(0000) {
+                                        mac_selinux_create_file_prepare(path, S_IFIFO);
+                                        r = mkfifoat_atomic(pfd, bn, i->mode);
+                                        mac_selinux_create_file_clear();
+                                }
+
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create fifo %s: %m", path);
+                                creation = CREATION_FORCE;
+                        } else {
+                                log_warning("\"%s\" already exists and is not a fifo.", path);
+                                return 0;
+                        }
+                } else
+                        creation = CREATION_EXISTING;
+        } else
+                creation = CREATION_NORMAL;
+
+        log_debug("%s fifo \"%s\".", creation_mode_verb_to_string(creation), path);
+
+        fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to openat(%s): %m", path);
+
+        return fd_set_perms(i, fd, i->path, NULL);
+}
+
+typedef int (*action_t)(Item *i, const char *path);
+typedef int (*fdaction_t)(Item *i, int fd, const char *path, const struct stat *st);
+
+static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
+        struct stat st;
+        int r = 0, q;
+
+        assert(i);
+        assert(path);
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0) {
+                r = log_error_errno(errno, "fstat() on file failed: %m");
+                goto finish;
+        }
+
+        /* This returns the first error we run into, but nevertheless
+         * tries to go on */
+        r = action(i, fd, path, &st);
+
+        if (S_ISDIR(st.st_mode)) {
+                char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+                _cleanup_closedir_ DIR *d = NULL;
+                struct dirent *de;
+
+                /* The passed 'fd' was opened with O_PATH. We need to convert
+                 * it into a 'regular' fd before reading the directory content. */
+                xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+
+                d = opendir(procfs_path);
+                if (!d) {
+                        log_error_errno(errno, "Failed to opendir() '%s': %m", procfs_path);
+                        if (r == 0)
+                                r = -errno;
+                        goto finish;
+                }
+
+                FOREACH_DIRENT_ALL(de, d, q = -errno; goto finish) {
+                        int de_fd;
+
+                        if (dot_or_dot_dot(de->d_name))
+                                continue;
+
+                        de_fd = openat(fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                        if (de_fd < 0)
+                                q = log_error_errno(errno, "Failed to open() file '%s': %m", de->d_name);
+                        else {
+                                _cleanup_free_ char *de_path = NULL;
+
+                                de_path = path_join(NULL, path, de->d_name);
+                                if (!de_path)
+                                        q = log_oom();
+                                else
+                                        /* Pass ownership of dirent fd over */
+                                        q = item_do(i, de_fd, de_path, action);
+                        }
+
+                        if (q < 0 && r == 0)
+                                r = q;
+                }
+        }
+finish:
+        safe_close(fd);
+        return r;
+}
+
+static int glob_item(Item *i, action_t action) {
+        _cleanup_globfree_ glob_t g = {
+                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
+        };
+        int r = 0, k;
+        char **fn;
+
+        k = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        if (k < 0 && k != -ENOENT)
+                return log_error_errno(k, "glob(%s) failed: %m", i->path);
+
+        STRV_FOREACH(fn, g.gl_pathv) {
+                k = action(i, *fn);
+                if (k < 0 && r == 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+static int glob_item_recursively(Item *i, fdaction_t action) {
+        _cleanup_globfree_ glob_t g = {
+                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
+        };
+        int r = 0, k;
+        char **fn;
+
+        k = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        if (k < 0 && k != -ENOENT)
+                return log_error_errno(k, "glob(%s) failed: %m", i->path);
+
+        STRV_FOREACH(fn, g.gl_pathv) {
+                _cleanup_close_ int fd = -1;
+
+                /* Make sure we won't trigger/follow file object (such as
+                 * device nodes, automounts, ...) pointed out by 'fn' with
+                 * O_PATH. Note, when O_PATH is used, flags other than
+                 * O_CLOEXEC, O_DIRECTORY, and O_NOFOLLOW are ignored. */
+
+                fd = open(*fn, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                if (fd < 0) {
+                        log_error_errno(errno, "Opening '%s' failed: %m", *fn);
+                        if (r == 0)
+                                r = -errno;
+                        continue;
+                }
+
+                k = item_do(i, fd, *fn, action);
+                if (k < 0 && r == 0)
+                        r = k;
+
+                /* we passed fd ownership to the previous call */
+                fd = -1;
+        }
+
+        return r;
+}
+
+static int create_item(Item *i) {
+        CreationMode creation;
+        int r = 0;
 
         assert(i);
 
@@ -1183,45 +1925,34 @@ static int create_item(Item *i) {
                 return 0;
 
         case CREATE_FILE:
-        case TRUNCATE_FILE:
-                r = write_one_file(i, i->path);
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
+                r = create_file(i, i->path);
                 if (r < 0)
                         return r;
                 break;
 
-        case COPY_FILES: {
-                log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
-                r = copy_tree(i->argument, i->path, i->uid_set ? i->uid : UID_INVALID, i->gid_set ? i->gid : GID_INVALID, COPY_REFLINK);
+        case TRUNCATE_FILE:
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
 
-                if (r == -EROFS && stat(i->path, &st) == 0)
-                        r = -EEXIST;
-
-                if (r < 0) {
-                        struct stat a, b;
-
-                        if (r != -EEXIST)
-                                return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
-
-                        if (stat(i->argument, &a) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
-
-                        if (stat(i->path, &b) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if ((a.st_mode ^ b.st_mode) & S_IFMT) {
-                                log_debug("Can't copy to %s, file exists already and is of different type", i->path);
-                                return 0;
-                        }
-                }
-
-                r = path_set_perms(i, i->path);
+                r = truncate_file(i, i->path);
                 if (r < 0)
                         return r;
+                break;
 
+        case COPY_FILES:
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
+                r = copy_files(i);
+                if (r < 0)
+                        return r;
                 break;
 
         case WRITE_FILE:
-                r = glob_item(i, write_one_file, false);
+                r = glob_item(i, write_one_file);
                 if (r < 0)
                         return r;
 
@@ -1229,134 +1960,44 @@ static int create_item(Item *i) {
 
         case CREATE_DIRECTORY:
         case TRUNCATE_DIRECTORY:
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
+                r = create_directory(i, i->path);
+                if (r < 0)
+                        return r;
+                break;
+
         case CREATE_SUBVOLUME:
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
                 RUN_WITH_UMASK(0000)
-                        mkdir_parents_label(i->path, 0755);
+                        (void) mkdir_parents_label(i->path, 0755);
 
-                if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
-
-                        if (btrfs_is_subvol(isempty(arg_root) ? "/" : arg_root) <= 0)
-
-                                /* Don't create a subvolume unless the
-                                 * root directory is one, too. We do
-                                 * this under the assumption that if
-                                 * the root directory is just a plain
-                                 * directory (i.e. very light-weight),
-                                 * we shouldn't try to split it up
-                                 * into subvolumes (i.e. more
-                                 * heavy-weight). Thus, chroot()
-                                 * environments and suchlike will get
-                                 * a full brtfs subvolume set up below
-                                 * their tree only if they
-                                 * specifically set up a btrfs
-                                 * subvolume for the root dir too. */
-
-                                r = -ENOTTY;
-                        else {
-                                RUN_WITH_UMASK((~i->mode) & 0777)
-                                        r = btrfs_subvol_make(i->path);
-                        }
-                } else
-                        r = 0;
-
-                if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY)
-                        RUN_WITH_UMASK(0000)
-                                r = mkdir_label(i->path, i->mode);
-
-                if (r < 0) {
-                        int k;
-
-                        if (!IN_SET(r, -EEXIST, -EROFS))
-                                return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", i->path);
-
-                        k = is_dir(i->path, false);
-                        if (k == -ENOENT && r == -EROFS)
-                                return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", i->path);
-                        if (k < 0)
-                                return log_error_errno(k, "Failed to check if %s exists: %m", i->path);
-                        if (!k) {
-                                log_warning("\"%s\" already exists and is not a directory.", i->path);
-                                return 0;
-                        }
-
-                        creation = CREATION_EXISTING;
-                } else
-                        creation = CREATION_NORMAL;
-
-                log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), i->path);
-
-                if (IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
-                        r = btrfs_subvol_auto_qgroup(i->path, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
-                        if (r == -ENOTTY)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
-                        else if (r == -EROFS)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (fs is read-only).", i->path);
-                        else if (r == -ENOPROTOOPT)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (quota support is disabled).", i->path);
-                        else if (r < 0)
-                                q = log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
-                        else if (r > 0)
-                                log_debug("Adjusted quota for subvolume \"%s\".", i->path);
-                        else if (r == 0)
-                                log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
-                }
-
-                _fallthrough_;
-        case EMPTY_DIRECTORY:
-                r = path_set_perms(i, i->path);
-                if (q < 0)
-                        return q;
+                r = create_subvolume(i, i->path);
                 if (r < 0)
                         return r;
+                break;
 
+        case EMPTY_DIRECTORY:
+                r = glob_item(i, empty_directory);
+                if (r < 0)
+                        return r;
                 break;
 
         case CREATE_FIFO:
-                RUN_WITH_UMASK(0000) {
-                        mac_selinux_create_file_prepare(i->path, S_IFIFO);
-                        r = mkfifo(i->path, i->mode);
-                        mac_selinux_create_file_clear();
-                }
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
 
-                if (r < 0) {
-                        if (errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create fifo %s: %m", i->path);
-
-                        if (lstat(i->path, &st) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if (!S_ISFIFO(st.st_mode)) {
-
-                                if (i->force) {
-                                        RUN_WITH_UMASK(0000) {
-                                                mac_selinux_create_file_prepare(i->path, S_IFIFO);
-                                                r = mkfifo_atomic(i->path, i->mode);
-                                                mac_selinux_create_file_clear();
-                                        }
-
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to create fifo %s: %m", i->path);
-                                        creation = CREATION_FORCE;
-                                } else {
-                                        log_warning("\"%s\" already exists and is not a fifo.", i->path);
-                                        return 0;
-                                }
-                        } else
-                                creation = CREATION_EXISTING;
-                } else
-                        creation = CREATION_NORMAL;
-                log_debug("%s fifo \"%s\".", creation_mode_verb_to_string(creation), i->path);
-
-                r = path_set_perms(i, i->path);
+                r = create_fifo(i, i->path);
                 if (r < 0)
                         return r;
-
                 break;
-        }
 
         case CREATE_SYMLINK: {
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
                 mac_selinux_create_file_clear();
@@ -1375,7 +2016,7 @@ static int create_item(Item *i) {
                                         r = symlink_atomic(i->argument, i->path);
                                         mac_selinux_create_file_clear();
 
-                                        if (IN_SET(r, -EEXIST, -ENOTEMPTY)) {
+                                        if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
                                                 r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL);
                                                 if (r < 0)
                                                         return log_error_errno(r, "rm -fr %s failed: %m", i->path);
@@ -1402,119 +2043,69 @@ static int create_item(Item *i) {
         }
 
         case CREATE_BLOCK_DEVICE:
-        case CREATE_CHAR_DEVICE: {
-                mode_t file_type;
-
+        case CREATE_CHAR_DEVICE:
                 if (have_effective_cap(CAP_MKNOD) == 0) {
-                        /* In a container we lack CAP_MKNOD. We
-                        shouldn't attempt to create the device node in
-                        that case to avoid noise, and we don't support
-                        virtualized devices in containers anyway. */
+                        /* In a container we lack CAP_MKNOD. We shouldn't attempt to create the device node in that
+                         * case to avoid noise, and we don't support virtualized devices in containers anyway. */
 
                         log_debug("We lack CAP_MKNOD, skipping creation of device node %s.", i->path);
                         return 0;
                 }
 
-                file_type = i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR;
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
 
-                RUN_WITH_UMASK(0000) {
-                        mac_selinux_create_file_prepare(i->path, file_type);
-                        r = mknod(i->path, i->mode | file_type, i->major_minor);
-                        mac_selinux_create_file_clear();
-                }
-
-                if (r < 0) {
-                        if (errno == EPERM) {
-                                log_debug("We lack permissions, possibly because of cgroup configuration; "
-                                          "skipping creation of device node %s.", i->path);
-                                return 0;
-                        }
-
-                        if (errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
-
-                        if (lstat(i->path, &st) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if ((st.st_mode & S_IFMT) != file_type) {
-
-                                if (i->force) {
-
-                                        RUN_WITH_UMASK(0000) {
-                                                mac_selinux_create_file_prepare(i->path, file_type);
-                                                r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
-                                                mac_selinux_create_file_clear();
-                                        }
-
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
-                                        creation = CREATION_FORCE;
-                                } else {
-                                        log_debug("%s is not a device node.", i->path);
-                                        return 0;
-                                }
-                        } else
-                                creation = CREATION_EXISTING;
-                } else
-                        creation = CREATION_NORMAL;
-
-                log_debug("%s %s device node \"%s\" %u:%u.",
-                          creation_mode_verb_to_string(creation),
-                          i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
-                          i->path, major(i->mode), minor(i->mode));
-
-                r = path_set_perms(i, i->path);
+                r = create_device(i, i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
                 if (r < 0)
                         return r;
 
                 break;
-        }
 
         case ADJUST_MODE:
         case RELABEL_PATH:
-                r = glob_item(i, path_set_perms, false);
+                r = glob_item(i, path_set_perms);
                 if (r < 0)
                         return r;
                 break;
 
         case RECURSIVE_RELABEL_PATH:
-                r = glob_item(i, path_set_perms, true);
+                r = glob_item_recursively(i, fd_set_perms);
                 if (r < 0)
                         return r;
                 break;
 
         case SET_XATTR:
-                r = glob_item(i, path_set_xattrs, false);
+                r = glob_item(i, path_set_xattrs);
                 if (r < 0)
                         return r;
                 break;
 
         case RECURSIVE_SET_XATTR:
-                r = glob_item(i, path_set_xattrs, true);
+                r = glob_item_recursively(i, fd_set_xattrs);
                 if (r < 0)
                         return r;
                 break;
 
         case SET_ACL:
-                r = glob_item(i, path_set_acls, false);
+                r = glob_item(i, path_set_acls);
                 if (r < 0)
                         return r;
                 break;
 
         case RECURSIVE_SET_ACL:
-                r = glob_item(i, path_set_acls, true);
+                r = glob_item_recursively(i, fd_set_acls);
                 if (r < 0)
                         return r;
                 break;
 
         case SET_ATTRIBUTE:
-                r = glob_item(i, path_set_attribute, false);
+                r = glob_item(i, path_set_attribute);
                 if (r < 0)
                         return r;
                 break;
 
         case RECURSIVE_SET_ATTRIBUTE:
-                r = glob_item(i, path_set_attribute, true);
+                r = glob_item_recursively(i, fd_set_attribute);
                 if (r < 0)
                         return r;
                 break;
@@ -1564,7 +2155,7 @@ static int remove_item(Item *i) {
         case REMOVE_PATH:
         case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
-                return glob_item(i, remove_item_instance, false);
+                return glob_item(i, remove_item_instance);
 
         default:
                 return 0;
@@ -1631,14 +2222,14 @@ static int clean_item(Item *i) {
         case CREATE_SUBVOLUME:
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
-        case EMPTY_DIRECTORY:
         case TRUNCATE_DIRECTORY:
         case IGNORE_PATH:
         case COPY_FILES:
                 clean_item_instance(i, i->path);
                 return 0;
+        case EMPTY_DIRECTORY:
         case IGNORE_DIRECTORY_PATH:
-                return glob_item(i, clean_item_instance, false);
+                return glob_item(i, clean_item_instance);
         default:
                 return 0;
         }
@@ -1726,18 +2317,16 @@ static void item_array_free(ItemArray *a) {
         free(a);
 }
 
-static int item_compare(const void *a, const void *b) {
-        const Item *x = a, *y = b;
-
+static int item_compare(const Item *a, const Item *b) {
         /* Make sure that the ownership taking item is put first, so
          * that we first create the node, and then can adjust it */
 
-        if (takes_ownership(x->type) && !takes_ownership(y->type))
+        if (takes_ownership(a->type) && !takes_ownership(b->type))
                 return -1;
-        if (!takes_ownership(x->type) && takes_ownership(y->type))
+        if (!takes_ownership(a->type) && takes_ownership(b->type))
                 return 1;
 
-        return (int) x->type - (int) y->type;
+        return CMP(a->type, b->type);
 }
 
 static bool item_compatible(Item *a, Item *b) {
@@ -1841,7 +2430,44 @@ static int specifier_expansion_from_arg(Item *i) {
         return 0;
 }
 
-static int parse_line(const char *fname, unsigned line, const char *buffer) {
+static int patch_var_run(const char *fname, unsigned line, char **path) {
+        const char *k;
+        char *n;
+
+        assert(path);
+        assert(*path);
+
+        /* Optionally rewrites lines referencing /var/run/, to use /run/ instead. Why bother? tmpfiles merges lines in
+         * some cases and detects conflicts in others. If files/directories are specified through two equivalent lines
+         * this is problematic as neither case will be detected. Ideally we'd detect these cases by resolving symlinks
+         * early, but that's precisely not what we can do here as this code very likely is running very early on, at a
+         * time where the paths in question are not available yet, or even more importantly, our own tmpfiles rules
+         * might create the paths that are intermediary to the listed paths. We can't really cover the generic case,
+         * but the least we can do is cover the specific case of /var/run vs. /run, as /var/run is a legacy name for
+         * /run only, and we explicitly document that and require that on systemd systems the former is a symlink to
+         * the latter. Moreover files below this path are by far the primary usecase for tmpfiles.d/. */
+
+        k = path_startswith(*path, "/var/run/");
+        if (isempty(k)) /* Don't complain about other paths than /var/run, and not about /var/run itself either. */
+                return 0;
+
+        n = strjoin("/run/", k);
+        if (!n)
+                return log_oom();
+
+        /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation automatically, hence
+         * there's no immediate need for action by the user. However, in the interest of making things less confusing
+         * to the user, let's still inform the user that these snippets should really be updated. */
+
+        log_notice("[%s:%u] Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", fname, line, *path, n);
+
+        free(*path);
+        *path = n;
+
+        return 0;
+}
+
+static int parse_line(const char *fname, unsigned line, const char *buffer, bool *invalid_config) {
 
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         _cleanup_(item_free_contents) Item i = {};
@@ -1865,9 +2491,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         &group,
                         &age,
                         NULL);
-        if (r < 0)
+        if (r < 0) {
+                if (IN_SET(r, -EINVAL, -EBADSLT))
+                        /* invalid quoting and such or an unknown specifier */
+                        *invalid_config = true;
                 return log_error_errno(r, "[%s:%u] Failed to parse line: %m", fname, line);
-        else if (r < 2) {
+        } else if (r < 2) {
+                *invalid_config = true;
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
         }
@@ -1879,6 +2509,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         if (isempty(action)) {
+                *invalid_config = true;
                 log_error("[%s:%u] Command too short '%s'.", fname, line, action);
                 return -EINVAL;
         }
@@ -1889,6 +2520,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 else if (action[pos] == '+' && !force)
                         force = true;
                 else {
+                        *invalid_config = true;
                         log_error("[%s:%u] Unknown modifiers in command '%s'",
                                   fname, line, action);
                         return -EINVAL;
@@ -1905,10 +2537,17 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         i.force = force;
 
         r = specifier_printf(path, specifier_table, NULL, &i.path);
-        if (r == -ENOKEY)
+        if (r == -ENXIO)
                 return log_unresolvable_specifier(fname, line);
-        if (r < 0)
+        if (r < 0) {
+                if (IN_SET(r, -EINVAL, -EBADSLT))
+                        *invalid_config = true;
                 return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, path);
+        }
+
+        r = patch_var_run(fname, line, &i.path);
+        if (r < 0)
+                return r;
 
         switch (i.type) {
 
@@ -1945,6 +2584,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         case WRITE_FILE:
                 if (!i.argument) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Write file requires argument.", fname, line);
                         return -EBADMSG;
                 }
@@ -1956,11 +2596,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         if (!i.argument)
                                 return log_oom();
                 } else if (!path_is_absolute(i.argument)) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Source path is not absolute.", fname, line);
                         return -EBADMSG;
                 }
 
-                path_kill_slashes(i.argument);
+                path_simplify(i.argument, false);
                 break;
 
         case CREATE_CHAR_DEVICE:
@@ -1968,11 +2609,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 unsigned major, minor;
 
                 if (!i.argument) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Device file requires argument.", fname, line);
                         return -EBADMSG;
                 }
 
                 if (sscanf(i.argument, "%u:%u", &major, &minor) != 2) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Can't parse device file major/minor '%s'.", fname, line, i.argument);
                         return -EBADMSG;
                 }
@@ -1984,6 +2627,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case SET_XATTR:
         case RECURSIVE_SET_XATTR:
                 if (!i.argument) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Set extended attribute requires argument.", fname, line);
                         return -EBADMSG;
                 }
@@ -1995,6 +2639,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case SET_ACL:
         case RECURSIVE_SET_ACL:
                 if (!i.argument) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Set ACLs requires argument.", fname, line);
                         return -EBADMSG;
                 }
@@ -2006,35 +2651,43 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case SET_ATTRIBUTE:
         case RECURSIVE_SET_ATTRIBUTE:
                 if (!i.argument) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Set file attribute requires argument.", fname, line);
                         return -EBADMSG;
                 }
                 r = parse_attribute_from_arg(&i);
+                if (IN_SET(r, -EINVAL, -EBADSLT))
+                        *invalid_config = true;
                 if (r < 0)
                         return r;
                 break;
 
         default:
                 log_error("[%s:%u] Unknown command type '%c'.", fname, line, (char) i.type);
+                *invalid_config = true;
                 return -EBADMSG;
         }
 
         if (!path_is_absolute(i.path)) {
                 log_error("[%s:%u] Path '%s' not absolute.", fname, line, i.path);
+                *invalid_config = true;
                 return -EBADMSG;
         }
 
-        path_kill_slashes(i.path);
+        path_simplify(i.path, false);
 
         if (!should_include_path(i.path))
                 return 0;
 
         r = specifier_expansion_from_arg(&i);
-        if (r == -ENOKEY)
+        if (r == -ENXIO)
                 return log_unresolvable_specifier(fname, line);
-        if (r < 0)
+        if (r < 0) {
+                if (IN_SET(r, -EINVAL, -EBADSLT))
+                        *invalid_config = true;
                 return log_error_errno(r, "[%s:%u] Failed to substitute specifiers in argument: %m",
                                        fname, line);
+        }
 
         if (arg_root) {
                 char *p;
@@ -2050,10 +2703,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (!isempty(user) && !streq(user, "-")) {
                 const char *u = user;
 
-                r = get_user_creds(&u, &i.uid, NULL, NULL, NULL);
+                r = get_user_creds(&u, &i.uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
                 if (r < 0) {
-                        log_error("[%s:%u] Unknown user '%s'.", fname, line, user);
-                        return r;
+                        *invalid_config = true;
+                        return log_error_errno(r, "[%s:%u] Unknown user '%s'.", fname, line, user);
                 }
 
                 i.uid_set = true;
@@ -2062,8 +2715,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (!isempty(group) && !streq(group, "-")) {
                 const char *g = group;
 
-                r = get_group_creds(&g, &i.gid);
+                r = get_group_creds(&g, &i.gid, USER_CREDS_ALLOW_MISSING);
                 if (r < 0) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Unknown group '%s'.", fname, line, group);
                         return r;
                 }
@@ -2081,6 +2735,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
 
                 if (parse_mode(mm, &m) < 0) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Invalid mode '%s'.", fname, line, mode);
                         return -EBADMSG;
                 }
@@ -2099,6 +2754,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
 
                 if (parse_sec(a, &i.age) < 0) {
+                        *invalid_config = true;
                         log_error("[%s:%u] Invalid age '%s'.", fname, line, age);
                         return -EBADMSG;
                 }
@@ -2114,13 +2770,16 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 for (n = 0; n < existing->count; n++) {
                         if (!item_compatible(existing->items + n, &i)) {
-                                log_warning("[%s:%u] Duplicate line for path \"%s\", ignoring.",
-                                            fname, line, i.path);
+                                log_notice("[%s:%u] Duplicate line for path \"%s\", ignoring.",
+                                           fname, line, i.path);
                                 return 0;
                         }
                 }
         } else {
                 existing = new0(ItemArray, 1);
+                if (!existing)
+                        return log_oom();
+
                 r = ordered_hashmap_put(h, i.path, existing);
                 if (r < 0)
                         return log_oom();
@@ -2132,31 +2791,60 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         memcpy(existing->items + existing->count++, &i, sizeof(i));
 
         /* Sort item array, to enforce stable ordering of application */
-        qsort_safe(existing->items, existing->count, sizeof(Item), item_compare);
+        typesafe_qsort(existing->items, existing->count, item_compare);
 
         zero(i);
         return 0;
 }
 
-static void help(void) {
+static int cat_config(char **config_dirs, char **args) {
+        _cleanup_strv_free_ char **files = NULL;
+        int r;
+
+        r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, NULL);
+        if (r < 0)
+                return r;
+
+        return cat_files(NULL, files, 0);
+}
+
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-tmpfiles", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
                "  -h --help                 Show this help\n"
+               "     --user                 Execute user configuration\n"
                "     --version              Show package version\n"
+               "     --cat-config           Show configuration files\n"
                "     --create               Create marked files/directories\n"
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
-               "     --root=PATH            Operate on an alternate filesystem root\n",
-               program_invocation_short_name);
+               "     --root=PATH            Operate on an alternate filesystem root\n"
+               "     --replace=PATH         Treat arguments as replacement for PATH\n"
+               "     --no-pager             Do not pipe output into a pager\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_CAT_CONFIG,
+                ARG_USER,
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
@@ -2164,11 +2852,15 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PREFIX,
                 ARG_EXCLUDE_PREFIX,
                 ARG_ROOT,
+                ARG_REPLACE,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
                 { "help",           no_argument,         NULL, 'h'                },
+                { "user",           no_argument,         NULL, ARG_USER           },
                 { "version",        no_argument,         NULL, ARG_VERSION        },
+                { "cat-config",     no_argument,         NULL, ARG_CAT_CONFIG     },
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
@@ -2176,6 +2868,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 { "root",           required_argument,   NULL, ARG_ROOT           },
+                { "replace",        required_argument,   NULL, ARG_REPLACE        },
+                { "no-pager",       no_argument,         NULL, ARG_NO_PAGER       },
                 {}
         };
 
@@ -2189,11 +2883,18 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_CAT_CONFIG:
+                        arg_cat_config = true;
+                        break;
+
+                case ARG_USER:
+                        arg_user = true;
+                        break;
 
                 case ARG_CREATE:
                         arg_create = true;
@@ -2227,6 +2928,20 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_REPLACE:
+                        if (!path_is_absolute(optarg) ||
+                            !endswith(optarg, ".conf")) {
+                                log_error("The argument to --replace= must an absolute path to a config file");
+                                return -EINVAL;
+                        }
+
+                        arg_replace = optarg;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2234,15 +2949,25 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (!arg_clean && !arg_create && !arg_remove) {
+        if (!arg_clean && !arg_create && !arg_remove && !arg_cat_config) {
                 log_error("You need to specify at least one of --clean, --create or --remove.");
+                return -EINVAL;
+        }
+
+        if (arg_replace && arg_cat_config) {
+                log_error("Option --replace= is not supported with --cat-config");
+                return -EINVAL;
+        }
+
+        if (arg_replace && optind >= argc) {
+                log_error("When --replace= is given, some configuration items must be specified");
                 return -EINVAL;
         }
 
         return 1;
 }
 
-static int read_config_file(const char *fn, bool ignore_enoent) {
+static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
         _cleanup_fclose_ FILE *_f = NULL;
         FILE *f;
         char line[LINE_MAX];
@@ -2254,11 +2979,11 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         assert(fn);
 
         if (streq(fn, "-")) {
-                log_debug("Reading config from stdin.");
+                log_debug("Reading config from stdin…");
                 fn = "<stdin>";
                 f = stdin;
         } else {
-                r = search_and_fopen_nulstr(fn, "re", arg_root, conf_file_dirs, &_f);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &_f);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT) {
                                 log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
@@ -2267,13 +2992,14 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
 
                         return log_error_errno(r, "Failed to open '%s': %m", fn);
                 }
-                log_debug("Reading config file \"%s\".", fn);
+                log_debug("Reading config file \"%s\"…", fn);
                 f = _f;
         }
 
         FOREACH_LINE(line, f, break) {
                 char *l;
                 int k;
+                bool invalid_line = false;
 
                 v++;
 
@@ -2281,9 +3007,15 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 if (IN_SET(*l, 0, '#'))
                         continue;
 
-                k = parse_line(fn, v, l);
-                if (k < 0 && r == 0)
-                        r = k;
+                k = parse_line(fn, v, l, &invalid_line);
+                if (k < 0) {
+                        if (invalid_line)
+                                /* Allow reporting with a special code if the caller requested this */
+                                *invalid_config = true;
+                        else if (r == 0)
+                                /* The first error becomes our return value */
+                                r = k;
+                }
         }
 
         /* we have to determine age parameter for each entry of type X */
@@ -2323,10 +3055,50 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         return r;
 }
 
+static int parse_arguments(char **config_dirs, char **args, bool *invalid_config) {
+        char **arg;
+        int r;
+
+        STRV_FOREACH(arg, args) {
+                r = read_config_file(config_dirs, *arg, false, invalid_config);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int read_config_files(char **config_dirs, char **args, bool *invalid_config) {
+        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ char *p = NULL;
+        char **f;
+        int r;
+
+        r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, &p);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(f, files)
+                if (p && path_equal(*f, p)) {
+                        log_debug("Parsing arguments at position \"%s\"…", *f);
+
+                        r = parse_arguments(config_dirs, args, invalid_config);
+                        if (r < 0)
+                                return r;
+                } else
+                        /* Just warn, ignore result otherwise.
+                         * read_config_file() has some debug output, so no need to print anything. */
+                        (void) read_config_file(config_dirs, *f, true, invalid_config);
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
-        int r, k;
+        int r, k, r_process = 0;
         ItemArray *a;
         Iterator iterator;
+        _cleanup_strv_free_ char **config_dirs = NULL;
+        bool invalid_config = false;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -2335,6 +3107,35 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        if (arg_user) {
+                r = user_config_paths(&config_dirs);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to initialize configuration directory list: %m");
+                        goto finish;
+                }
+        } else {
+                config_dirs = strv_split_nulstr(CONF_PATHS_NULSTR("tmpfiles.d"));
+                if (!config_dirs) {
+                        r = log_oom();
+                        goto finish;
+                }
+        }
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *t = NULL;
+
+                t = strv_join(config_dirs, "\n\t");
+                if (t)
+                        log_debug("Looking for configuration files in (higher priority first):\n\t%s", t);
+        }
+
+        if (arg_cat_config) {
+                (void) pager_open(arg_no_pager, false);
+
+                r = cat_config(config_dirs, argv + optind);
+                goto finish;
+        }
 
         umask(0022);
 
@@ -2348,51 +3149,38 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = 0;
-
-        if (optind < argc) {
-                int j;
-
-                for (j = optind; j < argc; j++) {
-                        k = read_config_file(argv[j], false);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
-
-        } else {
-                _cleanup_strv_free_ char **files = NULL;
-                char **f;
-
-                r = conf_files_list_nulstr(&files, ".conf", arg_root, 0, conf_file_dirs);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enumerate tmpfiles.d files: %m");
-                        goto finish;
-                }
-
-                STRV_FOREACH(f, files) {
-                        k = read_config_file(*f, true);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
-        }
+        /* If command line arguments are specified along with --replace, read all
+         * configuration files and insert the positional arguments at the specified
+         * place. Otherwise, if command line arguments are specified, execute just
+         * them, and finally, without --replace= or any positional arguments, just
+         * read configuration and execute it.
+         */
+        if (arg_replace || optind >= argc)
+                r = read_config_files(config_dirs, argv + optind, &invalid_config);
+        else
+                r = parse_arguments(config_dirs, argv + optind, &invalid_config);
+        if (r < 0)
+                goto finish;
 
         /* The non-globbing ones usually create things, hence we apply
          * them first */
         ORDERED_HASHMAP_FOREACH(a, items, iterator) {
                 k = process_item_array(a);
-                if (k < 0 && r == 0)
-                        r = k;
+                if (k < 0 && r_process == 0)
+                        r_process = k;
         }
 
         /* The globbing ones usually alter things, hence we apply them
          * second. */
         ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
                 k = process_item_array(a);
-                if (k < 0 && r == 0)
-                        r = k;
+                if (k < 0 && r_process == 0)
+                        r_process = k;
         }
 
 finish:
+        pager_close();
+
         ordered_hashmap_free_with_destructor(items, item_array_free);
         ordered_hashmap_free_with_destructor(globs, item_array_free);
 
@@ -2404,5 +3192,12 @@ finish:
 
         mac_selinux_finish();
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        if (r < 0 || ERRNO_IS_RESOURCE(-r_process))
+                return EXIT_FAILURE;
+        else if (invalid_config)
+                return EX_DATAERR;
+        else if (r_process < 0)
+                return EX_CANTCREAT;
+        else
+                return EXIT_SUCCESS;
 }

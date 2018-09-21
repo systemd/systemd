@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-    This file is part of systemd.
-
-    Copyright 2014 Susant Sahani
-
-    systemd is free software; you can redistribute it and/or modify it
-    under the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 2.1 of the License, or
-    (at your option) any later version.
-
-    systemd is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License
-    along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <arpa/inet.h>
 #include <net/if.h>
@@ -25,6 +7,10 @@
 #include <linux/ip6_tunnel.h>
 
 #include "sd-netlink.h"
+
+#if HAVE_FOU_CMD_GET
+#include <linux/fou.h>
+#endif
 
 #include "conf-parser.h"
 #include "missing.h"
@@ -37,6 +23,7 @@
 
 #define DEFAULT_TNL_HOP_LIMIT   64
 #define IP6_FLOWINFO_FLOWLABEL  htobe32(0x000FFFFF)
+#define IP6_TNL_F_ALLOW_LOCAL_REMOTE 0x40
 
 static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
         [NETDEV_IP6_TNL_MODE_IP6IP6] = "ip6ip6",
@@ -60,7 +47,6 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
-
         }
 
         r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
@@ -79,6 +65,21 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
 
+        if (t->fou_tunnel) {
+
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_TYPE, t->fou_encap_type);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_TYPE attribute: %m");
+
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_SPORT, htobe16(t->encap_src_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_SPORT attribute: %m");
+
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_DPORT, htobe16(t->fou_destination_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_DPORT attribute: %m");
+        }
+
         return r;
 }
 
@@ -95,7 +96,6 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
-
         }
 
         r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
@@ -336,6 +336,9 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (t->copy_dscp)
                 t->flags |= IP6_TNL_F_RCV_DSCP_COPY;
 
+        if (t->allow_localremote != -1)
+                SET_FLAG(t->flags, IP6_TNL_F_ALLOW_LOCAL_REMOTE, t->allow_localremote);
+
         if (t->encap_limit != IPV6_DEFAULT_TNL_ENCAP_LIMIT) {
                 r = sd_netlink_message_append_u8(m, IFLA_IPTUN_ENCAP_LIMIT, t->encap_limit);
                 if (r < 0)
@@ -412,10 +415,10 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 return -EINVAL;
         }
 
-        if (netdev->kind == NETDEV_KIND_VTI &&
+        if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_GRE, NETDEV_KIND_GRETAP) &&
             (t->family != AF_INET || in_addr_is_null(t->family, &t->local))) {
                 log_netdev_error(netdev,
-                                 "vti tunnel without a local IPv4 address configured in %s. Ignoring", filename);
+                                 "vti/ipip/gre/gretap tunnel without a local IPv4 address configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
@@ -430,6 +433,11 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
             t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID) {
                 log_netdev_error(netdev,
                                  "ip6tnl without mode configured in %s. Ignoring", filename);
+                return -EINVAL;
+        }
+
+        if (t->fou_tunnel && t->fou_destination_port <= 0) {
+                log_netdev_error(netdev, "FooOverUDP missing port configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
@@ -616,6 +624,7 @@ static void ipip_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
+        t->fou_encap_type = FOU_ENCAP_DIRECT;
 }
 
 static void sit_init(NetDev *n) {
@@ -682,6 +691,7 @@ static void ip6tnl_init(NetDev *n) {
         t->encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
         t->ip6tnl_mode = _NETDEV_IP6_TNL_MODE_INVALID;
         t->ipv6_flowlabel = _NETDEV_IPV6_FLOWLABEL_INVALID;
+        t->allow_localremote = -1;
 }
 
 const NetDevVTable ipip_vtable = {

@@ -1,41 +1,15 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.exec">
   <refentryinfo>
     <title>systemd.exec</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -107,6 +81,9 @@
   <refsect1>
     <title>Paths</title>
 
+    <para>The following settings may be used to change a service's view of the filesystem. Please note that the paths
+    must be absolute and must not contain a <literal>..</literal> path component.</para>
+
     <variablelist class='unit-directives'>
 
       <varlistentry>
@@ -147,7 +124,16 @@
         partition table, or a file system within an MBR/MS-DOS or GPT partition table with only a single
         Linux-compatible partition, or a set of file systems within a GPT partition table that follows the <ulink
         url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable Partitions
-        Specification</ulink>.</para></listitem>
+        Specification</ulink>.</para>
+
+        <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or <literal>strict</literal>,
+        or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is set, then this setting adds
+        <filename>/dev/loop-control</filename> with <constant>rw</constant> mode, <literal>block-loop</literal> and
+        <literal>block-blkext</literal> with <constant>rwm</constant> mode to <varname>DeviceAllow=</varname>. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>. Also, see
+        <varname>PrivateDevices=</varname> below, as it may change the setting of <varname>DevicePolicy=</varname>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -175,7 +161,9 @@
         source path, destination path and option string, where the latter two are optional. If only a source path is
         specified the source and destination is taken to be the same. The option string may be either
         <literal>rbind</literal> or <literal>norbind</literal> for configuring a recursive or non-recursive bind
-        mount. If the destination path is omitted, the option string must be omitted too.</para>
+        mount. If the destination path is omitted, the option string must be omitted too.
+        Each bind mount definition may be prefixed with <literal>-</literal>, in which case it will be ignored
+        when its source path does not exist.</para>
 
         <para><varname>BindPaths=</varname> creates regular writable bind mounts (unless the source file system mount
         is already marked read-only), while <varname>BindReadOnlyPaths=</varname> creates read-only bind mounts. These
@@ -324,7 +312,7 @@
         inverted. Note that this option also affects the respective capabilities in the effective, permitted and
         inheritable capability sets. If this option is not used, the capability bounding set is not modified on process
         execution, hence no limits on the capabilities of the process are enforced. This option may appear more than
-        once, in which case the bounding sets are merged by <constant>AND</constant>, or by <constant>OR</constant> if
+        once, in which case the bounding sets are merged by <constant>OR</constant>, or by <constant>AND</constant> if
         the lines are prefixed with <literal>~</literal> (see below). If the empty string is assigned to this option,
         the bounding set is reset to the empty capability set, and all prior settings have no effect.  If set to
         <literal>~</literal> (without any further argument), the bounding set is reset to the full set of available
@@ -364,7 +352,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     </variablelist>
   </refsect1>
 
-
   <refsect1>
     <title>Security</title>
 
@@ -376,12 +363,14 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Takes a boolean argument. If true, ensures that the service process and all its children can
         never gain new privileges through <function>execve()</function> (e.g. via setuid or setgid bits, or filesystem
         capabilities). This is the simplest and most effective way to ensure that a process and its children can never
-        elevate privileges again. Defaults to false, but certain settings force <varname>NoNewPrivileges=yes</varname>,
-        ignoring the value of this setting.  This is the case when <varname>SystemCallFilter=</varname>,
+        elevate privileges again. Defaults to false, but certain settings override this and ignore the value of this
+        setting.  This is the case when <varname>SystemCallFilter=</varname>,
         <varname>SystemCallArchitectures=</varname>, <varname>RestrictAddressFamilies=</varname>,
         <varname>RestrictNamespaces=</varname>, <varname>PrivateDevices=</varname>,
         <varname>ProtectKernelTunables=</varname>, <varname>ProtectKernelModules=</varname>,
-        <varname>MemoryDenyWriteExecute=</varname>, or <varname>RestrictRealtime=</varname> are specified. Also see
+        <varname>MemoryDenyWriteExecute=</varname>, <varname>RestrictRealtime=</varname>, or
+        <varname>LockPersonality=</varname> are specified. Note that even if this setting is overridden by them,
+        <command>systemctl show</command> shows the original value of this setting. Also see
         <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges
         Flag</ulink>.  </para></listitem>
       </varlistentry>
@@ -629,8 +618,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         processes. In this modes multiple units running processes under the same user ID may share key material. Unless
         <option>inherit</option> is selected the unique invocation ID for the unit (see below) is added as a protected
         key by the name <literal>invocation_id</literal> to the newly created session keyring. Defaults to
-        <option>private</option> for the system service manager and to <option>inherit</option> for the user service
-        manager.</para></listitem>
+        <option>private</option> for services of the system service manager and to <option>inherit</option> for
+        non-service units and for services of the user service manager.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -738,7 +727,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Sets the I/O scheduling class for executed processes. Takes an integer between 0 and 3 or one
         of the strings <option>none</option>, <option>realtime</option>, <option>best-effort</option> or
-        <option>idle</option>. See
+        <option>idle</option>. If the empty string is assigned to this option, all prior assignments to both
+        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect. See
         <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -748,16 +738,26 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Sets the I/O scheduling priority for executed processes. Takes an integer between 0 (highest
         priority) and 7 (lowest priority). The available priorities depend on the selected I/O scheduling class (see
-        above). See <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        above). If the empty string is assigned to this option, all prior assignments to both
+        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect.
+        See <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
 
     </variablelist>
   </refsect1>
 
-
   <refsect1>
     <title>Sandboxing</title>
+
+    <para>The following sandboxing options are an effective way to limit the exposure of the system towards the unit's
+    processes. It is recommended to turn on as many of these options for each unit as is possible without negatively
+    affecting the process' ability to operate. Note that many of these sandboxing features are gracefully turned off on
+    systems where the underlying security mechanism is not available. For example, <varname>ProtectSystem=</varname>
+    has no effect if the kernel is built without file system namespacing or if the service manager runs in a container
+    manager that makes file system namespacing unavailable to its payload. Similar,
+    <varname>RestrictRealtime=</varname> has no effect on systems that lack support for SECCOMP system call filtering,
+    or in containers where support for this is turned off.</para>
 
     <variablelist>
 
@@ -784,14 +784,24 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>ProtectHome=</varname></term>
 
-        <listitem><para>Takes a boolean argument or <literal>read-only</literal>. If true, the directories
-        <filename>/home</filename>, <filename>/root</filename> and <filename>/run/user</filename> are made inaccessible
-        and empty for processes invoked by this unit. If set to <literal>read-only</literal>, the three directories are
-        made read-only instead. It is recommended to enable this setting for all long-running services (in particular
-        network-facing ones), to ensure they cannot get access to private user data, unless the services actually
-        require access to the user's private data. This setting is implied if <varname>DynamicUser=</varname> is
-        set. For this setting the same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see below.</para></listitem>
+        <listitem><para>Takes a boolean argument or the special values <literal>read-only</literal> or
+        <literal>tmpfs</literal>. If true, the directories <filename>/home</filename>, <filename>/root</filename> and
+        <filename>/run/user</filename> are made inaccessible and empty for processes invoked by this unit. If set to
+        <literal>read-only</literal>, the three directories are made read-only instead. If set to <literal>tmpfs</literal>,
+        temporary file systems are mounted on the three directories in read-only mode. The value <literal>tmpfs</literal>
+        is useful to hide home directories not relevant to the processes invoked by the unit, while necessary directories
+        are still visible by combining with <varname>BindPaths=</varname> or <varname>BindReadOnlyPaths=</varname>.</para>
+
+        <para>Setting this to <literal>yes</literal> is mostly equivalent to set the three directories in
+        <varname>InaccessiblePaths=</varname>. Similarly, <literal>read-only</literal> is mostly equivalent to
+        <varname>ReadOnlyPaths=</varname>, and <literal>tmpfs</literal> is mostly equivalent to
+        <varname>TemporaryFileSystem=</varname>.</para>
+
+        <para> It is recommended to enable this setting for all long-running services (in particular network-facing ones),
+        to ensure they cannot get access to private user data, unless the services actually require access to the user's
+        private data. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same
+        restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related
+        calls, see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -802,13 +812,48 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>ConfigurationDirectory=</varname></term>
 
         <listitem><para>These options take a whitespace-separated list of directory names. The specified directory
-        names must be relative, and may not include <literal>.</literal> or <literal>..</literal>. If set, one or more
-        directories by the specified names will be created (including their parents) below <filename>/run</filename>
-        (or <varname>$XDG_RUNTIME_DIR</varname> for user services), <filename>/var/lib</filename> (or
-        <varname>$XDG_CONFIG_HOME</varname> for user services), <filename>/var/cache</filename> (or
-        <varname>$XDG_CACHE_HOME</varname> for user services), <filename>/var/log</filename> (or
-        <varname>$XDG_CONFIG_HOME</varname><filename>/log</filename> for user services), or <filename>/etc</filename>
-        (or <varname>$XDG_CONFIG_HOME</varname> for user services), respectively, when the unit is started.</para>
+        names must be relative, and may not include <literal>..</literal>. If set, one or more
+        directories by the specified names will be created (including their parents) below the locations
+        defined in the following table, when the unit is started.</para>
+        <table>
+          <title>Automatic directory creation</title>
+          <tgroup cols='3'>
+            <thead>
+              <row>
+                <entry>Locations</entry>
+                <entry>for system</entry>
+                <entry>for users</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><varname>RuntimeDirectory=</varname></entry>
+                <entry><filename>/run</filename></entry>
+                <entry><varname>$XDG_RUNTIME_DIR</varname></entry>
+              </row>
+              <row>
+                <entry><varname>StateDirectory=</varname></entry>
+                <entry><filename>/var/lib</filename></entry>
+                <entry><varname>$XDG_CONFIG_HOME</varname></entry>
+              </row>
+              <row>
+                <entry><varname>CacheDirectory=</varname></entry>
+                <entry><filename>/var/cache</filename></entry>
+                <entry><varname>$XDG_CACHE_HOME</varname></entry>
+              </row>
+              <row>
+                <entry><varname>LogsDirectory=</varname></entry>
+                <entry><filename>/var/log</filename></entry>
+                <entry><varname>$XDG_CONFIG_HOME</varname><filename>/log</filename></entry>
+              </row>
+              <row>
+                <entry><varname>ConfigurationDirectory=</varname></entry>
+                <entry><filename>/etc</filename></entry>
+                <entry><varname>$XDG_CONFIG_HOME</varname></entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <para>In case of <varname>RuntimeDirectory=</varname> the lowest subdirectories are removed when the unit is
         stopped. It is possible to preserve the specified directories in this case if
@@ -902,9 +947,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         reading only, writing will be refused even if the usual file access controls would permit this. Nest
         <varname>ReadWritePaths=</varname> inside of <varname>ReadOnlyPaths=</varname> in order to provide writable
         subdirectories within read-only directories. Use <varname>ReadWritePaths=</varname> in order to whitelist
-        specific paths for write access if <varname>ProtectSystem=strict</varname> is used. Paths listed in
-        <varname>InaccessiblePaths=</varname> will be made inaccessible for processes inside the namespace (along with
-        everything below them in the file system hierarchy).</para>
+        specific paths for write access if <varname>ProtectSystem=strict</varname> is used.</para>
+
+        <para>Paths listed in <varname>InaccessiblePaths=</varname> will be made inaccessible for processes inside
+        the namespace along with everything below them in the file system hierarchy. This may be more restrictive than
+        desired, because it is not possible to nest <varname>ReadWritePaths=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>BindPaths=</varname>, or <varname>BindReadOnlyPaths=</varname> inside it. For a more flexible option,
+        see <varname>TemporaryFileSystem=</varname>.</para>
 
         <para>Note that restricting access with these options does not extend to submounts of a directory that are
         created later on.  Non-directory paths may be specified as well. These options may be specified more than once,
@@ -926,6 +975,29 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         unit it is thus recommended to combine these settings with either
         <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or
         <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TemporaryFileSystem=</varname></term>
+
+        <listitem><para>Takes a space-separated list of mount points for temporary file systems (tmpfs). If set, a new file
+        system namespace is set up for executed processes, and a temporary file system is mounted on each mount point.
+        This option may be specified more than once, in which case temporary file systems are mounted on all listed mount
+        points. If the empty string is assigned to this option, the list is reset, and all prior assignments have no effect.
+        Each mount point may optionally be suffixed with a colon (<literal>:</literal>) and mount options such as
+        <literal>size=10%</literal> or <literal>ro</literal>. By default, each temporary file system is mounted
+        with <literal>nodev,strictatime,mode=0755</literal>. These can be disabled by explicitly specifying the corresponding
+        mount options, e.g., <literal>dev</literal> or <literal>nostrictatime</literal>.</para>
+
+        <para>This is useful to hide files or directories not relevant to the processes invoked by the unit, while necessary
+        files or directories can be still accessed by combining with <varname>BindPaths=</varname> or
+        <varname>BindReadOnlyPaths=</varname>. See the example below.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>TemporaryFileSystem=/var:ro
+BindReadOnlyPaths=/var/lib/systemd</programlisting>
+        then the invoked processes by the unit cannot see any files or directories under <filename>/var</filename> except for
+        <filename>/var/lib/systemd</filename> or its contents.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -992,9 +1064,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         Defaults to false. It is possible to run two or more units within the same private network namespace by using
         the <varname>JoinsNamespaceOf=</varname> directive, see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details. Note that this option will disconnect all socket families from the host, this includes AF_NETLINK and
-        AF_UNIX.  The latter has the effect that AF_UNIX sockets in the abstract socket namespace will become
-        unavailable to the processes (however, those located in the file system will continue to be accessible).</para>
+        details. Note that this option will disconnect all socket families from the host, including
+        <constant>AF_NETLINK</constant> and <constant>AF_UNIX</constant>. Effectively, for
+        <constant>AF_NETLINK</constant> this means that device configuration events received from
+        <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> are
+        not delivered to the unit's processes. And for <constant>AF_UNIX</constant> this has the effect that
+        <constant>AF_UNIX</constant> sockets in the abstract socket namespace of the host will become unavailable to
+        the unit's processes (however, those located in the file system will continue to be accessible).</para>
 
         <para>Note that the implementation of this setting might be impossible (for example if network namespaces are
         not available), and the unit should be written in a way that does not solely rely on this setting for
@@ -1051,9 +1127,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>ProtectKernelModules=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, explicit module loading will be denied. This allows to turn
-        off module load and unload operations on modular kernels. It is recommended to turn this on for most services
-        that do not need special file systems or extra kernel modules to work. Default to off. Enabling this option
+        <listitem><para>Takes a boolean argument. If true, explicit module loading will be denied. This allows
+        module load and unload operations to be turned off on modular kernels. It is recommended to turn this on for most services
+        that do not need special file systems or extra kernel modules to work. Defaults to off. Enabling this option
         removes <constant>CAP_SYS_MODULE</constant> from the capability bounding set for the unit, and installs a
         system call filter to block module system calls, also <filename>/usr/lib/modules</filename> is made
         inaccessible. For this setting the same restrictions regarding mount propagation and privileges apply as for
@@ -1126,7 +1202,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         prohibited (whitelisting). By prepending the list with a single tilde character (<literal>~</literal>) the
         effect may be inverted: only the listed namespace types will be made inaccessible, all unlisted ones are
         permitted (blacklisting). If the empty string is assigned, the default namespace restrictions are applied,
-        which is equivalent to false. Internally, this setting limits access to the
+        which is equivalent to false. This option may appear more than once, in which case the namespace types are
+        merged by <constant>OR</constant>, or by <constant>AND</constant> if the lines are prefixed with
+        <literal>~</literal> (see examples below). Internally, this setting limits access to the
         <citerefentry><refentrytitle>unshare</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry> and
         <citerefentry><refentrytitle>setns</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls, taking
@@ -1136,7 +1214,16 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         supported on x86, x86-64, mips, mips-le, mips64, mips64-le, mips64-n32, mips64-le-n32, ppc64, ppc64-le, s390
         and s390x, and enforces no restrictions on other architectures. If running in user mode, or in system mode, but
         without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied.  </para></listitem>
+        <varname>NoNewPrivileges=yes</varname> is implied.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>RestrictNamespaces=cgroup ipc
+RestrictNamespaces=cgroup net</programlisting>
+        then <constant>cgroup</constant>, <constant>ipc</constant>, and <constant>net</constant> are set.
+        If the second line is prefixed with <literal>~</literal>, e.g.,
+        <programlisting>RestrictNamespaces=cgroup ipc
+RestrictNamespaces=~cgroup net</programlisting>
+        then, only <constant>ipc</constant> is set.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1203,27 +1290,68 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PrivateMounts=</varname></term>
+
+        <listitem><para>Takes a boolean parameter. If set, the processes of this unit will be run in their own private
+        file system (mount) namespace with all mount propagation from the processes towards the host's main file system
+        namespace turned off. This means any file system mount points established or removed by the unit's processes
+        will be private to them and not be visible to the host. However, file system mount points established or
+        removed on the host will be propagated to the unit's processes. See <citerefentry
+        project='man-pages'><refentrytitle>mount_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details on file system namespaces. Defaults to off.</para>
+
+        <para>When turned on, this executes three operations for each invoked process: a new
+        <constant>CLONE_NEWNS</constant> namespace is created, after which all existing mounts are remounted to
+        <constant>MS_SLAVE</constant> to disable propagation from the unit's processes to the host (but leaving
+        propagation in the opposite direction in effect). Finally, the mounts are remounted again to the propagation
+        mode configured with <varname>MountFlags=</varname>, see below.</para>
+
+        <para>File system namespaces are set up individually for each process forked off by the service manager. Mounts
+        established in the namespace of the process created by <varname>ExecStartPre=</varname> will hence be cleaned
+        up automatically as soon as that process exits and will not be available to subsequent processes forked off for
+        <varname>ExecStart=</varname> (and similar applies to the various other commands configured for
+        units). Similarly, <varname>JoinsNamespaceOf=</varname> does not permit sharing kernel mount namespaces between
+        units, it only enables sharing of the <filename>/tmp/</filename> and <filename>/var/tmp/</filename>
+        directories.</para>
+
+        <para>Other file system namespace unit settings — <varname>PrivateMounts=</varname>,
+        <varname>PrivateTmp=</varname>, <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
+        <varname>ProtectHome=</varname>, <varname>ReadOnlyPaths=</varname>, <varname>InaccessiblePaths=</varname>,
+        <varname>ReadWritePaths=</varname>, … — also enable file system namespacing in a fashion equivalent to this
+        option. Hence it is primarily useful to explicitly request this behaviour if none of the other settings are
+        used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MountFlags=</varname></term>
 
-        <listitem><para>Takes a mount propagation flag: <option>shared</option>, <option>slave</option> or
-        <option>private</option>, which control whether mounts in the file system namespace set up for this unit's
-        processes will receive or propagate mounts and unmounts. See <citerefentry
-        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
-        details. Defaults to <option>shared</option>. Use <option>shared</option> to ensure that mounts and unmounts
-        are propagated from systemd's namespace to the service's namespace and vice versa. Use <option>slave</option>
-        to run processes so that none of their mounts and unmounts will propagate to the host. Use
-        <option>private</option> to also ensure that no mounts and unmounts from the host will propagate into the unit
-        processes' namespace.  If this is set to <option>slave</option> or <option>private</option>, any mounts created
-        by spawned processes will be unmounted after the completion of the current command line of
-        <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>, <varname>ExecStart=</varname>, and
-        <varname>ExecStopPost=</varname>. Note that <option>slave</option> means that file systems mounted on the host
-        might stay mounted continuously in the unit's namespace, and thus keep the device busy. Note that the file
-        system namespace related options (<varname>PrivateTmp=</varname>, <varname>PrivateDevices=</varname>,
-        <varname>ProtectSystem=</varname>, <varname>ProtectHome=</varname>, <varname>ProtectKernelTunables=</varname>,
-        <varname>ProtectControlGroups=</varname>, <varname>ReadOnlyPaths=</varname>,
-        <varname>InaccessiblePaths=</varname>, <varname>ReadWritePaths=</varname>) require that mount and unmount
-        propagation from the unit's file system namespace is disabled, and hence downgrade <option>shared</option> to
-        <option>slave</option>. </para></listitem>
+        <listitem><para>Takes a mount propagation setting: <option>shared</option>, <option>slave</option> or
+        <option>private</option>, which controls whether file system mount points in the file system namespaces set up
+        for this unit's processes will receive or propagate mounts and unmounts from other file system namespaces. See
+        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        for details on mount propagation, and the three propagation flags in particular.</para>
+
+        <para>This setting only controls the <emphasis>final</emphasis> propagation setting in effect on all mount
+        points of the file system namespace created for each process of this unit. Other file system namespacing unit
+        settings (see the discussion in <varname>PrivateMounts=</varname> above) will implicitly disable mount and
+        unmount propagation from the unit's processes towards the host by changing the propagation setting of all mount
+        points in the unit's file system namepace to <option>slave</option> first. Setting this option to
+        <option>shared</option> does not reestablish propagation in that case. Conversely, if this option is set, but
+        no other file system namespace setting is used, then new file system namespaces will be created for the unit's
+        processes and this propagation flag will be applied right away to all mounts within it, without the
+        intermediary application of <option>slave</option>.</para>
+
+        <para>If not set – but file system namespaces are enabled through another file system namespace unit setting –
+        <option>shared</option> mount propagation is used, but — as mentioned — as <option>slave</option> is applied
+        first, propagation from the unit's processes to the host is still turned off.</para>
+
+        <para>It is not recommended to to use <option>private</option> mount propagation for units, as this means
+        temporary mounts (such as removable media) of the host will stay mounted and thus indefinitely busy in forked
+        off processes, as unmount propagation events won't be received by the file system namespace of the unit.</para>
+
+        <para>Usually, it is best to leave this setting unmodified, and use higher level file system namespacing
+        options instead, in particular <varname>PrivateMounts=</varname>, see above.</para>
+        </listitem>
       </varlistentry>
 
     </variablelist>
@@ -1388,6 +1516,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>Synchronizing files and memory to disk: (<citerefentry project='man-pages'><refentrytitle>fsync</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>msync</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
               <row>
+                <entry>@system-service</entry>
+                <entry>A reasonable set of system calls used by common system services, excluding any special purpose calls. This is the recommended starting point for whitelisting system calls for system services, as it contains what is typically needed by system services, but excludes overly specific interfaces. For example, the following APIs are excluded: <literal>@clock</literal>, <literal>@mount</literal>, <literal>@swap</literal>, <literal>@reboot</literal>.</entry>
+              </row>
+              <row>
                 <entry>@timer</entry>
                 <entry>System calls for scheduling operations by time (<citerefentry project='man-pages'><refentrytitle>alarm</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>timer_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>, …)</entry>
               </row>
@@ -1400,6 +1532,14 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         depends on the kernel version and architecture for which systemd was compiled. Use
         <command>systemd-analyze syscall-filter</command> to list the actual list of system calls in each
         filter.</para>
+
+        <para>Generally, whitelisting system calls (rather than blacklisting) is the safer mode of operation. It is
+        recommended to enforce system call whitelists for all long-running system services. Specifically, the
+        following lines are a relatively safe basic choice for the majority of system services:</para>
+
+        <programlisting>[Service]
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM</programlisting>
 
         <para>It is recommended to combine the file system namespacing related options with
         <varname>SystemCallFilter=~@mount</varname>, in order to prohibit the unit's processes to undo the
@@ -1427,17 +1567,19 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         filter. The known architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
         described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         as well as <constant>x32</constant>, <constant>mips64-n32</constant>, <constant>mips64-le-n32</constant>, and
-        the special identifier <constant>native</constant>. Only system calls of the specified architectures will be
-        permitted to processes of this unit. This is an effective way to disable compatibility with non-native
-        architectures for processes, for example to prohibit execution of 32-bit x86 binaries on 64-bit x86-64
-        systems. The special <constant>native</constant> identifier implicitly maps to the native architecture of the
-        system (or more strictly: to the architecture the system manager is compiled for). If running in user mode, or
-        in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. Note that setting this
-        option to a non-empty list implies that <constant>native</constant> is included too. By default, this option is
-        set to the empty list, i.e. no system call architecture filtering is applied.</para>
+        the special identifier <constant>native</constant>.  The special identifier <constant>native</constant>
+        implicitly maps to the native architecture of the system (or more precisely: to the architecture the system
+        manager is compiled for). If running in user mode, or in system mode, but without the
+        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=nobody</varname>),
+        <varname>NoNewPrivileges=yes</varname> is implied. By default, this option is set to the empty list, i.e. no
+        system call architecture filtering is applied.</para>
 
-        <para>Note that system call filtering is not equally effective on all architectures. For example, on x86
+        <para>If this setting is used, processes of this unit will only be permitted to call native system calls, and
+        system calls of the specified architectures. For the purposes of this option, the x32 architecture is treated
+        as including x86-64 system calls. However, this setting still fulfills its purpose, as explained below, on
+        x32.</para>
+
+        <para>System call filtering is not equally effective on all architectures. For example, on x86
         filtering of network socket-related calls is not possible, due to ABI limitations — a limitation that x86-64
         does not have, however. On systems supporting multiple ABIs at the same time — such as x86/x86-64 — it is hence
         recommended to limit the set of permitted system call architectures so that secondary ABIs may not be used to
@@ -1632,8 +1774,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         of <option>inherit</option>, <option>null</option>, <option>tty</option>, <option>journal</option>,
         <option>syslog</option>, <option>kmsg</option>, <option>journal+console</option>,
         <option>syslog+console</option>, <option>kmsg+console</option>,
-        <option>file:<replaceable>path</replaceable></option>, <option>socket</option> or
-        <option>fd:<replaceable>name</replaceable></option>.</para>
+        <option>file:<replaceable>path</replaceable></option>, <option>append:<replaceable>path</replaceable></option>,
+        <option>socket</option> or<option>fd:<replaceable>name</replaceable></option>.</para>
 
         <para><option>inherit</option> duplicates the file descriptor of standard input for standard output.</para>
 
@@ -1664,10 +1806,16 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <para>The <option>file:<replaceable>path</replaceable></option> option may be used to connect a specific file
         system object to standard output. The semantics are similar to the same option of
-        <varname>StandardInputText=</varname>, see above. If standard input and output are directed to the same file
-        path, it is opened only once, for reading as well as writing and duplicated. This is particular useful when the
-        specified path refers to an <constant>AF_UNIX</constant> socket in the file system, as in that case only a
+        <varname>StandardInput=</varname>, see above. If <replaceable>path</replaceable> refers to a regular file
+        on the filesystem, it is opened (created if it doesn't exist yet) for writing at the beginning of the file,
+        but without truncating it.
+        If standard input and output are directed to the same file path, it is opened only once, for reading as well
+        as writing and duplicated. This is particularly useful when the specified path refers to an
+        <constant>AF_UNIX</constant> socket in the file system, as in that case only a
         single stream connection is created for both input and output.</para>
+
+        <para><option>append:<replaceable>path</replaceable></option> is similar to <option>file:<replaceable>path
+        </replaceable></option> above, but it opens the file in append mode.</para>
 
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
@@ -1722,7 +1870,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <para><varname>StandardInputText=</varname> accepts arbitrary textual data. C-style escapes for special
         characters as well as the usual <literal>%</literal>-specifiers are resolved. Each time this setting is used
-        the the specified text is appended to the per-unit data buffer, followed by a newline character (thus every use
+        the specified text is appended to the per-unit data buffer, followed by a newline character (thus every use
         appends a new line to the end of the buffer). Note that leading and trailing whitespace of lines configured
         with this option is removed. If an empty line is specified the buffer is cleared (hence, in order to insert an
         empty line, add an additional <literal>\n</literal> to the end or beginning of a line).</para>
@@ -1763,7 +1911,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         details. By default no filtering is applied (i.e. the default maximum log level is <option>debug</option>). Use
         this option to configure the logging system to drop log messages of a specific service above the specified
         level. For example, set <varname>LogLevelMax=</varname><option>info</option> in order to turn off debug logging
-        of a particularly chatty unit. Note that the the configured level is applied to any log messages written by any
+        of a particularly chatty unit. Note that the configured level is applied to any log messages written by any
         of the processes belonging to this unit, sent via any supported logging protocol. The filtering is applied
         early in the logging pipeline, before any kind of further processing is done. Moreover, messages which pass
         through this filter successfully might still be dropped by filters applied at a later stage in the logging
@@ -1944,7 +2092,9 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
       <listitem><para>Variables read from files specified via <varname>EnvironmentFile=</varname> in the unit file</para></listitem>
 
-      <listitem><para>Variables set by any PAM modules in case <varname>PAMName=</varname> is in effect, cf. <citerefentry project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
+      <listitem><para>Variables set by any PAM modules in case <varname>PAMName=</varname> is in effect,
+      cf. <citerefentry
+      project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
     </itemizedlist>
 
     <para>If the same environment variables are set by multiple of these sources, the later source — according to the
@@ -1952,14 +2102,15 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
     <varname>UnsetEnvironment=</varname> are removed again from the compiled environment variable list, immediately
     before it is passed to the executed process.</para>
 
-    <para>The following select environment variables are set by the service manager itself for each invoked process:</para>
+    <para>The following select environment variables are set or propagated by the service manager for each invoked
+    process:</para>
 
     <variablelist class='environment-variables'>
       <varlistentry>
         <term><varname>$PATH</varname></term>
 
         <listitem><para>Colon-separated list of directories to use
-        when launching executables. Systemd uses a fixed value of
+        when launching executables. systemd uses a fixed value of
         <filename>/usr/local/sbin</filename>:<filename>/usr/local/bin</filename>:<filename>/usr/sbin</filename>:<filename>/usr/bin</filename>:<filename>/sbin</filename>:<filename>/bin</filename>.
         </para></listitem>
       </varlistentry>
@@ -2003,24 +2154,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       <varlistentry>
         <term><varname>$XDG_RUNTIME_DIR</varname></term>
 
-        <listitem><para>The directory for volatile state. Set for the
-        user <command>systemd</command> instance, and also in user
-        sessions. See
-        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>$XDG_SESSION_ID</varname></term>
-        <term><varname>$XDG_SEAT</varname></term>
-        <term><varname>$XDG_VTNR</varname></term>
-
-        <listitem><para>The identifier of the session, the seat name,
-        and virtual terminal of the session. Set by
-        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for login sessions. <varname>$XDG_SEAT</varname> and
-        <varname>$XDG_VTNR</varname> will only be set when attached to
-        a seat and a tty.</para></listitem>
+        <listitem><para>The directory to use for runtime objects (such as IPC objects) and volatile state. Set for all
+        services run by the user <command>systemd</command> instance, as well as any system services that use
+        <varname>PAMName=</varname> with a PAM stack that includes <command>pam_systemd</command>. See below and
+        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
+        information.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2274,6 +2412,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </listitem>
       </varlistentry>
     </variablelist>
+
+    <para>For system services, when <varname>PAMName=</varname> is enabled and <command>pam_systemd</command> is part
+    of the selected PAM stack, additional environment variables defined by systemd may be set for
+    services. Specifically, these are <varname>$XDG_SEAT</varname>, <varname>$XDG_VTNR</varname>, see
+    <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for details.</para>
   </refsect1>
 
   <refsect1>
@@ -2584,6 +2727,98 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </tbody>
       </tgroup>
     </table>
+
+    <para>Finally, the BSD operating systems define a set of exit codes, typically defined on Linux systems too:</para>
+
+    <table>
+      <title>BSD exit codes</title>
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Exit Code</entry>
+            <entry>Symbolic Name</entry>
+            <entry>Description</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>64</entry>
+            <entry><constant>EX_USAGE</constant></entry>
+            <entry>Command line usage error</entry>
+          </row>
+          <row>
+            <entry>65</entry>
+            <entry><constant>EX_DATAERR</constant></entry>
+            <entry>Data format error</entry>
+          </row>
+          <row>
+            <entry>66</entry>
+            <entry><constant>EX_NOINPUT</constant></entry>
+            <entry>Cannot open input</entry>
+          </row>
+          <row>
+            <entry>67</entry>
+            <entry><constant>EX_NOUSER</constant></entry>
+            <entry>Addressee unknown</entry>
+          </row>
+          <row>
+            <entry>68</entry>
+            <entry><constant>EX_NOHOST</constant></entry>
+            <entry>Host name unknown</entry>
+          </row>
+          <row>
+            <entry>69</entry>
+            <entry><constant>EX_UNAVAILABLE</constant></entry>
+            <entry>Service unavailable</entry>
+          </row>
+          <row>
+            <entry>70</entry>
+            <entry><constant>EX_SOFTWARE</constant></entry>
+            <entry>internal software error</entry>
+          </row>
+          <row>
+            <entry>71</entry>
+            <entry><constant>EX_OSERR</constant></entry>
+            <entry>System error (e.g., can't fork)</entry>
+          </row>
+          <row>
+            <entry>72</entry>
+            <entry><constant>EX_OSFILE</constant></entry>
+            <entry>Critical OS file missing</entry>
+          </row>
+          <row>
+            <entry>73</entry>
+            <entry><constant>EX_CANTCREAT</constant></entry>
+            <entry>Can't create (user) output file</entry>
+          </row>
+          <row>
+            <entry>74</entry>
+            <entry><constant>EX_IOERR</constant></entry>
+            <entry>Input/output error</entry>
+          </row>
+          <row>
+            <entry>75</entry>
+            <entry><constant>EX_TEMPFAIL</constant></entry>
+            <entry>Temporary failure; user is invited to retry</entry>
+          </row>
+          <row>
+            <entry>76</entry>
+            <entry><constant>EX_PROTOCOL</constant></entry>
+            <entry>Remote error in protocol</entry>
+          </row>
+          <row>
+            <entry>77</entry>
+            <entry><constant>EX_NOPERM</constant></entry>
+            <entry>Permission denied</entry>
+          </row>
+          <row>
+            <entry>78</entry>
+            <entry><constant>EX_CONFIG</constant></entry>
+            <entry>Configuration error</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
   </refsect1>
 
   <refsect1>
@@ -2606,6 +2841,5 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       </para>
   </refsect1>
-
 
 </refentry>

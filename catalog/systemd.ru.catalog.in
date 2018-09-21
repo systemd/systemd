@@ -1,22 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-#  This file is part of systemd.
-#
-#  Copyright 2012 Lennart Poettering
-#  Copyright 2013-2017 Sergey Ptashnick
-#
-#  systemd is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU Lesser General Public License as published by
-#  the Free Software Foundation; either version 2.1 of the License, or
-#  (at your option) any later version.
-#
-#  systemd is distributed in the hope that it will be useful, but
-#  WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-#  Lesser General Public License for more details.
-#
-#  You should have received a copy of the GNU Lesser General Public License
-#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+#  Copyright © 2013-2017 Sergey Ptashnick
 
 # Message catalog for systemd's own messages
 # Russian translation
@@ -396,3 +380,24 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 Юнит @UNIT@ завершен. Приводится статистика по потребленным им ресурсам.
+
+# Subject: The system is configured in a way that might cause problems
+-- 50876a9db00f4c40bde1a2ad381c3a1b
+Subject: Выявлены потенциальные проблемы в конфигурации системы
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Перечень всех возможных меток, указывающих на проблемы конфигурации:
+- "split-usr" — каталог /usr расположен на отдельной файловой системе,
+  которая не была смонтирована на момент запуска systemd
+- "cgroups-missing" — ядро собрано без поддержки контрольных групп, либо
+  отсутствуют права для доступа к интерфейсным файлам контрольных групп
+- "var-run-bad" — /var/run не является символьной ссылкой на /run
+- "overflowuid-not-65534" — используемый ядром UID для "неизвестных"
+  пользователей (применяется в NFS и пространствах имен пользователей)
+  не равен 65534
+- "overflowgid-not-65534" — используемый ядром GID для "неизвестных"
+  пользователей (применяется в NFS и пространствах имен пользователей)
+  не равен 65534
+
+В вашей системе присутствуют следующие проблемы: @TAINT@.

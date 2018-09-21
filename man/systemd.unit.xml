@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
@@ -7,23 +7,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.unit">
@@ -31,15 +14,6 @@
   <refentryinfo>
     <title>systemd.unit</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -65,37 +39,44 @@
     <filename><replaceable>slice</replaceable>.slice</filename>,
     <filename><replaceable>scope</replaceable>.scope</filename></para>
 
-    <para><literallayout><filename>/etc/systemd/system/*</filename>
+    <para><literallayout><filename>/etc/systemd/system.control/*</filename>
+<filename>/run/systemd/system.control/*</filename>
+<filename>/run/systemd/transient/*</filename>
+<filename>/run/systemd/generator.early/*</filename>
+<filename>/etc/systemd/system/*</filename>
 <filename>/run/systemd/system/*</filename>
-<filename>/usr/lib/systemd/system/*</filename>
+<filename>/run/systemd/generator/*</filename>
 <filename>…</filename>
+<filename>/usr/lib/systemd/system/*</filename>
+<filename>/run/systemd/generator.late/*</filename>
     </literallayout></para>
 
-    <para><literallayout><filename>~/.config/systemd/user/*</filename>
+    <para><literallayout><filename>~/.config/systemd/user.control/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/user.control/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/transient/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/generator.early/*</filename>
+<filename>~/.config/systemd/user/*</filename>
 <filename>/etc/systemd/user/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/generator/*</filename>
 <filename>~/.local/share/systemd/user/*</filename>
-<filename>/usr/lib/systemd/user/*</filename>
 <filename>…</filename>
+<filename>/usr/lib/systemd/user/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/generator.late/*</filename>
     </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para>A unit configuration file encodes information about a
-    service, a socket, a device, a mount point, an automount point, a
-    swap file or partition, a start-up target, a watched file system
-    path, a timer controlled and supervised by
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-    a resource management slice or
-    a group of externally created processes. The syntax is inspired by
-    <ulink
-    url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
-    Desktop Entry Specification</ulink> <filename>.desktop</filename>
-    files, which are in turn inspired by Microsoft Windows
-    <filename>.ini</filename> files.</para>
+    <para>A unit file is a plain text ini-style file that encodes information about a service, a
+    socket, a device, a mount point, an automount point, a swap file or partition, a start-up
+    target, a watched file system path, a timer controlled and supervised by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>, a
+    resource management slice or a group of externally created processes. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
 
     <para>This man page lists the common configuration options of all
     the unit types. These options need to be configured in the [Unit]
@@ -118,17 +99,16 @@
     <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>Various settings are allowed to be specified more than once,
-    in which case the interpretation depends on the setting. Often,
-    multiple settings form a list, and setting to an empty value
-    "resets", which means that previous assignments are ignored. When
-    this is allowed, it is mentioned in the description of the
-    setting. Note that using multiple assignments to the same value
-    makes the unit file incompatible with parsers for the XDG
-    <filename>.desktop</filename> file format.</para>
-
     <para>Unit files are loaded from a set of paths determined during
     compilation, described in the next section.</para>
+
+    <para>Unit files can be parameterized by a single argument called the "instance name". The unit
+    is then constructed based on a "template file" which serves as the definition of multiple
+    services or other units. A template unit must have a single <literal>@</literal> at the end of
+    the name (right before the type suffix). The name of the full unit is formed by inserting the
+    instance name between <literal>@</literal> and the unit type suffix. In the unit file itself,
+    the instance parameter may be referred to using <literal>%i</literal> and other specifiers, see
+    below.</para>
 
     <para>Unit files may contain additional options on top of those
     listed here. If systemd encounters an unknown option, it will
@@ -137,28 +117,6 @@
     ignored completely by systemd. Options within an ignored section
     do not need the prefix. Applications may use this to include
     additional information in the unit files.</para>
-
-    <para>Boolean arguments used in unit files can be written in
-    various formats. For positive settings the strings
-    <option>1</option>, <option>yes</option>, <option>true</option>
-    and <option>on</option> are equivalent. For negative settings, the
-    strings <option>0</option>, <option>no</option>,
-    <option>false</option> and <option>off</option> are
-    equivalent.</para>
-
-    <para>Time span values encoded in unit files can be written in various formats. A stand-alone
-    number specifies a time in seconds.  If suffixed with a time unit, the unit is honored. A
-    concatenation of multiple values with units is supported, in which case the values are added
-    up. Example: <literal>50</literal> refers to 50 seconds; <literal>2min 200ms</literal> refers to
-    2 minutes and 200 milliseconds, i.e. 120200 ms.  The following time units are understood:
-    <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>d</literal>,
-    <literal>w</literal>, <literal>ms</literal>, <literal>us</literal>.  For details see
-    <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
-
-    <para>Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are
-    ignored. This may be used for commenting. Lines ending in a backslash are concatenated with the
-    following line while reading and the backslash is replaced by a space character. This may be
-    used to wrap long lines.</para>
 
     <para>Units can be aliased (have an alternative name), by creating a symlink from the new name
     to the existing name in one of the unit search paths. For example,
@@ -190,15 +148,24 @@
     suffix is <filename>.requires/</filename> in this case.</para>
 
     <para>Along with a unit file <filename>foo.service</filename>, a "drop-in" directory
-    <filename>foo.service.d/</filename> may exist. All files with the suffix
-    <literal>.conf</literal> from this directory will be parsed after the file itself is
-    parsed. This is useful to alter or add configuration settings for a unit, without having to
-    modify unit files. Each drop-in file must have appropriate section headers. Note that for
-    instantiated units, this logic will first look for the instance <literal>.d/</literal>
-    subdirectory and read its <literal>.conf</literal> files, followed by the template
-    <literal>.d/</literal> subdirectory and the <literal>.conf</literal> files there.</para>
+    <filename>foo.service.d/</filename> may exist. All files with the suffix <literal>.conf</literal> from this
+    directory will be parsed after the unit file itself is parsed. This is useful to alter or add configuration
+    settings for a unit, without having to modify unit files. Drop-in files must contain appropriate section
+    headers. For instantiated units, this logic will first look for the instance <literal>.d/</literal> subdirectory
+    (e.g. <literal>foo@bar.service.d/</literal>) and read its <literal>.conf</literal> files, followed by the template
+    <literal>.d/</literal> subdirectory (e.g. <literal>foo@.service.d/</literal>) and the <literal>.conf</literal>
+    files there. Moreover for units names containing dashes (<literal>-</literal>), the set of directories generated by
+    truncating the unit name after all dashes is searched too. Specifically, for a unit name
+    <filename>foo-bar-baz.service</filename> not only the regular drop-in directory
+    <filename>foo-bar-baz.service.d/</filename> is searched but also both <filename>foo-bar-.service.d/</filename> and
+    <filename>foo-.service.d/</filename>. This is useful for defining common drop-ins for a set of related units, whose
+    names begin with a common prefix. This scheme is particularly useful for mount, automount and slice units, whose
+    systematic naming structure is built around dashes as component separators. Note that equally named drop-in files
+    further down the prefix hierarchy override those further up,
+    i.e. <filename>foo-bar-.service.d/10-override.conf</filename> overrides
+    <filename>foo-.service.d/10-override.conf</filename>.</para>
 
-    <para>In addition to <filename>/etc/systemd/system</filename>, the drop-in <literal>.d</literal>
+    <para>In addition to <filename>/etc/systemd/system</filename>, the drop-in <literal>.d/</literal>
     directories for system services can be placed in <filename>/usr/lib/systemd/system</filename> or
     <filename>/run/systemd/system</filename> directories. Drop-in files in <filename>/etc</filename>
     take precedence over those in <filename>/run</filename> which in turn take precedence over those
@@ -215,21 +182,15 @@
     socket-based activation which make dependencies implicit,
     resulting in a both simpler and more flexible system.</para>
 
-    <para>Optionally, units may be instantiated from a
-    template file at runtime. This allows creation of
-    multiple units from a single configuration file. If
-    systemd looks for a unit configuration file, it will
-    first search for the literal unit name in the
-    file system. If that yields no success and the unit
-    name contains an <literal>@</literal> character, systemd will look for a
-    unit template that shares the same name but with the
-    instance string (i.e. the part between the <literal>@</literal> character
-    and the suffix) removed. Example: if a service
-    <filename>getty@tty3.service</filename> is requested
-    and no file by that name is found, systemd will look
-    for <filename>getty@.service</filename> and
-    instantiate a service from that configuration file if
-    it is found.</para>
+    <para>As mentioned above, a unit may be instantiated from a template file. This allows creation
+    of multiple units from a single configuration file. If systemd looks for a unit configuration
+    file, it will first search for the literal unit name in the file system. If that yields no
+    success and the unit name contains an <literal>@</literal> character, systemd will look for a
+    unit template that shares the same name but with the instance string (i.e. the part between the
+    <literal>@</literal> character and the suffix) removed. Example: if a service
+    <filename>getty@tty3.service</filename> is requested and no file by that name is found, systemd
+    will look for <filename>getty@.service</filename> and instantiate a service from that
+    configuration file if it is found.</para>
 
     <para>To refer to the instance string from within the
     configuration file you may use the special <literal>%i</literal>
@@ -277,40 +238,40 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic dependencies</title>
 
-    <para>A number of unit dependencies are implicitly established,
-    depending on unit type and unit configuration. These implicit
-    dependencies can make unit configuration file cleaner. For the
-    implicit dependencies in each unit type, please refer to
-    section "Implicit Dependencies" in respective man pages.</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <para>For example, service units with <varname>Type=dbus</varname>
-    automatically acquire dependencies of type <varname>Requires=</varname>
-    and <varname>After=</varname> on <filename>dbus.socket</filename>. See
-    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details.</para>
-  </refsect1>
+      <para>A number of unit dependencies are implicitly established, depending on unit type and
+      unit configuration. These implicit dependencies can make unit configuration file cleaner. For
+      the implicit dependencies in each unit type, please refer to section "Implicit Dependencies"
+      in respective man pages.</para>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>For example, service units with <varname>Type=dbus</varname> automatically acquire
+      dependencies of type <varname>Requires=</varname> and <varname>After=</varname> on
+      <filename>dbus.socket</filename>. See
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for details.</para>
+    </refsect2>
 
-    <para>Default dependencies are similar to implicit dependencies,
-    but can be turned on and off by setting
-    <varname>DefaultDependencies=</varname> to <varname>yes</varname>
-    (the default) and <varname>no</varname>, while implicit dependencies
-    are always in effect. See section "Default Dependencies" in respective
-    man pages for the effect of enabling
-    <varname>DefaultDependencies=</varname> in each unit types.</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <para>For example, target units will complement all configured
-    dependencies of type <varname>Wants=</varname> or
-    <varname>Requires=</varname> with dependencies of type
-    <varname>After=</varname> unless <varname>DefaultDependencies=no</varname>
-    is set in the specified units. See
-    <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details. Note that this behavior can be turned off by setting
-    <varname>DefaultDependencies=no</varname>.</para>
+      <para>Default dependencies are similar to implicit dependencies, but can be turned on and off
+      by setting <varname>DefaultDependencies=</varname> to <varname>yes</varname> (the default) and
+      <varname>no</varname>, while implicit dependencies are always in effect. See section "Default
+      Dependencies" in respective man pages for the effect of enabling
+      <varname>DefaultDependencies=</varname> in each unit types.</para>
+
+      <para>For example, target units will complement all configured dependencies of type
+      <varname>Wants=</varname> or <varname>Requires=</varname> with dependencies of type
+      <varname>After=</varname> unless <varname>DefaultDependencies=no</varname> is set in the
+      specified units. See
+      <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for details. Note that this behavior can be turned off by setting
+      <varname>DefaultDependencies=no</varname>.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -337,22 +298,51 @@
         <colspec colname='expl' />
         <thead>
           <row>
-      <entry>Path</entry>
-      <entry>Description</entry>
+            <entry>Path</entry>
+            <entry>Description</entry>
           </row>
         </thead>
         <tbody>
           <row>
-      <entry><filename>/etc/systemd/system</filename></entry>
-      <entry>Local configuration</entry>
+            <entry><filename>/etc/systemd/system.control</filename></entry>
+            <entry morerows="1">Persistent and transient configuration created using the dbus API</entry>
           </row>
           <row>
-      <entry><filename>/run/systemd/system</filename></entry>
-      <entry>Runtime units</entry>
+            <entry><filename>/run/systemd/system.control</filename></entry>
           </row>
           <row>
-      <entry><filename>/usr/lib/systemd/system</filename></entry>
-      <entry>Units of installed packages</entry>
+            <entry><filename>/run/systemd/transient</filename></entry>
+            <entry>Dynamic configuration for transient units</entry>
+          </row>
+          <row>
+            <entry><filename>/run/systemd/generator.early</filename></entry>
+            <entry>Generated units with high priority (see <replaceable>early-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+          </row>
+          <row>
+            <entry><filename>/etc/systemd/system</filename></entry>
+            <entry>Local configuration</entry>
+          </row>
+          <row>
+            <entry><filename>/run/systemd/system</filename></entry>
+            <entry>Runtime units</entry>
+          </row>
+          <row>
+            <entry><filename>/run/systemd/generator</filename></entry>
+            <entry>Generated units with medium priority (see <replaceable>normal-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+          </row>
+          <row>
+            <entry><filename>/usr/local/lib/systemd/system</filename></entry>
+            <entry morerows="1">Units of installed packages</entry>
+          </row>
+          <row>
+            <entry><filename>/usr/lib/systemd/system</filename></entry>
+          </row>
+          <row>
+            <entry><filename>/run/systemd/generator.late</filename></entry>
+            <entry>Generated units with low priority (see <replaceable>late-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
         </tbody>
       </tgroup>
@@ -368,53 +358,89 @@
         <colspec colname='expl' />
         <thead>
           <row>
-      <entry>Path</entry>
-      <entry>Description</entry>
+            <entry>Path</entry>
+            <entry>Description</entry>
           </row>
         </thead>
         <tbody>
           <row>
-      <entry><filename>$XDG_CONFIG_HOME/systemd/user</filename></entry>
-      <entry>User configuration (only used when $XDG_CONFIG_HOME is set)</entry>
+            <entry><filename>$XDG_CONFIG_HOME/systemd/user.control</filename> or <filename
+            >~/.config/systemd/user.control</filename></entry>
+            <entry morerows="1">Persistent and transient configuration created using the dbus API (<varname>$XDG_CONFIG_HOME</varname> is used if set, <filename>~/.config</filename> otherwise)</entry>
           </row>
           <row>
-      <entry><filename>$HOME/.config/systemd/user</filename></entry>
-      <entry>User configuration (only used when $XDG_CONFIG_HOME is not set)</entry>
+            <entry><filename>$XDG_RUNTIME_DIR/systemd/user.control</filename></entry>
           </row>
           <row>
-      <entry><filename>/etc/systemd/user</filename></entry>
-      <entry>Local configuration</entry>
+            <entry><filename>/run/systemd/transient</filename></entry>
+            <entry>Dynamic configuration for transient units</entry>
           </row>
           <row>
-      <entry><filename>$XDG_RUNTIME_DIR/systemd/user</filename></entry>
-      <entry>Runtime units (only used when $XDG_RUNTIME_DIR is set)</entry>
+            <entry><filename>/run/systemd/generator.early</filename></entry>
+            <entry>Generated units with high priority (see <replaceable>early-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
           <row>
-      <entry><filename>/run/systemd/user</filename></entry>
-      <entry>Runtime units</entry>
+            <entry><filename>$XDG_CONFIG_HOME/systemd/user</filename> or <filename>$HOME/.config/systemd/user</filename></entry>
+            <entry>User configuration (<varname>$XDG_CONFIG_HOME</varname> is used if set, <filename>~/.config</filename> otherwise)</entry>
           </row>
           <row>
-      <entry><filename>$XDG_DATA_HOME/systemd/user</filename></entry>
-      <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is set)</entry>
+            <entry><filename>/etc/systemd/user</filename></entry>
+            <entry>Local configuration</entry>
           </row>
           <row>
-      <entry><filename>$HOME/.local/share/systemd/user</filename></entry>
-      <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is not set)</entry>
+            <entry><filename>$XDG_RUNTIME_DIR/systemd/user</filename></entry>
+            <entry>Runtime units (only used when $XDG_RUNTIME_DIR is set)</entry>
           </row>
           <row>
-      <entry><filename>/usr/lib/systemd/user</filename></entry>
-      <entry>Units of packages that have been installed system-wide</entry>
+            <entry><filename>/run/systemd/user</filename></entry>
+            <entry>Runtime units</entry>
+          </row>
+          <row>
+            <entry><filename>$XDG_RUNTIME_DIR/systemd/generator</filename></entry>
+            <entry>Generated units with medium priority (see <replaceable>normal-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+          </row>
+          <row>
+            <entry><filename>$XDG_DATA_HOME/systemd/user</filename> or <filename>$HOME/.local/share/systemd/user</filename></entry>
+            <entry>Units of packages that have been installed in the home directory (<varname>$XDG_DATA_HOME</varname> is used if set, <filename>~/.local/share</filename> otherwise)</entry>
+          </row>
+          <row>
+            <entry><filename>$dir/systemd/user</filename> for each <varname noindex='true'>$dir</varname> in <varname>$XDG_DATA_DIRS</varname></entry>
+            <entry>Additional locations for installed user units, one for each entry in <varname>$XDG_DATA_DIRS</varname></entry>
+          </row>
+          <row>
+            <entry><filename>/usr/local/lib/systemd/user</filename></entry>
+            <entry morerows="1">Units of packages that have been installed system-wide</entry>
+          </row>
+          <row>
+            <entry><filename>/usr/lib/systemd/user</filename></entry>
+          </row>
+          <row>
+            <entry><filename>$XDG_RUNTIME_DIR/systemd/generator.late</filename></entry>
+            <entry>Generated units with low priority (see <replaceable>late-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
         </tbody>
       </tgroup>
     </table>
 
-    <para>Additional units might be loaded into systemd ("linked")
-    from directories not on the unit load path. See the
-    <command>link</command> command for
+    <para>The set of load paths for the user manager instance may be augmented or
+    changed using various environment variables. And environment variables may in
+    turn be set using environment generators, see
+    <citerefentry><refentrytitle>systemd.environment-generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    In particular, <varname>$XDG_DATA_HOME</varname> and
+    <varname>$XDG_DATA_DIRS</varname> may be easily set using
+    <citerefentry><refentrytitle>systemd-environment-d-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    Thus, directories listed here are just the defaults. To see the actual list that
+    would be used based on compilation options and current environment use
+    <programlisting>systemd-analyze --user unit-paths</programlisting>
+    </para>
+
+    <para>Moreover, additional units might be loaded into systemd ("linked") from
+    directories not on the unit load path. See the <command>link</command> command
+    for
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-    Also, some units are dynamically created via a
-    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
   </refsect1>
 
@@ -505,8 +531,8 @@
         <listitem><para>Configures requirement dependencies on other units. If this unit gets activated, the units
         listed here will be activated as well. If one of the other units fails to activate, and an ordering dependency
         <varname>After=</varname> on the failing unit is set, this unit will not be started. Besides, with or without
-        specifying <varname>After=</varname>, this unit will be deactivated if one of the other units get deactivated.
-        This option may be specified more than once or multiple space-separated units may be
+        specifying <varname>After=</varname>, this unit will be stopped if one of the other units is explicitly
+        stopped. This option may be specified more than once or multiple space-separated units may be
         specified in one option in which case requirement dependencies for all listed names will be created. Note that
         requirement dependencies do not influence the order in which services are started or stopped.  This has to be
         configured independently with the <varname>After=</varname> or <varname>Before=</varname> options. If a unit
@@ -534,10 +560,19 @@
       <varlistentry>
         <term><varname>Requisite=</varname></term>
 
-        <listitem><para>Similar to <varname>Requires=</varname>.
-        However, if the units listed here are not started already,
-        they will not be started and the transaction will fail
-        immediately. </para></listitem>
+        <listitem><para>Similar to <varname>Requires=</varname>. However, if the units listed here
+        are not started already, they will not be started and the starting of this unit will fail
+        immediately. <varname>Requisite=</varname> does not imply an ordering dependency, even if
+        both units are started in the same transaction. Hence this setting should usually be
+        combined with <varname>After=</varname>, to ensure this unit is not started before the other
+        unit.</para>
+
+        <para>When <varname>Requisite=b.service</varname> is used on
+        <filename>a.service</filename>, this dependency will show as
+        <varname>RequisiteOf=a.service</varname> in property listing of
+        <filename>b.service</filename>. <varname>RequisiteOf=</varname>
+        dependency cannot be specified directly.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -575,7 +610,14 @@
         enters inactive state, but also one that is bound to another unit that gets skipped due to a failed condition
         check (such as <varname>ConditionPathExists=</varname>, <varname>ConditionPathIsSymbolicLink=</varname>, … —
         see below) will be stopped, should it be running. Hence, in many cases it is best to combine
-        <varname>BindsTo=</varname> with <varname>After=</varname>.</para></listitem>
+        <varname>BindsTo=</varname> with <varname>After=</varname>.</para>
+
+        <para>When <varname>BindsTo=b.service</varname> is used on
+        <filename>a.service</filename>, this dependency will show as
+        <varname>BoundBy=a.service</varname> in property listing of
+        <filename>b.service</filename>. <varname>BoundBy=</varname>
+        dependency cannot be specified directly.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -586,7 +628,14 @@
         restarting of units. When systemd stops or restarts the units
         listed here, the action is propagated to this unit. Note that
         this is a one-way dependency — changes to this unit do not
-        affect the listed units. </para></listitem>
+        affect the listed units.</para>
+
+        <para>When <varname>PartOf=b.service</varname> is used on
+        <filename>a.service</filename>, this dependency will show as
+        <varname>ConsistsOf=a.service</varname> in property listing of
+        <filename>b.service</filename>. <varname>ConsistsOf=</varname>
+        dependency cannot be specified directly.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -644,7 +693,9 @@
 
         <listitem><para>A space-separated list of one or more units
         that are activated when this unit enters the
-        <literal>failed</literal> state.</para></listitem>
+        <literal>failed</literal> state.  A service unit using
+        <varname>Restart=</varname> enters the failed state only after
+        the start limits are reached.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -854,7 +905,7 @@
         activation may either never fail, or may succeed only a single time.</para>
 
         <para>When a unit is unloaded due to the garbage collection logic (see above) its rate limit counters are
-        flushed out too. This means that configuring start rate limiting for a unit that is not referenced continously
+        flushed out too. This means that configuring start rate limiting for a unit that is not referenced continuously
         has no effect.</para></listitem>
       </varlistentry>
 
@@ -882,9 +933,7 @@
         <term><varname>SuccessAction=</varname></term>
         <listitem><para>Configure the action to take when the unit stops and enters a failed state or inactive
         state. Takes the same values as the setting <varname>StartLimitAction=</varname> setting and executes the same
-        actions (see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>). Both options
-        default to <option>none</option>.</para></listitem>
+        actions. Both options default to <option>none</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -900,6 +949,7 @@
         <term><varname>ConditionVirtualization=</varname></term>
         <term><varname>ConditionHost=</varname></term>
         <term><varname>ConditionKernelCommandLine=</varname></term>
+        <term><varname>ConditionKernelVersion=</varname></term>
         <term><varname>ConditionSecurity=</varname></term>
         <term><varname>ConditionCapability=</varname></term>
         <term><varname>ConditionACPower=</varname></term>
@@ -916,6 +966,7 @@
         <term><varname>ConditionFileIsExecutable=</varname></term>
         <term><varname>ConditionUser=</varname></term>
         <term><varname>ConditionGroup=</varname></term>
+        <term><varname>ConditionControlGroupController=</varname></term>
 
         <!-- We do not document ConditionNull=
              here, as it is not particularly
@@ -991,6 +1042,8 @@
         <varname>xen</varname>,
         <varname>bochs</varname>,
         <varname>uml</varname>,
+        <varname>bhyve</varname>,
+        <varname>qnx</varname>,
         <varname>openvz</varname>,
         <varname>lxc</varname>,
         <varname>lxc-libvirt</varname>,
@@ -1026,15 +1079,24 @@
         the exact assignment is looked for with right and left hand
         side matching.</para>
 
-        <para><varname>ConditionSecurity=</varname> may be used to
-        check whether the given security module is enabled on the
+        <para><varname>ConditionKernelVersion=</varname> may be used to check whether the kernel version (as reported
+        by <command>uname -r</command>) matches a certain expression (or if prefixed with the exclamation mark does not
+        match it). The argument must be a single string. If the string starts with one of <literal>&lt;</literal>,
+        <literal>&lt;=</literal>, <literal>=</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal> a relative
+        version comparison is done, otherwise the specified string is matched with shell-style globs.</para>
+
+        <para>Note that using the kernel version string is an unreliable way to determine which features are supported
+        by a kernel, because of the widespread practice of backporting drivers, features, and fixes from newer upstream
+        kernels into older versions provided by distributions. Hence, this check is inherently unportable and should
+        not be used for units which may be used on different distributions.</para>
+
+        <para><varname>ConditionSecurity=</varname> may be used to check
+        whether the given security technology is enabled on the
         system. Currently, the recognized values are
-        <varname>selinux</varname>,
-        <varname>apparmor</varname>,
-        <varname>tomoyo</varname>,
-        <varname>ima</varname>,
-        <varname>smack</varname> and
-        <varname>audit</varname>. The test may be negated by
+        <varname>selinux</varname>, <varname>apparmor</varname>,
+        <varname>tomoyo</varname>, <varname>ima</varname>,
+        <varname>smack</varname>, <varname>audit</varname> and
+        <varname>uefi-secureboot</varname>. The test may be negated by
         prepending an exclamation mark.</para>
 
         <para><varname>ConditionCapability=</varname> may be used to
@@ -1143,6 +1205,18 @@
         auxiliary groups match the specified group or GID. This setting
         does not have a special value <literal>@system</literal>.</para>
 
+        <para><varname>ConditionControlGroupController=</varname> takes a
+        cgroup controller name (eg. <option>cpu</option>), verifying that it is
+        available for use on the system. For example, a particular controller
+        may not be available if it was disabled on the kernel command line with
+        <literal>cgroup_disable=</literal><replaceable>controller</replaceable>.
+        Multiple controllers may be passed with a space separating them; in
+        this case the condition will only pass if all listed controllers are
+        available for use. Controllers unknown to systemd are ignored. Valid
+        controllers are <option>cpu</option>, <option>cpuacct</option>,
+        <option>io</option>, <option>blkio</option>, <option>memory</option>,
+        <option>devices</option>, and <option>pids</option>.</para>
+
         <para>If multiple conditions are specified, the unit will be
         executed if all of them apply (i.e. a logical AND is applied).
         Condition checks can be prefixed with a pipe symbol (|) in
@@ -1165,6 +1239,7 @@
         <term><varname>AssertVirtualization=</varname></term>
         <term><varname>AssertHost=</varname></term>
         <term><varname>AssertKernelCommandLine=</varname></term>
+        <term><varname>AssertKernelVersion=</varname></term>
         <term><varname>AssertSecurity=</varname></term>
         <term><varname>AssertCapability=</varname></term>
         <term><varname>AssertACPower=</varname></term>
@@ -1181,6 +1256,7 @@
         <term><varname>AssertFileIsExecutable=</varname></term>
         <term><varname>AssertUser=</varname></term>
         <term><varname>AssertGroup=</varname></term>
+        <term><varname>AssertControlGroupController=</varname></term>
 
         <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
         <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings add
@@ -1199,9 +1275,124 @@
         files. This functionality should not be used in normal
         units.</para></listitem>
       </varlistentry>
-
     </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>Mapping of unit properties to their inverses</title>
+
+    <para>Unit settings that create a relationship with a second unit usually show up
+    in properties of both units, for example in <command>systemctl show</command>
+    output. In some cases the name of the property is the same as the name of the
+    configuration setting, but not always. This table lists the properties
+    that are shown on two units which are connected through some dependency, and shows
+    which property on "source" unit corresponds to which property on the "target" unit.
+    </para>
+
+    <table>
+      <title>
+        "Forward" and "reverse" unit properties
+      </title>
+
+      <tgroup cols='2'>
+        <colspec colname='forward' />
+        <colspec colname='reverse' />
+        <colspec colname='notes' />
+        <thead>
+          <row>
+            <entry>"Forward" property</entry>
+            <entry>"Reverse" property</entry>
+            <entry>Where used</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><varname>Before=</varname></entry>
+            <entry><varname>After=</varname></entry>
+            <entry morerows='1' valign='middle'>Both are unit file options</entry>
+          </row>
+          <row>
+            <entry><varname>After=</varname></entry>
+            <entry><varname>Before=</varname></entry>
+          </row>
+          <row>
+            <entry><varname>Requires=</varname></entry>
+            <entry><varname>RequiredBy=</varname></entry>
+            <entry>A unit file option; an option in the [Install] section</entry>
+          </row>
+          <row>
+            <entry><varname>Wants=</varname></entry>
+            <entry><varname>WantedBy=</varname></entry>
+            <entry>A unit file option; an option in the [Install] section</entry>
+          </row>
+          <row>
+            <entry><varname>PartOf=</varname></entry>
+            <entry><varname>ConsistsOf=</varname></entry>
+            <entry>A unit file option; an automatic property</entry>
+          </row>
+          <row>
+            <entry><varname>BindsTo=</varname></entry>
+            <entry><varname>BoundBy=</varname></entry>
+            <entry>A unit file option; an automatic property</entry>
+          </row>
+          <row>
+            <entry><varname>Requisite=</varname></entry>
+            <entry><varname>RequisiteOf=</varname></entry>
+            <entry>A unit file option; an automatic property</entry>
+          </row>
+          <row>
+            <entry><varname>Triggers=</varname></entry>
+            <entry><varname>TriggeredBy=</varname></entry>
+            <entry>Automatic properties, see notes below</entry>
+          </row>
+          <row>
+            <entry><varname>Conflicts=</varname></entry>
+            <entry><varname>ConflictedBy=</varname></entry>
+            <entry>A unit file option; an automatic property</entry>
+          </row>
+          <row>
+            <entry><varname>PropagatesReloadTo=</varname></entry>
+            <entry><varname>ReloadPropagatedFrom=</varname></entry>
+            <entry morerows='1' valign='middle'>Both are unit file options</entry>
+          </row>
+          <row>
+            <entry><varname>ReloadPropagatedFrom=</varname></entry>
+            <entry><varname>PropagatesReloadTo=</varname></entry>
+          </row>
+          <row>
+            <entry><varname>Following=</varname></entry>
+            <entry>n/a</entry>
+            <entry>An automatic property</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>Note: <varname>WantedBy=</varname> and <varname>RequiredBy=</varname> are
+    used in the [Install] section to create symlinks in <filename>.wants/</filename>
+    and <filename>.requires/</filename> directories. They cannot be used directly as a
+    unit configuration setting.</para>
+
+    <para>Note: <varname>ConsistsOf=</varname>, <varname>BoundBy=</varname>,
+    <varname>RequisiteOf=</varname>, <varname>ConflictedBy=</varname> are created
+    implicitly along with their reverse and cannot be specified directly.</para>
+
+    <para>Note: <varname>Triggers=</varname> is created implicitly between a socket,
+    path unit, or an automount unit, and the unit they activate. By default a unit
+    with the same name is triggered, but this can be overridden using
+    <varname>Sockets=</varname>, <varname>Service=</varname>, and <varname>Unit=</varname>
+    settings. See
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    and
+    <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details. <varname>TriggersBy=</varname> is created implicitly on the
+    triggered unit.</para>
+
+    <para>Note: <varname>Following=</varname> is used to group device aliases and points to the
+    "primary" device unit that systemd is using to track device state, usually corresponding to a
+    sysfs path. It does not show up in the "target" unit.</para>
   </refsect1>
 
   <refsect1>
@@ -1287,7 +1478,7 @@
     </variablelist>
 
     <para>The following specifiers are interpreted in the Install
-    section: %n, %N, %p, %i, %U, %u, %m, %H, %b, %v. For their meaning
+    section: %n, %N, %p, %i, %j, %U, %u, %m, %H, %b, %v. For their meaning
     see the next section.
     </para>
   </refsect1>
@@ -1297,7 +1488,8 @@
 
     <para>Many settings resolve specifiers which may be used to write
     generic unit files referring to runtime or unit parameters that
-    are replaced when the unit files are loaded. The following
+    are replaced when the unit files are loaded. Specifiers must be known
+    and resolvable for the setting to be valid. The following
     specifiers are understood:</para>
 
     <table>
@@ -1308,116 +1500,140 @@
         <colspec colname="detail" />
         <thead>
           <row>
-      <entry>Specifier</entry>
-      <entry>Meaning</entry>
-      <entry>Details</entry>
+            <entry>Specifier</entry>
+            <entry>Meaning</entry>
+            <entry>Details</entry>
           </row>
         </thead>
         <tbody>
           <row>
-      <entry><literal>%n</literal></entry>
-      <entry>Full unit name</entry>
-      <entry></entry>
+            <entry><literal>%b</literal></entry>
+            <entry>Boot ID</entry>
+            <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
           </row>
           <row>
-      <entry><literal>%N</literal></entry>
-      <entry>Unescaped full unit name</entry>
-      <entry>Same as <literal>%n</literal>, but with escaping undone. This undoes the escaping used when generating unit names from arbitrary strings (see above). </entry>
+            <entry><literal>%C</literal></entry>
+            <entry>Cache directory root</entry>
+            <entry>This is either <filename>/var/cache</filename> (for the system manager) or the path <literal>$XDG_CACHE_HOME</literal> resolves to (for user managers).</entry>
           </row>
           <row>
-      <entry><literal>%p</literal></entry>
-      <entry>Prefix name</entry>
-      <entry>For instantiated units, this refers to the string before the <literal>@</literal> character of the unit name. For non-instantiated units, this refers to the name of the unit with the type suffix removed.</entry>
+            <entry><literal>%E</literal></entry>
+            <entry>Configuration directory root</entry>
+            <entry>This is either <filename>/etc</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
           </row>
           <row>
-      <entry><literal>%P</literal></entry>
-      <entry>Unescaped prefix name</entry>
-      <entry>Same as <literal>%p</literal>, but with escaping undone</entry>
+            <entry><literal>%f</literal></entry>
+            <entry>Unescaped filename</entry>
+            <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the unescaped prefix name prepended with <filename>/</filename>. This implements unescaping according to the rules for escaping absolute file system paths discussed above.</entry>
           </row>
           <row>
-      <entry><literal>%i</literal></entry>
-      <entry>Instance name</entry>
-      <entry>For instantiated units: this is the string between the <literal>@</literal> character and the suffix of the unit name.</entry>
+            <entry><literal>%h</literal></entry>
+            <entry>User home directory</entry>
+            <entry>This is the home directory of the user running the service manager instance. In case of the system manager this resolves to <literal>/root</literal>.</entry>
           </row>
           <row>
-      <entry><literal>%I</literal></entry>
-      <entry>Unescaped instance name</entry>
-      <entry>Same as <literal>%i</literal>, but with escaping undone</entry>
+            <entry><literal>%H</literal></entry>
+            <entry>Host name</entry>
+            <entry>The hostname of the running system at the point in time the unit configuration is loaded.</entry>
           </row>
           <row>
-      <entry><literal>%f</literal></entry>
-      <entry>Unescaped filename</entry>
-      <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the unescaped prefix name prepended with <filename>/</filename>. This implements unescaping according to the rules for escaping absolute file system paths discussed above.</entry>
+            <entry><literal>%i</literal></entry>
+            <entry>Instance name</entry>
+            <entry>For instantiated units this is the string between the first <literal>@</literal> character and the type suffix. Empty for non-instantiated units.</entry>
           </row>
           <row>
-      <entry><literal>%t</literal></entry>
-      <entry>Runtime directory root</entry>
-      <entry>This is either <filename>/run</filename> (for the system manager) or the path <literal>$XDG_RUNTIME_DIR</literal> resolves to (for user managers).</entry>
+            <entry><literal>%I</literal></entry>
+            <entry>Unescaped instance name</entry>
+            <entry>Same as <literal>%i</literal>, but with escaping undone.</entry>
           </row>
           <row>
-      <entry><literal>%S</literal></entry>
-      <entry>State directory root </entry>
-      <entry>This is either <filename>/var/lib</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
+            <entry><literal>%j</literal></entry>
+            <entry>Final component of the prefix</entry>
+            <entry>This is the string between the last <literal>-</literal> and the end of the prefix name. If there is no <literal>-</literal>, this is the same as <literal>%p</literal>.</entry>
           </row>
           <row>
-      <entry><literal>%C</literal></entry>
-      <entry>Cache directory root </entry>
-      <entry>This is either <filename>/var/cache</filename> (for the system manager) or the path <literal>$XDG_CACHE_HOME</literal> resolves to (for user managers).</entry>
+            <entry><literal>%J</literal></entry>
+            <entry>Unescaped final component of the prefix</entry>
+            <entry>Same as <literal>%j</literal>, but with escaping undone.</entry>
           </row>
           <row>
-      <entry><literal>%L</literal></entry>
-      <entry>Logs directory root </entry>
-      <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename>/log</filename> appended (for user managers).</entry>
+            <entry><literal>%L</literal></entry>
+            <entry>Log directory root</entry>
+            <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename noindex='true'>/log</filename> appended (for user managers).</entry>
           </row>
           <row>
-      <entry><literal>%u</literal></entry>
-      <entry>User name</entry>
-      <entry>This is the name of the user running the service manager instance. In case of the system manager this resolves to <literal>root</literal>.</entry>
+            <entry><literal>%m</literal></entry>
+            <entry>Machine ID</entry>
+            <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
           </row>
           <row>
-      <entry><literal>%U</literal></entry>
-      <entry>User UID</entry>
-      <entry>This is the numeric UID of the user running the service manager instance. In case of the system manager this resolves to <literal>0</literal>.</entry>
+            <entry><literal>%n</literal></entry>
+            <entry>Full unit name</entry>
+            <entry></entry>
           </row>
           <row>
-      <entry><literal>%h</literal></entry>
-      <entry>User home directory</entry>
-      <entry>This is the home directory of the user running the service manager instance. In case of the system manager this resolves to <literal>/root</literal>.</entry>
+            <entry><literal>%N</literal></entry>
+            <entry>Full unit name</entry>
+            <entry>Same as <literal>%n</literal>, but with the type suffix removed.</entry>
           </row>
           <row>
-      <entry><literal>%s</literal></entry>
-      <entry>User shell</entry>
-      <entry>This is the shell of the user running the service manager instance. In case of the system manager this resolves to <literal>/bin/sh</literal>.</entry>
+            <entry><literal>%p</literal></entry>
+            <entry>Prefix name</entry>
+            <entry>For instantiated units, this refers to the string before the first <literal>@</literal> character of the unit name. For non-instantiated units, same as <literal>%N</literal>.</entry>
           </row>
           <row>
-      <entry><literal>%m</literal></entry>
-      <entry>Machine ID</entry>
-      <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+            <entry><literal>%P</literal></entry>
+            <entry>Unescaped prefix name</entry>
+            <entry>Same as <literal>%p</literal>, but with escaping undone.</entry>
           </row>
           <row>
-      <entry><literal>%b</literal></entry>
-      <entry>Boot ID</entry>
-      <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+            <entry><literal>%s</literal></entry>
+            <entry>User shell</entry>
+            <entry>This is the shell of the user running the service manager instance. In case of the system manager this resolves to <literal>/bin/sh</literal>.</entry>
           </row>
           <row>
-      <entry><literal>%H</literal></entry>
-      <entry>Host name</entry>
-      <entry>The hostname of the running system at the point in time the unit configuration is loaded.</entry>
+            <entry><literal>%S</literal></entry>
+            <entry>State directory root</entry>
+            <entry>This is either <filename>/var/lib</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
           </row>
           <row>
-      <entry><literal>%v</literal></entry>
-      <entry>Kernel release</entry>
-      <entry>Identical to <command>uname -r</command> output</entry>
+            <entry><literal>%t</literal></entry>
+            <entry>Runtime directory root</entry>
+            <entry>This is either <filename>/run</filename> (for the system manager) or the path <literal>$XDG_RUNTIME_DIR</literal> resolves to (for user managers).</entry>
           </row>
           <row>
-      <entry><literal>%%</literal></entry>
-      <entry>Single percent sign</entry>
-      <entry>Use <literal>%%</literal> in place of <literal>%</literal> to specify a single percent sign.</entry>
+            <entry><literal>%T</literal></entry>
+            <entry>Directory for temporary files</entry>
+            <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
+          </row>
+          <row>
+            <entry><literal>%u</literal></entry>
+            <entry>User name</entry>
+            <entry>This is the name of the user running the service manager instance. In case of the system manager this resolves to <literal>root</literal>.</entry>
+          </row>
+          <row>
+            <entry><literal>%U</literal></entry>
+            <entry>User UID</entry>
+            <entry>This is the numeric UID of the user running the service manager instance. In case of the system manager this resolves to <literal>0</literal>.</entry>
+          </row>
+          <row>
+            <entry><literal>%v</literal></entry>
+            <entry>Kernel release</entry>
+            <entry>Identical to <command>uname -r</command> output</entry>
+          </row>
+          <row>
+            <entry><literal>%V</literal></entry>
+            <entry>Directory for larger and persistent temporary files</entry>
+            <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
+          </row>
+          <row>
+            <entry><literal>%%</literal></entry>
+            <entry>Single percent sign</entry>
+            <entry>Use <literal>%%</literal> in place of <literal>%</literal> to specify a single percent sign.</entry>
           </row>
         </tbody>
       </tgroup>
     </table>
-
   </refsect1>
 
   <refsect1>
@@ -1475,13 +1691,6 @@ ExecStart=/usr/sbin/foo-daemon
       the unit by the vendor automatically apply. This has the
       disadvantage that some future updates by the vendor might be
       incompatible with the local changes.</para>
-
-      <para>Note that for drop-in files, if one wants to remove
-      entries from a setting that is parsed as a list (and is not a
-      dependency), such as <varname>ConditionPathExists=</varname> (or
-      e.g. <varname>ExecStart=</varname> in service units), one needs
-      to first clear the list before re-adding all entries except the
-      one that is to be removed. See below for an example.</para>
 
       <para>This also applies for user instances of systemd, but with
       different locations for the unit files. See the section on unit
@@ -1554,7 +1763,12 @@ AssertPathExists=/srv/www
 Nice=0
 PrivateTmp=yes</programlisting>
 
-      <para>Note that dependencies (<varname>After=</varname>, etc.)
+      <para>Note that for drop-in files, if one wants to remove
+      entries from a setting that is parsed as a list (and is not a
+      dependency), such as <varname>AssertPathExists=</varname> (or
+      e.g. <varname>ExecStart=</varname> in service units), one needs
+      to first clear the list before re-adding all entries except the
+      one that is to be removed. Dependencies (<varname>After=</varname>, etc.)
       cannot be reset to an empty list, so dependencies can only be
       added in drop-ins. If you want to remove dependencies, you have
       to override the entire unit.</para>

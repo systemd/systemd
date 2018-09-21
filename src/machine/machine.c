@@ -1,26 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio_ext.h>
 
 #include "sd-messages.h"
 
@@ -43,6 +26,7 @@
 #include "string-table.h"
 #include "terminal-util.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "util.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
@@ -129,7 +113,7 @@ int machine_save(Machine *m) {
         if (!m->started)
                 return 0;
 
-        r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, false);
+        r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 goto fail;
 
@@ -137,6 +121,7 @@ int machine_save(Machine *m) {
         if (r < 0)
                 goto fail;
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
@@ -200,16 +185,16 @@ int machine_save(Machine *m) {
         if (m->n_netif > 0) {
                 unsigned i;
 
-                fputs_unlocked("NETIF=", f);
+                fputs("NETIF=", f);
 
                 for (i = 0; i < m->n_netif; i++) {
                         if (i != 0)
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
                         fprintf(f, "%i", m->netif[i]);
                 }
 
-                fputc_unlocked('\n', f);
+                fputc('\n', f);
         }
 
         r = fflush_and_check(f);
@@ -246,7 +231,6 @@ static void machine_unlink(Machine *m) {
         assert(m);
 
         if (m->unit) {
-
                 char *sl;
 
                 sl = strjoina("/run/systemd/machines/unit:", m->unit);
@@ -266,7 +250,7 @@ int machine_load(Machine *m) {
         if (!m->state_file)
                 return 0;
 
-        r = parse_env_file(m->state_file, NEWLINE,
+        r = parse_env_file(NULL, m->state_file, NEWLINE,
                            "SCOPE",     &m->unit,
                            "SCOPE_JOB", &m->scope_job,
                            "SERVICE",   &m->service,
@@ -344,14 +328,13 @@ int machine_load(Machine *m) {
 }
 
 static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
-        int r = 0;
-
         assert(m);
         assert(m->class != MACHINE_HOST);
 
         if (!m->unit) {
-                _cleanup_free_ char *escaped = NULL;
-                char *scope, *description, *job = NULL;
+                _cleanup_free_ char *escaped = NULL, *scope = NULL;
+                char *description, *job = NULL;
+                int r;
 
                 escaped = unit_name_escape(m->name);
                 if (!escaped)
@@ -364,22 +347,17 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
                 description = strjoina(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
 
                 r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
-                if (r < 0) {
-                        log_error("Failed to start machine scope: %s", bus_error_message(error, r));
-                        free(scope);
-                        return r;
-                } else {
-                        m->unit = scope;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to start machine scope: %s", bus_error_message(error, r));
 
-                        free(m->scope_job);
-                        m->scope_job = job;
-                }
+                m->unit = TAKE_PTR(scope);
+                free_and_replace(m->scope_job, job);
         }
 
         if (m->unit)
                 hashmap_put(m->manager->machine_units, m->unit, m);
 
-        return r;
+        return 0;
 }
 
 int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
@@ -406,8 +384,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                    "MESSAGE_ID=" SD_MESSAGE_MACHINE_START_STR,
                    "NAME=%s", m->name,
                    "LEADER="PID_FMT, m->leader,
-                   LOG_MESSAGE("New machine %s.", m->name),
-                   NULL);
+                   LOG_MESSAGE("New machine %s.", m->name));
 
         if (!dual_timestamp_is_set(&m->timestamp))
                 dual_timestamp_get(&m->timestamp);
@@ -434,15 +411,10 @@ static int machine_stop_scope(Machine *m) {
                 return 0;
 
         r = manager_stop_unit(m->manager, m->unit, &error, &job);
-        if (r < 0) {
-                log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
 
-        free(m->scope_job);
-        m->scope_job = job;
-
-        return 0;
+        return free_and_replace(m->scope_job, job);
 }
 
 int machine_stop(Machine *m) {
@@ -469,8 +441,7 @@ int machine_finalize(Machine *m) {
                            "MESSAGE_ID=" SD_MESSAGE_MACHINE_STOP_STR,
                            "NAME=%s", m->name,
                            "LEADER="PID_FMT, m->leader,
-                           LOG_MESSAGE("Machine %s terminated.", m->name),
-                           NULL);
+                           LOG_MESSAGE("Machine %s terminated.", m->name));
 
         machine_unlink(m);
         machine_add_to_gc_queue(m);
@@ -483,22 +454,22 @@ int machine_finalize(Machine *m) {
         return 0;
 }
 
-bool machine_check_gc(Machine *m, bool drop_not_started) {
+bool machine_may_gc(Machine *m, bool drop_not_started) {
         assert(m);
 
         if (m->class == MACHINE_HOST)
-                return true;
-
-        if (drop_not_started && !m->started)
                 return false;
 
-        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+        if (drop_not_started && !m->started)
                 return true;
+
+        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+                return false;
 
         if (m->unit && manager_unit_is_active(m->manager, m->unit))
-                return true;
+                return false;
 
-        return false;
+        return true;
 }
 
 void machine_add_to_gc_queue(Machine *m) {
@@ -607,7 +578,7 @@ void machine_release_unit(Machine *m) {
 }
 
 int machine_get_uid_shift(Machine *m, uid_t *ret) {
-        char p[strlen("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+        char p[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
         uid_t uid_base, uid_shift, uid_range;
         gid_t gid_base, gid_shift, gid_range;
         _cleanup_fclose_ FILE *f = NULL;
@@ -656,7 +627,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         if (uid_base != 0)
                 return -ENXIO;
         /* Insist that at least the nobody user is mapped, everything else is weird, and hence complex, and we don't support it */
-        if (uid_range < (uid_t) 65534U)
+        if (uid_range < UID_NOBODY)
                 return -ENXIO;
 
         /* If there's more than one line, then we don't support this mapping. */

@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-escape"
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>systemd-escape</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -102,9 +76,12 @@
 
         <listitem><para>Inserts the escaped strings in a unit name
         template. Takes a unit name template such as
-        <filename>foobar@.service</filename>. May not be used in
-        conjunction with <option>--suffix=</option>,
-        <option>--unescape</option> or
+        <filename>foobar@.service</filename>. With
+        <option>--unescape</option>, expects instantiated unit names
+        for this template and extracts and unescapes just the instance
+        part. May not be used in conjunction with
+        <option>--suffix=</option>,
+        <option>--instance</option> or
         <option>--mangle</option>.</para></listitem>
       </varlistentry>
 
@@ -122,16 +99,17 @@
 
       <varlistentry>
         <term><option>--unescape</option></term>
+        <term><option>-u</option></term>
 
         <listitem><para>Instead of escaping the specified strings,
         undo the escaping, reversing the operation. May not be used in
-        conjunction with <option>--suffix=</option>,
-        <option>--template=</option> or
+        conjunction with <option>--suffix=</option> or
         <option>--mangle</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--mangle</option></term>
+        <term><option>-m</option></term>
 
         <listitem><para>Like <option>--escape</option>, but only
         escape characters that are obviously not escaped yet, and
@@ -139,6 +117,19 @@
         to the string. May not be used in conjunction with
         <option>--suffix=</option>, <option>--template=</option> or
         <option>--unescape</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--instance</option></term>
+
+        <listitem><para>With <option>--unescape</option>, unescape
+        and print only the instance part of an instantiated unit name
+        template. Results in an error for an uninstantiated template
+        like <filename>ssh@.service</filename> or a non-template name
+        like <filename>ssh.service</filename>.
+        Must be used in conjunction with <option>--unescape</option>
+        and may not be used in conjunction with
+        <option>--template</option>.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -165,6 +156,14 @@ tmp-waldi-foobar.mount</programlisting>
     <para>To generate instance names of three strings:</para>
     <programlisting>$ systemd-escape --template=systemd-nspawn@.service 'My Container 1' 'containerb' 'container/III'
 systemd-nspawn@My\x20Container\x201.service systemd-nspawn@containerb.service systemd-nspawn@container-III.service</programlisting>
+
+    <para>To extract the instance part of an instantiated unit:</para>
+    <programlisting>$ systemd-escape -u --instance 'systemd-nspawn@My\x20Container\x201.service'
+My Container 1</programlisting>
+
+    <para>To extract the instance part of an instance of a particular template:</para>
+    <programlisting>$ systemd-escape -u --template=systemd-nspawn@.service 'systemd-nspawn@My\x20Container\x201.service'
+My Container 1</programlisting>
   </refsect1>
 
   <refsect1>

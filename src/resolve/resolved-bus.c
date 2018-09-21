@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -25,7 +7,13 @@
 #include "resolved-bus.h"
 #include "resolved-def.h"
 #include "resolved-dns-synthesize.h"
+#include "resolved-dnssd.h"
+#include "resolved-dnssd-bus.h"
 #include "resolved-link-bus.h"
+#include "user-util.h"
+#include "utf8.h"
+
+BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_resolve_support, resolve_support, ResolveSupport);
 
 static int reply_query_state(DnsQuery *q) {
 
@@ -1226,7 +1214,13 @@ int bus_dns_server_append(sd_bus_message *reply, DnsServer *s, bool with_ifindex
         int r;
 
         assert(reply);
-        assert(s);
+
+        if (!s) {
+                if (with_ifindex)
+                        return sd_bus_message_append(reply, "(iiay)", 0, AF_UNSPEC, 0);
+                else
+                        return sd_bus_message_append(reply, "(iay)", AF_UNSPEC, 0);
+        }
 
         r = sd_bus_message_open_container(reply, 'r', with_ifindex ? "iiay" : "iay");
         if (r < 0)
@@ -1259,7 +1253,6 @@ static int bus_property_get_dns_servers(
                 sd_bus_error *error) {
 
         Manager *m = userdata;
-        unsigned c = 0;
         DnsServer *s;
         Iterator i;
         Link *l;
@@ -1276,8 +1269,6 @@ static int bus_property_get_dns_servers(
                 r = bus_dns_server_append(reply, s, true);
                 if (r < 0)
                         return r;
-
-                c++;
         }
 
         HASHMAP_FOREACH(l, m->links, i) {
@@ -1285,19 +1276,57 @@ static int bus_property_get_dns_servers(
                         r = bus_dns_server_append(reply, s, true);
                         if (r < 0)
                                 return r;
-                        c++;
-                }
-        }
-
-        if (c == 0) {
-                LIST_FOREACH(servers, s, m->fallback_dns_servers) {
-                        r = bus_dns_server_append(reply, s, true);
-                        if (r < 0)
-                                return r;
                 }
         }
 
         return sd_bus_message_close_container(reply);
+}
+
+static int bus_property_get_fallback_dns_servers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        DnsServer *s, **f = userdata;
+        int r;
+
+        assert(reply);
+        assert(f);
+
+        r = sd_bus_message_open_container(reply, 'a', "(iiay)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(servers, s, *f) {
+                r = bus_dns_server_append(reply, s, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int bus_property_get_current_dns_server(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        DnsServer *s;
+
+        assert(reply);
+        assert(userdata);
+
+        s = *(DnsServer **) userdata;
+
+        return bus_dns_server_append(reply, s, true);
 }
 
 static int bus_property_get_domains(
@@ -1404,23 +1433,6 @@ static int bus_property_get_dnssec_statistics(
                                      (uint64_t) m->n_dnssec_verdict[DNSSEC_INDETERMINATE]);
 }
 
-static int bus_property_get_dnssec_supported(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append(reply, "b", manager_dnssec_supported(m));
-}
-
 static int bus_property_get_ntas(
                 sd_bus *bus,
                 const char *path,
@@ -1452,6 +1464,9 @@ static int bus_property_get_ntas(
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
+static BUS_DEFINE_PROPERTY_GET(bus_property_get_dnssec_supported, "b", Manager, manager_dnssec_supported);
+static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dnssec_mode, "s", Manager, manager_get_dnssec_mode, dnssec_mode_to_string);
+static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dns_over_tls_mode, "s", Manager, manager_get_dns_over_tls_mode, dns_over_tls_mode_to_string);
 
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
@@ -1522,6 +1537,10 @@ static int bus_method_set_link_mdns(sd_bus_message *message, void *userdata, sd_
         return call_link_method(userdata, message, bus_link_method_set_mdns, error);
 }
 
+static int bus_method_set_link_dns_over_tls(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_set_dns_over_tls, error);
+}
+
 static int bus_method_set_link_dnssec(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return call_link_method(userdata, message, bus_link_method_set_dnssec, error);
 }
@@ -1581,13 +1600,245 @@ static int bus_method_reset_server_features(sd_bus_message *message, void *userd
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int on_bus_track(sd_bus_track *t, void *userdata) {
+        DnssdService *s = userdata;
+
+        assert(t);
+        assert(s);
+
+        log_debug("Client of active request vanished, destroying DNS-SD service.");
+        dnssd_service_free(s);
+
+        return 0;
+}
+
+static int bus_method_register_service(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
+        _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
+        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *instance_name = NULL;
+        Manager *m = userdata;
+        DnssdService *s = NULL;
+        const char *name;
+        const char *name_template;
+        const char *type;
+        uid_t euid;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        if (m->mdns_support != RESOLVE_SUPPORT_YES)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
+
+        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
+                                    "org.freedesktop.resolve1.register-service",
+                                    NULL, false, UID_INVALID,
+                                    &m->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
+        service = new0(DnssdService, 1);
+        if (!service)
+                return log_oom();
+
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_euid(creds, &euid);
+        if (r < 0)
+                return r;
+        service->originator = euid;
+
+        r = sd_bus_message_read(message, "sssqqq", &name, &name_template, &type,
+                                &service->port, &service->priority,
+                                &service->weight);
+        if (r < 0)
+                return r;
+
+        s = hashmap_get(m->dnssd_services, name);
+        if (s)
+                return sd_bus_error_setf(error, BUS_ERROR_DNSSD_SERVICE_EXISTS, "DNS-SD service '%s' exists already", name);
+
+        if (!dnssd_srv_type_is_valid(type))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DNS-SD service type '%s' is invalid", type);
+
+        service->name = strdup(name);
+        if (!service->name)
+                return log_oom();
+
+        service->name_template = strdup(name_template);
+        if (!service->name_template)
+                return log_oom();
+
+        service->type = strdup(type);
+        if (!service->type)
+                return log_oom();
+
+        r = dnssd_render_instance_name(service, &instance_name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(message, SD_BUS_TYPE_ARRAY, "a{say}");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_enter_container(message, SD_BUS_TYPE_ARRAY, "{say}")) > 0) {
+                _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
+                DnsTxtItem *last = NULL;
+
+                txt_data = new0(DnssdTxtData, 1);
+                if (!txt_data)
+                        return log_oom();
+
+                while ((r = sd_bus_message_enter_container(message, SD_BUS_TYPE_DICT_ENTRY, "say")) > 0) {
+                        const char *key;
+                        const void *value;
+                        size_t size;
+                        DnsTxtItem *i;
+
+                        r = sd_bus_message_read(message, "s", &key);
+                        if (r < 0)
+                                return r;
+
+                        if (isempty(key))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Keys in DNS-SD TXT RRs can't be empty");
+
+                        if (!ascii_is_valid(key))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "TXT key '%s' contains non-ASCII symbols", key);
+
+                        r = sd_bus_message_read_array(message, 'y', &value, &size);
+                        if (r < 0)
+                                return r;
+
+                        r = dnssd_txt_item_new_from_data(key, value, size, &i);
+                        if (r < 0)
+                                return r;
+
+                        LIST_INSERT_AFTER(items, txt_data->txt, last, i);
+                        last = i;
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (txt_data->txt) {
+                        LIST_PREPEND(items, service->txt_data_items, txt_data);
+                        txt_data = NULL;
+                }
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        if (!service->txt_data_items) {
+                _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
+
+                txt_data = new0(DnssdTxtData, 1);
+                if (!txt_data)
+                        return log_oom();
+
+                r = dns_txt_item_new_empty(&txt_data->txt);
+                if (r < 0)
+                        return r;
+
+                LIST_PREPEND(items, service->txt_data_items, txt_data);
+                txt_data = NULL;
+        }
+
+        r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->name, &path);
+        if (r < 0)
+                return r;
+
+        r = hashmap_ensure_allocated(&m->dnssd_services, &string_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(m->dnssd_services, service->name, service);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_track_new(sd_bus_message_get_bus(message), &bus_track, on_bus_track, service);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_track_add_sender(bus_track, message);
+        if (r < 0)
+                return r;
+
+        service->manager = m;
+
+        service = NULL;
+
+        manager_refresh_rrs(m);
+
+        return sd_bus_reply_method_return(message, "o", path);
+}
+
+static int call_dnssd_method(Manager *m, sd_bus_message *message, sd_bus_message_handler_t handler, sd_bus_error *error) {
+        _cleanup_free_ char *name = NULL;
+        DnssdService *s = NULL;
+        const char *path;
+        int r;
+
+        assert(m);
+        assert(message);
+        assert(handler);
+
+        r = sd_bus_message_read(message, "o", &path);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_path_decode(path, "/org/freedesktop/resolve1/dnssd", &name);
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_DNSSD_SERVICE, "DNS-SD service with object path '%s' does not exist", path);
+        if (r < 0)
+                return r;
+
+        s = hashmap_get(m->dnssd_services, name);
+        if (!s)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_DNSSD_SERVICE, "DNS-SD service '%s' not known", name);
+
+        return handler(message, s, error);
+}
+
+static int bus_method_unregister_service(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        assert(message);
+        assert(m);
+
+        return call_dnssd_method(m, message, bus_dnssd_method_unregister, error);
+}
+
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
+        SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Manager, llmnr_support), 0),
+        SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Manager, mdns_support), 0),
+        SD_BUS_PROPERTY("DNSOverTLS", "s", bus_property_get_dns_over_tls_mode, 0, 0),
         SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, 0),
+        SD_BUS_PROPERTY("FallbackDNS", "a(iiay)", bus_property_get_fallback_dns_servers, offsetof(Manager, fallback_dns_servers), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(isb)", bus_property_get_domains, 0, 0),
         SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
         SD_BUS_PROPERTY("CacheStatistics", "(ttt)", bus_property_get_cache_statistics, 0, 0),
+        SD_BUS_PROPERTY("DNSSEC", "s", bus_property_get_dnssec_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSECStatistics", "(tttt)", bus_property_get_dnssec_statistics, 0, 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", bus_property_get_dnssec_supported, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", bus_property_get_ntas, 0, 0),
@@ -1605,24 +1856,15 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_domains, 0),
         SD_BUS_METHOD("SetLinkLLMNR", "is", NULL, bus_method_set_link_llmnr, 0),
         SD_BUS_METHOD("SetLinkMulticastDNS", "is", NULL, bus_method_set_link_mdns, 0),
+        SD_BUS_METHOD("SetLinkDNSOverTLS", "is", NULL, bus_method_set_link_dns_over_tls, 0),
         SD_BUS_METHOD("SetLinkDNSSEC", "is", NULL, bus_method_set_link_dnssec, 0),
         SD_BUS_METHOD("SetLinkDNSSECNegativeTrustAnchors", "ias", NULL, bus_method_set_link_dnssec_negative_trust_anchors, 0),
         SD_BUS_METHOD("RevertLink", "i", NULL, bus_method_revert_link, 0),
 
+        SD_BUS_METHOD("RegisterService", "sssqqqaa{say}", "o", bus_method_register_service, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("UnregisterService", "o", NULL, bus_method_unregister_service, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
-
-static int on_bus_retry(sd_event_source *s, usec_t usec, void *userdata) {
-        Manager *m = userdata;
-
-        assert(s);
-        assert(m);
-
-        m->bus_retry_event_source = sd_event_source_unref(m->bus_retry_event_source);
-
-        manager_connect_bus(m);
-        return 0;
-}
 
 static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *m = userdata;
@@ -1654,20 +1896,9 @@ int manager_connect_bus(Manager *m) {
         if (m->bus)
                 return 0;
 
-        r = sd_bus_default_system(&m->bus);
-        if (r < 0) {
-                /* We failed to connect? Yuck, we must be in early
-                 * boot. Let's try in 5s again. */
-
-                log_debug_errno(r, "Failed to connect to bus, trying again in 5s: %m");
-
-                r = sd_event_add_time(m->event, &m->bus_retry_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 5*USEC_PER_SEC, 0, on_bus_retry, m);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to install bus reconnect time event: %m");
-
-                (void) sd_event_source_set_description(m->bus_retry_event_source, "bus-retry");
-                return 0;
-        }
+        r = bus_open_system_watch_bind_with_description(&m->bus, "bus-api-resolve");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
 
         r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", resolve_vtable, m);
         if (r < 0)
@@ -1681,24 +1912,34 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register link enumerator: %m");
 
-        r = sd_bus_request_name(m->bus, "org.freedesktop.resolve1", 0);
+        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/resolve1/dnssd", "org.freedesktop.resolve1.DnssdService", dnssd_vtable, dnssd_object_find, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to register name: %m");
+                return log_error_errno(r, "Failed to register dnssd objects: %m");
+
+        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/resolve1/dnssd", dnssd_node_enumerator, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register dnssd enumerator: %m");
+
+        r = bus_request_name_async_may_reload_dbus(m->bus, NULL, "org.freedesktop.resolve1", 0, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request name: %m");
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
-                             "type='signal',"
-                             "sender='org.freedesktop.login1',"
-                             "interface='org.freedesktop.login1.Manager',"
-                             "member='PrepareForSleep',"
-                             "path='/org/freedesktop/login1'",
-                             match_prepare_for_sleep,
-                             m);
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "PrepareForSleep",
+                        match_prepare_for_sleep,
+                        NULL,
+                        m);
         if (r < 0)
-                log_error_errno(r, "Failed to add match for PrepareForSleep: %m");
+                log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
 
         return 0;
 }

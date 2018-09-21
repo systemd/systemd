@@ -20,3 +20,4 @@ ConditionCapability=CAP_SYS_MODULE
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootbindir@/systemd-tmpfiles --prefix=/dev --create --boot
+SuccessExitStatus=65 73

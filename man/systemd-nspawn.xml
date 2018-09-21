@@ -1,26 +1,12 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY fedora_latest_version "28">
+<!ENTITY fedora_cloud_release "1.1">
+]>
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-nspawn"
@@ -29,15 +15,6 @@
   <refentryinfo>
     <title>systemd-nspawn</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -47,7 +24,7 @@
 
   <refnamediv>
     <refname>systemd-nspawn</refname>
-    <refpurpose>Spawn a namespace container for debugging, testing and building</refpurpose>
+    <refpurpose>Spawn a command or OS in a light-weight container</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -78,7 +55,7 @@
     <para><command>systemd-nspawn</command> may be invoked on any directory tree containing an operating system tree,
     using the <option>--directory=</option> command line option. By using the <option>--machine=</option> option an OS
     tree is automatically searched for in a couple of locations, most importantly in
-    <filename>/var/lib/machines</filename>, the suggested directory to place container images installed on the
+    <filename>/var/lib/machines</filename>, the suggested directory to place OS container images installed on the
     system.</para>
 
     <para>In contrast to <citerefentry
@@ -149,7 +126,7 @@
     <title>Options</title>
 
     <para>If option <option>-b</option> is specified, the arguments
-    are used as arguments for the init binary. Otherwise,
+    are used as arguments for the init program. Otherwise,
     <replaceable>COMMAND</replaceable> specifies the program to launch
     in the container, and the remaining arguments are used as
     arguments for this program. If <option>--boot</option> is not used and
@@ -273,12 +250,12 @@
         <term><option>--as-pid2</option></term>
 
         <listitem><para>Invoke the shell or specified program as process ID (PID) 2 instead of PID 1 (init). By
-        default, if neither this option nor <option>--boot</option> is used, the selected binary is run as process with
-        PID 1, a mode only suitable for programs that are aware of the special semantics that the process with PID 1
-        has on UNIX. For example, it needs to reap all processes reparented to it, and should implement
+        default, if neither this option nor <option>--boot</option> is used, the selected program is run as the process
+        with PID 1, a mode only suitable for programs that are aware of the special semantics that the process with
+        PID 1 has on UNIX. For example, it needs to reap all processes reparented to it, and should implement
         <command>sysvinit</command> compatible signal handling (specifically: it needs to reboot on SIGINT, reexecute
         on SIGTERM, reload configuration on SIGHUP, and so on). With <option>--as-pid2</option> a minimal stub init
-        process is run as PID 1 and the selected binary is executed as PID 2 (and hence does not need to implement any
+        process is run as PID 1 and the selected program is executed as PID 2 (and hence does not need to implement any
         special semantics). The stub init process will reap processes as necessary and react appropriately to
         signals. It is recommended to use this mode to invoke arbitrary commands in containers, unless they have been
         modified to run correctly as PID 1. Or in other words: this switch should be used for pretty much all commands,
@@ -291,9 +268,9 @@
         <term><option>-b</option></term>
         <term><option>--boot</option></term>
 
-        <listitem><para>Automatically search for an init binary and invoke it as PID 1, instead of a shell or a user
+        <listitem><para>Automatically search for an init program and invoke it as PID 1, instead of a shell or a user
         supplied program. If this option is used, arguments specified on the command line are used as arguments for the
-        init binary. This option may not be combined with <option>--as-pid2</option>.</para>
+        init program. This option may not be combined with <option>--as-pid2</option>.</para>
 
         <para>The following table explains the different modes of invocation and relationship to
         <option>--as-pid2</option> (see above):</para>
@@ -322,7 +299,7 @@
 
               <row>
                 <entry><option>--boot</option> specified</entry>
-                <entry>An init binary as automatically searched and run as PID 1 in the container. The passed parameters are used as invocation parameters for this process.</entry>
+                <entry>An init program is automatically searched for and run as PID 1 in the container. The passed parameters are used as invocation parameters for this process.</entry>
               </row>
 
             </tbody>
@@ -387,6 +364,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--hostname=</option></term>
+
+        <listitem><para>Controls the hostname to set within the container, if different from the machine name. Expects
+        a valid hostname as argument. If this option is used, the kernel hostname of the container will be set to this
+        value, otherwise it will be initialized to the machine name as controlled by the <option>--machine=</option>
+        option described above. The machine name is used for various aspect of identification of the container from the
+        outside, the kernel hostname configurable with this option is useful for the container to identify itself from
+        the inside. It is usually a good idea to keep both forms of identification synchronized, in order to avoid
+        confusion. It is hence recommended to avoid usage of this option, and use <option>--machine=</option>
+        exclusively. Note that regardless whether the container's hostname is initialized from the name set with
+        <option>--hostname=</option> or the one set with <option>--machine=</option>, the container can later override
+        its kernel hostname freely on its own as well.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--uuid=</option></term>
 
         <listitem><para>Set the specified UUID for the container. The
@@ -398,6 +391,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-S</option></term>
         <term><option>--slice=</option></term>
 
         <listitem><para>Make the container part of the specified slice, instead of the default
@@ -518,8 +512,27 @@
         configured with <option>--network-veth</option>. If this
         option is specified, the CAP_NET_ADMIN capability will be
         added to the set of capabilities the container retains. The
-        latter may be disabled by using
-        <option>--drop-capability=</option>.</para></listitem>
+        latter may be disabled by using <option>--drop-capability=</option>.
+        If this option is not specified (or implied by one of the options
+        listed below), the container will have full access to the host network.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-namespace-path=</option></term>
+
+        <listitem><para>Takes the path to a file representing a kernel
+        network namespace that the container shall run in. The specified path
+        should refer to a (possibly bind-mounted) network namespace file, as
+        exposed by the kernel below <filename>/proc/$PID/ns/net</filename>.
+        This makes the container enter the given network namespace. One of the
+        typical use cases is to give a network namespace under
+        <filename>/run/netns</filename> created by <citerefentry
+        project='man-pages'><refentrytitle>ip-netns</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        for example, <option>--network-namespace-path=/run/netns/foo</option>.
+        Note that this option cannot be used together with other
+        network-related options, such as <option>--private-network</option>
+        or <option>--network-interface=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -688,22 +701,17 @@
       <varlistentry>
         <term><option>--capability=</option></term>
 
-        <listitem><para>List one or more additional capabilities to
-        grant the container. Takes a comma-separated list of
-        capability names, see
+        <listitem><para>List one or more additional capabilities to grant the container.
+        Takes a comma-separated list of capability names, see
         <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for more information. Note that the following capabilities
-        will be granted in any way: CAP_CHOWN, CAP_DAC_OVERRIDE,
-        CAP_DAC_READ_SEARCH, CAP_FOWNER, CAP_FSETID, CAP_IPC_OWNER,
-        CAP_KILL, CAP_LEASE, CAP_LINUX_IMMUTABLE,
-        CAP_NET_BIND_SERVICE, CAP_NET_BROADCAST, CAP_NET_RAW,
-        CAP_SETGID, CAP_SETFCAP, CAP_SETPCAP, CAP_SETUID,
-        CAP_SYS_ADMIN, CAP_SYS_CHROOT, CAP_SYS_NICE, CAP_SYS_PTRACE,
-        CAP_SYS_TTY_CONFIG, CAP_SYS_RESOURCE, CAP_SYS_BOOT,
-        CAP_AUDIT_WRITE, CAP_AUDIT_CONTROL. Also CAP_NET_ADMIN is
-        retained if <option>--private-network</option> is specified.
-        If the special value <literal>all</literal> is passed, all
-        capabilities are retained.</para></listitem>
+        for more information. Note that the following capabilities will be granted in any way:
+        CAP_AUDIT_CONTROL, CAP_AUDIT_WRITE, CAP_CHOWN, CAP_DAC_OVERRIDE, CAP_DAC_READ_SEARCH,
+        CAP_FOWNER, CAP_FSETID, CAP_IPC_OWNER, CAP_KILL, CAP_LEASE, CAP_LINUX_IMMUTABLE,
+        CAP_MKNOD, CAP_NET_BIND_SERVICE, CAP_NET_BROADCAST, CAP_NET_RAW, CAP_SETFCAP,
+        CAP_SETGID, CAP_SETPCAP, CAP_SETUID, CAP_SYS_ADMIN, CAP_SYS_BOOT, CAP_SYS_CHROOT,
+        CAP_SYS_NICE, CAP_SYS_PTRACE, CAP_SYS_RESOURCE, CAP_SYS_TTY_CONFIG. Also CAP_NET_ADMIN
+        is retained if <option>--private-network</option> is specified.  If the special value
+        <literal>all</literal> is passed, all capabilities are retained.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -716,12 +724,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--no-new-privileges=</option></term>
+
+        <listitem><para>Takes a boolean argument. Specifies the value of the <constant>PR_SET_NO_NEW_PRIVS</constant>
+        flag for the container payload. Defaults to off. When turned on the payload code of the container cannot
+        acquire new privileges, i.e. the "setuid" file bit as well as file system capabilities will not have an effect
+        anymore. See <citerefentry
+        project='man-pages'><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry> for details
+        about this flag. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--system-call-filter=</option></term>
 
         <listitem><para>Alter the system call filter applied to containers. Takes a space-separated list of system call
         names or group names (the latter prefixed with <literal>@</literal>, as listed by the
-        <command>syscall-filter</command> command of <citerefentry
-        project='man-pages'><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Passed
+        <command>syscall-filter</command> command of
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Passed
         system calls will be permitted. The list may optionally be prefixed by <literal>~</literal>, in which case all
         listed system calls are prohibited. If this command line option is used multiple times the configured lists are
         combined. If both a positive and a negative list (that is one system call list without and one with the
@@ -733,15 +752,59 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--rlimit=</option></term>
+
+        <listitem><para>Sets the specified POSIX resource limit for the container payload. Expects an assignment of the
+        form
+        <literal><replaceable>LIMIT</replaceable>=<replaceable>SOFT</replaceable>:<replaceable>HARD</replaceable></literal>
+        or <literal><replaceable>LIMIT</replaceable>=<replaceable>VALUE</replaceable></literal>, where
+        <replaceable>LIMIT</replaceable> should refer to a resource limit type, such as
+        <constant>RLIMIT_NOFILE</constant> or <constant>RLIMIT_NICE</constant>. The <replaceable>SOFT</replaceable> and
+        <replaceable>HARD</replaceable> fields should refer to the numeric soft and hard resource limit values. If the
+        second form is used, <replaceable>VALUE</replaceable> may specify a value that is used both as soft and hard
+        limit. In place of a numeric value the special string <literal>infinity</literal> may be used to turn off
+        resource limiting for the specific type of resource. This command line option may be used multiple times to
+        control limits on multiple limit types. If used multiple times for the same limit type, the last use
+        wins. For details about resource limits see <citerefentry
+        project='man-pages'><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>. By default
+        resource limits for the container's init process (PID 1) are set to the same values the Linux kernel originally
+        passed to the host init system. Note that some resource limits are enforced on resources counted per user, in
+        particular <constant>RLIMIT_NPROC</constant>. This means that unless user namespacing is deployed
+        (i.e. <option>--private-users=</option> is used, see above), any limits set will be applied to the resource
+        usage of the same user on all local containers as well as the host. This means particular care needs to be
+        taken with these limits as they might be triggered by possibly less trusted code. Example:
+        <literal>--rlimit=RLIMIT_NOFILE=8192:16384</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--oom-score-adjust=</option></term>
+
+        <listitem><para>Changes the OOM ("Out Of Memory") score adjustment value for the container payload. This controls
+        <filename>/proc/self/oom_score_adj</filename> which influences the preference with which this container is
+        terminated when memory becomes scarce. For details see <citerefentry
+        project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Takes an
+        integer in the range -1000…1000.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cpu-affinity=</option></term>
+
+        <listitem><para>Controls the CPU affinity of the container payload. Takes a comma separated list of CPU numbers
+        or number ranges (the latter's start and end value separated by dashes). See <citerefentry
+        project='man-pages'><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--kill-signal=</option></term>
 
-        <listitem><para>Specify the process signal to send to the
-        container's PID 1 when nspawn itself receives SIGTERM, in
-        order to trigger an orderly shutdown of the
-        container. Defaults to SIGRTMIN+3 if <option>--boot</option>
-        is used (on systemd-compatible init systems SIGRTMIN+3
-        triggers an orderly shutdown). For a list of valid signals, see
-        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+        <listitem><para>Specify the process signal to send to the container's PID 1 when nspawn itself receives
+        <constant>SIGTERM</constant>, in order to trigger an orderly shutdown of the container. Defaults to
+        <constant>SIGRTMIN+3</constant> if <option>--boot</option> is used (on systemd-compatible init systems
+        <constant>SIGRTMIN+3</constant> triggers an orderly shutdown). If <option>--boot</option> is not used and this
+        option is not specified the container's processes are terminated abrubtly via <constant>SIGKILL</constant>. For
+        a list of valid signals, see <citerefentry
+        project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -783,6 +846,54 @@
 
         <listitem><para>Equivalent to
         <option>--link-journal=try-guest</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--resolv-conf=</option></term>
+
+        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> inside of the container (i.e. DNS
+        configuration synchronization from host to container) shall be handled. Takes one of <literal>off</literal>,
+        <literal>copy-host</literal>, <literal>copy-static</literal>, <literal>bind-host</literal>,
+        <literal>bind-static</literal>, <literal>delete</literal> or <literal>auto</literal>. If set to
+        <literal>off</literal> the <filename>/etc/resolv.conf</filename> file in the container is left as it is
+        included in the image, and neither modified nor bind mounted over. If set to <literal>copy-host</literal>, the
+        <filename>/etc/resolv.conf</filename> file from the host is copied into the container. Similar, if
+        <literal>bind-host</literal> is used, the file is bind mounted from the host into the container. If set to
+        <literal>copy-static</literal> the static <filename>resolv.conf</filename> file supplied with
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+        copied into the container, and correspondingly <literal>bind-static</literal> bind mounts it there. If set to
+        <literal>delete</literal> the <filename>/etc/resolv.conf</filename> file in the container is deleted if it
+        exists. Finally, if set to <literal>auto</literal> the file is left as it is if private networking is turned on
+        (see <option>--private-network</option>). Otherwise, if <filename>systemd-resolved.service</filename> is
+        connectible its static <filename>resolv.conf</filename> file is used, and if not the host's
+        <filename>/etc/resolv.conf</filename> file is used. In the latter cases the file is copied if the image is
+        writable, and bind mounted otherwise. It's recommended to use <literal>copy</literal> if the container shall be
+        able to make changes to the DNS configuration on its own, deviating from the host's settings. Otherwise
+        <literal>bind</literal> is preferable, as it means direct changes to <filename>/etc/resolv.conf</filename> in
+        the container are not allowed, as it is a read-only bind mount (but note that if the container has enough
+        privileges, it might simply go ahead and unmount the bind mount anyway). Note that both if the file is bind
+        mounted and if it is copied no further propagation of configuration is generally done after the one-time early
+        initialization (this is because the file is usually updated through copying and renaming). Defaults to
+        <literal>auto</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timezone=</option></term>
+
+        <listitem><para>Configures how <filename>/etc/localtime</filename> inside of the container (i.e. local timezone
+        synchronization from host to container) shall be handled. Takes one of <literal>off</literal>,
+        <literal>copy</literal>, <literal>bind</literal>, <literal>symlink</literal>, <literal>delete</literal> or
+        <literal>auto</literal>. If set to <literal>off</literal> the <filename>/etc/localtime</filename> file in the
+        container is left as it is included in the image, and neither modified nor bind mounted over. If set to
+        <literal>copy</literal> the <filename>/etc/localtime</filename> file of the host is copied into the
+        container. Similar, if <literal>bind</literal> is used, it is bind mounted from the host into the container. If
+        set to <literal>symlink</literal> a symlink from <filename>/etc/localtime</filename> in the container is
+        created pointing to the matching the timezone file of the container that matches the timezone setting on the
+        host. If set to <literal>delete</literal> the file in the container is deleted, should it exist. If set to
+        <literal>auto</literal> and the <filename>/etc/localtime</filename> file of the host is a symlink, then
+        <literal>symlink</literal> mode is used, and <literal>copy</literal> otherwise, except if the image is
+        read-only in which case <literal>bind</literal> is used instead. Defaults to
+        <literal>auto</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1070,8 +1181,8 @@
       <ulink url="https://getfedora.org">Fedora</ulink> image and start a shell in it</title>
 
       <programlisting># machinectl pull-raw --verify=no \
-      https://download.fedoraproject.org/pub/fedora/linux/releases/25/CloudImages/x86_64/images/Fedora-Cloud-Base-25-1.3.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-25-1.3.x86_64.raw</programlisting>
+      https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw</programlisting>
 
       <para>This downloads an image using
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -1081,23 +1192,23 @@
     <example>
       <title>Build and boot a minimal Fedora distribution in a container</title>
 
-      <programlisting># dnf -y --releasever=27 --installroot=/var/lib/machines/f27container \
+      <programlisting># dnf -y --releasever=&fedora_latest_version; --installroot=/var/lib/machines/f&fedora_latest_version; \
       --disablerepo='*' --enablerepo=fedora --enablerepo=updates install \
       systemd passwd dnf fedora-release vim-minimal
-# systemd-nspawn -bD /var/lib/machines/f27container</programlisting>
+# systemd-nspawn -bD /var/lib/machines/f&fedora_latest_version;</programlisting>
 
       <para>This installs a minimal Fedora distribution into the
-      directory <filename noindex='true'>/var/lib/machines/f27container</filename>
+      directory <filename noindex='true'>/var/lib/machines/f&fedora_latest_version;</filename>
       and then boots an OS in a namespace container in it. Because the installation
       is located underneath the standard <filename>/var/lib/machines/</filename>
       directory, it is also possible to start the machine using
-      <command>systemd-nspawn -M f27container</command>.</para>
+      <command>systemd-nspawn -M f&fedora_latest_version;</command>.</para>
     </example>
 
     <example>
       <title>Spawn a shell in a container of a minimal Debian unstable distribution</title>
 
-      <programlisting># debootstrap --arch=amd64 unstable ~/debian-tree/
+      <programlisting># debootstrap unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</programlisting>
 
       <para>This installs a minimal Debian unstable distribution into

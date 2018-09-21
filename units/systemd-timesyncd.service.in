@@ -13,7 +13,7 @@ Documentation=man:systemd-timesyncd.service(8)
 ConditionCapability=CAP_SYS_TIME
 ConditionVirtualization=!container
 DefaultDependencies=no
-After=systemd-remount-fs.service systemd-sysusers.service
+After=systemd-remount-fs.service
 Before=time-sync.target sysinit.target shutdown.target
 Conflicts=shutdown.target
 Wants=time-sync.target
@@ -37,10 +37,13 @@ MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-SystemCallFilter=~@cpu-emulation @debug @keyring @module @mount @obsolete @raw-io @reboot @swap
+RuntimeDirectory=systemd/timesync
+SystemCallFilter=@system-service @clock
+SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
 StateDirectory=systemd/timesync
 
 [Install]
 WantedBy=sysinit.target
+Alias=dbus-org.freedesktop.timesync1.service

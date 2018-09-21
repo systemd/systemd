@@ -1,32 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
-
-  Copyright 2013 Daniel Buch
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
-#include "env-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
-
-static bool arg_slow = false;
 
 void test_hashmap_funcs(void);
 
@@ -757,15 +737,16 @@ static void test_hashmap_many(void) {
         Hashmap *h;
         unsigned i, j;
         void *v, *k;
+        bool slow = slow_tests_enabled();
         const struct {
                 const struct hash_ops *ops;
                 unsigned n_entries;
         } tests[] = {
-                { .ops = NULL,                  .n_entries = arg_slow ? 1 << 20 : 240 },
-                { .ops = &crippled_hashmap_ops, .n_entries = arg_slow ? 1 << 14 : 140 },
+                { .ops = NULL,                  .n_entries = slow ? 1 << 20 : 240 },
+                { .ops = &crippled_hashmap_ops, .n_entries = slow ? 1 << 14 : 140 },
         };
 
-        log_info("%s (%s)", __func__, arg_slow ? "slow" : "fast");
+        log_info("%s (%s)", __func__, slow ? "slow" : "fast");
 
         for (j = 0; j < ELEMENTSOF(tests); j++) {
                 assert_se(h = hashmap_new(tests[j].ops));
@@ -904,13 +885,8 @@ static void test_hashmap_reserve(void) {
 }
 
 void test_hashmap_funcs(void) {
-        int r;
-
         log_parse_environment();
         log_open();
-
-        r = getenv_bool("SYSTEMD_SLOW_TESTS");
-        arg_slow = r >= 0 ? r : SYSTEMD_SLOW_TESTS_DEFAULT;
 
         test_hashmap_copy();
         test_hashmap_get_strv();

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Susant Sahani
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <arpa/inet.h>
 #include <libkmod.h>
@@ -28,6 +10,7 @@
 
 #include "macro.h"
 #include "module-util.h"
+#include "tests.h"
 #include "util.h"
 
 static int load_module(const char *mod_name) {
@@ -65,10 +48,14 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         /* skip test if module cannot be loaded */
         r = load_module("ipip");
         if (r < 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped_errno(r, "failed to load module 'ipip'");
+
+        r = load_module("sit");
+        if (r < 0)
+                return log_tests_skipped_errno(r, "failed to load module 'sit'");
 
         if (getuid() != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("not root");
 
         /* IPIP tunnel */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);
@@ -93,10 +80,6 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(sd_netlink_call(rtnl, m, -1, 0) == 1);
 
         assert_se((m = sd_netlink_message_unref(m)) == NULL);
-
-        r = load_module("sit");
-        if (r < 0)
-                return EXIT_TEST_SKIP;
 
         /* sit */
         assert_se(sd_rtnl_message_new_link(rtnl, &n, RTM_NEWLINK, 0) >= 0);
@@ -130,6 +113,8 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
 int main(int argc, char *argv[]) {
         sd_netlink *rtnl;
         int r;
+
+        test_setup_logging(LOG_INFO);
 
         assert_se(sd_netlink_open(&rtnl) >= 0);
         assert_se(rtnl);

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <linux/if_alg.h>
 #include <stdbool.h>
@@ -43,6 +25,66 @@ struct khash {
         bool digest_valid;
 };
 
+int khash_supported(void) {
+        static const union {
+                struct sockaddr sa;
+                struct sockaddr_alg alg;
+        } sa = {
+                .alg.salg_family = AF_ALG,
+                .alg.salg_type = "hash",
+                .alg.salg_name = "sha256", /* a very common algorithm */
+        };
+
+        static int cached = -1;
+
+        if (cached < 0) {
+                _cleanup_close_ int fd1 = -1, fd2 = -1;
+                uint8_t buf[LONGEST_DIGEST+1];
+
+                fd1 = socket(AF_ALG, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+                if (fd1 < 0) {
+                        /* The kernel returns EAFNOSUPPORT if AF_ALG is not supported at all */
+                        if (IN_SET(errno, EAFNOSUPPORT, EOPNOTSUPP))
+                                return (cached = false);
+
+                        return -errno;
+                }
+
+                if (bind(fd1, &sa.sa, sizeof(sa)) < 0) {
+                        /* The kernel returns ENOENT if the selected algorithm is not supported at all. We use a check
+                         * for SHA256 as a proxy for whether the whole API is supported at all. After all it's one of
+                         * the most common hash functions, and if it isn't supported, that's ample indication that
+                         * something is really off. */
+
+                        if (IN_SET(errno, ENOENT, EOPNOTSUPP))
+                                return (cached = false);
+
+                        return -errno;
+                }
+
+                fd2 = accept4(fd1, NULL, 0, SOCK_CLOEXEC);
+                if (fd2 < 0) {
+                        if (errno == EOPNOTSUPP)
+                                return (cached = false);
+
+                        return -errno;
+                }
+
+                if (recv(fd2, buf, sizeof(buf), 0) < 0) {
+                        /* On some kernels we get ENOKEY for non-keyed hash functions (such as sha256), let's refuse
+                         * using the API in those cases, since the kernel is
+                         * broken. https://github.com/systemd/systemd/issues/8278 */
+
+                        if (IN_SET(errno, ENOKEY, EOPNOTSUPP))
+                                return (cached = false);
+                }
+
+                cached = true;
+        }
+
+        return cached;
+}
+
 int khash_new_with_key(khash **ret, const char *algorithm, const void *key, size_t key_size) {
         union {
                 struct sockaddr sa;
@@ -54,6 +96,7 @@ int khash_new_with_key(khash **ret, const char *algorithm, const void *key, size
 
         _cleanup_(khash_unrefp) khash *h = NULL;
         _cleanup_close_ int fd = -1;
+        int supported;
         ssize_t n;
 
         assert(ret);
@@ -65,6 +108,12 @@ int khash_new_with_key(khash **ret, const char *algorithm, const void *key, size
 
         /* Overly long hash algorithm names we definitely do not support */
         if (strlen(algorithm) >= sizeof(sa.alg.salg_name))
+                return -EOPNOTSUPP;
+
+        supported = khash_supported();
+        if (supported < 0)
+                return supported;
+        if (supported == 0)
                 return -EOPNOTSUPP;
 
         fd = socket(AF_ALG, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
@@ -149,8 +198,7 @@ int khash_dup(khash *h, khash **ret) {
         if (copy->fd < 0)
                 return -errno;
 
-        *ret = copy;
-        copy = NULL;
+        *ret = TAKE_PTR(copy);
 
         return 0;
 }

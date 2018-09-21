@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -69,14 +51,12 @@ static const char* af_to_string(int family, char *buf, size_t buf_len) {
 }
 
 static void* open_handle(const char* dir, const char* module, int flags) {
-        const char *path;
+        const char *path = NULL;
         void *handle;
 
-        if (dir) {
+        if (dir)
                 path = strjoina(dir, "/libnss_", module, ".so.2");
-                if (access(path, F_OK) < 0)
-                        path = strjoina(dir, "/.libs/libnss_", module, ".so.2");
-        } else
+        if (!path || access(path, F_OK) < 0)
                 path = strjoina("libnss_", module, ".so.2");
 
         handle = dlopen(path, flags);
@@ -100,7 +80,7 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                 r = in_addr_to_string(it->family, &u, &a);
                 assert_se(IN_SET(r, 0, -EAFNOSUPPORT));
                 if (r == -EAFNOSUPPORT)
-                        assert_se((a = hexmem(it->addr, 16)));
+                        assert_se(a = hexmem(it->addr, 16));
 
                 if (it->scopeid == 0)
                         goto numerical_index;
@@ -193,7 +173,6 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                 assert_se(n == 2);
         }
 }
-
 
 static void test_gethostbyname3_r(void *handle, const char *module, const char *name, int af) {
         const char *fname;
@@ -414,12 +393,9 @@ static int test_one_module(const char* dir,
         char **name;
         int i;
 
-
         log_info("======== %s ========", module);
 
-        handle = open_handle(streq(module, "dns") ? NULL : dir,
-                             module,
-                             RTLD_LAZY|RTLD_NODELETE);
+        handle = open_handle(dir, module, RTLD_LAZY|RTLD_NODELETE);
         if (!handle)
                 return -EINVAL;
 
@@ -451,13 +427,13 @@ static int parse_argv(int argc, char **argv,
                 modules = strv_new(argv[1], NULL);
         else
                 modules = strv_new(
-#if ENABLE_MYHOSTNAME
+#if ENABLE_NSS_MYHOSTNAME
                                 "myhostname",
 #endif
-#if ENABLE_RESOLVE
+#if ENABLE_NSS_RESOLVE
                                 "resolve",
 #endif
-#if ENABLE_MACHINED
+#if ENABLE_NSS_MYMACHINES
                                 "mymachines",
 #endif
                                 "dns",

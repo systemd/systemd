@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "sd-bus.h"
 
@@ -68,7 +50,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
         /* Access is granted to the job owner */
         if (!sd_bus_track_contains(j->bus_track, sd_bus_message_get_sender(message))) {
 
-                /* And for everybody else consult PolicyKit */
+                /* And for everybody else consult polkit */
                 r = bus_verify_manage_units_async(j->unit->manager, message, error);
                 if (r < 0)
                         return r;
@@ -274,8 +256,7 @@ int bus_job_coldplug_bus_track(Job *j) {
 
         assert(j);
 
-        deserialized_clients = j->deserialized_clients;
-        j->deserialized_clients = NULL;
+        deserialized_clients = TAKE_PTR(j->deserialized_clients);
 
         if (strv_isempty(deserialized_clients))
                 return 0;

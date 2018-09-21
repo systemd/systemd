@@ -2,26 +2,11 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2010 Maarten Lankhorst
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2010 Maarten Lankhorst
 ***/
 
-#include "libudev.h"
+#include "sd-device.h"
+#include "unit.h"
 
 typedef struct Swap Swap;
 
@@ -100,11 +85,13 @@ struct Swap {
 
 extern const UnitVTable swap_vtable;
 
-int swap_process_device_new(Manager *m, struct udev_device *dev);
-int swap_process_device_remove(Manager *m, struct udev_device *dev);
+int swap_process_device_new(Manager *m, sd_device *dev);
+int swap_process_device_remove(Manager *m, sd_device *dev);
 
 const char* swap_exec_command_to_string(SwapExecCommand i) _const_;
 SwapExecCommand swap_exec_command_from_string(const char *s) _pure_;
 
 const char* swap_result_to_string(SwapResult i) _const_;
 SwapResult swap_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(SWAP, Swap);

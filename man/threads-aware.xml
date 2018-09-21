@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+
+<refsect1>
+
+<para id="strict">All functions listed here are thread-agnostic and only a single specific thread may operate on a
+given object during its entire lifetime. It's safe to allocate multiple independent objects and use each from a
+specific thread in parallel. However, it's not safe to allocate such an object in one thread, and operate or free it
+from any other, even if locking is used to ensure these threads don't operate on it at the very same time.</para>
+
+<para id="safe">All functions listed here are thread-safe and may be called in parallel from multiple threads.</para>
+
+</refsect1>

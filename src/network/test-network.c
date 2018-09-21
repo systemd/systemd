@@ -1,28 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
+#include <sys/param.h>
 
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
+#include "hostname-util.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
-#include "udev-util.h"
+#include "string-util.h"
+#include "tests.h"
 
 static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -131,7 +119,7 @@ static int test_load_config(Manager *manager) {
         return 0;
 }
 
-static void test_network_get(Manager *manager, struct udev_device *loopback) {
+static void test_network_get(Manager *manager, sd_device *loopback) {
         Network *network;
         const struct ether_addr mac = {};
 
@@ -142,7 +130,7 @@ static void test_network_get(Manager *manager, struct udev_device *loopback) {
 }
 
 static void test_address_equality(void) {
-        _cleanup_address_free_ Address *a1 = NULL, *a2 = NULL;
+        _cleanup_(address_freep) Address *a1 = NULL, *a2 = NULL;
 
         assert_se(address_new(&a1) >= 0);
         assert_se(address_new(&a2) >= 0);
@@ -186,31 +174,74 @@ static void test_address_equality(void) {
         assert_se(!address_equal(a1, a2));
 }
 
-int main(void) {
-        _cleanup_manager_free_ Manager *manager = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *loopback = NULL;
+static void test_dhcp_hostname_shorten_overlong(void) {
         int r;
+
+        {
+                /* simple hostname, no actions, no errors */
+                _cleanup_free_ char *shortened = NULL;
+                r = shorten_overlong("name1", &shortened);
+                assert_se(r == 0);
+                assert_se(streq("name1", shortened));
+        }
+
+        {
+                /* simple fqdn, no actions, no errors */
+                _cleanup_free_ char *shortened = NULL;
+                r = shorten_overlong("name1.example.com", &shortened);
+                assert_se(r == 0);
+                assert_se(streq("name1.example.com", shortened));
+        }
+
+        {
+                /* overlong fqdn, cut to first dot, no errors */
+                _cleanup_free_ char *shortened = NULL;
+                r = shorten_overlong("name1.test-dhcp-this-one-here-is-a-very-very-long-domain.example.com", &shortened);
+                assert_se(r == 1);
+                assert_se(streq("name1", shortened));
+        }
+
+        {
+                /* overlong hostname, cut to HOST_MAX_LEN, no errors */
+                _cleanup_free_ char *shortened = NULL;
+                r = shorten_overlong("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-domainname", &shortened);
+                assert_se(r == 1);
+                assert_se(streq("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-dom", shortened));
+        }
+
+        {
+                /* overlong fqdn, cut to first dot, empty result error */
+                _cleanup_free_ char *shortened = NULL;
+                r = shorten_overlong(".test-dhcp-this-one-here-is-a-very-very-long-hostname.example.com", &shortened);
+                assert_se(r == -EDOM);
+                assert_se(shortened == NULL);
+        }
+
+}
+
+int main(void) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
+        int ifindex, r;
+
+        test_setup_logging(LOG_INFO);
 
         test_deserialize_in_addr();
         test_deserialize_dhcp_routes();
         test_address_equality();
+        test_dhcp_hostname_shorten_overlong();
 
-        assert_se(sd_event_default(&event) >= 0);
-
-        assert_se(manager_new(&manager, event) >= 0);
+        assert_se(manager_new(&manager) >= 0);
 
         r = test_load_config(manager);
         if (r == -EPERM)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("Cannot load configuration");
+        assert_se(r == 0);
 
-        udev = udev_new();
-        assert_se(udev);
-
-        loopback = udev_device_new_from_syspath(udev, "/sys/class/net/lo");
+        assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
         assert_se(loopback);
-        assert_se(udev_device_get_ifindex(loopback) == 1);
+        assert_se(sd_device_get_ifindex(loopback, &ifindex) >= 0);
+        assert_se(ifindex == 1);
 
         test_network_get(manager, loopback);
 

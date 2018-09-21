@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
         "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="coredump.conf" conditional="ENABLE_COREDUMP"
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>coredump.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -87,7 +61,7 @@
 
         <listitem><para>Controls where to store cores. One of <literal>none</literal>,
         <literal>external</literal>, and <literal>journal</literal>. When
-        <literal>none</literal>, the core dumps will be logged (including the backtrace if
+        <literal>none</literal>, the core dumps may be logged (including the backtrace if
         possible), but not stored permanently. When <literal>external</literal> (the
         default), cores will be stored in <filename>/var/lib/systemd/coredump/</filename>.
         When <literal>journal</literal>, cores will be stored in the journal and rotated
@@ -114,8 +88,12 @@
 
         <listitem><para>The maximum size in bytes of a core
         which will be processed. Core dumps exceeding this size
-        will be logged, but the backtrace will not be generated
-        and the core will not be stored.</para></listitem>
+        may be stored, but the backtrace will not be generated.
+        </para>
+
+        <para>Setting <varname>Storage=none</varname> and <varname>ProcessSizeMax=0</varname>
+        disables all coredump handling except for a log entry.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -146,6 +124,9 @@
       </varlistentry>
     </variablelist>
 
+    <para>The defaults for all values are listed as comments in the
+    template <filename>/etc/systemd/coredump.conf</filename> file that
+    is installed by default.</para>
   </refsect1>
 
   <refsect1>

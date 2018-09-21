@@ -1,25 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
+#include <stdio_ext.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -108,7 +91,7 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
                 return DWARF_CB_ABORT;
 
         if (c->n_thread != 0)
-                fputc_unlocked('\n', c->f);
+                fputc('\n', c->f);
 
         c->n_frame = 0;
 
@@ -144,6 +127,8 @@ int coredump_make_stack_trace(int fd, const char *executable, char **ret) {
         c.f = open_memstream(&buf, &sz);
         if (!c.f)
                 return -ENOMEM;
+
+        (void) __fsetlocking(c.f, FSETLOCKING_BYCALLER);
 
         elf_version(EV_CURRENT);
 
@@ -181,8 +166,7 @@ int coredump_make_stack_trace(int fd, const char *executable, char **ret) {
 
         c.f = safe_fclose(c.f);
 
-        *ret = buf;
-        buf = NULL;
+        *ret = TAKE_PTR(buf);
 
         r = 0;
 

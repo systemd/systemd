@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-    This file is part of systemd.
-
-    Copyright 2014 Susant Sahani
-
-    systemd is free software; you can redistribute it and/or modify it
-    under the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 2.1 of the License, or
-    (at your option) any later version.
-
-    systemd is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License
-    along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <net/if.h>
 
@@ -198,20 +180,23 @@ int config_parse_vxlan_address(const char *unit,
 
         r = in_addr_is_multicast(f, &buffer);
 
-        if (STR_IN_SET(lvalue, "Group", "Remote")) {
+        if (streq(lvalue, "Group")) {
                 if (r <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan invalid multicast '%s' address, ignoring assignment: %s", lvalue, rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s invalid multicast address, ignoring assignment: %s", lvalue, rvalue);
                         return 0;
                 }
 
                 v->remote_family = f;
         } else {
                 if (r > 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s can not be multicast address, ignoring assignment: %s", lvalue, rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s cannot be a multicast address, ignoring assignment: %s", lvalue, rvalue);
                         return 0;
                 }
 
-                v->local_family = f;
+                if (streq(lvalue, "Remote"))
+                        v->remote_family = f;
+                else
+                        v->local_family = f;
         }
 
         *addr = buffer;

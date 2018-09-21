@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2013 Thomas H.P. Andersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sched.h>
 #include <sys/mount.h>
@@ -38,10 +19,12 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "test-helper.h"
+#include "tests.h"
 #include "util.h"
 #include "virt.h"
 
@@ -49,7 +32,7 @@ static void test_get_process_comm(pid_t pid) {
         struct stat st;
         _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL;
         _cleanup_free_ char *env = NULL;
-        char path[strlen("/proc//comm") + DECIMAL_STR_MAX(pid_t)];
+        char path[STRLEN("/proc//comm") + DECIMAL_STR_MAX(pid_t)];
         pid_t e;
         uid_t u;
         gid_t g;
@@ -99,8 +82,40 @@ static void test_get_process_comm(pid_t pid) {
         if (!detect_container())
                 assert_se(get_ctty_devnr(pid, &h) == -ENXIO || pid != 1);
 
-        getenv_for_pid(pid, "PATH", &i);
+        (void) getenv_for_pid(pid, "PATH", &i);
         log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
+}
+
+static void test_get_process_comm_escape_one(const char *input, const char *output) {
+        _cleanup_free_ char *n = NULL;
+
+        log_info("input: <%s> — output: <%s>", input, output);
+
+        assert_se(prctl(PR_SET_NAME, input) >= 0);
+        assert_se(get_process_comm(0, &n) >= 0);
+
+        log_info("got: <%s>", n);
+
+        assert_se(streq_ptr(n, output));
+}
+
+static void test_get_process_comm_escape(void) {
+        _cleanup_free_ char *saved = NULL;
+
+        assert_se(get_process_comm(0, &saved) >= 0);
+
+        test_get_process_comm_escape_one("", "");
+        test_get_process_comm_escape_one("foo", "foo");
+        test_get_process_comm_escape_one("012345678901234", "012345678901234");
+        test_get_process_comm_escape_one("0123456789012345", "012345678901234");
+        test_get_process_comm_escape_one("äöüß", "\\303\\244\\303…");
+        test_get_process_comm_escape_one("xäöüß", "x\\303\\244…");
+        test_get_process_comm_escape_one("xxäöüß", "xx\\303\\244…");
+        test_get_process_comm_escape_one("xxxäöüß", "xxx\\303\\244…");
+        test_get_process_comm_escape_one("xxxxäöüß", "xxxx\\303\\244…");
+        test_get_process_comm_escape_one("xxxxxäöüß", "xxxxx\\303…");
+
+        assert_se(prctl(PR_SET_NAME, saved) >= 0);
 }
 
 static void test_pid_is_unwaited(void) {
@@ -166,15 +181,19 @@ static void test_get_process_cmdline_harder(void) {
         _cleanup_free_ char *line = NULL;
         pid_t pid;
 
-        if (geteuid() != 0)
+        if (geteuid() != 0) {
+                log_info("Skipping %s: not root", __func__);
                 return;
+        }
 
 #if HAVE_VALGRIND_VALGRIND_H
         /* valgrind patches open(/proc//cmdline)
          * so, test_get_process_cmdline_harder fails always
          * See https://github.com/systemd/systemd/pull/3555#issuecomment-226564908 */
-        if (RUNNING_ON_VALGRIND)
+        if (RUNNING_ON_VALGRIND) {
+                log_info("Skipping %s: running on valgrind", __func__);
                 return;
+        }
 #endif
 
         pid = fork();
@@ -192,13 +211,21 @@ static void test_get_process_cmdline_harder(void) {
         assert_se(pid == 0);
         assert_se(unshare(CLONE_NEWNS) >= 0);
 
+        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
+                log_warning_errno(errno, "mount(..., \"/\", MS_SLAVE|MS_REC, ...) failed: %m");
+                assert_se(IN_SET(errno, EPERM, EACCES));
+                return;
+        }
+
         fd = mkostemp(path, O_CLOEXEC);
         assert_se(fd >= 0);
 
+        /* Note that we don't unmount the following bind-mount at the end of the test because the kernel
+         * will clear up its /proc/PID/ hierarchy automatically as soon as the test stops. */
         if (mount(path, "/proc/self/cmdline", "bind", MS_BIND, NULL) < 0) {
                 /* This happens under selinux… Abort the test in this case. */
                 log_warning_errno(errno, "mount(..., \"/proc/self/cmdline\", \"bind\", ...) failed: %m");
-                assert(errno == EACCES);
+                assert_se(IN_SET(errno, EPERM, EACCES));
                 return;
         }
 
@@ -353,7 +380,7 @@ static void test_get_process_cmdline_harder(void) {
         line = mfree(line);
 
         safe_close(fd);
-        _exit(0);
+        _exit(EXIT_SUCCESS);
 }
 
 static void test_rename_process_now(const char *p, int ret) {
@@ -376,13 +403,13 @@ static void test_rename_process_now(const char *p, int ret) {
 
         assert_se(get_process_comm(0, &comm) >= 0);
         log_info("comm = <%s>", comm);
-        assert_se(strneq(comm, p, 15));
+        assert_se(strneq(comm, p, TASK_COMM_LEN-1));
 
         assert_se(get_process_cmdline(0, 0, false, &cmdline) >= 0);
         /* we cannot expect cmdline to be renamed properly without privileges */
         if (geteuid() == 0) {
                 log_info("cmdline = <%s>", cmdline);
-                assert_se(strneq(p, cmdline, strlen("test-process-util")));
+                assert_se(strneq(p, cmdline, STRLEN("test-process-util")));
                 assert_se(startswith(p, cmdline));
         } else
                 log_info("cmdline = <%s> (not verified)", cmdline);
@@ -462,7 +489,7 @@ static void test_getpid_cached(void) {
                 c = getpid();
 
                 assert_se(a == b && a == c);
-                _exit(0);
+                _exit(EXIT_SUCCESS);
         }
 
         d = raw_getpid();
@@ -497,11 +524,75 @@ static void test_getpid_measure(void) {
         log_info("getpid_cached(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS*USEC_PER_SEC/q));
 }
 
-int main(int argc, char *argv[]) {
+static void test_safe_fork(void) {
+        siginfo_t status;
+        pid_t pid;
+        int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        BLOCK_SIGNALS(SIGCHLD);
+
+        r = safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NULL_STDIO|FORK_REOPEN_LOG, &pid);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                /* child */
+                usleep(100 * USEC_PER_MSEC);
+
+                _exit(88);
+        }
+
+        assert_se(wait_for_terminate(pid, &status) >= 0);
+        assert_se(status.si_code == CLD_EXITED);
+        assert_se(status.si_status == 88);
+}
+
+static void test_pid_to_ptr(void) {
+
+        assert_se(PTR_TO_PID(NULL) == 0);
+        assert_se(PID_TO_PTR(0) == NULL);
+
+        assert_se(PTR_TO_PID(PID_TO_PTR(1)) == 1);
+        assert_se(PTR_TO_PID(PID_TO_PTR(2)) == 2);
+        assert_se(PTR_TO_PID(PID_TO_PTR(-1)) == -1);
+        assert_se(PTR_TO_PID(PID_TO_PTR(-2)) == -2);
+
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT16_MAX)) == INT16_MAX);
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT16_MIN)) == INT16_MIN);
+
+#if SIZEOF_PID_T >= 4
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MAX)) == INT32_MAX);
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MIN)) == INT32_MIN);
+#endif
+}
+
+static void test_ioprio_class_from_to_string_one(const char *val, int expected) {
+        assert_se(ioprio_class_from_string(val) == expected);
+        if (expected >= 0) {
+                _cleanup_free_ char *s = NULL;
+                unsigned ret;
+
+                assert_se(ioprio_class_to_string_alloc(expected, &s) == 0);
+                /* We sometimes get a class number and sometimes a number back */
+                assert_se(streq(s, val) ||
+                          safe_atou(val, &ret) == 0);
+        }
+}
+
+static void test_ioprio_class_from_to_string(void) {
+        test_ioprio_class_from_to_string_one("none", IOPRIO_CLASS_NONE);
+        test_ioprio_class_from_to_string_one("realtime", IOPRIO_CLASS_RT);
+        test_ioprio_class_from_to_string_one("best-effort", IOPRIO_CLASS_BE);
+        test_ioprio_class_from_to_string_one("idle", IOPRIO_CLASS_IDLE);
+        test_ioprio_class_from_to_string_one("0", 0);
+        test_ioprio_class_from_to_string_one("1", 1);
+        test_ioprio_class_from_to_string_one("7", 7);
+        test_ioprio_class_from_to_string_one("8", 8);
+        test_ioprio_class_from_to_string_one("9", -1);
+        test_ioprio_class_from_to_string_one("-1", -1);
+}
+
+int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
 
         saved_argc = argc;
         saved_argv = argv;
@@ -516,6 +607,7 @@ int main(int argc, char *argv[]) {
                 test_get_process_comm(getpid());
         }
 
+        test_get_process_comm_escape();
         test_pid_is_unwaited();
         test_pid_is_alive();
         test_personality();
@@ -523,6 +615,9 @@ int main(int argc, char *argv[]) {
         test_rename_process();
         test_getpid_cached();
         test_getpid_measure();
+        test_safe_fork();
+        test_pid_to_ptr();
+        test_ioprio_class_from_to_string();
 
         return 0;
 }

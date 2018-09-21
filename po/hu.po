@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Hungarian translation of systemd
-# Copyright (C) 2015, 2016. Free Software Foundation, Inc.
+# Copyright © 2015, 2016. Free Software Foundation, Inc.
 # This file is distributed under the same license as the systemd package.
 #
 # Gabor Kelemen <kelemeng at gnome dot hu>, 2015, 2016.

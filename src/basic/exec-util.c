@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <dirent.h>
 #include <errno.h>
@@ -48,27 +30,23 @@ assert_cc(EAGAIN == EWOULDBLOCK);
 static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
 
         pid_t _pid;
+        int r;
 
         if (null_or_empty_path(path)) {
                 log_debug("%s is empty (a mask).", path);
                 return 0;
         }
 
-        _pid = fork();
-        if (_pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        if (_pid == 0) {
+        r = safe_fork("(direxec)", FORK_DEATHSIG|FORK_LOG, &_pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 char *_argv[2];
 
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
                 if (stdout_fd >= 0) {
-                        /* If the fd happens to be in the right place, go along with that */
-                        if (stdout_fd != STDOUT_FILENO &&
-                            dup2(stdout_fd, STDOUT_FILENO) < 0)
-                                return -errno;
-
-                        fd_cloexec(STDOUT_FILENO, false);
+                        r = rearrange_stdio(STDIN_FILENO, stdout_fd, STDERR_FILENO);
+                        if (r < 0)
+                                _exit(EXIT_FAILURE);
                 }
 
                 if (!argv) {
@@ -83,7 +61,6 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                 _exit(EXIT_FAILURE);
         }
 
-        log_debug("Spawned %s as " PID_FMT ".", path, _pid);
         *pid = _pid;
         return 1;
 }
@@ -107,12 +84,7 @@ static int do_execute(
          * If callbacks is nonnull, execution is serial. Otherwise, we default to parallel.
          */
 
-        (void) reset_all_signal_handlers();
-        (void) reset_signal_mask();
-
-        assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
-        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE, (const char* const*) directories);
+        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char* const*) directories);
         if (r < 0)
                 return r;
 
@@ -126,7 +98,7 @@ static int do_execute(
          * default action terminating the process, and turn on alarm(). */
 
         if (timeout != USEC_INFINITY)
-                alarm((timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
+                alarm(DIV_ROUND_UP(timeout, USEC_PER_SEC));
 
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
@@ -153,7 +125,7 @@ static int do_execute(
                                 return log_oom();
                         t = NULL;
                 } else {
-                        r = wait_for_terminate_and_warn(t, pid, true);
+                        r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
                         if (r < 0)
                                 continue;
 
@@ -183,7 +155,7 @@ static int do_execute(
                 t = hashmap_remove(pids, PID_TO_PTR(pid));
                 assert(t);
 
-                wait_for_terminate_and_warn(t, pid, true);
+                (void) wait_for_terminate_and_check(t, pid, WAIT_LOG);
         }
 
         return 0;
@@ -196,10 +168,9 @@ int execute_directories(
                 void* const callback_args[_STDOUT_CONSUME_MAX],
                 char *argv[]) {
 
-        pid_t executor_pid;
-        char *name;
         char **dirs = (char**) directories;
         _cleanup_close_ int fd = -1;
+        char *name;
         int r;
 
         assert(!strv_isempty(dirs));
@@ -222,22 +193,12 @@ int execute_directories(
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        executor_pid = fork();
-        if (executor_pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-
-        if (executor_pid == 0) {
+        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv);
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
-        }
-
-        r = wait_for_terminate_and_warn(name, executor_pid, true);
-        if (r < 0)
-                return log_error_errno(r, "Execution failed: %m");
-        if (r > 0) {
-                /* non-zero return code from child */
-                log_error("Forker process failed.");
-                return -EREMOTEIO;
         }
 
         if (!callbacks)

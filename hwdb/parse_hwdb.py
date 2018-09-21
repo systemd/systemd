@@ -2,10 +2,7 @@
 # -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 #  SPDX-License-Identifier: MIT
 #
-# This file is part of systemd. It is distrubuted under the MIT license, see
-# below.
-#
-# Copyright 2016 Zbigniew Jędrzejewski-Szmek
+# This file is distributed under the MIT license, see below.
 #
 # The MIT License (MIT)
 #

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2014 Kay Sievers <kay@vrfy.org>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <ctype.h>
 #include <stdarg.h>
@@ -36,9 +18,6 @@
 /**
  * SECTION:libudev
  * @short_description: libudev context
- *
- * The context contains the default values read from the udev config file,
- * and is passed to all library operations.
  */
 
 /**
@@ -47,10 +26,7 @@
  * Opaque object representing the library context.
  */
 struct udev {
-        int refcount;
-        void (*log_fn)(struct udev *udev,
-                       int priority, const char *file, int line, const char *fn,
-                       const char *format, va_list args);
+        unsigned n_ref;
         void *userdata;
 };
 
@@ -64,8 +40,8 @@ struct udev {
  * Returns: stored userdata
  **/
 _public_ void *udev_get_userdata(struct udev *udev) {
-        if (udev == NULL)
-                return NULL;
+        assert_return(udev, NULL);
+
         return udev->userdata;
 }
 
@@ -77,16 +53,16 @@ _public_ void *udev_get_userdata(struct udev *udev) {
  * Store custom @userdata in the library context.
  **/
 _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
-        if (udev == NULL)
+        if (!udev)
                 return;
+
         udev->userdata = userdata;
 }
 
 /**
  * udev_new:
  *
- * Create udev library context. This reads the udev configuration
- * file, and fills in the default values.
+ * Create udev library context. This only allocates the basic data structure.
  *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev library context.
@@ -96,12 +72,15 @@ _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
 _public_ struct udev *udev_new(void) {
         struct udev *udev;
 
-        udev = new0(struct udev, 1);
+        udev = new(struct udev, 1);
         if (!udev) {
                 errno = ENOMEM;
                 return NULL;
         }
-        udev->refcount = 1;
+
+        *udev = (struct udev) {
+                .n_ref = 1,
+        };
 
         return udev;
 }
@@ -114,12 +93,7 @@ _public_ struct udev *udev_new(void) {
  *
  * Returns: the passed udev library context
  **/
-_public_ struct udev *udev_ref(struct udev *udev) {
-        if (udev == NULL)
-                return NULL;
-        udev->refcount++;
-        return udev;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_FUNC(struct udev, udev);
 
 /**
  * udev_unref:
@@ -131,11 +105,17 @@ _public_ struct udev *udev_ref(struct udev *udev) {
  * Returns: the passed udev library context if it has still an active reference, or #NULL otherwise.
  **/
 _public_ struct udev *udev_unref(struct udev *udev) {
-        if (udev == NULL)
+        if (!udev)
                 return NULL;
-        udev->refcount--;
-        if (udev->refcount > 0)
+
+        assert(udev->n_ref > 0);
+        udev->n_ref--;
+        if (udev->n_ref > 0)
+                /* This is different from our convetion, but let's keep backward
+                 * compatibility. So, do not use DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC()
+                 * macro to define this function. */
                 return udev;
+
         return mfree(udev);
 }
 
@@ -147,10 +127,11 @@ _public_ struct udev *udev_unref(struct udev *udev) {
  * This function is deprecated.
  *
  **/
-_public_ void udev_set_log_fn(struct udev *udev,
-                     void (*log_fn)(struct udev *udev,
-                                    int priority, const char *file, int line, const char *fn,
-                                    const char *format, va_list args)) {
+_public_ void udev_set_log_fn(
+                        struct udev *udev,
+                        void (*log_fn)(struct udev *udev,
+                                       int priority, const char *file, int line, const char *fn,
+                                       const char *format, va_list args)) {
         return;
 }
 

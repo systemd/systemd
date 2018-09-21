@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="sd-journal"
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>sd-journal</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -103,16 +77,15 @@
   <refsect1>
     <title>Thread safety</title>
 
-    <para>Functions that operate on the <structname>sd_journal</structname> object are thread
-    agnostic — given <structname>sd_journal</structname> pointer may only be used from one thread at
-    a time, but multiple threads may use multiple such objects safely. Other functions —
-    those that are used to send entries to the journal, like
-    <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and similar, or those that are used to retrieve global information like
-    <citerefentry><refentrytitle>sd_journal_stream_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and
+    <para>Functions that operate on <structname>sd_journal</structname> objects are thread agnostic — given
+    <structname>sd_journal</structname> pointer may only be used from one specific thread at all times (and it has to
+    be the very same one during the entire lifetime of the object), but multiple, independent threads may use multiple,
+    independent objects safely. Other functions — those that are used to send entries to the journal, like
+    <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry> and similar,
+    or those that are used to retrieve global information like
+    <citerefentry><refentrytitle>sd_journal_stream_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_journal_get_catalog_for_message_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    — are thread-safe and may be called from multiple threads in parallel.</para>
+    — are fully thread-safe and may be called from multiple threads in parallel.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

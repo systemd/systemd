@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2013 Thomas H.P. Andersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <string.h>
@@ -28,6 +9,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "raw-clone.h"
 #include "rm-rf.h"
 #include "string-util.h"
@@ -71,6 +53,12 @@ static void test_max(void) {
                 .a = CONST_MAX(10, 100),
         };
         int d = 0;
+        unsigned long x = 12345;
+        unsigned long y = 54321;
+        const char str[] = "a_string_constant";
+        const unsigned long long arr[] = {9999ULL, 10ULL, 0ULL, 3000ULL, 2000ULL, 1000ULL, 100ULL, 9999999ULL};
+        void *p = (void *)str;
+        void *q = (void *)&str[16];
 
         assert_cc(sizeof(val1.b) == sizeof(int) * 100);
 
@@ -98,6 +86,35 @@ static void test_max(void) {
         assert_se(LESS_BY(4, 8) == 0);
         assert_se(LESS_BY(16, LESS_BY(8, 4)) == 12);
         assert_se(LESS_BY(4, LESS_BY(8, 4)) == 0);
+        assert_se(CMP(3, 5) == -1);
+        assert_se(CMP(5, 3) == 1);
+        assert_se(CMP(5, 5) == 0);
+        assert_se(CMP(x, y) == -1);
+        assert_se(CMP(y, x) == 1);
+        assert_se(CMP(x, x) == 0);
+        assert_se(CMP(y, y) == 0);
+        assert_se(CMP(UINT64_MAX, (uint64_t) 0) == 1);
+        assert_se(CMP((uint64_t) 0, UINT64_MAX) == -1);
+        assert_se(CMP(UINT64_MAX, UINT64_MAX) == 0);
+        assert_se(CMP(INT64_MIN, INT64_MAX) == -1);
+        assert_se(CMP(INT64_MAX, INT64_MIN) == 1);
+        assert_se(CMP(INT64_MAX, INT64_MAX) == 0);
+        assert_se(CMP(INT64_MIN, INT64_MIN) == 0);
+        assert_se(CMP(INT64_MAX, (int64_t) 0) == 1);
+        assert_se(CMP((int64_t) 0, INT64_MIN) == 1);
+        assert_se(CMP(INT64_MIN, (int64_t) 0) == -1);
+        assert_se(CMP((int64_t) 0, INT64_MAX) == -1);
+        assert_se(CMP(&str[2], &str[7]) == -1);
+        assert_se(CMP(&str[2], &str[2]) == 0);
+        assert_se(CMP(&str[7], (const char *)str) == 1);
+        assert_se(CMP(str[2], str[7]) == 1);
+        assert_se(CMP(str[7], *str) == 1);
+        assert_se(CMP((const unsigned long long *)arr, &arr[3]) == -1);
+        assert_se(CMP(*arr, arr[3]) == 1);
+        assert_se(CMP(p, q) == -1);
+        assert_se(CMP(q, p) == 1);
+        assert_se(CMP(p, p) == 0);
+        assert_se(CMP(q, q) == 0);
         assert_se(CLAMP(-5, 0, 1) == 0);
         assert_se(CLAMP(5, 0, 1) == 1);
         assert_se(CLAMP(5, -10, 1) == 1);
@@ -226,6 +243,10 @@ static void test_raw_clone(void) {
                 waitpid(pid, &status, __WCLONE);
                 assert_se(WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS);
         }
+
+        errno = 0;
+        assert_se(raw_clone(CLONE_FS|CLONE_NEWNS) == -1);
+        assert_se(errno == EINVAL);
 }
 
 static void test_physical_memory(void) {

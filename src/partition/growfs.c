@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -28,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/vfs.h>
 
+#include "blockdev-util.h"
 #include "crypt-util.h"
 #include "device-nodes.h"
 #include "dissect-image.h"
@@ -40,9 +23,10 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 
-const char *arg_target = NULL;
-bool arg_dry_run = false;
+static const char *arg_target = NULL;
+static bool arg_dry_run = false;
 
 static int resize_ext4(const char *path, int mountfd, int devfd, uint64_t numblocks, uint64_t blocksize) {
         assert((uint64_t) (int) blocksize == blocksize);
@@ -169,14 +153,26 @@ static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-growfs@.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] /path/to/mountpoint\n\n"
                "Grow filesystem or encrypted payload to device size.\n\n"
                "Options:\n"
                "  -h --help          Show this help and exit\n"
                "     --version       Print version string and exit\n"
                "  -n --dry-run       Just print what would be done\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -199,12 +195,10 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "hn", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
-                        version();
-                        return 0;
+                        return version();
 
                 case 'n':
                         arg_dry_run = true;

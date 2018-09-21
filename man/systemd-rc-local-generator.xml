@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+<refentry id="systemd-rc-local-generator">
+
+  <refentryinfo>
+    <title>systemd-rc-local-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-rc-local-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-rc-local-generator</refname>
+    <refpurpose>Compatibility generator for starting <filename>/etc/rc.local</filename> and <filename>/usr/sbin/halt.local</filename> during boot and shutdown</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-rc-local-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-rc-local-generator</filename> is a generator that checks whether
+    <filename>/etc/rc.local</filename> exists and is executable, and if it is pulls the
+    <filename>rc-local.service</filename> unit into the boot process. This unit is responsible for running this script
+    during late boot. Note that the script will be run with slightly different semantics than the original System V
+    version, which was run "last" in the boot process, which is a concept that does not translate to systemd. The
+    script is run after <filename>network.target</filename>, but in parallel with most other regular system
+    services.</para>
+
+    <para><filename>systemd-rc-local-generator</filename> also checks whether <filename>/usr/sbin/halt.local</filename>
+    exists and is executable, and if it is pulls the <filename>halt-local.service</filename> unit into the shutdown
+    process. This unit is responsible for running this script during later shutdown.</para>
+
+    <para>Support for both <filename>/etc/rc.local</filename> and <filename>/usr/sbin/halt.local</filename> is provided
+    for compatibility with specific System V systems only. However, it is strongly recommended to avoid making use of
+    these scripts today, and instead provide proper unit files with appropriate dependencies for any scripts to run
+    during the boot or shutdown processes.</para>
+
+    <para><filename>systemd-rc-local-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

@@ -1,0 +1,13 @@
+[Unit]
+Description=Test for basic execution
+
+[Service]
+ExecStart=touch /tmp/a ; /bin/touch /tmp/b ; touch /tmp/c
+ExecStart=test -f /tmp/a
+ExecStart=!test -f /tmp/b
+ExecStart=!!test -f /tmp/c
+ExecStart=+test -f /tmp/c
+ExecStartPost=rm /tmp/a /tmp/b /tmp/c
+
+PrivateTmp=true
+Type=oneshot

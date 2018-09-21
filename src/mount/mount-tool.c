@@ -1,35 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <getopt.h>
 
-#include "libudev.h"
 #include "sd-bus.h"
+#include "sd-device.h"
 
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "mount-util.h"
 #include "pager.h"
@@ -38,8 +22,9 @@
 #include "spawn-polkit-agent.h"
 #include "stat-util.h"
 #include "strv.h"
-#include "udev-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "terminal-util.h"
 
 enum {
@@ -68,10 +53,19 @@ static usec_t arg_timeout_idle = USEC_INFINITY;
 static bool arg_timeout_idle_set = false;
 static char **arg_automount_property = NULL;
 static int arg_bind_device = -1;
+static uid_t arg_uid = UID_INVALID;
+static gid_t arg_gid = GID_INVALID;
 static bool arg_fsck = true;
 static bool arg_aggressive_gc = false;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-mount", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("systemd-mount [OPTIONS...] WHAT [WHERE]\n"
                "systemd-mount [OPTIONS...] --list\n"
                "%s [OPTIONS...] %sWHAT|WHERE...\n\n"
@@ -88,6 +82,7 @@ static void help(void) {
                "     --discover                   Discover mount device metadata\n"
                "  -t --type=TYPE                  File system type\n"
                "  -o --options=OPTIONS            Mount options\n"
+               "     --owner=USER                 Add uid= and gid= options for USER\n"
                "     --fsck=no                    Don't run file system check before mount\n"
                "     --description=TEXT           Description for unit\n"
                "  -p --property=NAME=VALUE        Set mount unit property\n"
@@ -98,9 +93,14 @@ static void help(void) {
                "     --bind-device                Bind automount unit to device\n"
                "     --list                       List mountable block devices\n"
                "  -u --umount                     Unmount mount points\n"
-               "  -G --collect                    Unload unit after it stopped, even when failed\n",
-               program_invocation_short_name,
-               streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ");
+               "  -G --collect                    Unload unit after it stopped, even when failed\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount "
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -115,6 +115,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DISCOVER,
                 ARG_MOUNT_TYPE,
                 ARG_MOUNT_OPTIONS,
+                ARG_OWNER,
                 ARG_FSCK,
                 ARG_DESCRIPTION,
                 ARG_TIMEOUT_IDLE,
@@ -138,6 +139,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "discover",           no_argument,       NULL, ARG_DISCOVER           },
                 { "type",               required_argument, NULL, 't'                    },
                 { "options",            required_argument, NULL, 'o'                    },
+                { "owner",              required_argument, NULL, ARG_OWNER              },
                 { "fsck",               required_argument, NULL, ARG_FSCK               },
                 { "description",        required_argument, NULL, ARG_DESCRIPTION        },
                 { "property",           required_argument, NULL, 'p'                    },
@@ -165,8 +167,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -218,6 +219,18 @@ static int parse_argv(int argc, char *argv[]) {
                         if (free_and_strdup(&arg_mount_options, optarg) < 0)
                                 return log_oom();
                         break;
+
+                case ARG_OWNER: {
+                        const char *user = optarg;
+
+                        r = get_user_creds(&user, &arg_uid, &arg_gid, NULL, NULL, 0);
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       r == -EBADMSG ? "UID or GID of user %s are invalid."
+                                                                     : "Cannot use \"%s\" as owner: %m",
+                                                       optarg);
+                        break;
+                }
 
                 case ARG_FSCK:
                         r = parse_boolean(optarg);
@@ -333,25 +346,21 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                 } else if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                        _cleanup_free_ char *u = NULL, *p = NULL;
+                        _cleanup_free_ char *u = NULL;
 
                         u = fstab_node_to_udev_node(argv[optind]);
                         if (!u)
                                 return log_oom();
 
-                        r = path_make_absolute_cwd(u, &p);
+                        r = chase_symlinks(u, NULL, 0, &arg_mount_what);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make path %s absolute: %m", u);
-
-                        arg_mount_what = canonicalize_file_name(p);
-                        if (!arg_mount_what)
-                                return log_error_errno(errno, "Failed to canonicalize path %s: %m", p);
                 } else {
                         arg_mount_what = strdup(argv[optind]);
                         if (!arg_mount_what)
                                 return log_oom();
 
-                        path_kill_slashes(arg_mount_what);
+                        path_simplify(arg_mount_what, false);
 
                         if (!path_is_absolute(arg_mount_what)) {
                                 log_error("Only absolute path is supported: %s", arg_mount_what);
@@ -361,22 +370,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 if (argc > optind+1) {
                         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                                _cleanup_free_ char *p = NULL;
-
-                                r = path_make_absolute_cwd(argv[optind+1], &p);
+                                r = chase_symlinks(argv[optind+1], NULL, CHASE_NONEXISTENT, &arg_mount_where);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to make path %s absolute: %m", argv[optind+1]);
-
-                                arg_mount_where = canonicalize_file_name(p);
-                                if (!arg_mount_where)
-                                        return log_error_errno(errno, "Failed to canonicalize path %s: %m", p);
-
                         } else {
                                 arg_mount_where = strdup(argv[optind+1]);
                                 if (!arg_mount_where)
                                         return log_oom();
 
-                                path_kill_slashes(arg_mount_where);
+                                path_simplify(arg_mount_where, false);
 
                                 if (!path_is_absolute(arg_mount_where)) {
                                         log_error("Only absolute path is supported: %s", arg_mount_where);
@@ -395,7 +397,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
+static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **properties) {
         int r;
 
         if (!isempty(arg_description)) {
@@ -424,7 +426,7 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
                         return r;
         }
 
-        r = bus_append_unit_property_assignment_many(m, properties);
+        r = bus_append_unit_property_assignment_many(m, t, properties);
         if (r < 0)
                 return r;
 
@@ -432,11 +434,12 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
 }
 
 static int transient_mount_set_properties(sd_bus_message *m) {
+        _cleanup_free_ char *options = NULL;
         int r;
 
         assert(m);
 
-        r = transient_unit_set_properties(m, arg_property);
+        r = transient_unit_set_properties(m, UNIT_MOUNT, arg_property);
         if (r < 0)
                 return r;
 
@@ -452,11 +455,24 @@ static int transient_mount_set_properties(sd_bus_message *m) {
                         return r;
         }
 
-        if (arg_mount_options) {
-                r = sd_bus_message_append(m, "(sv)", "Options", "s", arg_mount_options);
+        /* Prepend uid=…,gid=… if arg_uid is set */
+        if (arg_uid != UID_INVALID) {
+                r = asprintf(&options,
+                             "uid=" UID_FMT ",gid=" GID_FMT "%s%s",
+                             arg_uid, arg_gid,
+                             arg_mount_options ? "," : "", strempty(arg_mount_options));
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (options || arg_mount_options) {
+                log_debug("Using mount options: %s", options ?: arg_mount_options);
+
+                r = sd_bus_message_append(m, "(sv)", "Options", "s", options ?: arg_mount_options);
                 if (r < 0)
                         return r;
-        }
+        } else
+                log_debug("Not using any mount options");
 
         if (arg_fsck) {
                 _cleanup_free_ char *fsck = NULL;
@@ -481,7 +497,7 @@ static int transient_automount_set_properties(sd_bus_message *m) {
 
         assert(m);
 
-        r = transient_unit_set_properties(m, arg_automount_property);
+        r = transient_unit_set_properties(m, UNIT_AUTOMOUNT, arg_automount_property);
         if (r < 0)
                 return r;
 
@@ -743,16 +759,14 @@ static int find_mount_points(const char *what, char ***list) {
                 if (!GREEDY_REALLOC(l, bufsize, n + 2))
                         return log_oom();
 
-                l[n++] = where;
-                where = NULL;
+                l[n++] = TAKE_PTR(where);
         }
 
         if (!GREEDY_REALLOC(l, bufsize, n + 1))
                 return log_oom();
 
         l[n] = NULL;
-        *list = l;
-        l = NULL; /* avoid freeing */
+        *list = TAKE_PTR(l);
 
         return n;
 }
@@ -804,8 +818,7 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
         if (!l)
                 return -ENXIO;
 
-        *loop_dev = l;
-        l = NULL; /* avoid freeing */
+        *loop_dev = TAKE_PTR(l);
 
         return 0;
 }
@@ -829,7 +842,7 @@ static int stop_mount(
 
         r = unit_name_from_path(where, suffix, &mount_unit);
         if (r < 0)
-                return log_error_errno(r, "Failed to make mount unit name from path %s: %m", where);
+                return log_error_errno(r, "Failed to make %s unit name from path %s: %m", suffix + 1, where);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -853,8 +866,12 @@ static int stop_mount(
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to stop mount unit: %s", bus_error_message(&error, r));
+        if (r < 0) {
+                if (streq(suffix, ".automount") &&
+                    sd_bus_error_has_name(&error, "org.freedesktop.systemd1.NoSuchUnit"))
+                        return 0;
+                return log_error_errno(r, "Failed to stop %s unit: %s", suffix + 1, bus_error_message(&error, r));
+        }
 
         if (w) {
                 const char *object;
@@ -904,8 +921,7 @@ static int stop_mounts(
 }
 
 static int umount_by_device(sd_bus *bus, const char *what) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_strv_free_ char **list = NULL;
         struct stat st;
         const char *v;
@@ -922,22 +938,20 @@ static int umount_by_device(sd_bus *bus, const char *what) {
                 return -ENOTBLK;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device from device number: %m");
 
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!d)
-                return log_oom();
+        r = sd_device_get_property_value(d, "ID_FS_USAGE", &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device property: %m");
 
-        v = udev_device_get_property_value(d, "ID_FS_USAGE");
-        if (!streq_ptr(v, "filesystem")) {
+        if (!streq(v, "filesystem")) {
                 log_error("%s does not contain a known file system.", what);
                 return -EINVAL;
         }
 
-        v = udev_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE");
-        if (!isempty(v))
+        if (sd_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE", &v) >= 0)
                 r2 = stop_mounts(bus, v);
 
         r = find_mount_points(what, &list);
@@ -981,7 +995,7 @@ static int action_umount(
                         if (!p)
                                 return log_oom();
 
-                        path_kill_slashes(p);
+                        path_simplify(p, false);
 
                         r = stop_mounts(bus, p);
                         if (r < 0)
@@ -991,23 +1005,16 @@ static int action_umount(
         }
 
         for (i = optind; i < argc; i++) {
-                _cleanup_free_ char *u = NULL, *a = NULL, *p = NULL;
+                _cleanup_free_ char *u = NULL, *p = NULL;
                 struct stat st;
 
                 u = fstab_node_to_udev_node(argv[i]);
                 if (!u)
                         return log_oom();
 
-                r = path_make_absolute_cwd(u, &a);
+                r = chase_symlinks(u, NULL, 0, &p);
                 if (r < 0) {
                         r2 = log_error_errno(r, "Failed to make path %s absolute: %m", argv[i]);
-                        continue;
-                }
-
-                p = canonicalize_file_name(a);
-
-                if (!p) {
-                        r2 = log_error_errno(errno, "Failed to canonicalize path %s: %m", argv[i]);
                         continue;
                 }
 
@@ -1032,7 +1039,7 @@ static int action_umount(
         return r2;
 }
 
-static int acquire_mount_type(struct udev_device *d) {
+static int acquire_mount_type(sd_device *d) {
         const char *v;
 
         assert(d);
@@ -1040,8 +1047,7 @@ static int acquire_mount_type(struct udev_device *d) {
         if (arg_mount_type)
                 return 0;
 
-        v = udev_device_get_property_value(d, "ID_FS_TYPE");
-        if (isempty(v))
+        if (sd_device_get_property_value(d, "ID_FS_TYPE", &v) < 0)
                 return 0;
 
         arg_mount_type = strdup(v);
@@ -1052,14 +1058,15 @@ static int acquire_mount_type(struct udev_device *d) {
         return 1;
 }
 
-static int acquire_mount_options(struct udev_device *d) {
+static int acquire_mount_options(sd_device *d) {
         const char *v;
+
+        assert(d);
 
         if (arg_mount_options)
                 return 0;
 
-        v = udev_device_get_property_value(d, "SYSTEMD_MOUNT_OPTIONS");
-        if (isempty(v))
+        if (sd_device_get_property_value(d, "SYSTEMD_MOUNT_OPTIONS", &v) < 0)
                 return 0;
 
         arg_mount_options = strdup(v);
@@ -1070,38 +1077,41 @@ static int acquire_mount_options(struct udev_device *d) {
         return 1;
 }
 
-static const char *get_model(struct udev_device *d) {
+static const char *get_model(sd_device *d) {
         const char *model;
 
         assert(d);
 
-        model = udev_device_get_property_value(d, "ID_MODEL_FROM_DATABASE");
-        if (model)
+        if (sd_device_get_property_value(d, "ID_MODEL_FROM_DATABASE", &model) >= 0)
                 return model;
 
-        return udev_device_get_property_value(d, "ID_MODEL");
+        if (sd_device_get_property_value(d, "ID_MODEL", &model) >= 0)
+                return model;
+
+        return NULL;
 }
 
-static const char* get_label(struct udev_device *d) {
+static const char* get_label(sd_device *d) {
         const char *label;
 
         assert(d);
 
-        label = udev_device_get_property_value(d, "ID_FS_LABEL");
-        if (label)
+        if (sd_device_get_property_value(d, "ID_FS_LABEL", &label) >= 0)
                 return label;
 
-        return udev_device_get_property_value(d, "ID_PART_ENTRY_NAME");
+        if (sd_device_get_property_value(d, "ID_PART_ENTRY_NAME", &label) >= 0)
+                return label;
+
+        return NULL;
 }
 
-static int acquire_mount_where(struct udev_device *d) {
+static int acquire_mount_where(sd_device *d) {
         const char *v;
 
         if (arg_mount_where)
                 return 0;
 
-        v = udev_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE");
-        if (isempty(v)) {
+        if (sd_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE", &v) < 0) {
                 _cleanup_free_ char *escaped = NULL;
                 const char *name;
 
@@ -1111,8 +1121,7 @@ static int acquire_mount_where(struct udev_device *d) {
                 if (!name) {
                         const char *dn;
 
-                        dn = udev_device_get_devnode(d);
-                        if (!dn)
+                        if (sd_device_get_devname(d, &dn) < 0)
                                 return 0;
 
                         name = basename(dn);
@@ -1161,7 +1170,7 @@ static int acquire_mount_where_for_loop_dev(const char *loop_dev) {
         return 1;
 }
 
-static int acquire_description(struct udev_device *d) {
+static int acquire_description(sd_device *d) {
         const char *model, *label;
 
         if (arg_description)
@@ -1171,7 +1180,7 @@ static int acquire_description(struct udev_device *d) {
 
         label = get_label(d);
         if (!label)
-                label = udev_device_get_property_value(d, "ID_PART_ENTRY_NUMBER");
+                (void) sd_device_get_property_value(d, "ID_PART_ENTRY_NUMBER", &label);
 
         if (model && label)
                 arg_description = strjoin(model, " ", label);
@@ -1189,7 +1198,7 @@ static int acquire_description(struct udev_device *d) {
         return 1;
 }
 
-static int acquire_removable(struct udev_device *d) {
+static int acquire_removable(sd_device *d) {
         const char *v;
 
         /* Shortcut this if there's no reason to check it */
@@ -1197,15 +1206,13 @@ static int acquire_removable(struct udev_device *d) {
                 return 0;
 
         for (;;) {
-                v = udev_device_get_sysattr_value(d, "removable");
-                if (v)
+                if (sd_device_get_sysattr_value(d, "removable", &v) > 0)
                         break;
 
-                d = udev_device_get_parent(d);
-                if (!d)
+                if (sd_device_get_parent(d, &d) < 0)
                         return 0;
 
-                if (!streq_ptr(udev_device_get_subsystem(d), "block"))
+                if (sd_device_get_subsystem(d, &v) < 0 || !streq(v, "block"))
                         return 0;
         }
 
@@ -1233,8 +1240,7 @@ static int acquire_removable(struct udev_device *d) {
 }
 
 static int discover_loop_backing_file(void) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *loop_dev = NULL;
         struct stat st;
         const char *v;
@@ -1274,16 +1280,11 @@ static int discover_loop_backing_file(void) {
                 return -EINVAL;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device from device number: %m");
 
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!d)
-                return log_oom();
-
-        v = udev_device_get_property_value(d, "ID_FS_USAGE");
-        if (!streq_ptr(v, "filesystem")) {
+        if (sd_device_get_property_value(d, "ID_FS_USAGE", &v) < 0 || !streq(v, "filesystem")) {
                 log_error("%s does not contain a known file system.", arg_mount_what);
                 return -EINVAL;
         }
@@ -1308,8 +1309,7 @@ static int discover_loop_backing_file(void) {
 }
 
 static int discover_device(void) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         struct stat st;
         const char *v;
         int r;
@@ -1325,16 +1325,11 @@ static int discover_device(void) {
                 return -EINVAL;
         }
 
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device from device number: %m");
 
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!d)
-                return log_oom();
-
-        v = udev_device_get_property_value(d, "ID_FS_USAGE");
-        if (!streq_ptr(v, "filesystem")) {
+        if (sd_device_get_property_value(d, "ID_FS_USAGE", &v) < 0 || !streq(v, "filesystem")) {
                 log_error("%s does not contain a known file system.", arg_mount_what);
                 return -EINVAL;
         }
@@ -1377,17 +1372,15 @@ struct item {
         char* columns[_COLUMN_MAX];
 };
 
-static int compare_item(const void *a, const void *b) {
-        const struct item *x = a, *y = b;
-
-        if (x->columns[COLUMN_NODE] == y->columns[COLUMN_NODE])
+static int compare_item(const struct item *a, const struct item *b) {
+        if (a->columns[COLUMN_NODE] == b->columns[COLUMN_NODE])
                 return 0;
-        if (!x->columns[COLUMN_NODE])
+        if (!a->columns[COLUMN_NODE])
                 return 1;
-        if (!y->columns[COLUMN_NODE])
+        if (!b->columns[COLUMN_NODE])
                 return -1;
 
-        return path_compare(x->columns[COLUMN_NODE], y->columns[COLUMN_NODE]);
+        return path_compare(a->columns[COLUMN_NODE], b->columns[COLUMN_NODE]);
 }
 
 static int list_devices(void) {
@@ -1402,48 +1395,31 @@ static int list_devices(void) {
                 [COLUMN_UUID] = "UUID"
         };
 
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         size_t n_allocated = 0, n = 0, i;
         size_t column_width[_COLUMN_MAX];
         struct item *items = NULL;
+        sd_device *d;
         unsigned c;
         int r;
 
         for (c = 0; c < _COLUMN_MAX; c++)
                 column_width[c] = strlen(titles[c]);
 
-        udev = udev_new();
-        if (!udev)
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
                 return log_oom();
 
-        e = udev_enumerate_new(udev);
-        if (!e)
-                return log_oom();
-
-        r = udev_enumerate_add_match_subsystem(e, "block");
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
         if (r < 0)
                 return log_error_errno(r, "Failed to add block match: %m");
 
-        r = udev_enumerate_add_match_property(e, "ID_FS_USAGE", "filesystem");
+        r = sd_device_enumerator_add_match_property(e, "ID_FS_USAGE", "filesystem");
         if (r < 0)
                 return log_error_errno(r, "Failed to add property match: %m");
 
-        r = udev_enumerate_scan_devices(e);
-        if (r < 0)
-                return log_error_errno(r, "Failed to scan devices: %m");
-
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *d;
+        FOREACH_DEVICE(e, d) {
                 struct item *j;
-
-                d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
-                if (!d) {
-                        r = log_oom();
-                        goto finish;
-                }
 
                 if (!GREEDY_REALLOC0(items, n_allocated, n+1)) {
                         r = log_oom();
@@ -1459,11 +1435,11 @@ static int list_devices(void) {
                         switch (c) {
 
                         case COLUMN_NODE:
-                                x = udev_device_get_devnode(d);
+                                (void) sd_device_get_devname(d, &x);
                                 break;
 
                         case COLUMN_PATH:
-                                x = udev_device_get_property_value(d, "ID_PATH");
+                                (void) sd_device_get_property_value(d, "ID_PATH", &x);
                                 break;
 
                         case COLUMN_MODEL:
@@ -1471,11 +1447,11 @@ static int list_devices(void) {
                                 break;
 
                         case COLUMN_WWN:
-                                x = udev_device_get_property_value(d, "ID_WWN");
+                                (void) sd_device_get_property_value(d, "ID_WWN", &x);
                                 break;
 
                         case COLUMN_FSTYPE:
-                                x = udev_device_get_property_value(d, "ID_FS_TYPE");
+                                (void) sd_device_get_property_value(d, "ID_FS_TYPE", &x);
                                 break;
 
                         case COLUMN_LABEL:
@@ -1483,7 +1459,7 @@ static int list_devices(void) {
                                 break;
 
                         case COLUMN_UUID:
-                                x = udev_device_get_property_value(d, "ID_FS_UUID");
+                                (void) sd_device_get_property_value(d, "ID_FS_UUID", &x);
                                 break;
                         }
 
@@ -1507,9 +1483,9 @@ static int list_devices(void) {
                 goto finish;
         }
 
-        qsort_safe(items, n, sizeof(struct item), compare_item);
+        typesafe_qsort(items, n, compare_item);
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         fputs(ansi_underline(), stdout);
         for (c = 0; c < _COLUMN_MAX; c++) {
@@ -1543,7 +1519,7 @@ finish:
 }
 
 int main(int argc, char* argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();
@@ -1617,6 +1593,23 @@ int main(int argc, char* argv[]) {
                 }
         }
 
+        /* The kernel (properly) refuses mounting file systems with unknown uid=,gid= options,
+         * but not for all filesystem types. Let's try to catch the cases where the option
+         * would be used if the file system does not support it. It is also possible to
+         * autodetect the file system, but that's only possible with disk-based file systems
+         * which incidentally seem to be implemented more carefully and reject unknown options,
+         * so it's probably OK that we do the check only when the type is specified.
+         */
+        if (arg_mount_type &&
+            !streq(arg_mount_type, "auto") &&
+            arg_uid != UID_INVALID &&
+            !fstype_can_uid_gid(arg_mount_type)) {
+                log_error("File system type %s is not known to support uid=/gid=, refusing.",
+                          arg_mount_type);
+                r = -EOPNOTSUPP;
+                goto finish;
+        }
+
         switch (arg_action) {
 
         case ACTION_MOUNT:
@@ -1633,6 +1626,9 @@ int main(int argc, char* argv[]) {
         }
 
 finish:
+        /* make sure we terminate the bus connection first, and then close the
+         * pager, see issue #3543 for the details. */
+        bus = sd_bus_flush_close_unref(bus);
         pager_close();
 
         free(arg_mount_what);

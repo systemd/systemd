@@ -1,26 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "hexdecoct.h"
 #include "random-util.h"
 #include "log.h"
+#include "tests.h"
 
 static void test_acquire_random_bytes(bool high_quality_required) {
         uint8_t buf[16] = {};
@@ -52,15 +35,31 @@ static void test_pseudorandom_bytes(void) {
         }
 }
 
+static void test_rdrand64(void) {
+        int r, i;
+
+        for (i = 0; i < 10; i++) {
+                uint64_t x = 0;
+
+                r = rdrand64(&x);
+                if (r < 0) {
+                        log_error_errno(r, "RDRAND failed: %m");
+                        return;
+                }
+
+                printf("%" PRIx64 "\n", x);
+        }
+}
+
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_acquire_random_bytes(false);
         test_acquire_random_bytes(true);
 
         test_pseudorandom_bytes();
+
+        test_rdrand64();
 
         return 0;
 }

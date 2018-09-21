@@ -1,0 +1,395 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="portablectl" conditional='ENABLE_PORTABLED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>portablectl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>portablectl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>portablectl</refname>
+    <refpurpose>Attach, detach or inspect portable service images</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>portablectl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+      <arg choice="opt" rep="repeat">NAME</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>portablectl</command> may be used to attach, detach or inspect portable service images. It's
+    primarily a command interfacing with
+    <citerefentry><refentrytitle>systemd-portabled.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para>Portable service images contain an OS file system tree along with
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> unit file
+    information. A service image may be "attached" to the local system. If attached, a set of unit files are copied
+    from the image to the host, and extended with <varname>RootDirectory=</varname> or <varname>RootImage=</varname>
+    assignments (in case of service units) pointing to the image file or directory, ensuring the services will run
+    within the file system context of the image.</para>
+
+    <para>Portable service images are an efficient way to bundle multiple related services and other units together,
+    and transfer them as a whole between systems. When these images are attached the local system the contained units
+    may run in most ways like regular system-provided units, either with full privileges or inside strict sandboxing,
+    depending on the selected configuration.</para>
+
+    <para>Specifically portable service images may be of the following kind:</para>
+
+    <itemizedlist>
+      <listitem><para>Directory trees containing an OS, including the top-level directories <filename>/usr/</filename>,
+      <filename>/etc/</filename>, and so on.</para></listitem>
+
+      <listitem><para>btrfs subvolumes containing OS trees, similar to normal directory trees.</para></listitem>
+
+      <listitem><para>Binary "raw" disk images containing MBR or GPT partition tables and Linux file system
+      partitions.</para></listitem>
+    </itemizedlist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses additional informational output while running.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option> <replaceable>PROFILE</replaceable></term>
+        <term><option>--profile=</option><replaceable>PROFILE</replaceable></term>
+
+        <listitem><para>When attaching an image, select the profile to use. By default the <literal>default</literal>
+        profile is used. For details about profiles, see below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--copy=</option></term>
+
+        <listitem><para>When attaching an image, select whether to prefer copying or symlinking of files installed into
+        the host system. Takes one of <literal>copy</literal> (to prefer copying of files), <literal>symlink</literal>
+        (to prefer creation of symbolic links) or <literal>auto</literal> for an intermediary mode where security
+        profile drop-ins are symlinked while unit files are copied. Note that this option expresses a preference only,
+        in cases where symbolic links cannot be created — for example when the image operated on is a raw disk image,
+        and hence not directly referentiable from the host file system — copying of files is used
+        unconditionally.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--runtime</option></term>
+
+        <listitem><para>When specified the unit and drop-in files are placed in
+        <filename>/run/systemd/system/</filename> instead of <filename>/etc/systemd/system/</filename>. Images attached
+        with this option set hence remain attached only until the next reboot, while they are normally attached
+        persistently.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reload</option></term>
+
+        <listitem><para>Don't reload the service manager after attaching or detaching a portable service
+        image. Normally the service manager is reloaded to ensure it is aware of added or removed unit
+        files.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cat</option></term>
+
+        <listitem><para>When inspecting portable service images, show the (unprocessed) contents of the metadata files
+        pulled from the image, instead of brief summaries. Specifically, this will show the
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> and unit file
+        contents of the image.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><command>list</command></term>
+
+        <listitem><para>List available portable service images. This will list all portable service images discovered
+        in the portable image search paths (see below), along with brief metadata and state information. Note that many
+        of the commands below may both operate on images inside and outside of the search paths. This command is hence
+        mostly a convenience option, the commands are generally not restricted to what this list
+        shows.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>attach</command> <replaceable>IMAGE</replaceable> [<replaceable>PREFIX…</replaceable>]</term>
+
+        <listitem><para>Attach a portable service image to the host system. Expects a file system path to a portable
+        service image file or directory as first argument. If the specified path contains no slash character
+        (<literal>/</literal>) it is understood as image filename that is searched for in the portable service image
+        search paths (see below). To reference a file in the current working directory prefix the filename with
+        <literal>./</literal> to avoid this search path logic.</para>
+
+        <para>When a portable service is attached four operations are executed:</para>
+
+        <orderedlist>
+
+          <listitem><para>All unit files of types <filename>.service</filename>, <filename>.socket</filename>,
+          <filename>.target</filename>, <filename>.timer</filename> and <filename>.path</filename> which match the
+          indicated unit file name prefix are copied from the image to the host's
+          <filename>/etc/systemd/system/</filename> directory (or <filename>/run/systemd/system/</filename> — depending
+          whether <option>--runtime</option> is specified, see above).</para></listitem>
+
+          <listitem><para>For unit files of type <filename>.service</filename> a drop-in is added to these copies that
+          adds <varname>RootDirectory=</varname> or <varname>RootImage=</varname> settings (see
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details), that ensures these services are run within the file system of the originating portable service
+          image.</para></listitem>
+
+          <listitem><para>A second drop-in is created: the "profile" drop-in, that may contain additional security
+          settings (and other settings). A number of profiles are available by default but administrators may define
+          their own ones. See below.</para></listitem>
+
+          <listitem><para>If the portable service image file is not already in the search path (see below), a symbolic
+          link to it is created in <filename>/etc/portables/</filename> or
+          <filename>/run/portables/</filename>, to make sure it is included in it.</para></listitem>
+        </orderedlist>
+
+        <para>By default all unit files whose names start with a prefix generated from the image's file name are copied
+        out. Specifically, the prefix is determined from the image file name with any suffix such as
+        <filename>.raw</filename> removed, truncated at the first occurrence of and underscore character
+        (<literal>_</literal>), if there is one. The underscore logic is supposed to be used to versioning so that the
+        an image file <filename>foobar_47.11.raw</filename> will result in a unit file matching prefix of
+        <filename>foobar</filename>. This prefix is then compared with all unit files names contained in the image in
+        the usual directories, but only unit file names where the prefix is followed by <literal>-</literal>,
+        <literal>.</literal> or <literal>@</literal> are considered. Example: if a portable service image file is named
+        <filename>foobar_47.11.raw</filename> then by default all its unit files with names such as
+        <filename>foobar-quux-waldi.service</filename>, <filename>foobar.service</filename> or
+        <filename>foobar@.service</filename> will be considered. It's possible to override the matching prefix: all
+        strings listed on the command line after the image file name are considered prefixes, overriding the implicit
+        logic where the prefix is derived from the image file name.</para>
+
+        <para>By default, after the unit files are attached the service manager's configuration is reloaded, except
+        when <option>--no-reload</option> is specified (see above). This ensures that the new units made available to
+        the service manager are seen by it.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>detach</command> <replaceable>IMAGE</replaceable></term>
+
+        <listitem><para>Detaches a portable service image from the host. This undoes the operations executed by the
+        <command>attach</command> command above, and removes the unit file copies, drop-ins and image symlink
+        again. This command expects an image name or path as parameter. Note that if a path is specified only the last
+        component of it (i.e. the file or directory name itself, not the path to it) is used for finding matching unit
+        files. This is a convencience feature to allow all arguments passed as <command>attach</command> also to
+        <command>detach</command>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>inspect</command> <replaceable>IMAGE</replaceable> [<replaceable>PREFIX…</replaceable>]</term>
+
+        <listitem><para>Extracts various metadata from a portable service image and presents it to the
+        caller. Specifically, the
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of the
+        image is retrieved as well as all matching unit files. By default a short summary showing the most relevant
+        metadata in combination with a list of matching unit files is shown (that is the unit files
+        <command>attach</command> would install to the host system). If combined with <option>--cat</option> (see
+        above), the <filename>os-release</filename> data and the units files' contents is displayed unprocessed. This
+        command is useful to determine whether an image qualifies as portable service image, and which unit files are
+        included. This command expects the path to the image as parameter, optionally followed by a list of unit file
+        prefixes to consider, similar to the <command>attach</command> command described above.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>is-attached</command> <replaceable>IMAGE</replaceable></term>
+
+        <listitem><para>Determines whether the specified image is currently attached or not. Unless combined with the
+        <option>--quiet</option> switch this will show a short state identifier for the image. Specifically:</para>
+
+        <table>
+          <title>Image attachment states</title>
+          <tgroup cols='2'>
+            <colspec colname='state'/>
+            <colspec colname='description'/>
+            <thead>
+              <row>
+                <entry>State</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><option>detached</option></entry>
+                <entry>The image is currently not attached.</entry>
+              </row>
+              <row>
+                <entry><option>attached</option></entry>
+                <entry>The image is currently attached, i.e. its unit files have been made available to the host system.</entry>
+              </row>
+              <row>
+                <entry><option>attached-runtime</option></entry>
+                <entry>Like <option>attached</option>, but the unit files have been made available transiently only, i.e. the <command>attach</command> command has been invoked with the <option>--runtime</option> option.</entry>
+              </row>
+              <row>
+                <entry><option>enabled</option></entry>
+                <entry>The image is currently attached, and at least one unit file associated with it has been enabled.</entry>
+              </row>
+              <row>
+                <entry><option>enabled-runtime</option></entry>
+                <entry>Like <option>enabled</option>, but the the unit files have been made available transiently only, i.e. the <command>attach</command> command has been invoked with the <option>--runtime</option> option.</entry>
+              </row>
+              <row>
+                <entry><option>running</option></entry>
+                <entry>The image is currently attached, and at least one unit file associated with it is running.</entry>
+              </row>
+              <row>
+                <entry><option>running-runtime</option></entry>
+                <entry>The image is currently attached transiently, and at least one unit file associated with it is running.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>read-only</command> <replaceable>IMAGE</replaceable> [<replaceable>BOOL</replaceable>]</term>
+
+        <listitem><para>Marks or (unmarks) a portable service image read-only. Takes an image name, followed by a
+        boolean as arguments. If the boolean is omitted, positive is implied, i.e. the image is marked
+        read-only.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>remove</command> <replaceable>IMAGE</replaceable>…</term>
+
+        <listitem><para>Removes one or more portable service images. Note that this command will only remove the
+        specified image path itself — it refers to a symbolic link then the symbolic link is removed and not the
+        image it points to.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>set-limit</command> [<replaceable>IMAGE</replaceable>] <replaceable>BYTES</replaceable></term>
+
+        <listitem><para>Sets the maximum size in bytes that a specific portable service image, or all images, may grow
+        up to on disk (disk quota). Takes either one or two parameters. The first, optional parameter refers to a
+        portable service image name. If specified, the size limit of the specified image is changed. If omitted, the
+        overall size limit of the sum of all images stored locally is changed. The final argument specifies the size
+        limit in bytes, possibly suffixed by the usual K, M, G, T units. If the size limit shall be disabled, specify
+        <literal>-</literal> as size.</para>
+
+        <para>Note that per-image size limits are only supported on btrfs file systems. Also, depending on
+        <varname>BindPaths=</varname> settings in the portable service's unit files directories from the host might be
+        visible in the image environment during runtime which are not affected by this setting, as only the image
+        itself is counted against this limit.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Files and Directories</title>
+
+    <para>Portable service images are preferably stored in <filename>/var/lib/portables/</filename>, but are also
+    searched for in <filename>/etc/portables/</filename>, <filename>/run/systemd/portables/</filename>,
+    <filename>/usr/local/lib/portables/</filename> and <filename>/usr/lib/portables/</filename>. It's recommended not
+    to place image files directly in <filename>/etc/portables/</filename> or
+    <filename>/run/systemd/portables/</filename> (as these are generally not suitable for storing large or non-textual
+    data), but use these directories only for linking images located elsewhere into the image search path.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Profiles</title>
+
+    <para>When portable service images are attached a "profile" drop-in is linked in, which may be used to enforce
+    additional security (and other) restrictions locally. Four profile drop-ins are defined by default, and shipped in
+    <filename>/usr/lib/systemd/portable/profile/</filename>. Additional, local profiles may be defined by placing them
+    in <filename>/etc/systemd/portable/profile/</filename>. The default profiles are:</para>
+
+    <table>
+      <title>Profiles</title>
+      <tgroup cols='2'>
+        <colspec colname='state'/>
+        <colspec colname='description'/>
+        <thead>
+          <row>
+            <entry>Name</entry>
+            <entry>Description</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><filename>default</filename></entry>
+            <entry>This is the default profile if no other profile name is set via the <option>--profile=</option> (see above). It's fairly restrictive, but should be useful for common, unprivileged system workloads. This includes write access to the logging framework, as well as IPC access to the D-Bus system.</entry>
+          </row>
+          <row>
+            <entry><filename>nonetwork</filename></entry>
+            <entry>Very similar to <filename>default</filename>, but networking is turned off for any services of the portable service image.</entry>
+          </row>
+          <row>
+            <entry><filename>strict</filename></entry>
+            <entry>A profile with very strict settings. This profile excludes IPC (D-Bus) and network access.</entry>
+          </row>
+          <row>
+            <entry><filename>trusted</filename></entry>
+            <entry>A profile with very relaxed settings. In this profile the services run with full privileges.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>For details on this profiles, and their effects please have a look at their precise definitions,
+    e.g. <filename>/usr/lib/systemd/portable/profile/default/service.conf</filename> and similar.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <xi:include href="less-variables.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-portabled.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

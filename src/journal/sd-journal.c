@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -40,6 +22,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -48,7 +31,9 @@
 #include "lookup3.h"
 #include "missing.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "replace-var.h"
+#include "stat-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -819,15 +804,21 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 }
 
 static int real_journal_next(sd_journal *j, direction_t direction) {
-        JournalFile *f, *new_file = NULL;
-        Iterator i;
+        JournalFile *new_file = NULL;
+        unsigned i, n_files;
+        const void **files;
         Object *o;
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
 
-        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
+        r = iterated_cache_get(j->files_cache, NULL, &files, &n_files);
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < n_files; i++) {
+                JournalFile *f = (JournalFile *)files[i];
                 bool found;
 
                 r = next_beyond_location(j, f, direction);
@@ -1132,7 +1123,6 @@ _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
         return 1;
 }
 
-
 _public_ int sd_journal_seek_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t usec) {
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
@@ -1179,22 +1169,12 @@ _public_ int sd_journal_seek_tail(sd_journal *j) {
 }
 
 static void check_network(sd_journal *j, int fd) {
-        struct statfs sfs;
-
         assert(j);
 
         if (j->on_network)
                 return;
 
-        if (fstatfs(fd, &sfs) < 0)
-                return;
-
-        j->on_network =
-                F_TYPE_EQUAL(sfs.f_type, CIFS_MAGIC_NUMBER) ||
-                F_TYPE_EQUAL(sfs.f_type, CODA_SUPER_MAGIC) ||
-                F_TYPE_EQUAL(sfs.f_type, NCP_SUPER_MAGIC) ||
-                F_TYPE_EQUAL(sfs.f_type, NFS_SUPER_MAGIC) ||
-                F_TYPE_EQUAL(sfs.f_type, SMB_SUPER_MAGIC);
+        j->on_network = fd_is_network_fs(fd);
 }
 
 static bool file_has_type_prefix(const char *prefix, const char *filename) {
@@ -1245,6 +1225,16 @@ static bool path_has_prefix(sd_journal *j, const char *path, const char *prefix)
         return path_startswith(path, prefix);
 }
 
+static void track_file_disposition(sd_journal *j, JournalFile *f) {
+        assert(j);
+        assert(f);
+
+        if (!j->has_runtime_files && path_has_prefix(j, f->path, "/run"))
+                j->has_runtime_files = true;
+        else if (!j->has_persistent_files && path_has_prefix(j, f->path, "/var"))
+                j->has_persistent_files = true;
+}
+
 static const char *skip_slash(const char *p) {
 
         if (!p)
@@ -1256,76 +1246,125 @@ static const char *skip_slash(const char *p) {
         return p;
 }
 
-static int add_any_file(sd_journal *j, int fd, const char *path) {
-        JournalFile *f = NULL;
+static int add_any_file(
+                sd_journal *j,
+                int fd,
+                const char *path) {
+
         bool close_fd = false;
+        JournalFile *f;
+        struct stat st;
         int r, k;
 
         assert(j);
         assert(fd >= 0 || path);
 
-        if (path && ordered_hashmap_get(j->files, path))
-                return 0;
+        if (fd < 0) {
+                if (j->toplevel_fd >= 0)
+                        /* If there's a top-level fd defined make the path relative, explicitly, since otherwise
+                         * openat() ignores the first argument. */
+
+                        fd = openat(j->toplevel_fd, skip_slash(path), O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                else
+                        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0) {
+                        r = log_debug_errno(errno, "Failed to open journal file %s: %m", path);
+                        goto finish;
+                }
+
+                close_fd = true;
+
+                r = fd_nonblock(fd, false);
+                if (r < 0) {
+                        r = log_debug_errno(errno, "Failed to turn off O_NONBLOCK for %s: %m", path);
+                        goto finish;
+                }
+        }
+
+        if (fstat(fd, &st) < 0) {
+                r = log_debug_errno(errno, "Failed to fstat file '%s': %m", path);
+                goto finish;
+        }
+
+        r = stat_verify_regular(&st);
+        if (r < 0) {
+                log_debug_errno(r, "Refusing to open '%s', as it is not a regular file.", path);
+                goto finish;
+        }
+
+        f = ordered_hashmap_get(j->files, path);
+        if (f) {
+                if (f->last_stat.st_dev == st.st_dev &&
+                    f->last_stat.st_ino == st.st_ino) {
+
+                        /* We already track this file, under the same path and with the same device/inode numbers, it's
+                         * hence really the same. Mark this file as seen in this generation. This is used to GC old
+                         * files in process_q_overflow() to detect journal files that are still there and discern them
+                         * from those which are gone. */
+
+                        f->last_seen_generation = j->generation;
+                        r = 0;
+                        goto finish;
+                }
+
+                /* So we tracked a file under this name, but it has a different inode/device. In that case, it got
+                 * replaced (probably due to rotation?), let's drop it hence from our list. */
+                remove_file_real(j, f);
+                f = NULL;
+        }
 
         if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
                 log_debug("Too many open journal files, not adding %s.", path);
                 r = -ETOOMANYREFS;
-                goto fail;
+                goto finish;
         }
 
-        if (fd < 0 && j->toplevel_fd >= 0) {
-
-                /* If there's a top-level fd defined, open the file relative to this now. (Make the path relative,
-                 * explicitly, since otherwise openat() ignores the first argument.) */
-
-                fd = openat(j->toplevel_fd, skip_slash(path), O_RDONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        r = log_debug_errno(errno, "Failed to open journal file %s: %m", path);
-                        goto fail;
-                }
-
-                close_fd = true;
-        }
-
-        r = journal_file_open(fd, path, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, NULL, &f);
+        r = journal_file_open(fd, path, O_RDONLY, 0, false, 0, false, NULL, j->mmap, NULL, NULL, &f);
         if (r < 0) {
-                if (close_fd)
-                        safe_close(fd);
                 log_debug_errno(r, "Failed to open journal file %s: %m", path);
-                goto fail;
+                goto finish;
         }
 
         /* journal_file_dump(f); */
 
         r = ordered_hashmap_put(j->files, f->path, f);
         if (r < 0) {
-                f->close_fd = close_fd;
+                f->close_fd = false; /* make sure journal_file_close() doesn't close the caller's fd (or our own). We'll let the caller do that, or ourselves */
                 (void) journal_file_close(f);
-                goto fail;
+                goto finish;
         }
 
-        if (!j->has_runtime_files && path_has_prefix(j, f->path, "/run"))
-                j->has_runtime_files = true;
-        else if (!j->has_persistent_files && path_has_prefix(j, f->path, "/var"))
-                j->has_persistent_files = true;
+        close_fd = false; /* the fd is now owned by the JournalFile object */
 
-        log_debug("File %s added.", f->path);
+        f->last_seen_generation = j->generation;
 
+        track_file_disposition(j, f);
         check_network(j, f->fd);
 
         j->current_invalidate_counter++;
 
-        return 0;
+        log_debug("File %s added.", f->path);
 
-fail:
-        k = journal_put_error(j, r, path);
-        if (k < 0)
-                return k;
+        r = 0;
+
+finish:
+        if (close_fd)
+                safe_close(fd);
+
+        if (r < 0) {
+                k = journal_put_error(j, r, path);
+                if (k < 0)
+                        return k;
+        }
 
         return r;
 }
 
-static int add_file(sd_journal *j, const char *prefix, const char *filename) {
+static int add_file_by_name(
+                sd_journal *j,
+                const char *prefix,
+                const char *filename) {
+
         const char *path;
 
         assert(j);
@@ -1342,7 +1381,11 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
         return add_any_file(j, -1, path);
 }
 
-static void remove_file(sd_journal *j, const char *prefix, const char *filename) {
+static void remove_file_by_name(
+                sd_journal *j,
+                const char *prefix,
+                const char *filename) {
+
         const char *path;
         JournalFile *f;
 
@@ -1362,7 +1405,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
         assert(j);
         assert(f);
 
-        ordered_hashmap_remove(j->files, f->path);
+        (void) ordered_hashmap_remove(j->files, f->path);
 
         log_debug("File %s removed.", f->path);
 
@@ -1406,10 +1449,102 @@ static int dirname_is_machine_id(const char *fn) {
         return sd_id128_equal(id, machine);
 }
 
+static bool dirent_is_journal_file(const struct dirent *de) {
+        assert(de);
+
+        if (!IN_SET(de->d_type, DT_REG, DT_LNK, DT_UNKNOWN))
+                return false;
+
+        return endswith(de->d_name, ".journal") ||
+                endswith(de->d_name, ".journal~");
+}
+
+static bool dirent_is_id128_subdir(const struct dirent *de) {
+        assert(de);
+
+        if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
+                return false;
+
+        return id128_is_valid(de->d_name);
+}
+
+static int directory_open(sd_journal *j, const char *path, DIR **ret) {
+        DIR *d;
+
+        assert(j);
+        assert(path);
+        assert(ret);
+
+        if (j->toplevel_fd < 0)
+                d = opendir(path);
+        else
+                /* Open the specified directory relative to the toplevel fd. Enforce that the path specified is
+                 * relative, by dropping the initial slash */
+                d = xopendirat(j->toplevel_fd, skip_slash(path), 0);
+        if (!d)
+                return -errno;
+
+        *ret = d;
+        return 0;
+}
+
+static int add_directory(sd_journal *j, const char *prefix, const char *dirname);
+
+static void directory_enumerate(sd_journal *j, Directory *m, DIR *d) {
+        struct dirent *de;
+
+        assert(j);
+        assert(m);
+        assert(d);
+
+        FOREACH_DIRENT_ALL(de, d, goto fail) {
+
+                if (dirent_is_journal_file(de))
+                        (void) add_file_by_name(j, m->path, de->d_name);
+
+                if (m->is_root && dirent_is_id128_subdir(de))
+                        (void) add_directory(j, m->path, de->d_name);
+        }
+
+        return;
+
+fail:
+        log_debug_errno(errno, "Failed to enumerate directory %s, ignoring: %m", m->path);
+}
+
+static void directory_watch(sd_journal *j, Directory *m, int fd, uint32_t mask) {
+        int r;
+
+        assert(j);
+        assert(m);
+        assert(fd >= 0);
+
+        /* Watch this directory if that's enabled and if it not being watched yet. */
+
+        if (m->wd > 0) /* Already have a watch? */
+                return;
+        if (j->inotify_fd < 0) /* Not watching at all? */
+                return;
+
+        m->wd = inotify_add_watch_fd(j->inotify_fd, fd, mask);
+        if (m->wd < 0) {
+                log_debug_errno(errno, "Failed to watch journal directory '%s', ignoring: %m", m->path);
+                return;
+        }
+
+        r = hashmap_put(j->directories_by_wd, INT_TO_PTR(m->wd), m);
+        if (r == -EEXIST)
+                log_debug_errno(r, "Directory '%s' already being watched under a different path, ignoring: %m", m->path);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to add watch for journal directory '%s' to hashmap, ignoring: %m", m->path);
+                (void) inotify_rm_watch(j->inotify_fd, m->wd);
+                m->wd = -1;
+        }
+}
+
 static int add_directory(sd_journal *j, const char *prefix, const char *dirname) {
         _cleanup_free_ char *path = NULL;
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de = NULL;
         Directory *m;
         int r, k;
 
@@ -1428,22 +1563,16 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 goto fail;
         }
 
-        log_debug("Considering directory %s.", path);
+        log_debug("Considering directory '%s'.", path);
 
         /* We consider everything local that is in a directory for the local machine ID, or that is stored in /run */
         if ((j->flags & SD_JOURNAL_LOCAL_ONLY) &&
             !((dirname && dirname_is_machine_id(dirname) > 0) || path_has_prefix(j, path, "/run")))
-            return 0;
+                return 0;
 
-
-        if (j->toplevel_fd < 0)
-                d = opendir(path);
-        else
-                /* Open the specified directory relative to the toplevel fd. Enforce that the path specified is
-                 * relative, by dropping the initial slash */
-                d = xopendirat(j->toplevel_fd, skip_slash(path), 0);
-        if (!d) {
-                r = log_debug_errno(errno, "Failed to open directory %s: %m", path);
+        r = directory_open(j, path, &d);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to open directory '%s': %m", path);
                 goto fail;
         }
 
@@ -1470,26 +1599,17 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 log_debug("Directory %s added.", m->path);
 
         } else if (m->is_root)
-                return 0;
+                return 0; /* Don't 'downgrade' from root directory */
 
-        if (m->wd <= 0 && j->inotify_fd >= 0) {
-                /* Watch this directory, if it not being watched yet. */
+        m->last_seen_generation = j->generation;
 
-                m->wd = inotify_add_watch_fd(j->inotify_fd, dirfd(d),
-                                             IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
-                                             IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT|IN_MOVED_FROM|
-                                             IN_ONLYDIR);
+        directory_watch(j, m, dirfd(d),
+                        IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
+                        IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT|IN_MOVED_FROM|
+                        IN_ONLYDIR);
 
-                if (m->wd > 0 && hashmap_put(j->directories_by_wd, INT_TO_PTR(m->wd), m) < 0)
-                        inotify_rm_watch(j->inotify_fd, m->wd);
-        }
-
-        FOREACH_DIRENT_ALL(de, d, r = log_debug_errno(errno, "Failed to read directory %s: %m", m->path); goto fail) {
-
-                if (dirent_is_file_with_suffix(de, ".journal") ||
-                    dirent_is_file_with_suffix(de, ".journal~"))
-                        (void) add_file(j, m->path, de->d_name);
-        }
+        if (!j->no_new_files)
+                directory_enumerate(j, m, d);
 
         check_network(j, dirfd(d));
 
@@ -1506,7 +1626,6 @@ fail:
 static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
         Directory *m;
         int r, k;
 
@@ -1519,6 +1638,8 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
         if (p) {
                 /* If there's a path specified, use it. */
 
+                log_debug("Considering root directory '%s'.", p);
+
                 if ((j->flags & SD_JOURNAL_RUNTIME_ONLY) &&
                     !path_has_prefix(j, p, "/run"))
                         return -EINVAL;
@@ -1526,16 +1647,11 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
                 if (j->prefix)
                         p = strjoina(j->prefix, p);
 
-                if (j->toplevel_fd < 0)
-                        d = opendir(p);
-                else
-                        d = xopendirat(j->toplevel_fd, skip_slash(p), 0);
-
-                if (!d) {
-                        if (errno == ENOENT && missing_ok)
-                                return 0;
-
-                        r = log_debug_errno(errno, "Failed to open root directory %s: %m", p);
+                r = directory_open(j, p, &d);
+                if (r == -ENOENT && missing_ok)
+                        return 0;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to open root directory %s: %m", p);
                         goto fail;
                 }
         } else {
@@ -1593,29 +1709,12 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
         } else if (!m->is_root)
                 return 0;
 
-        if (m->wd <= 0 && j->inotify_fd >= 0) {
+        directory_watch(j, m, dirfd(d),
+                        IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
+                        IN_ONLYDIR);
 
-                m->wd = inotify_add_watch_fd(j->inotify_fd, dirfd(d),
-                                          IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
-                                          IN_ONLYDIR);
-
-                if (m->wd > 0 && hashmap_put(j->directories_by_wd, INT_TO_PTR(m->wd), m) < 0)
-                        inotify_rm_watch(j->inotify_fd, m->wd);
-        }
-
-        if (j->no_new_files)
-                return 0;
-
-        FOREACH_DIRENT_ALL(de, d, r = log_debug_errno(errno, "Failed to read directory %s: %m", m->path); goto fail) {
-                sd_id128_t id;
-
-                if (dirent_is_file_with_suffix(de, ".journal") ||
-                    dirent_is_file_with_suffix(de, ".journal~"))
-                        (void) add_file(j, m->path, de->d_name);
-                else if (IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN) &&
-                         sd_id128_from_string(de->d_name, &id) >= 0)
-                        (void) add_directory(j, m->path, de->d_name);
-        }
+        if (!j->no_new_files)
+                directory_enumerate(j, m, d);
 
         check_network(j, dirfd(d));
 
@@ -1710,7 +1809,7 @@ static int allocate_inotify(sd_journal *j) {
 }
 
 static sd_journal *journal_new(int flags, const char *path) {
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
 
         j = new0(sd_journal, 1);
         if (!j)
@@ -1727,7 +1826,7 @@ static sd_journal *journal_new(int flags, const char *path) {
 
                 t = strdup(path);
                 if (!t)
-                        goto fail;
+                        return NULL;
 
                 if (flags & SD_JOURNAL_OS_ROOT)
                         j->prefix = t;
@@ -1735,17 +1834,17 @@ static sd_journal *journal_new(int flags, const char *path) {
                         j->path = t;
         }
 
-        j->files = ordered_hashmap_new(&string_hash_ops);
-        j->directories_by_path = hashmap_new(&string_hash_ops);
+        j->files = ordered_hashmap_new(&path_hash_ops);
+        if (!j->files)
+                return NULL;
+
+        j->files_cache = ordered_hashmap_iterated_cache_new(j->files);
+        j->directories_by_path = hashmap_new(&path_hash_ops);
         j->mmap = mmap_cache_new();
-        if (!j->files || !j->directories_by_path || !j->mmap)
-                goto fail;
+        if (!j->files_cache || !j->directories_by_path || !j->mmap)
+                return NULL;
 
-        return j;
-
-fail:
-        sd_journal_close(j);
-        return NULL;
+        return TAKE_PTR(j);
 }
 
 #define OPEN_ALLOWED_FLAGS                              \
@@ -1754,7 +1853,7 @@ fail:
          SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER)
 
 _public_ int sd_journal_open(sd_journal **ret, int flags) {
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -1766,15 +1865,10 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 
         r = add_search_paths(j);
         if (r < 0)
-                goto fail;
+                return r;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
-
-fail:
-        sd_journal_close(j);
-
-        return r;
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
@@ -1782,7 +1876,7 @@ fail:
 
 _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
         _cleanup_free_ char *root = NULL, *class = NULL;
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         char *p;
         int r;
 
@@ -1795,7 +1889,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         assert_return(machine_name_is_valid(machine), -EINVAL);
 
         p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(p, NEWLINE, "ROOT", &root, "CLASS", &class, NULL);
+        r = parse_env_file(NULL, p, NEWLINE, "ROOT", &root, "CLASS", &class, NULL);
         if (r == -ENOENT)
                 return -EHOSTDOWN;
         if (r < 0)
@@ -1812,14 +1906,10 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
 
         r = add_search_paths(j);
         if (r < 0)
-                goto fail;
+                return r;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
-
-fail:
-        sd_journal_close(j);
-        return r;
 }
 
 #define OPEN_DIRECTORY_ALLOWED_FLAGS                    \
@@ -1827,7 +1917,7 @@ fail:
          SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
 
 _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int flags) {
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -1843,18 +1933,14 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         else
                 r = add_root_directory(j, path, false);
         if (r < 0)
-                goto fail;
+                return r;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
-
-fail:
-        sd_journal_close(j);
-        return r;
 }
 
 _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags) {
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         const char **path;
         int r;
 
@@ -1868,17 +1954,13 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         STRV_FOREACH(path, paths) {
                 r = add_any_file(j, -1, *path);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
         j->no_new_files = true;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
-
-fail:
-        sd_journal_close(j);
-        return r;
 }
 
 #define OPEN_DIRECTORY_FD_ALLOWED_FLAGS         \
@@ -1886,7 +1968,7 @@ fail:
          SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
 
 _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         struct stat st;
         int r;
 
@@ -1911,20 +1993,16 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         else
                 r = add_root_directory(j, NULL, false);
         if (r < 0)
-                goto fail;
+                return r;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
-
-fail:
-        sd_journal_close(j);
-        return r;
 }
 
 _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags) {
         Iterator iterator;
         JournalFile *f;
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         unsigned i;
         int r;
 
@@ -1949,10 +2027,9 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
                         goto fail;
                 }
 
-                if (!S_ISREG(st.st_mode)) {
-                        r = -EBADFD;
+                r = stat_verify_regular(&st);
+                if (r < 0)
                         goto fail;
-                }
 
                 r = add_any_file(j, fds[i], NULL);
                 if (r < 0)
@@ -1962,7 +2039,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
         j->no_new_files = true;
         j->no_inotify = true;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
 
 fail:
@@ -1971,7 +2048,6 @@ fail:
         ORDERED_HASHMAP_FOREACH(f, j->files, iterator)
                 f->close_fd = false;
 
-        sd_journal_close(j);
         return r;
 }
 
@@ -1984,6 +2060,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         sd_journal_flush_matches(j);
 
         ordered_hashmap_free_with_destructor(j->files, journal_file_close);
+        iterated_cache_free(j->files_cache);
 
         while ((d = hashmap_first(j->directories_by_path)))
                 remove_directory(j, d);
@@ -2285,6 +2362,24 @@ _public_ void sd_journal_restart_data(sd_journal *j) {
         j->current_field = 0;
 }
 
+static int reiterate_all_paths(sd_journal *j) {
+        assert(j);
+
+        if (j->no_new_files)
+                return add_current_paths(j);
+
+        if (j->flags & SD_JOURNAL_OS_ROOT)
+                return add_search_paths(j);
+
+        if (j->toplevel_fd >= 0)
+                return add_root_directory(j, NULL, false);
+
+        if (j->path)
+                return add_root_directory(j, j->path, true);
+
+        return add_search_paths(j);
+}
+
 _public_ int sd_journal_get_fd(sd_journal *j) {
         int r;
 
@@ -2301,20 +2396,10 @@ _public_ int sd_journal_get_fd(sd_journal *j) {
         if (r < 0)
                 return r;
 
-        log_debug("Reiterating files to get inotify watches established");
+        log_debug("Reiterating files to get inotify watches established.");
 
-        /* Iterate through all dirs again, to add them to the
-         * inotify */
-        if (j->no_new_files)
-                r = add_current_paths(j);
-        else if (j->flags & SD_JOURNAL_OS_ROOT)
-                r = add_search_paths(j);
-        else if (j->toplevel_fd >= 0)
-                r = add_root_directory(j, NULL, false);
-        else if (j->path)
-                r = add_root_directory(j, j->path, true);
-        else
-                r = add_search_paths(j);
+        /* Iterate through all dirs again, to add them to the inotify */
+        r = reiterate_all_paths(j);
         if (r < 0)
                 return r;
 
@@ -2357,17 +2442,61 @@ _public_ int sd_journal_get_timeout(sd_journal *j, uint64_t *timeout_usec) {
         return 1;
 }
 
+static void process_q_overflow(sd_journal *j) {
+        JournalFile *f;
+        Directory *m;
+        Iterator i;
+
+        assert(j);
+
+        /* When the inotify queue overruns we need to enumerate and re-validate all journal files to bring our list
+         * back in sync with what's on disk. For this we pick a new generation counter value. It'll be assigned to all
+         * journal files we encounter. All journal files and all directories that don't carry it after reenumeration
+         * are subject for unloading. */
+
+        log_debug("Inotify queue overrun, reiterating everything.");
+
+        j->generation++;
+        (void) reiterate_all_paths(j);
+
+        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
+
+                if (f->last_seen_generation == j->generation)
+                        continue;
+
+                log_debug("File '%s' hasn't been seen in this enumeration, removing.", f->path);
+                remove_file_real(j, f);
+        }
+
+        HASHMAP_FOREACH(m, j->directories_by_path, i) {
+
+                if (m->last_seen_generation == j->generation)
+                        continue;
+
+                if (m->is_root) /* Never GC root directories */
+                        continue;
+
+                log_debug("Directory '%s' hasn't been seen in this enumeration, removing.", f->path);
+                remove_directory(j, m);
+        }
+
+        log_debug("Reiteration complete.");
+}
+
 static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
         Directory *d;
 
         assert(j);
         assert(e);
 
+        if (e->mask & IN_Q_OVERFLOW) {
+                process_q_overflow(j);
+                return;
+        }
+
         /* Is this a subdirectory we watch? */
         d = hashmap_get(j->directories_by_wd, INT_TO_PTR(e->wd));
         if (d) {
-                sd_id128_t id;
-
                 if (!(e->mask & IN_ISDIR) && e->len > 0 &&
                     (endswith(e->name, ".journal") ||
                      endswith(e->name, ".journal~"))) {
@@ -2375,9 +2504,9 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         /* Event for a journal file */
 
                         if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB))
-                                (void) add_file(j, d->path, e->name);
+                                (void) add_file_by_name(j, d->path, e->name);
                         else if (e->mask & (IN_DELETE|IN_MOVED_FROM|IN_UNMOUNT))
-                                remove_file(j, d->path, e->name);
+                                remove_file_by_name(j, d->path, e->name);
 
                 } else if (!d->is_root && e->len == 0) {
 
@@ -2386,7 +2515,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         if (e->mask & (IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT))
                                 remove_directory(j, d);
 
-                } else if (d->is_root && (e->mask & IN_ISDIR) && e->len > 0 && sd_id128_from_string(e->name, &id) >= 0) {
+                } else if (d->is_root && (e->mask & IN_ISDIR) && e->len > 0 && id128_is_valid(e->name)) {
 
                         /* Event for root directory */
 
@@ -2400,7 +2529,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
         if (e->mask & IN_IGNORED)
                 return;
 
-        log_debug("Unknown inotify event.");
+        log_debug("Unexpected inotify event.");
 }
 
 static int determine_change(sd_journal *j) {
@@ -2419,6 +2548,9 @@ _public_ int sd_journal_process(sd_journal *j) {
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
+
+        if (j->inotify_fd < 0) /* We have no inotify fd yet? Then there's noting to process. */
+                return 0;
 
         j->last_process_usec = now(CLOCK_MONOTONIC);
         j->last_invalidate_counter = j->current_invalidate_counter;

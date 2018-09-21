@@ -2,25 +2,6 @@
 
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -77,7 +58,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
         }
 
 #define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,scope) \
-        type name##_from_string(const char *s) {                        \
+        scope type name##_from_string(const char *s) {                  \
                 type i;                                                 \
                 unsigned u = 0;                                         \
                 if (!s)                                                 \
@@ -90,16 +71,13 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                 return (type) -1;                                       \
         }                                                               \
 
-
 #define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
-        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)        \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)
 
 #define _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name,type,yes,scope)   \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
-        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name,type,yes,scope) \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name,type,yes,scope)
 
 #define DEFINE_STRING_TABLE_LOOKUP(name,type) _DEFINE_STRING_TABLE_LOOKUP(name,type,)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name,type) _DEFINE_STRING_TABLE_LOOKUP(name,type,static)
@@ -111,10 +89,24 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 /* For string conversions where numbers are also acceptable */
 #define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name,type,max)         \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,)  \
-        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,) \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,)
 
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max) \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,static)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max) \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,static)
+
+#define DUMP_STRING_TABLE(name,type,max)                                \
+        do {                                                            \
+                type _k;                                                \
+                flockfile(stdout);                                      \
+                for (_k = 0; _k < (max); _k++) {                        \
+                        const char *_t;                                 \
+                        _t = name##_to_string(_k);                      \
+                        if (!_t)                                        \
+                                continue;                               \
+                        fputs_unlocked(_t, stdout);                     \
+                        fputc_unlocked('\n', stdout);                   \
+                }                                                       \
+                funlockfile(stdout);                                    \
+        } while(false)

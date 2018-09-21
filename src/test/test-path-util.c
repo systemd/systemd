@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <stdio.h>
 #include <unistd.h>
@@ -30,6 +12,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
 
 #define test_path_compare(a, b, result) {                 \
@@ -38,6 +21,16 @@
                 assert_se(path_equal(a, b) == !result);   \
                 assert_se(path_equal(b, a) == !result);   \
         }
+
+static void test_path_simplify(const char *in, const char *out, const char *out_dot) {
+        char *p;
+
+        p = strdupa(in);
+        assert_se(streq(path_simplify(p, false), out));
+
+        p = strdupa(in);
+        assert_se(streq(path_simplify(p, true), out_dot));
+}
 
 static void test_path(void) {
         _cleanup_close_ int fd = -1;
@@ -82,15 +75,28 @@ static void test_path(void) {
         assert_se(fd >= 0);
         assert_se(fd_is_mount_point(fd, "/", 0) > 0);
 
-        {
-                char p1[] = "aaa/bbb////ccc";
-                char p2[] = "//aaa/.////ccc";
-                char p3[] = "/./";
-
-                assert_se(path_equal(path_kill_slashes(p1), "aaa/bbb/ccc"));
-                assert_se(path_equal(path_kill_slashes(p2), "/aaa/./ccc"));
-                assert_se(path_equal(path_kill_slashes(p3), "/./"));
-        }
+        test_path_simplify("aaa/bbb////ccc", "aaa/bbb/ccc", "aaa/bbb/ccc");
+        test_path_simplify("//aaa/.////ccc", "/aaa/./ccc", "/aaa/ccc");
+        test_path_simplify("///", "/", "/");
+        test_path_simplify("///.//", "/.", "/");
+        test_path_simplify("///.//.///", "/./.", "/");
+        test_path_simplify("////.././///../.", "/.././../.", "/../..");
+        test_path_simplify(".", ".", "");
+        test_path_simplify("./", ".", "");
+        test_path_simplify(".///.//./.", "./././.", "");
+        test_path_simplify(".///.//././/", "./././.", "");
+        test_path_simplify("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.",
+                           "/./aaa/././.bbb/../c./d.dd/..eeee/.",
+                           "/aaa/.bbb/../c./d.dd/..eeee");
+        test_path_simplify("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
+                           "/./aaa/././.bbb/../c./d.dd/..eeee/..",
+                           "/aaa/.bbb/../c./d.dd/..eeee/..");
+        test_path_simplify(".//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
+                           "././aaa/././.bbb/../c./d.dd/..eeee/..",
+                           "aaa/.bbb/../c./d.dd/..eeee/..");
+        test_path_simplify("..//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
+                           ".././aaa/././.bbb/../c./d.dd/..eeee/..",
+                           "../aaa/.bbb/../c./d.dd/..eeee/..");
 
         assert_se(PATH_IN_SET("/bin", "/", "/bin", "/foo"));
         assert_se(PATH_IN_SET("/bin", "/bin"));
@@ -276,7 +282,7 @@ static void test_make_relative(void) {
         test("/some/path", "/", "../..");
         test("/some/path", "/some/other/path", "../other/path");
         test("/some/path/./dot", "/some/further/path", "../../further/path");
-        test("//extra/////slashes///won't////fool///anybody//", "////extra///slashes////are/just///fine///", "../../../are/just/fine");
+        test("//extra.//.//./.slashes//./won't////fo.ol///anybody//", "/././/extra././/.slashes////ar.e/.just/././.fine///", "../../../ar.e/.just/.fine");
 }
 
 static void test_strv_resolve(void) {
@@ -412,6 +418,10 @@ static void test_last_path_component(void) {
         assert_se(streq(last_path_component("/foo/a"), "a"));
         assert_se(streq(last_path_component("/foo/a/"), "a/"));
         assert_se(streq(last_path_component(""), ""));
+        assert_se(streq(last_path_component("a"), "a"));
+        assert_se(streq(last_path_component("a/"), "a/"));
+        assert_se(streq(last_path_component("/a"), "a"));
+        assert_se(streq(last_path_component("/a/"), "a/"));
 }
 
 static void test_filename_is_valid(void) {
@@ -483,10 +493,21 @@ static void test_skip_dev_prefix(void) {
         assert_se(streq(skip_dev_prefix("foo"), "foo"));
 }
 
+static void test_empty_or_root(void) {
+        assert_se(empty_or_root(NULL));
+        assert_se(empty_or_root(""));
+        assert_se(empty_or_root("/"));
+        assert_se(empty_or_root("//"));
+        assert_se(empty_or_root("///"));
+        assert_se(empty_or_root("/////////////////"));
+        assert_se(!empty_or_root("xxx"));
+        assert_se(!empty_or_root("/xxx"));
+        assert_se(!empty_or_root("/xxx/"));
+        assert_se(!empty_or_root("//yy//"));
+}
+
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_path();
         test_path_equal_root();
@@ -503,6 +524,7 @@ int main(int argc, char **argv) {
         test_filename_is_valid();
         test_hidden_or_backup_file();
         test_skip_dev_prefix();
+        test_empty_or_root();
 
         test_systemd_installation_has_version(argv[1]); /* NULL is OK */
 

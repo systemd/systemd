@@ -1,0 +1,6 @@
+[Unit]
+Description=https://github.com/systemd/systemd/issues/2637
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -x -c "! test -x perl || perl -e 'exit(!(qq{%%U} eq qq{\\x25U}))'"

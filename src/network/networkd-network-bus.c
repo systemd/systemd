@@ -1,24 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
+#include "ether-addr-util.h"
 #include "networkd-manager.h"
 #include "string-util.h"
 #include "strv.h"
@@ -32,23 +15,24 @@ static int property_get_ether_addrs(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Network *n = userdata;
-        const char *ether = NULL;
+        char buf[ETHER_ADDR_TO_STRING_MAX];
+        const struct ether_addr *p;
+        Iterator i;
+        Set *s;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(n);
+        assert(userdata);
 
-        if (n->match_mac)
-                ether = ether_ntoa(n->match_mac);
+        s = *(Set **) userdata;
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 return r;
 
-        if (ether) {
-                r = sd_bus_message_append(reply, "s", strempty(ether));
+        SET_FOREACH(p, s, i) {
+                r = sd_bus_message_append(reply, "s", ether_addr_to_string(p, buf));
                 if (r < 0)
                         return r;
         }
@@ -61,7 +45,7 @@ const sd_bus_vtable network_vtable[] = {
 
         SD_BUS_PROPERTY("Description", "s", NULL, offsetof(Network, description), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SourcePath", "s", NULL, offsetof(Network, filename), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MatchMAC", "as", property_get_ether_addrs, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MatchMAC", "as", property_get_ether_addrs, offsetof(Network, match_mac), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchPath", "as", NULL, offsetof(Network, match_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchDriver", "as", NULL, offsetof(Network, match_driver), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchType", "as", NULL, offsetof(Network, match_type), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -122,8 +106,7 @@ int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
                         return r;
         }
 
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return 1;
 }

@@ -1,30 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "macro.h"
 #include "uid-range.h"
 #include "user-util.h"
+#include "util.h"
 
 static bool uid_range_intersect(UidRange *range, uid_t start, uid_t nr) {
         assert(range);
@@ -60,23 +44,16 @@ static void uid_range_coalesce(UidRange **p, unsigned *n) {
                         }
                 }
         }
-
 }
 
-static int uid_range_compare(const void *a, const void *b) {
-        const UidRange *x = a, *y = b;
+static int uid_range_compare(const UidRange *a, const UidRange *b) {
+        int r;
 
-        if (x->start < y->start)
-                return -1;
-        if (x->start > y->start)
-                return 1;
+        r = CMP(a->start, b->start);
+        if (r != 0)
+                return r;
 
-        if (x->nr < y->nr)
-                return -1;
-        if (x->nr > y->nr)
-                return 1;
-
-        return 0;
+        return CMP(a->nr, b->nr);
 }
 
 int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
@@ -109,7 +86,7 @@ int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
         } else {
                 UidRange *t;
 
-                t = realloc(*p, sizeof(UidRange) * (*n + 1));
+                t = reallocarray(*p, *n + 1, sizeof(UidRange));
                 if (!t)
                         return -ENOMEM;
 
@@ -120,7 +97,7 @@ int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
                 x->nr = nr;
         }
 
-        qsort(*p, *n, sizeof(UidRange), uid_range_compare);
+        typesafe_qsort(*p, *n, uid_range_compare);
         uid_range_coalesce(p, n);
 
         return *n;

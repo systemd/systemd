@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-logind.service" conditional='ENABLE_LOGIND'>
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>systemd-logind.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -71,8 +45,10 @@
       a session, then this ID is reused as the session ID. Otherwise, an independent session counter is
       used.</para></listitem>
 
-      <listitem><para>Providing PolicyKit-based access for users for
-      operations such as system shutdown or sleep</para></listitem>
+      <listitem><para>Providing <ulink
+      url="http://www.freedesktop.org/wiki/Software/polkit">polkit</ulink>-based
+      access for users for operations such as system shutdown or sleep</para>
+      </listitem>
 
       <listitem><para>Implementing a shutdown/sleep inhibition logic
       for applications</para></listitem>
@@ -100,9 +76,9 @@
     <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the configuration of this service.</para>
 
-    <para>See <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat
-    on Linux</ulink> for an introduction into basic concepts of logind
+    <para>See
+    <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for information about the basic concepts of logind
     such as users, sessions and seats.</para>
 
     <para>See the <ulink
@@ -123,6 +99,7 @@
       <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

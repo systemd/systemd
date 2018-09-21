@@ -1,22 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
+#include <errno.h>
 
 #include "alloc-util.h"
 #include "hexdecoct.h"
@@ -87,216 +71,207 @@ static void test_undecchar(void) {
         assert_se(undecchar('9') == 9);
 }
 
-static void test_unhexmem(void) {
-        const char *hex = "efa2149213";
-        const char *hex_invalid = "efa214921o";
-        _cleanup_free_ char *hex2 = NULL;
+static void test_unhexmem_one(const char *s, size_t l, int retval) {
+        _cleanup_free_ char *hex = NULL;
         _cleanup_free_ void *mem = NULL;
         size_t len;
 
-        assert_se(unhexmem(hex_invalid, strlen(hex_invalid), &mem, &len) == -EINVAL);
-        assert_se(unhexmem(hex, strlen(hex) + 1, &mem, &len) == -EINVAL);
-        assert_se(unhexmem(hex, strlen(hex) - 1, &mem, &len) == -EINVAL);
-        assert_se(unhexmem(hex, strlen(hex), &mem, &len) == 0);
+        assert_se(unhexmem(s, l, &mem, &len) == retval);
+        if (retval == 0) {
+                char *answer;
 
-        assert_se((hex2 = hexmem(mem, len)));
-        assert_se(streq(hex, hex2));
+                if (l == (size_t) -1)
+                        l = strlen(s);
+
+                assert_se(hex = hexmem(mem, len));
+                answer = strndupa(s, l);
+                assert_se(streq(delete_chars(answer, WHITESPACE), hex));
+        }
+}
+
+static void test_unhexmem(void) {
+        const char *hex = "efa2149213";
+        const char *hex_space = "  e f   a\n 2\r  14\n\r\t9\t2 \n1\r3 \r\r\t";
+        const char *hex_invalid = "efa214921o";
+
+        test_unhexmem_one(NULL, 0, 0);
+        test_unhexmem_one("", 0, 0);
+        test_unhexmem_one("", (size_t) -1, 0);
+        test_unhexmem_one("   \n \t\r   \t\t \n\n\n", (size_t) -1, 0);
+        test_unhexmem_one(hex_invalid, strlen(hex_invalid), -EINVAL);
+        test_unhexmem_one(hex_invalid, (size_t) - 1, -EINVAL);
+        test_unhexmem_one(hex, strlen(hex) - 1, -EPIPE);
+        test_unhexmem_one(hex, strlen(hex), 0);
+        test_unhexmem_one(hex, (size_t) -1, 0);
+        test_unhexmem_one(hex_space, strlen(hex_space), 0);
+        test_unhexmem_one(hex_space, (size_t) -1, 0);
 }
 
 /* https://tools.ietf.org/html/rfc4648#section-10 */
 static void test_base32hexmem(void) {
         char *b32;
 
-        b32 = base32hexmem("", strlen(""), true);
+        b32 = base32hexmem("", STRLEN(""), true);
         assert_se(b32);
         assert_se(streq(b32, ""));
         free(b32);
 
-        b32 = base32hexmem("f", strlen("f"), true);
+        b32 = base32hexmem("f", STRLEN("f"), true);
         assert_se(b32);
         assert_se(streq(b32, "CO======"));
         free(b32);
 
-        b32 = base32hexmem("fo", strlen("fo"), true);
+        b32 = base32hexmem("fo", STRLEN("fo"), true);
         assert_se(b32);
         assert_se(streq(b32, "CPNG===="));
         free(b32);
 
-        b32 = base32hexmem("foo", strlen("foo"), true);
+        b32 = base32hexmem("foo", STRLEN("foo"), true);
         assert_se(b32);
         assert_se(streq(b32, "CPNMU==="));
         free(b32);
 
-        b32 = base32hexmem("foob", strlen("foob"), true);
+        b32 = base32hexmem("foob", STRLEN("foob"), true);
         assert_se(b32);
         assert_se(streq(b32, "CPNMUOG="));
         free(b32);
 
-        b32 = base32hexmem("fooba", strlen("fooba"), true);
+        b32 = base32hexmem("fooba", STRLEN("fooba"), true);
         assert_se(b32);
         assert_se(streq(b32, "CPNMUOJ1"));
         free(b32);
 
-        b32 = base32hexmem("foobar", strlen("foobar"), true);
+        b32 = base32hexmem("foobar", STRLEN("foobar"), true);
         assert_se(b32);
         assert_se(streq(b32, "CPNMUOJ1E8======"));
         free(b32);
 
-        b32 = base32hexmem("", strlen(""), false);
+        b32 = base32hexmem("", STRLEN(""), false);
         assert_se(b32);
         assert_se(streq(b32, ""));
         free(b32);
 
-        b32 = base32hexmem("f", strlen("f"), false);
+        b32 = base32hexmem("f", STRLEN("f"), false);
         assert_se(b32);
         assert_se(streq(b32, "CO"));
         free(b32);
 
-        b32 = base32hexmem("fo", strlen("fo"), false);
+        b32 = base32hexmem("fo", STRLEN("fo"), false);
         assert_se(b32);
         assert_se(streq(b32, "CPNG"));
         free(b32);
 
-        b32 = base32hexmem("foo", strlen("foo"), false);
+        b32 = base32hexmem("foo", STRLEN("foo"), false);
         assert_se(b32);
         assert_se(streq(b32, "CPNMU"));
         free(b32);
 
-        b32 = base32hexmem("foob", strlen("foob"), false);
+        b32 = base32hexmem("foob", STRLEN("foob"), false);
         assert_se(b32);
         assert_se(streq(b32, "CPNMUOG"));
         free(b32);
 
-        b32 = base32hexmem("fooba", strlen("fooba"), false);
+        b32 = base32hexmem("fooba", STRLEN("fooba"), false);
         assert_se(b32);
         assert_se(streq(b32, "CPNMUOJ1"));
         free(b32);
 
-        b32 = base32hexmem("foobar", strlen("foobar"), false);
+        b32 = base32hexmem("foobar", STRLEN("foobar"), false);
         assert_se(b32);
         assert_se(streq(b32, "CPNMUOJ1E8"));
         free(b32);
 }
 
-static void test_unbase32hexmem(void) {
-        void *mem;
+static void test_unbase32hexmem_one(const char *hex, bool padding, int retval, const char *ans) {
+        _cleanup_free_ void *mem = NULL;
         size_t len;
 
-        assert_se(unbase32hexmem("", strlen(""), true, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), ""));
-        free(mem);
+        assert_se(unbase32hexmem(hex, (size_t) -1, padding, &mem, &len) == retval);
+        if (retval == 0) {
+                char *str;
 
-        assert_se(unbase32hexmem("CO======", strlen("CO======"), true, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "f"));
-        free(mem);
+                str = strndupa(mem, len);
+                assert_se(streq(str, ans));
+        }
+}
 
-        assert_se(unbase32hexmem("CPNG====", strlen("CPNG===="), true, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "fo"));
-        free(mem);
+static void test_unbase32hexmem(void) {
+        test_unbase32hexmem_one("", true, 0, "");
 
-        assert_se(unbase32hexmem("CPNMU===", strlen("CPNMU==="), true, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "foo"));
-        free(mem);
+        test_unbase32hexmem_one("CO======", true, 0, "f");
+        test_unbase32hexmem_one("CPNG====", true, 0, "fo");
+        test_unbase32hexmem_one("CPNMU===", true, 0, "foo");
+        test_unbase32hexmem_one("CPNMUOG=", true, 0, "foob");
+        test_unbase32hexmem_one("CPNMUOJ1", true, 0, "fooba");
+        test_unbase32hexmem_one("CPNMUOJ1E8======", true, 0, "foobar");
 
-        assert_se(unbase32hexmem("CPNMUOG=", strlen("CPNMUOG="), true, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "foob"));
-        free(mem);
+        test_unbase32hexmem_one("A", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("A=======", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("AAA=====", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("AAAAAA==", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("AB======", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("AAAB====", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("AAAAB===", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("AAAAAAB=", true, -EINVAL, NULL);
 
-        assert_se(unbase32hexmem("CPNMUOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "fooba"));
-        free(mem);
+        test_unbase32hexmem_one("XPNMUOJ1", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("CXNMUOJ1", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("CPXMUOJ1", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("CPNXUOJ1", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("CPNMXOJ1", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("CPNMUXJ1", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("CPNMUOX1", true, -EINVAL, NULL);
+        test_unbase32hexmem_one("CPNMUOJX", true, -EINVAL, NULL);
 
-        assert_se(unbase32hexmem("CPNMUOJ1E8======", strlen("CPNMUOJ1E8======"), true, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "foobar"));
-        free(mem);
+        test_unbase32hexmem_one("", false, 0, "");
+        test_unbase32hexmem_one("CO", false, 0, "f");
+        test_unbase32hexmem_one("CPNG", false, 0, "fo");
+        test_unbase32hexmem_one("CPNMU", false, 0, "foo");
+        test_unbase32hexmem_one("CPNMUOG", false, 0, "foob");
+        test_unbase32hexmem_one("CPNMUOJ1", false, 0, "fooba");
+        test_unbase32hexmem_one("CPNMUOJ1E8", false, 0, "foobar");
+        test_unbase32hexmem_one("CPNMUOG=", false, -EINVAL, NULL);
+        test_unbase32hexmem_one("CPNMUOJ1E8======", false, -EINVAL, NULL);
 
-        assert_se(unbase32hexmem("A", strlen("A"), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("A=======", strlen("A======="), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AAA=====", strlen("AAA====="), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AAAAAA==", strlen("AAAAAA=="), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AB======", strlen("AB======"), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AAAB====", strlen("AAAB===="), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AAAAB===", strlen("AAAAB==="), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AAAAAAB=", strlen("AAAAAAB="), true, &mem, &len) == -EINVAL);
-
-        assert_se(unbase32hexmem("XPNMUOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("CXNMUOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("CPXMUOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("CPNXUOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("CPNMXOJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("CPNMUXJ1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("CPNMUOX1", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("CPNMUOJX", strlen("CPNMUOJ1"), true, &mem, &len) == -EINVAL);
-
-        assert_se(unbase32hexmem("", strlen(""), false, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), ""));
-        free(mem);
-
-        assert_se(unbase32hexmem("CO", strlen("CO"), false, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "f"));
-        free(mem);
-
-        assert_se(unbase32hexmem("CPNG", strlen("CPNG"), false, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "fo"));
-        free(mem);
-
-        assert_se(unbase32hexmem("CPNMU", strlen("CPNMU"), false, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "foo"));
-        free(mem);
-
-        assert_se(unbase32hexmem("CPNMUOG", strlen("CPNMUOG"), false, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "foob"));
-        free(mem);
-
-        assert_se(unbase32hexmem("CPNMUOJ1", strlen("CPNMUOJ1"), false, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "fooba"));
-        free(mem);
-
-        assert_se(unbase32hexmem("CPNMUOJ1E8", strlen("CPNMUOJ1E8"), false, &mem, &len) == 0);
-        assert_se(streq(strndupa(mem, len), "foobar"));
-        free(mem);
-
-        assert_se(unbase32hexmem("CPNMUOG=", strlen("CPNMUOG="), false, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("CPNMUOJ1E8======", strlen("CPNMUOJ1E8======"), false, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("A", strlen("A"), false, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("A", strlen("A"), false, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AAA", strlen("AAA"), false, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AAAAAA", strlen("AAAAAA"), false, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AB", strlen("AB"), false, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AAAB", strlen("AAAB"), false, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AAAAB", strlen("AAAAB"), false, &mem, &len) == -EINVAL);
-        assert_se(unbase32hexmem("AAAAAAB", strlen("AAAAAAB"), false, &mem, &len) == -EINVAL);
+        test_unbase32hexmem_one("A", false, -EINVAL, NULL);
+        test_unbase32hexmem_one("A", false, -EINVAL, NULL);
+        test_unbase32hexmem_one("AAA", false, -EINVAL, NULL);
+        test_unbase32hexmem_one("AAAAAA", false, -EINVAL, NULL);
+        test_unbase32hexmem_one("AB", false, -EINVAL, NULL);
+        test_unbase32hexmem_one("AAAB", false, -EINVAL, NULL);
+        test_unbase32hexmem_one("AAAAB", false, -EINVAL, NULL);
+        test_unbase32hexmem_one("AAAAAAB", false, -EINVAL, NULL);
 }
 
 /* https://tools.ietf.org/html/rfc4648#section-10 */
 static void test_base64mem(void) {
         char *b64;
 
-        assert_se(base64mem("", strlen(""), &b64) == 0);
+        assert_se(base64mem("", STRLEN(""), &b64) == 0);
         assert_se(streq(b64, ""));
         free(b64);
 
-        assert_se(base64mem("f", strlen("f"), &b64) == 4);
+        assert_se(base64mem("f", STRLEN("f"), &b64) == 4);
         assert_se(streq(b64, "Zg=="));
         free(b64);
 
-        assert_se(base64mem("fo", strlen("fo"), &b64) == 4);
+        assert_se(base64mem("fo", STRLEN("fo"), &b64) == 4);
         assert_se(streq(b64, "Zm8="));
         free(b64);
 
-        assert_se(base64mem("foo", strlen("foo"), &b64) == 4);
+        assert_se(base64mem("foo", STRLEN("foo"), &b64) == 4);
         assert_se(streq(b64, "Zm9v"));
         free(b64);
 
-        assert_se(base64mem("foob", strlen("foob"), &b64) == 8);
+        assert_se(base64mem("foob", STRLEN("foob"), &b64) == 8);
         assert_se(streq(b64, "Zm9vYg=="));
         free(b64);
 
-        assert_se(base64mem("fooba", strlen("fooba"), &b64) == 8);
+        assert_se(base64mem("fooba", STRLEN("fooba"), &b64) == 8);
         assert_se(streq(b64, "Zm9vYmE="));
         free(b64);
 
-        assert_se(base64mem("foobar", strlen("foobar"), &b64) == 8);
+        assert_se(base64mem("foobar", STRLEN("foobar"), &b64) == 8);
         assert_se(streq(b64, "Zm9vYmFy"));
         free(b64);
 }

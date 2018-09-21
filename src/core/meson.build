@@ -1,19 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 libcore_la_sources = '''
         audit-fd.c
@@ -60,6 +45,8 @@ libcore_la_sources = '''
         dbus-timer.h
         dbus-unit.c
         dbus-unit.h
+        dbus-util.c
+        dbus-util.h
         dbus.c
         dbus.h
         device.c
@@ -138,7 +125,7 @@ load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.m4',
         output: 'load-fragment-gperf.gperf',
-        command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+        command : [meson_apply_m4, config_h, '@INPUT@'],
         capture : true)
 
 load_fragment_gperf_c = custom_target(
@@ -161,13 +148,14 @@ libcore = static_library(
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
         include_directories : includes,
-        link_with : [libshared_static],
         dependencies : [threads,
+                        librt,
                         libseccomp,
                         libpam,
                         libaudit,
                         libkmod,
                         libapparmor,
+                        libselinux,
                         libmount])
 
 systemd_sources = files('main.c')
@@ -184,7 +172,8 @@ systemd_shutdown_sources = files('''
 
 in_files = [['macros.systemd',   rpmmacrosdir],
             ['triggers.systemd', ''],
-            ['systemd.pc',       pkgconfigdatadir]]
+            ['systemd.pc',       pkgconfigdatadir],
+            ['system.conf',      pkgsysconfdir]]
 
 foreach item : in_files
         file = item[0]
@@ -209,22 +198,14 @@ install_data('org.freedesktop.systemd1.conf',
 install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 
-policy_in = configure_file(
-        input : 'org.freedesktop.systemd1.policy.in.in',
-        output : 'org.freedesktop.systemd1.policy.in',
-        configuration : substs)
-
-i18n.merge_file(
-        'org.freedesktop.systemd1.policy',
-        input : policy_in,
+policy = configure_file(
+        input : 'org.freedesktop.systemd1.policy.in',
         output : 'org.freedesktop.systemd1.policy',
-        po_dir : po_dir,
-        data_dirs : po_dir,
-        install : install_polkit,
-        install_dir : polkitpolicydir)
+        configuration : substs)
+install_data(policy,
+             install_dir : polkitpolicydir)
 
-install_data('system.conf',
-             'user.conf',
+install_data('user.conf',
              install_dir : pkgsysconfdir)
 
 meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))

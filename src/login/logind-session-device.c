@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 David Herrmann
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <fcntl.h>
 #include <linux/input.h>
@@ -24,7 +6,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 
-#include "libudev.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "bus-util.h"
@@ -74,20 +56,25 @@ static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotificati
                 return r;
 
         switch (type) {
+
         case SESSION_DEVICE_RESUME:
                 r = sd_bus_message_append(m, "uuh", major, minor, sd->fd);
                 if (r < 0)
                         return r;
                 break;
+
         case SESSION_DEVICE_TRY_PAUSE:
                 t = "pause";
                 break;
+
         case SESSION_DEVICE_PAUSE:
                 t = "force";
                 break;
+
         case SESSION_DEVICE_RELEASE:
                 t = "gone";
                 break;
+
         default:
                 return -EINVAL;
         }
@@ -101,43 +88,33 @@ static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotificati
         return sd_bus_send(sd->session->manager->bus, m, NULL);
 }
 
-static int sd_eviocrevoke(int fd) {
-        static bool warned;
-        int r;
+static void sd_eviocrevoke(int fd) {
+        static bool warned = false;
 
         assert(fd >= 0);
 
-        r = ioctl(fd, EVIOCREVOKE, NULL);
-        if (r < 0) {
-                r = -errno;
-                if (r == -EINVAL && !warned) {
+        if (ioctl(fd, EVIOCREVOKE, NULL) < 0) {
+
+                if (errno == EINVAL && !warned) {
+                        log_warning_errno(errno, "Kernel does not support evdev-revocation: %m");
                         warned = true;
-                        log_warning("kernel does not support evdev-revocation");
                 }
         }
-
-        return 0;
 }
 
 static int sd_drmsetmaster(int fd) {
-        int r;
-
         assert(fd >= 0);
 
-        r = ioctl(fd, DRM_IOCTL_SET_MASTER, 0);
-        if (r < 0)
+        if (ioctl(fd, DRM_IOCTL_SET_MASTER, 0) < 0)
                 return -errno;
 
         return 0;
 }
 
 static int sd_drmdropmaster(int fd) {
-        int r;
-
         assert(fd >= 0);
 
-        r = ioctl(fd, DRM_IOCTL_DROP_MASTER, 0);
-        if (r < 0)
+        if (ioctl(fd, DRM_IOCTL_DROP_MASTER, 0) < 0)
                 return -errno;
 
         return 0;
@@ -146,7 +123,9 @@ static int sd_drmdropmaster(int fd) {
 static int session_device_open(SessionDevice *sd, bool active) {
         int fd, r;
 
+        assert(sd);
         assert(sd->type != DEVICE_TYPE_UNKNOWN);
+        assert(sd->node);
 
         /* open device and try to get an udev_device from it */
         fd = open(sd->node, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
@@ -154,28 +133,27 @@ static int session_device_open(SessionDevice *sd, bool active) {
                 return -errno;
 
         switch (sd->type) {
+
         case DEVICE_TYPE_DRM:
                 if (active) {
-                        /* Weird legacy DRM semantics might return an error
-                         * even though we're master. No way to detect that so
-                         * fail at all times and let caller retry in inactive
-                         * state. */
+                        /* Weird legacy DRM semantics might return an error even though we're master. No way to detect
+                         * that so fail at all times and let caller retry in inactive state. */
                         r = sd_drmsetmaster(fd);
                         if (r < 0) {
                                 close_nointr(fd);
                                 return r;
                         }
-                } else {
-                        /* DRM-Master is granted to the first user who opens a
-                         * device automatically (ughh, racy!). Hence, we just
-                         * drop DRM-Master in case we were the first. */
-                        sd_drmdropmaster(fd);
-                }
+                } else
+                        /* DRM-Master is granted to the first user who opens a device automatically (ughh,
+                         * racy!). Hence, we just drop DRM-Master in case we were the first. */
+                        (void) sd_drmdropmaster(fd);
                 break;
+
         case DEVICE_TYPE_EVDEV:
                 if (!active)
                         sd_eviocrevoke(fd);
                 break;
+
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices wihout synchronizations */
@@ -195,29 +173,35 @@ static int session_device_start(SessionDevice *sd) {
                 return 0;
 
         switch (sd->type) {
+
         case DEVICE_TYPE_DRM:
-                /* Device is kept open. Simply call drmSetMaster() and hope
-                 * there is no-one else. In case it fails, we keep the device
-                 * paused. Maybe at some point we have a drmStealMaster(). */
+                if (sd->fd < 0) {
+                        log_error("Failed to re-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
+                        return -EBADF;
+                }
+
+                /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it fails, we
+                 * keep the device paused. Maybe at some point we have a drmStealMaster(). */
                 r = sd_drmsetmaster(sd->fd);
                 if (r < 0)
                         return r;
                 break;
+
         case DEVICE_TYPE_EVDEV:
-                /* Evdev devices are revoked while inactive. Reopen it and we
-                 * are fine. */
+                /* Evdev devices are revoked while inactive. Reopen it and we are fine. */
                 r = session_device_open(sd, true);
                 if (r < 0)
                         return r;
-                /* For evdev devices, the file descriptor might be left
-                 * uninitialized. This might happen while resuming into a
-                 * session and logind has been restarted right before. */
+
+                /* For evdev devices, the file descriptor might be left uninitialized. This might happen while resuming
+                 * into a session and logind has been restarted right before. */
                 safe_close(sd->fd);
                 sd->fd = r;
                 break;
+
         case DEVICE_TYPE_UNKNOWN:
         default:
-                /* fallback for devices wihout synchronizations */
+                /* fallback for devices without synchronizations */
                 break;
         }
 
@@ -232,13 +216,20 @@ static void session_device_stop(SessionDevice *sd) {
                 return;
 
         switch (sd->type) {
+
         case DEVICE_TYPE_DRM:
+                if (sd->fd < 0) {
+                        log_error("Failed to de-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
+                        return;
+                }
+
                 /* On DRM devices we simply drop DRM-Master but keep it open.
                  * This allows the user to keep resources allocated. The
                  * CAP_SYS_ADMIN restriction to DRM-Master prevents users from
                  * circumventing this. */
                 sd_drmdropmaster(sd->fd);
                 break;
+
         case DEVICE_TYPE_EVDEV:
                 /* Revoke access on evdev file-descriptors during deactivation.
                  * This will basically prevent any operations on the fd and
@@ -246,6 +237,7 @@ static void session_device_stop(SessionDevice *sd) {
                  * protection this way. */
                 sd_eviocrevoke(sd->fd);
                 break;
+
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices without synchronization */
@@ -255,13 +247,13 @@ static void session_device_stop(SessionDevice *sd) {
         sd->active = false;
 }
 
-static DeviceType detect_device_type(struct udev_device *dev) {
+static DeviceType detect_device_type(sd_device *dev) {
         const char *sysname, *subsystem;
-        DeviceType type;
+        DeviceType type = DEVICE_TYPE_UNKNOWN;
 
-        sysname = udev_device_get_sysname(dev);
-        subsystem = udev_device_get_subsystem(dev);
-        type = DEVICE_TYPE_UNKNOWN;
+        if (sd_device_get_sysname(dev, &sysname) < 0 ||
+            sd_device_get_subsystem(dev, &subsystem) < 0)
+                return type;
 
         if (streq_ptr(subsystem, "drm")) {
                 if (startswith(sysname, "card"))
@@ -275,42 +267,37 @@ static DeviceType detect_device_type(struct udev_device *dev) {
 }
 
 static int session_device_verify(SessionDevice *sd) {
-        struct udev_device *dev, *p = NULL;
-        const char *sp, *node;
+        _cleanup_(sd_device_unrefp) sd_device *p = NULL;
+        sd_device *dev;
+        const char *sp = NULL, *node;
         int r;
 
-        dev = udev_device_new_from_devnum(sd->session->manager->udev, 'c', sd->dev);
-        if (!dev)
+        if (sd_device_new_from_devnum(&p, 'c', sd->dev) < 0)
                 return -ENODEV;
 
-        sp = udev_device_get_syspath(dev);
-        node = udev_device_get_devnode(dev);
-        if (!node) {
-                r = -EINVAL;
-                goto err_dev;
-        }
+        dev = p;
+
+        (void) sd_device_get_syspath(dev, &sp);
+        if (sd_device_get_devname(dev, &node) < 0)
+                return -EINVAL;
 
         /* detect device type so we can find the correct sysfs parent */
         sd->type = detect_device_type(dev);
-        if (sd->type == DEVICE_TYPE_UNKNOWN) {
-                r = -ENODEV;
-                goto err_dev;
-        } else if (sd->type == DEVICE_TYPE_EVDEV) {
+        if (sd->type == DEVICE_TYPE_UNKNOWN)
+                return -ENODEV;
+
+        else if (sd->type == DEVICE_TYPE_EVDEV) {
                 /* for evdev devices we need the parent node as device */
-                p = dev;
-                dev = udev_device_get_parent_with_subsystem_devtype(p, "input", NULL);
-                if (!dev) {
-                        r = -ENODEV;
-                        goto err_dev;
-                }
-                sp = udev_device_get_syspath(dev);
-        } else if (sd->type != DEVICE_TYPE_DRM) {
+                if (sd_device_get_parent_with_subsystem_devtype(p, "input", NULL, &dev) < 0)
+                        return -ENODEV;
+                if (sd_device_get_syspath(dev, &sp) < 0)
+                        return -ENODEV;
+
+        } else if (sd->type != DEVICE_TYPE_DRM)
                 /* Prevent opening unsupported devices. Especially devices of
                  * subsystem "input" must be opened via the evdev node as
                  * we require EVIOCREVOKE. */
-                r = -ENODEV;
-                goto err_dev;
-        }
+                return -ENODEV;
 
         /* search for an existing seat device and return it if available */
         sd->device = hashmap_get(sd->session->manager->devices, sp);
@@ -320,31 +307,22 @@ static int session_device_verify(SessionDevice *sd) {
                  * logind-manager handle the new device. */
                 r = manager_process_seat_device(sd->session->manager, dev);
                 if (r < 0)
-                        goto err_dev;
+                        return r;
 
                 /* if it's still not available, then the device is invalid */
                 sd->device = hashmap_get(sd->session->manager->devices, sp);
-                if (!sd->device) {
-                        r = -ENODEV;
-                        goto err_dev;
-                }
+                if (!sd->device)
+                        return -ENODEV;
         }
 
-        if (sd->device->seat != sd->session->seat) {
-                r = -EPERM;
-                goto err_dev;
-        }
+        if (sd->device->seat != sd->session->seat)
+                return -EPERM;
 
         sd->node = strdup(node);
-        if (!sd->node) {
-                r = -ENOMEM;
-                goto err_dev;
-        }
+        if (!sd->node)
+                return -ENOMEM;
 
-        r = 0;
-err_dev:
-        udev_device_unref(p ? : dev);
-        return r;
+        return 0;
 }
 
 int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **out) {
@@ -371,10 +349,8 @@ int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **
                 goto error;
 
         r = hashmap_put(s->devices, &sd->dev, sd);
-        if (r < 0) {
-                r = -ENOMEM;
+        if (r < 0)
                 goto error;
-        }
 
         if (open_device) {
                 /* Open the device for the first time. We need a valid fd to pass back
@@ -410,20 +386,26 @@ error:
 void session_device_free(SessionDevice *sd) {
         assert(sd);
 
+        /* Make sure to remove the pushed fd. */
         if (sd->pushed_fd) {
-                const char *m;
+                _cleanup_free_ char *m = NULL;
+                const char *id;
+                int r;
 
-                /* Remove the pushed fd again, just in case. */
+                /* Session ID does not contain separators. */
+                id = sd->session->id;
+                assert(*(id + strcspn(id, "-\n")) == '\0');
 
-                m = strjoina("FDSTOREREMOVE=1\n"
-                             "FDNAME=session-", sd->session->id);
-
-                (void) sd_notify(false, m);
+                r = asprintf(&m, "FDSTOREREMOVE=1\n"
+                                 "FDNAME=session-%s-device-%u-%u\n",
+                                 id, major(sd->dev), minor(sd->dev));
+                if (r >= 0)
+                        (void) sd_notify(false, m);
         }
 
         session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);
-        close_nointr(sd->fd);
+        safe_close(sd->fd);
 
         LIST_REMOVE(sd_by_device, sd->device->session_devices, sd);
 
@@ -458,13 +440,15 @@ void session_device_resume_all(Session *s) {
         assert(s);
 
         HASHMAP_FOREACH(sd, s->devices, i) {
-                if (!sd->active) {
-                        if (session_device_start(sd) < 0)
-                                continue;
-                        if (session_device_save(sd) < 0)
-                                continue;
-                        session_device_notify(sd, SESSION_DEVICE_RESUME);
-                }
+                if (sd->active)
+                        continue;
+
+                if (session_device_start(sd) < 0)
+                        continue;
+                if (session_device_save(sd) < 0)
+                        continue;
+
+                session_device_notify(sd, SESSION_DEVICE_RESUME);
         }
 }
 
@@ -475,32 +459,35 @@ void session_device_pause_all(Session *s) {
         assert(s);
 
         HASHMAP_FOREACH(sd, s->devices, i) {
-                if (sd->active) {
-                        session_device_stop(sd);
-                        session_device_notify(sd, SESSION_DEVICE_PAUSE);
-                }
+                if (!sd->active)
+                        continue;
+
+                session_device_stop(sd);
+                session_device_notify(sd, SESSION_DEVICE_PAUSE);
         }
 }
 
 unsigned int session_device_try_pause_all(Session *s) {
+        unsigned num_pending = 0;
         SessionDevice *sd;
         Iterator i;
-        unsigned int num_pending = 0;
 
         assert(s);
 
         HASHMAP_FOREACH(sd, s->devices, i) {
-                if (sd->active) {
-                        session_device_notify(sd, SESSION_DEVICE_TRY_PAUSE);
-                        ++num_pending;
-                }
+                if (!sd->active)
+                        continue;
+
+                session_device_notify(sd, SESSION_DEVICE_TRY_PAUSE);
+                num_pending++;
         }
 
         return num_pending;
 }
 
 int session_device_save(SessionDevice *sd) {
-        const char *m;
+        _cleanup_free_ char *m = NULL;
+        const char *id;
         int r;
 
         assert(sd);
@@ -515,8 +502,15 @@ int session_device_save(SessionDevice *sd) {
         if (sd->pushed_fd)
                 return 0;
 
-        m = strjoina("FDSTORE=1\n"
-                     "FDNAME=session", sd->session->id);
+        /* Session ID does not contain separators. */
+        id = sd->session->id;
+        assert(*(id + strcspn(id, "-\n")) == '\0');
+
+        r = asprintf(&m, "FDSTORE=1\n"
+                         "FDNAME=session-%s-device-%u-%u\n",
+                         id, major(sd->dev), minor(sd->dev));
+        if (r < 0)
+                return r;
 
         r = sd_pid_notify_with_fds(0, false, m, &sd->fd, 1);
         if (r < 0)
@@ -527,11 +521,12 @@ int session_device_save(SessionDevice *sd) {
 }
 
 void session_device_attach_fd(SessionDevice *sd, int fd, bool active) {
-        assert(fd > 0);
+        assert(fd >= 0);
         assert(sd);
         assert(sd->fd < 0);
         assert(!sd->active);
 
         sd->fd = fd;
+        sd->pushed_fd = true;
         sd->active = active;
 }

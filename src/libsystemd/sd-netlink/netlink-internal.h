@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <linux/netlink.h>
 
 #include "sd-netlink.h"
@@ -61,6 +42,8 @@ struct sd_netlink {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
         } sockaddr;
+
+        int protocol;
 
         Hashmap *broadcast_group_refs;
         bool broadcast_group_dont_leave:1; /* until we can rely on 4.2 */
@@ -111,6 +94,8 @@ struct sd_netlink_message {
 
         sd_netlink *rtnl;
 
+        int protocol;
+
         struct nlmsghdr *hdr;
         struct netlink_container containers[RTNL_CONTAINER_DEPTH];
         unsigned n_containers; /* number of containers */
@@ -122,6 +107,8 @@ struct sd_netlink_message {
 
 int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type);
 int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret);
+
+int netlink_open_family(sd_netlink **ret, int family);
 
 int socket_open(int family);
 int socket_bind(sd_netlink *nl);

@@ -1,45 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/inotify.h>
-#include <sys/socket.h>
-#include <sys/sysmacros.h>
-#include <sys/time.h>
 #include <linux/kd.h>
 #include <linux/tiocl.h>
 #include <linux/vt.h>
 #include <poll.h>
 #include <signal.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/inotify.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/sysmacros.h>
+#include <sys/time.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <termios.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "copy.h"
+#include "def.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -47,7 +32,10 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
+#include "pager.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -56,13 +44,19 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "util.h"
-#include "path-util.h"
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
+static volatile int cached_on_tty = -1;
+static volatile int cached_colors_enabled = -1;
+static volatile int cached_underline_enabled = -1;
+
 int chvt(int vt) {
         _cleanup_close_ int fd;
+
+        /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
+         * if that's configured. */
 
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
@@ -323,8 +317,8 @@ int reset_terminal(const char *name) {
 }
 
 int open_terminal(const char *name, int mode) {
-        int fd, r;
         unsigned c = 0;
+        int fd;
 
         /*
          * If a TTY is in the process of being closed opening it might
@@ -354,8 +348,7 @@ int open_terminal(const char *name, int mode) {
                 c++;
         }
 
-        r = isatty(fd);
-        if (r == 0) {
+        if (isatty(fd) <= 0) {
                 safe_close(fd);
                 return -ENOTTY;
         }
@@ -365,44 +358,36 @@ int open_terminal(const char *name, int mode) {
 
 int acquire_terminal(
                 const char *name,
-                bool fail,
-                bool force,
-                bool ignore_tiocstty_eperm,
+                AcquireTerminalFlags flags,
                 usec_t timeout) {
 
-        int fd = -1, notify = -1, r = 0, wd = -1;
-        usec_t ts = 0;
+        _cleanup_close_ int notify = -1, fd = -1;
+        usec_t ts = USEC_INFINITY;
+        int r, wd = -1;
 
         assert(name);
+        assert(IN_SET(flags & ~ACQUIRE_TERMINAL_PERMISSIVE, ACQUIRE_TERMINAL_TRY, ACQUIRE_TERMINAL_FORCE, ACQUIRE_TERMINAL_WAIT));
 
-        /* We use inotify to be notified when the tty is closed. We
-         * create the watch before checking if we can actually acquire
-         * it, so that we don't lose any event.
+        /* We use inotify to be notified when the tty is closed. We create the watch before checking if we can actually
+         * acquire it, so that we don't lose any event.
          *
-         * Note: strictly speaking this actually watches for the
-         * device being closed, it does *not* really watch whether a
-         * tty loses its controlling process. However, unless some
-         * rogue process uses TIOCNOTTY on /dev/tty *after* closing
-         * its tty otherwise this will not become a problem. As long
-         * as the administrator makes sure not configure any service
-         * on the same tty as an untrusted user this should not be a
-         * problem. (Which he probably should not do anyway.) */
+         * Note: strictly speaking this actually watches for the device being closed, it does *not* really watch
+         * whether a tty loses its controlling process. However, unless some rogue process uses TIOCNOTTY on /dev/tty
+         * *after* closing its tty otherwise this will not become a problem. As long as the administrator makes sure to
+         * not configure any service on the same tty as an untrusted user this should not be a problem. (Which they
+         * probably should not do anyway.) */
 
-        if (timeout != USEC_INFINITY)
-                ts = now(CLOCK_MONOTONIC);
-
-        if (!fail && !force) {
+        if ((flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_WAIT) {
                 notify = inotify_init1(IN_CLOEXEC | (timeout != USEC_INFINITY ? IN_NONBLOCK : 0));
-                if (notify < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+                if (notify < 0)
+                        return -errno;
 
                 wd = inotify_add_watch(notify, name, IN_CLOSE);
-                if (wd < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+                if (wd < 0)
+                        return -errno;
+
+                if (timeout != USEC_INFINITY)
+                        ts = now(CLOCK_MONOTONIC);
         }
 
         for (;;) {
@@ -414,41 +399,43 @@ int acquire_terminal(
                 if (notify >= 0) {
                         r = flush_fd(notify);
                         if (r < 0)
-                                goto fail;
+                                return r;
                 }
 
-                /* We pass here O_NOCTTY only so that we can check the return
-                 * value TIOCSCTTY and have a reliable way to figure out if we
-                 * successfully became the controlling process of the tty */
+                /* We pass here O_NOCTTY only so that we can check the return value TIOCSCTTY and have a reliable way
+                 * to figure out if we successfully became the controlling process of the tty */
                 fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
                 if (fd < 0)
                         return fd;
 
-                /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed
-                 * if we already own the tty. */
+                /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed if we already own the tty. */
                 assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
                 /* First, try to get the tty */
-                if (ioctl(fd, TIOCSCTTY, force) < 0)
-                        r = -errno;
+                r = ioctl(fd, TIOCSCTTY,
+                          (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE) < 0 ? -errno : 0;
 
+                /* Reset signal handler to old value */
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
-                /* Sometimes, it makes sense to ignore TIOCSCTTY
-                 * returning EPERM, i.e. when very likely we already
-                 * are have this controlling terminal. */
-                if (r < 0 && r == -EPERM && ignore_tiocstty_eperm)
-                        r = 0;
-
-                if (r < 0 && (force || fail || r != -EPERM))
-                        goto fail;
-
+                /* Success? Exit the loop now! */
                 if (r >= 0)
                         break;
 
-                assert(!fail);
-                assert(!force);
+                /* Any failure besides -EPERM? Fail, regardless of the mode. */
+                if (r != -EPERM)
+                        return r;
+
+                if (flags & ACQUIRE_TERMINAL_PERMISSIVE) /* If we are in permissive mode, then EPERM is fine, turn this
+                                                          * into a success. Note that EPERM is also returned if we
+                                                          * already are the owner of the TTY. */
+                        break;
+
+                if (flags != ACQUIRE_TERMINAL_WAIT) /* If we are in TRY or FORCE mode, then propagate EPERM as EPERM */
+                        return r;
+
                 assert(notify >= 0);
+                assert(wd >= 0);
 
                 for (;;) {
                         union inotify_event_buffer buffer;
@@ -458,20 +445,17 @@ int acquire_terminal(
                         if (timeout != USEC_INFINITY) {
                                 usec_t n;
 
+                                assert(ts != USEC_INFINITY);
+
                                 n = now(CLOCK_MONOTONIC);
-                                if (ts + timeout < n) {
-                                        r = -ETIMEDOUT;
-                                        goto fail;
-                                }
+                                if (ts + timeout < n)
+                                        return -ETIMEDOUT;
 
                                 r = fd_wait_for_event(notify, POLLIN, ts + timeout - n);
                                 if (r < 0)
-                                        goto fail;
-
-                                if (r == 0) {
-                                        r = -ETIMEDOUT;
-                                        goto fail;
-                                }
+                                        return r;
+                                if (r == 0)
+                                        return -ETIMEDOUT;
                         }
 
                         l = read(notify, &buffer, sizeof(buffer));
@@ -479,36 +463,26 @@ int acquire_terminal(
                                 if (IN_SET(errno, EINTR, EAGAIN))
                                         continue;
 
-                                r = -errno;
-                                goto fail;
+                                return -errno;
                         }
 
                         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                                if (e->wd != wd || !(e->mask & IN_CLOSE)) {
-                                        r = -EIO;
-                                        goto fail;
-                                }
+                                if (e->mask & IN_Q_OVERFLOW) /* If we hit an inotify queue overflow, simply check if the terminal is up for grabs now. */
+                                        break;
+
+                                if (e->wd != wd || !(e->mask & IN_CLOSE)) /* Safety checks */
+                                        return -EIO;
                         }
 
                         break;
                 }
 
-                /* We close the tty fd here since if the old session
-                 * ended our handle will be dead. It's important that
-                 * we do this after sleeping, so that we don't enter
-                 * an endless loop. */
+                /* We close the tty fd here since if the old session ended our handle will be dead. It's important that
+                 * we do this after sleeping, so that we don't enter an endless loop. */
                 fd = safe_close(fd);
         }
 
-        safe_close(notify);
-
-        return fd;
-
-fail:
-        safe_close(fd);
-        safe_close(notify);
-
-        return r;
+        return TAKE_FD(fd);
 }
 
 int release_terminal(void) {
@@ -519,7 +493,7 @@ int release_terminal(void) {
 
         _cleanup_close_ int fd = -1;
         struct sigaction sa_old;
-        int r = 0;
+        int r;
 
         fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
@@ -529,8 +503,7 @@ int release_terminal(void) {
          * by our own TIOCNOTTY */
         assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
-        if (ioctl(fd, TIOCNOTTY) < 0)
-                r = -errno;
+        r = ioctl(fd, TIOCNOTTY) < 0 ? -errno : 0;
 
         assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
@@ -630,7 +603,7 @@ int make_console_stdio(void) {
 
         /* Make /dev/console the controlling terminal and stdin/stdout/stderr */
 
-        fd = acquire_terminal("/dev/console", false, true, true, USEC_INFINITY);
+        fd = acquire_terminal("/dev/console", ACQUIRE_TERMINAL_FORCE|ACQUIRE_TERMINAL_PERMISSIVE, USEC_INFINITY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to acquire terminal: %m");
 
@@ -638,9 +611,11 @@ int make_console_stdio(void) {
         if (r < 0)
                 log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
 
-        r = make_stdio(fd);
+        r = rearrange_stdio(fd, fd, fd); /* This invalidates 'fd' both on success and on failure. */
         if (r < 0)
-                return log_error_errno(r, "Failed to duplicate terminal fd: %m");
+                return log_error_errno(r, "Failed to make terminal stdin/stdout/stderr: %m");
+
+        reset_terminal_feature_caches();
 
         return 0;
 }
@@ -680,57 +655,79 @@ int vtnr_from_tty(const char *tty) {
         return i;
 }
 
-char *resolve_dev_console(char **active) {
+ int resolve_dev_console(char **ret) {
+        _cleanup_free_ char *active = NULL;
         char *tty;
+        int r;
 
-        /* Resolve where /dev/console is pointing to, if /sys is actually ours
-         * (i.e. not read-only-mounted which is a sign for container setups) */
+        assert(ret);
+
+        /* Resolve where /dev/console is pointing to, if /sys is actually ours (i.e. not read-only-mounted which is a
+         * sign for container setups) */
 
         if (path_is_read_only_fs("/sys") > 0)
-                return NULL;
+                return -ENOMEDIUM;
 
-        if (read_one_line_file("/sys/class/tty/console/active", active) < 0)
-                return NULL;
+        r = read_one_line_file("/sys/class/tty/console/active", &active);
+        if (r < 0)
+                return r;
 
-        /* If multiple log outputs are configured the last one is what
-         * /dev/console points to */
-        tty = strrchr(*active, ' ');
+        /* If multiple log outputs are configured the last one is what /dev/console points to */
+        tty = strrchr(active, ' ');
         if (tty)
                 tty++;
         else
-                tty = *active;
+                tty = active;
 
         if (streq(tty, "tty0")) {
-                char *tmp;
+                active = mfree(active);
 
                 /* Get the active VC (e.g. tty1) */
-                if (read_one_line_file("/sys/class/tty/tty0/active", &tmp) >= 0) {
-                        free(*active);
-                        tty = *active = tmp;
-                }
+                r = read_one_line_file("/sys/class/tty/tty0/active", &active);
+                if (r < 0)
+                        return r;
+
+                tty = active;
         }
 
-        return tty;
+        if (tty == active)
+                *ret = TAKE_PTR(active);
+        else {
+                char *tmp;
+
+                tmp = strdup(tty);
+                if (!tmp)
+                        return -ENOMEM;
+
+                *ret = tmp;
+        }
+
+        return 0;
 }
 
-int get_kernel_consoles(char ***consoles) {
-        _cleanup_strv_free_ char **con = NULL;
+int get_kernel_consoles(char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *line = NULL;
-        const char *active;
+        const char *p;
         int r;
 
-        assert(consoles);
+        assert(ret);
+
+        /* If /sys is mounted read-only this means we are running in some kind of container environment. In that
+         * case /sys would reflect the host system, not us, hence ignore the data we can read from it. */
+        if (path_is_read_only_fs("/sys") > 0)
+                goto fallback;
 
         r = read_one_line_file("/sys/class/tty/console/active", &line);
         if (r < 0)
                 return r;
 
-        active = line;
+        p = line;
         for (;;) {
                 _cleanup_free_ char *tty = NULL;
                 char *path;
 
-                r = extract_first_word(&active, &tty, NULL, 0);
+                r = extract_first_word(&p, &tty, NULL, 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -753,35 +750,42 @@ int get_kernel_consoles(char ***consoles) {
                         continue;
                 }
 
-                r = strv_consume(&con, path);
+                r = strv_consume(&l, path);
                 if (r < 0)
                         return r;
         }
 
-        if (strv_isempty(con)) {
+        if (strv_isempty(l)) {
                 log_debug("No devices found for system console");
-
-                r = strv_extend(&con, "/dev/console");
-                if (r < 0)
-                        return r;
+                goto fallback;
         }
 
-        *consoles = con;
-        con = NULL;
+        *ret = TAKE_PTR(l);
+
+        return 0;
+
+fallback:
+        r = strv_extend(&l, "/dev/console");
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(l);
+
         return 0;
 }
 
 bool tty_is_vc_resolve(const char *tty) {
-        _cleanup_free_ char *active = NULL;
+        _cleanup_free_ char *resolved = NULL;
 
         assert(tty);
 
         tty = skip_dev_prefix(tty);
 
         if (streq(tty, "console")) {
-                tty = resolve_dev_console(&active);
-                if (!tty)
+                if (resolve_dev_console(&resolved) < 0)
                         return false;
+
+                tty = resolved;
         }
 
         return tty_is_vc(tty);
@@ -807,7 +811,7 @@ unsigned columns(void) {
         const char *e;
         int c;
 
-        if (_likely_(cached_columns > 0))
+        if (cached_columns > 0)
                 return cached_columns;
 
         c = 0;
@@ -841,7 +845,7 @@ unsigned lines(void) {
         const char *e;
         int l;
 
-        if (_likely_(cached_lines > 0))
+        if (cached_lines > 0)
                 return cached_lines;
 
         l = 0;
@@ -865,45 +869,29 @@ void columns_lines_cache_reset(int signum) {
         cached_lines = 0;
 }
 
-bool on_tty(void) {
-        static int cached_on_tty = -1;
+void reset_terminal_feature_caches(void) {
+        cached_columns = 0;
+        cached_lines = 0;
 
-        if (_unlikely_(cached_on_tty < 0))
-                cached_on_tty = isatty(STDOUT_FILENO) > 0;
+        cached_colors_enabled = -1;
+        cached_underline_enabled = -1;
+        cached_on_tty = -1;
+}
+
+bool on_tty(void) {
+
+        /* We check both stdout and stderr, so that situations where pipes on the shell are used are reliably
+         * recognized, regardless if only the output or the errors are piped to some place. Since on_tty() is generally
+         * used to default to a safer, non-interactive, non-color mode of operation it's probably good to be defensive
+         * here, and check for both. Note that we don't check for STDIN_FILENO, because it should fine to use fancy
+         * terminal functionality when outputting stuff, even if the input is piped to us. */
+
+        if (cached_on_tty < 0)
+                cached_on_tty =
+                        isatty(STDOUT_FILENO) > 0 &&
+                        isatty(STDERR_FILENO) > 0;
 
         return cached_on_tty;
-}
-
-int make_stdio(int fd) {
-        int r, s, t;
-
-        assert(fd >= 0);
-
-        r = dup2(fd, STDIN_FILENO);
-        s = dup2(fd, STDOUT_FILENO);
-        t = dup2(fd, STDERR_FILENO);
-
-        if (fd >= 3)
-                safe_close(fd);
-
-        if (r < 0 || s < 0 || t < 0)
-                return -errno;
-
-        /* Explicitly unset O_CLOEXEC, since if fd was < 3, then
-         * dup2() was a NOP and the bit hence possibly set. */
-        stdio_unset_cloexec();
-
-        return 0;
-}
-
-int make_null_stdio(void) {
-        int null_fd;
-
-        null_fd = open("/dev/null", O_RDWR|O_NOCTTY);
-        if (null_fd < 0)
-                return -errno;
-
-        return make_stdio(null_fd);
 }
 
 int getttyname_malloc(int fd, char **ret) {
@@ -992,7 +980,7 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 }
 
 int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
-        char fn[sizeof("/dev/char/")-1 + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *b = NULL;
+        char fn[STRLEN("/dev/char/") + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *b = NULL;
         _cleanup_free_ char *s = NULL;
         const char *p;
         dev_t devnr;
@@ -1094,7 +1082,6 @@ int ptsname_namespace(int pty, char **ret) {
 int openpt_in_namespace(pid_t pid, int flags) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        siginfo_t si;
         pid_t child;
         int r;
 
@@ -1107,11 +1094,10 @@ int openpt_in_namespace(pid_t pid, int flags) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
+        r = safe_fork("(sd-openpt)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int master;
 
                 pair[0] = safe_close(pair[0]);
@@ -1135,10 +1121,10 @@ int openpt_in_namespace(pid_t pid, int flags) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-openpt)", child, 0);
         if (r < 0)
                 return r;
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+        if (r != EXIT_SUCCESS)
                 return -EIO;
 
         return receive_one_fd(pair[0], 0);
@@ -1147,7 +1133,6 @@ int openpt_in_namespace(pid_t pid, int flags) {
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        siginfo_t si;
         pid_t child;
         int r;
 
@@ -1158,11 +1143,10 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
+        r = safe_fork("(sd-terminal)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int master;
 
                 pair[0] = safe_close(pair[0]);
@@ -1183,10 +1167,10 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-terminal)", child, 0);
         if (r < 0)
                 return r;
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+        if (r != EXIT_SUCCESS)
                 return -EIO;
 
         return receive_one_fd(pair[0], 0);
@@ -1210,38 +1194,63 @@ bool terminal_is_dumb(void) {
 }
 
 bool colors_enabled(void) {
-        static int enabled = -1;
 
-        if (_unlikely_(enabled < 0)) {
+        /* Returns true if colors are considered supported on our stdout. For that we check $SYSTEMD_COLORS first
+         * (which is the explicit way to turn colors on/off). If that didn't work we turn colors off unless we are on a
+         * TTY. And if we are on a TTY we turn it off if $TERM is set to "dumb". There's one special tweak though: if
+         * we are PID 1 then we do not check whether we are connected to a TTY, because we don't keep /dev/console open
+         * continously due to fear of SAK, and hence things are a bit weird. */
+
+        if (cached_colors_enabled < 0) {
                 int val;
 
                 val = getenv_bool("SYSTEMD_COLORS");
                 if (val >= 0)
-                        enabled = val;
+                        cached_colors_enabled = val;
                 else if (getpid_cached() == 1)
                         /* PID1 outputs to the console without holding it open all the time */
-                        enabled = !getenv_terminal_is_dumb();
+                        cached_colors_enabled = !getenv_terminal_is_dumb();
                 else
-                        enabled = !terminal_is_dumb();
+                        cached_colors_enabled = !terminal_is_dumb();
         }
 
-        return enabled;
+        return cached_colors_enabled;
+}
+
+bool dev_console_colors_enabled(void) {
+        _cleanup_free_ char *s = NULL;
+        int b;
+
+        /* Returns true if we assume that color is supported on /dev/console.
+         *
+         * For that we first check if we explicitly got told to use colors or not, by checking $SYSTEMD_COLORS. If that
+         * isn't set we check whether PID 1 has $TERM set, and if not, whether TERM is set on the kernel command
+         * line. If we find $TERM set we assume color if it's not set to "dumb", similarly to how regular
+         * colors_enabled() operates. */
+
+        b = getenv_bool("SYSTEMD_COLORS");
+        if (b >= 0)
+                return b;
+
+        if (getenv_for_pid(1, "TERM", &s) <= 0)
+                (void) proc_cmdline_get_key("TERM", 0, &s);
+
+        return !streq_ptr(s, "dumb");
 }
 
 bool underline_enabled(void) {
-        static int enabled = -1;
 
-        if (enabled < 0) {
+        if (cached_underline_enabled < 0) {
 
                 /* The Linux console doesn't support underlining, turn it off, but only there. */
 
-                if (!colors_enabled())
-                        enabled = false;
+                if (colors_enabled())
+                        cached_underline_enabled = !streq_ptr(getenv("TERM"), "linux");
                 else
-                        enabled = !streq_ptr(getenv("TERM"), "linux");
+                        cached_underline_enabled = false;
         }
 
-        return enabled;
+        return cached_underline_enabled;
 }
 
 int vt_default_utf8(void) {
@@ -1267,4 +1276,185 @@ int vt_reset_keyboard(int fd) {
                 return -errno;
 
         return 0;
+}
+
+static bool urlify_enabled(void) {
+        static int cached_urlify_enabled = -1;
+
+        /* Unfortunately 'less' doesn't support links like this yet 😭, hence let's disable this as long as there's a
+         * pager in effect. Let's drop this check as soon as less got fixed a and enough time passed so that it's safe
+         * to assume that a link-enabled 'less' version has hit most installations. */
+
+        if (cached_urlify_enabled < 0) {
+                int val;
+
+                val = getenv_bool("SYSTEMD_URLIFY");
+                if (val >= 0)
+                        cached_urlify_enabled = val;
+                else
+                        cached_urlify_enabled = colors_enabled() && !pager_have();
+        }
+
+        return cached_urlify_enabled;
+}
+
+int terminal_urlify(const char *url, const char *text, char **ret) {
+        char *n;
+
+        assert(url);
+
+        /* Takes an URL and a pretty string and formats it as clickable link for the terminal. See
+         * https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda for details. */
+
+        if (isempty(text))
+                text = url;
+
+        if (urlify_enabled())
+                n = strjoin("\x1B]8;;", url, "\a", text, "\x1B]8;;\a");
+        else
+                n = strdup(text);
+        if (!n)
+                return -ENOMEM;
+
+        *ret = n;
+        return 0;
+}
+
+int terminal_urlify_path(const char *path, const char *text, char **ret) {
+        _cleanup_free_ char *absolute = NULL;
+        struct utsname u;
+        const char *url;
+        int r;
+
+        assert(path);
+
+        /* Much like terminal_urlify() above, but takes a file system path as input
+         * and turns it into a proper file:// URL first. */
+
+        if (isempty(path))
+                return -EINVAL;
+
+        if (isempty(text))
+                text = path;
+
+        if (!urlify_enabled()) {
+                char *n;
+
+                n = strdup(text);
+                if (!n)
+                        return -ENOMEM;
+
+                *ret = n;
+                return 0;
+        }
+
+        if (uname(&u) < 0)
+                return -errno;
+
+        if (!path_is_absolute(path)) {
+                r = path_make_absolute_cwd(path, &absolute);
+                if (r < 0)
+                        return r;
+
+                path = absolute;
+        }
+
+        /* As suggested by https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda, let's include the local
+         * hostname here. Note that we don't use gethostname_malloc() or gethostname_strict() since we are interested
+         * in the raw string the kernel has set, whatever it may be, under the assumption that terminals are not overly
+         * careful with validating the strings either. */
+
+        url = strjoina("file://", u.nodename, path);
+
+        return terminal_urlify(url, text, ret);
+}
+
+int terminal_urlify_man(const char *page, const char *section, char **ret) {
+        const char *url, *text;
+
+        url = strjoina("man:", page, "(", section, ")");
+        text = strjoina(page, "(", section, ") man page");
+
+        return terminal_urlify(url, text, ret);
+}
+
+static int cat_file(const char *filename, bool newline) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *urlified = NULL;
+        int r;
+
+        f = fopen(filename, "re");
+        if (!f)
+                return -errno;
+
+        r = terminal_urlify_path(filename, NULL, &urlified);
+        if (r < 0)
+                return r;
+
+        printf("%s%s# %s%s\n",
+               newline ? "\n" : "",
+               ansi_highlight_blue(),
+               urlified,
+               ansi_normal());
+        fflush(stdout);
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read \"%s\": %m", filename);
+                if (r == 0)
+                        break;
+
+                puts(line);
+        }
+
+        return 0;
+}
+
+int cat_files(const char *file, char **dropins, CatFlags flags) {
+        char **path;
+        int r;
+
+        if (file) {
+                r = cat_file(file, false);
+                if (r == -ENOENT && (flags & CAT_FLAGS_MAIN_FILE_OPTIONAL))
+                        printf("%s# config file %s not found%s\n",
+                               ansi_highlight_magenta(),
+                               file,
+                               ansi_normal());
+                else if (r < 0)
+                        return log_warning_errno(r, "Failed to cat %s: %m", file);
+        }
+
+        STRV_FOREACH(path, dropins) {
+                r = cat_file(*path, file || path != dropins);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to cat %s: %m", *path);
+        }
+
+        return 0;
+}
+
+void print_separator(void) {
+
+        /* Outputs a separator line that resolves to whitespace when copied from the terminal. We do that by outputting
+         * one line filled with spaces with ANSI underline set, followed by a second (empty) line. */
+
+        if (underline_enabled()) {
+                size_t i, c;
+
+                c = columns();
+
+                flockfile(stdout);
+                fputs_unlocked(ANSI_UNDERLINE, stdout);
+
+                for (i = 0; i < c; i++)
+                        fputc_unlocked(' ', stdout);
+
+                fputs_unlocked(ANSI_NORMAL "\n\n", stdout);
+                funlockfile(stdout);
+        } else
+                fputs("\n\n", stdout);
 }

@@ -1,25 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-  Copyright 2013 Kay Sievers
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
+#include <stdio_ext.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -90,40 +72,71 @@ void context_free(Context *c) {
         context_free_locale(c);
         context_free_x11(c);
         context_free_vconsole(c);
+
+        sd_bus_message_unref(c->locale_cache);
+        sd_bus_message_unref(c->x11_cache);
+        sd_bus_message_unref(c->vc_cache);
 };
 
-void locale_simplify(Context *c) {
+void locale_simplify(char *locale[_VARIABLE_LC_MAX]) {
         int p;
 
         for (p = VARIABLE_LANG+1; p < _VARIABLE_LC_MAX; p++)
-                if (isempty(c->locale[p]) || streq_ptr(c->locale[VARIABLE_LANG], c->locale[p]))
-                        c->locale[p] = mfree(c->locale[p]);
+                if (isempty(locale[p]) || streq_ptr(locale[VARIABLE_LANG], locale[p]))
+                        locale[p] = mfree(locale[p]);
 }
 
-static int locale_read_data(Context *c) {
+int locale_read_data(Context *c, sd_bus_message *m) {
+        struct stat st;
         int r;
 
-        context_free_locale(c);
+        /* Do not try to re-read the file within single bus operation. */
+        if (m) {
+                if (m == c->locale_cache)
+                        return 0;
 
-        r = parse_env_file("/etc/locale.conf", NEWLINE,
-                           "LANG",              &c->locale[VARIABLE_LANG],
-                           "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
-                           "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
-                           "LC_NUMERIC",        &c->locale[VARIABLE_LC_NUMERIC],
-                           "LC_TIME",           &c->locale[VARIABLE_LC_TIME],
-                           "LC_COLLATE",        &c->locale[VARIABLE_LC_COLLATE],
-                           "LC_MONETARY",       &c->locale[VARIABLE_LC_MONETARY],
-                           "LC_MESSAGES",       &c->locale[VARIABLE_LC_MESSAGES],
-                           "LC_PAPER",          &c->locale[VARIABLE_LC_PAPER],
-                           "LC_NAME",           &c->locale[VARIABLE_LC_NAME],
-                           "LC_ADDRESS",        &c->locale[VARIABLE_LC_ADDRESS],
-                           "LC_TELEPHONE",      &c->locale[VARIABLE_LC_TELEPHONE],
-                           "LC_MEASUREMENT",    &c->locale[VARIABLE_LC_MEASUREMENT],
-                           "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION],
-                           NULL);
+                sd_bus_message_unref(c->locale_cache);
+                c->locale_cache = sd_bus_message_ref(m);
+        }
 
-        if (r == -ENOENT) {
+        r = stat("/etc/locale.conf", &st);
+        if (r < 0 && errno != ENOENT)
+                return -errno;
+
+        if (r >= 0) {
+                usec_t t;
+
+                /* If mtime is not changed, then we do not need to re-read the file. */
+                t = timespec_load(&st.st_mtim);
+                if (c->locale_mtime != USEC_INFINITY && t == c->locale_mtime)
+                        return 0;
+
+                c->locale_mtime = t;
+                context_free_locale(c);
+
+                r = parse_env_file(NULL, "/etc/locale.conf", NEWLINE,
+                                   "LANG",              &c->locale[VARIABLE_LANG],
+                                   "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
+                                   "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
+                                   "LC_NUMERIC",        &c->locale[VARIABLE_LC_NUMERIC],
+                                   "LC_TIME",           &c->locale[VARIABLE_LC_TIME],
+                                   "LC_COLLATE",        &c->locale[VARIABLE_LC_COLLATE],
+                                   "LC_MONETARY",       &c->locale[VARIABLE_LC_MONETARY],
+                                   "LC_MESSAGES",       &c->locale[VARIABLE_LC_MESSAGES],
+                                   "LC_PAPER",          &c->locale[VARIABLE_LC_PAPER],
+                                   "LC_NAME",           &c->locale[VARIABLE_LC_NAME],
+                                   "LC_ADDRESS",        &c->locale[VARIABLE_LC_ADDRESS],
+                                   "LC_TELEPHONE",      &c->locale[VARIABLE_LC_TELEPHONE],
+                                   "LC_MEASUREMENT",    &c->locale[VARIABLE_LC_MEASUREMENT],
+                                   "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION],
+                                   NULL);
+                if (r < 0)
+                        return r;
+        } else {
                 int p;
+
+                c->locale_mtime = USEC_INFINITY;
+                context_free_locale(c);
 
                 /* Fill in what we got passed from systemd. */
                 for (p = 0; p < _VARIABLE_LC_MAX; p++) {
@@ -136,41 +149,90 @@ static int locale_read_data(Context *c) {
                         if (r < 0)
                                 return r;
                 }
-
-                r = 0;
         }
 
-        locale_simplify(c);
-        return r;
+        locale_simplify(c->locale);
+        return 0;
 }
 
-static int vconsole_read_data(Context *c) {
+int vconsole_read_data(Context *c, sd_bus_message *m) {
+        struct stat st;
+        usec_t t;
         int r;
 
+        /* Do not try to re-read the file within single bus operation. */
+        if (m) {
+                if (m == c->vc_cache)
+                        return 0;
+
+                sd_bus_message_unref(c->vc_cache);
+                c->vc_cache = sd_bus_message_ref(m);
+        }
+
+        if (stat("/etc/vconsole.conf", &st) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                c->vc_mtime = USEC_INFINITY;
+                context_free_vconsole(c);
+                return 0;
+        }
+
+        /* If mtime is not changed, then we do not need to re-read */
+        t = timespec_load(&st.st_mtim);
+        if (c->vc_mtime != USEC_INFINITY && t == c->vc_mtime)
+                return 0;
+
+        c->vc_mtime = t;
         context_free_vconsole(c);
 
-        r = parse_env_file("/etc/vconsole.conf", NEWLINE,
+        r = parse_env_file(NULL, "/etc/vconsole.conf", NEWLINE,
                            "KEYMAP",        &c->vc_keymap,
                            "KEYMAP_TOGGLE", &c->vc_keymap_toggle,
                            NULL);
-
-        if (r < 0 && r != -ENOENT)
+        if (r < 0)
                 return r;
 
         return 0;
 }
 
-static int x11_read_data(Context *c) {
-        _cleanup_fclose_ FILE *f;
-        char line[LINE_MAX];
+int x11_read_data(Context *c, sd_bus_message *m) {
+        _cleanup_fclose_ FILE *f = NULL;
         bool in_section = false;
+        char line[LINE_MAX];
+        struct stat st;
+        usec_t t;
         int r;
 
+        /* Do not try to re-read the file within single bus operation. */
+        if (m) {
+                if (m == c->x11_cache)
+                        return 0;
+
+                sd_bus_message_unref(c->x11_cache);
+                c->x11_cache = sd_bus_message_ref(m);
+        }
+
+        if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &st) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                c->x11_mtime = USEC_INFINITY;
+                context_free_x11(c);
+                return 0;
+        }
+
+        /* If mtime is not changed, then we do not need to re-read */
+        t = timespec_load(&st.st_mtim);
+        if (c->x11_mtime != USEC_INFINITY && t == c->x11_mtime)
+                return 0;
+
+        c->x11_mtime = t;
         context_free_x11(c);
 
         f = fopen("/etc/X11/xorg.conf.d/00-keyboard.conf", "re");
         if (!f)
-                return errno == ENOENT ? 0 : -errno;
+                return -errno;
 
         while (fgets(line, sizeof(line), f)) {
                 char *l;
@@ -222,25 +284,12 @@ static int x11_read_data(Context *c) {
         return 0;
 }
 
-int context_read_data(Context *c) {
-        int r, q, p;
-
-        r = locale_read_data(c);
-        q = vconsole_read_data(c);
-        p = x11_read_data(c);
-
-        return r < 0 ? r : q < 0 ? q : p;
-}
-
 int locale_write_data(Context *c, char ***settings) {
-        int r, p;
         _cleanup_strv_free_ char **l = NULL;
+        struct stat st;
+        int r, p;
 
         /* Set values will be returned as strv in *settings on success. */
-
-        r = load_env_file(NULL, "/etc/locale.conf", NULL, &l);
-        if (r < 0 && r != -ENOENT)
-                return r;
 
         for (p = 0; p < _VARIABLE_LC_MAX; p++) {
                 _cleanup_free_ char *t = NULL;
@@ -250,10 +299,8 @@ int locale_write_data(Context *c, char ***settings) {
                 name = locale_variable_to_string(p);
                 assert(name);
 
-                if (isempty(c->locale[p])) {
-                        l = strv_env_unset(l, name);
+                if (isempty(c->locale[p]))
                         continue;
-                }
 
                 if (asprintf(&t, "%s=%s", name, c->locale[p]) < 0)
                         return -ENOMEM;
@@ -262,14 +309,14 @@ int locale_write_data(Context *c, char ***settings) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (strv_isempty(l)) {
                 if (unlink("/etc/locale.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
+                c->locale_mtime = USEC_INFINITY;
                 return 0;
         }
 
@@ -277,14 +324,18 @@ int locale_write_data(Context *c, char ***settings) {
         if (r < 0)
                 return r;
 
-        *settings = l;
-        l = NULL;
+        *settings = TAKE_PTR(l);
+
+        if (stat("/etc/locale.conf", &st) >= 0)
+                c->locale_mtime = timespec_load(&st.st_mtim);
+
         return 0;
 }
 
 int vconsole_write_data(Context *c) {
-        int r;
         _cleanup_strv_free_ char **l = NULL;
+        struct stat st;
+        int r;
 
         r = load_env_file(NULL, "/etc/vconsole.conf", NULL, &l);
         if (r < 0 && r != -ENOENT)
@@ -304,8 +355,7 @@ int vconsole_write_data(Context *c) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (isempty(c->vc_keymap_toggle))
@@ -322,23 +372,31 @@ int vconsole_write_data(Context *c) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (strv_isempty(l)) {
                 if (unlink("/etc/vconsole.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
+                c->vc_mtime = USEC_INFINITY;
                 return 0;
         }
 
-        return write_env_file_label("/etc/vconsole.conf", l);
+        r = write_env_file_label("/etc/vconsole.conf", l);
+        if (r < 0)
+                return r;
+
+        if (stat("/etc/vconsole.conf", &st) >= 0)
+                c->vc_mtime = timespec_load(&st.st_mtim);
+
+        return 0;
 }
 
 int x11_write_data(Context *c) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *temp_path = NULL;
+        struct stat st;
         int r;
 
         if (isempty(c->x11_layout) &&
@@ -349,6 +407,7 @@ int x11_write_data(Context *c) {
                 if (unlink("/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
+                c->vc_mtime = USEC_INFINITY;
                 return 0;
         }
 
@@ -358,14 +417,15 @@ int x11_write_data(Context *c) {
         if (r < 0)
                 return r;
 
-        fchmod(fileno(f), 0644);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod(fileno(f), 0644);
 
-        fputs_unlocked("# Written by systemd-localed(8), read by systemd-localed and Xorg. It's\n"
-                       "# probably wise not to edit this file manually. Use localectl(1) to\n"
-                       "# instruct systemd-localed to update it.\n"
-                       "Section \"InputClass\"\n"
-                       "        Identifier \"system-keyboard\"\n"
-                       "        MatchIsKeyboard \"on\"\n", f);
+        fputs("# Written by systemd-localed(8), read by systemd-localed and Xorg. It's\n"
+              "# probably wise not to edit this file manually. Use localectl(1) to\n"
+              "# instruct systemd-localed to update it.\n"
+              "Section \"InputClass\"\n"
+              "        Identifier \"system-keyboard\"\n"
+              "        MatchIsKeyboard \"on\"\n", f);
 
         if (!isempty(c->x11_layout))
                 fprintf(f, "        Option \"XkbLayout\" \"%s\"\n", c->x11_layout);
@@ -379,7 +439,7 @@ int x11_write_data(Context *c) {
         if (!isempty(c->x11_options))
                 fprintf(f, "        Option \"XkbOptions\" \"%s\"\n", c->x11_options);
 
-        fputs_unlocked("EndSection\n", f);
+        fputs("EndSection\n", f);
 
         r = fflush_sync_and_check(f);
         if (r < 0)
@@ -389,6 +449,9 @@ int x11_write_data(Context *c) {
                 r = -errno;
                 goto fail;
         }
+
+        if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &st) >= 0)
+                c->x11_mtime = timespec_load(&st.st_mtim);
 
         return 0;
 
@@ -537,8 +600,7 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
                         log_debug("Found converted keymap %s at %s",
                                   n, uncompressed ? p : pz);
 
-                        *new_keymap = n;
-                        n = NULL;
+                        *new_keymap = TAKE_PTR(n);
                         return 1;
                 }
         }
@@ -546,9 +608,10 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
         return 0;
 }
 
-int find_legacy_keymap(Context *c, char **new_keymap) {
+int find_legacy_keymap(Context *c, char **ret) {
         const char *map;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *new_keymap = NULL;
         unsigned n = 0;
         unsigned best_matching = 0;
         int r;
@@ -613,7 +676,7 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
                         if (matching > best_matching) {
                                 best_matching = matching;
 
-                                r = free_and_strdup(new_keymap, a[0]);
+                                r = free_and_strdup(&new_keymap, a[0]);
                                 if (r < 0)
                                         return r;
                         }
@@ -633,13 +696,12 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
                 r = find_converted_keymap(l, v, &converted);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        free(*new_keymap);
-                        *new_keymap = converted;
-                }
+                if (r > 0)
+                        free_and_replace(new_keymap, converted);
         }
 
-        return (bool) *new_keymap;
+        *ret = TAKE_PTR(new_keymap);
+        return (bool) *ret;
 }
 
 int find_language_fallback(const char *lang, char **language) {
@@ -666,8 +728,7 @@ int find_language_fallback(const char *lang, char **language) {
 
                 if (streq(lang, a[0])) {
                         assert(strv_length(a) == 2);
-                        *language = a[1];
-                        a[1] = NULL;
+                        *language = TAKE_PTR(a[1]);
                         return 1;
                 }
         }
@@ -685,7 +746,7 @@ int x11_convert_to_vconsole(Context *c) {
 
                 context_free_vconsole(c);
         } else {
-                char *new_keymap = NULL;
+                _cleanup_free_ char *new_keymap = NULL;
                 int r;
 
                 r = find_converted_keymap(c->x11_layout, c->x11_variant, &new_keymap);
@@ -704,12 +765,10 @@ int x11_convert_to_vconsole(Context *c) {
                                    c->x11_layout);
 
                 if (!streq_ptr(c->vc_keymap, new_keymap)) {
-                        free(c->vc_keymap);
-                        c->vc_keymap = new_keymap;
+                        free_and_replace(c->vc_keymap, new_keymap);
                         c->vc_keymap_toggle = mfree(c->vc_keymap_toggle);
                         modified = true;
-                } else
-                        free(new_keymap);
+                }
         }
 
         if (modified)

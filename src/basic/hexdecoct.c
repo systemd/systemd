@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <ctype.h>
 #include <errno.h>
@@ -90,33 +72,69 @@ char *hexmem(const void *p, size_t l) {
         return r;
 }
 
-int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
-        _cleanup_free_ uint8_t *r = NULL;
-        uint8_t *z;
-        const char *x;
+static int unhex_next(const char **p, size_t *l) {
+        int r;
 
-        assert(mem);
-        assert(len);
+        assert(p);
+        assert(l);
+
+        /* Find the next non-whitespace character, and decode it. We
+         * greedily skip all preceeding and all following whitespace. */
+
+        for (;;) {
+                if (*l == 0)
+                        return -EPIPE;
+
+                if (!strchr(WHITESPACE, **p))
+                        break;
+
+                /* Skip leading whitespace */
+                (*p)++, (*l)--;
+        }
+
+        r = unhexchar(**p);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                (*p)++, (*l)--;
+
+                if (*l == 0 || !strchr(WHITESPACE, **p))
+                        break;
+
+                /* Skip following whitespace */
+        }
+
+        return r;
+}
+
+int unhexmem(const char *p, size_t l, void **ret, size_t *ret_len) {
+        _cleanup_free_ uint8_t *buf = NULL;
+        const char *x;
+        uint8_t *z;
+
+        assert(ret);
+        assert(ret_len);
         assert(p || l == 0);
 
         if (l == (size_t) -1)
                 l = strlen(p);
 
-        if (l % 2 != 0)
-                return -EINVAL;
-
-        z = r = malloc((l + 1) / 2 + 1);
-        if (!r)
+        /* Note that the calculation of memory size is an upper boundary, as we ignore whitespace while decoding */
+        buf = malloc((l + 1) / 2 + 1);
+        if (!buf)
                 return -ENOMEM;
 
-        for (x = p; x < p + l; x += 2) {
+        for (x = p, z = buf;;) {
                 int a, b;
 
-                a = unhexchar(x[0]);
+                a = unhex_next(&x, &l);
+                if (a == -EPIPE) /* End of string */
+                        break;
                 if (a < 0)
                         return a;
 
-                b = unhexchar(x[1]);
+                b = unhex_next(&x, &l);
                 if (b < 0)
                         return b;
 
@@ -125,9 +143,8 @@ int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
 
         *z = 0;
 
-        *mem = r;
-        r = NULL;
-        *len = (l + 1) / 2;
+        *ret_len = (size_t) (z - buf);
+        *ret = TAKE_PTR(buf);
 
         return 0;
 }
@@ -195,7 +212,7 @@ char *base32hexmem(const void *p, size_t l, bool padding) {
 
         for (x = p; x < (const uint8_t*) p + (l / 5) * 5; x += 5) {
                 /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ
-                   x[3] == QQQQQQQQ; x[4] == WWWWWWWW */
+                 * x[3] == QQQQQQQQ; x[4] == WWWWWWWW */
                 *(z++) = base32hexchar(x[0] >> 3);                    /* 000XXXXX */
                 *(z++) = base32hexchar((x[0] & 7) << 2 | x[1] >> 6);  /* 000XXXYY */
                 *(z++) = base32hexchar((x[1] & 63) >> 1);             /* 000YYYYY */
@@ -295,7 +312,7 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
         }
 
         /* a group of eight input bytes needs five output bytes, in case of
-           padding we need to add some extra bytes */
+         * padding we need to add some extra bytes */
         len = (l / 8) * 5;
 
         switch (l % 8) {
@@ -323,7 +340,7 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
 
         for (x = p; x < p + (l / 8) * 8; x += 8) {
                 /* a == 000XXXXX; b == 000YYYYY; c == 000ZZZZZ; d == 000WWWWW
-                   e == 000SSSSS; f == 000QQQQQ; g == 000VVVVV; h == 000RRRRR */
+                 * e == 000SSSSS; f == 000QQQQQ; g == 000VVVVV; h == 000RRRRR */
                 a = unbase32hexchar(x[0]);
                 if (a < 0)
                         return -EINVAL;
@@ -482,8 +499,7 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
 
         *z = 0;
 
-        *mem = r;
-        r = NULL;
+        *mem = TAKE_PTR(r);
         *_len = len;
 
         return 0;
@@ -583,7 +599,7 @@ static int base64_append_width(
         if (len <= 0)
                 return len;
 
-        lines = (len + width - 1) / width;
+        lines = DIV_ROUND_UP(len, width);
 
         slen = strlen_ptr(sep);
         t = realloc(*prefix, plen + 1 + slen + (indent + width + 1) * lines);
@@ -680,7 +696,7 @@ int unbase64mem(const char *p, size_t l, void **ret, size_t *ret_size) {
                 l = strlen(p);
 
         /* A group of four input bytes needs three output bytes, in case of padding we need to add two or three extra
-           bytes. Note that this calculation is an upper boundary, as we ignore whitespace while decoding */
+         * bytes. Note that this calculation is an upper boundary, as we ignore whitespace while decoding */
         len = (l / 4) * 3 + (l % 4 != 0 ? (l % 4) - 1 : 0);
 
         buf = malloc(len + 1);
@@ -695,7 +711,7 @@ int unbase64mem(const char *p, size_t l, void **ret, size_t *ret_size) {
                         break;
                 if (a < 0)
                         return a;
-                if (a == INT_MAX) /* Padding is not allowed at at the beginning of a 4ch block */
+                if (a == INT_MAX) /* Padding is not allowed at the beginning of a 4ch block */
                         return -EINVAL;
 
                 b = unbase64_next(&x, &l);
@@ -748,11 +764,8 @@ int unbase64mem(const char *p, size_t l, void **ret, size_t *ret_size) {
 
         *z = 0;
 
-        if (ret_size)
-                *ret_size = (size_t) (z - buf);
-
-        *ret = buf;
-        buf = NULL;
+        *ret_size = (size_t) (z - buf);
+        *ret = TAKE_PTR(buf);
 
         return 0;
 }

@@ -3,10 +3,6 @@
 #define foosdmessageshfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -70,6 +66,8 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_TIMEZONE_CHANGE        SD_ID128_MAKE(45,f8,2f,4a,ef,7a,4b,bf,94,2c,e8,61,d1,f2,09,90)
 #define SD_MESSAGE_TIMEZONE_CHANGE_STR    SD_ID128_MAKE_STR(45,f8,2f,4a,ef,7a,4b,bf,94,2c,e8,61,d1,f2,09,90)
 
+#define SD_MESSAGE_TAINTED                SD_ID128_MAKE(50,87,6a,9d,b0,0f,4c,40,bd,e1,a2,ad,38,1c,3a,1b)
+#define SD_MESSAGE_TAINTED_STR            SD_ID128_MAKE_STR(50,87,6a,9d,b0,0f,4c,40,bd,e1,a2,ad,38,1c,3a,1b)
 #define SD_MESSAGE_STARTUP_FINISHED       SD_ID128_MAKE(b0,7a,24,9c,d0,24,41,4a,82,dd,00,cd,18,13,78,ff)
 #define SD_MESSAGE_STARTUP_FINISHED_STR   SD_ID128_MAKE_STR(b0,7a,24,9c,d0,24,41,4a,82,dd,00,cd,18,13,78,ff)
 #define SD_MESSAGE_USER_STARTUP_FINISHED \

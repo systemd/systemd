@@ -4,38 +4,12 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.mount">
   <refentryinfo>
     <title>systemd.mount</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -71,18 +45,22 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     which define the execution environment the
     <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    binary is executed in, and in
+    program is executed in, and in
     <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     which define the way the processes are terminated, and in
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     which configure resource control settings for the processes of the
-    service. Note that the User= and Group= options are not
-    particularly useful for mount units specifying a
-    <literal>Type=</literal> option or using configuration not
-    specified in <filename>/etc/fstab</filename>;
+    service.</para>
+
+    <para>Note that the options <varname>User=</varname> and
+    <varname>Group=</varname> are not useful for mount units.
+    systemd passes two parameters to
+    <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>;
+    the values of <varname>What=</varname> and <varname>Where=</varname>.
+    When invoked in this way,
     <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    will refuse options that are not listed in
-    <filename>/etc/fstab</filename> if it is not run as UID 0.</para>
+    does not read any options from <filename>/etc/fstab</filename>, and
+    must be run as UID 0.</para>
 
     <para>Mount units must be named after the mount point directories they control. Example: the mount point <filename
     noindex='true'>/home/lennart</filename> must be configured in a unit file <filename>home-lennart.mount</filename>.
@@ -111,57 +89,61 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>The following dependencies are implicitly added:</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>If a mount unit is beneath another mount unit in the file
-      system hierarchy, both a requirement dependency and an ordering
-      dependency between both units are created automatically.</para></listitem>
+      <para>The following dependencies are implicitly added:</para>
 
-      <listitem><para>Block device backed file systems automatically gain
-      <varname>BindsTo=</varname> and <varname>After=</varname> type
-      dependencies on the device unit encapsulating the block
-      device (see below).</para></listitem>
+      <itemizedlist>
+        <listitem><para>If a mount unit is beneath another mount unit in the file
+        system hierarchy, both a requirement dependency and an ordering
+        dependency between both units are created automatically.</para></listitem>
 
-      <listitem><para>If traditional file system quota is enabled for a mount
-      unit, automatic <varname>Wants=</varname> and
-      <varname>Before=</varname> dependencies on
-      <filename>systemd-quotacheck.service</filename> and
-      <filename>quotaon.service</filename> are added.</para></listitem>
+        <listitem><para>Block device backed file systems automatically gain
+        <varname>BindsTo=</varname> and <varname>After=</varname> type
+        dependencies on the device unit encapsulating the block
+        device (see below).</para></listitem>
 
-      <listitem><para>Additional implicit dependencies may be added as result of
-      execution and resource control parameters as documented in
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      and
-      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      </para></listitem>
-    </itemizedlist>
-  </refsect1>
+        <listitem><para>If traditional file system quota is enabled for a mount
+        unit, automatic <varname>Wants=</varname> and
+        <varname>Before=</varname> dependencies on
+        <filename>systemd-quotacheck.service</filename> and
+        <filename>quotaon.service</filename> are added.</para></listitem>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+        <listitem><para>Additional implicit dependencies may be added as result of
+        execution and resource control parameters as documented in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        and
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </itemizedlist>
+    </refsect2>
 
-    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>All mount units acquire automatic <varname>Before=</varname> and <varname>Conflicts=</varname> on
-      <filename>umount.target</filename> in order to be stopped during shutdown.</para></listitem>
+      <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
 
-      <listitem><para>Mount units referring to local file systems automatically gain
-      an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>.</para></listitem>
+      <itemizedlist>
+        <listitem><para>All mount units acquire automatic <varname>Before=</varname> and <varname>Conflicts=</varname> on
+        <filename>umount.target</filename> in order to be stopped during shutdown.</para></listitem>
 
-      <listitem><para>Network mount units
-      automatically acquire <varname>After=</varname> dependencies on <filename>remote-fs-pre.target</filename>,
-      <filename>network.target</filename> and <filename>network-online.target</filename>. Towards the latter a
-      <varname>Wants=</varname> unit is added as well.</para></listitem>
-    </itemizedlist>
+        <listitem><para>Mount units referring to local file systems automatically gain
+        an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>.</para></listitem>
 
-    <para>Mount units referring to local and network file systems are
-    distinguished by their file system type specification. In some cases this is not sufficient (for example network
-    block device based mounts, such as iSCSI), in which case <option>_netdev</option> may be added to the mount option
-    string of the unit, which forces systemd to consider the mount unit a network mount.</para>
+        <listitem><para>Network mount units
+        automatically acquire <varname>After=</varname> dependencies on <filename>remote-fs-pre.target</filename>,
+        <filename>network.target</filename> and <filename>network-online.target</filename>. Towards the latter a
+        <varname>Wants=</varname> unit is added as well.</para></listitem>
+      </itemizedlist>
+
+      <para>Mount units referring to local and network file systems are distinguished by their file system type
+      specification. In some cases this is not sufficient (for example network block device based mounts, such as
+      iSCSI), in which case <option>_netdev</option> may be added to the mount option string of the unit, which forces
+      systemd to consider the mount unit a network mount.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -321,7 +303,7 @@
       <varlistentry>
         <term><option>x-systemd.makefs</option></term>
 
-        <listitem><para>The file system or swap structure will be intialized
+        <listitem><para>The file system or swap structure will be initialized
         on the device. If the device is not "empty", i.e. it contains any signature,
         the operation will be skipped. It is hence expected that this option
         remains set even after the device has been initalized.</para>
@@ -388,12 +370,10 @@
       <varlistentry>
         <term><option>nofail</option></term>
 
-        <listitem><para>With <option>nofail</option>, this mount will
-        be only wanted, not required, by
-        <filename>local-fs.target</filename> or
-        <filename>remote-fs.target</filename>. This means that the
-        boot will continue even if this mount point is not mounted
-        successfully.</para>
+        <listitem><para>With <option>nofail</option>, this mount will be only wanted, not required, by
+        <filename>local-fs.target</filename> or <filename>remote-fs.target</filename>. Moreover the mount unit is not
+        ordered before these target units. This means that the boot will continue without waiting for the mount unit
+        and regardless whether the mount point can be mounted successfully.</para>
         </listitem>
       </varlistentry>
 

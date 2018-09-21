@@ -1,0 +1,232 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+
+<refentry id="sd_bus_message_read"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_message_read</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_read</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_read</refname>
+    <refname>sd_bus_message_readv</refname>
+
+    <refpurpose>Read a sequence of values from a message</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_read</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char char *<parameter>types</parameter></paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_readv</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char char *<parameter>types</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_message_read()</function> reads a sequence of fields from
+    the D-Bus message object <parameter>m</parameter> and advances the read position
+    in the message. The type string <parameter>types</parameter> describes the types
+    of items expected in the message and the field arguments that follow. The type
+    string may be <constant>NULL</constant> or empty, in which case nothing is
+    read.</para>
+
+    <para>The type string is composed of the elements described in
+    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    i.e. basic and container types. It must contain zero or more single "complete
+    types". The type string is <constant>NUL</constant>-terminated.</para>
+
+    <para>For each type specified in the type string, one or more arguments need to be specified
+    after the <parameter>types</parameter> parameter, in the same order. The arguments must be
+    pointers to appropriate types (a pointer to <code>int8_t</code> for a <literal>y</literal> in
+    the type string, a pointer to <code>int32_t</code> for an <literal>i</literal>, a pointer to
+    <code>const char*</code> for an <literal>s</literal>, ...)  which are set based on the values in
+    the message. As an exception, in case or array and variant types, the first argument is an
+    "input" argument that further specifies how the message should be read. See the table below for
+    a complete list of allowed arguments and their types. Note that, if the basic type is a pointer
+    (e.g., <code>const char *</code> in the case of a string), the argument is a pointer to a
+    pointer, and also the pointer value that is written is only borrowed and the contents must be
+    copied if they are to be used after the end of the messages lifetime.</para>
+
+    <para>Each argument may also be <constant>NULL</constant>, in which case the value is read and
+    ignored.</para>
+
+    <table>
+      <title>Item type specifiers</title>
+
+      <tgroup cols='5'>
+        <colspec colname='specifier' />
+        <colspec colname='constant' />
+        <colspec colname='description' />
+        <colspec colname='type1' />
+        <colspec colname='type2' />
+        <thead>
+          <row>
+            <entry>Specifier</entry>
+            <entry>Constant</entry>
+            <entry>Description</entry>
+            <entry>Type of the first argument</entry>
+            <entry>Types of the subsequent arguments, if any</entry>
+          </row>
+        </thead>
+
+        <tbody>
+          <xi:include href="sd_bus_message_read_basic.xml" xpointer="xpointer(//table[@id='format-specifiers']//tbody/*)" />
+
+          <row>
+            <entry><literal>a</literal></entry>
+            <entry><constant>SD_BUS_TYPE_ARRAY</constant></entry>
+            <entry>array</entry>
+            <entry>int, which specifies the expected length <parameter>n</parameter> of the array</entry>
+            <entry><parameter>n</parameter> sets of arguments appropriate for the array element type</entry>
+          </row>
+
+          <row>
+            <entry><literal>v</literal></entry>
+            <entry><constant>SD_BUS_TYPE_VARIANT</constant></entry>
+            <entry>variant</entry>
+            <entry>signature string</entry>
+            <entry>arguments appropriate for the types specified by the signature</entry>
+          </row>
+
+          <row>
+            <entry><literal>(</literal></entry>
+            <entry><constant>SD_BUS_TYPE_STRUCT_BEGIN</constant></entry>
+            <entry>array start</entry>
+            <entry morerows="1" namest="type1" nameend="type2">arguments appropriate for the structure elements</entry>
+          </row>
+          <row>
+            <entry><literal>)</literal></entry>
+            <entry><constant>SD_BUS_TYPE_STRUCT_END</constant></entry>
+            <entry>array end</entry>
+          </row>
+
+          <row>
+            <entry><literal>{</literal></entry>
+            <entry><constant>SD_BUS_TYPE_DICT_ENTRY_BEGIN</constant></entry>
+            <entry>dictionary entry start</entry>
+            <entry morerows="1">arguments appropriate for the first type in the pair</entry>
+            <entry morerows="1">arguments appropriate for the second type in the pair</entry>
+            </row>
+          <row>
+            <entry><literal>}</literal></entry>
+            <entry><constant>SD_BUS_TYPE_DICT_ENTRY_END</constant></entry>
+            <entry>dictionary entry end</entry>
+          </row>
+       </tbody>
+      </tgroup>
+    </table>
+
+    <para>If objects of the specified types are not present at the current position
+    in the message, an error is returned.
+    </para>
+
+    <para>The <function>sd_bus_message_readv()</function> is equivalent to the
+    <function>sd_bus_message_read()</function>, except that it is called with a
+    <literal>va_list</literal> instead of a variable number of arguments. This
+    function does not call the <function>va_end()</function> macro. Because it
+    invokes the <function>va_arg()</function> macro, the value of
+    <parameter>ap</parameter> is undefined after the call.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>
+      On success, <function>sd_bus_message_read()</function> and
+      <function>sd_bus_message_readv()</function> return 0 or a positive integer. On
+      failure, they return a negative errno-style error code.
+    </para>
+  </refsect1>
+
+  <xi:include href="sd_bus_message_read_basic.xml" xpointer="errors" />
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>Read a single basic type (a 64-bit integer):
+    </para>
+
+    <programlisting>sd_bus_message *m;
+int64_t x;
+
+sd_bus_message_read(m, "x", &amp;x);</programlisting>
+
+    <para>Read all types of integers:</para>
+
+    <programlisting>uint8_t y;
+int16_t n;
+uint16_t q;
+int32_t i;
+uint32_t u;
+int32_t x;
+uint32_t t;
+double d;
+
+sd_bus_message_read(m, "ynqiuxtd", &amp;y, &amp;n, &amp;q, &amp;i, &amp;u, &amp;x, &amp;t, &amp;d);</programlisting>
+
+     <para>Read a structure composed of a string and a D-Bus path:</para>
+
+     <programlisting>const char *s, *p;
+
+sd_bus_message_read(m, "(so)", &amp;s, &amp;p);
+</programlisting>
+
+     <para>Read a variant, with the real type "gt" (signature, unsigned integer):
+     </para>
+
+     <programlisting>const char *s;
+uint64_t *v;
+
+sd_bus_message_read(m, "v", "gt", &amp;s, &amp;v);</programlisting>
+
+     <para>Read a dictionary containing three pairs of type {integer=>string}:
+     </para>
+
+     <programlisting>int i, j, k;
+const char *s, *t, *u;
+
+sd_bus_message_read(m, "a{is}", 3, &amp;i, &amp;s, &amp;j, &amp;t, &amp;k, &amp;u);
+     </programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_read_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_skip</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

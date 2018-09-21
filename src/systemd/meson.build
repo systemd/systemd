@@ -1,19 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 _systemd_headers = '''
         sd-bus.h
@@ -57,20 +42,35 @@ install_headers(
 
 opts = [['c'],
         ['c', '-ansi'],
-        ['c', '-std=iso9899:1990']]
+        ['c', '-std=iso9899:1990'],
+        ['c', '-std=iso9899:2011']]
+
+if cc.has_argument('-std=iso9899:2017')
+        opts += [['c', '-std=iso9899:2017']]
+endif
 
 cxx = find_program('c++', required : false)
 if cxx.found()
-        opts += [['c++']]
+        opts += [['c++'],
+                 ['c++', '-std=c++98'],
+                 ['c++', '-std=c++11']]
+        if cc.has_argument('-std=c++14')
+                opts += [['c++', '-std=c++14']]
+        endif
+        if cc.has_argument('-std=c++17')
+                opts += [['c++', '-std=c++17']]
+        endif
 endif
 
 foreach header : _systemd_headers
         foreach opt : opts
                 name = ''.join([header, ':'] + opt)
-                test('cc-' + name,
-                     check_compilation_sh,
-                     args : cc.cmd_array() + ['-c', '-x'] + opt +
-                            ['-Werror', '-include',
-                             join_paths(meson.current_source_dir(), header)])
+                if want_tests != 'false'
+                        test('cc-' + name,
+                             check_compilation_sh,
+                             args : cc.cmd_array() + ['-c', '-x'] + opt +
+                                    ['-Werror', '-include',
+                                     join_paths(meson.current_source_dir(), header)])
+                endif
         endforeach
 endforeach

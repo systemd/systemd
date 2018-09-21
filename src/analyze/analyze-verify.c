@@ -1,26 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "all-units.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -125,10 +108,8 @@ static int verify_socket(Unit *u) {
 
         /* This makes sure instance is created if necessary. */
         r = socket_instantiate_service(SOCKET(u));
-        if (r < 0) {
-                log_unit_error_errno(u, r, "Socket cannot be started, failed to create instance: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Socket cannot be started, failed to create instance: %m");
 
         /* This checks both type of sockets */
         if (UNIT_ISSET(SOCKET(u)->service)) {
@@ -147,7 +128,7 @@ static int verify_socket(Unit *u) {
 }
 
 static int verify_executable(Unit *u, ExecCommand *exec) {
-        if (exec == NULL)
+        if (!exec)
                 return 0;
 
         if (access(exec->path, X_OK) < 0)
@@ -220,7 +201,7 @@ static int verify_unit(Unit *u, bool check_man) {
 
         assert(u);
 
-        if (log_get_max_level() >= LOG_DEBUG)
+        if (DEBUG_LOGGING)
                 unit_dump(u, stdout, "\t");
 
         log_unit_debug(u, "Creating %s/start job", u->id);
@@ -244,18 +225,15 @@ static int verify_unit(Unit *u, bool check_man) {
 }
 
 int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
-        _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *var = NULL;
-        Manager *m = NULL;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
-        char **filename;
-        int r = 0, k;
-
-        Unit *units[strv_length(filenames)];
-        int i, count = 0;
-        const uint8_t flags = MANAGER_TEST_RUN_ENV_GENERATORS |
+        const uint8_t flags = MANAGER_TEST_RUN_BASIC |
+                              MANAGER_TEST_RUN_ENV_GENERATORS |
                               run_generators * MANAGER_TEST_RUN_GENERATORS;
+
+        _cleanup_(manager_freep) Manager *m = NULL;
+        Unit *units[strv_length(filenames)];
+        _cleanup_free_ char *var = NULL;
+        int r = 0, k, i, count = 0;
+        char **filename;
 
         if (strv_isempty(filenames))
                 return 0;
@@ -273,11 +251,9 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         log_debug("Starting manager...");
 
-        r = manager_startup(m, serial, fdset);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start manager: %m");
-                goto finish;
-        }
+        r = manager_startup(m, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start manager: %m");
 
         manager_clear_jobs(m);
 
@@ -296,12 +272,10 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                         continue;
                 }
 
-                k = manager_load_unit(m, NULL, prepared, &err, &units[count]);
-                if (k < 0) {
-                        log_error_errno(k, "Failed to load %s: %m", *filename);
-                        if (r == 0)
-                                r = k;
-                } else
+                k = manager_load_startable_unit_or_warn(m, NULL, prepared, &units[count]);
+                if (k < 0 && r == 0)
+                        r = k;
+                else
                         count++;
         }
 
@@ -310,9 +284,6 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                 if (k < 0 && r == 0)
                         r = k;
         }
-
-finish:
-        manager_free(m);
 
         return r;
 }

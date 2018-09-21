@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <getopt.h>
@@ -28,6 +10,7 @@
 #include "log.h"
 #include "macro.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 static const char *arg_icon = NULL;
 static const char *arg_id = NULL;
@@ -38,7 +21,14 @@ static bool arg_multiple = false;
 static bool arg_no_output = false;
 static AskPasswordFlags arg_flags = ASK_PASSWORD_PUSH_CACHE;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-ask-password", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] MESSAGE\n\n"
                "Query the user for a system passphrase, via the TTY or an UI agent.\n\n"
                "  -h --help           Show this help\n"
@@ -51,7 +41,12 @@ static void help(void) {
                "     --accept-cached  Accept cached passwords\n"
                "     --multiple       List multiple passwords if available\n"
                "     --no-output      Do not print password to standard output\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -66,10 +61,12 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ID,
                 ARG_KEYNAME,
                 ARG_NO_OUTPUT,
+                ARG_VERSION,
         };
 
         static const struct option options[] = {
                 { "help",          no_argument,       NULL, 'h'               },
+                { "version",       no_argument,       NULL, ARG_VERSION       },
                 { "icon",          required_argument, NULL, ARG_ICON          },
                 { "timeout",       required_argument, NULL, ARG_TIMEOUT       },
                 { "echo",          no_argument,       NULL, ARG_ECHO          },
@@ -92,8 +89,10 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
+
+                case ARG_VERSION:
+                        return version();
 
                 case ARG_ICON:
                         arg_icon = optarg;

@@ -1,29 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 typedef struct Mount Mount;
 
 #include "kill.h"
 #include "dynamic-user.h"
+#include "unit.h"
 
 typedef enum MountExecCommand {
         MOUNT_EXEC_MOUNT,
@@ -35,12 +17,13 @@ typedef enum MountExecCommand {
 
 typedef enum MountResult {
         MOUNT_SUCCESS,
-        MOUNT_FAILURE_RESOURCES,
+        MOUNT_FAILURE_RESOURCES, /* a bit of a misnomer, just our catch-all error for errnos we didn't expect */
         MOUNT_FAILURE_TIMEOUT,
         MOUNT_FAILURE_EXIT_CODE,
         MOUNT_FAILURE_SIGNAL,
         MOUNT_FAILURE_CORE_DUMP,
         MOUNT_FAILURE_START_LIMIT_HIT,
+        MOUNT_FAILURE_PROTOCOL,
         _MOUNT_RESULT_MAX,
         _MOUNT_RESULT_INVALID = -1
 } MountResult;
@@ -109,3 +92,5 @@ MountExecCommand mount_exec_command_from_string(const char *s) _pure_;
 
 const char* mount_result_to_string(MountResult i) _const_;
 MountResult mount_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(MOUNT, Mount);

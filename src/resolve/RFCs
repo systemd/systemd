@@ -53,6 +53,7 @@ Y https://tools.ietf.org/html/rfc6975 → Signaling Cryptographic Algorithm Unde
 Y https://tools.ietf.org/html/rfc7129 → Authenticated Denial of Existence in the DNS
 Y https://tools.ietf.org/html/rfc7646 → Definition and Use of DNSSEC Negative Trust Anchors
 ~ https://tools.ietf.org/html/rfc7719 → DNS Terminology
+Y https://tools.ietf.org/html/rfc8080 → Edwards-Curve Digital Security Algorithm (EdDSA) for DNSSEC
 
 Also relevant:
 

@@ -1,24 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
+#include "conf-parser.h"
 
 typedef enum HandleAction {
         HANDLE_IGNORE,
@@ -29,6 +12,7 @@ typedef enum HandleAction {
         HANDLE_SUSPEND,
         HANDLE_HIBERNATE,
         HANDLE_HYBRID_SLEEP,
+        HANDLE_SUSPEND_THEN_HIBERNATE,
         HANDLE_LOCK,
         _HANDLE_ACTION_MAX,
         _HANDLE_ACTION_INVALID = -1
@@ -47,4 +31,6 @@ int manager_handle_action(
 const char* handle_action_to_string(HandleAction h) _const_;
 HandleAction handle_action_from_string(const char *s) _pure_;
 
-int config_parse_handle_action(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+const char* manager_target_for_action(HandleAction handle);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_handle_action);

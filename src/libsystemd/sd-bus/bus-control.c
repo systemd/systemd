@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
@@ -28,12 +10,12 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "bus-bloom.h"
 #include "bus-control.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -43,6 +25,7 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(unique, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -57,13 +40,31 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         return 0;
 }
 
-static int bus_request_name_dbus1(sd_bus *bus, const char *name, uint64_t flags) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        uint32_t ret, param = 0;
-        int r;
+static int validate_request_name_parameters(
+                sd_bus *bus,
+                const char *name,
+                uint64_t flags,
+                uint32_t *ret_param) {
+
+        uint32_t param = 0;
 
         assert(bus);
         assert(name);
+        assert(ret_param);
+
+        assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_QUEUE)), -EINVAL);
+        assert_return(service_name_is_valid(name), -EINVAL);
+        assert_return(name[0] != ':', -EINVAL);
+
+        if (!bus->bus_client)
+                return -EINVAL;
+
+        /* Don't allow requesting the special driver and local names */
+        if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
+                return -EINVAL;
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
 
         if (flags & SD_BUS_NAME_ALLOW_REPLACEMENT)
                 param |= BUS_NAME_ALLOW_REPLACEMENT;
@@ -71,6 +72,29 @@ static int bus_request_name_dbus1(sd_bus *bus, const char *name, uint64_t flags)
                 param |= BUS_NAME_REPLACE_EXISTING;
         if (!(flags & SD_BUS_NAME_QUEUE))
                 param |= BUS_NAME_DO_NOT_QUEUE;
+
+        *ret_param = param;
+
+        return 0;
+}
+
+_public_ int sd_bus_request_name(
+                sd_bus *bus,
+                const char *name,
+                uint64_t flags) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uint32_t ret, param = 0;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(name, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        r = validate_request_name_parameters(bus, name, flags, &param);
+        if (r < 0)
+                return r;
 
         r = sd_bus_call_method(
                         bus,
@@ -90,46 +114,145 @@ static int bus_request_name_dbus1(sd_bus *bus, const char *name, uint64_t flags)
         if (r < 0)
                 return r;
 
-        if (ret == BUS_NAME_ALREADY_OWNER)
+        switch (ret) {
+
+        case BUS_NAME_ALREADY_OWNER:
                 return -EALREADY;
-        else if (ret == BUS_NAME_EXISTS)
+
+        case BUS_NAME_EXISTS:
                 return -EEXIST;
-        else if (ret == BUS_NAME_IN_QUEUE)
+
+        case BUS_NAME_IN_QUEUE:
                 return 0;
-        else if (ret == BUS_NAME_PRIMARY_OWNER)
+
+        case BUS_NAME_PRIMARY_OWNER:
                 return 1;
+        }
 
         return -EIO;
 }
 
-_public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) {
+static int default_request_name_handler(
+                sd_bus_message *m,
+                void *userdata,
+                sd_bus_error *ret_error) {
+
+        uint32_t ret;
+        int r;
+
+        assert(m);
+
+        if (sd_bus_message_is_method_error(m, NULL)) {
+                log_debug_errno(sd_bus_message_get_errno(m),
+                                "Unable to request name, failing connection: %s",
+                                sd_bus_message_get_error(m)->message);
+
+                bus_enter_closing(sd_bus_message_get_bus(m));
+                return 1;
+        }
+
+        r = sd_bus_message_read(m, "u", &ret);
+        if (r < 0)
+                return r;
+
+        switch (ret) {
+
+        case BUS_NAME_ALREADY_OWNER:
+                log_debug("Already owner of requested service name, ignoring.");
+                return 1;
+
+        case BUS_NAME_IN_QUEUE:
+                log_debug("In queue for requested service name.");
+                return 1;
+
+        case BUS_NAME_PRIMARY_OWNER:
+                log_debug("Successfully acquired requested service name.");
+                return 1;
+
+        case BUS_NAME_EXISTS:
+                log_debug("Requested service name already owned, failing connection.");
+                bus_enter_closing(sd_bus_message_get_bus(m));
+                return 1;
+        }
+
+        log_debug("Unexpected response from RequestName(), failing connection.");
+        bus_enter_closing(sd_bus_message_get_bus(m));
+        return 1;
+}
+
+_public_ int sd_bus_request_name_async(
+                sd_bus *bus,
+                sd_bus_slot **ret_slot,
+                const char *name,
+                uint64_t flags,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
+
+        uint32_t param = 0;
+        int r;
+
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
-        assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_QUEUE)), -EINVAL);
+
+        r = validate_request_name_parameters(bus, name, flags, &param);
+        if (r < 0)
+                return r;
+
+        return sd_bus_call_method_async(
+                        bus,
+                        ret_slot,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "RequestName",
+                        callback ?: default_request_name_handler,
+                        userdata,
+                        "su",
+                        name,
+                        param);
+}
+
+static int validate_release_name_parameters(
+                sd_bus *bus,
+                const char *name) {
+
+        assert(bus);
+        assert(name);
+
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
 
         if (!bus->bus_client)
                 return -EINVAL;
 
-        /* Don't allow requesting the special driver and local names */
+        /* Don't allow releasing the special driver and local names */
         if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
                 return -EINVAL;
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        return bus_request_name_dbus1(bus, name, flags);
+        return 0;
 }
 
-static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
+_public_ int sd_bus_release_name(
+                sd_bus *bus,
+                const char *name) {
+
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         uint32_t ret;
         int r;
 
-        assert(bus);
-        assert(name);
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(name, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        r = validate_release_name_parameters(bus, name);
+        if (r < 0)
+                return r;
 
         r = sd_bus_call_method(
                         bus,
@@ -147,40 +270,111 @@ static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
         r = sd_bus_message_read(reply, "u", &ret);
         if (r < 0)
                 return r;
-        if (ret == BUS_NAME_NON_EXISTENT)
-                return -ESRCH;
-        if (ret == BUS_NAME_NOT_OWNER)
-                return -EADDRINUSE;
-        if (ret == BUS_NAME_RELEASED)
-                return 0;
 
-        return -EINVAL;
+        switch (ret) {
+
+        case BUS_NAME_NON_EXISTENT:
+                return -ESRCH;
+
+        case BUS_NAME_NOT_OWNER:
+                return -EADDRINUSE;
+
+        case BUS_NAME_RELEASED:
+                return 0;
+        }
+
+        return -EIO;
 }
 
-_public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
+static int default_release_name_handler(
+                sd_bus_message *m,
+                void *userdata,
+                sd_bus_error *ret_error) {
+
+        uint32_t ret;
+        int r;
+
+        assert(m);
+
+        if (sd_bus_message_is_method_error(m, NULL)) {
+                log_debug_errno(sd_bus_message_get_errno(m),
+                                "Unable to release name, failing connection: %s",
+                                sd_bus_message_get_error(m)->message);
+
+                bus_enter_closing(sd_bus_message_get_bus(m));
+                return 1;
+        }
+
+        r = sd_bus_message_read(m, "u", &ret);
+        if (r < 0)
+                return r;
+
+        switch (ret) {
+
+        case BUS_NAME_NON_EXISTENT:
+                log_debug("Name asked to release is not taken currently, ignoring.");
+                return 1;
+
+        case BUS_NAME_NOT_OWNER:
+                log_debug("Name asked to release is owned by somebody else, ignoring.");
+                return 1;
+
+        case BUS_NAME_RELEASED:
+                log_debug("Name successfully released.");
+                return 1;
+        }
+
+        log_debug("Unexpected response from ReleaseName(), failing connection.");
+        bus_enter_closing(sd_bus_message_get_bus(m));
+        return 1;
+}
+
+_public_ int sd_bus_release_name_async(
+                sd_bus *bus,
+                sd_bus_slot **ret_slot,
+                const char *name,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
+
+        int r;
+
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
-        assert_return(service_name_is_valid(name), -EINVAL);
-        assert_return(name[0] != ':', -EINVAL);
+
+        r = validate_release_name_parameters(bus, name);
+        if (r < 0)
+                return r;
+
+        return sd_bus_call_method_async(
+                        bus,
+                        ret_slot,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "ReleaseName",
+                        callback ?: default_release_name_handler,
+                        userdata,
+                        "s",
+                        name);
+}
+
+_public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **x = NULL, **y = NULL;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(acquired || activatable, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!bus->bus_client)
                 return -EINVAL;
 
-        /* Don't allow releasing the special driver and local names */
-        if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
-                return -EINVAL;
-
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
-
-        return bus_release_name_dbus1(bus, name);
-}
-
-static int bus_list_names_dbus1(sd_bus *bus, char ***acquired, char ***activatable) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **x = NULL, **y = NULL;
-        int r;
 
         if (acquired) {
                 r = sd_bus_call_method(
@@ -219,33 +413,16 @@ static int bus_list_names_dbus1(sd_bus *bus, char ***acquired, char ***activatab
                 if (r < 0)
                         return r;
 
-                *activatable = y;
-                y = NULL;
+                *activatable = TAKE_PTR(y);
         }
 
-        if (acquired) {
-                *acquired = x;
-                x = NULL;
-        }
+        if (acquired)
+                *acquired = TAKE_PTR(x);
 
         return 0;
 }
 
-_public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable) {
-        assert_return(bus, -EINVAL);
-        assert_return(acquired || activatable, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        if (!bus->bus_client)
-                return -EINVAL;
-
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-
-        return bus_list_names_dbus1(bus, acquired, activatable);
-}
-
-static int bus_get_name_creds_dbus1(
+_public_ int sd_bus_get_name_creds(
                 sd_bus *bus,
                 const char *name,
                 uint64_t mask,
@@ -256,6 +433,31 @@ static int bus_get_name_creds_dbus1(
         const char *unique = NULL;
         pid_t pid = 0;
         int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(name, -EINVAL);
+        assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
+        assert_return(mask == 0 || creds, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(service_name_is_valid(name), -EINVAL);
+
+        if (!bus->bus_client)
+                return -EINVAL;
+
+        /* Turn off augmenting if this isn't a local connection. If the connection is not local, then /proc is not
+         * going to match. */
+        if (!bus->is_local)
+                mask &= ~SD_BUS_CREDS_AUGMENT;
+
+        if (streq(name, "org.freedesktop.DBus.Local"))
+                return -EINVAL;
+
+        if (streq(name, "org.freedesktop.DBus"))
+                return sd_bus_get_owner_creds(bus, mask, creds);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
 
         /* Only query the owner if the caller wants to know it or if
          * the caller just wants to check whether a name exists */
@@ -511,59 +713,35 @@ static int bus_get_name_creds_dbus1(
                         return r;
         }
 
-        if (creds) {
-                *creds = c;
-                c = NULL;
-        }
+        if (creds)
+                *creds = TAKE_PTR(c);
 
         return 0;
 }
 
-_public_ int sd_bus_get_name_creds(
-                sd_bus *bus,
-                const char *name,
-                uint64_t mask,
-                sd_bus_creds **creds) {
+_public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
+        bool do_label, do_groups;
+        pid_t pid = 0;
+        int r;
 
         assert_return(bus, -EINVAL);
-        assert_return(name, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
-        assert_return(mask == 0 || creds, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
-        assert_return(service_name_is_valid(name), -EINVAL);
-
-        if (!bus->bus_client)
-                return -EINVAL;
-
-        /* Turn off augmenting if this isn't a local connection. If the connection is not local, then /proc is not
-         * going to match. */
-        if (!bus->is_local)
-                mask &= ~SD_BUS_CREDS_AUGMENT;
-
-        if (streq(name, "org.freedesktop.DBus.Local"))
-                return -EINVAL;
-
-        if (streq(name, "org.freedesktop.DBus"))
-                return sd_bus_get_owner_creds(bus, mask, creds);
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        return bus_get_name_creds_dbus1(bus, name, mask, creds);
-}
-
-static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
-        pid_t pid = 0;
-        bool do_label;
-        int r;
-
-        assert(bus);
+        if (!bus->is_local)
+                mask &= ~SD_BUS_CREDS_AUGMENT;
 
         do_label = bus->label && (mask & SD_BUS_CREDS_SELINUX_CONTEXT);
+        do_groups = bus->n_groups != (size_t) -1 && (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS);
 
         /* Avoid allocating anything if we have no chance of returning useful data */
-        if (!bus->ucred_valid && !do_label)
+        if (!bus->ucred_valid && !do_label && !do_groups)
                 return -ENODATA;
 
         c = bus_creds_new();
@@ -571,17 +749,17 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
                 return -ENOMEM;
 
         if (bus->ucred_valid) {
-                if (bus->ucred.pid > 0) {
+                if (pid_is_valid(bus->ucred.pid)) {
                         pid = c->pid = bus->ucred.pid;
                         c->mask |= SD_BUS_CREDS_PID & mask;
                 }
 
-                if (bus->ucred.uid != UID_INVALID) {
+                if (uid_is_valid(bus->ucred.uid)) {
                         c->euid = bus->ucred.uid;
                         c->mask |= SD_BUS_CREDS_EUID & mask;
                 }
 
-                if (bus->ucred.gid != GID_INVALID) {
+                if (gid_is_valid(bus->ucred.gid)) {
                         c->egid = bus->ucred.gid;
                         c->mask |= SD_BUS_CREDS_EGID & mask;
                 }
@@ -595,45 +773,42 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
                 c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
         }
 
+        if (do_groups) {
+                c->supplementary_gids = newdup(gid_t, bus->groups, bus->n_groups);
+                if (!c->supplementary_gids)
+                        return -ENOMEM;
+
+                c->n_supplementary_gids = bus->n_groups;
+
+                c->mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
+        }
+
         r = bus_creds_add_more(c, mask, pid, 0);
         if (r < 0)
                 return r;
 
-        *ret = c;
-        c = NULL;
+        *ret = TAKE_PTR(c);
+
         return 0;
 }
 
-_public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
-        assert_return(bus, -EINVAL);
-        assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
-        assert_return(ret, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-
-        if (!bus->is_local)
-                mask &= ~SD_BUS_CREDS_AUGMENT;
-
-        return bus_get_owner_creds_dbus1(bus, mask, ret);
-}
-
-#define internal_match(bus, m)                                          \
-        ((bus)->hello_flags & KDBUS_HELLO_MONITOR                       \
+#define append_eavesdrop(bus, m)                                        \
+        ((bus)->is_monitor                                              \
          ? (isempty(m) ? "eavesdrop='true'" : strjoina((m), ",eavesdrop='true'")) \
          : (m))
 
-static int bus_add_match_internal_dbus1(
+int bus_add_match_internal(
                 sd_bus *bus,
                 const char *match) {
 
         const char *e;
 
         assert(bus);
-        assert(match);
 
-        e = internal_match(bus, match);
+        if (!bus->bus_client)
+                return -EINVAL;
+
+        e = append_eavesdrop(bus, match);
 
         return sd_bus_call_method(
                         bus,
@@ -646,22 +821,36 @@ static int bus_add_match_internal_dbus1(
                         "s",
                         e);
 }
-
-int bus_add_match_internal(
+int bus_add_match_internal_async(
                 sd_bus *bus,
+                sd_bus_slot **ret_slot,
                 const char *match,
-                struct bus_match_component *components,
-                unsigned n_components) {
+                sd_bus_message_handler_t callback,
+                void *userdata) {
+
+        const char *e;
 
         assert(bus);
 
         if (!bus->bus_client)
                 return -EINVAL;
 
-        return bus_add_match_internal_dbus1(bus, match);
+        e = append_eavesdrop(bus, match);
+
+        return sd_bus_call_method_async(
+                        bus,
+                        ret_slot,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "AddMatch",
+                        callback,
+                        userdata,
+                        "s",
+                        e);
 }
 
-static int bus_remove_match_internal_dbus1(
+int bus_remove_match_internal(
                 sd_bus *bus,
                 const char *match) {
 
@@ -670,10 +859,16 @@ static int bus_remove_match_internal_dbus1(
         assert(bus);
         assert(match);
 
-        e = internal_match(bus, match);
+        if (!bus->bus_client)
+                return -EINVAL;
 
-        return sd_bus_call_method(
+        e = append_eavesdrop(bus, match);
+
+        /* Fire and forget */
+
+        return sd_bus_call_method_async(
                         bus,
+                        NULL,
                         "org.freedesktop.DBus",
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
@@ -684,24 +879,13 @@ static int bus_remove_match_internal_dbus1(
                         e);
 }
 
-int bus_remove_match_internal(
-                sd_bus *bus,
-                const char *match) {
-
-        assert(bus);
-
-        if (!bus->bus_client)
-                return -EINVAL;
-
-        return bus_remove_match_internal_dbus1(bus, match);
-}
-
 _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         const char *mid;
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return(machine, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);

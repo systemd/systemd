@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "sd-path.h"
 
@@ -348,6 +330,7 @@ _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
 
         if (IN_SET(type,
                    SD_PATH_SEARCH_BINARIES,
+                   SD_PATH_SEARCH_BINARIES_DEFAULT,
                    SD_PATH_SEARCH_LIBRARY_PRIVATE,
                    SD_PATH_SEARCH_LIBRARY_ARCH,
                    SD_PATH_SEARCH_SHARED,
@@ -478,6 +461,12 @@ static int search_from_environment(
         return 0;
 }
 
+#if HAVE_SPLIT_BIN
+#  define ARRAY_SBIN_BIN(x) x "sbin", x "bin"
+#else
+#  define ARRAY_SBIN_BIN(x) x "bin"
+#endif
+
 static int get_search(uint64_t type, char ***list) {
 
         assert(list);
@@ -490,13 +479,10 @@ static int get_search(uint64_t type, char ***list) {
                                                ".local/bin",
                                                "PATH",
                                                true,
-                                               "/usr/local/sbin",
-                                               "/usr/local/bin",
-                                               "/usr/sbin",
-                                               "/usr/bin",
+                                               ARRAY_SBIN_BIN("/usr/local/"),
+                                               ARRAY_SBIN_BIN("/usr/"),
 #if HAVE_SPLIT_USR
-                                               "/sbin",
-                                               "/bin",
+                                               ARRAY_SBIN_BIN("/"),
 #endif
                                                NULL);
 
@@ -563,19 +549,31 @@ static int get_search(uint64_t type, char ***list) {
                                                false,
                                                "/etc",
                                                NULL);
-        }
+
+        case SD_PATH_SEARCH_BINARIES_DEFAULT: {
+                char **t;
+
+                t = strv_split_nulstr(DEFAULT_PATH_NULSTR);
+                if (!t)
+                        return -ENOMEM;
+
+                *list = t;
+                return 0;
+        }}
 
         return -EOPNOTSUPP;
 }
 
 _public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
-        char **l, **i, **j, **n;
+        char **i, **j;
+        _cleanup_strv_free_ char **l = NULL, **n = NULL;
         int r;
 
         assert_return(paths, -EINVAL);
 
         if (!IN_SET(type,
                     SD_PATH_SEARCH_BINARIES,
+                    SD_PATH_SEARCH_BINARIES_DEFAULT,
                     SD_PATH_SEARCH_LIBRARY_PRIVATE,
                     SD_PATH_SEARCH_LIBRARY_ARCH,
                     SD_PATH_SEARCH_SHARED,
@@ -598,7 +596,7 @@ _public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
                 l[0] = p;
                 l[1] = NULL;
 
-                *paths = l;
+                *paths = TAKE_PTR(l);
                 return 0;
         }
 
@@ -607,15 +605,13 @@ _public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
                 return r;
 
         if (!suffix) {
-                *paths = l;
+                *paths = TAKE_PTR(l);
                 return 0;
         }
 
         n = new(char*, strv_length(l)+1);
-        if (!n) {
-                strv_free(l);
+        if (!n)
                 return -ENOMEM;
-        }
 
         j = n;
         STRV_FOREACH(i, l) {
@@ -625,16 +621,13 @@ _public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
                 else
                         *j = strjoin(*i, "/", suffix);
 
-                if (!*j) {
-                        strv_free(l);
-                        strv_free(n);
+                if (!*j)
                         return -ENOMEM;
-                }
 
                 j++;
         }
 
         *j = NULL;
-        *paths = n;
+        *paths = TAKE_PTR(n);
         return 0;
 }

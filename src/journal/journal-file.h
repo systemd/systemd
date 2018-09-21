@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <inttypes.h>
 
 #if HAVE_GCRYPT
@@ -90,8 +71,6 @@ typedef struct JournalFile {
         bool close_fd:1;
         bool archive:1;
 
-        bool tail_entry_monotonic_valid:1;
-
         direction_t last_direction;
         LocationType location_type;
         uint64_t last_n_entries;
@@ -122,6 +101,9 @@ typedef struct JournalFile {
         pthread_t offline_thread;
         volatile OfflineState offline_state;
 
+        unsigned last_seen_generation;
+
+        uint64_t compress_threshold_bytes;
 #if HAVE_XZ || HAVE_LZ4
         void *compress_buffer;
         size_t compress_buffer_size;
@@ -151,6 +133,7 @@ int journal_file_open(
                 int flags,
                 mode_t mode,
                 bool compress,
+                uint64_t compress_threshold_bytes,
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
@@ -167,6 +150,7 @@ int journal_file_open_reliably(
                 int flags,
                 mode_t mode,
                 bool compress,
+                uint64_t compress_threshold_bytes,
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
@@ -215,7 +199,14 @@ uint64_t journal_file_entry_array_n_items(Object *o) _pure_;
 uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *offset);
-int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqno, Object **ret, uint64_t *offset);
+int journal_file_append_entry(
+                JournalFile *f,
+                const dual_timestamp *ts,
+                const sd_id128_t *boot_id,
+                const struct iovec iovec[], unsigned n_iovec,
+                uint64_t *seqno,
+                Object **ret,
+                uint64_t *offset);
 
 int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset);
 int journal_file_find_data_object_with_hash(JournalFile *f, const void *data, uint64_t size, uint64_t hash, Object **ret, uint64_t *offset);
@@ -239,12 +230,12 @@ int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, uint64_t data_
 int journal_file_move_to_entry_by_realtime_for_data(JournalFile *f, uint64_t data_offset, uint64_t realtime, direction_t direction, Object **ret, uint64_t *offset);
 int journal_file_move_to_entry_by_monotonic_for_data(JournalFile *f, uint64_t data_offset, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret, uint64_t *offset);
 
-int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset);
+int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p);
 
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
-int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *deferred_closes);
+int journal_file_rotate(JournalFile **f, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes);
 
 void journal_file_post_change(JournalFile *f);
 int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t);

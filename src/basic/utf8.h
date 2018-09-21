@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -35,6 +16,7 @@ bool unichar_is_valid(char32_t c);
 
 const char *utf8_is_valid(const char *s) _pure_;
 char *ascii_is_valid(const char *s) _pure_;
+char *ascii_is_valid_n(const char *str, size_t len);
 
 bool utf8_is_printable_newline(const char* str, size_t length, bool newline) _pure_;
 #define utf8_is_printable(str, length) utf8_is_printable_newline(str, length, true)
@@ -59,3 +41,6 @@ static inline bool utf16_is_trailing_surrogate(char16_t c) {
 static inline char32_t utf16_surrogate_pair_to_unichar(char16_t lead, char16_t trail) {
                 return ((lead - 0xd800) << 10) + (trail - 0xdc00) + 0x10000;
 }
+
+size_t utf8_n_codepoints(const char *str);
+size_t utf8_console_width(const char *str);

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "kill.h"
 #include "signal-util.h"
@@ -27,6 +9,7 @@ void kill_context_init(KillContext *c) {
         assert(c);
 
         c->kill_signal = SIGTERM;
+        c->final_kill_signal = SIGKILL;
         c->send_sigkill = true;
         c->send_sighup = false;
 }
@@ -34,16 +17,17 @@ void kill_context_init(KillContext *c) {
 void kill_context_dump(KillContext *c, FILE *f, const char *prefix) {
         assert(c);
 
-        if (!prefix)
-                prefix = "";
+        prefix = strempty(prefix);
 
         fprintf(f,
                 "%sKillMode: %s\n"
                 "%sKillSignal: SIG%s\n"
+                "%sFinalKillSignal: SIG%s\n"
                 "%sSendSIGKILL: %s\n"
                 "%sSendSIGHUP:  %s\n",
                 prefix, kill_mode_to_string(c->kill_mode),
                 prefix, signal_to_string(c->kill_signal),
+                prefix, signal_to_string(c->final_kill_signal),
                 prefix, yes_no(c->send_sigkill),
                 prefix, yes_no(c->send_sighup));
 }

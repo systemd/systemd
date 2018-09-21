@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Harald Hoyer
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="kernel-install">
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>kernel-install</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Harald</firstname>
-        <surname>Hoyer</surname>
-        <email>harald@redhat.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -191,7 +165,7 @@
     <para>
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <ulink url="https://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>
+      <ulink url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader Specification</ulink>
     </para>
   </refsect1>
 

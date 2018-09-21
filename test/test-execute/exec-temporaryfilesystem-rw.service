@@ -1,0 +1,36 @@
+[Unit]
+Description=Test for TemporaryFileSystem
+
+[Service]
+Type=oneshot
+
+# Check directories exist
+ExecStart=test -d /var/test-exec-temporaryfilesystem/rw -a -d /var/test-exec-temporaryfilesystem/ro
+
+# Check TemporaryFileSystem= are empty
+ExecStart=sh -c 'for i in $$(ls -A /var); do test $$i = test-exec-temporaryfilesystem || false; done'
+
+# Check default mode
+ExecStart=sh -x -c 'test "$$(stat -c %%a /var)" = "755"'
+
+# Create a file in /var
+ExecStart=touch /var/hoge
+
+# Create a file in /var/test-exec-temporaryfilesystem/rw
+ExecStart=touch /var/test-exec-temporaryfilesystem/rw/thisisasimpletest-temporaryfilesystem
+
+# Then, the file can be access through /tmp
+ExecStart=test -f /tmp/thisisasimpletest-temporaryfilesystem
+
+# Also, through /var/test-exec-temporaryfilesystem/ro
+ExecStart=test -f /var/test-exec-temporaryfilesystem/ro/thisisasimpletest-temporaryfilesystem
+
+# The file cannot modify through /var/test-exec-temporaryfilesystem/ro
+ExecStart=sh -c '! touch /var/test-exec-temporaryfilesystem/ro/thisisasimpletest-temporaryfilesystem'
+
+# Cleanup
+ExecStart=rm /tmp/thisisasimpletest-temporaryfilesystem
+
+TemporaryFileSystem=/var
+BindPaths=/tmp:/var/test-exec-temporaryfilesystem/rw
+BindReadOnlyPaths=/tmp:/var/test-exec-temporaryfilesystem/ro

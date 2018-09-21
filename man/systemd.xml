@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd"
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>systemd</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -53,7 +27,7 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>systemd</command>
+      <command>/usr/lib/systemd/systemd</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -108,6 +82,13 @@
         <listitem><para>Dump understood unit configuration items. This
         outputs a terse but complete list of configuration items
         understood in unit definition files.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--dump-bus-properties</option></term>
+
+        <listitem><para>Dump exposed bus properties. This outputs
+        a terse but complete list of properties exposed to dbus.
+        </para></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--unit=</option></term>
@@ -273,6 +254,15 @@
         to all zeros.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--service-watchdogs=</option></term>
+
+        <listitem><para>Globally enable/disable all service watchdog timeouts and emergency
+        actions. This setting may also be specified during boot, on the kernel
+        command line via the <varname>systemd.service_watchdogs=</varname>
+        option, see below. Defaults to enabled.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -297,11 +287,12 @@
     states are called "activating", "deactivating"). A special
     "failed" state is available as well, which is very similar to
     "inactive" and is entered when the service failed in some way
-    (process returned error code on exit, or crashed, or an operation
-    timed out). If this state is entered, the cause will be logged,
-    for later reference. Note that the various unit types may have a
-    number of additional substates, which are mapped to the five
-    generalized unit states described here.</para>
+    (process returned error code on exit, or crashed, an operation
+    timed out, or after too many restarts). If this state is entered,
+    the cause will be logged, for later reference. Note that the
+    various unit types may have a number of additional substates,
+    which are mapped to the five generalized unit states described
+    here.</para>
 
     <para>The following unit types are available:</para>
 
@@ -404,7 +395,7 @@
     <para>Processes systemd spawns are placed in individual Linux
     control groups named after the unit which they belong to in the
     private systemd hierarchy. (see <ulink
-    url="https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>
+    url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>
     for more information about control groups, or short "cgroups").
     systemd uses this to effectively keep track of processes. Control
     group information is maintained in the kernel, and is accessible
@@ -443,7 +434,7 @@
     verify that it makes sense, fixing it if possible, and only
     failing if it really cannot work.</para>
 
-    <para>Systemd contains native implementations of various tasks
+    <para>systemd contains native implementations of various tasks
     that need to be executed as part of the boot process. For example,
     it sets the hostname or configures the loopback network device. It
     also sets up and mounts various API file systems, such as
@@ -573,7 +564,7 @@
         <listitem><para>Upon receiving this signal the systemd system
         manager will start the
         <filename>ctrl-alt-del.target</filename> unit. This is mostly
-        equivalent to <command>systemctl start ctl-alt-del.target
+        equivalent to <command>systemctl start ctrl-alt-del.target
         --job-mode=replace-irreversible</command>. If this signal is
         received more than 7 times per 2s, an immediate reboot is
         triggered.  Note that pressing Ctrl-Alt-Del on the console
@@ -745,15 +736,18 @@
 
       <varlistentry>
         <term><constant>SIGRTMIN+22</constant></term>
+
+        <listitem><para>Sets the service manager's log level to <literal>debug</literal>, in a fashion equivalent to
+        <varname>systemd.log_level=debug</varname> on the kernel command line.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+23</constant></term>
 
-        <listitem><para>Sets the log level to <literal>debug</literal>
-        (or <literal>info</literal> on
-        <constant>SIGRTMIN+23</constant>), as controlled via
-        <varname>systemd.log_level=debug</varname> (or
-        <varname>systemd.log_level=info</varname> on
-        <constant>SIGRTMIN+23</constant>) on the kernel command
-        line.</para></listitem>
+        <listitem><para>Restores the log level to its configured value. The configured value is derived from – in order
+        of priority – the value specified with <varname>systemd.log-level=</varname> on the kernel command line, or the
+        value specified with <option>LogLevel=</option> in the configuration file, or the built-in default of
+        <literal>info</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -765,20 +759,21 @@
 
       <varlistentry>
         <term><constant>SIGRTMIN+26</constant></term>
+
+        <listitem><para>Restores the log target to its configured value. The configured value is derived from – in
+        order of priority – the value specified with <varname>systemd.log-target=</varname> on the kernel command line,
+        or the value specified with <option>LogTarget=</option> in the configuration file, or the built-in
+        default.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+27</constant></term>
         <term><constant>SIGRTMIN+28</constant></term>
 
-        <listitem><para>Sets the log target to
-        <literal>journal-or-kmsg</literal> (or
-        <literal>console</literal> on
-        <constant>SIGRTMIN+27</constant>, <literal>kmsg</literal> on
-        <constant>SIGRTMIN+28</constant>), as controlled via
-        <varname>systemd.log_target=journal-or-kmsg</varname> (or
-        <varname>systemd.log_target=console</varname> on
-        <constant>SIGRTMIN+27</constant> or
-        <varname>systemd.log_target=kmsg</varname> on
-        <constant>SIGRTMIN+28</constant>) on the kernel command
-        line.</para></listitem>
+        <listitem><para>Sets the log target to <literal>console</literal> on <constant>SIGRTMIN+27</constant> (or
+        <literal>kmsg</literal> on <constant>SIGRTMIN+28</constant>), in a fashion equivalent to
+        <varname>systemd.log_target=console</varname> (or <varname>systemd.log_target=kmsg</varname> on
+        <constant>SIGRTMIN+28</constant>) on the kernel command line.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -855,6 +850,15 @@
         <listitem><para>The value must be a boolean. Controls whether colorized output should be
         generated. This can be specified to override the decision that <command>systemd</command>
         makes based on <varname>$TERM</varname> and what the console is connected to.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_URLIFY</varname></term>
+
+        <listitem><para>The value must be a boolean. Controls whether clickable links should be generated in the output
+        for terminal emulators supporting this. This can be specified to override the decision that
+        <command>systemd</command> makes based on <varname>$TERM</varname> and other conditions.</para>
         </listitem>
       </varlistentry>
 
@@ -964,6 +968,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.service_watchdogs=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If disabled, all service runtime
+        watchdogs (<option>WatchdogSec=</option>) and emergency actions (e.g.
+        <option>OnFailure=</option> or <option>StartLimitAction=</option>) are
+        ignored by the system manager (PID 1); see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Defaults to enabled, i.e. watchdogs and failure actions are processed
+        normally. The hardware watchdog is not affected by this
+        option.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.show_status</varname></term>
 
         <listitem><para>Takes a boolean argument or the constant
@@ -1034,7 +1051,7 @@
         hybrid or full legacy cgroup hierarchy.</para>
 
         <para>If this option is not specified, the default behaviour is determined
-        during compilation (the <option>--with-default-hierarchy=</option>
+        during compilation (the <option>-Ddefault-hierarchy=</option> meson
         option). If the kernel does not support unified cgroup hierarchy, the legacy
         hierarchy will be used even if this option is specified.</para>
         </listitem>
@@ -1053,7 +1070,7 @@
         the use of "hybrid" hierarchy.</para>
 
         <para>If this option is not specified, the default behaviour is determined
-        during compilation (the <option>--with-default-hierarchy=</option>
+        during compilation (the <option>-Ddefault-hierarchy=</option> meson
         option). If the kernel does not support unified cgroup hierarchy, the legacy
         hierarchy will be used  even if this option is specified.</para>
         </listitem>

@@ -1,22 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Axis Communications AB. All rights reserved.
-  Copyright (C) 2015 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
 #include <linux/filter.h>
@@ -24,6 +8,7 @@
 
 #include "arp-util.h"
 #include "fd-util.h"
+#include "unaligned.h"
 #include "util.h"
 
 int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_addr *eth_mac) {
@@ -48,12 +33,12 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ARPOP_REPLY, 1, 0),                        /* protocol == reply ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
                 /* Sender Hardware Address must be different from our own */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe32(*((uint32_t *) eth_mac))),                  /* A <- 4 bytes of client's MAC */
+                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be32(&eth_mac->ether_addr_octet[0])),/* A <- 4 bytes of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ether_arp, arp_sha)),       /* A <- 4 bytes of SHA */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* A xor X */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 0, 6),                                  /* A == 0 ? */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe16(*((uint16_t *) (((char *) eth_mac) + 4)))), /* A <- remainder of client's MAC */
+                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be16(&eth_mac->ether_addr_octet[4])),/* A <- remainder of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
                 BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ether_arp, arp_sha) + 4),   /* A <- remainder of SHA */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* A xor X */
@@ -102,10 +87,7 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
         if (r < 0)
                 return -errno;
 
-        r = s;
-        s = -1;
-
-        return r;
+        return TAKE_FD(s);
 }
 
 static int arp_send_packet(int fd, int ifindex,

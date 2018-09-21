@@ -1,24 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Thomas H.P. Andersen
-  Copyright 2010 Lennart Poettering
-  Copyright 2011 Michal Schmidt
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdio.h>
@@ -240,7 +220,7 @@ static char *sysv_translate_name(const char *name) {
         if (res)
                 *res = 0;
 
-        if (unit_name_mangle(c, UNIT_NAME_NOGLOB, &res) < 0)
+        if (unit_name_mangle(c, 0, &res) < 0)
                 return NULL;
 
         return res;
@@ -741,8 +721,7 @@ static int acquire_search_path(const char *def, const char *envvar, char ***ret)
         if (!path_strv_resolve_uniq(l, NULL))
                 return log_oom();
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
 
         return 0;
 }
@@ -810,9 +789,8 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                                 return log_oom();
 
                         service->sysv_start_priority = -1;
-                        service->name = name;
-                        service->path = fpath;
-                        name = fpath = NULL;
+                        service->name = TAKE_PTR(name);
+                        service->path = TAKE_PTR(fpath);
 
                         r = hashmap_put(all_services, service->name, service);
                         if (r < 0)
@@ -937,7 +915,7 @@ finish:
 
 int main(int argc, char *argv[]) {
         _cleanup_(free_sysvstub_hashmapp) Hashmap *all_services = NULL;
-        _cleanup_lookup_paths_free_ LookupPaths lp = {};
+        _cleanup_(lookup_paths_free) LookupPaths lp = {};
         SysvStub *service;
         Iterator j;
         int r;
@@ -950,7 +928,8 @@ int main(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[3];
 
-        log_set_target(LOG_TARGET_SAFE);
+        log_set_prohibit_ipc(true);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 

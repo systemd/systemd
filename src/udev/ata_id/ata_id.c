@@ -2,22 +2,7 @@
 /*
  * ata_id - reads product/serial number from ATA drives
  *
- * Copyright (C) 2005-2008 Kay Sievers <kay@vrfy.org>
- * Copyright (C) 2009 Lennart Poettering <lennart@poettering.net>
- * Copyright (C) 2009-2010 David Zeuthen <zeuthen@gmail.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright © 2009-2010 David Zeuthen <zeuthen@gmail.com>
  */
 
 #include <ctype.h>
@@ -38,8 +23,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "libudev.h"
-
 #include "fd-util.h"
 #include "libudev-private.h"
 #include "log.h"
@@ -47,14 +30,13 @@
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 
-static int disk_scsi_inquiry_command(int      fd,
-                                     void    *buf,
-                                     size_t   buf_len)
-{
+static int disk_scsi_inquiry_command(
+                int fd,
+                void *buf,
+                size_t buf_len) {
+
         uint8_t cdb[6] = {
-                /*
-                 * INQUIRY, see SPC-4 section 6.4
-                 */
+                /* INQUIRY, see SPC-4 section 6.4 */
                 [0] = 0x12,                /* OPERATION CODE: INQUIRY */
                 [3] = (buf_len >> 8),      /* ALLOCATION LENGTH */
                 [4] = (buf_len & 0xff),
@@ -116,10 +98,11 @@ static int disk_scsi_inquiry_command(int      fd,
         return 0;
 }
 
-static int disk_identify_command(int          fd,
-                                 void         *buf,
-                                 size_t          buf_len)
-{
+static int disk_identify_command(
+                int fd,
+                void *buf,
+                size_t buf_len) {
+
         uint8_t cdb[12] = {
                 /*
                  * ATA Pass-Through 12 byte command, as described in
@@ -186,10 +169,11 @@ static int disk_identify_command(int          fd,
         return 0;
 }
 
-static int disk_identify_packet_device_command(int          fd,
-                                               void         *buf,
-                                               size_t          buf_len)
-{
+static int disk_identify_packet_device_command(
+                int fd,
+                void *buf,
+                size_t buf_len) {
+
         uint8_t cdb[16] = {
                 /*
                  * ATA Pass-Through 16 byte command, as described in
@@ -271,11 +255,12 @@ static int disk_identify_packet_device_command(int          fd,
  *
  * Copies the ATA string from @identify located at @offset_words into @dest.
  */
-static void disk_identify_get_string(uint8_t identify[512],
-                                     unsigned int offset_words,
-                                     char *dest,
-                                     size_t dest_len)
-{
+static void disk_identify_get_string(
+                uint8_t identify[512],
+                unsigned int offset_words,
+                char *dest,
+                size_t dest_len) {
+
         unsigned int c1;
         unsigned int c2;
 
@@ -291,16 +276,15 @@ static void disk_identify_get_string(uint8_t identify[512],
         }
 }
 
-static void disk_identify_fixup_string(uint8_t identify[512],
-                                       unsigned int offset_words,
-                                       size_t len)
-{
+static void disk_identify_fixup_string(
+                uint8_t identify[512],
+                unsigned int offset_words,
+                size_t len) {
         disk_identify_get_string(identify, offset_words,
                                  (char *) identify + offset_words * 2, len);
 }
 
-static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offset_words)
-{
+static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offset_words) {
         uint16_t *p;
 
         p = (uint16_t *) identify;
@@ -309,7 +293,6 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offs
 
 /**
  * disk_identify:
- * @udev: The libudev context.
  * @fd: File descriptor for the block device.
  * @out_identify: Return location for IDENTIFY data.
  * @out_is_packet_device: Return location for whether returned data is from a IDENTIFY PACKET DEVICE.
@@ -318,17 +301,14 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offs
  * device represented by @fd. If successful, then the result will be
  * copied into @out_identify and @out_is_packet_device.
  *
- * This routine is based on code from libatasmart, Copyright 2008
- * Lennart Poettering, LGPL v2.1.
+ * This routine is based on code from libatasmart, LGPL v2.1.
  *
  * Returns: 0 if the data was successfully obtained, otherwise
  * non-zero with errno set.
  */
-static int disk_identify(struct udev *udev,
-                         int fd,
+static int disk_identify(int fd,
                          uint8_t out_identify[512],
-                         int *out_is_packet_device)
-{
+                         int *out_is_packet_device) {
         int ret;
         uint8_t inquiry_buf[36];
         int peripheral_device_type;
@@ -405,9 +385,7 @@ out:
         return ret;
 }
 
-int main(int argc, char *argv[])
-{
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+int main(int argc, char *argv[]) {
         struct hd_driveid id;
         union {
                 uint8_t  byte[512];
@@ -432,10 +410,6 @@ int main(int argc, char *argv[])
         udev_parse_config();
         log_parse_environment();
         log_open();
-
-        udev = udev_new();
-        if (udev == NULL)
-                return 0;
 
         for (;;) {
                 int option;
@@ -468,7 +442,7 @@ int main(int argc, char *argv[])
                 return 1;
         }
 
-        if (disk_identify(udev, fd, identify.byte, &is_packet_device) == 0) {
+        if (disk_identify(fd, identify.byte, &is_packet_device) == 0) {
                 /*
                  * fix up only the fields from the IDENTIFY data that we are going to
                  * use and copy it into the hd_driveid struct for convenience

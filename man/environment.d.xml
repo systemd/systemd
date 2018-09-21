@@ -4,23 +4,7 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
-  Copyright 2016 Red Hat, Inc.
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2016 Red Hat, Inc.
 -->
 <refentry id="environment.d" conditional='ENABLE_ENVIRONMENT_D'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -28,15 +12,6 @@
   <refentryinfo>
     <title>environment.d</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Ray</firstname>
-        <surname>Strode</surname>
-        <email>rstrode@redhat.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -92,7 +67,7 @@
     <literal>${<replaceable>FOO</replaceable>}</literal> would have expanded to a non-empty value.
     No other elements of shell syntax are supported.</para>
 
-    <para>Each<replaceable>KEY</replaceable> must be a valid variable name. Empty lines
+    <para>Each <replaceable>KEY</replaceable> must be a valid variable name. Empty lines
     and lines beginning with the comment character <literal>#</literal> are ignored.</para>
 
     <refsect2>

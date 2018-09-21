@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <grp.h>
@@ -241,10 +223,10 @@ finish:
 }
 
 static int drop_from_file(const char *fn, uint64_t keep) {
-        int r, k;
-        uint32_t hi, lo;
+        _cleanup_free_ char *p = NULL;
         uint64_t current, after;
-        char *p;
+        uint32_t hi, lo;
+        int r, k;
 
         r = read_one_line_file(fn, &p);
         if (r < 0)
@@ -254,8 +236,6 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         assert_cc(sizeof(lo) == sizeof(unsigned));
 
         k = sscanf(p, "%u %u", &lo, &hi);
-        free(p);
-
         if (k != 2)
                 return -EIO;
 
@@ -268,13 +248,7 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         lo = (unsigned) (after & 0xFFFFFFFFULL);
         hi = (unsigned) ((after >> 32ULL) & 0xFFFFFFFFULL);
 
-        if (asprintf(&p, "%u %u", lo, hi) < 0)
-                return -ENOMEM;
-
-        r = write_string_file(fn, p, WRITE_STRING_FILE_CREATE);
-        free(p);
-
-        return r;
+        return write_string_filef(fn, WRITE_STRING_FILE_CREATE, "%u %u", lo, hi);
 }
 
 int capability_bounding_set_drop_usermode(uint64_t keep) {
@@ -314,8 +288,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (prctl(PR_SET_KEEPCAPS, 1) < 0)
                 return log_error_errno(errno, "Failed to enable keep capabilities flag: %m");
 
-        r = setresuid(uid, uid, uid);
-        if (r < 0)
+        if (setresuid(uid, uid, uid) < 0)
                 return log_error_errno(errno, "Failed to change user ID: %m");
 
         if (prctl(PR_SET_KEEPCAPS, 0) < 0)

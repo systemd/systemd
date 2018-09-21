@@ -1,21 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-#  This file is part of systemd.
-#
-#  Copyright 2012 Lennart Poettering
-#
-#  systemd is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU Lesser General Public License as published by
-#  the Free Software Foundation; either version 2.1 of the License, or
-#  (at your option) any later version.
-#
-#  systemd is distributed in the hope that it will be useful, but
-#  WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-#  Lesser General Public License for more details.
-#
-#  You should have received a copy of the GNU Lesser General Public License
-#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 # Message catalog for systemd's own messages
 
@@ -201,7 +184,7 @@ Subject: System shutdown initiated
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Systemd shutdown has been initiated. The shutdown has now begun and
+System shutdown has been initiated. The shutdown has now begun and
 all system services are terminated and all file systems unmounted.
 
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
@@ -359,3 +342,20 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 The unit @UNIT@ completed and consumed the indicated resources.
+
+-- 50876a9db00f4c40bde1a2ad381c3a1b
+Subject: The system is configured in a way that might cause problems
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The following "tags" are possible:
+- "split-usr" — /usr is a separate file system and was not mounted when systemd
+  was booted
+- "cgroups-missing" — the kernel was compiled without cgroup support or access
+  to expected interface files is resticted
+- "var-run-bad" — /var/run is not a symlink to /run
+- "overflowuid-not-65534" — the kernel user ID used for "unknown" users (with
+  NFS or user namespaces) is not 65534
+- "overflowgid-not-65534" — the kernel group ID used for "unknown" users (with
+  NFS or user namespaces) is not 65534
+Current system is tagged as @TAINT@.

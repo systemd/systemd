@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <math.h>
 
@@ -182,6 +164,19 @@ bool dns_resource_key_is_address(const DnsResourceKey *key) {
         return key->class == DNS_CLASS_IN && IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_AAAA);
 }
 
+bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key) {
+        assert(key);
+
+        /* Check if this is a PTR resource key used in
+           Service Instance Enumeration as described in RFC6763 p4.1. */
+
+        if (key->type != DNS_TYPE_PTR)
+                return false;
+
+        return dns_name_endswith(dns_resource_key_name(key), "_tcp.local") ||
+                dns_name_endswith(dns_resource_key_name(key), "_udp.local");
+}
+
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         int r;
 
@@ -305,15 +300,13 @@ static int dns_resource_key_compare_func(const void *a, const void *b) {
         if (ret != 0)
                 return ret;
 
-        if (x->type < y->type)
-                return -1;
-        if (x->type > y->type)
-                return 1;
+        ret = CMP(x->type, y->type);
+        if (ret != 0)
+                return ret;
 
-        if (x->class < y->class)
-                return -1;
-        if (x->class > y->class)
-                return 1;
+        ret = CMP(x->class, y->class);
+        if (ret != 0)
+                return ret;
 
         return 0;
 }
@@ -336,7 +329,7 @@ char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t bu
         snprintf(buf, buf_size, "%s %s%s%.0u %s%s%.0u",
                  dns_resource_key_name(key),
                  strempty(c), c ? "" : "CLASS", c ? 0 : key->class,
-                 strempty(t), t ? "" : "TYPE", t ? 0 : key->class);
+                 strempty(t), t ? "" : "TYPE", t ? 0 : key->type);
 
         return ans;
 }
@@ -406,26 +399,8 @@ DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, c
         return dns_resource_record_new(key);
 }
 
-DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr) {
-        if (!rr)
-                return NULL;
-
-        assert(rr->n_ref > 0);
-        rr->n_ref++;
-
-        return rr;
-}
-
-DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
-        if (!rr)
-                return NULL;
-
-        assert(rr->n_ref > 0);
-
-        if (rr->n_ref > 1) {
-                rr->n_ref--;
-                return NULL;
-        }
+static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
+        assert(rr);
 
         if (rr->key) {
                 switch(rr->key->type) {
@@ -504,8 +479,12 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
 
                 case DNS_TYPE_OPENPGPKEY:
                 default:
-                        free(rr->generic.data);
+                        if (!rr->unparseable)
+                                free(rr->generic.data);
                 }
+
+                if (rr->unparseable)
+                        free(rr->generic.data);
 
                 free(rr->wire_format);
                 dns_resource_key_unref(rr->key);
@@ -514,6 +493,8 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
         free(rr->to_string);
         return mfree(rr);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsResourceRecord, dns_resource_record, dns_resource_record_free);
 
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *hostname) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
@@ -543,8 +524,7 @@ int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const u
         if (!rr->ptr.name)
                 return -ENOMEM;
 
-        *ret = rr;
-        rr = NULL;
+        *ret = TAKE_PTR(rr);
 
         return 0;
 }
@@ -753,7 +733,7 @@ static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
         struct tm tm;
 
         assert(buf);
-        assert(l > strlen("YYYYMMDDHHmmSS"));
+        assert(l > STRLEN("YYYYMMDDHHmmSS"));
 
         if (!gmtime_r(&sec, &tm))
                 return -EINVAL;
@@ -1022,7 +1002,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         case DNS_TYPE_RRSIG: {
                 _cleanup_free_ char *alg = NULL;
-                char expiration[strlen("YYYYMMDDHHmmSS") + 1], inception[strlen("YYYYMMDDHHmmSS") + 1];
+                char expiration[STRLEN("YYYYMMDDHHmmSS") + 1], inception[STRLEN("YYYYMMDDHHmmSS") + 1];
                 const char *type;
                 int n;
 
@@ -1228,7 +1208,6 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
         case DNS_TYPE_TLSA:
                 *out = rr->tlsa.data;
                 return rr->tlsa.data_size;
-
 
         case DNS_TYPE_OPENPGPKEY:
         default:
@@ -1518,10 +1497,9 @@ static int dns_resource_record_compare_func(const void *a, const void *b) {
         if (dns_resource_record_equal(x, y))
                 return 0;
 
-        /* This is a bit dirty, we don't implement proper ordering, but
-         * the hashtable doesn't need ordering anyway, hence we don't
-         * care. */
-        return x < y ? -1 : 1;
+        /* We still use CMP() here, even though don't implement proper
+         * ordering, since the hashtable doesn't need ordering anyway. */
+        return CMP(x, y);
 }
 
 const struct hash_ops dns_resource_record_hash_ops = {
@@ -1717,8 +1695,7 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                 break;
         }
 
-        t = copy;
-        copy = NULL;
+        t = TAKE_PTR(copy);
 
         return t;
 }
@@ -1806,6 +1783,22 @@ DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
         return copy;
 }
 
+int dns_txt_item_new_empty(DnsTxtItem **ret) {
+        DnsTxtItem *i;
+
+        /* RFC 6763, section 6.1 suggests to treat
+         * empty TXT RRs as equivalent to a TXT record
+         * with a single empty string. */
+
+        i = malloc0(offsetof(DnsTxtItem, data) + 1); /* for safety reasons we add an extra NUL byte */
+        if (!i)
+                return -ENOMEM;
+
+        *ret = i;
+
+        return 0;
+}
+
 static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
         /* Mnemonics as listed on https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
         [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
@@ -1820,6 +1813,8 @@ static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] =
         [DNSSEC_ALGORITHM_ECC_GOST]           = "ECC-GOST",
         [DNSSEC_ALGORITHM_ECDSAP256SHA256]    = "ECDSAP256SHA256",
         [DNSSEC_ALGORITHM_ECDSAP384SHA384]    = "ECDSAP384SHA384",
+        [DNSSEC_ALGORITHM_ED25519]            = "ED25519",
+        [DNSSEC_ALGORITHM_ED448]              = "ED448",
         [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
         [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
         [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",

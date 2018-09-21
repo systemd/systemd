@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <string.h>
 #include <syslog.h>
@@ -28,7 +10,8 @@
 
 int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         int a = 0, b = 0, c = 0;
-        int k;
+        const char *end;
+        size_t k;
 
         assert(p);
         assert(*p);
@@ -37,21 +20,22 @@ int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         if ((*p)[0] != '<')
                 return 0;
 
-        if (!strchr(*p, '>'))
+        end = strchr(*p, '>');
+        if (!end)
                 return 0;
 
-        if ((*p)[2] == '>') {
+        k = end - *p;
+        assert(k > 0);
+
+        if (k == 2)
                 c = undecchar((*p)[1]);
-                k = 3;
-        } else if ((*p)[3] == '>') {
+        else if (k == 3) {
                 b = undecchar((*p)[1]);
                 c = undecchar((*p)[2]);
-                k = 4;
-        } else if ((*p)[4] == '>') {
+        } else if (k == 4) {
                 a = undecchar((*p)[1]);
                 b = undecchar((*p)[2]);
                 c = undecchar((*p)[3]);
-                k = 5;
         } else
                 return 0;
 
@@ -64,7 +48,7 @@ int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         else
                 *priority = (*priority & LOG_FACMASK) | c;
 
-        *p += k;
+        *p += k + 1;
         return 1;
 }
 

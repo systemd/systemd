@@ -5,7 +5,8 @@ import argparse
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument('n', type=int)
 PARSER.add_argument('--dots', action='store_true')
-PARSER.add_argument('--data-size', type=int, default=4000)
+PARSER.add_argument('-m', '--message-size', type=int, default=200)
+PARSER.add_argument('-d', '--data-size', type=int, default=4000)
 PARSER.add_argument('--data-type', choices={'random', 'simple'})
 OPTIONS = PARSER.parse_args()
 
@@ -42,7 +43,9 @@ bytes = 0
 counter = 0
 
 for i in range(OPTIONS.n):
-    message = repr(src.read(2000))
+    message = src.read(OPTIONS.message_size)
+    message = repr(message)[2:-1]
+
     if OPTIONS.data_type == 'random':
         data = repr(src.read(OPTIONS.data_size))
     else:

@@ -1,42 +1,16 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_bus_new">
+<refentry id="sd_bus_new" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_new</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>A monkey with a typewriter</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -74,7 +48,7 @@
 
       <funcprototype>
         <funcdef>void <function>sd_bus_unrefp</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>busp</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -122,19 +96,21 @@
     block is left:</para>
 
     <programlisting>{
-        __attribute__((cleanup(sd_bus_unrefp)) sd_bus *bus = NULL;
-        int r;
-        …
-        r = sd_bus_default(&amp;bus);
-        if (r &lt; 0)
-                fprintf(stderr, "Failed to allocate bus: %s\n", strerror(-r));
-        …
+  __attribute__((cleanup(sd_bus_unrefp)) sd_bus *bus = NULL;
+  int r;
+  …
+  r = sd_bus_default(&amp;bus);
+  if (r &lt; 0)
+    fprintf(stderr, "Failed to allocate bus: %s\n", strerror(-r));
+  …
 }</programlisting>
 
-    <para><function>sd_bus_ref()</function>,
-    <function>sd_bus_unref()</function> and
-    <function>sd_bus_unrefp()</function> execute no operation if the
-    passed in bus object is <constant>NULL</constant>.</para>
+    <para><function>sd_bus_ref()</function> and <function>sd_bus_unref()</function>
+    execute no operation if the passed in bus object address is
+    <constant>NULL</constant>. <function>sd_bus_unrefp()</function> will first
+    dereference its argument, which must not be <constant>NULL</constant>, and will
+    execute no operation if <emphasis>that</emphasis> is <constant>NULL</constant>.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -165,15 +141,7 @@
     </variablelist>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para><function>sd_bus_new()</function> and other functions
-    described here are available as a shared library, which can be
-    compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

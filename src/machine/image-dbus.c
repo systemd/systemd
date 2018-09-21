@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sys/file.h>
 #include <sys/mount.h>
@@ -75,10 +57,10 @@ int bus_image_method_remove(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        child = fork();
-        if (child < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-        if (child == 0) {
+        r = safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+        if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
                 r = image_remove(image);
@@ -187,10 +169,10 @@ int bus_image_method_clone(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        child = fork();
-        if (child < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-        if (child == 0) {
+        r = safe_fork("(imgclone)", FORK_RESET_SIGNALS, &child);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+        if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
                 r = image_clone(image, new_name, read_only);
@@ -448,8 +430,10 @@ int image_object_find(sd_bus *bus, const char *path, const char *interface, void
         if (r < 0)
                 return r;
 
-        r = image_find(e, &image);
-        if (r <= 0)
+        r = image_find(IMAGE_MACHINE, e, &image);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return r;
 
         image->userdata = m;
@@ -491,7 +475,7 @@ int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char **
         if (!images)
                 return -ENOMEM;
 
-        r = image_discover(images);
+        r = image_discover(IMAGE_MACHINE, images);
         if (r < 0)
                 return r;
 
@@ -507,8 +491,7 @@ int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char **
                         return r;
         }
 
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return 1;
 }

@@ -9,7 +9,10 @@
 
 [Unit]
 Description=User Manager for UID %i
-After=systemd-user-sessions.service
+Documentation=man:user@.service(5)
+After=systemd-user-sessions.service user-runtime-dir@%i.service dbus.service
+Requires=user-runtime-dir@%i.service
+IgnoreOnIsolate=yes
 
 [Service]
 User=%i
@@ -18,6 +21,6 @@ Type=notify
 ExecStart=-@rootlibexecdir@/systemd --user
 Slice=user-%i.slice
 KillMode=mixed
-Delegate=yes
+Delegate=pids memory
 TasksMax=infinity
 TimeoutStopSec=120s

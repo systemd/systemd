@@ -1,0 +1,71 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+
+<refentry id="systemd-time-wait-sync.service" conditional='ENABLE_TIMESYNCD'>
+
+  <refentryinfo>
+    <title>systemd-time-wait-sync.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-time-wait-sync.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-time-wait-sync.service</refname>
+    <refname>systemd-time-wait-sync</refname>
+    <refpurpose>Wait Until Kernel Time Synchronized</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-time-wait-sync.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-time-wait-sync</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-time-wait-sync</filename> is a system service that delays the start of units that depend on
+    <filename>time-sync.target</filename> until the system time has been synchronized with an accurate time source by
+    <filename>systemd-timesyncd.service</filename>.</para>
+
+    <para><filename>systemd-timesyncd.service</filename> notifies on successful synchronization.
+    <filename>systemd-time-wait-sync</filename> also tries to detect when the kernel marks the time as synchronized,
+    but this detection is not reliable and is intended only as a fallback for other servies that can be used to
+    synchronize time (e.g., ntpd, chronyd).</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/run/systemd/timesync/synchronized</filename></term>
+
+        <listitem>
+          <para>The presence of this file indicates to this service that the system clock has been synchronized.</para>
+        </listitem>
+
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>

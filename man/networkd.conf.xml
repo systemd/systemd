@@ -1,26 +1,11 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
-  Copyright 2014 Vinay Kulkarni
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2014 Vinay Kulkarni
 -->
 
 <refentry id="networkd.conf" conditional='ENABLE_NETWORKD'
@@ -28,15 +13,6 @@
   <refentryinfo>
     <title>networkd.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Vinay</firstname>
-        <surname>Kulkarni</surname>
-        <email>kulkarniv@vmware.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -91,7 +67,7 @@
         <para>The following values are understood:
         <variablelist>
           <varlistentry>
-            <term><option>vendor</option> </term>
+            <term><option>vendor</option></term>
             <listitem><para>If <literal>DUIDType=vendor</literal>, then the DUID value will be generated using
             <literal>43793</literal> as the vendor identifier (systemd) and hashed contents of
             <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -100,11 +76,23 @@
           </varlistentry>
 
           <varlistentry>
-            <term><option>link-layer-time</option> </term>
-            <term><option>link-layer</option> </term>
-            <term><option>uuid</option> </term>
-            <listitem><para>Those values are parsed and can be used to set the DUID type
-            field, but DUID contents must be provided using <varname>DUIDRawData=</varname>.
+            <term><option>uuid</option></term>
+            <listitem><para>If <literal>DUIDType=uuid</literal>, and <varname>DUIDRawData=</varname> is not set,
+            then the product UUID is used as a DUID value. If a system does not have valid product UUID, then
+            an application-specific
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            is used as a DUID value. About the application-specific machine ID, see
+            <citerefentry><refentrytitle>sd_id128_get_machine_app_specific</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            </para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>link-layer-time[:<replaceable>TIME</replaceable>]</option></term>
+            <term><option>link-layer</option></term>
+            <listitem><para>If <literal>link-layer-time</literal> or <literal>link-layer</literal> is specified,
+            then the MAC address of the interface is used as a DUID value. The value <literal>link-layer-time</literal>
+            can take additional time value after a colon, e.g. <literal>link-layer-time:2018-01-23 12:34:56 UTC</literal>.
+            The default time value is <literal>2000-01-01 00:00:00 UTC</literal>.
             </para></listitem>
           </varlistentry>
         </variablelist>
@@ -120,8 +108,9 @@
         byte separated by <literal>:</literal>. The DUID that is sent is composed of the DUID type specified by
         <varname>DUIDType=</varname> and the value configured here.</para>
 
-        <para>The DUID value specified here overrides the DUID that systemd-networkd generates using the machine-id
-        from the <filename>/etc/machine-id</filename> file. To configure DUID per-network, see
+        <para>The DUID value specified here overrides the DUID that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        generates from the machine ID. To configure DUID per-network, see
         <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         The configured DHCP DUID should conform to the specification in
         <ulink url="http://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>,
@@ -149,7 +138,9 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
       <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_id128_get_machine_app_specific</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       </para>
   </refsect1>
 

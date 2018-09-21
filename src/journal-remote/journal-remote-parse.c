@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -45,7 +27,6 @@ void source_free(RemoteSource *source) {
  * ownership of fd, name, and writer, otherwise does not touch them.
  */
 RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer) {
-
         RemoteSource *source;
 
         log_debug("Creating source for %sfd:%d (%s)",
@@ -88,7 +69,10 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
         assert(source->importer.iovw.iovec);
 
         r = writer_write(source->writer, &source->importer.iovw, &source->importer.ts, compress, seal);
-        if (r < 0)
+        if (r == -EBADMSG) {
+                log_error_errno(r, "Entry is invalid, ignoring.");
+                r = 0;
+        } else if (r < 0)
                 log_error_errno(r, "Failed to write entry of %zu bytes: %m",
                                 iovw_size(&source->importer.iovw));
         else

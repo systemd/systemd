@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <alloca.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -69,9 +50,6 @@ static inline const char* enable_disable(bool b) {
 bool plymouth_running(void);
 
 bool display_is_local(const char *display) _pure_;
-int socket_from_display(const char *display, char **path);
-
-int block_get_whole_disk(dev_t d, dev_t *ret);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
@@ -86,20 +64,44 @@ bool kexec_loaded(void);
 
 int prot_from_flags(int flags) _const_;
 
-int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...);
-
 bool in_initrd(void);
 void in_initrd_force(bool value);
 
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
-                 int (*compar) (const void *, const void *, void *),
-                 void *arg);
+                 __compar_d_fn_t compar, void *arg);
+
+#define typesafe_bsearch_r(k, b, n, func, userdata)                     \
+        ({                                                              \
+                const typeof(b[0]) *_k = k;                             \
+                int (*_func_)(const typeof(b[0])*, const typeof(b[0])*, typeof(userdata)) = func; \
+                xbsearch_r((const void*) _k, (b), (n), sizeof((b)[0]), (__compar_d_fn_t) _func_, userdata); \
+        })
+
+/**
+ * Normal bsearch requires base to be nonnull. Here were require
+ * that only if nmemb > 0.
+ */
+static inline void* bsearch_safe(const void *key, const void *base,
+                                 size_t nmemb, size_t size, __compar_fn_t compar) {
+        if (nmemb <= 0)
+                return NULL;
+
+        assert(base);
+        return bsearch(key, base, nmemb, size, compar);
+}
+
+#define typesafe_bsearch(k, b, n, func)                                 \
+        ({                                                              \
+                const typeof(b[0]) *_k = k;                             \
+                int (*_func_)(const typeof(b[0])*, const typeof(b[0])*) = func; \
+                bsearch_safe((const void*) _k, (b), (n), sizeof((b)[0]), (__compar_fn_t) _func_); \
+        })
 
 /**
  * Normal qsort requires base to be nonnull. Here were require
  * that only if nmemb > 0.
  */
-static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_fn_t compar) {
+static inline void qsort_safe(void *base, size_t nmemb, size_t size, __compar_fn_t compar) {
         if (nmemb <= 1)
                 return;
 
@@ -107,14 +109,43 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_
         qsort(base, nmemb, size, compar);
 }
 
-/**
- * Normal memcpy requires src to be nonnull. We do nothing if n is 0.
- */
+/* A wrapper around the above, but that adds typesafety: the element size is automatically derived from the type and so
+ * is the prototype for the comparison function */
+#define typesafe_qsort(p, n, func)                                      \
+        ({                                                              \
+                int (*_func_)(const typeof(p[0])*, const typeof(p[0])*) = func; \
+                qsort_safe((p), (n), sizeof((p)[0]), (__compar_fn_t) _func_); \
+        })
+
+static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, __compar_d_fn_t compar, void *userdata) {
+        if (nmemb <= 1)
+                return;
+
+        assert(base);
+        qsort_r(base, nmemb, size, compar, userdata);
+}
+
+#define typesafe_qsort_r(p, n, func, userdata)                          \
+        ({                                                              \
+                int (*_func_)(const typeof(p[0])*, const typeof(p[0])*, typeof(userdata)) = func; \
+                qsort_r_safe((p), (n), sizeof((p)[0]), (__compar_d_fn_t) _func_, userdata); \
+        })
+
+/* Normal memcpy requires src to be nonnull. We do nothing if n is 0. */
 static inline void memcpy_safe(void *dst, const void *src, size_t n) {
         if (n == 0)
                 return;
         assert(src);
         memcpy(dst, src, n);
+}
+
+/* Normal memcmp requires s1 and s2 to be nonnull. We do nothing if n is 0. */
+static inline int memcmp_safe(const void *s1, const void *s2, size_t n) {
+        if (n == 0)
+                return 0;
+        assert(s1);
+        assert(s2);
+        return memcmp(s1, s2, n);
 }
 
 int on_ac_power(void);
@@ -190,9 +221,8 @@ uint64_t physical_memory_scale(uint64_t v, uint64_t max);
 uint64_t system_tasks_max(void);
 uint64_t system_tasks_max_scale(uint64_t v, uint64_t max);
 
-int update_reboot_parameter_and_warn(const char *param);
-
 int version(void);
 
-int get_block_device(const char *path, dev_t *dev);
-int get_block_device_harder(const char *path, dev_t *dev);
+int str_verscmp(const char *s1, const char *s2);
+
+void disable_coredumps(void);

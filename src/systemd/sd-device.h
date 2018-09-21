@@ -3,11 +3,6 @@
 #define foosddevicehfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2014-2015 Tom Gundersen <teg@jklm.no>
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -73,7 +68,7 @@ int sd_device_has_tag(sd_device *device, const char *tag);
 int sd_device_get_property_value(sd_device *device, const char *key, const char **value);
 int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **_value);
 
-int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, char *value);
+int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *value);
 
 /* device enumerator */
 

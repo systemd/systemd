@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <dirent.h>
 #include <errno.h>
@@ -29,6 +11,10 @@
 #include "path-util.h"
 #include "strv.h"
 
+static void closedir_wrapper(void* v) {
+        (void) closedir(v);
+}
+
 int safe_glob(const char *path, int flags, glob_t *pglob) {
         int k;
 
@@ -36,7 +22,7 @@ int safe_glob(const char *path, int flags, glob_t *pglob) {
         assert(!(flags & GLOB_ALTDIRFUNC));
 
         if (!pglob->gl_closedir)
-                pglob->gl_closedir = (void (*)(void *)) closedir;
+                pglob->gl_closedir = closedir_wrapper;
         if (!pglob->gl_readdir)
                 pglob->gl_readdir = (struct dirent *(*)(void *)) readdir_no_dot;
         if (!pglob->gl_opendir)

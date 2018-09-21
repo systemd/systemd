@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
- ***/
 
 #include <netinet/in.h>
 #include <resolv.h>
@@ -100,10 +82,16 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
         if (r <= 0)
                 return r;
 
+        if (manager_our_packet(m, p))
+                return 0;
+
         scope = manager_find_scope(m, p);
-        if (!scope)
-                log_warning("Got LLMNR UDP packet on unknown scope. Ignoring.");
-        else if (dns_packet_validate_reply(p) > 0) {
+        if (!scope) {
+                log_debug("Got LLMNR UDP packet on unknown scope. Ignoring.");
+                return 0;
+        }
+
+        if (dns_packet_validate_reply(p) > 0) {
                 log_debug("Got LLMNR UDP reply packet for id %u", DNS_PACKET_ID(p));
 
                 dns_scope_check_conflicts(scope, p);
@@ -327,7 +315,7 @@ static int on_llmnr_stream_packet(DnsStream *s) {
 
         scope = manager_find_scope(s->manager, s->read_packet);
         if (!scope)
-                log_warning("Got LLMNR TCP packet on unknown scope. Ignoring.");
+                log_debug("Got LLMNR TCP packet on unknown scope. Ignoring.");
         else if (dns_packet_validate_query(s->read_packet) > 0) {
                 log_debug("Got LLMNR TCP query packet for id %u", DNS_PACKET_ID(s->read_packet));
 
@@ -352,7 +340,7 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
                 return -errno;
         }
 
-        r = dns_stream_new(m, &stream, DNS_PROTOCOL_LLMNR, cfd);
+        r = dns_stream_new(m, &stream, DNS_PROTOCOL_LLMNR, cfd, NULL);
         if (r < 0) {
                 safe_close(cfd);
                 return r;

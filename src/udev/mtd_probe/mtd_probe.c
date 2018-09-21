@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2010 - Maxim Levitsky
+ * Copyright © 2010 - Maxim Levitsky
  *
  * mtd_probe is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
  * Boston, MA  02110-1301  USA
  */
 
+#include <errno.h>
 #include <fcntl.h>
 #include <mtd/mtd-user.h>
 #include <stdio.h>
@@ -27,31 +28,32 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "mtd_probe.h"
 
-int main(int argc, char** argv)
-{
-        int mtd_fd;
-        int error;
+int main(int argc, char** argv) {
+        _cleanup_close_ int mtd_fd = -1;
         mtd_info_t mtd_info;
 
         if (argc != 2) {
                 printf("usage: mtd_probe /dev/mtd[n]\n");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         mtd_fd = open(argv[1], O_RDONLY|O_CLOEXEC);
-        if (mtd_fd == -1) {
-                perror("open");
-                exit(-1);
+        if (mtd_fd < 0) {
+                log_error_errno(errno, "Failed to open: %m");
+                return EXIT_FAILURE;
         }
 
-        error = ioctl(mtd_fd, MEMGETINFO, &mtd_info);
-        if (error == -1) {
-                perror("ioctl");
-                exit(-1);
+        if (ioctl(mtd_fd, MEMGETINFO, &mtd_info) < 0) {
+                log_error_errno(errno, "Failed to issue MEMGETINFO ioctl: %m");
+                return EXIT_FAILURE;
         }
 
-        probe_smart_media(mtd_fd, &mtd_info);
-        return -1;
+        if (probe_smart_media(mtd_fd, &mtd_info) < 0)
+                return EXIT_FAILURE;
+
+        return EXIT_SUCCESS;
 }

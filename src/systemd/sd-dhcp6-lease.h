@@ -3,10 +3,7 @@
 #define foosddhcp6leasehfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Tom Gundersen
-  Copyright (C) 2014-2015 Intel Corporation. All rights reserved.
+  Copyright © 2014-2015 Intel Corporation. All rights reserved.
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -36,6 +33,11 @@ int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease,
                                struct in6_addr *addr,
                                uint32_t *lifetime_preferred,
                                uint32_t *lifetime_valid);
+void sd_dhcp6_lease_reset_pd_prefix_iter(sd_dhcp6_lease *lease);
+int sd_dhcp6_lease_get_pd(sd_dhcp6_lease *lease, struct in6_addr *prefix,
+                          uint8_t *prefix_len,
+                          uint32_t *lifetime_preferred,
+                          uint32_t *lifetime_valid);
 
 int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, struct in6_addr **addrs);
 int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***domains);

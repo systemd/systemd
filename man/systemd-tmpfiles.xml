@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-tmpfiles"
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>systemd-tmpfiles</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -62,10 +36,16 @@
       <arg choice="opt" rep="repeat"><replaceable>CONFIGFILE</replaceable></arg>
     </cmdsynopsis>
 
-    <para><filename>systemd-tmpfiles-setup.service</filename></para>
-    <para><filename>systemd-tmpfiles-setup-dev.service</filename></para>
-    <para><filename>systemd-tmpfiles-clean.service</filename></para>
-    <para><filename>systemd-tmpfiles-clean.timer</filename></para>
+    <para>System units:
+<literallayout><filename>systemd-tmpfiles-setup.service</filename>
+<filename>systemd-tmpfiles-setup-dev.service</filename>
+<filename>systemd-tmpfiles-clean.service</filename>
+<filename>systemd-tmpfiles-clean.timer</filename></literallayout></para>
+
+    <para>User units:
+<literallayout><filename>systemd-tmpfiles-setup.service</filename>
+<filename>systemd-tmpfiles-clean.service</filename>
+<filename>systemd-tmpfiles-clean.timer</filename></literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -78,12 +58,16 @@
     </para>
 
     <para>If invoked with no arguments, it applies all directives from all configuration
-    files. If one or more absolute filenames are passed on the command line, only the
-    directives in these files are applied.  If <literal>-</literal> is specified instead
-    of a filename, directives are read from standard input.  If only the basename of a
-    configuration file is specified, all configuration directories as specified in
+    files. When invoked with <option>--replace=<replaceable>PATH</replaceable></option>,
+    arguments specified on the command line are used instead of the configuration file
+    <replaceable>PATH</replaceable>. Otherwise, if one or more absolute filenames are
+    passed on the command line, only the directives in these files are applied. If
+    <literal>-</literal> is specified instead of a filename, directives are read from
+    standard input. If only the basename of a configuration file is specified, all
+    configuration directories as specified in
     <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    are searched for a matching file.</para>
+    are searched for a matching file and the file found that has the highest priority is
+    executed.</para>
   </refsect1>
 
   <refsect1>
@@ -115,7 +99,7 @@
         <varname>T</varname>,
         <varname>a</varname>, and
         <varname>A</varname> have their ownership, access mode and
-        security labels set. </para></listitem>
+        security labels set.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -133,11 +117,19 @@
         marked with <varname>r</varname> or <varname>R</varname> are
         removed.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--user</option></term>
+        <listitem><para>Execute "user" configuration, i.e. <filename>tmpfiles.d</filename>
+        files in user configuration directories.</para></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><option>--boot</option></term>
         <listitem><para>Also execute lines with an exclamation mark.
         </para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--prefix=<replaceable>path</replaceable></option></term>
         <listitem><para>Only apply rules with paths that start with
@@ -162,6 +154,24 @@
         consulted.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--replace=<replaceable>PATH</replaceable></option></term>
+        <listitem><para>When this option is given, one ore more positional arguments
+        must be specified. All configuration files found in the directories listed in
+        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        will be read, and the configuration given on the command line will be
+        handled instead of and with the same priority as the configuration file
+        <replaceable>PATH</replaceable>.</para>
+
+        <para>This option is intended to be used when package installation scripts
+        are running and files belonging to that package are not yet available on
+        disk, so their contents must be given on the command line, but the admin
+        configuration might already exist and should be given higher priority.
+        </para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="cat-config" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -181,7 +191,7 @@
 
     <para><command>systemd-tmpfiles</command> tries to avoid changing
     the access and modification times on the directories it accesses,
-    which requires <constant>CAP_ADMIN</constant> privileges. When
+    which requires <constant>CAP_FOWNER</constant> privileges. When
     running as non-root, directories which are checked for files to
     clean up will have their access time bumped, which might prevent
     their cleanup.
@@ -191,8 +201,16 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure code
-    otherwise.</para>
+    <para>On success, 0 is returned. If the configuration was syntactically invalid (syntax errors,
+    missing arguments, …), so some lines had to be ignored, but no other errors occurred,
+    <constant>65</constant> is returned (<constant>EX_DATAERR</constant> from
+    <filename>/usr/include/sysexits.h</filename>). If the configuration was syntactically valid, but
+    could not be executed (lack of permissions, creation of files in missing directories, invalid
+    contents when writing to <filename>/sys/</filename> values, …), <constant>73</constant> is
+    returned (<constant>EX_CANTCREAT</constant> from <filename>/usr/include/sysexits.h</filename>).
+    Otherwise, <constant>1</constant> is returned (<constant>EXIT_FAILURE</constant> from
+    <filename>/usr/include/stdlib.h</filename>).
+    </para>
   </refsect1>
 
   <refsect1>

@@ -1,19 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 in_files = ['basic.conf']
 
@@ -41,7 +26,7 @@ foreach file : m4_files
                 'sysusers.d_' + file,
                 input : file + '.m4',
                 output: file,
-                command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+                command : [meson_apply_m4, config_h, '@INPUT@'],
                 capture : true,
                 install : enable_sysusers,
                 install_dir : sysusersdir)

@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # German translation for systemd.
-# Copyright (C) 2014 systemd's COPYRIGHT HOLDER
 # This file is distributed under the same license as the systemd package.
 # Christian Kirbach <Christian.Kirbach@gmail.com>, 2014, 2015.
 # Benjamin Steinwender <b@stbe.at>, 2014.

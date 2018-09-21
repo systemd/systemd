@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
@@ -7,23 +7,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemctl"
@@ -32,15 +15,6 @@
   <refentryinfo>
     <title>systemctl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -58,7 +32,7 @@
       <command>systemctl</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">COMMAND</arg>
-      <arg choice="opt" rep="repeat">NAME</arg>
+      <arg choice="opt" rep="repeat">UNIT</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -340,18 +314,13 @@
         <term><option>--ignore-inhibitors</option></term>
 
         <listitem>
-          <para>When system shutdown or a sleep state is requested,
-          ignore inhibitor locks. Applications can establish inhibitor
-          locks to avoid that certain important operations (such as CD
-          burning or suchlike) are interrupted by system shutdown or a
-          sleep state. Any user may take these locks and privileged
-          users may override these locks. If any locks are taken,
-          shutdown and sleep state requests will normally fail
-          (regardless of whether privileged or not) and a list of active locks
-          is printed. However, if <option>--ignore-inhibitors</option>
-          is specified, the locks are ignored and not printed, and the
-          operation attempted anyway, possibly requiring additional
-          privileges.</para>
+          <para>When system shutdown or a sleep state is requested, ignore inhibitor locks. Applications can establish
+          inhibitor locks to avoid that certain important operations (such as CD burning or suchlike) are interrupted
+          by system shutdown or a sleep state. Any user may take these locks and privileged users may override these
+          locks. If any locks are taken, shutdown and sleep state requests will normally fail (unless privileged) and a
+          list of active locks is printed. However, if <option>--ignore-inhibitors</option> is specified, the
+          established locks are ignored and not shown, and the operation attempted anyway, possibly requiring
+          additional privileges.</para>
         </listitem>
       </varlistentry>
 
@@ -403,6 +372,9 @@
           Note that this will wait forever if any given unit never terminates
           (by itself or by getting stopped explicitly); particularly services
           which use <literal>RemainAfterExit=yes</literal>.</para>
+
+          <para>When used with <command>is-system-running</command>, wait
+          until the boot process is completed before returning.</para>
         </listitem>
       </varlistentry>
 
@@ -583,19 +555,19 @@
         <term><option>--runtime</option></term>
 
         <listitem>
-          <para>When used with <command>enable</command>,
-          <command>disable</command>, <command>edit</command>,
-          (and related commands), make changes only temporarily, so
-          that they are lost on the next reboot. This will have the
-          effect that changes are not made in subdirectories of
-          <filename>/etc</filename> but in <filename>/run</filename>,
-          with identical immediate effects, however, since the latter
+          <para>When used with <command>set-property</command>, make changes only
+          temporarily, so that they are lost on the next reboot.</para>
+
+          <para>Similarily, when used with <command>enable</command>, <command>mask</command>,
+          <command>edit</command> and related commands, make temporary changes, which are lost on
+          the next reboot. Changes are not made in subdirectories of <filename>/etc</filename>, but
+          in <filename>/run</filename>. The immediate effect is identical, however since the latter
           is lost on reboot, the changes are lost too.</para>
 
-          <para>Similarly, when used with
-          <command>set-property</command>, make changes only
-          temporarily, so that they are lost on the next
-          reboot.</para>
+          <para>Note: this option cannot be used with <command>disable</command>,
+          <command>unmask</command>, <command>preset</command>, or <command>preset-all</command>,
+          because those operations sometimes need to remove symlinks under <filename>/etc</filename>
+          to have the desired effect, which would cause a persistent change.</para>
         </listitem>
       </varlistentry>
 
@@ -681,7 +653,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><command>list-units <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-units</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List units that <command>systemd</command> currently has in memory. This includes units that are
@@ -692,12 +664,44 @@
             that are shown are additionally filtered by <option>--type=</option> and <option>--state=</option> if those
             options are specified.</para>
 
+            <para>Produces output similar to
+            <programlisting>  UNIT                         LOAD   ACTIVE SUB     DESCRIPTION
+  sys-module-fuse.device       loaded active plugged /sys/module/fuse
+  -.mount                      loaded active mounted Root Mount
+  boot-efi.mount               loaded active mounted /boot/efi
+  systemd-journald.service     loaded active running Journal Service
+  systemd-logind.service       loaded active running Login Service
+● user@1000.service            loaded failed failed  User Manager for UID 1000
+  …
+  systemd-tmpfiles-clean.timer loaded active waiting Daily Cleanup of Temporary Directories
+
+LOAD   = Reflects whether the unit definition was properly loaded.
+ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
+SUB    = The low-level unit activation state, values depend on unit type.
+
+123 loaded units listed. Pass --all to see loaded but inactive units, too.
+To show all installed unit files use 'systemctl list-unit-files'.
+            </programlisting>
+            The header and the last unit of a given type are underlined if the
+            terminal supports that. A colored dot is shown next to services which
+            were masked, not found, or otherwise failed.</para>
+
+            <para>The LOAD column shows the load state, one of <constant>loaded</constant>,
+            <constant>not-found</constant>, <constant>bad-setting</constant>, <constant>error</constant>,
+            <constant>masked</constant>. The ACTIVE columns shows the general unit state, one of
+            <constant>active</constant>, <constant>reloading</constant>, <constant>inactive</constant>,
+            <constant>failed</constant>, <constant>activating</constant>, <constant>deactivating</constant>. The SUB
+            column shows the unit-type-specific detailed state of the unit, possible values vary by unit type. The list
+            of possible LOAD, ACTIVE, and SUB states is not constant and new systemd releases may both add and remove
+            values. <programlisting>systemctl --state=help</programlisting> command maybe be used to display the
+            current set of possible values.</para>
+
             <para>This is the default command.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-sockets <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-sockets</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List socket units currently in memory, ordered by listening address.  If one or more
@@ -720,7 +724,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-timers <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-timers</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List timer units currently in memory, ordered by the time they elapse next. If one or more
@@ -738,7 +742,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             <para><emphasis>NEXT</emphasis> shows the next time the timer will run.</para>
             <para><emphasis>LEFT</emphasis> shows how long till the next time the timer runs.</para>
             <para><emphasis>LAST</emphasis> shows the last time the timer ran.</para>
-            <para><emphasis>PASSED</emphasis> shows has long as passed since the timer laset ran.</para>
+            <para><emphasis>PASSED</emphasis> shows how long has passed since the timer last ran.</para>
             <para><emphasis>UNIT</emphasis> shows the name of the timer</para>
             <para><emphasis>ACTIVATES</emphasis> shows the name the service the timer activates when it runs.</para>
 
@@ -797,7 +801,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
 
             <para>Note that restarting a unit with this command does not necessarily flush out all of the unit's
             resources before it is started again. For example, the per-service file descriptor storage facility (see
-            <varname>FileDescriptoreStoreMax=</varname> in
+            <varname>FileDescriptorStoreMax=</varname> in
             <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>) will
             remain intact as long as the unit has a job pending, and is only cleared when the unit is fully stopped and
             no jobs are pending anymore. If it is intended that the file descriptor store is flushed out, too, during a
@@ -835,7 +839,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>isolate <replaceable>NAME</replaceable></command></term>
+          <term><command>isolate <replaceable>UNIT</replaceable></command></term>
 
           <listitem>
             <para>Start the unit specified on the command line and its dependencies
@@ -917,7 +921,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             convenient.
             </para>
 
-            <para>Systemd implicitly loads units as necessary, so just running the <command>status</command> will
+            <para>systemd implicitly loads units as necessary, so just running the <command>status</command> will
             attempt to load a file. The command is thus not useful for determining if something was already loaded or
             not.  The units may possibly also be quickly unloaded after the operation is completed if there's no reason
             to keep it in memory thereafter.
@@ -952,10 +956,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
             memory. Other possible values for "Loaded:" include: <literal>error</literal> if there was a problem
-            loading it, <literal>not-found</literal>, and <literal>masked</literal>. Along with showing the path to
-            the unit file, this line will also show the enablement state.  Enabled commands start at boot.  See the
-            full table of possible enablement states — including the definition of <literal>masked</literal> — in the
-            documentation for the <command>is-enabled</command> command.
+            loading it, <literal>not-found</literal> if not unit file was found for this unit,
+            <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
+            <literal>masked</literal> if the unit file has been masked. Along with showing the path to the unit file,
+            this line will also show the enablement state.  Enabled commands start at boot.  See the full table of
+            possible enablement states — including the definition of <literal>masked</literal> — in the documentation
+            for the <command>is-enabled</command> command.
             </para>
 
             <para>The "Active:" line shows active state.  The value is usually <literal>active</literal> or
@@ -1004,7 +1010,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>set-property <replaceable>NAME</replaceable> <replaceable>ASSIGNMENT</replaceable>…</command></term>
+          <term><command>set-property <replaceable>UNIT</replaceable> <replaceable>PROPERTY</replaceable>=<replaceable>VALUE</replaceable>…</command></term>
 
           <listitem>
             <para>Set the specified unit properties at runtime where
@@ -1013,7 +1019,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             runtime. Not all properties may be changed at runtime, but
             many resource control settings (primarily those in
             <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
-            may. The changes are applied instantly, and stored on disk
+            may. The changes are applied immediately, and stored on disk
             for future boots, unless <option>--runtime</option> is
             passed, in which case the settings only apply until the
             next reboot. The syntax of the property assignment follows
@@ -1028,9 +1034,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>Note that this command allows changing multiple
             properties at the same time, which is preferable over
-            setting them individually. Like unit file configuration
-            settings, assigning the empty list to list parameters will
-            reset the list.</para>
+            setting them individually. Like with unit file configuration
+            settings, assigning an empty list will reset the property.
+            </para>
           </listitem>
         </varlistentry>
 
@@ -1059,7 +1065,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <varlistentry>
           <term>
             <command>list-dependencies</command>
-            <optional><replaceable>NAME</replaceable></optional>
+            <optional><replaceable>UNIT</replaceable></optional>
           </term>
 
           <listitem>
@@ -1090,7 +1096,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
       <variablelist>
         <varlistentry>
-          <term><command>list-unit-files <optional><replaceable>PATTERN…</replaceable></optional></command></term>
+          <term><command>list-unit-files</command> <optional><replaceable>PATTERN…</replaceable></optional></term>
 
           <listitem>
             <para>List unit files installed on the system, in combination with their enablement state (as reported by
@@ -1101,7 +1107,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>enable <replaceable>NAME</replaceable>…</command></term>
+          <term><command>enable <replaceable>UNIT</replaceable>…</command></term>
           <term><command>enable <replaceable>PATH</replaceable>…</command></term>
 
           <listitem>
@@ -1120,7 +1126,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             automatically searched for unit files with appropriate names), or absolute paths to unit files (in which
             case these files are read directly). If a specified unit file is located outside of the usual unit file
             directories, an additional symlink is created, linking it into the unit configuration path, thus ensuring
-            it is found when requested by commands such as <command>start</command>.</para>
+            it is found when requested by commands such as <command>start</command>. The file system where the linked
+            unit files are located must be accessible when systemd is started (e.g. anything underneath
+            <filename>/home</filename> or <filename>/var</filename> is not allowed, unless those directories are
+            located on the root file system).</para>
 
             <para>This command will print the file system operations executed. This output may be suppressed by passing
             <option>--quiet</option>.
@@ -1152,7 +1161,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>disable <replaceable>NAME</replaceable>…</command></term>
+          <term><command>disable <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Disables one or more units. This removes all symlinks to the unit files backing the specified units
@@ -1184,7 +1193,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>reenable <replaceable>NAME</replaceable>…</command></term>
+          <term><command>reenable <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Reenable one or more units, as specified on the command line. This is a combination of
@@ -1195,7 +1204,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>preset <replaceable>NAME</replaceable>…</command></term>
+          <term><command>preset <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Reset the enable/disable status one or more unit files, as specified on
@@ -1208,7 +1217,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             enabled and disabled, or only enabled, or only disabled.</para>
 
             <para>If the unit carries no install information, it will be silently ignored
-            by this command. <replaceable>NAME</replaceable> must be the real unit name,
+            by this command. <replaceable>UNIT</replaceable> must be the real unit name,
             any alias names are ignored silently.</para>
 
             <para>For more information on the preset policy format, see
@@ -1233,7 +1242,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>is-enabled <replaceable>NAME</replaceable>…</command></term>
+          <term><command>is-enabled <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Checks whether any of the specified unit files are
@@ -1320,7 +1329,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>mask <replaceable>NAME</replaceable>…</command></term>
+          <term><command>mask <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Mask one or more units, as specified on the command line. This will link these unit files to
@@ -1334,7 +1343,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>unmask <replaceable>NAME</replaceable>…</command></term>
+          <term><command>unmask <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Unmask one or more unit files, as specified on the command line. This will undo the effect of
@@ -1350,12 +1359,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Link a unit file that is not in the unit file search paths into the unit file search path. This
             command expects an absolute path to a unit file. The effect of this may be undone with
             <command>disable</command>. The effect of this command is that a unit file is made available for commands
-            such as <command>start</command>, even though it is not installed directly in the unit search path.</para>
+            such as <command>start</command>, even though it is not installed directly in the unit search path. The
+            file system where the linked unit files are located must be accessible when systemd is started
+            (e.g. anything underneath <filename>/home</filename> or <filename>/var</filename> is not allowed, unless
+            those directories are located on the root file system).</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><command>revert <replaceable>NAME</replaceable>…</command></term>
+          <term><command>revert <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Revert one or more unit files to their vendor versions. This command removes drop-in configuration
@@ -1378,9 +1390,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <varlistentry>
           <term><command>add-wants <replaceable>TARGET</replaceable>
-          <replaceable>NAME</replaceable>…</command></term>
+          <replaceable>UNIT</replaceable>…</command></term>
           <term><command>add-requires <replaceable>TARGET</replaceable>
-          <replaceable>NAME</replaceable>…</command></term>
+          <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Adds <literal>Wants=</literal> or <literal>Requires=</literal>
@@ -1396,7 +1408,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>edit <replaceable>NAME</replaceable>…</command></term>
+          <term><command>edit <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Edit a drop-in snippet or a whole replacement file if
@@ -1446,7 +1458,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>set-default <replaceable>NAME</replaceable></command></term>
+          <term><command>set-default <replaceable>TARGET</replaceable></command></term>
 
           <listitem>
             <para>Set the default target to boot into. This sets
@@ -1463,7 +1475,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
       <variablelist>
         <varlistentry>
-          <term><command>list-machines <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-machines</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List the host and all running local containers with
@@ -1627,6 +1639,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             output, see the table below. Use <option>--quiet</option> to
             suppress this output.</para>
 
+            <para>Use <option>--wait</option> to wait until the boot
+            process is completed before printing the current state and
+            returning the appropriate error status. If <option>--wait</option>
+            is in use, states <varname>initializing</varname> or
+            <varname>starting</varname> will not be reported, instead
+            the command will block until a later state (such as
+            <varname>running</varname> or <varname>degraded</varname>)
+            is reached.</para>
+
             <table>
               <title><command>is-system-running</command> output</title>
               <tgroup cols='3'>
@@ -1765,7 +1786,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reboot <optional><replaceable>arg</replaceable></optional></command></term>
+          <term><command>reboot</command> <optional><replaceable>arg</replaceable></optional></term>
 
           <listitem>
             <para>Shut down and reboot the system. This is mostly equivalent to <command>systemctl start reboot.target
@@ -1805,7 +1826,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>exit <optional><replaceable>EXIT_CODE</replaceable></optional></command></term>
+          <term><command>exit</command> <optional><replaceable>EXIT_CODE</replaceable></optional></term>
 
           <listitem>
             <para>Ask the service manager to quit. This is only supported for user service managers (i.e. in
@@ -1819,7 +1840,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>switch-root <replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></command></term>
+          <term><command>switch-root</command> <replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></term>
 
           <listitem>
             <para>Switches to a different root directory and executes a new system manager process below it. This is
@@ -1869,7 +1890,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
     <refsect2>
       <title>Parameter Syntax</title>
 
-      <para>Unit commands listed above take either a single unit name (designated as <replaceable>NAME</replaceable>),
+      <para>Unit commands listed above take either a single unit name (designated as <replaceable>UNIT</replaceable>),
       or multiple unit specifications (designated as <replaceable>PATTERN</replaceable>…). In the first case, the
       unit name with or without a suffix must be given. If the suffix is not specified (unit name is "abbreviated"),
       systemctl will append a suitable suffix, <literal>.service</literal> by default, and a type-specific suffix in
@@ -1906,7 +1927,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       in memory are not considered for glob expansion.
       </para>
 
-      <para>For unit file commands, the specified <replaceable>NAME</replaceable> should be the name of the unit file
+      <para>For unit file commands, the specified <replaceable>UNIT</replaceable> should be the name of the unit file
       (possibly abbreviated, see above), or the absolute path to the unit file:
       <programlisting># systemctl enable foo.service</programlisting>
       or

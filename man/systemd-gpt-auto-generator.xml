@@ -3,38 +3,12 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 <refentry id="systemd-gpt-auto-generator">
 
   <refentryinfo>
     <title>systemd-gpt-auto-generator</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -62,8 +36,9 @@
     generator that automatically discovers root,
     <filename>/home</filename>, <filename>/srv</filename> and swap
     partitions and creates mount and swap units for them, based on the
-    partition type GUIDs of GUID partition tables (GPT). It implements
-    the <ulink
+    partition type GUIDs of GUID partition tables (GPT),
+    see <ulink url="http://www.uefi.org/specifications">UEFI Specification</ulink>, chapter 5.
+    It implements the <ulink
     url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
     Partitions Specification</ulink>. Note that this generator has no
     effect on non-GPT systems, or where the directories under the
@@ -78,13 +53,13 @@
     same physical disk the EFI System Partition (ESP) is located on.
     It will only look for the other partitions on the same physical
     disk the root file system is located on. These partitions will not
-    be searched on systems where the root file system is distributed
+    be searched for on systems where the root file system is distributed
     on multiple disks, for example via btrfs RAID.</para>
 
     <para><filename>systemd-gpt-auto-generator</filename> is useful
     for centralizing file system configuration in the partition table
-    and making manual configuration in <filename>/etc/fstab</filename>
-    or suchlike unnecessary.</para>
+    and making configuration in <filename>/etc/fstab</filename> unnecessary.
+    </para>
 
     <para>This generator looks for the partitions based on their
     partition type GUID. The following partition type GUIDs are
@@ -148,6 +123,48 @@
             <entry>c12a7328-f81f-11d2-ba4b-00a0c93ec93b</entry>
             <entry>EFI System Partition (ESP)</entry>
             <entry>The first ESP located on the disk the root partition is located on is mounted to <filename>/boot</filename> or <filename>/efi</filename>, see below.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>This generator understands the following attribute flags for partitions:</para>
+
+    <table>
+      <title>Partition Attributes</title>
+      <tgroup cols='4' align='left' colsep='1' rowsep='1'>
+        <colspec colname="attribute" />
+        <colspec colname="value" />
+        <colspec colname="where" />
+        <colspec colname="explanation" />
+        <thead>
+          <row>
+            <entry>Name</entry>
+            <entry>Value</entry>
+            <entry>Applicable to</entry>
+            <entry>Explanation</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><constant>GPT_FLAG_READ_ONLY</constant></entry>
+            <entry>0x1000000000000000</entry>
+            <entry><filename>/</filename>, <filename>/srv</filename>, <filename>/home</filename></entry>
+            <entry>Partition is mounted read-only</entry>
+          </row>
+
+          <row>
+            <entry><constant>GPT_FLAG_NO_AUTO</constant></entry>
+            <entry>0x8000000000000000</entry>
+            <entry><filename>/</filename>, <filename>/srv</filename>, <filename>/home</filename></entry>
+            <entry>Partition is not mounted automatically</entry>
+          </row>
+
+          <row>
+            <entry><constant>GPT_FLAG_NO_BLOCK_IO_PROTOCOL</constant></entry>
+            <entry>0x0000000000000002</entry>
+            <entry>ESP</entry>
+            <entry>Partition is not mounted automatically</entry>
           </row>
         </tbody>
       </tgroup>

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdbool.h>
@@ -29,11 +11,14 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "user-util.h"
 
-int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, bool follow_symlink, mkdir_func_t _mkdir) {
+int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdir_func_t _mkdir) {
         struct stat st;
         int r;
+
+        assert(_mkdir != mkdir);
 
         if (_mkdir(path, mode) >= 0) {
                 r = chmod_and_chown(path, mode, uid, gid);
@@ -44,32 +29,65 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, boo
         if (lstat(path, &st) < 0)
                 return -errno;
 
-        if (follow_symlink && S_ISLNK(st.st_mode)) {
+        if ((flags & MKDIR_FOLLOW_SYMLINK) && S_ISLNK(st.st_mode)) {
                 _cleanup_free_ char *p = NULL;
 
                 r = chase_symlinks(path, NULL, CHASE_NONEXISTENT, &p);
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return mkdir_safe_internal(p, mode, uid, gid, false, _mkdir);
+                        return mkdir_safe_internal(p, mode, uid, gid,
+                                                   flags & ~MKDIR_FOLLOW_SYMLINK,
+                                                   _mkdir);
 
                 if (lstat(p, &st) < 0)
                         return -errno;
         }
 
+        if (!S_ISDIR(st.st_mode)) {
+                log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
+                         "Path \"%s\" already exists and is not a directory, refusing.", path);
+                return -ENOTDIR;
+        }
         if ((st.st_mode & 0007) > (mode & 0007) ||
             (st.st_mode & 0070) > (mode & 0070) ||
-            (st.st_mode & 0700) > (mode & 0700) ||
-            (uid != UID_INVALID && st.st_uid != uid) ||
-            (gid != GID_INVALID && st.st_gid != gid) ||
-            !S_ISDIR(st.st_mode))
+            (st.st_mode & 0700) > (mode & 0700)) {
+                log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
+                         "Directory \"%s\" already exists, but has mode %04o that is too permissive (%04o was requested), refusing.",
+                         path, st.st_mode & 0777, mode);
                 return -EEXIST;
+        }
+        if ((uid != UID_INVALID && st.st_uid != uid) ||
+            (gid != GID_INVALID && st.st_gid != gid)) {
+                char u[DECIMAL_STR_MAX(uid_t)] = "-", g[DECIMAL_STR_MAX(gid_t)] = "-";
+
+                if (uid != UID_INVALID)
+                        xsprintf(u, UID_FMT, uid);
+                if (gid != UID_INVALID)
+                        xsprintf(g, GID_FMT, gid);
+                log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
+                         "Directory \"%s\" already exists, but is owned by "UID_FMT":"GID_FMT" (%s:%s was requested), refusing.",
+                         path, st.st_uid, st.st_gid, u, g);
+                return -EEXIST;
+        }
 
         return 0;
 }
 
-int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, bool follow_symlink) {
-        return mkdir_safe_internal(path, mode, uid, gid, follow_symlink, mkdir);
+int mkdir_errno_wrapper(const char *pathname, mode_t mode) {
+        if (mkdir(pathname, mode) < 0)
+                return -errno;
+        return 0;
+}
+
+int mkdirat_errno_wrapper(int dirfd, const char *pathname, mode_t mode) {
+        if (mkdirat(dirfd, pathname, mode) < 0)
+                return -errno;
+        return 0;
+}
+
+int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
+        return mkdir_safe_internal(path, mode, uid, gid, flags, mkdir_errno_wrapper);
 }
 
 int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, mkdir_func_t _mkdir) {
@@ -77,6 +95,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, mk
         int r;
 
         assert(path);
+        assert(_mkdir != mkdir);
 
         if (prefix && !path_startswith(path, prefix))
                 return -ENOTDIR;
@@ -104,8 +123,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, mk
                 e = p + strcspn(p, "/");
                 p = e + strspn(e, "/");
 
-                /* Is this the last component? If so, then we're
-                 * done */
+                /* Is this the last component? If so, then we're done */
                 if (*p == 0)
                         return 0;
 
@@ -116,13 +134,13 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, mk
                         continue;
 
                 r = _mkdir(t, mode);
-                if (r < 0 && errno != EEXIST)
-                        return -errno;
+                if (r < 0 && r != -EEXIST)
+                        return r;
         }
 }
 
 int mkdir_parents(const char *path, mode_t mode) {
-        return mkdir_parents_internal(NULL, path, mode, mkdir);
+        return mkdir_parents_internal(NULL, path, mode, mkdir_errno_wrapper);
 }
 
 int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, mkdir_func_t _mkdir) {
@@ -130,17 +148,19 @@ int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, mkdir_fu
 
         /* Like mkdir -p */
 
+        assert(_mkdir != mkdir);
+
         r = mkdir_parents_internal(prefix, path, mode, _mkdir);
         if (r < 0)
                 return r;
 
         r = _mkdir(path, mode);
-        if (r < 0 && (errno != EEXIST || is_dir(path, true) <= 0))
-                return -errno;
+        if (r < 0 && (r != -EEXIST || is_dir(path, true) <= 0))
+                return r;
 
         return 0;
 }
 
 int mkdir_p(const char *path, mode_t mode) {
-        return mkdir_p_internal(NULL, path, mode, mkdir);
+        return mkdir_p_internal(NULL, path, mode, mkdir_errno_wrapper);
 }

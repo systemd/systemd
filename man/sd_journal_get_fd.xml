@@ -4,39 +4,13 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_journal_get_fd">
+<refentry id="sd_journal_get_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_get_fd</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -212,35 +186,49 @@ else {
     immediately for all journal changes. Returns 0 if there might be a
     latency involved.</para>
 
-    <para><function>sd_journal_process()</function> and
-    <function>sd_journal_wait()</function> return one of
-    <constant>SD_JOURNAL_NOP</constant>,
-    <constant>SD_JOURNAL_APPEND</constant> or
-    <constant>SD_JOURNAL_INVALIDATE</constant> on success or a
-    negative errno-style error code. If
-    <constant>SD_JOURNAL_NOP</constant> is returned, the journal did
-    not change since the last invocation. If
-    <constant>SD_JOURNAL_APPEND</constant> is returned, new entries
-    have been appended to the end of the journal. If
-    <constant>SD_JOURNAL_INVALIDATE</constant>, journal files were
-    added or removed (possibly due to rotation). In the latter event,
-    live-view UIs should probably refresh their entire display, while
-    in the case of <constant>SD_JOURNAL_APPEND</constant>, it is
-    sufficient to simply continue reading at the previous end of the
-    journal.</para>
+    <para><function>sd_journal_process()</function> and <function>sd_journal_wait()</function> return a negative
+    errno-style error code, or one of <constant>SD_JOURNAL_NOP</constant>, <constant>SD_JOURNAL_APPEND</constant> or
+    <constant>SD_JOURNAL_INVALIDATE</constant> on success:</para>
+
+    <itemizedlist>
+      <listitem><para>If <constant>SD_JOURNAL_NOP</constant> is returned, the journal did not change since the last
+      invocation.</para></listitem>
+
+      <listitem><para>If <constant>SD_JOURNAL_APPEND</constant> is returned, new entries have been appended to the end
+      of the journal. In this case it is sufficient to simply continue reading at the previous end location of the
+      journal, to read the newly added entries.</para></listitem>
+
+      <listitem><para>If <constant>SD_JOURNAL_INVALIDATE</constant>, journal files were added to or removed from the
+      set of journal files watched (e.g. due to rotation or vacuuming), and thus entries might have appeared or
+      disappeared at arbitrary places in the log stream, possibly before or after the previous end of the log
+      stream. If <constant>SD_JOURNAL_INVALIDATE</constant> is returned, live-view UIs that want to reflect on screen
+      the precise state of the log data on disk should probably refresh their entire display (relative to the cursor of
+      the log entry on the top of the screen). Programs only interested in a strictly sequential stream of log data may
+      treat <constant>SD_JOURNAL_INVALIDATE</constant> the same way as <constant>SD_JOURNAL_APPEND</constant>, thus
+      ignoring any changes to the log view earlier than the old end of the log stream.</para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Signal safety</title>
+
+    <para>In general, <function>sd_journal_get_fd()</function>, <function>sd_journal_get_events()</function>, and
+    <function>sd_journal_get_timeout()</function> are <emphasis>not</emphasis> "async signal safe" in the meaning of
+    <citerefentry
+    project='man-pages'><refentrytitle>signal-safety</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    Nevertheless, only the first call to any of those three functions performs unsafe operations, so subsequent calls
+    <emphasis>are</emphasis> safe.</para>
+
+    <para><function>sd_journal_process()</function> and <function>sd_journal_wait()</function> are not
+    safe. <function>sd_journal_reliable_fd()</function> is safe.</para>
   </refsect1>
 
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_journal_get_fd()</function>,
-    <function>sd_journal_get_events()</function>,
-    <function>sd_journal_reliable_fd()</function>,
-    <function>sd_journal_process()</function> and
-    <function>sd_journal_wait()</function> interfaces are available as
-    a shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>
@@ -249,73 +237,13 @@ else {
     <para>Iterating through the journal, in a live view tracking all
     changes:</para>
 
-    <programlisting>#include &lt;stdio.h&gt;
-#include &lt;string.h&gt;
-#include &lt;systemd/sd-journal.h&gt;
-
-int main(int argc, char *argv[]) {
-  int r;
-  sd_journal *j;
-  r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
-  if (r &lt; 0) {
-    fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
-    return 1;
-  }
-  for (;;)  {
-    const void *d;
-    size_t l;
-    r = sd_journal_next(j);
-    if (r &lt; 0) {
-      fprintf(stderr, "Failed to iterate to next entry: %s\n", strerror(-r));
-      break;
-    }
-    if (r == 0) {
-      /* Reached the end, let's wait for changes, and try again */
-      r = sd_journal_wait(j, (uint64_t) -1);
-      if (r &lt; 0) {
-        fprintf(stderr, "Failed to wait for changes: %s\n", strerror(-r));
-        break;
-      }
-      continue;
-    }
-    r = sd_journal_get_data(j, "MESSAGE", &amp;d, &amp;l);
-    if (r &lt; 0) {
-      fprintf(stderr, "Failed to read message field: %s\n", strerror(-r));
-      continue;
-    }
-    printf("%.*s\n", (int) l, (const char*) d);
-  }
-  sd_journal_close(j);
-  return 0;
-}</programlisting>
+    <programlisting><xi:include href="journal-iterate-wait.c" parse="text" /></programlisting>
 
     <para>Waiting with <function>poll()</function> (this
     example lacks all error checking for the sake of
     simplicity):</para>
 
-    <programlisting>#include &lt;poll.h&gt;
-#include &lt;systemd/sd-journal.h&gt;
-
-int wait_for_changes(sd_journal *j) {
-  struct pollfd pollfd;
-  int msec;
-
-  sd_journal_get_timeout(m, &amp;t);
-  if (t == (uint64_t) -1)
-    msec = -1;
-  else {
-    struct timespec ts;
-    uint64_t n;
-    clock_gettime(CLOCK_MONOTONIC, &amp;ts);
-    n = (uint64_t) ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
-    msec = t > n ? (int) ((t - n + 999) / 1000) : 0;
-  }
-
-  pollfd.fd = sd_journal_get_fd(j);
-  pollfd.events = sd_journal_get_events(j);
-  poll(&amp;pollfd, 1, msec);
-  return sd_journal_process(j);
-}</programlisting>
+    <programlisting><xi:include href="journal-iterate-poll.c" parse="text" /></programlisting>
   </refsect1>
 
   <refsect1>

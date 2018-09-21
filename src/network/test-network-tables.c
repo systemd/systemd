@@ -1,28 +1,43 @@
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
 #include "ethtool-util.h"
-#include "netlink-internal.h"
 #include "netdev/bond.h"
 #include "netdev/ipvlan.h"
 #include "netdev/macvlan.h"
+#include "netdev/tunnel.h"
+#include "netlink-internal.h"
 #include "networkd-link.h"
+#include "networkd-network.h"
 #include "networkd-util.h"
 #include "test-tables.h"
 
 int main(int argc, char **argv) {
-        test_table(bond_mode, NETDEV_BOND_MODE);
-        /* test_table(link_state, LINK_STATE);  — not a reversible mapping */
-        test_table(link_operstate, LINK_OPERSTATE);
         test_table(address_family_boolean, ADDRESS_FAMILY_BOOLEAN);
-        test_table(netdev_kind, NETDEV_KIND);
+        test_table(bond_ad_select, NETDEV_BOND_AD_SELECT);
+        test_table(bond_arp_all_targets, NETDEV_BOND_ARP_ALL_TARGETS);
+        test_table(bond_arp_validate, NETDEV_BOND_ARP_VALIDATE);
+        test_table(bond_fail_over_mac, NETDEV_BOND_FAIL_OVER_MAC);
+        test_table(bond_lacp_rate, NETDEV_BOND_LACP_RATE);
+        test_table(bond_mode, NETDEV_BOND_MODE);
+        test_table(bond_primary_reselect, NETDEV_BOND_PRIMARY_RESELECT);
+        test_table(bond_xmit_hash_policy, NETDEV_BOND_XMIT_HASH_POLICY);
         test_table(dhcp6_message_status, DHCP6_STATUS);
+        test_table_sparse(dhcp6_message_type, DHCP6_MESSAGE); /* enum starts from 1 */
+        test_table(dhcp_use_domains, DHCP_USE_DOMAINS);
         test_table(duplex, DUP);
-        test_table(wol, WOL);
+        test_table(ip6tnl_mode, NETDEV_IP6_TNL_MODE);
+        test_table(ipv6_privacy_extensions, IPV6_PRIVACY_EXTENSIONS);
+        test_table(ipvlan_flags, NETDEV_IPVLAN_FLAGS);
+        test_table(link_operstate, LINK_OPERSTATE);
+        /* test_table(link_state, LINK_STATE);  — not a reversible mapping */
+        test_table(lldp_mode, LLDP_MODE);
+        test_table(netdev_kind, NETDEV_KIND);
         test_table(nl_union_link_info_data, NL_UNION_LINK_INFO_DATA);
+        test_table(wol, WOL);
 
-        test_table_sparse(macvlan_mode, NETDEV_MACVLAN_MODE);
-        test_table_sparse(ipvlan_mode, NETDEV_IPVLAN_MODE);
         test_table_sparse(dhcp6_message_type, DHCP6_MESSAGE);
+        test_table_sparse(ipvlan_mode, NETDEV_IPVLAN_MODE);
+        test_table_sparse(macvlan_mode, NETDEV_MACVLAN_MODE);
 
         return EXIT_SUCCESS;
 }

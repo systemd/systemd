@@ -1,41 +1,15 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.scope">
   <refentryinfo>
     <title>systemd.scope</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -77,31 +51,33 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>Implicit dependencies may be added as result of
-    resource control parameters as documented in
-    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-  </refsect1>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>Implicit dependencies may be added as result of
+      resource control parameters as documented in
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    </refsect2>
 
-    <para>The following dependencies are added unless
-    <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Scope units will automatically have dependencies of
-      type <varname>Conflicts=</varname> and
-      <varname>Before=</varname> on
-      <filename>shutdown.target</filename>. These ensure
-      that scope units are removed prior to system
-      shutdown. Only scope units involved with early boot or
-      late system shutdown should disable
-      <varname>DefaultDependencies=</varname> option.</para></listitem>
-    </itemizedlist>
+      <para>The following dependencies are added unless
+      <varname>DefaultDependencies=no</varname> is set:</para>
 
-    <para></para>
+      <itemizedlist>
+        <listitem><para>Scope units will automatically have dependencies of
+        type <varname>Conflicts=</varname> and
+        <varname>Before=</varname> on
+        <filename>shutdown.target</filename>. These ensure
+        that scope units are removed prior to system
+        shutdown. Only scope units involved with early boot or
+        late system shutdown should disable
+        <varname>DefaultDependencies=</varname> option.</para></listitem>
+      </itemizedlist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

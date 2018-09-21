@@ -4,24 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-suspend.service"
@@ -30,15 +12,6 @@
   <refentryinfo>
     <title>systemd-suspend.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -50,6 +23,7 @@
     <refname>systemd-suspend.service</refname>
     <refname>systemd-hibernate.service</refname>
     <refname>systemd-hybrid-sleep.service</refname>
+    <refname>systemd-suspend-then-hibernate.service</refname>
     <refname>systemd-sleep</refname>
     <refpurpose>System sleep state logic</refpurpose>
   </refnamediv>
@@ -58,6 +32,7 @@
     <para><filename>systemd-suspend.service</filename></para>
     <para><filename>systemd-hibernate.service</filename></para>
     <para><filename>systemd-hybrid-sleep.service</filename></para>
+    <para><filename>systemd-suspend-then-hibernate.service</filename></para>
     <para><filename>/usr/lib/systemd/system-sleep</filename></para>
   </refsynopsisdiv>
 
@@ -72,7 +47,9 @@
     hibernation. Finally,
     <filename>systemd-hybrid-sleep.service</filename> is pulled in by
     <filename>hybrid-sleep.target</filename> to execute hybrid
-    hibernation with system suspend.</para>
+    hibernation with system suspend and pulled in by
+    <filename>suspend-then-hibernate.target</filename> to execute system suspend
+    with a timeout that will activate hibernate later.</para>
 
     <para>Immediately before entering system suspend and/or
     hibernation <filename>systemd-suspend.service</filename> (and the
@@ -80,8 +57,9 @@
     <filename>/usr/lib/systemd/system-sleep/</filename> and pass two
     arguments to them. The first argument will be
     <literal>pre</literal>, the second either
-    <literal>suspend</literal>, <literal>hibernate</literal>, or
-    <literal>hybrid-sleep</literal> depending on the chosen action.
+    <literal>suspend</literal>, <literal>hibernate</literal>,
+    <literal>hybrid-sleep</literal>, or <literal>suspend-then-hibernate</literal>
+    depending on the chosen action.
     Immediately after leaving system suspend and/or hibernation the
     same executables are run, but the first argument is now
     <literal>post</literal>. All executables in this directory are
@@ -100,6 +78,7 @@
     <filename>systemd-suspend.service</filename>,
     <filename>systemd-hibernate.service</filename>, and
     <filename>systemd-hybrid-sleep.service</filename>
+    <filename>systemd-suspend-then-hibernate.service</filename>
     should never be executed directly. Instead, trigger system sleep
     states with a command such as <literal>systemctl suspend</literal>
     or similar.</para>
@@ -128,9 +107,10 @@
         <term><option>suspend</option></term>
         <term><option>hibernate</option></term>
         <term><option>hybrid-sleep</option></term>
+        <term><option>suspend-then-hibernate</option></term>
 
-        <listitem><para>Suspend, hibernate, or put the system to
-        hybrid sleep.</para>
+        <listitem><para>Suspend, hibernate, suspend then hibernate, or put the
+        system to hybrid sleep.</para>
         </listitem>
       </varlistentry>
     </variablelist>

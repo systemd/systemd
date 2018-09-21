@@ -7,7 +7,7 @@ _coredumpctl_command(){
             'list:List available coredumps'
             'info:Show detailed information about one or more coredumps'
             'dump:Print coredump to stdout'
-            'gdb:Start gdb on a coredump'
+            'debug:Start debugger (gdb) on a coredump'
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'coredumpctl command' _coredumpctl_cmds
@@ -16,10 +16,9 @@ _coredumpctl_command(){
         local -a _dumps
         cmd="${${_coredumpctl_cmds[(r)$words[1]:*]%%:*}}"
         if (( $#cmd  )); then
-            # user can set zstyle ':completion:*:*:coredumpctl:*' sort no for coredumps to be ordered by date, otherwise they get ordered by pid
-            _dumps=( "${(foa)$(coredumpctl list --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $5,$0}' 2>/dev/null)}" )
+            _dumps=( "${(f)$(coredumpctl list --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $4,$0}' 2>/dev/null)}" )
             if [[ -n "$_dumps" ]]; then
-                _describe -t pids 'coredumps' _dumps
+                _describe -V -t pids 'coredumps' _dumps
             else
                 _message "no coredumps"
             fi
@@ -40,4 +39,5 @@ _arguments \
     '--no-legend[Do not print the column headers]' \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
+    '--debugger=[Use the given debugger]' \
     '*::coredumpctl commands:_coredumpctl_command'

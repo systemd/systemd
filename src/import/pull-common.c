@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sys/prctl.h>
 
@@ -124,8 +106,7 @@ int pull_find_old_etags(
                         return r;
         }
 
-        *etags = l;
-        l = NULL;
+        *etags = TAKE_PTR(l);
 
         return 0;
 }
@@ -259,8 +240,7 @@ int pull_make_auxiliary_job(
         job->on_finished = on_finished;
         job->compressed_max = job->uncompressed_max = 1ULL * 1024ULL * 1024ULL;
 
-        *ret = job;
-        job = NULL;
+        *ret = TAKE_PTR(job);
 
         return 0;
 }
@@ -463,10 +443,10 @@ int pull_verify(PullJob *main_job,
 
         gpg_home_created = true;
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork off gpg: %m");
-        if (pid == 0) {
+        r = safe_fork("(gpg)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 const char *cmd[] = {
                         "gpg",
                         "--no-options",
@@ -483,31 +463,14 @@ int pull_verify(PullJob *main_job,
                         NULL  /* trailing NULL */
                 };
                 unsigned k = ELEMENTSOF(cmd) - 6;
-                int null_fd;
 
                 /* Child */
 
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
                 gpg_pipe[1] = safe_close(gpg_pipe[1]);
 
-                r = move_fd(gpg_pipe[0], STDIN_FILENO, false);
+                r = rearrange_stdio(gpg_pipe[0], -1, STDERR_FILENO);
                 if (r < 0) {
-                        log_error_errno(errno, "Failed to move fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                null_fd = open("/dev/null", O_WRONLY|O_NOCTTY);
-                if (null_fd < 0) {
-                        log_error_errno(errno, "Failed to open /dev/null: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = move_fd(null_fd, STDOUT_FILENO, false);
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to move fd: %m");
+                        log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -528,8 +491,6 @@ int pull_verify(PullJob *main_job,
                         cmd[k++] = NULL;
                 }
 
-                stdio_unset_cloexec();
-
                 execvp("gpg2", (char * const *) cmd);
                 execvp("gpg", (char * const *) cmd);
                 log_error_errno(errno, "Failed to execute gpg: %m");
@@ -546,11 +507,11 @@ int pull_verify(PullJob *main_job,
 
         gpg_pipe[1] = safe_close(gpg_pipe[1]);
 
-        r = wait_for_terminate_and_warn("gpg", pid, true);
+        r = wait_for_terminate_and_check("gpg", pid, WAIT_LOG_ABNORMAL);
         pid = 0;
         if (r < 0)
                 goto finish;
-        if (r > 0) {
+        if (r != EXIT_SUCCESS) {
                 log_error("DOWNLOAD INVALID: Signature verification failed.");
                 r = -EBADMSG;
         } else {
@@ -559,8 +520,7 @@ int pull_verify(PullJob *main_job,
         }
 
 finish:
-        if (sig_file >= 0)
-                (void) unlink(sig_file_path);
+        (void) unlink(sig_file_path);
 
         if (gpg_home_created)
                 (void) rm_rf(gpg_home, REMOVE_ROOT|REMOVE_PHYSICAL);

@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2014 Michal Schmidt
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdint.h>
@@ -25,8 +6,9 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "hashmap.h"
+#include "env-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "macro.h"
 #include "mempool.h"
 #include "process-util.h"
@@ -229,6 +211,8 @@ struct HashmapBase {
         unsigned n_direct_entries:3; /* Number of entries in direct storage.
                                       * Only valid if !has_indirect. */
         bool from_pool:1;            /* whether was allocated from mempool */
+        bool dirty:1;                /* whether dirtied since last iterated_cache_get() */
+        bool cached:1;               /* whether this hashmap is being cached */
         HASHMAP_DEBUG_FIELDS         /* optional hashmap_debug_info */
 };
 
@@ -246,6 +230,17 @@ struct OrderedHashmap {
 
 struct Set {
         struct HashmapBase b;
+};
+
+typedef struct CacheMem {
+        const void **ptr;
+        size_t n_populated, n_allocated;
+        bool active:1;
+} CacheMem;
+
+struct IteratedCache {
+        HashmapBase *hashmap;
+        CacheMem keys, values;
 };
 
 DEFINE_MEMPOOL(hashmap_pool,         Hashmap,        8);
@@ -281,7 +276,7 @@ static const struct hashmap_type_info hashmap_type_info[_HASHMAP_TYPE_MAX] = {
         },
 };
 
-#ifdef VALGRIND
+#if VALGRIND
 __attribute__((destructor)) static void cleanup_pools(void) {
         _cleanup_free_ char *t = NULL;
         int r;
@@ -350,6 +345,11 @@ static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
         return (unsigned) (hash % n_buckets(h));
 }
 #define bucket_hash(h, p) base_bucket_hash(HASHMAP_BASE(h), p)
+
+static inline void base_set_dirty(HashmapBase *h) {
+        h->dirty = true;
+}
+#define hashmap_set_dirty(h) base_set_dirty(HASHMAP_BASE(h))
 
 static void get_hash_key(uint8_t hash_key[HASH_KEY_SIZE], bool reuse_is_ok) {
         static uint8_t current[HASH_KEY_SIZE];
@@ -568,6 +568,7 @@ static void base_remove_entry(HashmapBase *h, unsigned idx) {
 
         bucket_mark_free(h, prev);
         n_entries_dec(h);
+        base_set_dirty(h);
 }
 #define remove_entry(h, idx) base_remove_entry(HASHMAP_BASE(h), idx)
 
@@ -737,6 +738,25 @@ bool set_iterate(Set *s, Iterator *i, void **value) {
              (idx != IDX_NIL); \
              (idx) = hashmap_iterate_entry((h), &(i)))
 
+IteratedCache *internal_hashmap_iterated_cache_new(HashmapBase *h) {
+        IteratedCache *cache;
+
+        assert(h);
+        assert(!h->cached);
+
+        if (h->cached)
+                return NULL;
+
+        cache = new0(IteratedCache, 1);
+        if (!cache)
+                return NULL;
+
+        cache->hashmap = h;
+        h->cached = true;
+
+        return cache;
+}
+
 static void reset_direct_storage(HashmapBase *h) {
         const struct hashmap_type_info *hi = &hashmap_type_info[h->type];
         void *p;
@@ -747,20 +767,31 @@ static void reset_direct_storage(HashmapBase *h) {
         memset(p, DIB_RAW_INIT, sizeof(dib_raw_t) * hi->n_direct_buckets);
 }
 
+static bool use_pool(void) {
+        static int b = -1;
+
+        if (!is_main_thread())
+                return false;
+
+        if (b < 0)
+                b = getenv_bool("SYSTEMD_MEMPOOL") != 0;
+
+        return b;
+}
+
 static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type HASHMAP_DEBUG_PARAMS) {
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
-        bool use_pool;
+        bool up;
 
-        use_pool = is_main_thread();
+        up = use_pool();
 
-        h = use_pool ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
-
+        h = up ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
         if (!h)
                 return NULL;
 
         h->type = type;
-        h->from_pool = use_pool;
+        h->from_pool = up;
         h->hash_ops = hash_ops ? hash_ops : &trivial_hash_ops;
 
         if (type == HASHMAP_TYPE_ORDERED) {
@@ -838,9 +869,11 @@ static void hashmap_free_no_clear(HashmapBase *h) {
         assert_se(pthread_mutex_unlock(&hashmap_debug_list_mutex) == 0);
 #endif
 
-        if (h->from_pool)
+        if (h->from_pool) {
+                /* Ensure that the object didn't get migrated between threads. */
+                assert_se(is_main_thread());
                 mempool_free_tile(hashmap_type_info[h->type].mempool, h);
-        else
+        } else
                 free(h);
 }
 
@@ -897,6 +930,8 @@ void internal_hashmap_clear(HashmapBase *h) {
                 OrderedHashmap *lh = (OrderedHashmap*) h;
                 lh->iterate_list_head = lh->iterate_list_tail = IDX_NIL;
         }
+
+        base_set_dirty(h);
 }
 
 void internal_hashmap_clear_free(HashmapBase *h) {
@@ -1040,6 +1075,8 @@ static int hashmap_base_put_boldly(HashmapBase *h, unsigned idx,
 #if ENABLE_DEBUG_HASHMAP
         h->debug.max_entries = MAX(h->debug.max_entries, n_entries(h));
 #endif
+
+        base_set_dirty(h);
 
         return 1;
 }
@@ -1277,6 +1314,8 @@ int hashmap_replace(Hashmap *h, const void *key, void *value) {
 #endif
                 e->b.key = key;
                 e->value = value;
+                hashmap_set_dirty(h);
+
                 return 0;
         }
 
@@ -1299,6 +1338,8 @@ int hashmap_update(Hashmap *h, const void *key, void *value) {
 
         e = plain_bucket_at(h, idx);
         e->value = value;
+        hashmap_set_dirty(h);
+
         return 0;
 }
 
@@ -1850,4 +1891,96 @@ int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags
                 if (r < 0)
                         return r;
         }
+}
+
+/* expand the cachemem if needed, return true if newly (re)activated. */
+static int cachemem_maintain(CacheMem *mem, unsigned size) {
+        assert(mem);
+
+        if (!GREEDY_REALLOC(mem->ptr, mem->n_allocated, size)) {
+                if (size > 0)
+                        return -ENOMEM;
+        }
+
+        if (!mem->active) {
+                mem->active = true;
+                return true;
+        }
+
+        return false;
+}
+
+int iterated_cache_get(IteratedCache *cache, const void ***res_keys, const void ***res_values, unsigned *res_n_entries) {
+        bool sync_keys = false, sync_values = false;
+        unsigned size;
+        int r;
+
+        assert(cache);
+        assert(cache->hashmap);
+
+        size = n_entries(cache->hashmap);
+
+        if (res_keys) {
+                r = cachemem_maintain(&cache->keys, size);
+                if (r < 0)
+                        return r;
+
+                sync_keys = r;
+        } else
+                cache->keys.active = false;
+
+        if (res_values) {
+                r = cachemem_maintain(&cache->values, size);
+                if (r < 0)
+                        return r;
+
+                sync_values = r;
+        } else
+                cache->values.active = false;
+
+        if (cache->hashmap->dirty) {
+                if (cache->keys.active)
+                        sync_keys = true;
+                if (cache->values.active)
+                        sync_values = true;
+
+                cache->hashmap->dirty = false;
+        }
+
+        if (sync_keys || sync_values) {
+                unsigned i, idx;
+                Iterator iter;
+
+                i = 0;
+                HASHMAP_FOREACH_IDX(idx, cache->hashmap, iter) {
+                        struct hashmap_base_entry *e;
+
+                        e = bucket_at(cache->hashmap, idx);
+
+                        if (sync_keys)
+                                cache->keys.ptr[i] = e->key;
+                        if (sync_values)
+                                cache->values.ptr[i] = entry_value(cache->hashmap, e);
+                        i++;
+                }
+        }
+
+        if (res_keys)
+                *res_keys = cache->keys.ptr;
+        if (res_values)
+                *res_values = cache->values.ptr;
+        if (res_n_entries)
+                *res_n_entries = size;
+
+        return 0;
+}
+
+IteratedCache *iterated_cache_free(IteratedCache *cache) {
+        if (cache) {
+                free(cache->keys.ptr);
+                free(cache->values.ptr);
+                free(cache);
+        }
+
+        return NULL;
 }

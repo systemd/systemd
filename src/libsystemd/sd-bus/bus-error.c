@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdarg.h>
@@ -108,6 +90,7 @@ static int bus_error_name_to_errno(const char *name) {
                         }
 
         m = __start_BUS_ERROR_MAP;
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
         while (m < __stop_BUS_ERROR_MAP) {
                 /* For magic ELF error maps, the end marker might
                  * appear in the middle of things, since multiple maps
@@ -125,6 +108,7 @@ static int bus_error_name_to_errno(const char *name) {
 
                 m++;
         }
+#endif
 
         return EIO;
 }
@@ -595,7 +579,7 @@ _public_ int sd_bus_error_add_map(const sd_bus_error_map *map) {
                         if (additional_error_maps[n] == map)
                                 return 0;
 
-        maps = realloc_multiply(additional_error_maps, sizeof(struct sd_bus_error_map*), n + 2);
+        maps = reallocarray(additional_error_maps, n + 2, sizeof(struct sd_bus_error_map*));
         if (!maps)
                 return -ENOMEM;
 

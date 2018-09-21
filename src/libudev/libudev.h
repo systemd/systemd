@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #ifndef _LIBUDEV_H_
 #define _LIBUDEV_H_
@@ -108,7 +90,7 @@ const char *udev_device_get_action(struct udev_device *udev_device);
 unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device);
 unsigned long long int udev_device_get_usec_since_initialized(struct udev_device *udev_device);
 const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const char *sysattr);
-int udev_device_set_sysattr_value(struct udev_device *udev_device, const char *sysattr, char *value);
+int udev_device_set_sysattr_value(struct udev_device *udev_device, const char *sysattr, const char *value);
 int udev_device_has_tag(struct udev_device *udev_device, const char *tag);
 
 /*
@@ -199,7 +181,6 @@ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev_hwdb *hw
  * udev specific utilities
  */
 int udev_util_encode_string(const char *str, char *str_enc, size_t len);
-
 
 #ifdef __cplusplus
 } /* extern "C" */

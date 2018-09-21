@@ -4,38 +4,12 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.device">
   <refentryinfo>
     <title>systemd.device</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -90,25 +64,28 @@
     corresponding device generates a <literal>changed</literal> event.
     Other units can use <varname>ReloadPropagatedFrom=</varname> to react
     to that event</para>
-
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>Many unit types automatically acquire dependencies on device
-    units of devices they require. For example,
-    <filename>.socket</filename> unit acquire dependencies on the
-    device units of the network interface specified in
-    <varname>BindToDevice=</varname>. Similar, swap and mount units
-    acquire dependencies on the units encapsulating their backing
-    block devices.</para>
-  </refsect1>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>Many unit types automatically acquire dependencies on device
+      units of devices they require. For example,
+      <filename>.socket</filename> unit acquire dependencies on the
+      device units of the network interface specified in
+      <varname>BindToDevice=</varname>. Similar, swap and mount units
+      acquire dependencies on the units encapsulating their backing
+      block devices.</para>
+    </refsect2>
 
-    <para>There are no default dependencies for device units.</para>
+    <refsect2>
+      <title>Default Dependencies</title>
+
+      <para>There are no default dependencies for device units.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>

@@ -1,47 +1,16 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Kay Sievers
-  Copyright 2014 Jason St. John
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2014 Jason St. John
 -->
 
 <refentry id="udev">
   <refentryinfo>
     <title>udev</title>
     <productname>systemd</productname>
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Greg</firstname>
-        <surname>Kroah-Hartmann</surname>
-        <email>greg@kroah.com</email>
-      </author>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Kay</firstname>
-        <surname>Sievers</surname>
-        <email>kay@vrfy.org</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -215,6 +184,8 @@
             value itself contains trailing whitespace.
             </para>
           </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
           <listitem>
             <para>Match a kernel parameter value.
@@ -465,6 +436,9 @@
             <para>Starting daemons or other long-running processes is not appropriate
             for udev; the forked processes, detached or not, will be unconditionally
             killed after the event handling has finished.</para>
+            <para>Note that running programs that access the network or mount/unmount
+            filesystems is not allowed inside of udev rules, due to the default sandbox
+            that is enforced on <filename>systemd-udevd.service</filename>.</para>
           </listitem>
         </varlistentry>
 

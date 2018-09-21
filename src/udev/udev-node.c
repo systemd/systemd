@@ -1,20 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/*
- * Copyright (C) 2003-2013 Kay Sievers <kay@vrfy.org>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -79,7 +63,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                                 buf[len] = '\0';
                                 if (streq(target, buf)) {
                                         log_debug("preserve already existing symlink '%s' to '%s'", slink, target);
-                                        label_fix(slink, true, false);
+                                        (void) label_fix(slink, LABEL_IGNORE_ENOENT);
                                         utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
                                         goto exit;
                                 }
@@ -129,7 +113,6 @@ exit:
 
 /* find device node of device with highest priority */
 static const char *link_find_prioritized(struct udev_device *dev, bool add, const char *stackdir, char *buf, size_t bufsize) {
-        struct udev *udev = udev_device_get_udev(dev);
         DIR *dir;
         struct dirent *dent;
         int priority = 0;
@@ -158,7 +141,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
                 if (streq(dent->d_name, udev_device_get_id_filename(dev)))
                         continue;
 
-                dev_db = udev_device_new_from_device_id(udev, dent->d_name);
+                dev_db = udev_device_new_from_device_id(NULL, dent->d_name);
                 if (dev_db != NULL) {
                         const char *devnode;
 
@@ -187,7 +170,7 @@ static void link_update(struct udev_device *dev, const char *slink, bool add) {
         const char *target;
         char buf[UTIL_PATH_SIZE];
 
-        util_path_encode(slink + strlen("/dev"), name_enc, sizeof(name_enc));
+        util_path_encode(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
         strscpyl(dirname, sizeof(dirname), "/run/udev/links/", name_enc, NULL);
         strscpyl(filename, sizeof(filename), dirname, "/", udev_device_get_id_filename(dev), NULL);
 
@@ -265,7 +248,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                 mode |= S_IFCHR;
 
         if (lstat(devnode, &stats) != 0) {
-                err = log_debug_errno(errno, "can not stat() node '%s' (%m)", devnode);
+                err = log_debug_errno(errno, "cannot stat() node '%s' (%m)", devnode);
                 goto out;
         }
 
@@ -324,7 +307,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
                 /* set the defaults */
                 if (!selinux)
-                        mac_selinux_fix(devnode, true, false);
+                        (void) mac_selinux_fix(devnode, LABEL_IGNORE_ENOENT);
                 if (!smack)
                         mac_smack_apply(devnode, SMACK_ATTR_ACCESS, NULL);
         }

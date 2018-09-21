@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2015 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <dirent.h>
 #include <errno.h>
@@ -52,7 +33,7 @@
  */
 struct udev_enumerate {
         struct udev *udev;
-        int refcount;
+        unsigned n_ref;
         struct udev_list devices_list;
         bool devices_uptodate:1;
 
@@ -68,39 +49,45 @@ struct udev_enumerate {
  * Returns: an enumeration context.
  **/
 _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
-        _cleanup_free_ struct udev_enumerate *udev_enumerate = NULL;
-        struct udev_enumerate *ret;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        struct udev_enumerate *udev_enumerate;
         int r;
 
-        assert_return_errno(udev, NULL, EINVAL);
+        r = sd_device_enumerator_new(&e);
+        if (r < 0) {
+                errno = -r;
+                return NULL;
+        }
 
-        udev_enumerate = new0(struct udev_enumerate, 1);
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0) {
+                errno = -r;
+                return NULL;
+        }
+
+        udev_enumerate = new(struct udev_enumerate, 1);
         if (!udev_enumerate) {
                 errno = ENOMEM;
                 return NULL;
         }
 
-        r = sd_device_enumerator_new(&udev_enumerate->enumerator);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
-
-        r = sd_device_enumerator_allow_uninitialized(udev_enumerate->enumerator);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
-
-        udev_enumerate->refcount = 1;
-        udev_enumerate->udev = udev;
+        *udev_enumerate = (struct udev_enumerate) {
+                .udev = udev,
+                .n_ref = 1,
+                .enumerator = TAKE_PTR(e),
+        };
 
         udev_list_init(udev, &udev_enumerate->devices_list, false);
 
-        ret = udev_enumerate;
-        udev_enumerate = NULL;
+        return udev_enumerate;
+}
 
-        return ret;
+static struct udev_enumerate *udev_enumerate_free(struct udev_enumerate *udev_enumerate) {
+        assert(udev_enumerate);
+
+        udev_list_cleanup(&udev_enumerate->devices_list);
+        sd_device_enumerator_unref(udev_enumerate->enumerator);
+        return mfree(udev_enumerate);
 }
 
 /**
@@ -111,12 +98,6 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
  *
  * Returns: the passed enumeration context
  **/
-_public_ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate) {
-        if (udev_enumerate)
-                udev_enumerate->refcount++;
-
-        return udev_enumerate;
-}
 
 /**
  * udev_enumerate_unref:
@@ -127,15 +108,7 @@ _public_ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_e
  *
  * Returns: #NULL
  **/
-_public_ struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev_enumerate) {
-        if (udev_enumerate && (-- udev_enumerate->refcount) == 0) {
-                udev_list_cleanup(&udev_enumerate->devices_list);
-                sd_device_enumerator_unref(udev_enumerate->enumerator);
-                free(udev_enumerate);
-        }
-
-        return NULL;
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_enumerate, udev_enumerate, udev_enumerate_free);
 
 /**
  * udev_enumerate_get_udev:

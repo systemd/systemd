@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-journald.service">
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>systemd-journald.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -232,10 +206,10 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
     <para>Journal files are, by default, owned and readable by the
     <literal>systemd-journal</literal> system group but are not
-    writable. Adding a user to this group thus enables her/him to read
+    writable. Adding a user to this group thus enables them to read
     the journal files.</para>
 
-    <para>By default, each logged in user will get her/his own set of
+    <para>By default, each logged in user will get their own set of
     journal files in <filename>/var/log/journal/</filename>. These
     files will not be owned by the user, however, in order to avoid
     that the user can write to them directly. Instead, file system
@@ -261,9 +235,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
       <varlistentry>
         <term><filename>/etc/systemd/journald.conf</filename></term>
 
-        <listitem><para>Configure
-        <command>systemd-journald</command>
-        behavior. See
+        <listitem><para>Configure <command>systemd-journald</command> behavior. See
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
@@ -274,8 +246,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <term><filename>/var/log/journal/<replaceable>machine-id</replaceable>/*.journal</filename></term>
         <term><filename>/var/log/journal/<replaceable>machine-id</replaceable>/*.journal~</filename></term>
 
-        <listitem><para><command>systemd-journald</command> writes
-        entries to files in
+        <listitem><para><command>systemd-journald</command> writes entries to files in
         <filename>/run/log/journal/<replaceable>machine-id</replaceable>/</filename>
         or
         <filename>/var/log/journal/<replaceable>machine-id</replaceable>/</filename>
@@ -287,7 +258,24 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <filename>/var/log/journal</filename> is not available, or
         when <option>Storage=volatile</option> is set in the
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        configuration file.</para></listitem>
+        configuration file.</para>
+
+        <para>When <filename>systemd-journald</filename> ceases writing to a journal file,
+        it will be renamed to <literal><replaceable>original-name</replaceable>@<replaceable>suffix.journal</replaceable></literal>
+        (or <literal><replaceable>original-name</replaceable>@<replaceable>suffix.journal~</replaceable></literal>).
+        Such files are "archived" and will not be written to any more.</para>
+
+        <para>In general, it is safe to read or copy any journal file (active or archived).
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and the functions in the
+        <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        library should be able to read all entries that have been fully written.</para>
+
+        <para><filename>systemd-journald</filename> will automatically remove the oldest
+        archived journal files to limit disk use. See <varname>SystemMaxUse=</varname>
+        and related settings in
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

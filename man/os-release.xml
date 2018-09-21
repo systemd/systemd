@@ -4,38 +4,12 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="os-release">
   <refentryinfo>
     <title>os-release</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -74,7 +48,8 @@
     shell style. All strings should be in UTF-8 format, and
     non-printable characters should not be used. It is not supported
     to concatenate multiple individually quoted strings. Lines
-    beginning with "#" shall be ignored as comments.</para>
+    beginning with "#" shall be ignored as comments. Blank lines are
+    permitted and ignored.</para>
 
     <para>The file <filename>/etc/os-release</filename> takes
     precedence over <filename>/usr/lib/os-release</filename>.
@@ -247,9 +222,9 @@
         <term><varname>BUG_REPORT_URL=</varname></term>
         <term><varname>PRIVACY_POLICY_URL=</varname></term>
 
-        <listitem><para>Links to resources on the Internet related the
-        operating system. <varname>HOME_URL=</varname> should refer to
-        the homepage of the operating system, or alternatively some
+        <listitem><para>Links to resources on the Internet related to 
+        the operating system. <varname>HOME_URL=</varname> should refer
+        to the homepage of the operating system, or alternatively some
         homepage of the specific version of the operating system.
         <varname>SUPPORT_URL=</varname> should refer to the main
         support page for the operating system, if there is any. This
@@ -259,7 +234,7 @@
         if there is any. This is primarily intended for operating
         systems that rely on community QA.
         <varname>PRIVACY_POLICY_URL=</varname> should refer to the
-        main privacy policy page for the operation system, if there is
+        main privacy policy page for the operating system, if there is
         any. These settings are optional, and providing only some of
         these settings is common. These URLs are intended to be
         exposed in "About this system" UIs behind links with captions

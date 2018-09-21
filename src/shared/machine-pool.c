@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -42,6 +24,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "label.h"
 #include "lockfile-util.h"
 #include "log.h"
 #include "machine-pool.h"
@@ -78,7 +61,6 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
         _cleanup_close_ int fd = -1;
         struct statvfs ss;
         pid_t pid = 0;
-        siginfo_t si;
         int r;
 
         /* We want to be able to make use of btrfs-specific file
@@ -89,11 +71,8 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
          * /var/lib/machines. */
 
         fd = open("/var/lib/machines.raw", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (fd >= 0) {
-                r = fd;
-                fd = -1;
-                return r;
-        }
+        if (fd >= 0)
+                return TAKE_FD(fd);
 
         if (errno != ENOENT)
                 return sd_bus_error_set_errnof(error, errno, "Failed to open /var/lib/machines.raw: %m");
@@ -122,19 +101,14 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
                 goto fail;
         }
 
-        pid = fork();
-        if (pid < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to fork mkfs.btrfs: %m");
+        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, r, "Failed to fork mkfs.btrfs: %m");
                 goto fail;
         }
-
-        if (pid == 0) {
+        if (r == 0) {
 
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 fd = safe_close(fd);
 
@@ -145,24 +119,19 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate(pid, &si);
+        r = wait_for_terminate_and_check("mkfs", pid, 0);
+        pid = 0;
+
         if (r < 0) {
                 sd_bus_error_set_errnof(error, r, "Failed to wait for mkfs.btrfs: %m");
                 goto fail;
         }
-
-        pid = 0;
-
-        if (si.si_code != CLD_EXITED) {
-                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "mkfs.btrfs died abnormally.");
-                goto fail;
-        }
-        if (si.si_status == 99) {
+        if (r == 99) {
                 r = sd_bus_error_set_errnof(error, ENOENT, "Cannot set up /var/lib/machines, mkfs.btrfs is missing");
                 goto fail;
         }
-        if (si.si_status != 0) {
-                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "mkfs.btrfs failed with error code %i", si.si_status);
+        if (r != EXIT_SUCCESS) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "mkfs.btrfs failed with error code %i", r);
                 goto fail;
         }
 
@@ -172,10 +141,7 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
                 goto fail;
         }
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 
 fail:
         unlink_noerrno(tmp);
@@ -187,7 +153,7 @@ fail:
 }
 
 int setup_machine_directory(uint64_t size, sd_bus_error *error) {
-        _cleanup_release_lock_file_ LockFile lock_file = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile lock_file = LOCK_FILE_INIT;
         struct loop_info64 info = {
                 .lo_flags = LO_FLAGS_AUTOCLEAR,
         };
@@ -348,8 +314,7 @@ fail:
                 loop = safe_close(loop);
         }
 
-        if (control >= 0 && nr >= 0)
-                (void) ioctl(control, LOOP_CTL_REMOVE, nr);
+        (void) ioctl(control, LOOP_CTL_REMOVE, nr);
 
         return r;
 }

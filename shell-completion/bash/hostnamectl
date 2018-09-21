@@ -3,7 +3,7 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2010 Ran Benita
+# Copyright © 2010 Ran Benita
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -29,7 +29,7 @@ _hostnamectl() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local OPTS='-h --help --version --transient --static --pretty
-                    --no-ask-password -H --host --machine'
+                    --no-ask-password -H --host -M --machine'
 
         if [[ $cur = -* ]]; then
                 COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )

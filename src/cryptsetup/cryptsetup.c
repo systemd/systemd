@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <mntent.h>
@@ -37,17 +19,24 @@
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "util.h"
 
 /* internal helper */
 #define ANY_LUKS "LUKS"
+/* as in src/cryptsetup.h */
+#define CRYPT_SECTOR_SIZE 512
+#define CRYPT_MAX_SECTOR_SIZE 4096
 
 static const char *arg_type = NULL; /* ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT or CRYPT_PLAIN */
 static char *arg_cipher = NULL;
 static unsigned arg_key_size = 0;
+#if HAVE_LIBCRYPTSETUP_SECTOR_SIZE
+static unsigned arg_sector_size = CRYPT_SECTOR_SIZE;
+#endif
 static int arg_key_slot = CRYPT_ANY_SLOT;
 static unsigned arg_keyfile_size = 0;
-static unsigned arg_keyfile_offset = 0;
+static uint64_t arg_keyfile_offset = 0;
 static char *arg_hash = NULL;
 static char *arg_header = NULL;
 static unsigned arg_tries = 3;
@@ -104,6 +93,29 @@ static int parse_one_option(const char *option) {
 
                 arg_key_size /= 8;
 
+        } else if ((val = startswith(option, "sector-size="))) {
+
+#if HAVE_LIBCRYPTSETUP_SECTOR_SIZE
+                r = safe_atou(val, &arg_sector_size);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                if (arg_sector_size % 2) {
+                        log_error("sector-size= not a multiple of 2, ignoring.");
+                        return 0;
+                }
+
+                if (arg_sector_size < CRYPT_SECTOR_SIZE || arg_sector_size > CRYPT_MAX_SECTOR_SIZE) {
+                        log_error("sector-size= is outside of %u and %u, ignoring.", CRYPT_SECTOR_SIZE, CRYPT_MAX_SECTOR_SIZE);
+                        return 0;
+                }
+#else
+                log_error("sector-size= is not supported, compiled with old libcryptsetup.");
+                return 0;
+#endif
+
         } else if ((val = startswith(option, "key-slot="))) {
 
                 arg_type = ANY_LUKS;
@@ -131,12 +143,21 @@ static int parse_one_option(const char *option) {
                 }
 
         } else if ((val = startswith(option, "keyfile-offset="))) {
+                uint64_t off;
 
-                r = safe_atou(val, &arg_keyfile_offset);
+                r = safe_atou64(val, &off);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
+
+                if ((size_t) off != off) {
+                        /* https://gitlab.com/cryptsetup/cryptsetup/issues/359 */
+                        log_error("keyfile-offset= value would truncated to %zu, ignoring.", (size_t) off);
+                        return 0;
+                }
+
+                arg_keyfile_offset = off;
 
         } else if ((val = startswith(option, "hash="))) {
                 r = free_and_strdup(&arg_hash, val);
@@ -249,23 +270,6 @@ static int parse_options(const char *options) {
         return 0;
 }
 
-static int disk_major_minor(const char *path, char **ret) {
-        struct stat st;
-
-        assert(path);
-
-        if (stat(path, &st) < 0)
-                return -errno;
-
-        if (!S_ISBLK(st.st_mode))
-                return -EINVAL;
-
-        if (asprintf(ret, "/dev/block/%d:%d", major(st.st_rdev), minor(st.st_rdev)) < 0)
-                return -errno;
-
-        return 0;
-}
-
 static char* disk_description(const char *path) {
 
         static const char name_fields[] =
@@ -324,7 +328,7 @@ static char *disk_mount_point(const char *label) {
 }
 
 static int get_password(const char *vol, const char *src, usec_t until, bool accept_cached, char ***ret) {
-        _cleanup_free_ char *description = NULL, *name_buffer = NULL, *mount_point = NULL, *maj_min = NULL, *text = NULL, *escaped_name = NULL;
+        _cleanup_free_ char *description = NULL, *name_buffer = NULL, *mount_point = NULL, *text = NULL, *disk_path = NULL;
         _cleanup_strv_free_erase_ char **passwords = NULL;
         const char *name = NULL;
         char **p, *id;
@@ -336,6 +340,10 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
         description = disk_description(src);
         mount_point = disk_mount_point(vol);
+
+        disk_path = cescape(src);
+        if (!disk_path)
+                return log_oom();
 
         if (description && streq(vol, description))
                 /* If the description string is simply the
@@ -358,19 +366,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
         if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0)
                 return log_oom();
 
-        if (src)
-                (void) disk_major_minor(src, &maj_min);
-
-        if (maj_min) {
-                escaped_name = maj_min;
-                maj_min = NULL;
-        } else
-                escaped_name = cescape(name);
-
-        if (!escaped_name)
-                return log_oom();
-
-        id = strjoina("cryptsetup:", escaped_name);
+        id = strjoina("cryptsetup:", disk_path);
 
         r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until,
                               ASK_PASSWORD_PUSH_CACHE | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
@@ -386,7 +382,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
                 if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0)
                         return log_oom();
 
-                id = strjoina("cryptsetup-verification:", escaped_name);
+                id = strjoina("cryptsetup-verification:", disk_path);
 
                 r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
                 if (r < 0)
@@ -418,8 +414,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
                 *p = c;
         }
 
-        *ret = passwords;
-        passwords = NULL;
+        *ret = TAKE_PTR(passwords);
 
         return 0;
 }
@@ -506,6 +501,9 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 struct crypt_params_plain params = {
                         .offset = arg_offset,
                         .skip = arg_skip,
+#if HAVE_LIBCRYPTSETUP_SECTOR_SIZE
+                        .sector_size = arg_sector_size,
+#endif
                 };
                 const char *cipher, *cipher_mode;
                 _cleanup_free_ char *truncated_cipher = NULL;
@@ -584,12 +582,21 @@ static int attach_luks_or_plain(struct crypt_device *cd,
 }
 
 static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-cryptsetup@.service", "8", &link);
+        if (r < 0)
+                return log_oom();
 
         printf("%s attach VOLUME SOURCEDEVICE [PASSWORD] [OPTIONS]\n"
                "%s detach VOLUME\n\n"
-               "Attaches or detaches an encrypted block device.\n",
-               program_invocation_short_name,
-               program_invocation_short_name);
+               "Attaches or detaches an encrypted block device.\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }

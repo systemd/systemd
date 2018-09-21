@@ -1,19 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 # This is lame, I know, but meson has no other include mechanism
 subdir('rules')
@@ -62,8 +47,8 @@ foreach tuple : xsltproc.found() ? manpages : []
         manaliases = []
         htmlaliases = []
         foreach alias : aliases
-                manaliases += [alias + '.' + section]
-                htmlaliases += [alias + '.html']
+                manaliases += alias + '.' + section
+                htmlaliases += alias + '.html'
         endforeach
 
         mandirn = join_paths(get_option('mandir'), 'man' + section)
@@ -77,7 +62,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                         depend_files : custom_entities_ent,
                         install : want_man,
                         install_dir : mandirn)
-                man_pages += [p1]
+                man_pages += p1
 
                 p2 = []
                 foreach htmlalias : htmlaliases
@@ -90,9 +75,9 @@ foreach tuple : xsltproc.found() ? manpages : []
                                 dst = join_paths(docdir, 'html', htmlalias)
                                 cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
                                 meson.add_install_script('sh', '-c', cmd)
-                                p2 += [link]
+                                p2 += link
                         endif
-                        html_pages += [link]
+                        html_pages += link
                 endforeach
 
                 p3 = custom_target(
@@ -104,7 +89,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                         depends : p2,
                         install : want_html,
                         install_dir : join_paths(docdir, 'html'))
-                html_pages += [p3]
+                html_pages += p3
 
                 source_xml_files += files(tuple[0] + '.xml')
         else
@@ -132,8 +117,8 @@ systemd_index_xml = custom_target(
         output : 'systemd.index.xml',
         command : [make_man_index_py, '@OUTPUT@'] + nonindex_xml_files)
 
-foreach tuple : want_man or want_html ? [['systemd.directives', '7', systemd_directives_xml],
-                                         ['systemd.index',      '7', systemd_index_xml]] : []
+foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directives_xml],
+                                    ['systemd.index',      '7', systemd_index_xml]] : []
         stem = tuple[0]
         section = tuple[1]
         xml = tuple[2]
@@ -150,7 +135,7 @@ foreach tuple : want_man or want_html ? [['systemd.directives', '7', systemd_dir
                 command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
                 install : want_man and have_lxml,
                 install_dir : mandirn)
-        man_pages += [p1]
+        man_pages += p1
 
         p2 = []
         if html == 'systemd.index.html'
@@ -164,9 +149,9 @@ foreach tuple : want_man or want_html ? [['systemd.directives', '7', systemd_dir
                         dst = join_paths(docdir, 'html', htmlalias)
                         cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
                         meson.add_install_script('sh', '-c', cmd)
-                        p2 += [link]
+                        p2 += link
                 endif
-                html_pages += [link]
+                html_pages += link
         endif
 
         p3 = custom_target(
@@ -178,7 +163,7 @@ foreach tuple : want_man or want_html ? [['systemd.directives', '7', systemd_dir
                 depends : p2,
                 install : want_html and have_lxml,
                 install_dir : join_paths(docdir, 'html'))
-        html_pages += [p3]
+        html_pages += p3
 endforeach
 
 # cannot use run_target until https://github.com/mesonbuild/meson/issues/1644 is resolved

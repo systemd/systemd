@@ -1,26 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Ronny Chevalier
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "conf-parser.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"
@@ -108,6 +91,7 @@ static void test_config_parse_path(void) {
         test_config_parse_path_one("/path", "/path");
         test_config_parse_path_one("/path//////////", "/path");
         test_config_parse_path_one("///path/foo///bar////bar//", "/path/foo/bar/bar");
+        test_config_parse_path_one("/path//./////hogehoge///.", "/path/hogehoge");
         test_config_parse_path_one("/path/\xc3\x80", "/path/\xc3\x80");
 
         test_config_parse_path_one("not_absolute/path", NULL);
@@ -182,7 +166,7 @@ static void test_config_parse_strv(void) {
         test_config_parse_strv_one("foo bar foo", STRV_MAKE("foo", "bar", "foo"));
         test_config_parse_strv_one("\"foo bar\" foo", STRV_MAKE("foo bar", "foo"));
         test_config_parse_strv_one("\xc3\x80", STRV_MAKE("\xc3\x80"));
-        test_config_parse_strv_one("\xc3\x7f", STRV_MAKE_EMPTY);
+        test_config_parse_strv_one("\xc3\x7f", STRV_MAKE("\xc3\x7f"));
 }
 
 static void test_config_parse_mode(void) {
@@ -226,6 +210,45 @@ static void test_config_parse_iec_uint64(void) {
         assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
 }
 
+static void test_config_parse_join_controllers(void) {
+        int r;
+        _cleanup_(strv_free_freep) char ***c = NULL;
+        char ***c2;
+
+        /* Test normal operation */
+        r = config_parse_join_controllers(NULL, "example.conf", 11, "Section", 10, "JoinControllers", 0, "cpu,cpuacct net_cls,netprio", &c, NULL);
+        assert_se(r == 0);
+        assert_se(c);
+        assert_se(strv_length(c[0]) == 2);
+        assert_se(strv_equal(c[0], STRV_MAKE("cpu", "cpuacct")));
+        assert_se(strv_length(c[1]) == 2);
+        assert_se(strv_equal(c[1], STRV_MAKE("net_cls", "netprio")));
+        assert_se(c[2] == NULL);
+
+        /* Test special case of no mounted controllers */
+        r = config_parse_join_controllers(NULL, "example.conf", 12, "Section", 10, "JoinControllers", 0, "", &c, NULL);
+        assert_se(r == 0);
+        assert_se(c);
+        assert_se(strv_equal(c[0], STRV_MAKE_EMPTY));
+        assert_se(c[1] == NULL);
+
+        /* Test merging of overlapping lists */
+        r = config_parse_join_controllers(NULL, "example.conf", 13, "Section", 10, "JoinControllers", 0, "a,b b,c", &c, NULL);
+        assert_se(r == 0);
+        assert_se(c);
+        assert_se(strv_length(c[0]) == 3);
+        assert_se(strv_contains(c[0], "a"));
+        assert_se(strv_contains(c[0], "b"));
+        assert_se(strv_contains(c[0], "c"));
+        assert_se(c[1] == NULL);
+
+        /* Test ignoring of bad lines */
+        c2 = c;
+        r = config_parse_join_controllers(NULL, "example.conf", 14, "Section", 10, "JoinControllers", 0, "a,\"b ", &c, NULL);
+        assert_se(r < 0);
+        assert_se(c == c2);
+}
+
 #define x10(x) x x x x x x x x x x
 #define x100(x) x10(x10(x))
 #define x1000(x) x10(x100(x))
@@ -252,6 +275,11 @@ static const char* const config_file[] = {
         "3\n",
 
         "[Section]\n"
+        "setting1=1\\\n"     /* continuation with extra trailing backslash at the end */
+        "2\\\n"
+        "3\\\n",
+
+        "[Section]\n"
         "setting1=1\\\\\\\n" /* continuation with trailing escape symbols */
         "\\\\2\n",           /* note that C requires one level of escaping, so the
                               * parser gets "…1 BS BS BS NL BS BS 2 NL", which
@@ -268,6 +296,11 @@ static const char* const config_file[] = {
         "foobar",
 
         "[Section]\n"
+        "setting1="          /* a line above LINE_MAX length, with continuation */
+        x1000("ABCD") "\\\n" /* and an extra trailing backslash */
+        "foobar\\\n",
+
+        "[Section]\n"
         "setting1="          /* a line above the allowed limit: 9 + 1050000 + 1 */
         x1000(x1000("x") x10("abcde")) "\n",
 
@@ -277,7 +310,7 @@ static const char* const config_file[] = {
 };
 
 static void test_config_parse(unsigned i, const char *s) {
-        char name[] = "/tmp/test-conf-parser.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-conf-parser.XXXXXX";
         int fd, r;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *setting1 = NULL;
@@ -320,27 +353,27 @@ static void test_config_parse(unsigned i, const char *s) {
                 assert_se(streq(setting1, "1"));
                 break;
 
-        case 4:
+        case 4 ... 5:
                 assert_se(r == 0);
                 assert_se(streq(setting1, "1 2 3"));
                 break;
 
-        case 5:
+        case 6:
                 assert_se(r == 0);
                 assert_se(streq(setting1, "1\\\\ \\\\2"));
                 break;
 
-        case 6:
+        case 7:
                 assert_se(r == 0);
                 assert_se(streq(setting1, x1000("ABCD")));
                 break;
 
-        case 7:
+        case 8 ... 9:
                 assert_se(r == 0);
                 assert_se(streq(setting1, x1000("ABCD") " foobar"));
                 break;
 
-        case 8 ... 9:
+        case 10 ... 11:
                 assert_se(r == -ENOBUFS);
                 assert_se(setting1 == NULL);
                 break;
@@ -365,6 +398,7 @@ int main(int argc, char **argv) {
         test_config_parse_sec();
         test_config_parse_nsec();
         test_config_parse_iec_uint64();
+        test_config_parse_join_controllers();
 
         for (i = 0; i < ELEMENTSOF(config_file); i++)
                 test_config_parse(i, config_file[i]);

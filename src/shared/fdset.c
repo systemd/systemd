@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <alloca.h>
 #include <errno.h>
@@ -25,6 +7,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -41,8 +24,8 @@ FDSet *fdset_new(void) {
         return MAKE_FDSET(set_new(NULL));
 }
 
-int fdset_new_array(FDSet **ret, const int *fds, unsigned n_fds) {
-        unsigned i;
+int fdset_new_array(FDSet **ret, const int *fds, size_t n_fds) {
+        size_t i;
         FDSet *s;
         int r;
 
@@ -168,8 +151,7 @@ int fdset_new_fill(FDSet **_s) {
         }
 
         r = 0;
-        *_s = s;
-        s = NULL;
+        *_s = TAKE_PTR(s);
 
 finish:
         /* We won't close the fds here! */
@@ -219,7 +201,6 @@ int fdset_new_listen_fds(FDSet **_s, bool unset) {
         *_s = s;
         return 0;
 
-
 fail:
         if (s)
                 set_free(MAKE_SET(s));
@@ -231,10 +212,10 @@ int fdset_close_others(FDSet *fds) {
         void *e;
         Iterator i;
         int *a;
-        unsigned j, m;
+        size_t j = 0, m;
 
-        j = 0, m = fdset_size(fds);
-        a = alloca(sizeof(int) * m);
+        m = fdset_size(fds);
+        a = newa(int, m);
         SET_FOREACH(e, MAKE_SET(fds), i)
                 a[j++] = PTR_TO_FD(e);
 

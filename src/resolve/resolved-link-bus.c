@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -28,9 +10,10 @@
 #include "resolved-resolv-conf.h"
 #include "strv.h"
 
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_resolve_support, resolve_support, ResolveSupport);
+static BUS_DEFINE_PROPERTY_GET(property_get_dnssec_supported, "b", Link, link_dnssec_supported);
+static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dnssec_mode, dnssec_mode_to_string);
 
-static int property_get_dnssec_mode(
+static int property_get_dns_over_tls_mode(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -44,7 +27,7 @@ static int property_get_dnssec_mode(
         assert(reply);
         assert(l);
 
-        return sd_bus_message_append(reply, "s", dnssec_mode_to_string(link_get_dnssec_mode(l)));
+        return sd_bus_message_append(reply, "s", dns_over_tls_mode_to_string(link_get_dns_over_tls_mode(l)));
 }
 
 static int property_get_dns(
@@ -74,6 +57,25 @@ static int property_get_dns(
         }
 
         return sd_bus_message_close_container(reply);
+}
+
+static int property_get_current_dns_server(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        DnsServer *s;
+
+        assert(reply);
+        assert(userdata);
+
+        s = *(DnsServer **) userdata;
+
+        return bus_dns_server_append(reply, s, false);
 }
 
 static int property_get_domains(
@@ -157,23 +159,6 @@ static int property_get_ntas(
         }
 
         return sd_bus_message_close_container(reply);
-}
-
-static int property_get_dnssec_supported(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Link *l = userdata;
-
-        assert(reply);
-        assert(l);
-
-        return sd_bus_message_append(reply, "b", link_dnssec_supported(l));
 }
 
 static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
@@ -429,6 +414,38 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
         return sd_bus_reply_method_return(message, NULL);
 }
 
+int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = userdata;
+        const char *dns_over_tls;
+        DnsOverTlsMode mode;
+        int r;
+
+        assert(message);
+        assert(l);
+
+        r = verify_unmanaged_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "s", &dns_over_tls);
+        if (r < 0)
+                return r;
+
+        if (isempty(dns_over_tls))
+                mode = _DNS_OVER_TLS_MODE_INVALID;
+        else {
+                mode = dns_over_tls_mode_from_string(dns_over_tls);
+                if (mode < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSOverTLS setting: %s", dns_over_tls);
+        }
+
+        link_set_dns_over_tls_mode(l, mode);
+
+        (void) link_save_user(l);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Link *l = userdata;
         const char *dnssec;
@@ -498,8 +515,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         }
 
         set_free_free(l->dnssec_negative_trust_anchors);
-        l->dnssec_negative_trust_anchors = ns;
-        ns = NULL;
+        l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
 
         (void) link_save_user(l);
 
@@ -532,9 +548,11 @@ const sd_bus_vtable link_vtable[] = {
 
         SD_BUS_PROPERTY("ScopesMask", "t", property_get_scopes_mask, 0, 0),
         SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server, offsetof(Link, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
-        SD_BUS_PROPERTY("LLMNR", "s", property_get_resolve_support, offsetof(Link, llmnr_support), 0),
-        SD_BUS_PROPERTY("MulticastDNS", "s", property_get_resolve_support, offsetof(Link, mdns_support), 0),
+        SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Link, llmnr_support), 0),
+        SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Link, mdns_support), 0),
+        SD_BUS_PROPERTY("DNSOverTLS", "s", property_get_dns_over_tls_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
@@ -543,6 +561,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_domains, 0),
         SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, 0),
         SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, 0),
+        SD_BUS_METHOD("SetDNSOverTLS", "s", NULL, bus_link_method_set_dns_over_tls, 0),
         SD_BUS_METHOD("SetDNSSEC", "s", NULL, bus_link_method_set_dnssec, 0),
         SD_BUS_METHOD("SetDNSSECNegativeTrustAnchors", "as", NULL, bus_link_method_set_dnssec_negative_trust_anchors, 0),
         SD_BUS_METHOD("Revert", NULL, NULL, bus_link_method_revert, 0),
@@ -623,8 +642,7 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
         }
 
         l[c] = NULL;
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return 1;
 }

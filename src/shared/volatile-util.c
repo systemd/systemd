@@ -1,47 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
+#include <errno.h>
 
 #include "alloc-util.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "volatile-util.h"
-
-VolatileMode volatile_mode_from_string(const char *s) {
-        int b;
-
-        if (isempty(s))
-                return _VOLATILE_MODE_INVALID;
-
-        b = parse_boolean(s);
-        if (b > 0)
-                return VOLATILE_YES;
-        if (b == 0)
-                return VOLATILE_NO;
-
-        if (streq(s, "state"))
-                return VOLATILE_STATE;
-
-        return _VOLATILE_MODE_INVALID;
-}
 
 int query_volatile_mode(VolatileMode *ret) {
         _cleanup_free_ char *mode = NULL;
@@ -67,3 +34,11 @@ finish:
         *ret = m;
         return r;
 }
+
+static const char* const volatile_mode_table[_VOLATILE_MODE_MAX] = {
+        [VOLATILE_NO] = "no",
+        [VOLATILE_YES] = "yes",
+        [VOLATILE_STATE] = "state",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(volatile_mode, VolatileMode, VOLATILE_YES);

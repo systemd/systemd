@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
 #include "audit-type.h"
@@ -339,7 +321,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
              type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
              source_time_field[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
-        char *m;
+        char *m, *type_field_name;
         int k;
 
         assert(s);
@@ -372,7 +354,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         if (isempty(p))
                 return;
 
-        n_iov_allocated = N_IOVEC_META_FIELDS + 7;
+        n_iov_allocated = N_IOVEC_META_FIELDS + 8;
         iov = new(struct iovec, n_iov_allocated);
         if (!iov) {
                 log_oom();
@@ -396,6 +378,9 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         iov[n_iov++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=audit");
 
         type_name = audit_type_name_alloca(type);
+
+        type_field_name = strjoina("_AUDIT_TYPE_NAME=", type_name);
+        iov[n_iov++] = IOVEC_MAKE_STRING(type_field_name);
 
         m = strjoina("MESSAGE=", type_name, " ", p);
         iov[n_iov++] = IOVEC_MAKE_STRING(m);
@@ -459,8 +444,8 @@ void server_process_audit_message(
         if (IN_SET(nl->nlmsg_type, NLMSG_NOOP, NLMSG_ERROR))
                 return;
 
-        /* Below AUDIT_FIRST_USER_MSG theer are only control messages, let's ignore those */
-        if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG)
+        /* Except AUDIT_USER, all messsages below AUDIT_FIRST_USER_MSG are control messages, let's ignore those */
+        if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG && nl->nlmsg_type != AUDIT_USER)
                 return;
 
         process_audit_string(s, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)));

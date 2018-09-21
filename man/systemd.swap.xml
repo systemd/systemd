@@ -4,38 +4,12 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.swap">
   <refentryinfo>
     <title>systemd.swap</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -72,7 +46,7 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     which define the execution environment the <citerefentry
     project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    binary is executed in, in
+    program is executed in, in
     <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     which define the way these processes are
     terminated, and in
@@ -89,34 +63,38 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>The following dependencies are implicitly added:</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>All swap units automatically get the
-      <varname>BindsTo=</varname> and <varname>After=</varname>
-      dependencies on the device units or the mount units of the files
-      they are activated from.</para></listitem>
-    </itemizedlist>
+      <para>The following dependencies are implicitly added:</para>
 
-    <para>Additional implicit dependencies may be added as result of
-    execution and resource control parameters as documented in
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-  </refsect1>
+      <itemizedlist>
+        <listitem><para>All swap units automatically get the
+        <varname>BindsTo=</varname> and <varname>After=</varname>
+        dependencies on the device units or the mount units of the files
+        they are activated from.</para></listitem>
+      </itemizedlist>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>Additional implicit dependencies may be added as result of
+      execution and resource control parameters as documented in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    </refsect2>
 
-    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Swap units automatically acquire a <varname>Conflicts=</varname> and a
-      <varname>Before=</varname> dependency on <filename>umount.target</filename> so that they are deactivated at
-      shutdown as well as a <varname>Before=swap.target</varname> dependency.</para></listitem>
-    </itemizedlist>
+      <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+
+      <itemizedlist>
+        <listitem><para>Swap units automatically acquire a <varname>Conflicts=</varname> and a
+        <varname>Before=</varname> dependency on <filename>umount.target</filename> so that they are deactivated at
+        shutdown as well as a <varname>Before=swap.target</varname> dependency.</para></listitem>
+      </itemizedlist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

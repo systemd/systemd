@@ -1,23 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2016 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
+#include <errno.h>
 #include <fcntl.h>
 #include <linux/loop.h>
 #include <sys/ioctl.h>
@@ -26,6 +9,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "loop-util.h"
+#include "stat-util.h"
 
 int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         const struct loop_info64 info = {
@@ -36,7 +20,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         _cleanup_free_ char *loopdev = NULL;
         struct stat st;
         LoopDevice *d;
-        int nr;
+        int nr, r;
 
         assert(fd >= 0);
         assert(ret);
@@ -68,8 +52,9 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
                 return 0;
         }
 
-        if (!S_ISREG(st.st_mode))
-                return -EINVAL;
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return r;
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (control < 0)
@@ -97,13 +82,10 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
                 return -ENOMEM;
 
         *d = (LoopDevice) {
-                .fd = loop,
-                .node = loopdev,
+                .fd = TAKE_FD(loop),
+                .node = TAKE_PTR(loopdev),
                 .nr = nr,
         };
-
-        loop = -1;
-        loopdev = NULL;
 
         *ret = d;
 

@@ -3,10 +3,6 @@
 #define foosdpathhfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -74,6 +70,7 @@ enum {
 
         /* Search paths */
         SD_PATH_SEARCH_BINARIES,
+        SD_PATH_SEARCH_BINARIES_DEFAULT,
         SD_PATH_SEARCH_LIBRARY_PRIVATE,
         SD_PATH_SEARCH_LIBRARY_ARCH,
         SD_PATH_SEARCH_SHARED,

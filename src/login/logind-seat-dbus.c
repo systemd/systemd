@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <string.h>
@@ -30,6 +12,10 @@
 #include "strv.h"
 #include "user-util.h"
 #include "util.h"
+
+static BUS_DEFINE_PROPERTY_GET(property_get_can_multi_session, "b", Seat, seat_can_multi_session);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_tty, "b", Seat, seat_can_tty);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_graphical, "b", Seat, seat_can_graphical);
 
 static int property_get_active_session(
                 sd_bus *bus,
@@ -52,60 +38,6 @@ static int property_get_active_session(
                 return -ENOMEM;
 
         return sd_bus_message_append(reply, "(so)", s->active ? s->active->id : "", p);
-}
-
-static int property_get_can_multi_session(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Seat *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "b", seat_can_multi_session(s));
-}
-
-static int property_get_can_tty(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Seat *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "b", seat_can_tty(s));
-}
-
-static int property_get_can_graphical(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Seat *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "b", seat_can_graphical(s));
 }
 
 static int property_get_sessions(
@@ -419,8 +351,7 @@ int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
                 }
         }
 
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return 1;
 }

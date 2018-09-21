@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <stdbool.h>
 
 #include "macro.h"
@@ -53,6 +34,7 @@ UnitType unit_name_to_type(const char *n) _pure_;
 int unit_name_change_suffix(const char *n, const char *suffix, char **ret);
 
 int unit_name_build(const char *prefix, const char *instance, const char *suffix, char **ret);
+int unit_name_build_from_type(const char *prefix, const char *instance, UnitType, char **ret);
 
 char *unit_name_escape(const char *f);
 int unit_name_unescape(const char *f, char **ret);
@@ -68,14 +50,14 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
 int unit_name_to_path(const char *name, char **ret);
 
 typedef enum UnitNameMangle {
-        UNIT_NAME_NOGLOB,
-        UNIT_NAME_GLOB,
+        UNIT_NAME_MANGLE_GLOB = 1,
+        UNIT_NAME_MANGLE_WARN = 2,
 } UnitNameMangle;
 
-int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, const char *suffix, char **ret);
+int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const char *suffix, char **ret);
 
-static inline int unit_name_mangle(const char *name, UnitNameMangle allow_globs, char **ret) {
-        return unit_name_mangle_with_suffix(name, allow_globs, ".service", ret);
+static inline int unit_name_mangle(const char *name, UnitNameMangle flags, char **ret) {
+        return unit_name_mangle_with_suffix(name, flags, ".service", ret);
 }
 
 int slice_build_parent_slice(const char *slice, char **ret);

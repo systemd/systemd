@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -81,7 +63,8 @@ static void *server(void *p) {
 
                 if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Exit")) {
 
-                        assert_se((sd_bus_can_send(bus, 'h') >= 1) == (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
+                        assert_se((sd_bus_can_send(bus, 'h') >= 1) ==
+                                  (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
 
                         r = sd_bus_message_new_method_return(m, &reply);
                         if (r < 0) {
@@ -145,10 +128,8 @@ static int client(struct context *c) {
                 return log_error_errno(r, "Failed to allocate method call: %m");
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, -r));
 
         return 0;
 }

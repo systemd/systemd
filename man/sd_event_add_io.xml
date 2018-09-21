@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="sd_event_add_io" xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>sd_event_add_io</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -51,6 +25,8 @@
     <refname>sd_event_source_get_io_revents</refname>
     <refname>sd_event_source_get_io_fd</refname>
     <refname>sd_event_source_set_io_fd</refname>
+    <refname>sd_event_source_get_io_fd_own</refname>
+    <refname>sd_event_source_set_io_fd_own</refname>
     <refname>sd_event_source</refname>
     <refname>sd_event_io_handler_t</refname>
 
@@ -108,6 +84,17 @@
         <funcdef>int <function>sd_event_source_set_io_fd</function></funcdef>
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
         <paramdef>int <parameter>fd</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_get_io_fd_own</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_set_io_fd_own</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -225,6 +212,17 @@
     changes the UNIX file descriptor of an I/O event source created
     previously with <function>sd_event_add_io()</function>. It takes
     the event source object and the new file descriptor.</para>
+
+    <para><function>sd_event_source_set_io_fd_own()</function> controls whether the file descriptor of the event source
+    shall be closed automatically when the event source is freed, i.e. whether it shall be considered 'owned' by the
+    event source object. By default it is not closed automatically, and the application has to do this on its own. The
+    <parameter>b</parameter> parameter is a boolean parameter: if zero, the file descriptor is not closed automatically
+    when the event source is freed, otherwise it is closed.</para>
+
+    <para><function>sd_event_source_get_io_fd_own()</function> may be used to query the current setting of the file
+    descriptor ownership boolean flag as set with <function>sd_event_source_set_io_fd_own()</function>. It returns
+    positive if the file descriptor is closed automatically when the event source is destroyed, zero if not, and
+    negative on error.</para>
   </refsect1>
 
   <refsect1>
@@ -288,6 +286,7 @@
       <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_inotify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_priority</refentrytitle><manvolnum>3</manvolnum></citerefentry>,

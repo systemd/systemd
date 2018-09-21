@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010-2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <signal.h>
 
 #include "macro.h"
@@ -37,8 +18,6 @@ int sigprocmask_many(int how, sigset_t *old, ...);
 const char *signal_to_string(int i) _const_;
 int signal_from_string(const char *s) _pure_;
 
-int signal_from_string_try_harder(const char *s);
-
 void nop_signal_handler(int sig);
 
 static inline void block_signals_reset(sigset_t *ss) {
@@ -54,4 +33,11 @@ static inline void block_signals_reset(sigset_t *ss) {
 
 static inline bool SIGNAL_VALID(int signo) {
         return signo > 0 && signo < _NSIG;
+}
+
+static inline const char* signal_to_string_with_check(int n) {
+        if (!SIGNAL_VALID(n))
+                return NULL;
+
+        return signal_to_string(n);
 }

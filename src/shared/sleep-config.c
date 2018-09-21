@@ -1,30 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2018 Dell Inc.
 ***/
 
 #include <errno.h>
+#include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/utsname.h>
 #include <syslog.h>
 #include <unistd.h>
+
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "conf-parser.h"
@@ -35,19 +24,19 @@
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "sleep-config.h"
 #include "string-util.h"
 #include "strv.h"
 
-#define USE(x, y) do { (x) = (y); (y) = NULL; } while (0)
-
-int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
+int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t *_delay) {
 
         _cleanup_strv_free_ char
                 **suspend_mode = NULL, **suspend_state = NULL,
                 **hibernate_mode = NULL, **hibernate_state = NULL,
                 **hybrid_mode = NULL, **hybrid_state = NULL;
-        char **modes, **states;
+        _cleanup_strv_free_ char **modes, **states; /* always initialized below */
+        usec_t delay = 180 * USEC_PER_MINUTE;
 
         const ConfigTableItem items[] = {
                 { "Sleep",   "SuspendMode",      config_parse_strv,  0, &suspend_mode  },
@@ -56,6 +45,7 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
                 { "Sleep",   "HibernateState",   config_parse_strv,  0, &hibernate_state },
                 { "Sleep",   "HybridSleepMode",  config_parse_strv,  0, &hybrid_mode  },
                 { "Sleep",   "HybridSleepState", config_parse_strv,  0, &hybrid_state },
+                { "Sleep",   "HibernateDelaySec", config_parse_sec,  0, &delay},
                 {}
         };
 
@@ -66,46 +56,51 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
 
         if (streq(verb, "suspend")) {
                 /* empty by default */
-                USE(modes, suspend_mode);
+                modes = TAKE_PTR(suspend_mode);
 
                 if (suspend_state)
-                        USE(states, suspend_state);
+                        states = TAKE_PTR(suspend_state);
                 else
                         states = strv_new("mem", "standby", "freeze", NULL);
 
         } else if (streq(verb, "hibernate")) {
                 if (hibernate_mode)
-                        USE(modes, hibernate_mode);
+                        modes = TAKE_PTR(hibernate_mode);
                 else
                         modes = strv_new("platform", "shutdown", NULL);
 
                 if (hibernate_state)
-                        USE(states, hibernate_state);
+                        states = TAKE_PTR(hibernate_state);
                 else
                         states = strv_new("disk", NULL);
 
         } else if (streq(verb, "hybrid-sleep")) {
                 if (hybrid_mode)
-                        USE(modes, hybrid_mode);
+                        modes = TAKE_PTR(hybrid_mode);
                 else
                         modes = strv_new("suspend", "platform", "shutdown", NULL);
 
                 if (hybrid_state)
-                        USE(states, hybrid_state);
+                        states = TAKE_PTR(hybrid_state);
                 else
                         states = strv_new("disk", NULL);
 
-        } else
+        } else if (streq(verb, "suspend-then-hibernate"))
+                modes = states = NULL;
+        else
                 assert_not_reached("what verb");
 
-        if ((!modes && !streq(verb, "suspend")) || !states) {
-                strv_free(modes);
-                strv_free(states);
+        if ((!modes && STR_IN_SET(verb, "hibernate", "hybrid-sleep")) ||
+            (!states && !streq(verb, "suspend-then-hibernate")))
                 return log_oom();
-        }
 
-        *_modes = modes;
-        *_states = states;
+        if (_modes)
+                *_modes = TAKE_PTR(modes);
+        if (_states)
+                *_states = TAKE_PTR(states);
+        if (_delay)
+                *_delay = delay;
+
         return 0;
 }
 
@@ -147,12 +142,16 @@ int can_sleep_disk(char **types) {
                 return true;
 
         /* If /sys is read-only we cannot sleep */
-        if (access("/sys/power/disk", W_OK) < 0)
+        if (access("/sys/power/disk", W_OK) < 0) {
+                log_debug_errno(errno, "/sys/power/disk is not writable: %m");
                 return false;
+        }
 
         r = read_one_line_file("/sys/power/disk", &p);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(r, "Couldn't read /sys/power/disk: %m");
                 return false;
+        }
 
         STRV_FOREACH(type, types) {
                 const char *word, *state;
@@ -176,12 +175,9 @@ int can_sleep_disk(char **types) {
 
 #define HIBERNATION_SWAP_THRESHOLD 0.98
 
-static int hibernation_partition_size(size_t *size, size_t *used) {
+int find_hibernate_location(char **device, char **type, size_t *size, size_t *used) {
         _cleanup_fclose_ FILE *f;
         unsigned i;
-
-        assert(size);
-        assert(used);
 
         f = fopen("/proc/swaps", "re");
         if (!f) {
@@ -194,7 +190,7 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
 
         for (i = 1;; i++) {
-                _cleanup_free_ char *dev = NULL, *type = NULL;
+                _cleanup_free_ char *dev_field = NULL, *type_field = NULL;
                 size_t size_field, used_field;
                 int k;
 
@@ -204,22 +200,39 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
                            "%zu "   /* swap size */
                            "%zu "   /* used */
                            "%*i\n", /* priority */
-                           &dev, &type, &size_field, &used_field);
+                           &dev_field, &type_field, &size_field, &used_field);
+                if (k == EOF)
+                        break;
                 if (k != 4) {
-                        if (k == EOF)
-                                break;
-
                         log_warning("Failed to parse /proc/swaps:%u", i);
                         continue;
                 }
 
-                if (streq(type, "partition") && endswith(dev, "\\040(deleted)")) {
-                        log_warning("Ignoring deleted swapfile '%s'.", dev);
-                        continue;
+                if (streq(type_field, "file")) {
+
+                        if (endswith(dev_field, "\\040(deleted)")) {
+                                log_warning("Ignoring deleted swap file '%s'.", dev_field);
+                                continue;
+                        }
+
+                } else if (streq(type_field, "partition")) {
+                        const char *fn;
+
+                        fn = path_startswith(dev_field, "/dev/");
+                        if (fn && startswith(fn, "zram")) {
+                                log_debug("Ignoring compressed RAM swap device '%s'.", dev_field);
+                                continue;
+                        }
                 }
 
-                *size = size_field;
-                *used = used_field;
+                if (device)
+                        *device = TAKE_PTR(dev_field);
+                if (type)
+                        *type = TAKE_PTR(type_field);
+                if (size)
+                        *size = size_field;
+                if (used)
+                        *used = used_field;
                 return 0;
         }
 
@@ -227,7 +240,7 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
         return -ENOSYS;
 }
 
-static bool enough_memory_for_hibernation(void) {
+static bool enough_swap_for_hibernation(void) {
         _cleanup_free_ char *active = NULL;
         unsigned long long act = 0;
         size_t size = 0, used = 0;
@@ -236,20 +249,19 @@ static bool enough_memory_for_hibernation(void) {
         if (getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0)
                 return true;
 
-        r = hibernation_partition_size(&size, &used);
+        r = find_hibernate_location(NULL, NULL, &size, &used);
         if (r < 0)
                 return false;
 
         r = get_proc_field("/proc/meminfo", "Active(anon)", WHITESPACE, &active);
         if (r < 0) {
-                log_error_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
+                log_debug_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
                 return false;
         }
 
         r = safe_atollu(active, &act);
         if (r < 0) {
-                log_error_errno(r, "Failed to parse Active(anon) from /proc/meminfo: %s: %m",
-                                active);
+                log_debug_errno(r, "Failed to parse Active(anon) from /proc/meminfo: %s: %m", active);
                 return false;
         }
 
@@ -260,20 +272,206 @@ static bool enough_memory_for_hibernation(void) {
         return r;
 }
 
+static int kernel_exists(void) {
+        struct utsname u;
+        sd_id128_t m;
+        int i, r;
+
+        /* Do some superficial checks whether the kernel we are currently running is still around. If it isn't we
+         * shouldn't offer hibernation as we couldn't possible resume from hibernation again. Of course, this check is
+         * very superficial, as the kernel's mere existance is hardly enough to know whether the hibernate/resume cycle
+         * will succeed. However, the common case of kernel updates can be caught this way, and it's definitely worth
+         * covering that. */
+
+        for (i = 0;; i++) {
+                _cleanup_free_ char *path = NULL;
+
+                switch (i) {
+
+                case 0:
+                        /* First, let's look in /lib/modules/`uname -r`/vmlinuz. This is where current Fedora places
+                         * its RPM-managed kernels. It's a good place, as it means compiled vendor code is monopolized
+                         * in /usr, and then the kernel image is stored along with its modules in the same
+                         * hierarchy. It's also what our 'kernel-install' script is written for. */
+                        if (uname(&u) < 0)
+                                return log_debug_errno(errno, "Failed to acquire kernel release: %m");
+
+                        path = strjoin("/lib/modules/", u.release, "/vmlinuz");
+                        break;
+
+                case 1:
+                        /* Secondly, let's look in /boot/vmlinuz-`uname -r`. This is where older Fedora and other
+                         * distributions tend to place the kernel. */
+                        path = strjoin("/boot/vmlinuz-", u.release);
+                        break;
+
+                case 2:
+                        /* For the other cases, we look in the EFI/boot partition, at the place where our
+                         * "kernel-install" script copies the kernel on install by default. */
+                        r = sd_id128_get_machine(&m);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read machine ID: %m");
+
+                        (void) asprintf(&path, "/efi/" SD_ID128_FORMAT_STR "/%s/linux", SD_ID128_FORMAT_VAL(m), u.release);
+                        break;
+                case 3:
+                        (void) asprintf(&path, "/boot/" SD_ID128_FORMAT_STR "/%s/linux", SD_ID128_FORMAT_VAL(m), u.release);
+                        break;
+                case 4:
+                        (void) asprintf(&path, "/boot/efi/" SD_ID128_FORMAT_STR "/%s/linux", SD_ID128_FORMAT_VAL(m), u.release);
+                        break;
+
+                default:
+                        return false;
+                }
+
+                if (!path)
+                        return -ENOMEM;
+
+                log_debug("Testing whether %s exists.", path);
+
+                if (access(path, F_OK) >= 0)
+                        return true;
+
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to determine whether '%s' exists, ignoring: %m", path);
+        }
+}
+
+int read_fiemap(int fd, struct fiemap **ret) {
+        _cleanup_free_ struct fiemap *fiemap = NULL, *result_fiemap = NULL;
+        struct stat statinfo;
+        uint32_t result_extents = 0;
+        uint64_t fiemap_start = 0, fiemap_length;
+        const size_t n_extra = DIV_ROUND_UP(sizeof(struct fiemap), sizeof(struct fiemap_extent));
+        size_t fiemap_allocated = n_extra, result_fiemap_allocated = n_extra;
+
+        if (fstat(fd, &statinfo) < 0)
+                return log_debug_errno(errno, "Cannot determine file size: %m");
+        if (!S_ISREG(statinfo.st_mode))
+                return -ENOTTY;
+        fiemap_length = statinfo.st_size;
+
+        /* Zero this out in case we run on a file with no extents */
+        fiemap = calloc(n_extra, sizeof(struct fiemap_extent));
+        if (!fiemap)
+                return -ENOMEM;
+
+        result_fiemap = malloc_multiply(n_extra, sizeof(struct fiemap_extent));
+        if (!result_fiemap)
+                return -ENOMEM;
+
+        /*  XFS filesystem has incorrect implementation of fiemap ioctl and
+         *  returns extents for only one block-group at a time, so we need
+         *  to handle it manually, starting the next fiemap call from the end
+         *  of the last extent
+         */
+        while (fiemap_start < fiemap_length) {
+                *fiemap = (struct fiemap) {
+                        .fm_start = fiemap_start,
+                        .fm_length = fiemap_length,
+                        .fm_flags = FIEMAP_FLAG_SYNC,
+                };
+
+                /* Find out how many extents there are */
+                if (ioctl(fd, FS_IOC_FIEMAP, fiemap) < 0)
+                        return log_debug_errno(errno, "Failed to read extents: %m");
+
+                /* Nothing to process */
+                if (fiemap->fm_mapped_extents == 0)
+                        break;
+
+                /* Resize fiemap to allow us to read in the extents, result fiemap has to hold all
+                 * the extents for the whole file. Add space for the initial struct fiemap. */
+                if (!greedy_realloc0((void**) &fiemap, &fiemap_allocated,
+                                     n_extra + fiemap->fm_mapped_extents, sizeof(struct fiemap_extent)))
+                        return -ENOMEM;
+
+                fiemap->fm_extent_count = fiemap->fm_mapped_extents;
+                fiemap->fm_mapped_extents = 0;
+
+                if (ioctl(fd, FS_IOC_FIEMAP, fiemap) < 0)
+                        return log_debug_errno(errno, "Failed to read extents: %m");
+
+                /* Resize result_fiemap to allow us to copy in the extents */
+                if (!greedy_realloc((void**) &result_fiemap, &result_fiemap_allocated,
+                                    n_extra + result_extents + fiemap->fm_mapped_extents, sizeof(struct fiemap_extent)))
+                        return -ENOMEM;
+
+                memcpy(result_fiemap->fm_extents + result_extents,
+                       fiemap->fm_extents,
+                       sizeof(struct fiemap_extent) * fiemap->fm_mapped_extents);
+
+                result_extents += fiemap->fm_mapped_extents;
+
+                /* Highly unlikely that it is zero */
+                if (_likely_(fiemap->fm_mapped_extents > 0)) {
+                        uint32_t i = fiemap->fm_mapped_extents - 1;
+
+                        fiemap_start = fiemap->fm_extents[i].fe_logical +
+                                       fiemap->fm_extents[i].fe_length;
+
+                        if (fiemap->fm_extents[i].fe_flags & FIEMAP_EXTENT_LAST)
+                                break;
+                }
+        }
+
+        memcpy(result_fiemap, fiemap, sizeof(struct fiemap));
+        result_fiemap->fm_mapped_extents = result_extents;
+        *ret = TAKE_PTR(result_fiemap);
+        return 0;
+}
+
+static bool can_s2h(void) {
+        const char *p;
+        int r;
+
+        r = access("/sys/class/rtc/rtc0/wakealarm", W_OK);
+        if (r < 0) {
+                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "/sys/class/rct/rct0/wakealarm is not writable %m");
+                return false;
+        }
+
+        FOREACH_STRING(p, "suspend", "hibernate") {
+                r = can_sleep(p);
+                if (IN_SET(r, 0, -ENOSPC, -ENOMEDIUM)) {
+                        log_debug("Unable to %s system.", p);
+                        return false;
+                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if %s is possible: %m", p);
+        }
+
+        return true;
+}
+
 int can_sleep(const char *verb) {
         _cleanup_strv_free_ char **modes = NULL, **states = NULL;
         int r;
 
-        assert(streq(verb, "suspend") ||
-               streq(verb, "hibernate") ||
-               streq(verb, "hybrid-sleep"));
+        assert(STR_IN_SET(verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate"));
 
-        r = parse_sleep_config(verb, &modes, &states);
+        if (streq(verb, "suspend-then-hibernate"))
+                return can_s2h();
+
+        r = parse_sleep_config(verb, &modes, &states, NULL);
         if (r < 0)
                 return false;
 
         if (!can_sleep_state(states) || !can_sleep_disk(modes))
                 return false;
 
-        return streq(verb, "suspend") || enough_memory_for_hibernation();
+        if (streq(verb, "suspend"))
+                return true;
+
+        if (kernel_exists() <= 0) {
+                log_debug_errno(errno, "Couldn't find kernel, not offering hibernation.");
+                return -ENOMEDIUM;
+        }
+
+        if (!enough_swap_for_hibernation())
+                return -ENOSPC;
+
+        return true;
 }

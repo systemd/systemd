@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <unistd.h>
 
@@ -33,6 +15,24 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
+const char* manager_target_for_action(HandleAction handle) {
+        static const char * const target_table[_HANDLE_ACTION_MAX] = {
+                [HANDLE_POWEROFF] = SPECIAL_POWEROFF_TARGET,
+                [HANDLE_REBOOT] = SPECIAL_REBOOT_TARGET,
+                [HANDLE_HALT] = SPECIAL_HALT_TARGET,
+                [HANDLE_KEXEC] = SPECIAL_KEXEC_TARGET,
+                [HANDLE_SUSPEND] = SPECIAL_SUSPEND_TARGET,
+                [HANDLE_HIBERNATE] = SPECIAL_HIBERNATE_TARGET,
+                [HANDLE_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET,
+                [HANDLE_SUSPEND_THEN_HIBERNATE] = SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET,
+        };
+
+        assert(handle >= 0);
+        if (handle < (ssize_t) ELEMENTSOF(target_table))
+                return target_table[handle];
+        return NULL;
+}
+
 int manager_handle_action(
                 Manager *m,
                 InhibitWhat inhibit_key,
@@ -47,23 +47,15 @@ int manager_handle_action(
                 [HANDLE_KEXEC] = "Rebooting via kexec...",
                 [HANDLE_SUSPEND] = "Suspending...",
                 [HANDLE_HIBERNATE] = "Hibernating...",
-                [HANDLE_HYBRID_SLEEP] = "Hibernating and suspending..."
-        };
-
-        static const char * const target_table[_HANDLE_ACTION_MAX] = {
-                [HANDLE_POWEROFF] = SPECIAL_POWEROFF_TARGET,
-                [HANDLE_REBOOT] = SPECIAL_REBOOT_TARGET,
-                [HANDLE_HALT] = SPECIAL_HALT_TARGET,
-                [HANDLE_KEXEC] = SPECIAL_KEXEC_TARGET,
-                [HANDLE_SUSPEND] = SPECIAL_SUSPEND_TARGET,
-                [HANDLE_HIBERNATE] = SPECIAL_HIBERNATE_TARGET,
-                [HANDLE_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET
+                [HANDLE_HYBRID_SLEEP] = "Hibernating and suspending...",
+                [HANDLE_SUSPEND_THEN_HIBERNATE] = "Suspending, then hibernating...",
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         InhibitWhat inhibit_operation;
         Inhibitor *offending = NULL;
         bool supported;
+        const char *target;
         int r;
 
         assert(m);
@@ -95,7 +87,6 @@ int manager_handle_action(
 
         /* Locking is handled differently from the rest. */
         if (handle == HANDLE_LOCK) {
-
                 if (!is_edge)
                         return 0;
 
@@ -110,6 +101,8 @@ int manager_handle_action(
                 supported = can_sleep("hibernate") > 0;
         else if (handle == HANDLE_HYBRID_SLEEP)
                 supported = can_sleep("hybrid-sleep") > 0;
+        else if (handle == HANDLE_SUSPEND_THEN_HIBERNATE)
+                supported = can_sleep("suspend-then-hibernate") > 0;
         else if (handle == HANDLE_KEXEC)
                 supported = access(KEXEC, X_OK) >= 0;
         else
@@ -125,7 +118,11 @@ int manager_handle_action(
                 return -EALREADY;
         }
 
-        inhibit_operation = IN_SET(handle, HANDLE_SUSPEND, HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP) ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
+        assert_se(target = manager_target_for_action(handle));
+
+        inhibit_operation = IN_SET(handle, HANDLE_SUSPEND, HANDLE_HIBERNATE,
+                                           HANDLE_HYBRID_SLEEP,
+                                           HANDLE_SUSPEND_THEN_HIBERNATE) ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
 
         /* If the actual operation is inhibited, warn and fail */
         if (!ignore_inhibited &&
@@ -154,11 +151,9 @@ int manager_handle_action(
 
         log_info("%s", message_table[handle]);
 
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, target_table[handle], inhibit_operation, &error);
-        if (r < 0) {
-                log_error("Failed to execute operation: %s", bus_error_message(&error, r));
-                return r;
-        }
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, target, inhibit_operation, &error);
+        if (r < 0)
+                return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
 
         return 1;
 }
@@ -172,7 +167,8 @@ static const char* const handle_action_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_SUSPEND] = "suspend",
         [HANDLE_HIBERNATE] = "hibernate",
         [HANDLE_HYBRID_SLEEP] = "hybrid-sleep",
-        [HANDLE_LOCK] = "lock"
+        [HANDLE_SUSPEND_THEN_HIBERNATE] = "suspend-then-hibernate",
+        [HANDLE_LOCK] = "lock",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(handle_action, HandleAction);

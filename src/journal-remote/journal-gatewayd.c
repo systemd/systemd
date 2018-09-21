@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <fcntl.h>
 #include <getopt.h>
@@ -37,8 +19,10 @@
 #include "log.h"
 #include "logs-show.h"
 #include "microhttpd-util.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "sigbus.h"
+#include "terminal-util.h"
 #include "util.h"
 
 #define JOURNAL_WAIT_TIMEOUT (10*USEC_PER_SEC)
@@ -226,7 +210,8 @@ static ssize_t request_reader_entries(
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
-                r = output_journal(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH, NULL, NULL);
+                r = show_journal_entry(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH,
+                                   NULL, NULL, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to serialize item: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
@@ -789,10 +774,8 @@ static int request_handler_machine(
         if (r < 0)
                 return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
 
-        if (parse_env_file("/etc/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL) == -ENOENT)
-                (void) parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL);
-
-        get_virtualization(&v);
+        (void) parse_os_release(NULL, "PRETTY_NAME", &os_name, NULL);
+        (void) get_virtualization(&v);
 
         r = asprintf(&json,
                      "{ \"machine_id\" : \"" SD_ID128_FORMAT_STR "\","
@@ -847,7 +830,6 @@ static int request_handler(
         if (!streq(method, "GET"))
                 return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE, "Unsupported method.");
 
-
         if (!*connection_cls) {
                 if (!request_meta(connection_cls))
                         return respond_oom(connection);
@@ -878,7 +860,14 @@ static int request_handler(
         return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.");
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-journal-gatewayd.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] ...\n\n"
                "HTTP server for journal events.\n\n"
                "  -h --help           Show this help\n"
@@ -886,8 +875,13 @@ static void help(void) {
                "     --cert=CERT.PEM  Server certificate in PEM format\n"
                "     --key=KEY.PEM    Server key in PEM format\n"
                "     --trust=CERT.PEM Certificate authority certificate in PEM format\n"
-               "  -D --directory=PATH Serve journal files in directory\n",
-               program_invocation_short_name);
+               "  -D --directory=PATH Serve journal files in directory\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -918,8 +912,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch(c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();

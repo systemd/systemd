@@ -4,39 +4,13 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_journal_query_unique">
+<refentry id="sd_journal_query_unique" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_query_unique</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -152,16 +126,9 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>All functions listed here are thread-agnostic and only a single thread may operate
-    on a given <structname>sd_journal</structname> object.</para>
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
 
-    <para>The <function>sd_journal_query_unique()</function>,
-    <function>sd_journal_enumerate_unique()</function> and
-    <function>sd_journal_restart_unique()</function> interfaces are
-    available as a shared library, which can be compiled and linked to
-    with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>
@@ -172,32 +139,7 @@
     following example lists all unit names referenced in the
     journal:</para>
 
-    <programlisting>#include &lt;stdio.h&gt;
-#include &lt;string.h&gt;
-#include &lt;systemd/sd-journal.h&gt;
-
-int main(int argc, char *argv[]) {
-        sd_journal *j;
-        const void *d;
-        size_t l;
-        int r;
-
-        r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
-        if (r &lt; 0) {
-                fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
-                return 1;
-        }
-        r = sd_journal_query_unique(j, "_SYSTEMD_UNIT");
-        if (r &lt; 0) {
-                fprintf(stderr, "Failed to query journal: %s\n", strerror(-r));
-                return 1;
-        }
-        SD_JOURNAL_FOREACH_UNIQUE(j, d, l)
-                printf("%.*s\n", (int) l, (const char*) d);
-        sd_journal_close(j);
-        return 0;
-}</programlisting>
-
+    <programlisting><xi:include href="journal-iterate-unique.c" parse="text" /></programlisting>
   </refsect1>
 
   <refsect1>

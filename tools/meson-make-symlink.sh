@@ -1,4 +1,5 @@
-#!/bin/sh -eu
+#!/bin/sh
+set -eu
 
 # this is needed mostly because $DESTDIR is provided as a variable,
 # and we need to create the target directory...

@@ -1,0 +1,57 @@
+# This file is part of systemd.
+#
+# Data extracted from Linux hyperv.h
+
+vmbus:02780ada77e3ac4a8e770558eb1073f8
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Video
+
+vmbus:1657e6f8b33c064a9a601889c5cccab5
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Remote Desktop Control
+
+vmbus:1df6c444444400449d52802e27ede19f
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V PCI Controller
+
+vmbus:292efa3523ea364296ae3a6ebacba440
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Backup/Restore
+
+vmbus:30e62795aed07b49adcee80ab0175caf
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Time Sync
+
+vmbus:31600b0e13523449818b38d90ced39db
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Guest Shutdown
+
+vmbus:32264132cb86a2449b5c50d1417354f5
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V IDE Controller
+
+vmbus:394f16571591784eab55382f3bd5422d
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Heartbeat
+
+vmbus:3daf2e8ca732094bab99bd1f1c86b501
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Guest RDMA
+
+vmbus:635161f83edfc546913ff2d2f965ed0e
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Network Adapter
+
+vmbus:6dad12f9172bea48bd65f927a61c7684
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Keyboard
+
+vmbus:9eb6a8cf4a5bc04cb98b8ba1a1f3f95a
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Mouse
+
+vmbus:d96361baa104294db60572e2ffb1dc7f
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V SCSI Controller
+
+vmbus:dc7450528589e2468057a307dc18a502
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Dynamic Memory
+
+vmbus:e34bd134e4dec8419ae76b174977c192
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V File Copy
+
+vmbus:e7f4a0a9455a964db8278a841e8c03e6
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Data Exchange
+
+vmbus:f4ac6a2715ac6c4298dd7521ad3f01fe
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Remote Desktop Virtualization
+
+vmbus:f4ba7533159e304bb76567acb10d607b
+ ID_MODEL_FROM_DATABASE=Microsoft Hyper-V Virtual Machine Activation

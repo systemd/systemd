@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="resolved.conf" conditional='ENABLE_RESOLVE'
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>resolved.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-        <email>teg@jklm.no</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -117,7 +91,7 @@
         <listitem><para>Takes a boolean argument or
         <literal>resolve</literal>. Controls Link-Local Multicast Name
         Resolution support (<ulink
-        url="https://tools.ietf.org/html/rfc4795">RFC 4794</ulink>) on
+        url="https://tools.ietf.org/html/rfc4795">RFC 4795</ulink>) on
         the local host. If true, enables full LLMNR responder and
         resolver support. If false, disables both. If set to
         <literal>resolve</literal>, only resolution support is enabled,
@@ -220,11 +194,43 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DNSOverTLS=</varname></term>
+        <listitem>
+        <para>Takes false or
+        <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>
+        DNS request are attempted to send encrypted with DNS-over-TLS.
+        If the DNS server does not support TLS, DNS-over-TLS is disabled.
+        Note that this mode makes DNS-over-TLS vulnerable to "downgrade"
+        attacks, where an attacker might be able to trigger a downgrade
+        to non-encrypted mode by synthesizing a response that suggests
+        DNS-over-TLS was not supported. If set to false, DNS lookups
+        are send over UDP.</para>
+
+        <para>Note that DNS-over-TLS requires additional data to be
+        send for setting up an encrypted connection, and thus results
+        in a small DNS look-up time penalty.</para>
+
+        <para>Note as the resolver is not capable of authenticating
+        the server, it is vulnerable for "man-in-the-middle" attacks.</para>
+
+        <para>In addition to this global DNSOverTLS setting
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-link DNSOverTLS settings. For system DNS
+        servers (see above), only the global DNSOverTLS setting is in
+        effect. For per-link DNS servers the per-link
+        setting is in effect, unless it is unset in which case the
+        global setting is used instead.</para>
+
+        <para>Defaults to off.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Cache=</varname></term>
-        <listitem><para>Takes a boolean argument. If "yes" (the default), resolving a domain name which already got
-        queried earlier will return the previous result as long as it is still valid, and thus does not result in a new
-        network request. Be aware that turning off caching comes at a performance penalty, which is particularly
-        high when DNSSEC is used.</para>
+        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default), resolving a domain name
+        which already got queried earlier will return the previous result as long as it is still valid, and thus does
+        not result in a new network request. Be aware that turning off caching comes at a performance penalty, which
+        is particularly high when DNSSEC is used.</para>
 
         <para>Note that caching is turned off implicitly if the configured DNS server is on a host-local IP address
         (such as 127.0.0.1 or ::1), in order to avoid duplicate local caching.</para></listitem>
@@ -240,6 +246,13 @@
 
         <para>Note that the DNS stub listener is turned off implicitly when its listening address and port are already
         in use.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadEtcHosts=</varname></term>
+        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default), the DNS stub resolver will read
+        <filename>/etc/hosts</filename>, and try to resolve hosts or address by using the entries in the file before
+        sending query to DNS servers.</para></listitem>
       </varlistentry>
 
     </variablelist>

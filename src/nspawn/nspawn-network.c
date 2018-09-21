@@ -1,28 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <linux/veth.h>
 #include <net/if.h>
 #include <sys/file.h>
 
-#include "libudev.h"
+#include "sd-device.h"
 #include "sd-id128.h"
 #include "sd-netlink.h"
 
@@ -35,7 +17,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "udev-util.h"
+#include "strv.h"
 #include "util.h"
 
 #define HOST_HASH_KEY SD_ID128_MAKE(1a,37,6f,c7,46,ec,45,0b,ad,a3,d5,31,06,60,5d,b1)
@@ -338,7 +320,7 @@ static int create_bridge(sd_netlink *rtnl, const char *bridge_name) {
 }
 
 int setup_bridge(const char *veth_name, const char *bridge_name, bool create) {
-        _cleanup_release_lock_file_ LockFile bridge_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile bridge_lock = LOCK_FILE_INIT;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r, bridge_ifi;
         unsigned n = 0;
@@ -379,7 +361,7 @@ int setup_bridge(const char *veth_name, const char *bridge_name, bool create) {
 }
 
 int remove_bridge(const char *bridge_name) {
-        _cleanup_release_lock_file_ LockFile bridge_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile bridge_lock = LOCK_FILE_INIT;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         const char *path;
         int r;
@@ -410,21 +392,25 @@ int remove_bridge(const char *bridge_name) {
         return remove_one_link(rtnl, bridge_name);
 }
 
-static int parse_interface(struct udev *udev, const char *name) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+static int parse_interface(const char *name) {
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         char ifi_str[2 + DECIMAL_STR_MAX(int)];
-        int ifi;
+        int ifi, initialized, r;
 
         ifi = (int) if_nametoindex(name);
         if (ifi <= 0)
                 return log_error_errno(errno, "Failed to resolve interface %s: %m", name);
 
         sprintf(ifi_str, "n%i", ifi);
-        d = udev_device_new_from_device_id(udev, ifi_str);
-        if (!d)
-                return log_error_errno(errno, "Failed to get udev device for interface %s: %m", name);
+        r = sd_device_new_from_device_id(&d, ifi_str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device for interface %s: %m", name);
 
-        if (udev_device_get_is_initialized(d) <= 0) {
+        r = sd_device_get_is_initialized(d, &initialized);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether interface %s is initialized or not: %m", name);
+
+        if (!initialized) {
                 log_error("Network interface %s is not initialized yet.", name);
                 return -EBUSY;
         }
@@ -433,7 +419,6 @@ static int parse_interface(struct udev *udev, const char *name) {
 }
 
 int move_network_interfaces(pid_t pid, char **ifaces) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **i;
         int r;
@@ -445,17 +430,11 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        udev = udev_new();
-        if (!udev) {
-                log_error("Failed to connect to udev.");
-                return -ENOMEM;
-        }
-
         STRV_FOREACH(i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 int ifi;
 
-                ifi = parse_interface(udev, *i);
+                ifi = parse_interface(*i);
                 if (ifi < 0)
                         return ifi;
 
@@ -476,7 +455,6 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
 }
 
 int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         unsigned idx = 0;
         char **i;
@@ -489,19 +467,13 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        udev = udev_new();
-        if (!udev) {
-                log_error("Failed to connect to udev.");
-                return -ENOMEM;
-        }
-
         STRV_FOREACH(i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 struct ether_addr mac;
                 int ifi;
 
-                ifi = parse_interface(udev, *i);
+                ifi = parse_interface(*i);
                 if (ifi < 0)
                         return ifi;
 
@@ -564,7 +536,6 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
 }
 
 int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **i;
         int r;
@@ -576,18 +547,12 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        udev = udev_new();
-        if (!udev) {
-                log_error("Failed to connect to udev.");
-                return -ENOMEM;
-        }
-
         STRV_FOREACH(i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 int ifi;
 
-                ifi = parse_interface(udev, *i);
+                ifi = parse_interface(*i);
                 if (ifi < 0)
                         return ifi;
 

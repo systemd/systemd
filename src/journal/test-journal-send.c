@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdlib.h>
@@ -31,16 +13,16 @@ int main(int argc, char *argv[]) {
 
         /* utf-8 and non-utf-8, message-less and message-ful iovecs */
         struct iovec graph1[] = {
-                {(char*) "GRAPH=graph", strlen("GRAPH=graph")}
+                {(char*) "GRAPH=graph", STRLEN("GRAPH=graph")}
         };
         struct iovec graph2[] = {
-                {(char*) "GRAPH=graph\n", strlen("GRAPH=graph\n")}
+                {(char*) "GRAPH=graph\n", STRLEN("GRAPH=graph\n")}
         };
         struct iovec message1[] = {
-                {(char*) "MESSAGE=graph", strlen("MESSAGE=graph")}
+                {(char*) "MESSAGE=graph", STRLEN("MESSAGE=graph")}
         };
         struct iovec message2[] = {
-                {(char*) "MESSAGE=graph\n", strlen("MESSAGE=graph\n")}
+                {(char*) "MESSAGE=graph\n", STRLEN("MESSAGE=graph\n")}
         };
 
         assert_se(sd_journal_print(LOG_INFO, "piepapo") == 0);

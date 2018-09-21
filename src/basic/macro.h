@@ -1,32 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <inttypes.h>
 #include <stdbool.h>
 #include <sys/param.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 
-#define _printf_(a,b) __attribute__ ((format (printf, a, b)))
+#define _printf_(a, b) __attribute__ ((format (printf, a, b)))
 #ifdef __clang__
 #  define _alloc_(...)
 #else
@@ -41,8 +22,8 @@
 #define _packed_ __attribute__ ((packed))
 #define _malloc_ __attribute__ ((malloc))
 #define _weak_ __attribute__ ((weak))
-#define _likely_(x) (__builtin_expect(!!(x),1))
-#define _unlikely_(x) (__builtin_expect(!!(x),0))
+#define _likely_(x) (__builtin_expect(!!(x), 1))
+#define _unlikely_(x) (__builtin_expect(!!(x), 0))
 #define _public_ __attribute__ ((visibility("default")))
 #define _hidden_ __attribute__ ((visibility("hidden")))
 #define _weakref_(x) __attribute__((weakref(#x)))
@@ -52,6 +33,26 @@
 #define _fallthrough_ __attribute__((fallthrough))
 #else
 #define _fallthrough_
+#endif
+/* Define C11 noreturn without <stdnoreturn.h> and even on older gcc
+ * compiler versions */
+#ifndef _noreturn_
+#if __STDC_VERSION__ >= 201112L
+#define _noreturn_ _Noreturn
+#else
+#define _noreturn_ __attribute__((noreturn))
+#endif
+#endif
+
+#if !defined(HAS_FEATURE_MEMORY_SANITIZER)
+#  if defined(__has_feature)
+#    if __has_feature(memory_sanitizer)
+#      define HAS_FEATURE_MEMORY_SANITIZER 1
+#    endif
+#  endif
+#  if !defined(HAS_FEATURE_MEMORY_SANITIZER)
+#    define HAS_FEATURE_MEMORY_SANITIZER 0
+#  endif
 #endif
 
 /* Temporarily disable some warnings */
@@ -139,11 +140,25 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
         return 1UL << (sizeof(u) * 8 - __builtin_clzl(u - 1UL));
 }
 
-#define ELEMENTSOF(x)                                                    \
-        __extension__ (__builtin_choose_expr(                            \
+#ifndef __COVERITY__
+#  define VOID_0 ((void)0)
+#else
+#  define VOID_0 ((void*)0)
+#endif
+
+#define ELEMENTSOF(x)                                                   \
+        (__builtin_choose_expr(                                         \
                 !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
-                sizeof(x)/sizeof((x)[0]),                                \
-                (void)0))
+                sizeof(x)/sizeof((x)[0]),                               \
+                VOID_0))
+
+/*
+ * STRLEN - return the length of a string literal, minus the trailing NUL byte.
+ *          Contrary to strlen(), this is a constant expression.
+ * @x: a string literal.
+ */
+#define STRLEN(x) (sizeof(""x"") - 1)
+
 /*
  * container_of - cast a member of a structure out to the containing structure
  * @ptr: the pointer to the member.
@@ -152,73 +167,82 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
  */
 #define container_of(ptr, type, member) __container_of(UNIQ, (ptr), type, member)
 #define __container_of(uniq, ptr, type, member)                         \
-        __extension__ ({                                                \
+        ({                                                              \
                 const typeof( ((type*)0)->member ) *UNIQ_T(A, uniq) = (ptr); \
-                (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type,member) ); \
+                (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type, member) ); \
         })
 
 #undef MAX
 #define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
 #define __MAX(aq, a, bq, b)                             \
-        __extension__ ({                                \
+        ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
                 const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A,aq) > UNIQ_T(B,bq) ? UNIQ_T(A,aq) : UNIQ_T(B,bq); \
+                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
 
 /* evaluates to (void) if _A or _B are not constant or of different types */
 #define CONST_MAX(_A, _B) \
-        __extension__ (__builtin_choose_expr(                           \
+        (__builtin_choose_expr(                                         \
                 __builtin_constant_p(_A) &&                             \
                 __builtin_constant_p(_B) &&                             \
                 __builtin_types_compatible_p(typeof(_A), typeof(_B)),   \
                 ((_A) > (_B)) ? (_A) : (_B),                            \
-                (void)0))
+                VOID_0))
 
 /* takes two types and returns the size of the larger one */
 #define MAXSIZE(A, B) (sizeof(union _packed_ { typeof(A) a; typeof(B) b; }))
 
-#define MAX3(x,y,z)                                     \
-        __extension__ ({                                \
-                        const typeof(x) _c = MAX(x,y);  \
-                        MAX(_c, z);                     \
-                })
+#define MAX3(x, y, z)                                   \
+        ({                                              \
+                const typeof(x) _c = MAX(x, y);         \
+                MAX(_c, z);                             \
+        })
 
 #undef MIN
 #define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
 #define __MIN(aq, a, bq, b)                             \
-        __extension__ ({                                \
+        ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
                 const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A,aq) < UNIQ_T(B,bq) ? UNIQ_T(A,aq) : UNIQ_T(B,bq); \
+                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
 
-#define MIN3(x,y,z)                                     \
-        __extension__ ({                                \
-                        const typeof(x) _c = MIN(x,y);  \
-                        MIN(_c, z);                     \
-                })
+#define MIN3(x, y, z)                                   \
+        ({                                              \
+                const typeof(x) _c = MIN(x, y);         \
+                MIN(_c, z);                             \
+        })
 
 #define LESS_BY(a, b) __LESS_BY(UNIQ, (a), UNIQ, (b))
 #define __LESS_BY(aq, a, bq, b)                         \
-        __extension__ ({                                \
+        ({                                              \
                 const typeof(a) UNIQ_T(A, aq) = (a);    \
                 const typeof(b) UNIQ_T(B, bq) = (b);    \
-                UNIQ_T(A,aq) > UNIQ_T(B,bq) ? UNIQ_T(A,aq) - UNIQ_T(B,bq) : 0; \
+                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) - UNIQ_T(B, bq) : 0; \
+        })
+
+#define CMP(a, b) __CMP(UNIQ, (a), UNIQ, (b))
+#define __CMP(aq, a, bq, b)                             \
+        ({                                              \
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? -1 :    \
+                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? 1 : 0;  \
         })
 
 #undef CLAMP
 #define CLAMP(x, low, high) __CLAMP(UNIQ, (x), UNIQ, (low), UNIQ, (high))
 #define __CLAMP(xq, x, lowq, low, highq, high)                          \
-        __extension__ ({                                                \
-                const typeof(x) UNIQ_T(X,xq) = (x);                     \
-                const typeof(low) UNIQ_T(LOW,lowq) = (low);             \
-                const typeof(high) UNIQ_T(HIGH,highq) = (high);         \
-                        UNIQ_T(X,xq) > UNIQ_T(HIGH,highq) ?             \
-                                UNIQ_T(HIGH,highq) :                    \
-                                UNIQ_T(X,xq) < UNIQ_T(LOW,lowq) ?       \
-                                        UNIQ_T(LOW,lowq) :              \
-                                        UNIQ_T(X,xq);                   \
+        ({                                                              \
+                const typeof(x) UNIQ_T(X, xq) = (x);                    \
+                const typeof(low) UNIQ_T(LOW, lowq) = (low);            \
+                const typeof(high) UNIQ_T(HIGH, highq) = (high);        \
+                        UNIQ_T(X, xq) > UNIQ_T(HIGH, highq) ?           \
+                                UNIQ_T(HIGH, highq) :                   \
+                                UNIQ_T(X, xq) < UNIQ_T(LOW, lowq) ?     \
+                                        UNIQ_T(LOW, lowq) :             \
+                                        UNIQ_T(X, xq);                  \
         })
 
 /* [(x + y - 1) / y] suffers from an integer overflow, even though the
@@ -226,17 +250,53 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
  * [x / y + !!(x % y)]. Note that on "Real CPUs" a division returns both the
  * quotient and the remainder, so both should be equally fast. */
 #define DIV_ROUND_UP(_x, _y)                                            \
-        __extension__ ({                                                \
+        ({                                                              \
                 const typeof(_x) __x = (_x);                            \
                 const typeof(_y) __y = (_y);                            \
                 (__x / __y + !!(__x % __y));                            \
         })
+
+#ifdef __COVERITY__
+
+/* Use special definitions of assertion macros in order to prevent
+ * false positives of ASSERT_SIDE_EFFECT on Coverity static analyzer
+ * for uses of assert_se() and assert_return().
+ *
+ * These definitions make expression go through a (trivial) function
+ * call to ensure they are not discarded. Also use ! or !! to ensure
+ * the boolean expressions are seen as such.
+ *
+ * This technique has been described and recommended in:
+ * https://community.synopsys.com/s/question/0D534000046Yuzb/suppressing-assertsideeffect-for-functions-that-allow-for-sideeffects
+ */
+
+extern void __coverity_panic__(void);
+
+static inline int __coverity_check__(int condition) {
+        return condition;
+}
+
+#define assert_message_se(expr, message)                                \
+        do {                                                            \
+                if (__coverity_check__(!(expr)))                        \
+                        __coverity_panic__();                           \
+        } while (false)
+
+#define assert_log(expr, message) __coverity_check__(!!(expr))
+
+#else  /* ! __COVERITY__ */
 
 #define assert_message_se(expr, message)                                \
         do {                                                            \
                 if (_unlikely_(!(expr)))                                \
                         log_assert_failed(message, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)
+
+#define assert_log(expr, message) ((_likely_(expr))                     \
+        ? (true)                                                        \
+        : (log_assert_failed_return(message, __FILE__, __LINE__, __PRETTY_FUNCTION__), false))
+
+#endif  /* __COVERITY__ */
 
 #define assert_se(expr) assert_message_se(expr, #expr)
 
@@ -269,10 +329,6 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
         };                                                              \
         REENABLE_WARNING
 #endif
-
-#define assert_log(expr, message) ((_likely_(expr))                     \
-        ? (true)                                                        \
-        : (log_assert_failed_return(message, __FILE__, __LINE__, __PRETTY_FUNCTION__), false))
 
 #define assert_return(expr, r)                                          \
         do {                                                            \
@@ -329,13 +385,15 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
         ({                                              \
                 typeof(x) _x_ = (x);                    \
                 unsigned ans = 1;                       \
-                while (_x_ /= 10)                       \
+                while ((_x_ /= 10) != 0)                \
                         ans++;                          \
                 ans;                                    \
         })
 
 #define SET_FLAG(v, flag, b) \
         (v) = (b) ? ((v) | (flag)) : ((v) & ~(flag))
+#define FLAGS_SET(v, flags) \
+        (((v) & (flags)) == (flags))
 
 #define CASE_F(X) case X:
 #define CASE_F_1(CASE, X) CASE_F(X)
@@ -400,21 +458,59 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #endif
 #endif
 
-/* Define C11 noreturn without <stdnoreturn.h> and even on older gcc
- * compiler versions */
-#ifndef noreturn
-#if __STDC_VERSION__ >= 201112L
-#define noreturn _Noreturn
-#else
-#define noreturn __attribute__((noreturn))
-#endif
-#endif
-
 #define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
         static inline void func##p(type *p) {                   \
                 if (*p)                                         \
                         func(*p);                               \
-        }                                                       \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
+
+#define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
+        scope type *name##_ref(type *p) {                       \
+                if (!p)                                         \
+                        return NULL;                            \
+                                                                \
+                assert(p->n_ref > 0);                           \
+                p->n_ref++;                                     \
+                return p;                                       \
+        }
+
+#define _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, scope) \
+        scope type *name##_unref(type *p) {                      \
+                if (!p)                                          \
+                        return NULL;                             \
+                                                                 \
+                assert(p->n_ref > 0);                            \
+                p->n_ref--;                                      \
+                if (p->n_ref > 0)                                \
+                        return NULL;                             \
+                                                                 \
+                return free_func(p);                             \
+        }
+
+#define DEFINE_TRIVIAL_REF_FUNC(type, name)     \
+        _DEFINE_TRIVIAL_REF_FUNC(type, name,)
+#define DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name)     \
+        _DEFINE_TRIVIAL_REF_FUNC(type, name, static)
+#define DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name)      \
+        _DEFINE_TRIVIAL_REF_FUNC(type, name, _public_)
+
+#define DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func,)
+#define DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, static)
+#define DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func)         \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, _public_)
+
+#define DEFINE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
+        DEFINE_TRIVIAL_REF_FUNC(type, name);                    \
+        DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func);
+
+#define DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
+        DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name);                    \
+        DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func);
+
+#define DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
+        DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name);                    \
+        DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func);
 
 #include "log.h"

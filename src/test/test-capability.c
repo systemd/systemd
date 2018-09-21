@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
-
-  Copyright 2014 Ronny Chevalier
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <netinet/in.h>
 #include <pwd.h>
@@ -32,6 +14,7 @@
 #include "fileio.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "tests.h"
 #include "util.h"
 
 static uid_t test_uid = -1;
@@ -80,7 +63,7 @@ static void fork_test(void (*test_func)(void)) {
         assert_se(pid >= 0);
         if (pid == 0) {
                 test_func();
-                exit(0);
+                exit(EXIT_SUCCESS);
         } else if (pid > 0) {
                 int status;
 
@@ -108,11 +91,10 @@ static int setup_tests(bool *run_ambient) {
         struct passwd *nobody;
         int r;
 
-        nobody = getpwnam("nobody");
-        if (!nobody) {
-                log_error_errno(errno, "Could not find nobody user: %m");
-                return -EXIT_TEST_SKIP;
-        }
+        nobody = getpwnam(NOBODY_USER_NAME);
+        if (!nobody)
+                return log_error_errno(errno, "Could not find nobody user: %m");
+
         test_uid = nobody->pw_uid;
         test_gid = nobody->pw_gid;
 
@@ -236,23 +218,20 @@ static void test_set_ambient_caps(void) {
 }
 
 int main(int argc, char *argv[]) {
-        int r;
         bool run_ambient;
+
+        test_setup_logging(LOG_INFO);
 
         test_last_cap_file();
         test_last_cap_probe();
 
-        log_parse_environment();
-        log_open();
-
         log_info("have ambient caps: %s", yes_no(ambient_capabilities_supported()));
 
         if (getuid() != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("not running as root");
 
-        r = setup_tests(&run_ambient);
-        if (r < 0)
-                return -r;
+        if (setup_tests(&run_ambient) < 0)
+                return log_tests_skipped("setup failed");
 
         show_capabilities();
 

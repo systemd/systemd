@@ -3,31 +3,19 @@
 #
 # systemd-sysv-generator integration test
 #
-# (C) 2015 Canonical Ltd.
+# © 2015 Canonical Ltd.
 # Author: Martin Pitt <martin.pitt@ubuntu.com>
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
 
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
-
-import unittest
-import sys
-import os
-import subprocess
-import tempfile
-import shutil
-from glob import glob
 import collections
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
 from configparser import RawConfigParser
+from glob import glob
 
 sysv_generator = './systemd-sysv-generator'
 
@@ -112,22 +100,20 @@ class SysvGeneratorTest(unittest.TestCase):
         keys.setdefault('Required-Stop', keys['Required-Start'])
         keys.setdefault('Default-Start', '2 3 4 5')
         keys.setdefault('Default-Stop', '0 1 6')
-        keys.setdefault('Short-Description', 'test %s service' %
-                        name_without_sh)
-        keys.setdefault('Description', 'long description for test %s service' %
-                        name_without_sh)
+        keys.setdefault('Short-Description', 'test {} service'.format(name_without_sh))
+        keys.setdefault('Description', 'long description for test {} service'.format(name_without_sh))
         script = os.path.join(self.init_d_dir, fname)
         with open(script, 'w') as f:
             f.write('#!/bin/init-d-interpreter\n### BEGIN INIT INFO\n')
             for k, v in keys.items():
                 if v is not None:
-                    f.write('#%20s %s\n' % (k + ':', v))
+                    f.write('#{:>20} {}\n'.format(k + ':', v))
             f.write('### END INIT INFO\ncode --goes here\n')
         os.chmod(script, 0o755)
 
         if enable:
             def make_link(prefix, runlevel):
-                d = os.path.join(self.rcnd_dir, 'rc%s.d' % runlevel)
+                d = os.path.join(self.rcnd_dir, 'rc{}.d'.format(runlevel))
                 if not os.path.isdir(d):
                     os.mkdir(d)
                 os.symlink('../init.d/' + fname, os.path.join(d, prefix + fname))
@@ -146,7 +132,7 @@ class SysvGeneratorTest(unittest.TestCase):
 
         # should be enabled
         for target in all_targets:
-            link = os.path.join(self.out_dir, '%s.target.wants' % target, unit)
+            link = os.path.join(self.out_dir, '{}.target.wants'.format(target), unit)
             if target in targets:
                 unit_file = os.readlink(link)
                 # os.path.exists() will fail on a dangling symlink
@@ -154,7 +140,7 @@ class SysvGeneratorTest(unittest.TestCase):
                 self.assertEqual(os.path.basename(unit_file), unit)
             else:
                 self.assertFalse(os.path.exists(link),
-                                 '%s unexpectedly exists' % link)
+                                 '{} unexpectedly exists'.format(link))
 
     #
     # test cases
@@ -188,9 +174,9 @@ class SysvGeneratorTest(unittest.TestCase):
         self.assertEqual(s.get('Service', 'Type'), 'forking')
         init_script = os.path.join(self.init_d_dir, 'foo')
         self.assertEqual(s.get('Service', 'ExecStart'),
-                         '%s start' % init_script)
+                         '{} start'.format(init_script))
         self.assertEqual(s.get('Service', 'ExecStop'),
-                         '%s stop' % init_script)
+                         '{} stop'.format(init_script))
 
         self.assertNotIn('Overwriting', err)
 
@@ -276,7 +262,7 @@ class SysvGeneratorTest(unittest.TestCase):
             d = os.path.join(self.rcnd_dir, 'rc2.d')
             if not os.path.isdir(d):
                 os.mkdir(d)
-            os.symlink('../init.d/' + name, os.path.join(d, 'S%02i%s' % (prio, name)))
+            os.symlink('../init.d/' + name, os.path.join(d, 'S{:>2}{}'.format(prio, name)))
 
         err, results = self.run_generator()
         self.assertEqual(sorted(results), ['consumer.service', 'provider.service'])
@@ -351,9 +337,9 @@ class SysvGeneratorTest(unittest.TestCase):
         # calls correct script with .sh
         init_script = os.path.join(self.init_d_dir, 'foo.sh')
         self.assertEqual(s.get('Service', 'ExecStart'),
-                         '%s start' % init_script)
+                         '{} start'.format(init_script))
         self.assertEqual(s.get('Service', 'ExecStop'),
-                         '%s stop' % init_script)
+                         '{} stop'.format(init_script))
 
         self.assert_enabled('foo.service', ['multi-user', 'graphical'])
 

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdio.h>
@@ -31,34 +13,30 @@
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
-        Manager *m = NULL;
-        Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+        Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL, *unit_with_multiple_dashes = NULL;
         Job *j;
         int r;
 
+        test_setup_logging(LOG_DEBUG);
+
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice_errno(r, "Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         /* prepare the test */
-        assert_se(set_unit_path(get_testdata_dir("")) >= 0);
+        assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
-        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return EXIT_TEST_SKIP;
-        }
+        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m);
+        if (MANAGER_SKIP_TEST(r))
+                return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
-        assert_se(manager_startup(m, serial, fdset) >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         printf("Load1:\n");
-        assert_se(manager_load_unit(m, "a.service", NULL, NULL, &a) >= 0);
-        assert_se(manager_load_unit(m, "b.service", NULL, NULL, &b) >= 0);
-        assert_se(manager_load_unit(m, "c.service", NULL, NULL, &c) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "a.service", NULL, &a) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "b.service", NULL, &b) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "c.service", NULL, &c) >= 0);
         manager_dump_units(m, stdout, "\t");
 
         printf("Test1: (Trivial)\n");
@@ -70,8 +48,8 @@ int main(int argc, char *argv[]) {
 
         printf("Load2:\n");
         manager_clear_jobs(m);
-        assert_se(manager_load_unit(m, "d.service", NULL, NULL, &d) >= 0);
-        assert_se(manager_load_unit(m, "e.service", NULL, NULL, &e) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "d.service", NULL, &d) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "e.service", NULL, &e) >= 0);
         manager_dump_units(m, stdout, "\t");
 
         printf("Test2: (Cyclic Order, Unfixable)\n");
@@ -87,7 +65,7 @@ int main(int argc, char *argv[]) {
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Load3:\n");
-        assert_se(manager_load_unit(m, "g.service", NULL, NULL, &g) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "g.service", NULL, &g) >= 0);
         manager_dump_units(m, stdout, "\t");
 
         printf("Test5: (Colliding transaction, fail)\n");
@@ -109,7 +87,7 @@ int main(int argc, char *argv[]) {
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Load4:\n");
-        assert_se(manager_load_unit(m, "h.service", NULL, NULL, &h) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "h.service", NULL, &h) >= 0);
         manager_dump_units(m, stdout, "\t");
 
         printf("Test10: (Unmergeable job type of auxiliary job, fail)\n");
@@ -143,7 +121,10 @@ int main(int argc, char *argv[]) {
         assert_se(!hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], c));
         assert_se(!hashmap_get(c->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
 
-        manager_free(m);
+        assert_se(manager_load_unit(m, "unit-with-multiple-dashes.service", NULL, NULL, &unit_with_multiple_dashes) >= 0);
+
+        assert_se(strv_equal(unit_with_multiple_dashes->documentation, STRV_MAKE("man:test", "man:override2", "man:override3")));
+        assert_se(streq_ptr(unit_with_multiple_dashes->description, "override4"));
 
         return 0;
 }

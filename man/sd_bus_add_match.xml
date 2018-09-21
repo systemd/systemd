@@ -1,41 +1,18 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
-  Copyright 2016 Julian Orth
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2016 Julian Orth
 -->
 
-<refentry id="sd_bus_add_match">
+<refentry id="sd_bus_add_match" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_add_match</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <firstname>Julian</firstname>
-        <surname>Orth</surname>
-        <email>ju.orth@gmail.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -45,13 +22,23 @@
 
   <refnamediv>
     <refname>sd_bus_add_match</refname>
+    <refname>sd_bus_add_match_async</refname>
+    <refname>sd_bus_match_signal</refname>
+    <refname>sd_bus_match_signal_async</refname>
 
-    <refpurpose>Add a match rule for message dispatching</refpurpose>
+    <refpurpose>Add a match rule for incoming message dispatching</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <funcsynopsis>
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>typedef int (*<function>sd_bus_message_handler_t</function>)</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+      </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_add_match</function></funcdef>
@@ -63,57 +50,111 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>typedef int (*<function>sd_bus_message_handler_t</function>)</funcdef>
-        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <funcdef>int <function>sd_bus_add_match_async</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>match</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>install_callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
       </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_match_signal</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>sender</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_match_signal_async</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>sender</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>install_callback</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
     </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para>
-      <function>sd_bus_add_match()</function> installs a match rule for incoming messages received on the specified bus
-      connection object <parameter>bus</parameter>. The syntax of the match rule expression passed in
-      <parameter>match</parameter> is described in the <ulink
-      url="https://dbus.freedesktop.org/doc/dbus-specification.html">D-Bus Specification</ulink>. The specified handler
-      function <parameter>callback</parameter> is called for eaching incoming message matching the specified
-      expression, the <parameter>userdata</parameter> parameter is passed as-is to the callback function.
+    <para><function>sd_bus_add_match()</function> installs a match rule for messages received on the specified bus
+    connection object <parameter>bus</parameter>. The syntax of the match rule expression passed in
+    <parameter>match</parameter> is described in the <ulink
+    url="https://dbus.freedesktop.org/doc/dbus-specification.html">D-Bus Specification</ulink>. The specified handler
+    function <parameter>callback</parameter> is called for eaching incoming message matching the specified expression,
+    the <parameter>userdata</parameter> parameter is passed as-is to the callback function. The match is installed
+    synchronously when connected to a bus broker, i.e. the call sends a control message requested the match to be added
+    to the broker and waits until the broker confirms the match has been installed successfully.</para>
+
+    <para><function>sd_bus_add_match_async()</function> operates very similar to
+    <function>sd_bus_match_signal()</function>, however it installs the match asynchronously, in a non-blocking
+    fashion: a request is sent to the broker, but the call does not wait for a response. The
+    <parameter>install_callback</parameter> function is called when the response is later received, with the response
+    message from the broker as parameter. If this function is specified as <constant>NULL</constant> a default
+    implementation is used that terminates the bus connection should installing the match fail.</para>
+
+    <para><function>sd_bus_match_signal()</function> is very similar to <function>sd_bus_add_match()</function>, but
+    only matches signals, and instead of a match expression accepts four parameters: <parameter>sender</parameter> (the
+    service name of the sender), <parameter>path</parameter> (the object path of the emitting object),
+    <parameter>interface</parameter> (the interface the signal belongs to), <parameter>member</parameter> (the signal
+    name), from which the match string is internally generated. Optionally, these parameters may be specified as
+    <constant>NULL</constant> in which case the relevant field of incoming signals is not tested.</para>
+
+    <para><function>sd_bus_match_signal_async()</function> combines the signal matching logic of
+    <function>sd_bus_match_signal()</function> with the asynchronous behaviour of
+    <function>sd_bus_add_match_async()</function>.</para>
+
+    <para>On success, and if non-<constant>NULL</constant>, the <parameter>slot</parameter> return parameter will be
+    set to a slot object that may be used as a reference to the installed match, and may be utilized to remove it again
+    at a later time with
+    <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If specified
+    as <constant>NULL</constant> the lifetime of the match is bound to the lifetime of the bus object itself, and the
+    match is generally not removed independently. See
+    <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+    details.</para>
+
+    <para>The message <parameter>m</parameter> passed to the callback is only borrowed, that is, the callback should
+    not call <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    on it. If the callback wants to hold on to the message beyond the lifetime of the callback, it needs to call
+    <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry> to create a
+    new reference.</para>
+
+    <para>If an error occurs during the callback invocation, the callback should return a negative error number
+    (optionally, a more precise error may be returned in <parameter>ret_error</parameter>, as well). If it wants other
+    callbacks that match the same rule to be called, it should return 0. Otherwise it should return a positive integer.
     </para>
 
-    <para>
-      On success, and if non-<constant>NULL</constant>, the <parameter>slot</parameter> return parameter will be set to
-      a slot object that may be used as a reference to the installed match, and may be utilized to remove it again at a
-      later time with
-      <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
-      specified as <constant>NULL</constant> the lifetime of the match is bound to the lifetime of the bus object itself, and the match
-      cannot be removed independently.
-    </para>
-
-    <para>
-      The message <parameter>m</parameter> passed to the callback is only borrowed, that is, the callback should not
-      call <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry> on
-      it. If the callback wants to hold on to the message beyond the lifetime of the callback, it needs to call
-      <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry> to create
-      a new reference.
-    </para>
-
-    <para>
-      If an error occurs during the callback invocation, the callback should return a negative error number. If it
-      wants other callbacks that match the same rule to be called, it should return 0. Otherwise it should return a
-      positive integer.
-    </para>
+    <para>If the <parameter>bus</parameter> refers to a direct connection (i.e. not a bus connection, as set with
+    <citerefentry><refentrytitle>sd_bus_set_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>) the
+    match is only installed on the client side, and the synchronous and asynchronous functions operate the same.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
     <para>
-      On success, <function>sd_bus_add_match()</function> returns 0 or a positive integer. On failure, it returns a
-      negative errno-style error code.
+      On success, <function>sd_bus_add_match()</function> and the other calls return 0 or a positive integer. On
+      failure, they return a negative errno-style error code.
     </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>
@@ -121,7 +162,11 @@
 
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_set_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

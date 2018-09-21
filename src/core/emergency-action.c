@@ -1,30 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-  Copyright 2012 Michael Olbrich
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sys/reboot.h>
-#include <linux/reboot.h>
 
 #include "bus-error.h"
 #include "bus-util.h"
 #include "emergency-action.h"
+#include "raw-reboot.h"
+#include "reboot-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "terminal-util.h"
@@ -48,6 +30,11 @@ int emergency_action(
 
         if (action == EMERGENCY_ACTION_NONE)
                 return -ECANCELED;
+
+        if (!m->service_watchdogs) {
+                log_warning("Watchdog disabled! Not acting on: %s", reason);
+                return -ECANCELED;
+        }
 
         if (!MANAGER_IS_SYSTEM(m)) {
                 /* Downgrade all options to simply exiting if we run
@@ -83,12 +70,12 @@ int emergency_action(
 
                 if (!isempty(reboot_arg)) {
                         log_info("Rebooting with argument '%s'.", reboot_arg);
-                        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, reboot_arg);
+                        (void) raw_reboot(LINUX_REBOOT_CMD_RESTART2, reboot_arg);
                         log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
                 }
 
                 log_info("Rebooting.");
-                reboot(RB_AUTOBOOT);
+                (void) reboot(RB_AUTOBOOT);
                 break;
 
         case EMERGENCY_ACTION_POWEROFF:
@@ -107,7 +94,7 @@ int emergency_action(
                 sync();
 
                 log_info("Powering off.");
-                reboot(RB_POWER_OFF);
+                (void) reboot(RB_POWER_OFF);
                 break;
 
         default:

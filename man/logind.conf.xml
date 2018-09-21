@@ -1,26 +1,12 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="logind.conf" conditional='ENABLE_LOGIND'
@@ -28,15 +14,6 @@
   <refentryinfo>
     <title>logind.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -60,10 +37,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para>These files configure various parameters of the systemd
-    login manager,
-    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    </para>
+    <para>These files configure various parameters of the systemd login manager,
+    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
@@ -126,7 +103,7 @@
         corresponding to the session and all processes inside that scope will be
         terminated. If false, the scope is "abandoned", see
         <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        and processes are not killed. Defaults to <literal>yes</literal>,
+        and processes are not killed. Defaults to <literal>&KILL_USER_PROCESSES;</literal>,
         but see the options <varname>KillOnlyUsers=</varname> and
         <varname>KillExcludeUsers=</varname> below.</para>
 
@@ -175,7 +152,8 @@
         <literal>kexec</literal>,
         <literal>suspend</literal>,
         <literal>hibernate</literal>,
-        <literal>hybrid-sleep</literal>, and
+        <literal>hybrid-sleep</literal>,
+        <literal>suspend-then-hibernate</literal>, and
         <literal>lock</literal>.
         Defaults to <literal>ignore</literal>.</para>
 
@@ -211,6 +189,7 @@
         <term><varname>HandleSuspendKey=</varname></term>
         <term><varname>HandleHibernateKey=</varname></term>
         <term><varname>HandleLidSwitch=</varname></term>
+        <term><varname>HandleLidSwitchExternalPower=</varname></term>
         <term><varname>HandleLidSwitchDocked=</varname></term>
 
         <listitem><para>Controls how logind shall handle the
@@ -223,7 +202,8 @@
         <literal>kexec</literal>,
         <literal>suspend</literal>,
         <literal>hibernate</literal>,
-        <literal>hybrid-sleep</literal>, and
+        <literal>hybrid-sleep</literal>,
+        <literal>suspend-then-hibernate</literal>, and
         <literal>lock</literal>.
         If <literal>ignore</literal>, logind will never handle these
         keys. If <literal>lock</literal>, all running sessions will be
@@ -235,12 +215,17 @@
         <varname>HandleSuspendKey=</varname> and
         <varname>HandleLidSwitch=</varname> default to
         <literal>suspend</literal>.
-        <varname>HandleLidSwitchDocked=</varname> defaults to
-        <literal>ignore</literal>.
+        <varname>HandleLidSwitchExternalPower=</varname> is completely
+        ignored by default (for backwards compatibility) — an explicit
+        value must be set before it will be used to determine
+        behaviour. <varname>HandleLidSwitchDocked=</varname> defaults
+        to <literal>ignore</literal>.
         <varname>HandleHibernateKey=</varname> defaults to
         <literal>hibernate</literal>. If the system is inserted in a
         docking station, or if more than one display is connected, the
         action specified by <varname>HandleLidSwitchDocked=</varname>
+        occurs; if the system is on external power the action (if any)
+        specified by <varname>HandleLidSwitchExternalPower=</varname>
         occurs; otherwise the <varname>HandleLidSwitch=</varname>
         action occurs.</para>
 
@@ -325,17 +310,6 @@
         (8K). Depending on how the <filename>pam_systemd.so</filename> module is included in the PAM stack
         configuration, further login sessions will either be refused, or permitted but not tracked by
         <filename>systemd-logind</filename>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>UserTasksMax=</varname></term>
-
-        <listitem><para>Sets the maximum number of OS tasks each user may run concurrently. This controls the
-        <varname>TasksMax=</varname> setting of the per-user slice unit, see
-        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. If assigned the special value <literal>infinity</literal>, no tasks limit is applied.
-        Defaults to 33%, which equals 10813 with the kernel's defaults on the host, but might be smaller in
-        OS containers.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -1,27 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
+#include "locale-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"
+#include "utf8.h"
 
 static void test_string_erase(void) {
         char *x;
@@ -90,6 +74,87 @@ static void test_ascii_strcasecmp_nn(void) {
         assert_se(ascii_strcasecmp_nn("BBbb", 4, "aaaa", 4) > 0);
 }
 
+static void test_cellescape(void) {
+        char buf[40];
+
+        assert_se(streq(cellescape(buf, 1, ""), ""));
+        assert_se(streq(cellescape(buf, 1, "1"), ""));
+        assert_se(streq(cellescape(buf, 1, "12"), ""));
+
+        assert_se(streq(cellescape(buf, 2, ""), ""));
+        assert_se(streq(cellescape(buf, 2, "1"), "1"));
+        assert_se(streq(cellescape(buf, 2, "12"), "."));
+        assert_se(streq(cellescape(buf, 2, "123"), "."));
+
+        assert_se(streq(cellescape(buf, 3, ""), ""));
+        assert_se(streq(cellescape(buf, 3, "1"), "1"));
+        assert_se(streq(cellescape(buf, 3, "12"), "12"));
+        assert_se(streq(cellescape(buf, 3, "123"), ".."));
+        assert_se(streq(cellescape(buf, 3, "1234"), ".."));
+
+        assert_se(streq(cellescape(buf, 4, ""), ""));
+        assert_se(streq(cellescape(buf, 4, "1"), "1"));
+        assert_se(streq(cellescape(buf, 4, "12"), "12"));
+        assert_se(streq(cellescape(buf, 4, "123"), "123"));
+        assert_se(streq(cellescape(buf, 4, "1234"), is_locale_utf8() ? "…" : "..."));
+        assert_se(streq(cellescape(buf, 4, "12345"), is_locale_utf8() ? "…" : "..."));
+
+        assert_se(streq(cellescape(buf, 5, ""), ""));
+        assert_se(streq(cellescape(buf, 5, "1"), "1"));
+        assert_se(streq(cellescape(buf, 5, "12"), "12"));
+        assert_se(streq(cellescape(buf, 5, "123"), "123"));
+        assert_se(streq(cellescape(buf, 5, "1234"), "1234"));
+        assert_se(streq(cellescape(buf, 5, "12345"), is_locale_utf8() ? "1…" : "1..."));
+        assert_se(streq(cellescape(buf, 5, "123456"), is_locale_utf8() ? "1…" : "1..."));
+
+        assert_se(streq(cellescape(buf, 1, "\020"), ""));
+        assert_se(streq(cellescape(buf, 2, "\020"), "."));
+        assert_se(streq(cellescape(buf, 3, "\020"), ".."));
+        assert_se(streq(cellescape(buf, 4, "\020"), "…"));
+        assert_se(streq(cellescape(buf, 5, "\020"), "\\020"));
+
+        assert_se(streq(cellescape(buf, 5, "1234\020"), "1…"));
+        assert_se(streq(cellescape(buf, 6, "1234\020"), "12…"));
+        assert_se(streq(cellescape(buf, 7, "1234\020"), "123…"));
+        assert_se(streq(cellescape(buf, 8, "1234\020"), "1234…"));
+        assert_se(streq(cellescape(buf, 9, "1234\020"), "1234\\020"));
+
+        assert_se(streq(cellescape(buf, 1, "\t\n"), ""));
+        assert_se(streq(cellescape(buf, 2, "\t\n"), "."));
+        assert_se(streq(cellescape(buf, 3, "\t\n"), ".."));
+        assert_se(streq(cellescape(buf, 4, "\t\n"), "…"));
+        assert_se(streq(cellescape(buf, 5, "\t\n"), "\\t\\n"));
+
+        assert_se(streq(cellescape(buf, 5, "1234\t\n"), "1…"));
+        assert_se(streq(cellescape(buf, 6, "1234\t\n"), "12…"));
+        assert_se(streq(cellescape(buf, 7, "1234\t\n"), "123…"));
+        assert_se(streq(cellescape(buf, 8, "1234\t\n"), "1234…"));
+        assert_se(streq(cellescape(buf, 9, "1234\t\n"), "1234\\t\\n"));
+
+        assert_se(streq(cellescape(buf, 4, "x\t\020\n"), "…"));
+        assert_se(streq(cellescape(buf, 5, "x\t\020\n"), "x…"));
+        assert_se(streq(cellescape(buf, 6, "x\t\020\n"), "x…"));
+        assert_se(streq(cellescape(buf, 7, "x\t\020\n"), "x\\t…"));
+        assert_se(streq(cellescape(buf, 8, "x\t\020\n"), "x\\t…"));
+        assert_se(streq(cellescape(buf, 9, "x\t\020\n"), "x\\t…"));
+        assert_se(streq(cellescape(buf, 10, "x\t\020\n"), "x\\t\\020\\n"));
+
+        assert_se(streq(cellescape(buf, 6, "1\011"), "1\\t"));
+        assert_se(streq(cellescape(buf, 6, "1\020"), "1\\020"));
+        assert_se(streq(cellescape(buf, 6, "1\020x"), is_locale_utf8() ? "1…" : "1..."));
+
+        assert_se(streq(cellescape(buf, 40, "1\020"), "1\\020"));
+        assert_se(streq(cellescape(buf, 40, "1\020x"), "1\\020x"));
+
+        assert_se(streq(cellescape(buf, 40, "\a\b\f\n\r\t\v\\\"'"), "\\a\\b\\f\\n\\r\\t\\v\\\\\\\"\\'"));
+        assert_se(streq(cellescape(buf, 6, "\a\b\f\n\r\t\v\\\"'"), is_locale_utf8() ? "\\a…" : "\\a..."));
+        assert_se(streq(cellescape(buf, 7, "\a\b\f\n\r\t\v\\\"'"), is_locale_utf8() ? "\\a…" : "\\a..."));
+        assert_se(streq(cellescape(buf, 8, "\a\b\f\n\r\t\v\\\"'"), is_locale_utf8() ? "\\a\\b…" : "\\a\\b..."));
+
+        assert_se(streq(cellescape(buf, sizeof buf, "1\020"), "1\\020"));
+        assert_se(streq(cellescape(buf, sizeof buf, "1\020x"), "1\\020x"));
+}
+
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
         assert_se(!streq_ptr("abc", "cdef"));
@@ -104,9 +169,37 @@ static void test_strstrip(void) {
 }
 
 static void test_strextend(void) {
-        _cleanup_free_ char *str = strdup("0123");
-        strextend(&str, "456", "78", "9", NULL);
-        assert_se(streq(str, "0123456789"));
+        _cleanup_free_ char *str = NULL;
+
+        assert_se(strextend(&str, NULL));
+        assert_se(streq_ptr(str, ""));
+        assert_se(strextend(&str, "", "0", "", "", "123", NULL));
+        assert_se(streq_ptr(str, "0123"));
+        assert_se(strextend(&str, "456", "78", "9", NULL));
+        assert_se(streq_ptr(str, "0123456789"));
+}
+
+static void test_strextend_with_separator(void) {
+        _cleanup_free_ char *str = NULL;
+
+        assert_se(strextend_with_separator(&str, NULL, NULL));
+        assert_se(streq_ptr(str, ""));
+        str = mfree(str);
+
+        assert_se(strextend_with_separator(&str, "...", NULL));
+        assert_se(streq_ptr(str, ""));
+        assert_se(strextend_with_separator(&str, "...", NULL));
+        assert_se(streq_ptr(str, ""));
+        str = mfree(str);
+
+        assert_se(strextend_with_separator(&str, "xyz", "a", "bb", "ccc", NULL));
+        assert_se(streq_ptr(str, "axyzbbxyzccc"));
+        str = mfree(str);
+
+        assert_se(strextend_with_separator(&str, ",", "start", "", "1", "234", NULL));
+        assert_se(streq_ptr(str, "start,,1,234"));
+        assert_se(strextend_with_separator(&str, ";", "more", "5", "678", NULL));
+        assert_se(streq_ptr(str, "start,,1,234;more;5;678"));
 }
 
 static void test_strrep(void) {
@@ -119,7 +212,6 @@ static void test_strrep(void) {
         assert_se(streq(three, "waldowaldowaldo"));
         assert_se(streq(zero, ""));
 }
-
 
 static void test_strappend(void) {
         _cleanup_free_ char *t1, *t2, *t3, *t4;
@@ -392,13 +484,50 @@ static void test_strlen_ptr(void) {
         assert_se(strlen_ptr(NULL) == 0);
 }
 
+static void test_memory_startswith(void) {
+        assert_se(streq(memory_startswith("", 0, ""), ""));
+        assert_se(streq(memory_startswith("", 1, ""), ""));
+        assert_se(streq(memory_startswith("x", 2, ""), "x"));
+        assert_se(!memory_startswith("", 1, "x"));
+        assert_se(!memory_startswith("", 1, "xxxxxxxx"));
+        assert_se(streq(memory_startswith("xxx", 4, "x"), "xx"));
+        assert_se(streq(memory_startswith("xxx", 4, "xx"), "x"));
+        assert_se(streq(memory_startswith("xxx", 4, "xxx"), ""));
+        assert_se(!memory_startswith("xxx", 4, "xxxx"));
+}
+
+static void test_memory_startswith_no_case(void) {
+        assert_se(streq(memory_startswith_no_case("", 0, ""), ""));
+        assert_se(streq(memory_startswith_no_case("", 1, ""), ""));
+        assert_se(streq(memory_startswith_no_case("x", 2, ""), "x"));
+        assert_se(streq(memory_startswith_no_case("X", 2, ""), "X"));
+        assert_se(!memory_startswith_no_case("", 1, "X"));
+        assert_se(!memory_startswith_no_case("", 1, "xxxxXXXX"));
+        assert_se(streq(memory_startswith_no_case("xxx", 4, "X"), "xx"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "x"), "XX"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "X"), "XX"));
+        assert_se(streq(memory_startswith_no_case("xxx", 4, "XX"), "x"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "xx"), "X"));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "XX"), "X"));
+        assert_se(streq(memory_startswith_no_case("xxx", 4, "XXX"), ""));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "xxx"), ""));
+        assert_se(streq(memory_startswith_no_case("XXX", 4, "XXX"), ""));
+
+        assert_se(memory_startswith_no_case((char[2]){'x', 'x'}, 2, "xx"));
+        assert_se(memory_startswith_no_case((char[2]){'x', 'X'}, 2, "xX"));
+        assert_se(memory_startswith_no_case((char[2]){'X', 'x'}, 2, "Xx"));
+        assert_se(memory_startswith_no_case((char[2]){'X', 'X'}, 2, "XX"));
+}
+
 int main(int argc, char *argv[]) {
         test_string_erase();
         test_ascii_strcasecmp_n();
         test_ascii_strcasecmp_nn();
+        test_cellescape();
         test_streq_ptr();
         test_strstrip();
         test_strextend();
+        test_strextend_with_separator();
         test_strrep();
         test_strappend();
         test_string_has_cc();
@@ -418,6 +547,8 @@ int main(int argc, char *argv[]) {
         test_split_pair();
         test_first_word();
         test_strlen_ptr();
+        test_memory_startswith();
+        test_memory_startswith_no_case();
 
         return 0;
 }

@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2011 Kay Sievers
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 /* Parts of this file are based on the GLIB utf8 validation functions. The
  * original license text follows. */
@@ -48,6 +29,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "gunicode.h"
 #include "hexdecoct.h"
 #include "macro.h"
 #include "utf8.h"
@@ -259,10 +241,28 @@ char *utf8_escape_non_printable(const char *str) {
 char *ascii_is_valid(const char *str) {
         const char *p;
 
+        /* Check whether the string consists of valid ASCII bytes,
+         * i.e values between 0 and 127, inclusive. */
+
         assert(str);
 
         for (p = str; *p; p++)
                 if ((unsigned char) *p >= 128)
+                        return NULL;
+
+        return (char*) str;
+}
+
+char *ascii_is_valid_n(const char *str, size_t len) {
+        size_t i;
+
+        /* Very similar to ascii_is_valid(), but checks exactly len
+         * bytes and rejects any NULs in that range. */
+
+        assert(str);
+
+        for (i = 0; i < len; i++)
+                if ((unsigned char) str[i] >= 128 || str[i] == 0)
                         return NULL;
 
         return (char*) str;
@@ -407,4 +407,43 @@ int utf8_encoded_valid_unichar(const char *str) {
                 return -EINVAL;
 
         return len;
+}
+
+size_t utf8_n_codepoints(const char *str) {
+        size_t n = 0;
+
+        /* Returns the number of UTF-8 codepoints in this string, or (size_t) -1 if the string is not valid UTF-8. */
+
+        while (*str != 0) {
+                int k;
+
+                k = utf8_encoded_valid_unichar(str);
+                if (k < 0)
+                        return (size_t) -1;
+
+                str += k;
+                n++;
+        }
+
+        return n;
+}
+
+size_t utf8_console_width(const char *str) {
+        size_t n = 0;
+
+        /* Returns the approximate width a string will take on screen when printed on a character cell
+         * terminal/console. */
+
+        while (*str != 0) {
+                char32_t c;
+
+                if (utf8_encoded_to_unichar(str, &c) < 0)
+                        return (size_t) -1;
+
+                str = utf8_next_char(str);
+
+                n += unichar_iswide(c) ? 2 : 1;
+        }
+
+        return n;
 }

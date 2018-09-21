@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include "bus-error.h"
 
 #define BUS_ERROR_NO_SUCH_UNIT "org.freedesktop.systemd1.NoSuchUnit"
@@ -27,6 +8,7 @@
 #define BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID "org.freedesktop.systemd1.NoUnitForInvocationID"
 #define BUS_ERROR_UNIT_EXISTS "org.freedesktop.systemd1.UnitExists"
 #define BUS_ERROR_LOAD_FAILED "org.freedesktop.systemd1.LoadFailed"
+#define BUS_ERROR_BAD_UNIT_SETTING "org.freedesktop.systemd1.BadUnitSetting"
 #define BUS_ERROR_JOB_FAILED "org.freedesktop.systemd1.JobFailed"
 #define BUS_ERROR_NO_SUCH_JOB "org.freedesktop.systemd1.NoSuchJob"
 #define BUS_ERROR_NOT_SUBSCRIBED "org.freedesktop.systemd1.NotSubscribed"
@@ -54,6 +36,8 @@
 #define BUS_ERROR_NO_SUCH_USER_MAPPING "org.freedesktop.machine1.NoSuchUserMapping"
 #define BUS_ERROR_NO_SUCH_GROUP_MAPPING "org.freedesktop.machine1.NoSuchGroupMapping"
 
+#define BUS_ERROR_NO_SUCH_PORTABLE_IMAGE "org.freedesktop.portable1.NoSuchImage"
+
 #define BUS_ERROR_NO_SUCH_SESSION "org.freedesktop.login1.NoSuchSession"
 #define BUS_ERROR_NO_SESSION_FOR_PID "org.freedesktop.login1.NoSessionForPID"
 #define BUS_ERROR_NO_SUCH_USER "org.freedesktop.login1.NoSuchUser"
@@ -68,6 +52,7 @@
 #define BUS_ERROR_SESSION_BUSY "org.freedesktop.login1.SessionBusy"
 
 #define BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED "org.freedesktop.timedate1.AutomaticTimeSyncEnabled"
+#define BUS_ERROR_NO_NTP_SUPPORT "org.freedesktop.timedate1.NoNTPSupport"
 
 #define BUS_ERROR_NO_SUCH_PROCESS "org.freedesktop.systemd1.NoSuchProcess"
 
@@ -83,9 +68,13 @@
 #define BUS_ERROR_NO_SUCH_LINK "org.freedesktop.resolve1.NoSuchLink"
 #define BUS_ERROR_LINK_BUSY "org.freedesktop.resolve1.LinkBusy"
 #define BUS_ERROR_NETWORK_DOWN "org.freedesktop.resolve1.NetworkDown"
+#define BUS_ERROR_NO_SUCH_DNSSD_SERVICE "org.freedesktop.resolve1.NoSuchDnssdService"
+#define BUS_ERROR_DNSSD_SERVICE_EXISTS "org.freedesktop.resolve1.DnssdServiceExists"
 #define _BUS_ERROR_DNS "org.freedesktop.resolve1.DnsError."
 
 #define BUS_ERROR_NO_SUCH_TRANSFER "org.freedesktop.import1.NoSuchTransfer"
 #define BUS_ERROR_TRANSFER_IN_PROGRESS "org.freedesktop.import1.TransferInProgress"
+
+#define BUS_ERROR_NO_PRODUCT_UUID "org.freedesktop.hostname1.NoProductUUID"
 
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

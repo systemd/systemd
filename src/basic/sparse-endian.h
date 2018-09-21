@@ -20,8 +20,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-#ifndef SPARSE_ENDIAN_H
-#define SPARSE_ENDIAN_H
+#pragma once
 
 #include <byteswap.h>
 #include <endian.h>
@@ -89,5 +88,3 @@ static inline uint64_t be64toh(be64_t value) { return bswap_64_on_le((uint64_t _
 
 #undef __sd_bitwise
 #undef __sd_force
-
-#endif /* SPARSE_ENDIAN_H */

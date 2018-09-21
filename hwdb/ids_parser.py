@@ -344,17 +344,17 @@ if __name__ == '__main__':
     args = sys.argv[1:]
 
     if not args or 'usb' in args:
-        p = usb_ids_grammar().parseFile(open('usb.ids'))
+        p = usb_ids_grammar().parseFile(open('usb.ids', errors='replace'))
         usb_vendor_model(p)
         usb_classes(p)
 
     if not args or 'pci' in args:
-        p = pci_ids_grammar().parseFile(open('pci.ids'))
+        p = pci_ids_grammar().parseFile(open('pci.ids', errors='replace'))
         pci_vendor_model(p)
         pci_classes(p)
 
     if not args or 'sdio' in args:
-        p = pci_ids_grammar().parseFile(open('sdio.ids'))
+        p = pci_ids_grammar().parseFile(open('sdio.ids', errors='replace'))
         sdio_vendor_model(p)
         sdio_classes(p)
 

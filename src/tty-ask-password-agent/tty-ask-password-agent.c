@@ -1,22 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2015 Werner Fink
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2015 Werner Fink
 ***/
 
 #include <errno.h>
@@ -159,7 +143,7 @@ static int ask_password_plymouth(
                 }
 
                 if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
-                        flush_fd(notify);
+                        (void) flush_fd(notify);
 
                 if (pollfd[POLL_SOCKET].revents == 0)
                         continue;
@@ -254,6 +238,7 @@ static int send_passwords(const char *socket_name, char **passwords) {
         union sockaddr_union sa = { .un.sun_family = AF_UNIX };
         size_t packet_length = 1;
         char **p, *d;
+        ssize_t n;
         int r;
 
         assert(socket_name);
@@ -279,9 +264,13 @@ static int send_passwords(const char *socket_name, char **passwords) {
 
         strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
 
-        r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-        if (r < 0)
+        n = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        if (n < 0) {
                 r = log_debug_errno(errno, "sendto(): %m");
+                goto finish;
+        }
+
+        r = (int) n;
 
 finish:
         explicit_bzero(packet, packet_length);
@@ -363,18 +352,21 @@ static int parse_password(const char *filename, char **wall) {
                         int tty_fd = -1;
 
                         if (arg_console) {
-                                const char *con = arg_device ? arg_device : "/dev/console";
+                                const char *con = arg_device ?: "/dev/console";
 
-                                tty_fd = acquire_terminal(con, false, false, false, USEC_INFINITY);
+                                tty_fd = acquire_terminal(con, ACQUIRE_TERMINAL_WAIT, USEC_INFINITY);
                                 if (tty_fd < 0)
-                                        return log_error_errno(tty_fd, "Failed to acquire /dev/console: %m");
+                                        return log_error_errno(tty_fd, "Failed to acquire %s: %m", con);
 
                                 r = reset_terminal_fd(tty_fd, true);
                                 if (r < 0)
                                         log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
                         }
 
-                        r = ask_password_tty(message, NULL, not_after, echo ? ASK_PASSWORD_ECHO : 0, filename, &password);
+                        r = ask_password_tty(tty_fd, message, NULL, not_after,
+                                             (echo ? ASK_PASSWORD_ECHO : 0) |
+                                             (arg_console ? ASK_PASSWORD_CONSOLE_COLOR : 0),
+                                             filename, &password);
 
                         if (arg_console) {
                                 tty_fd = safe_close(tty_fd);
@@ -417,8 +409,8 @@ static int wall_tty_block(void) {
         if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)
                 return log_oom();
 
-        mkdir_parents_label(p, 0700);
-        mkfifo(p, 0600);
+        (void) mkdir_parents_label(p, 0700);
+        (void) mkfifo(p, 0600);
 
         fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
@@ -460,7 +452,7 @@ static bool wall_tty_match(const char *path, void *userdata) {
 
         fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                log_debug_errno(errno, "Failed top open the wall pipe: %m");
+                log_debug_errno(errno, "Failed to open the wall pipe: %m");
                 return 1;
         }
 
@@ -570,7 +562,14 @@ static int watch_passwords(void) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-tty-ask-password-agent", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Process system password requests.\n\n"
                "  -h --help     Show this help\n"
@@ -580,8 +579,13 @@ static void help(void) {
                "     --watch    Continuously process password requests\n"
                "     --wall     Continuously forward password requests to wall\n"
                "     --plymouth Ask question with Plymouth instead of on TTY\n"
-               "     --console  Ask question on /dev/console instead of current TTY\n",
-               program_invocation_short_name);
+               "     --console  Ask question on /dev/console instead of current TTY\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -618,8 +622,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -693,11 +696,13 @@ static int parse_argv(int argc, char *argv[]) {
  * If one of the tasks does handle a password, the remaining tasks
  * will be terminated.
  */
-static int ask_on_this_console(const char *tty, pid_t *pid, int argc, char *argv[]) {
+static int ask_on_this_console(const char *tty, pid_t *ret_pid, int argc, char *argv[]) {
         struct sigaction sig = {
                 .sa_handler = nop_signal_handler,
                 .sa_flags = SA_NOCLDSTOP | SA_RESTART,
         };
+        pid_t pid;
+        int r;
 
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD, -1) >= 0);
 
@@ -707,17 +712,13 @@ static int ask_on_this_console(const char *tty, pid_t *pid, int argc, char *argv
         sig.sa_handler = SIG_DFL;
         assert_se(sigaction(SIGHUP, &sig, NULL) >= 0);
 
-        *pid = fork();
-        if (*pid < 0)
-                return log_error_errno(errno, "Failed to fork process: %m");
-
-        if (*pid == 0) {
+        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int ac;
 
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGHUP) >= 0);
-
-                reset_signal_mask();
-                reset_all_signal_handlers();
 
                 for (ac = 0; ac < argc; ac++) {
                         if (streq(argv[ac], "--console")) {
@@ -731,6 +732,8 @@ static int ask_on_this_console(const char *tty, pid_t *pid, int argc, char *argv
                 execv(SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, argv);
                 _exit(EXIT_FAILURE);
         }
+
+        *ret_pid = pid;
         return 0;
 }
 

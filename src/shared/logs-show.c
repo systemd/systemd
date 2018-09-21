@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -65,7 +47,6 @@ static int print_catalog(FILE *f, sd_journal *j) {
         int r;
         _cleanup_free_ char *t = NULL, *z = NULL;
 
-
         r = sd_journal_get_catalog(j, &t);
         if (r < 0)
                 return r;
@@ -96,7 +77,6 @@ static int parse_field(const void *data, size_t length, const char *field, size_
                 return 0;
 
         nl = length - field_len;
-
 
         buf = newdup_suffix0(char, (const char*) data + field_len, nl);
         if (!buf)
@@ -166,8 +146,17 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
         return true;
 }
 
-static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, OutputFlags flags, int priority, const char* message, size_t message_len) {
-        const char *color_on = "", *color_off = "";
+static bool print_multiline(
+                FILE *f,
+                unsigned prefix,
+                unsigned n_columns,
+                OutputFlags flags,
+                int priority,
+                const char* message,
+                size_t message_len,
+                size_t highlight[2]) {
+
+        const char *color_on = "", *color_off = "", *highlight_on = "";
         const char *pos, *end;
         bool ellipsized = false;
         int line = 0;
@@ -176,9 +165,11 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
                 if (priority <= LOG_ERR) {
                         color_on = ANSI_HIGHLIGHT_RED;
                         color_off = ANSI_NORMAL;
+                        highlight_on = ANSI_HIGHLIGHT;
                 } else if (priority <= LOG_NOTICE) {
                         color_on = ANSI_HIGHLIGHT;
                         color_off = ANSI_NORMAL;
+                        highlight_on = ANSI_HIGHLIGHT_RED;
                 }
         }
 
@@ -209,9 +200,28 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
 
                 if (flags & (OUTPUT_FULL_WIDTH | OUTPUT_SHOW_ALL) ||
                     (prefix + len + 1 < n_columns && !tail_line)) {
-                        fprintf(f, "%*s%s%.*s%s\n",
-                                continuation * prefix, "",
-                                color_on, len, pos, color_off);
+                        if (highlight &&
+                            (size_t) (pos - message) <= highlight[0] &&
+                            highlight[0] < (size_t) len) {
+
+                                fprintf(f, "%*s%s%.*s",
+                                        continuation * prefix, "",
+                                        color_on, (int) highlight[0], pos);
+                                fprintf(f, "%s%.*s",
+                                        highlight_on,
+                                        (int) (MIN((size_t) len, highlight[1]) - highlight[0]),
+                                        pos + highlight[0]);
+                                if ((size_t) len > highlight[1])
+                                        fprintf(f, "%s%.*s",
+                                                color_on,
+                                                (int) (len - highlight[1]),
+                                                pos + highlight[1]);
+                                fprintf(f, "%s\n", color_off);
+
+                        } else
+                                fprintf(f, "%*s%s%.*s%s\n",
+                                        continuation * prefix, "",
+                                        color_on, len, pos, color_off);
                         continue;
                 }
 
@@ -278,20 +288,14 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
         assert(f);
         assert(j);
 
-        r = -ENXIO;
         if (realtime)
                 r = safe_atou64(realtime, &x);
-        if (r < 0)
+        if (!realtime || r < 0 || !VALID_REALTIME(x))
                 r = sd_journal_get_realtime_usec(j, &x);
         if (r < 0)
                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
-        if (x > USEC_TIMESTAMP_FORMATTABLE_MAX) {
-                log_error("Timestamp cannot be printed");
-                return -EINVAL;
-        }
-
-        if (mode == OUTPUT_SHORT_FULL) {
+        if (IN_SET(mode, OUTPUT_SHORT_FULL, OUTPUT_WITH_UNIT)) {
                 const char *k;
 
                 if (flags & OUTPUT_UTC)
@@ -299,7 +303,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                 else
                         k = format_timestamp(buf, sizeof(buf), x);
                 if (!k) {
-                        log_error("Failed to format timestamp.");
+                        log_error("Failed to format timestamp: %"PRIu64, x);
                         return -EINVAL;
                 }
 
@@ -369,14 +373,15 @@ static int output_short(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) {
+                Set *output_fields,
+                size_t highlight[2]) {
 
         int r;
         const void *data;
         size_t length;
         size_t n = 0;
-        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL;
-        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0;
+        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *unit = NULL, *user_unit = NULL;
+        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0, unit_len = 0, user_unit_len = 0;
         int p = LOG_INFO;
         bool ellipsized = false;
         const ParseFieldVec fields[] = {
@@ -389,7 +394,10 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("SYSLOG_IDENTIFIER=", &identifier, &identifier_len),
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len),
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
+                PARSE_FIELD_VEC_ENTRY("_SYSTEMD_UNIT=", &unit, &unit_len),
+                PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=", &user_unit, &user_unit_len),
         };
+        size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
 
         assert(f);
         assert(j);
@@ -403,7 +411,6 @@ static int output_short(
         sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL|OUTPUT_FULL_WIDTH) ? 0 : PRINT_CHAR_THRESHOLD + 1);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
-
                 r = parse_fieldv(data, length, fields, ELEMENTSOF(fields));
                 if (r < 0)
                         return r;
@@ -421,7 +428,7 @@ static int output_short(
         }
 
         if (!(flags & OUTPUT_SHOW_ALL))
-                strip_tab_ansi(&message, &message_len);
+                strip_tab_ansi(&message, &message_len, highlight_shifted);
 
         if (priority_len == 1 && *priority >= '0' && *priority <= '7')
                 p = *priority - '0';
@@ -445,7 +452,19 @@ static int output_short(
                 n += hostname_len + 1;
         }
 
-        if (identifier && shall_print(identifier, identifier_len, flags)) {
+        if (mode == OUTPUT_WITH_UNIT && ((unit && shall_print(unit, unit_len, flags)) || (user_unit && shall_print(user_unit, user_unit_len, flags)))) {
+                if (unit) {
+                        fprintf(f, " %.*s", (int) unit_len, unit);
+                        n += unit_len + 1;
+                }
+                if (user_unit) {
+                        if (unit)
+                                fprintf(f, "/%.*s", (int) user_unit_len, user_unit);
+                        else
+                                fprintf(f, " %.*s", (int) user_unit_len, user_unit);
+                        n += unit_len + 1;
+                }
+        } else if (identifier && shall_print(identifier, identifier_len, flags)) {
                 fprintf(f, " %.*s", (int) identifier_len, identifier);
                 n += identifier_len + 1;
         } else if (comm && shall_print(comm, comm_len, flags)) {
@@ -468,7 +487,9 @@ static int output_short(
         } else {
                 fputs(": ", f);
                 ellipsized |=
-                        print_multiline(f, n + 2, n_columns, flags, p, message, message_len);
+                        print_multiline(f, n + 2, n_columns, flags, p,
+                                        message, message_len,
+                                        highlight_shifted);
         }
 
         if (flags & OUTPUT_CATALOG)
@@ -483,7 +504,8 @@ static int output_verbose(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) {
+                Set *output_fields,
+                size_t highlight[2]) {
 
         const void *data;
         size_t length;
@@ -506,7 +528,9 @@ static int output_verbose(
         else {
                 _cleanup_free_ char *value = NULL;
 
-                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", strlen("_SOURCE_REALTIME_TIMESTAMP="), &value, NULL);
+                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=",
+                                STRLEN("_SOURCE_REALTIME_TIMESTAMP="), &value,
+                                NULL);
                 if (r < 0)
                         return r;
                 assert(r > 0);
@@ -559,7 +583,7 @@ static int output_verbose(
                     (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH)
                      && utf8_is_printable(data, length))) {
                         fprintf(f, "    %s%.*s=", on, fieldlen, (const char*)data);
-                        print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, c + 1, length - fieldlen - 1);
+                        print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, c + 1, length - fieldlen - 1, NULL);
                         fputs(off, f);
                 } else {
                         char bytes[FORMAT_BYTES_MAX];
@@ -588,7 +612,8 @@ static int output_export(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) {
+                Set *output_fields,
+                size_t highlight[2]) {
 
         sd_id128_t boot_id;
         char sid[33];
@@ -627,10 +652,8 @@ static int output_export(
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 const char *c;
 
-                /* We already printed the boot id, from the data in
-                 * the header, hence let's suppress it here */
-                if (length >= 9 &&
-                    startswith(data, "_BOOT_ID="))
+                /* We already printed the boot id from the data in the header, hence let's suppress it here */
+                if (memory_startswith(data, length, "_BOOT_ID="))
                         continue;
 
                 c = memchr(data, '=', length);
@@ -658,6 +681,10 @@ static int output_export(
                 }
 
                 fputc('\n', f);
+        }
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
         }
 
         if (r < 0)
@@ -726,7 +753,8 @@ static int output_json(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) {
+                Set *output_fields,
+                size_t highlight[2]) {
 
         uint64_t realtime, monotonic;
         _cleanup_free_ char *cursor = NULL;
@@ -790,15 +818,14 @@ static int output_json(
                 char *n;
                 unsigned u;
 
-                if (length >= 9 &&
-                    memcmp(data, "_BOOT_ID=", 9) == 0)
+                if (memory_startswith(data, length, "_BOOT_ID="))
                         continue;
 
                 eq = memchr(data, '=', length);
                 if (!eq)
                         continue;
 
-                n = strndup(data, eq - (const char*) data);
+                n = memdup_suffix0(data, eq - (const char*) data);
                 if (!n) {
                         r = log_oom();
                         goto finish;
@@ -821,7 +848,10 @@ static int output_json(
                         }
                 }
         }
-
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -831,14 +861,14 @@ static int output_json(
 
                 SD_JOURNAL_FOREACH_DATA(j, data, length) {
                         const char *eq;
-                        char *kk, *n;
+                        char *kk;
+                        _cleanup_free_ char *n = NULL;
                         size_t m;
                         unsigned u;
 
-                        /* We already printed the boot id, from the data in
+                        /* We already printed the boot id from the data in
                          * the header, hence let's suppress it here */
-                        if (length >= 9 &&
-                            memcmp(data, "_BOOT_ID=", 9) == 0)
+                        if (memory_startswith(data, length, "_BOOT_ID="))
                                 continue;
 
                         eq = memchr(data, '=', length);
@@ -846,33 +876,24 @@ static int output_json(
                                 continue;
 
                         m = eq - (const char*) data;
-
-                        n = strndup(data, m);
+                        n = memdup_suffix0(data, m);
                         if (!n) {
                                 r = log_oom();
                                 goto finish;
                         }
 
-                        if (output_fields && !set_get(output_fields, n)) {
-                                free(n);
+                        if (output_fields && !set_get(output_fields, n))
                                 continue;
-                        }
 
-                        if (separator) {
-                                if (mode == OUTPUT_JSON_PRETTY)
-                                        fputs(",\n\t", f);
-                                else
-                                        fputs(", ", f);
-                        }
+                        if (separator)
+                                fputs(mode == OUTPUT_JSON_PRETTY ? ",\n\t" : ", ", f);
 
                         u = PTR_TO_UINT(hashmap_get2(h, n, (void**) &kk));
-                        if (u == 0) {
+                        if (u == 0)
                                 /* We already printed this, let's jump to the next */
-                                free(n);
                                 separator = false;
 
-                                continue;
-                        } else if (u == 1) {
+                        else if (u == 1) {
                                 /* Field only appears once, output it directly */
 
                                 json_escape(f, data, m, flags);
@@ -882,11 +903,8 @@ static int output_json(
 
                                 hashmap_remove(h, n);
                                 free(kk);
-                                free(n);
 
                                 separator = true;
-
-                                continue;
 
                         } else {
                                 /* Field appears multiple times, output it as array */
@@ -914,7 +932,6 @@ static int output_json(
 
                                 hashmap_remove(h, n);
                                 free(kk);
-                                free(n);
 
                                 /* Iterate data fields form the beginning */
                                 done = false;
@@ -950,18 +967,29 @@ static int output_cat(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) {
+                Set *output_fields,
+                size_t highlight[2]) {
 
         const void *data;
         size_t l;
         int r;
+        const char *highlight_on = "", *highlight_off = "";
 
         assert(j);
         assert(f);
 
+        if (flags & OUTPUT_COLOR) {
+                highlight_on = ANSI_HIGHLIGHT_RED;
+                highlight_off = ANSI_NORMAL;
+        }
+
         sd_journal_set_data_threshold(j, 0);
 
         r = sd_journal_get_data(j, "MESSAGE", &data, &l);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
         if (r < 0) {
                 /* An entry without MESSAGE=? */
                 if (r == -ENOENT)
@@ -972,7 +1000,17 @@ static int output_cat(
 
         assert(l >= 8);
 
-        fwrite((const char*) data + 8, 1, l - 8, f);
+        if (highlight && (flags & OUTPUT_COLOR)) {
+                assert(highlight[0] <= highlight[1]);
+                assert(highlight[1] <= l - 8);
+
+                fwrite((const char*) data + 8, 1, highlight[0], f);
+                fwrite(highlight_on, 1, strlen(highlight_on), f);
+                fwrite((const char*) data + 8 + highlight[0], 1, highlight[1] - highlight[0], f);
+                fwrite(highlight_off, 1, strlen(highlight_off), f);
+                fwrite((const char*) data + 8 + highlight[1], 1, l - 8 - highlight[1], f);
+        } else
+                fwrite((const char*) data + 8, 1, l - 8, f);
         fputc('\n', f);
 
         return 0;
@@ -984,7 +1022,8 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) = {
+                Set *output_fields,
+                size_t highlight[2]) = {
 
         [OUTPUT_SHORT] = output_short,
         [OUTPUT_SHORT_ISO] = output_short,
@@ -998,16 +1037,18 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
         [OUTPUT_JSON] = output_json,
         [OUTPUT_JSON_PRETTY] = output_json,
         [OUTPUT_JSON_SSE] = output_json,
-        [OUTPUT_CAT] = output_cat
+        [OUTPUT_CAT] = output_cat,
+        [OUTPUT_WITH_UNIT] = output_short,
 };
 
-int output_journal(
+int show_journal_entry(
                 FILE *f,
                 sd_journal *j,
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
                 char **output_fields,
+                size_t highlight[2],
                 bool *ellipsized) {
 
         int ret;
@@ -1028,7 +1069,7 @@ int output_journal(
                         return ret;
         }
 
-        ret = output_funcs[mode](f, j, mode, n_columns, flags, fields);
+        ret = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight);
 
         if (ellipsized && ret > 0)
                 *ellipsized = true;
@@ -1051,14 +1092,15 @@ static int maybe_print_begin_newline(FILE *f, OutputFlags *flags) {
         return 0;
 }
 
-static int show_journal(FILE *f,
-                        sd_journal *j,
-                        OutputMode mode,
-                        unsigned n_columns,
-                        usec_t not_before,
-                        unsigned how_many,
-                        OutputFlags flags,
-                        bool *ellipsized) {
+int show_journal(
+                FILE *f,
+                sd_journal *j,
+                OutputMode mode,
+                unsigned n_columns,
+                usec_t not_before,
+                unsigned how_many,
+                OutputFlags flags,
+                bool *ellipsized) {
 
         int r;
         unsigned line = 0;
@@ -1069,14 +1111,18 @@ static int show_journal(FILE *f,
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
-        /* Seek to end */
-        r = sd_journal_seek_tail(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to seek to tail: %m");
+        if (how_many == (unsigned) -1)
+                need_seek = true;
+        else {
+                /* Seek to end */
+                r = sd_journal_seek_tail(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to tail: %m");
 
-        r = sd_journal_previous_skip(j, how_many);
-        if (r < 0)
-                return log_error_errno(r, "Failed to skip previous: %m");
+                r = sd_journal_previous_skip(j, how_many);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to skip previous: %m");
+        }
 
         for (;;) {
                 for (;;) {
@@ -1110,7 +1156,7 @@ static int show_journal(FILE *f,
                         line++;
                         maybe_print_begin_newline(f, &flags);
 
-                        r = output_journal(f, j, mode, n_columns, flags, NULL, ellipsized);
+                        r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, ellipsized);
                         if (r < 0)
                                 return r;
                 }
@@ -1254,7 +1300,6 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
         pid_t pid, child;
-        siginfo_t si;
         char buf[37];
         ssize_t k;
         int r;
@@ -1276,11 +1321,10 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
+        r = safe_fork("(sd-bootid)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int fd;
 
                 pair[0] = safe_close(pair[0]);
@@ -1307,9 +1351,11 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate(child, &si);
-        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                return r < 0 ? r : -EIO;
+        r = wait_for_terminate_and_check("(sd-bootid)", child, 0);
+        if (r < 0)
+                return r;
+        if (r != EXIT_SUCCESS)
+                return -EIO;
 
         k = recv(pair[0], buf, 36, 0);
         if (k != 36)
@@ -1390,7 +1436,7 @@ int show_journal_by_unit(
         if (r < 0)
                 return log_error_errno(r, "Failed to add unit matches: %m");
 
-        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);

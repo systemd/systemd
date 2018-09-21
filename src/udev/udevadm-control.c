@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2005-2011 Kay Sievers <kay@vrfy.org>
- *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 2 of the License, or
@@ -21,15 +19,17 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "parse-util.h"
+#include "process-util.h"
 #include "time-util.h"
-#include "udev-util.h"
 #include "udev.h"
+#include "udevadm.h"
 
-static void print_help(void) {
-        printf("%s control COMMAND\n\n"
+static int help(void) {
+        printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
                "  -h --help                Show this help\n"
-               "     --version             Show package version\n"
+               "  -V --version             Show package version\n"
                "  -e --exit                Instruct the daemon to cleanup and exit\n"
                "  -l --log-priority=LEVEL  Set the udev log level for the daemon\n"
                "  -s --stop-exec-queue     Do not execute events, queue only\n"
@@ -39,12 +39,14 @@ static void print_help(void) {
                "  -m --children-max=N      Maximum number of children\n"
                "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
                , program_invocation_short_name);
+
+        return 0;
 }
 
-static int adm_control(struct udev *udev, int argc, char *argv[]) {
-        _cleanup_udev_ctrl_unref_ struct udev_ctrl *uctrl = NULL;
+int control_main(int argc, char *argv[], void *userdata) {
+        _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
         int timeout = 60;
-        int rc = 1, c;
+        int c, r;
 
         static const struct option options[] = {
                 { "exit",             no_argument,       NULL, 'e' },
@@ -57,117 +59,107 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
                 { "env",              required_argument, NULL, 'p' }, /* alias for -p */
                 { "children-max",     required_argument, NULL, 'm' },
                 { "timeout",          required_argument, NULL, 't' },
+                { "version",          no_argument,       NULL, 'V' },
                 { "help",             no_argument,       NULL, 'h' },
                 {}
         };
 
-        if (getuid() != 0) {
-                log_error("root privileges required");
-                return 1;
-        }
+        r = must_be_root();
+        if (r < 0)
+                return r;
 
-        uctrl = udev_ctrl_new(udev);
-        if (uctrl == NULL)
-                return 2;
+        if (argc <= 1)
+                log_error("Option missing");
 
-        while ((c = getopt_long(argc, argv, "el:sSRp:m:h", options, NULL)) >= 0)
+        uctrl = udev_ctrl_new();
+        if (!uctrl)
+                return -ENOMEM;
+
+        while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'e':
-                        if (udev_ctrl_send_exit(uctrl, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = udev_ctrl_send_exit(uctrl, timeout);
+                        if (r < 0)
+                                return r;
                         break;
                 case 'l': {
                         int i;
 
                         i = util_log_priority(optarg);
-                        if (i < 0) {
-                                log_error("invalid number '%s'", optarg);
-                                return rc;
-                        }
-                        if (udev_ctrl_send_set_log_level(uctrl, util_log_priority(optarg), timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        if (i < 0)
+                                return log_error_errno(i, "invalid number '%s'", optarg);
+
+                        r = udev_ctrl_send_set_log_level(uctrl, i, timeout);
+                        if (r < 0)
+                                return r;
                         break;
                 }
                 case 's':
-                        if (udev_ctrl_send_stop_exec_queue(uctrl, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = udev_ctrl_send_stop_exec_queue(uctrl, timeout);
+                        if (r < 0)
+                                return r;
                         break;
                 case 'S':
-                        if (udev_ctrl_send_start_exec_queue(uctrl, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = udev_ctrl_send_start_exec_queue(uctrl, timeout);
+                        if (r < 0)
+                                return r;
                         break;
                 case 'R':
-                        if (udev_ctrl_send_reload(uctrl, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = udev_ctrl_send_reload(uctrl, timeout);
+                        if (r < 0)
+                                return r;
                         break;
                 case 'p':
-                        if (strchr(optarg, '=') == NULL) {
+                        if (!strchr(optarg, '=')) {
                                 log_error("expect <KEY>=<value> instead of '%s'", optarg);
-                                return rc;
+                                return -EINVAL;
                         }
-                        if (udev_ctrl_send_set_env(uctrl, optarg, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = udev_ctrl_send_set_env(uctrl, optarg, timeout);
+                        if (r < 0)
+                                return r;
                         break;
                 case 'm': {
-                        char *endp;
-                        int i;
+                        unsigned i;
 
-                        i = strtoul(optarg, &endp, 0);
-                        if (endp[0] != '\0' || i < 1) {
-                                log_error("invalid number '%s'", optarg);
-                                return rc;
-                        }
-                        if (udev_ctrl_send_set_children_max(uctrl, i, timeout) < 0)
-                                rc = 2;
-                        else
-                                rc = 0;
+                        r = safe_atou(optarg, &i);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse maximum number of events '%s': %m", optarg);
+
+                        r = udev_ctrl_send_set_children_max(uctrl, i, timeout);
+                        if (r < 0)
+                                return r;
                         break;
                 }
                 case 't': {
                         usec_t s;
-                        int seconds;
-                        int r;
 
                         r = parse_sec(optarg, &s);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse timeout value '%s'.", optarg);
 
-                        if (((s + USEC_PER_SEC - 1) / USEC_PER_SEC) > INT_MAX)
-                                log_error("Timeout value is out of range.");
-                        else {
-                                seconds = s != USEC_INFINITY ? (int) ((s + USEC_PER_SEC - 1) / USEC_PER_SEC) : INT_MAX;
-                                timeout = seconds;
-                                rc = 0;
-                        }
+                        if (DIV_ROUND_UP(s, USEC_PER_SEC) > INT_MAX)
+                                log_error("Timeout value is out of range, ignoring.");
+                        else
+                                timeout = s != USEC_INFINITY ? (int) DIV_ROUND_UP(s, USEC_PER_SEC) : INT_MAX;
                         break;
                 }
+                case 'V':
+                        return print_version();
                 case 'h':
-                        print_help();
-                        rc = 0;
-                        break;
+                        return help();
+                case '?':
+                        return -EINVAL;
+                default:
+                        assert_not_reached("Unknown option.");
                 }
 
-        if (optind < argc)
+        if (optind < argc) {
                 log_error("Extraneous argument: %s", argv[optind]);
-        else if (optind == 1)
+                return -EINVAL;
+        } else if (optind == 1) {
                 log_error("Option missing");
-        return rc;
-}
+                return -EINVAL;
+        }
 
-const struct udevadm_cmd udevadm_control = {
-        .name = "control",
-        .cmd = adm_control,
-        .help = "Control the udev daemon",
-};
+        return 0;
+}

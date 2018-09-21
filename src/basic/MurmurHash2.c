@@ -30,7 +30,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 
 // Other compilers
 
-#else	// defined(_MSC_VER)
+#else        // defined(_MSC_VER)
 
 #define BIG_CONSTANT(x) (x##LLU)
 

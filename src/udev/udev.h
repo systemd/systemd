@@ -2,21 +2,7 @@
 #pragma once
 
 /*
- * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (C) 2003-2010 Kay Sievers <kay@vrfy.org>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright © 2003 Greg Kroah-Hartman <greg@kroah.com>
  */
 
 #include <sys/param.h>
@@ -33,7 +19,6 @@
 #include "util.h"
 
 struct udev_event {
-        struct udev *udev;
         struct udev_device *dev;
         struct udev_device *dev_parent;
         struct udev_device *dev_db;
@@ -62,15 +47,9 @@ struct udev_event {
         bool run_final;
 };
 
-struct udev_watch {
-        struct udev_list_node node;
-        int handle;
-        char *name;
-};
-
 /* udev-rules.c */
 struct udev_rules;
-struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
+struct udev_rules *udev_rules_new(int resolve_names);
 struct udev_rules *udev_rules_unref(struct udev_rules *rules);
 bool udev_rules_check_timestamp(struct udev_rules *rules);
 void udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event,
@@ -96,14 +75,14 @@ void udev_event_execute_rules(struct udev_event *event,
                               struct udev_list *properties_list,
                               struct udev_rules *rules);
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec);
-int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]);
+int udev_build_argv(char *cmd, int *argc, char *argv[]);
 
 /* udev-watch.c */
-int udev_watch_init(struct udev *udev);
-void udev_watch_restore(struct udev *udev);
-void udev_watch_begin(struct udev *udev, struct udev_device *dev);
-void udev_watch_end(struct udev *udev, struct udev_device *dev);
-struct udev_device *udev_watch_lookup(struct udev *udev, int wd);
+int udev_watch_init(void);
+void udev_watch_restore(void);
+void udev_watch_begin(struct udev_device *dev);
+void udev_watch_end(struct udev_device *dev);
+struct udev_device *udev_watch_lookup(int wd);
 
 /* udev-node.c */
 void udev_node_add(struct udev_device *dev, bool apply,
@@ -114,12 +93,11 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 
 /* udev-ctrl.c */
 struct udev_ctrl;
-struct udev_ctrl *udev_ctrl_new(struct udev *udev);
-struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd);
+struct udev_ctrl *udev_ctrl_new(void);
+struct udev_ctrl *udev_ctrl_new_from_fd(int fd);
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
 struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl);
 int udev_ctrl_cleanup(struct udev_ctrl *uctrl);
-struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl);
 int udev_ctrl_get_fd(struct udev_ctrl *uctrl);
 int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, int timeout);
 int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl, int timeout);
@@ -170,9 +148,9 @@ struct udev_builtin {
         const char *name;
         int (*cmd)(struct udev_device *dev, int argc, char *argv[], bool test);
         const char *help;
-        int (*init)(struct udev *udev);
-        void (*exit)(struct udev *udev);
-        bool (*validate)(struct udev *udev);
+        int (*init)(void);
+        void (*exit)(void);
+        bool (*validate)(void);
         bool run_once;
 };
 #if HAVE_BLKID
@@ -190,30 +168,21 @@ extern const struct udev_builtin udev_builtin_net_setup_link;
 extern const struct udev_builtin udev_builtin_path_id;
 extern const struct udev_builtin udev_builtin_usb_id;
 extern const struct udev_builtin udev_builtin_uaccess;
-void udev_builtin_init(struct udev *udev);
-void udev_builtin_exit(struct udev *udev);
+void udev_builtin_init(void);
+void udev_builtin_exit(void);
 enum udev_builtin_cmd udev_builtin_lookup(const char *command);
 const char *udev_builtin_name(enum udev_builtin_cmd cmd);
 bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
 int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
-void udev_builtin_list(struct udev *udev);
-bool udev_builtin_validate(struct udev *udev);
+void udev_builtin_list(void);
+bool udev_builtin_validate(void);
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
 int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const char *modalias,
                              const char *filter, bool test);
 
-/* udevadm commands */
-struct udevadm_cmd {
-        const char *name;
-        int (*cmd)(struct udev *udev, int argc, char *argv[]);
-        const char *help;
-        int debug;
-};
-extern const struct udevadm_cmd udevadm_info;
-extern const struct udevadm_cmd udevadm_trigger;
-extern const struct udevadm_cmd udevadm_settle;
-extern const struct udevadm_cmd udevadm_control;
-extern const struct udevadm_cmd udevadm_monitor;
-extern const struct udevadm_cmd udevadm_hwdb;
-extern const struct udevadm_cmd udevadm_test;
-extern const struct udevadm_cmd udevadm_test_builtin;
+/* Cleanup functions */
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_event*, udev_event_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_rules*, udev_rules_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl*, udev_ctrl_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_connection*, udev_ctrl_connection_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_msg*, udev_ctrl_msg_unref);

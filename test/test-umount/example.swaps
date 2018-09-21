@@ -1,0 +1,4 @@
+Filename				Type		Size	Used	Priority
+/dev/dm-2                               partition	8151036	2283436	-2
+/some/swapfile                          file            111     111     0
+/some/swapfile2 (deleted)               file            111     111     0

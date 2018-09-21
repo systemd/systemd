@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.network" conditional='ENABLE_NETWORKD'>
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>systemd.network</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-        <email>teg@jklm.no</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -116,8 +90,12 @@
         <varlistentry>
           <term><varname>MACAddress=</varname></term>
           <listitem>
-            <para>The hardware address of the interface (use full colon-delimited hexadecimal, e.g.,
-            01:23:45:67:89:ab).</para>
+            <para>A whitespace-separated list of hardware addresses. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example below.
+            This option may appear more than one, in which case the lists are merged. If the empty string is assigned to this option, the list
+            of hardware addresses defined prior to this is reset.</para>
+
+            <para>Example:
+            <programlisting>MACAddress=01:23:45:67:89:ab 00-11-22-33-44-55 AABB.CCDD.EEFF</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -194,6 +172,17 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>KernelVersion=</varname></term>
+          <listitem>
+            <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
+            expression (or if prefixed with the exclamation mark does not match it). See
+            <literal>ConditionKernelVersion=</literal> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+            details.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Architecture=</varname></term>
           <listitem>
             <para>Checks whether the system is running on a specific
@@ -232,12 +221,25 @@
       <varlistentry>
         <term><varname>ARP=</varname></term>
         <listitem>
-          <para> A boolean. Enables or disables the ARP (low-level Address Resolution Protocol)
+          <para>A boolean. Enables or disables the ARP (low-level Address Resolution Protocol)
           for this interface. Defaults to unset, which means that the kernel default will be used.</para>
           <para> For example, disabling ARP is useful when creating multiple MACVLAN or VLAN virtual
           interfaces atop a single lower-level physical interface, which will then only serve as a
           link/"bridge" device aggregating traffic to the same physical link and not participate in
           the network otherwise.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Multicast=</varname></term>
+        <listitem>
+          <para>A boolean. Enables or disables the multicast flag on the device.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>AllMulticast=</varname></term>
+        <listitem>
+          <para>A boolean. When this flag is set the driver retrieves all multicast packets from the network.
+          This happens when multicast routing is enabled.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -370,6 +372,21 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>DNSOverTLS=</varname></term>
+          <listitem>
+            <para>Takes false or
+            <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>, enables
+            <ulink
+            url="https://tools.ietf.org/html/rfc7858">DNS-over-TLS</ulink>
+            support on the link. This option defines a
+            per-interface setting for
+            <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
+            global <varname>DNSOverTLS=</varname> option. Defaults to
+            false. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>DNSSEC=</varname></term>
           <listitem>
             <para>A boolean or
@@ -436,7 +453,7 @@
             connected bridge, <literal>non-tpmr-bridge</literal> permits propagation across Two-Port MAC Relays, but
             not any other bridges, and <literal>customer-bridge</literal> permits propagation until a customer bridge
             is reached. For details about these concepts, see <ulink
-            url="http://standards.ieee.org/getieee802/download/802.1AB-2009.pdf">IEEE 802.1AB-2009</ulink>. Note that
+            url="https://standards.ieee.org/findstds/standard/802.1AB-2016.html">IEEE 802.1AB-2016</ulink>. Note that
             configuring this setting to true is equivalent to <literal>nearest-bridge</literal>, the recommended and
             most restricted level of propagation. See <varname>LLDP=</varname> above for an option to enable LLDP
             reception.</para>
@@ -656,8 +673,22 @@
         <varlistentry>
           <term><varname>IPv6PrefixDelegation=</varname></term>
           <listitem><para>Whether to enable or disable Router Advertisement sending on a link.
-          Defaults to <literal>false</literal>. See the <literal>[IPv6PrefixDelegation]</literal>
-          and the <literal>[IPv6Prefix]</literal> sections for configuration options.
+          Allowed values are <literal>static</literal> which distributes prefixes as defined in
+          the <literal>[IPv6PrefixDelegation]</literal> and any <literal>[IPv6Prefix]</literal>
+          sections, <literal>dhcpv6</literal> which requests prefixes using a DHCPv6 client
+          configured for another link and any values configured in the
+          <literal>[IPv6PrefixDelegation]</literal> section while ignoring all static prefix
+          configuration sections, <literal>yes</literal> which uses both static configuration
+          and DHCPv6, and <literal>false</literal> which turns off IPv6 prefix delegation
+          altogether. Defaults to <literal>false</literal>. See the
+          <literal>[IPv6PrefixDelegation]</literal> and the <literal>[IPv6Prefix]</literal>
+          sections for more configuration options.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPv6MTUBytes=</varname></term>
+          <listitem><para>Configures IPv6 maximum transmission unit (MTU).
+          An integer greater than or equal to 1280 bytes. Defaults to unset.
           </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -688,6 +719,14 @@
           <term><varname>VLAN=</varname></term>
           <listitem>
             <para>The name of a VLAN to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>IPVLAN=</varname></term>
+          <listitem>
+            <para>The name of a IPVLAN to create on the link. See
             <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             This option may be specified more than once.</para>
           </listitem>
@@ -1067,7 +1106,43 @@
             </para>
           </listitem>
         </varlistentry>
-
+        <varlistentry>
+          <term><varname>InitialCongestionWindow=</varname></term>
+          <listitem>
+            <para>The TCP initial congestion window is used during the start of a TCP connection. During the start of a TCP
+            session, when a client requests a resource, the server's initial congestion window determines how many data bytes
+            will be sent during the initial burst of data. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual
+            suffixes K, M, G are supported and are understood to the base of 1024. Defaults to unset.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>InitialAdvertisedReceiveWindow=</varname></term>
+          <listitem>
+            <para>The TCP initial advertised receive window is the amount of receive data (in bytes) that can initally be buffered at one time
+            on a connection. The sending host can send only that amount of data before waiting for an acknowledgment and window update
+            from the receiving host. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual suffixes K, M, G are supported
+            and are understood to the base of 1024. Defaults to unset.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>QuickAck=</varname></term>
+          <listitem>
+            <para>Takes a boolean argument. When true enables TCP quick ack mode for the route. Defaults to unset.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+        <term><varname>MTUBytes=</varname></term>
+        <listitem>
+          <para>The maximum transmission unit in bytes to set for the
+          route. The usual suffixes K, M, G, are supported and are
+          understood to the base of 1024.</para>
+          <para>Note that if IPv6 is enabled on the interface, and the MTU is chosen
+          below 1280 (the minimum MTU for IPv6) it will automatically be increased to this value.</para>
+        </listitem>
+      </varlistentry>
       </variablelist>
   </refsect1>
 
@@ -1103,6 +1178,7 @@
           <listitem>
             <para>When true, the interface maximum transmission unit
             from the DHCP server will be used on the current link.
+            If <varname>MTUBytes=</varname> is set, then this setting is ignored.
             Defaults to false.</para>
           </listitem>
         </varlistentry>
@@ -1130,25 +1206,28 @@
         <varlistentry>
           <term><varname>SendHostname=</varname></term>
           <listitem>
-            <para>When true (the default), the machine's hostname will
-            be sent to the DHCP server.</para>
+            <para>When true (the default), the machine's hostname will be sent to the DHCP server.
+            Note that the machine's hostname must consist only of 7-bit ASCII lower-case characters and
+            no spaces or dots, and be formatted as a valid DNS domain name. Otherwise, the hostname is not
+            sent even if this is set to true.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>UseHostname=</varname></term>
           <listitem>
             <para>When true (the default), the hostname received from
-            the DHCP server will be set as the transient hostname of the system
+            the DHCP server will be set as the transient hostname of the system.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
-        <term><varname>Hostname=</varname></term>
-        <listitem>
-          <para>Use this value for the hostname which is sent to the
-          DHCP server, instead of machine's hostname.</para>
-        </listitem>
-      </varlistentry>
+          <term><varname>Hostname=</varname></term>
+          <listitem>
+            <para>Use this value for the hostname which is sent to the DHCP server, instead of machine's hostname.
+            Note that the specified hostname must consist only of 7-bit ASCII lower-case characters and
+            no spaces or dots, and be formatted as a valid DNS domain name.</para>
+          </listitem>
+        </varlistentry>
         <varlistentry>
           <term><varname>UseDomains=</varname></term>
           <listitem>
@@ -1201,8 +1280,11 @@
         <varlistentry>
           <term><varname>ClientIdentifier=</varname></term>
           <listitem>
-            <para>The DHCPv4 client identifier to use. Either <literal>mac</literal> to use the MAC address of the link
-            or <literal>duid</literal> (the default, see below) to use an RFC4361-compliant Client ID.</para>
+            <para>The DHCPv4 client identifier to use. Takes one of <literal>mac</literal>, <literal>duid</literal> or <literal>duid-only</literal>.
+            If set to <literal>mac</literal>, the MAC address of the link is used.
+            If set to <literal>duid</literal>, an RFC4361-compliant Client ID, which is the combination of IAID and DUID (see below), is used.
+            If set to <literal>duid-only</literal>, only DUID is used, this may not be RFC compliant, but some setups may require to use this.
+            Defaults to <literal>duid</literal>.</para>
           </listitem>
         </varlistentry>
 
@@ -1211,6 +1293,16 @@
           <listitem>
             <para>The vendor class identifier used to identify vendor
             type and configuration.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UserClass=</varname></term>
+          <listitem>
+            <para>A DHCPv4 client can use UserClass option to identify the type or category of user or applications
+            it represents. The information contained in this option is a string that represents the user class of which
+            the client is a member. Each class sets an identifying string of information to be used by the DHCP
+            service to classify clients. Takes a whitespace-separated list of strings.</para>
           </listitem>
         </varlistentry>
 
@@ -1277,6 +1369,20 @@
             <para>Allow setting custom port for the DHCP client to listen on.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>RapidCommit=</varname></term>
+          <listitem>
+            <para>A boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
+            a rapid two-message exchange (solicit and reply). When the rapid commit option is enabled by both
+            the DHCPv6 client and the DHCPv6 server, the two-message exchange is used, rather than the default
+            four-method exchange (solicit, advertise, request, and reply). The two-message exchange provides
+            faster client configuration and is beneficial in environments in which networks are under a heavy load.
+            See <ulink url="https://tools.ietf.org/html/rfc3315#section-17.2.1">RFC 3315</ulink> for details.
+            Defaults to true.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
     </refsect1>
 
@@ -1329,7 +1435,6 @@
         </varlistentry>
       </variablelist>
   </refsect1>
-
 
   <refsect1>
     <title>[DHCPServer] Section Options</title>
@@ -1590,7 +1695,7 @@
           <listitem>
             <para>A boolean. Controls whether the bridge should flood
             traffic for which an FDB entry is missing and the destination
-            is unknown through this port. Defaults to on.
+            is unknown through this port. Defaults to unset.
             </para>
           </listitem>
         </varlistentry>
@@ -1598,7 +1703,7 @@
           <term><varname>HairPin=</varname></term>
           <listitem>
             <para>A boolean. Configures whether traffic may be sent back
-            out of the port on which it was received. By default, this
+            out of the port on which it was received. Defaults to unset. When this
             flag is false, and the bridge will not forward traffic back
             out of the receiving port.</para>
           </listitem>
@@ -1607,7 +1712,7 @@
           <term><varname>UseBPDU=</varname></term>
           <listitem>
             <para>A boolean. Configures whether STP Bridge Protocol Data Units will be
-            processed by the bridge port. Defaults to yes.</para>
+            processed by the bridge port. Defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1615,7 +1720,7 @@
           <listitem>
             <para>A boolean. This flag allows the bridge to immediately stop multicast
             traffic on a port that receives an IGMP Leave message. It is only used with
-            IGMP snooping if enabled on the bridge. Defaults to off.</para>
+            IGMP snooping if enabled on the bridge. Defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1623,7 +1728,7 @@
           <listitem>
             <para>A boolean. Configures whether a given port is allowed to
             become a root port. Only used when STP is enabled on the bridge.
-            Defaults to on.</para>
+            Defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1667,12 +1772,45 @@
           <term><varname>VLANId=</varname></term>
           <listitem>
             <para>The VLAN ID for the new static MAC table entry. If
-            omitted, no VLAN ID info is appended to the new static MAC
+            omitted, no VLAN ID information is appended to the new static MAC
             table entry.</para>
           </listitem>
         </varlistentry>
       </variablelist>
   </refsect1>
+
+  <refsect1>
+    <title>[CAN] Section Options</title>
+      <para>The <literal>[CAN]</literal> section manages the Controller Area Network (CAN bus) and accepts the
+      following keys.</para>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>BitRate=</varname></term>
+          <listitem>
+            <para>The bitrate of CAN device in bits per second. The usual SI prefixes (K, M) with the base of 1000 can
+            be used here.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SamplePoint=</varname></term>
+          <listitem>
+            <para>Optional sample point in percent with one decimal (e.g. <literal>75%</literal>,
+            <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>RestartSec=</varname></term>
+          <listitem>
+            <para>Automatic restart delay time. If set to a non-zero value, a restart of the CAN controller will be
+            triggered automatically in case of a bus-off condition after the specified delay time. Subsecond delays can
+            be specified using decimals (e.g. <literal>0.1s</literal>) or a <literal>ms</literal> or
+            <literal>us</literal> postfix. Using <literal>infinity</literal> or <literal>0</literal> will turn the
+            automatic restart off. By default automatic restart is disabled.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
   <refsect1>
     <title>[BridgeVLAN] Section Options</title>
       <para>The <literal>[BridgeVLAN]</literal> section manages the VLAN ID configuration of a bridge port and accepts

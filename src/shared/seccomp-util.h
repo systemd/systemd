@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <seccomp.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -66,6 +47,7 @@ enum {
         SYSCALL_FILTER_SET_SIGNAL,
         SYSCALL_FILTER_SET_SWAP,
         SYSCALL_FILTER_SET_SYNC,
+        SYSCALL_FILTER_SET_SYSTEM_SERVICE,
         SYSCALL_FILTER_SET_TIMER,
         _SYSCALL_FILTER_SET_MAX
 };
@@ -80,6 +62,21 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *ctx, const char *name, uint
 
 int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action);
 int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, uint32_t action);
+
+typedef enum SeccompParseFlags {
+        SECCOMP_PARSE_INVERT     = 1 << 0,
+        SECCOMP_PARSE_WHITELIST  = 1 << 1,
+        SECCOMP_PARSE_LOG        = 1 << 2,
+        SECCOMP_PARSE_PERMISSIVE = 1 << 3,
+} SeccompParseFlags;
+
+int seccomp_parse_syscall_filter_full(
+                const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags,
+                const char *unit, const char *filename, unsigned line);
+
+static inline int seccomp_parse_syscall_filter(const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags) {
+        return seccomp_parse_syscall_filter_full(name, errno_num, filter, flags, NULL, NULL, 0);
+}
 
 int seccomp_restrict_archs(Set *archs);
 int seccomp_restrict_namespaces(unsigned long retain);

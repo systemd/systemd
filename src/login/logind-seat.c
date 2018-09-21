@@ -1,25 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio_ext.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -94,7 +77,7 @@ int seat_save(Seat *s) {
         if (!s->started)
                 return 0;
 
-        r = mkdir_safe_label("/run/systemd/seats", 0755, 0, 0, false);
+        r = mkdir_safe_label("/run/systemd/seats", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 goto fail;
 
@@ -102,7 +85,8 @@ int seat_save(Seat *s) {
         if (r < 0)
                 goto fail;
 
-        fchmod(fileno(f), 0644);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -128,7 +112,7 @@ int seat_save(Seat *s) {
         if (s->sessions) {
                 Session *i;
 
-                fputs_unlocked("SESSIONS=", f);
+                fputs("SESSIONS=", f);
                 LIST_FOREACH(sessions_by_seat, i, s->sessions) {
                         fprintf(f,
                                 "%s%c",
@@ -136,7 +120,7 @@ int seat_save(Seat *s) {
                                 i->sessions_by_seat_next ? ' ' : '\n');
                 }
 
-                fputs_unlocked("UIDS=", f);
+                fputs("UIDS=", f);
                 LIST_FOREACH(sessions_by_seat, i, s->sessions)
                         fprintf(f,
                                 UID_FMT"%c",
@@ -219,8 +203,7 @@ int seat_apply_acls(Seat *s, Session *old_active) {
 
         assert(s);
 
-        r = devnode_acl_all(s->manager->udev,
-                            s->id,
+        r = devnode_acl_all(s->id,
                             false,
                             !!old_active, old_active ? old_active->user->uid : 0,
                             !!s->active, s->active ? s->active->user->uid : 0);
@@ -372,8 +355,7 @@ int seat_active_vt_changed(Seat *s, unsigned int vtnr) {
 int seat_read_active_vt(Seat *s) {
         char t[64];
         ssize_t k;
-        unsigned int vtnr;
-        int r;
+        int vtnr;
 
         assert(s);
 
@@ -392,17 +374,9 @@ int seat_read_active_vt(Seat *s) {
         t[k] = 0;
         truncate_nl(t);
 
-        if (!startswith(t, "tty")) {
-                log_error("Hm, /sys/class/tty/tty0/active is badly formatted.");
-                return -EIO;
-        }
-
-        r = safe_atou(t+3, &vtnr);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse VT number \"%s\": %m", t+3);
-
-        if (!vtnr) {
-                log_error("VT number invalid: %s", t+3);
+        vtnr = vtnr_from_tty(t);
+        if (vtnr < 0) {
+                log_error_errno(vtnr, "Hm, /sys/class/tty/tty0/active is badly formatted: %m");
                 return -EIO;
         }
 
@@ -418,8 +392,7 @@ int seat_start(Seat *s) {
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_SEAT_START_STR,
                    "SEAT_ID=%s", s->id,
-                   LOG_MESSAGE("New seat %s.", s->id),
-                   NULL);
+                   LOG_MESSAGE("New seat %s.", s->id));
 
         /* Initialize VT magic stuff */
         seat_preallocate_vts(s);
@@ -446,8 +419,7 @@ int seat_stop(Seat *s, bool force) {
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_SEAT_STOP_STR,
                            "SEAT_ID=%s", s->id,
-                           LOG_MESSAGE("Removed seat %s.", s->id),
-                           NULL);
+                           LOG_MESSAGE("Removed seat %s.", s->id));
 
         seat_stop_sessions(s, force);
 
@@ -558,8 +530,7 @@ void seat_complete_switch(Seat *s) {
         if (!s->pending_switch)
                 return;
 
-        session = s->pending_switch;
-        s->pending_switch = NULL;
+        session = TAKE_PTR(s->pending_switch);
 
         seat_set_active(s, session);
 }
@@ -637,16 +608,16 @@ int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
         return idle_hint;
 }
 
-bool seat_check_gc(Seat *s, bool drop_not_started) {
+bool seat_may_gc(Seat *s, bool drop_not_started) {
         assert(s);
 
         if (drop_not_started && !s->started)
-                return false;
-
-        if (seat_is_seat0(s))
                 return true;
 
-        return seat_has_master_device(s);
+        if (seat_is_seat0(s))
+                return false;
+
+        return !seat_has_master_device(s);
 }
 
 void seat_add_to_gc_queue(Seat *s) {

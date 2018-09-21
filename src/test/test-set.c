@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "set.h"
 
@@ -79,55 +61,10 @@ static void test_set_put(void) {
         assert_se(set_put(m, (void*) "22") == 0);
 }
 
-static void test_set_make(void) {
-        _cleanup_set_free_ Set *s = NULL;
-
-        assert_se(set_make(&s, NULL, UINT_TO_PTR(4), UINT_TO_PTR(6), UINT_TO_PTR(8), NULL) == 0);
-        assert_se(set_size(s) == 3);
-        assert_se(!set_contains(s, UINT_TO_PTR(0)));
-        assert_se(!set_contains(s, UINT_TO_PTR(1)));
-        assert_se(!set_contains(s, UINT_TO_PTR(2)));
-        assert_se(!set_contains(s, UINT_TO_PTR(3)));
-        assert_se(set_contains(s, UINT_TO_PTR(4)));
-        assert_se(!set_contains(s, UINT_TO_PTR(5)));
-        assert_se(set_contains(s, UINT_TO_PTR(6)));
-        assert_se(!set_contains(s, UINT_TO_PTR(7)));
-        assert_se(set_contains(s, UINT_TO_PTR(8)));
-        assert_se(!set_contains(s, UINT_TO_PTR(9)));
-        s = set_free(s);
-
-        assert_se(set_make(&s, NULL, NULL) == 0);
-        assert_se(set_size(s) == 0);
-        assert_se(!set_contains(s, UINT_TO_PTR(0)));
-        assert_se(!set_contains(s, UINT_TO_PTR(4)));
-        assert_se(!set_contains(s, UINT_TO_PTR(6)));
-        assert_se(!set_contains(s, UINT_TO_PTR(8)));
-        s = set_free(s);
-
-        assert_se(set_make(&s, NULL, UINT_TO_PTR(3), NULL) == 0);
-        assert_se(set_size(s) == 1);
-        assert_se(!set_contains(s, UINT_TO_PTR(0)));
-        assert_se(!set_contains(s, UINT_TO_PTR(1)));
-        assert_se(!set_contains(s, UINT_TO_PTR(2)));
-        assert_se(set_contains(s, UINT_TO_PTR(3)));
-        assert_se(!set_contains(s, UINT_TO_PTR(4)));
-
-        assert_se(set_make(&s, NULL, UINT_TO_PTR(2), UINT_TO_PTR(5), NULL) == 0);
-        assert_se(set_size(s) == 2);
-        assert_se(!set_contains(s, UINT_TO_PTR(0)));
-        assert_se(!set_contains(s, UINT_TO_PTR(1)));
-        assert_se(set_contains(s, UINT_TO_PTR(2)));
-        assert_se(!set_contains(s, UINT_TO_PTR(3)));
-        assert_se(!set_contains(s, UINT_TO_PTR(4)));
-        assert_se(set_contains(s, UINT_TO_PTR(5)));
-        assert_se(!set_contains(s, UINT_TO_PTR(6)));
-}
-
 int main(int argc, const char *argv[]) {
         test_set_steal_first();
         test_set_free_with_destructor();
         test_set_put();
-        test_set_make();
 
         return 0;
 }

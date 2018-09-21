@@ -1,24 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <net/if.h>
+#include <stdio_ext.h>
 
 #include "sd-network.h"
 
@@ -53,6 +36,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         l->llmnr_support = RESOLVE_SUPPORT_YES;
         l->mdns_support = RESOLVE_SUPPORT_NO;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
+        l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
         l->operstate = IF_OPER_UNKNOWN;
 
         if (asprintf(&l->state_file, "/run/systemd/resolve/netif/%i", ifindex) < 0)
@@ -77,6 +61,7 @@ void link_flush_settings(Link *l) {
         l->llmnr_support = RESOLVE_SUPPORT_YES;
         l->mdns_support = RESOLVE_SUPPORT_NO;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
+        l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
 
         dns_server_unlink_all(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
@@ -127,6 +112,11 @@ void link_allocate_scopes(Link *l) {
 
                 dns_server_reset_features_all(l->manager->fallback_dns_servers);
                 dns_server_reset_features_all(l->manager->dns_servers);
+
+                /* Also, flush the global unicast scope, to deal with split horizon setups, where talking through one
+                 * interface reveals different DNS zones than through others. */
+                if (l->manager->unicast_scope)
+                        dns_cache_flush(&l->manager->unicast_scope->cache);
         }
 
         /* And now, allocate all scopes that makes sense now if we didn't have them yet, and drop those which we don't
@@ -191,9 +181,41 @@ void link_allocate_scopes(Link *l) {
 
 void link_add_rrs(Link *l, bool force_remove) {
         LinkAddress *a;
+        int r;
 
         LIST_FOREACH(addresses, a, l->addresses)
                 link_address_add_rrs(a, force_remove);
+
+        if (!force_remove &&
+            l->mdns_support == RESOLVE_SUPPORT_YES &&
+            l->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+
+                if (l->mdns_ipv4_scope) {
+                        r = dns_scope_add_dnssd_services(l->mdns_ipv4_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add IPv4 DNS-SD services: %m");
+                }
+
+                if (l->mdns_ipv6_scope) {
+                        r = dns_scope_add_dnssd_services(l->mdns_ipv6_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add IPv6 DNS-SD services: %m");
+                }
+
+        } else {
+
+                if (l->mdns_ipv4_scope) {
+                        r = dns_scope_remove_dnssd_services(l->mdns_ipv4_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to remove IPv4 DNS-SD services: %m");
+                }
+
+                if (l->mdns_ipv6_scope) {
+                        r = dns_scope_remove_dnssd_services(l->mdns_ipv6_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to remove IPv6 DNS-SD services: %m");
+                }
+        }
 }
 
 int link_process_rtnl(Link *l, sd_netlink_message *m) {
@@ -327,6 +349,46 @@ clear:
         return r;
 }
 
+void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
+
+        assert(l);
+
+#if ! ENABLE_DNS_OVER_TLS
+        if (mode != DNS_OVER_TLS_NO)
+                log_warning("DNS-over-TLS option for the link cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
+        return;
+#endif
+
+        l->dns_over_tls_mode = mode;
+}
+
+static int link_update_dns_over_tls_mode(Link *l) {
+        _cleanup_free_ char *b = NULL;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dns_over_tls(l->ifindex, &b);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->dns_over_tls_mode = dns_over_tls_mode_from_string(b);
+        if (l->dns_over_tls_mode < 0) {
+                r = -EINVAL;
+                goto clear;
+        }
+
+        return 0;
+
+clear:
+        l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
+        return r;
+}
+
 void link_set_dnssec_mode(Link *l, DnssecMode mode) {
 
         assert(l);
@@ -407,8 +469,7 @@ static int link_update_dnssec_negative_trust_anchors(Link *l) {
                 return r;
 
         set_free_free(l->dnssec_negative_trust_anchors);
-        l->dnssec_negative_trust_anchors = ns;
-        ns = NULL;
+        l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
 
         return 0;
 
@@ -534,6 +595,10 @@ static void link_read_settings(Link *l) {
         r = link_update_mdns_support(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->name);
+
+        r = link_update_dns_over_tls_mode(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read DNS-over-TLS mode for interface %s, ignoring: %m", l->name);
 
         r = link_update_dnssec_mode(l);
         if (r < 0)
@@ -666,6 +731,15 @@ void link_next_dns_server(Link *l) {
         }
 
         link_set_dns_server(l, l->dns_servers);
+}
+
+DnsOverTlsMode link_get_dns_over_tls_mode(Link *l) {
+        assert(l);
+
+        if (l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
+                return l->dns_over_tls_mode;
+
+        return manager_get_dns_over_tls_mode(l->manager);
 }
 
 DnssecMode link_get_dnssec_mode(Link *l) {
@@ -1068,7 +1142,10 @@ int link_save_user(Link *l) {
         if (r < 0)
                 goto fail;
 
-        fputs_unlocked("# This is private data. Do not parse.\n", f);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod(fileno(f), 0644);
+
+        fputs("# This is private data. Do not parse.\n", f);
 
         v = resolve_support_to_string(l->llmnr_support);
         if (v)
@@ -1085,11 +1162,11 @@ int link_save_user(Link *l) {
         if (l->dns_servers) {
                 DnsServer *server;
 
-                fputs_unlocked("SERVERS=", f);
+                fputs("SERVERS=", f);
                 LIST_FOREACH(servers, server, l->dns_servers) {
 
                         if (server != l->dns_servers)
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
                         v = dns_server_string(server);
                         if (!v) {
@@ -1097,26 +1174,26 @@ int link_save_user(Link *l) {
                                 goto fail;
                         }
 
-                        fputs_unlocked(v, f);
+                        fputs(v, f);
                 }
-                fputc_unlocked('\n', f);
+                fputc('\n', f);
         }
 
         if (l->search_domains) {
                 DnsSearchDomain *domain;
 
-                fputs_unlocked("DOMAINS=", f);
+                fputs("DOMAINS=", f);
                 LIST_FOREACH(domains, domain, l->search_domains) {
 
                         if (domain != l->search_domains)
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
                         if (domain->route_only)
-                                fputc_unlocked('~', f);
+                                fputc('~', f);
 
-                        fputs_unlocked(DNS_SEARCH_DOMAIN_NAME(domain), f);
+                        fputs(DNS_SEARCH_DOMAIN_NAME(domain), f);
                 }
-                fputc_unlocked('\n', f);
+                fputc('\n', f);
         }
 
         if (!set_isempty(l->dnssec_negative_trust_anchors)) {
@@ -1124,16 +1201,16 @@ int link_save_user(Link *l) {
                 Iterator i;
                 char *nta;
 
-                fputs_unlocked("NTAS=", f);
+                fputs("NTAS=", f);
                 SET_FOREACH(nta, l->dnssec_negative_trust_anchors, i) {
 
                         if (space)
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(nta, f);
+                        fputs(nta, f);
                         space = true;
                 }
-                fputc_unlocked('\n', f);
+                fputc('\n', f);
         }
 
         r = fflush_and_check(f);
@@ -1180,7 +1257,7 @@ int link_load_user(Link *l) {
         if (l->is_managed)
                 return 0; /* if the device is managed, then networkd is our configuration source, not the bus API */
 
-        r = parse_env_file(l->state_file, NEWLINE,
+        r = parse_env_file(NULL, l->state_file, NEWLINE,
                            "LLMNR", &llmnr,
                            "MDNS", &mdns,
                            "DNSSEC", &dnssec,
@@ -1257,8 +1334,7 @@ int link_load_user(Link *l) {
                 if (r < 0)
                         goto fail;
 
-                l->dnssec_negative_trust_anchors = ns;
-                ns = NULL;
+                l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
         }
 
         return 0;

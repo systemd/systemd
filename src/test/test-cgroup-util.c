@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
 #include "build.h"
@@ -27,9 +9,12 @@
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "test-helper.h"
+#include "tests.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -141,10 +126,10 @@ static void check_p_g_slice(const char *path, int code, const char *result) {
 
 static void test_path_get_slice(void) {
         check_p_g_slice("/user.slice", 0, "user.slice");
-        check_p_g_slice("/foobar", 0, "-.slice");
+        check_p_g_slice("/foobar", 0, SPECIAL_ROOT_SLICE);
         check_p_g_slice("/user.slice/user-waldo.slice", 0, "user-waldo.slice");
-        check_p_g_slice("", 0, "-.slice");
-        check_p_g_slice("foobar", 0, "-.slice");
+        check_p_g_slice("", 0, SPECIAL_ROOT_SLICE);
+        check_p_g_slice("foobar", 0, SPECIAL_ROOT_SLICE);
         check_p_g_slice("foobar.slice", 0, "foobar.slice");
         check_p_g_slice("foo.slice/foo-bar.slice/waldo.service", 0, "foo-bar.slice");
 }
@@ -165,10 +150,10 @@ static void test_path_get_user_slice(void) {
         check_p_g_u_slice("foobar.slice", -ENXIO, NULL);
         check_p_g_u_slice("foo.slice/foo-bar.slice/waldo.service", -ENXIO, NULL);
 
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service", 0, "-.slice");
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/", 0, "-.slice");
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service///", 0, "-.slice");
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/waldo.service", 0, "-.slice");
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service", 0, SPECIAL_ROOT_SLICE);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/", 0, SPECIAL_ROOT_SLICE);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service///", 0, SPECIAL_ROOT_SLICE);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/waldo.service", 0, SPECIAL_ROOT_SLICE);
         check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/piep.slice/foo.service", 0, "piep.slice");
         check_p_g_u_slice("/foo.slice//foo-bar.slice/user@1000.service/piep.slice//piep-pap.slice//foo.service", 0, "piep-pap.slice");
 }
@@ -264,17 +249,22 @@ static void test_controller_is_valid(void) {
 
 static void test_slice_to_path_one(const char *unit, const char *path, int error) {
         _cleanup_free_ char *ret = NULL;
+        int r;
 
-        assert_se(cg_slice_to_path(unit, &ret) == error);
+        log_info("unit: %s", unit);
+
+        r = cg_slice_to_path(unit, &ret);
+        log_info("actual: %s / %d", strnull(ret), r);
+        log_info("expect: %s / %d", strnull(path), error);
+        assert_se(r == error);
         assert_se(streq_ptr(ret, path));
 }
 
 static void test_slice_to_path(void) {
-
         test_slice_to_path_one("foobar.slice", "foobar.slice", 0);
         test_slice_to_path_one("foobar-waldo.slice", "foobar.slice/foobar-waldo.slice", 0);
         test_slice_to_path_one("foobar-waldo.service", NULL, -EINVAL);
-        test_slice_to_path_one("-.slice", "", 0);
+        test_slice_to_path_one(SPECIAL_ROOT_SLICE, "", 0);
         test_slice_to_path_one("--.slice", NULL, -EINVAL);
         test_slice_to_path_one("-", NULL, -EINVAL);
         test_slice_to_path_one("-foo-.slice", NULL, -EINVAL);
@@ -284,6 +274,15 @@ static void test_slice_to_path(void) {
         test_slice_to_path_one("foo.slice/foo--bar.slice", NULL, -EINVAL);
         test_slice_to_path_one("a-b.slice", "a.slice/a-b.slice", 0);
         test_slice_to_path_one("a-b-c-d-e.slice", "a.slice/a-b.slice/a-b-c.slice/a-b-c-d.slice/a-b-c-d-e.slice", 0);
+
+        test_slice_to_path_one("foobar@.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foobar@waldo.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foobar@waldo.service", NULL, -EINVAL);
+        test_slice_to_path_one("-foo@-.slice", NULL, -EINVAL);
+        test_slice_to_path_one("-foo@.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foo@-.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foo@@bar.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foo.slice/foo@@bar.slice", NULL, -EINVAL);
 }
 
 static void test_shift_path_one(const char *raw, const char *root, const char *shifted) {
@@ -403,10 +402,53 @@ static void test_cg_tests(void) {
                 assert_se(!systemd);
 }
 
+static void test_cg_get_keyed_attribute(void) {
+        _cleanup_free_ char *val = NULL;
+        char *vals3[3] = {}, *vals3a[3] = {};
+        int i, r;
+
+        r = cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
+        if (r == -ENOMEDIUM) {
+                log_info_errno(r, "Skipping most of %s, /sys/fs/cgroup not accessible: %m", __func__);
+                return;
+        }
+
+        assert_se(r == -ENOENT);
+        assert_se(val == NULL);
+
+        if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0) {
+                log_info_errno(errno, "Skipping most of %s, /init.scope/cpu.stat not accessible: %m", __func__);
+                return;
+        }
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
+        assert_se(val == NULL);
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
+        log_info("cpu /init.scope cpu.stat [usage_usec] → \"%s\"", val);
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "usage_usec"), vals3) == -ENXIO);
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
+                                         STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
+        log_info("cpu /init.scope cpu.stat [usage_usec user_usec system_usec] → \"%s\", \"%s\", \"%s\"",
+                 vals3[0], vals3[1], vals3[2]);
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
+                                         STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
+        log_info("cpu /init.scope cpu.stat [system_usec user_usec usage_usec] → \"%s\", \"%s\", \"%s\"",
+                 vals3a[0], vals3a[1], vals3a[2]);
+
+        for (i = 0; i < 3; i++) {
+                free(vals3[i]);
+                free(vals3a[i]);
+        }
+}
+
 int main(void) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_path_decode_unit();
         test_path_get_unit();
@@ -428,6 +470,7 @@ int main(void) {
         test_is_wanted_print(false); /* run twice to test caching */
         test_is_wanted();
         test_cg_tests();
+        test_cg_get_keyed_attribute();
 
         return 0;
 }

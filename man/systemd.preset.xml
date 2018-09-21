@@ -3,38 +3,12 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 <refentry id="systemd.preset">
 
   <refentryinfo>
     <title>systemd.preset</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -136,23 +110,26 @@
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Examples</title>
 
     <example>
-      <title>Default off example <filename>/usr/lib/systemd/system-preset/99-default.preset</filename>:</title>
+      <title>Default to off</title>
 
-      <programlisting>disable *</programlisting>
+      <programlisting># /usr/lib/systemd/system-preset/99-default.preset
+
+disable *</programlisting>
     </example>
 
     <para>This disables all units. Due to the filename prefix
     <literal>99-</literal>, it will be read last and hence can easily
-    be overridden by spin or administrator preset policy or
-    suchlike.</para>
+    be overridden by spin or administrator preset policy.</para>
 
     <example>
-      <title>A GNOME spin example <filename>/usr/lib/systemd/system-preset/50-gnome.preset</filename>:</title>
+      <title>A GNOME spin</title>
 
-      <programlisting>enable gdm.service
+      <programlisting># /usr/lib/systemd/system-preset/50-gnome.preset
+
+enable gdm.service
 enable colord.service
 enable accounts-daemon.service
 enable avahi-daemon.*</programlisting>
@@ -168,9 +145,11 @@ enable avahi-daemon.*</programlisting>
     example like the one from the first example above.</para>
 
     <example>
-      <title>Administrator policy <filename>/etc/systemd/system-preset/00-lennart.preset</filename>:</title>
+      <title>Administrator policy</title>
 
-      <programlisting>enable httpd.service
+      <programlisting># /etc/systemd/system-preset/00-lennart.preset
+
+enable httpd.service
 enable sshd.service
 enable postfix.service
 disable *</programlisting>
@@ -179,8 +158,8 @@ disable *</programlisting>
     <para>This enables three specific services and disables all
     others. This is useful for administrators to specifically select
     the units to enable, and disable all others. Due to the filename
-    prefix <literal>00-</literal> it will be read early and hence
-    overrides all other preset policy files.</para>
+    prefix <literal>00-</literal> it will be read early and
+    override all other preset policy files.</para>
   </refsect1>
 
   <refsect1>

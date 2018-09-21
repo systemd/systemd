@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <ctype.h>
 #include <errno.h>
@@ -38,6 +20,7 @@
 #include "log.h"
 #include "special.h"
 #include "util.h"
+#include "process-util.h"
 
 #define SERVER_FD_MAX 16
 #define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))
@@ -98,7 +81,7 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
         return NULL;
 }
 
-static void change_runlevel(Server *s, int runlevel) {
+static int change_runlevel(Server *s, int runlevel) {
         const char *target;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *mode;
@@ -110,7 +93,7 @@ static void change_runlevel(Server *s, int runlevel) {
         target = translate_runlevel(runlevel, &isolate);
         if (!target) {
                 log_warning("Got request for unknown runlevel %c, ignoring.", runlevel);
-                return;
+                return 0;
         }
 
         if (isolate)
@@ -129,10 +112,10 @@ static void change_runlevel(Server *s, int runlevel) {
                         &error,
                         NULL,
                         "ss", target, mode);
-        if (r < 0) {
-                log_error("Failed to change runlevel: %s", bus_error_message(&error, -r));
-                return;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to change runlevel: %s", bus_error_message(&error, -r));
+
+        return 0;
 }
 
 static void request_process(Server *s, const struct init_request *req) {
@@ -173,7 +156,7 @@ static void request_process(Server *s, const struct init_request *req) {
                                 break;
 
                         default:
-                                change_runlevel(s, req->runlevel);
+                                (void) change_runlevel(s, req->runlevel);
                         }
                 return;
 

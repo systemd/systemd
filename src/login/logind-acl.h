@@ -1,29 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <stdbool.h>
 #include <sys/types.h>
-
-#include "libudev.h"
 
 #if HAVE_ACL
 
@@ -32,8 +11,7 @@ int devnode_acl(const char *path,
                 bool del, uid_t old_uid,
                 bool add, uid_t new_uid);
 
-int devnode_acl_all(struct udev *udev,
-                    const char *seat,
+int devnode_acl_all(const char *seat,
                     bool flush,
                     bool del, uid_t old_uid,
                     bool add, uid_t new_uid);
@@ -46,8 +24,7 @@ static inline int devnode_acl(const char *path,
         return 0;
 }
 
-static inline int devnode_acl_all(struct udev *udev,
-                                  const char *seat,
+static inline int devnode_acl_all(const char *seat,
                                   bool flush,
                                   bool del, uid_t old_uid,
                                   bool add, uid_t new_uid) {

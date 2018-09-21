@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sys/socket.h>
 
@@ -25,6 +7,7 @@
 #include "namespace.h"
 #include "process-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_tmpdir(const char *id, const char *A, const char *B) {
@@ -64,16 +47,14 @@ static void test_tmpdir(const char *id, const char *A, const char *B) {
         assert_se(rmdir(b) >= 0);
 }
 
-static void test_netns(void) {
+static int test_netns(void) {
         _cleanup_close_pair_ int s[2] = { -1, -1 };
         pid_t pid1, pid2, pid3;
         int r, n = 0;
         siginfo_t si;
 
-        if (geteuid() > 0) {
-                log_info("Skipping test: not root");
-                exit(EXIT_TEST_SKIP);
-        }
+        if (geteuid() > 0)
+                return log_tests_skipped("not root");
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, s) >= 0);
 
@@ -120,6 +101,7 @@ static void test_netns(void) {
         n += si.si_status;
 
         assert_se(n == 1);
+        return EXIT_SUCCESS;
 }
 
 int main(int argc, char *argv[]) {
@@ -127,8 +109,7 @@ int main(int argc, char *argv[]) {
         char boot_id[SD_ID128_STRING_MAX];
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *zz = NULL;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         assert_se(sd_id128_get_boot(&bid) >= 0);
         sd_id128_to_string(bid, boot_id);
@@ -146,7 +127,5 @@ int main(int argc, char *argv[]) {
 
         test_tmpdir("sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device", z, zz);
 
-        test_netns();
-
-        return 0;
+        return test_netns();
 }

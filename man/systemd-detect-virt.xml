@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-detect-virt"
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>systemd-detect-virt</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -91,15 +65,14 @@
         </thead>
         <tbody>
           <row>
-            <entry valign="top" morerows="10">VM</entry>
+            <entry valign="top" morerows="11">VM</entry>
             <entry><varname>qemu</varname></entry>
             <entry>QEMU software virtualization, without KVM</entry>
           </row>
 
           <row>
             <entry><varname>kvm</varname></entry>
-            <entry>Linux KVM kernel virtual machine, with whatever software, except
-            Oracle Virtualbox</entry>
+            <entry>Linux KVM kernel virtual machine, with whatever software, except Oracle Virtualbox</entry>
           </row>
 
           <row>
@@ -119,8 +92,7 @@
 
           <row>
             <entry><varname>oracle</varname></entry>
-            <entry>Oracle VM VirtualBox (historically marketed by innotek and Sun Microsystems),
-            for legacy and KVM hypervisor</entry>
+            <entry>Oracle VM VirtualBox (historically marketed by innotek and Sun Microsystems), for legacy and KVM hypervisor</entry>
           </row>
 
           <row>
@@ -143,9 +115,14 @@
             <entry>Parallels Desktop, Parallels Server</entry>
           </row>
 
-           <row>
+          <row>
             <entry><varname>bhyve</varname></entry>
             <entry>bhyve, FreeBSD hypervisor</entry>
+          </row>
+
+          <row>
+            <entry><varname>qnx</varname></entry>
+            <entry>QNX hypervisor</entry>
           </row>
 
           <row>
@@ -238,6 +215,12 @@
 
         <listitem><para>Suppress output of the virtualization
         technology identifier.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list</option></term>
+
+        <listitem><para>Output all currently known and detectable container and VM environments.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

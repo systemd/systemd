@@ -11,6 +11,10 @@ if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
     exit 0
 fi
 
+if ! [[ -d "$BOOT_DIR_ABS" ]]; then
+    exit 0
+fi
+
 MACHINE_ID=$KERNEL_INSTALL_MACHINE_ID
 
 BOOT_DIR="/$MACHINE_ID/$KERNEL_VERSION"

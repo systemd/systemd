@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <stdbool.h>
 
 #include "macro.h"
@@ -43,8 +24,9 @@ typedef enum UnitType {
 typedef enum UnitLoadState {
         UNIT_STUB = 0,
         UNIT_LOADED,
-        UNIT_NOT_FOUND,
-        UNIT_ERROR,
+        UNIT_NOT_FOUND,    /* error condition #1: unit file not found */
+        UNIT_BAD_SETTING,  /* error condition #2: we couldn't parse some essential unit file setting */
+        UNIT_ERROR,        /* error condition #3: other "system" error, catchall for the rest */
         UNIT_MERGED,
         UNIT_MASKED,
         _UNIT_LOAD_STATE_MAX,

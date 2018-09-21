@@ -1,29 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
+#include "conf-parser.h"
 #include "macro.h"
 
 typedef enum ResolveSupport ResolveSupport;
 typedef enum DnssecMode DnssecMode;
+typedef enum DnsOverTlsMode DnsOverTlsMode;
 
 enum ResolveSupport {
         RESOLVE_SUPPORT_NO,
@@ -51,11 +34,27 @@ enum DnssecMode {
         _DNSSEC_MODE_INVALID = -1
 };
 
-int config_parse_resolve_support(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_dnssec_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+enum DnsOverTlsMode {
+        /* No connection is made for DNS-over-TLS */
+        DNS_OVER_TLS_NO,
+
+        /* Try to connect using DNS-over-TLS, but if connection fails,
+         * fallback to using an unencrypted connection */
+        DNS_OVER_TLS_OPPORTUNISTIC,
+
+        _DNS_OVER_TLS_MODE_MAX,
+        _DNS_OVER_TLS_MODE_INVALID = -1
+};
+
+CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_over_tls_mode);
 
 const char* resolve_support_to_string(ResolveSupport p) _const_;
 ResolveSupport resolve_support_from_string(const char *s) _pure_;
 
 const char* dnssec_mode_to_string(DnssecMode p) _const_;
 DnssecMode dnssec_mode_from_string(const char *s) _pure_;
+
+const char* dns_over_tls_mode_to_string(DnsOverTlsMode p) _const_;
+DnsOverTlsMode dns_over_tls_mode_from_string(const char *s) _pure_;

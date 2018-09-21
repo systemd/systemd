@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "sd-bus.h"
 
@@ -24,6 +6,7 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "nspawn-register.h"
+#include "special.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "util.h"
@@ -32,8 +15,7 @@ static int append_machine_properties(
                 sd_bus_message *m,
                 CustomMount *mounts,
                 unsigned n_mounts,
-                int kill_signal,
-                char **properties) {
+                int kill_signal) {
 
         unsigned j;
         int r;
@@ -198,12 +180,11 @@ int register_machine(
                                 m,
                                 mounts,
                                 n_mounts,
-                                kill_signal,
-                                properties);
+                                kill_signal);
                 if (r < 0)
                         return r;
 
-                r = bus_append_unit_property_assignment_many(m, properties);
+                r = bus_append_unit_property_assignment_many(m, UNIT_SERVICE, properties);
                 if (r < 0)
                         return r;
 
@@ -214,10 +195,8 @@ int register_machine(
                 r = sd_bus_call(bus, m, 0, &error, NULL);
         }
 
-        if (r < 0) {
-                log_error("Failed to register machine: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -261,10 +240,8 @@ int terminate_machine(sd_bus *bus, pid_t pid) {
                         &error,
                         NULL,
                         NULL);
-        if (r < 0) {
+        if (r < 0)
                 log_debug("Failed to terminate machine: %s", bus_error_message(&error, r));
-                return 0;
-        }
 
         return 0;
 }
@@ -293,7 +270,7 @@ int allocate_scope(
         if (r < 0)
                 return log_error_errno(r, "Could not watch job: %m");
 
-        r = unit_name_mangle_with_suffix(machine_name, UNIT_NAME_NOGLOB, ".scope", &scope);
+        r = unit_name_mangle_with_suffix(machine_name, 0, ".scope", &scope);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 
@@ -322,7 +299,7 @@ int allocate_scope(
                                   "PIDs", "au", 1, pid,
                                   "Description", "s", description,
                                   "Delegate", "b", 1,
-                                  "Slice", "s", isempty(slice) ? "machine.slice" : slice);
+                                  "Slice", "s", isempty(slice) ? SPECIAL_MACHINE_SLICE : slice);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -334,12 +311,11 @@ int allocate_scope(
                         m,
                         mounts,
                         n_mounts,
-                        kill_signal,
-                        properties);
+                        kill_signal);
         if (r < 0)
                 return r;
 
-        r = bus_append_unit_property_assignment_many(m, properties);
+        r = bus_append_unit_property_assignment_many(m, UNIT_SCOPE, properties);
         if (r < 0)
                 return r;
 
@@ -356,10 +332,8 @@ int allocate_scope(
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to allocate scope: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate scope: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "o", &object);
         if (r < 0)

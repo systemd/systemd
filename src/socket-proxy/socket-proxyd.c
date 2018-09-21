@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 David Strauss
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
- ***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -36,11 +18,12 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "log.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "parse-util.h"
+#include "terminal-util.h"
 #include "util.h"
 
 #define BUFFER_SIZE (256 * 1024)
@@ -552,14 +535,26 @@ static int add_listen_socket(Context *context, int fd) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-socket-proxyd", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%1$s [HOST:PORT]\n"
                "%1$s [SOCKET]\n\n"
                "Bidirectionally proxy local sockets to another (possibly remote) socket.\n\n"
                "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
                "  -h --help              Show this help\n"
-               "     --version           Show package version\n",
-               program_invocation_short_name);
+               "     --version           Show package version\n"
+               "\nSee the %2$s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -586,8 +581,10 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
+
+                case ARG_VERSION:
+                        return version();
 
                 case 'c':
                         r = safe_atou(optarg, &arg_connections_max);
@@ -602,9 +599,6 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         break;
-
-                case ARG_VERSION:
-                        return version();
 
                 case '?':
                         return -EINVAL;

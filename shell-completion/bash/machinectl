@@ -3,7 +3,6 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2014 Thomas H.P. Andersen
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -36,13 +35,17 @@ _machinectl() {
         local i verb comps
 
         local -A OPTS=(
-               [STANDALONE]='--all -a --full --help -h --no-ask-password --no-legend --no-pager --version'
-                      [ARG]='--host -H --kill-who -M --machine --property -p --signal -s'
+               [STANDALONE]='--all -a -l --full --help -h --no-ask-password --no-legend --no-pager --version --value
+                             --mkdir --read-only --force -q --quiet'
+                      [ARG]='--host -H --kill-who -M --machine --property -p --signal -s --uid -E --setenv -n --lines
+                             -o --output --verify --format --max-addresses'
         )
 
         local -A VERBS=(
-               [STANDALONE]='list list-images pull-tar pull-raw import-tar import-raw export-tar export-raw list-transfers cancel-transfer'
-                 [MACHINES]='status show start stop login shell enable disable poweroff reboot terminate kill copy-to copy-from image-status show-image clone rename read-only remove set-limit'
+               [STANDALONE]='list list-images clean pull-tar pull-raw list-transfers cancel-transfer'
+                 [MACHINES]='status show start stop login shell enable disable poweroff reboot terminate kill bind copy-to copy-from
+                             image-status show-image clone rename read-only remove set-limit export-tar export-raw'
+                     [FILE]='import-tar import-raw'
         )
 
         _init_completion || return
@@ -73,6 +76,9 @@ _machinectl() {
                         --property|-p)
                                 comps=''
                         ;;
+                        --output|-o)
+                                comps='short short-full short-iso short-iso-precise short-precise short-monotonic short-unix verbose export json json-pretty json-sse cat'
+                        ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
                 return 0
@@ -91,6 +97,10 @@ _machinectl() {
 
         elif __contains_word "$verb" ${VERBS[MACHINES]}; then
                 comps=$( __get_machines )
+
+        elif __contains_word "$verb" ${VERBS[FILE]}; then
+                comps=$(compgen -f -- "cur")
+                compopt -o filenames
         fi
 
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

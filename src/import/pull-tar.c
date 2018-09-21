@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <curl/curl.h>
 #include <sys/prctl.h>
@@ -159,8 +141,7 @@ int tar_pull_new(
         i->glue->on_finished = pull_job_curl_on_finished;
         i->glue->userdata = i;
 
-        *ret = i;
-        i = NULL;
+        *ret = TAKE_PTR(i);
 
         return 0;
 }
@@ -333,11 +314,11 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 goto finish;
 
         if (i->tar_pid > 0) {
-                r = wait_for_terminate_and_warn("tar", i->tar_pid, true);
+                r = wait_for_terminate_and_check("tar", i->tar_pid, WAIT_LOG);
                 i->tar_pid = 0;
                 if (r < 0)
                         goto finish;
-                if (r > 0) {
+                if (r != EXIT_SUCCESS) {
                         r = -EIO;
                         goto finish;
                 }

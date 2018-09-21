@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
 #include "cgroup-util.h"
@@ -66,6 +48,37 @@ static int specifier_instance_unescaped(char specifier, void *data, void *userda
         assert(u);
 
         return unit_name_unescape(strempty(u->instance), ret);
+}
+
+static int specifier_last_component(char specifier, void *data, void *userdata, char **ret) {
+        Unit *u = userdata;
+        _cleanup_free_ char *prefix = NULL;
+        char *dash;
+        int r;
+
+        assert(u);
+
+        r = unit_name_to_prefix(u->id, &prefix);
+        if (r < 0)
+                return r;
+
+        dash = strrchr(prefix, '-');
+        if (dash)
+                return specifier_string(specifier, dash + 1, userdata, ret);
+
+        *ret = TAKE_PTR(prefix);
+        return 0;
+}
+
+static int specifier_last_component_unescaped(char specifier, void *data, void *userdata, char **ret) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = specifier_last_component(specifier, data, userdata, &p);
+        if (r < 0)
+                return r;
+
+        return unit_name_unescape(p, ret);
 }
 
 static int specifier_filename(char specifier, void *data, void *userdata, char **ret) {
@@ -214,6 +227,9 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
          * %S: the state directory root (e.g. /var/lib or $XDG_CONFIG_HOME)
          * %C: the cache directory root (e.g. /var/cache or $XDG_CACHE_HOME)
          * %L: the log directory root (e.g. /var/log or $XDG_CONFIG_HOME/log)
+         * %E: the configuration directory root (e.g. /etc or $XDG_CONFIG_HOME)
+         * %T: the temporary directory (e.g. /tmp, or $TMPDIR, $TEMP, $TMP)
+         * %V: the temporary directory for large, persistent stuff (e.g. /var/tmp, or $TMPDIR, $TEMP, $TMP)
          *
          * %h: the homedir of the running user
          * %s: the shell of the running user
@@ -226,31 +242,37 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
          */
 
         const Specifier table[] = {
-                { 'n', specifier_string,              u->id },
-                { 'N', specifier_prefix_and_instance, NULL },
-                { 'p', specifier_prefix,              NULL },
-                { 'P', specifier_prefix_unescaped,    NULL },
-                { 'i', specifier_string,              u->instance },
-                { 'I', specifier_instance_unescaped,  NULL },
+                { 'n', specifier_string,                   u->id },
+                { 'N', specifier_prefix_and_instance,      NULL },
+                { 'p', specifier_prefix,                   NULL },
+                { 'P', specifier_prefix_unescaped,         NULL },
+                { 'i', specifier_string,                   u->instance },
+                { 'I', specifier_instance_unescaped,       NULL },
+                { 'j', specifier_last_component,           NULL },
+                { 'J', specifier_last_component_unescaped, NULL },
 
-                { 'f', specifier_filename,            NULL },
-                { 'c', specifier_cgroup,              NULL },
-                { 'r', specifier_cgroup_slice,        NULL },
-                { 'R', specifier_cgroup_root,         NULL },
-                { 't', specifier_special_directory,   UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
-                { 'S', specifier_special_directory,   UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
-                { 'C', specifier_special_directory,   UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
-                { 'L', specifier_special_directory,   UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
+                { 'f', specifier_filename,                 NULL },
+                { 'c', specifier_cgroup,                   NULL },
+                { 'r', specifier_cgroup_slice,             NULL },
+                { 'R', specifier_cgroup_root,              NULL },
 
-                { 'U', specifier_user_id,             NULL },
-                { 'u', specifier_user_name,           NULL },
-                { 'h', specifier_user_home,           NULL },
-                { 's', specifier_user_shell,          NULL },
+                { 't', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
+                { 'S', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
+                { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
+                { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
+                { 'E', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CONFIGURATION) },
+                { 'T', specifier_tmp_dir,                  NULL },
+                { 'V', specifier_var_tmp_dir,              NULL },
 
-                { 'm', specifier_machine_id,          NULL },
-                { 'H', specifier_host_name,           NULL },
-                { 'b', specifier_boot_id,             NULL },
-                { 'v', specifier_kernel_release,      NULL },
+                { 'U', specifier_user_id,                  NULL },
+                { 'u', specifier_user_name,                NULL },
+                { 'h', specifier_user_home,                NULL },
+                { 's', specifier_user_shell,               NULL },
+
+                { 'm', specifier_machine_id,               NULL },
+                { 'H', specifier_host_name,                NULL },
+                { 'b', specifier_boot_id,                  NULL },
+                { 'v', specifier_kernel_release,           NULL },
                 {}
         };
 

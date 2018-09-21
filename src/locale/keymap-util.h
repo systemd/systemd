@@ -1,34 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
+#pragma once
 
-  Copyright 2011 Lennart Poettering
-  Copyright 2013 Kay Sievers
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
+#include "sd-bus.h"
 
 #include "locale-util.h"
+#include "time-util.h"
 
 typedef struct Context {
+        sd_bus_message *locale_cache;
+        usec_t locale_mtime;
         char *locale[_VARIABLE_LC_MAX];
 
+        sd_bus_message *x11_cache;
+        usec_t x11_mtime;
         char *x11_layout;
         char *x11_model;
         char *x11_variant;
         char *x11_options;
 
+        sd_bus_message *vc_cache;
+        usec_t vc_mtime;
         char *vc_keymap;
         char *vc_keymap_toggle;
 } Context;
@@ -37,11 +28,14 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
 int find_legacy_keymap(Context *c, char **new_keymap);
 int find_language_fallback(const char *lang, char **language);
 
-int context_read_data(Context *c);
+int locale_read_data(Context *c, sd_bus_message *m);
+int vconsole_read_data(Context *c, sd_bus_message *m);
+int x11_read_data(Context *c, sd_bus_message *m);
+
 void context_free(Context *c);
 int vconsole_convert_to_x11(Context *c);
 int vconsole_write_data(Context *c);
 int x11_convert_to_vconsole(Context *c);
 int x11_write_data(Context *c);
-void locale_simplify(Context *c);
+void locale_simplify(char *locale[_VARIABLE_LC_MAX]);
 int locale_write_data(Context *c, char ***settings);

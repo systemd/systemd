@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
   <refentry id="journalctl"
@@ -29,15 +12,6 @@
     <refentryinfo>
       <title>journalctl</title>
       <productname>systemd</productname>
-
-      <authorgroup>
-        <author>
-          <contrib>Developer</contrib>
-          <firstname>Lennart</firstname>
-          <surname>Poettering</surname>
-          <email>lennart@poettering.net</email>
-        </author>
-      </authorgroup>
     </refentryinfo>
 
     <refmeta>
@@ -382,6 +356,18 @@
                 not even a timestamp.</para>
               </listitem>
             </varlistentry>
+
+            <varlistentry>
+              <term>
+                <option>with-unit</option>
+              </term>
+              <listitem>
+                <para>similar to short-full, but prefixes the unit and
+                user unit names instead of the traditional syslog
+                identifier. Useful when using templated instances, as it
+                will include the arguments in the unit names.</para>
+              </listitem>
+            </varlistentry>
           </variablelist>
         </listitem>
       </varlistentry>
@@ -439,7 +425,7 @@
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
-        <listitem><para>Suppresses all info messages
+        <listitem><para>Suppresses all informational messages
         (i.e. "-- Logs begin at …", "-- Reboot --"),
         any warning messages regarding
         inaccessible system journals when run as a normal
@@ -576,6 +562,29 @@
         start and the end value of the range. This will add
         <literal>PRIORITY=</literal> matches for the specified
         priorities.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-g</option></term>
+        <term><option>--grep=</option></term>
+
+        <listitem><para>Filter output to entries where the <varname>MESSAGE=</varname>
+        field matches the specified regular expression. PERL-compatible regular expressions
+        are used, see
+        <citerefentry><refentrytitle>pcre2pattern</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for a detailed description of the syntax.</para>
+
+        <para>If the pattern is all lowercase, matching is case insensitive.
+        Otherwise, matching is case sensitive. This can be overridden with the
+        <option>--case-sensitive</option> option, see below.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--case-sensitive<optional>=BOOLEAN</optional></option></term>
+
+        <listitem><para>Make pattern matching case sensitive or case insenstive.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -729,7 +738,7 @@
         <term><option>--vacuum-time=</option></term>
         <term><option>--vacuum-files=</option></term>
 
-        <listitem><para>Removes archived journal files until the disk
+        <listitem><para>Removes the oldest archived journal files until the disk
         space they use falls below the specified size (specified with
         the usual <literal>K</literal>, <literal>M</literal>,
         <literal>G</literal> and <literal>T</literal> suffixes), or all
@@ -907,7 +916,8 @@
     <para>With one match specified, all entries with a field matching
     the expression are shown:</para>
 
-    <programlisting>journalctl _SYSTEMD_UNIT=avahi-daemon.service</programlisting>
+    <programlisting>journalctl _SYSTEMD_UNIT=avahi-daemon.service
+journalctl _SYSTEMD_CGROUP=/user.slice/user-42.slice/session-c1.scope</programlisting>
 
     <para>If two different fields are matched, only entries matching
     both expressions at the same time are shown:</para>
@@ -926,6 +936,19 @@
     processes):</para>
 
     <programlisting>journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=28097 + _SYSTEMD_UNIT=dbus.service</programlisting>
+
+    <para>To show all fields emitted <emphasis>by</emphasis> a unit and <emphasis>about</emphasis>
+    the unit, option <option>-u</option>/<option>--unit=</option> should be used.
+    <command>journalctl -u <replaceable>name</replaceable></command>
+    expands to a complex filter similar to
+    <programlisting>_SYSTEMD_UNIT=<replaceable>name</replaceable>.service
+  + UNIT=<replaceable>name</replaceable>.service _PID=1
+  + OBJECT_SYSTEMD_UNIT=<replaceable>name</replaceable>.service _UID=0
+  + COREDUMP_UNIT=<replaceable>name</replaceable>.service _UID=0 MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1
+    </programlisting>
+    (see <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for an explanation of those patterns).
+    </para>
 
     <para>Show all logs generated by the D-Bus executable:</para>
 
@@ -952,8 +975,8 @@
       <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-journal-upload</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-journal-upload.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

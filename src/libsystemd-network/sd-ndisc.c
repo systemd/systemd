@@ -1,21 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
 #include <netinet/icmp6.h>
@@ -115,17 +100,6 @@ _public_ sd_event *sd_ndisc_get_event(sd_ndisc *nd) {
         return nd->event;
 }
 
-_public_ sd_ndisc *sd_ndisc_ref(sd_ndisc *nd) {
-
-        if (!nd)
-                return NULL;
-
-        assert(nd->n_ref > 0);
-        nd->n_ref++;
-
-        return nd;
-}
-
 static int ndisc_reset(sd_ndisc *nd) {
         assert(nd);
 
@@ -138,21 +112,15 @@ static int ndisc_reset(sd_ndisc *nd) {
         return 0;
 }
 
-_public_ sd_ndisc *sd_ndisc_unref(sd_ndisc *nd) {
-
-        if (!nd)
-                return NULL;
-
-        assert(nd->n_ref > 0);
-        nd->n_ref--;
-
-        if (nd->n_ref > 0)
-                return NULL;
+static sd_ndisc *ndisc_free(sd_ndisc *nd) {
+        assert(nd);
 
         ndisc_reset(nd);
         sd_ndisc_detach_event(nd);
         return mfree(nd);
 }
+
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc, sd_ndisc, ndisc_free);
 
 _public_ int sd_ndisc_new(sd_ndisc **ret) {
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
@@ -166,8 +134,7 @@ _public_ int sd_ndisc_new(sd_ndisc **ret) {
         nd->n_ref = 1;
         nd->fd = -1;
 
-        *ret = nd;
-        nd = NULL;
+        *ret = TAKE_PTR(nd);
 
         return 0;
 }

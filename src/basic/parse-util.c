@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <inttypes.h>
@@ -24,11 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include "alloc-util.h"
 #include "errno-list.h"
 #include "extract-word.h"
+#include "locale-util.h"
 #include "macro.h"
+#include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -83,7 +68,7 @@ int parse_mode(const char *s, mode_t *ret) {
         l = strtol(s, &x, 8);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if (l < 0 || l  > 07777)
                 return -ERANGE;
@@ -102,6 +87,30 @@ int parse_ifindex(const char *s, int *ret) {
                 return -EINVAL;
 
         *ret = ifi;
+        return 0;
+}
+
+int parse_mtu(int family, const char *s, uint32_t *ret) {
+        uint64_t u;
+        size_t m;
+        int r;
+
+        r = parse_size(s, 1024, &u);
+        if (r < 0)
+                return r;
+
+        if (u > UINT32_MAX)
+                return -ERANGE;
+
+        if (family == AF_INET6)
+                m = IPV6_MIN_MTU; /* This is 1280 */
+        else
+                m = IPV4_MIN_MTU; /* For all other protocols, including 'unspecified' we assume the IPv4 minimal MTU */
+
+        if (u < m)
+                return -ERANGE;
+
+        *ret = (uint32_t) u;
         return 0;
 }
 
@@ -283,7 +292,8 @@ int parse_errno(const char *t) {
         if (r < 0)
                 return r;
 
-        if (e < 0 || e > ERRNO_MAX)
+        /* 0 is also allowed here */
+        if (!errno_is_valid(e) && e != 0)
                 return -ERANGE;
 
         return e;
@@ -322,8 +332,7 @@ int parse_syscall_and_errno(const char *in, char **name, int *error) {
                 return -EINVAL;
 
         *error = e;
-        *name = n;
-        n = NULL;
+        *name = TAKE_PTR(n);
 
         return 0;
 }
@@ -369,12 +378,13 @@ finish:
 
 }
 
-int safe_atou(const char *s, unsigned *ret_u) {
+int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
         char *x = NULL;
         unsigned long l;
 
         assert(s);
         assert(ret_u);
+        assert(base <= 16);
 
         /* strtoul() is happy to parse negative values, and silently
          * converts them to unsigned values without generating an
@@ -387,10 +397,10 @@ int safe_atou(const char *s, unsigned *ret_u) {
         s += strspn(s, WHITESPACE);
 
         errno = 0;
-        l = strtoul(s, &x, 0);
+        l = strtoul(s, &x, base);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if (s[0] == '-')
                 return -ERANGE;
@@ -412,7 +422,7 @@ int safe_atoi(const char *s, int *ret_i) {
         l = strtol(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if ((long) (int) l != l)
                 return -ERANGE;
@@ -434,7 +444,7 @@ int safe_atollu(const char *s, long long unsigned *ret_llu) {
         l = strtoull(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if (*s == '-')
                 return -ERANGE;
@@ -454,7 +464,7 @@ int safe_atolli(const char *s, long long int *ret_lli) {
         l = strtoll(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
 
         *ret_lli = l;
@@ -474,7 +484,7 @@ int safe_atou8(const char *s, uint8_t *ret) {
         l = strtoul(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if (s[0] == '-')
                 return -ERANGE;
@@ -485,20 +495,21 @@ int safe_atou8(const char *s, uint8_t *ret) {
         return 0;
 }
 
-int safe_atou16(const char *s, uint16_t *ret) {
+int safe_atou16_full(const char *s, unsigned base, uint16_t *ret) {
         char *x = NULL;
         unsigned long l;
 
         assert(s);
         assert(ret);
+        assert(base <= 16);
 
         s += strspn(s, WHITESPACE);
 
         errno = 0;
-        l = strtoul(s, &x, 0);
+        l = strtoul(s, &x, base);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if (s[0] == '-')
                 return -ERANGE;
@@ -520,7 +531,7 @@ int safe_atoi16(const char *s, int16_t *ret) {
         l = strtol(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if ((long) (int16_t) l != l)
                 return -ERANGE;
@@ -530,9 +541,9 @@ int safe_atoi16(const char *s, int16_t *ret) {
 }
 
 int safe_atod(const char *s, double *ret_d) {
+        _cleanup_(freelocalep) locale_t loc = (locale_t) 0;
         char *x = NULL;
         double d = 0;
-        locale_t loc;
 
         assert(s);
         assert(ret_d);
@@ -543,16 +554,11 @@ int safe_atod(const char *s, double *ret_d) {
 
         errno = 0;
         d = strtod_l(s, &x, loc);
-        if (errno > 0) {
-                freelocale(loc);
+        if (errno > 0)
                 return -errno;
-        }
-        if (!x || x == s || *x) {
-                freelocale(loc);
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
-        }
 
-        freelocale(loc);
         *ret_d = (double) d;
         return 0;
 }
@@ -595,19 +601,20 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
 
 int parse_percent_unbounded(const char *p) {
         const char *pc, *n;
-        unsigned v;
-        int r;
+        int r, v;
 
         pc = endswith(p, "%");
         if (!pc)
                 return -EINVAL;
 
         n = strndupa(p, pc - p);
-        r = safe_atou(n, &v);
+        r = safe_atoi(n, &v);
         if (r < 0)
                 return r;
+        if (v < 0)
+                return -ERANGE;
 
-        return (int) v;
+        return v;
 }
 
 int parse_percent(const char *p) {
@@ -615,6 +622,59 @@ int parse_percent(const char *p) {
 
         v = parse_percent_unbounded(p);
         if (v > 100)
+                return -ERANGE;
+
+        return v;
+}
+
+int parse_permille_unbounded(const char *p) {
+        const char *pc, *pm, *dot, *n;
+        int r, q, v;
+
+        pm = endswith(p, "‰");
+        if (pm) {
+                n = strndupa(p, pm - p);
+                r = safe_atoi(n, &v);
+                if (r < 0)
+                        return r;
+                if (v < 0)
+                        return -ERANGE;
+        } else {
+                pc = endswith(p, "%");
+                if (!pc)
+                        return -EINVAL;
+
+                dot = memchr(p, '.', pc - p);
+                if (dot) {
+                        if (dot + 2 != pc)
+                                return -EINVAL;
+                        if (dot[1] < '0' || dot[1] > '9')
+                                return -EINVAL;
+                        q = dot[1] - '0';
+                        n = strndupa(p, dot - p);
+                } else {
+                        q = 0;
+                        n = strndupa(p, pc - p);
+                }
+                r = safe_atoi(n, &v);
+                if (r < 0)
+                        return r;
+                if (v < 0)
+                        return -ERANGE;
+                if (v > (INT_MAX - q) / 10)
+                        return -ERANGE;
+
+                v = v * 10 + q;
+        }
+
+        return v;
+}
+
+int parse_permille(const char *p) {
+        int v;
+
+        v = parse_permille_unbounded(p);
+        if (v > 1000)
                 return -ERANGE;
 
         return v;
@@ -662,5 +722,22 @@ int parse_dev(const char *s, dev_t *ret) {
                 return -EINVAL;
 
         *ret = d;
+        return 0;
+}
+
+int parse_oom_score_adjust(const char *s, int *ret) {
+        int r, v;
+
+        assert(s);
+        assert(ret);
+
+        r = safe_atoi(s, &v);
+        if (r < 0)
+                return r;
+
+        if (v < OOM_SCORE_ADJ_MIN || v > OOM_SCORE_ADJ_MAX)
+                return -ERANGE;
+
+        *ret = v;
         return 0;
 }

@@ -1,0 +1,4 @@
+foo:x:301:301::/:/sbin/nologin
+aaa:x:303:302::/:/sbin/nologin
+bbb:x:304:302::/:/sbin/nologin
+ccc:x:305:305::/:/sbin/nologin

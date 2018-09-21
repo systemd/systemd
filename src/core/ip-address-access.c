@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Daniel Mack
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -156,7 +138,7 @@ int config_parse_ip_address_access(
                 r = bpf_firewall_supported();
                 if (r < 0)
                         return r;
-                if (r == 0) {
+                if (r == BPF_FIREWALL_UNSUPPORTED) {
                         static bool warned = false;
 
                         log_full(warned ? LOG_DEBUG : LOG_WARNING,
@@ -210,13 +192,12 @@ IPAddressAccessItem* ip_address_access_reduce(IPAddressAccessItem *first) {
                                                   &b->address,
                                                   b->prefixlen,
                                                   &a->address);
-                        if (r <= 0)
-                                continue;
-
-                        /* b covers a fully, then let's drop a */
-
-                        LIST_REMOVE(items, first, a);
-                        free(a);
+                        if (r > 0) {
+                                /* b covers a fully, then let's drop a */
+                                LIST_REMOVE(items, first, a);
+                                free(a);
+                                break;
+                        }
                 }
         }
 

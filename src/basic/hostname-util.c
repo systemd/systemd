@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <limits.h>
@@ -218,6 +200,38 @@ int sethostname_idempotent(const char *s) {
         if (sethostname(s, strlen(s)) < 0)
                 return -errno;
 
+        return 1;
+}
+
+int shorten_overlong(const char *s, char **ret) {
+        char *h, *p;
+
+        /* Shorten an overlong name to HOST_NAME_MAX or to the first dot,
+         * whatever comes earlier. */
+
+        assert(s);
+
+        h = strdup(s);
+        if (!h)
+                return -ENOMEM;
+
+        if (hostname_is_valid(h, false)) {
+                *ret = h;
+                return 0;
+        }
+
+        p = strchr(h, '.');
+        if (p)
+                *p = 0;
+
+        strshorten(h, HOST_NAME_MAX);
+
+        if (!hostname_is_valid(h, false)) {
+                free(h);
+                return -EDOM;
+        }
+
+        *ret = h;
         return 1;
 }
 

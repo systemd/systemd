@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <getopt.h>
@@ -33,23 +15,40 @@
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
+#include "user-util.h"
 #include "util.h"
 
 static bool arg_ready = false;
 static pid_t arg_pid = 0;
 static const char *arg_status = NULL;
 static bool arg_booted = false;
+static uid_t arg_uid = UID_INVALID;
+static gid_t arg_gid = GID_INVALID;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-notify", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n\n"
                "Notify the init system about service status updates.\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
                "     --ready           Inform the init system about service start-up completion\n"
-               "     --pid[=PID]       Set main pid of daemon\n"
+               "     --pid[=PID]       Set main PID of daemon\n"
+               "     --uid=USER        Set user to send from\n"
                "     --status=TEXT     Set status text\n"
-               "     --booted          Check if the system was booted up with systemd\n",
-               program_invocation_short_name);
+               "     --booted          Check if the system was booted up with systemd\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -60,6 +59,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PID,
                 ARG_STATUS,
                 ARG_BOOTED,
+                ARG_UID,
         };
 
         static const struct option options[] = {
@@ -69,10 +69,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pid",       optional_argument, NULL, ARG_PID       },
                 { "status",    required_argument, NULL, ARG_STATUS    },
                 { "booted",    no_argument,       NULL, ARG_BOOTED    },
+                { "uid",       required_argument, NULL, ARG_UID       },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -82,8 +83,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -111,6 +111,18 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_BOOTED:
                         arg_booted = true;
                         break;
+
+                case ARG_UID: {
+                        const char *u = optarg;
+
+                        r = get_user_creds(&u, &arg_uid, &arg_gid, NULL, NULL, 0);
+                        if (r == -ESRCH) /* If the user doesn't exist, then accept it anyway as numeric */
+                                r = parse_uid(u, &arg_uid);
+                        if (r < 0)
+                                return log_error_errno(r, "Can't resolve user %s: %m", optarg);
+
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -179,7 +191,7 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        if (strv_length(final_env) <= 0) {
+        if (strv_isempty(final_env)) {
                 r = 0;
                 goto finish;
         }
@@ -189,6 +201,22 @@ int main(int argc, char* argv[]) {
                 r = log_oom();
                 goto finish;
         }
+
+        /* If this is requested change to the requested UID/GID. Note thta we only change the real UID here, and leave
+           the effective UID in effect (which is 0 for this to work). That's because we want the privileges to fake the
+           ucred data, and sd_pid_notify() uses the real UID for filling in ucred. */
+
+        if (arg_gid != GID_INVALID)
+                if (setregid(arg_gid, (gid_t) -1) < 0) {
+                        r = log_error_errno(errno, "Failed to change GID: %m");
+                        goto finish;
+                }
+
+        if (arg_uid != UID_INVALID)
+                if (setreuid(arg_uid, (uid_t) -1) < 0) {
+                        r = log_error_errno(errno, "Failed to change UID: %m");
+                        goto finish;
+                }
 
         r = sd_pid_notify(arg_pid ? arg_pid : getppid(), false, n);
         if (r < 0) {

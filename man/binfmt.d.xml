@@ -3,23 +3,6 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 <refentry id="binfmt.d" conditional='ENABLE_BINFMT'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -27,15 +10,6 @@
   <refentryinfo>
     <title>binfmt.d</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -67,11 +41,9 @@
   <refsect1>
     <title>Configuration Format</title>
 
-    <para>Each file contains a list of binfmt_misc kernel binary
-    format rules. Consult <ulink
-    url="https://www.kernel.org/doc/Documentation/binfmt_misc.txt">binfmt_misc.txt</ulink>
-    for more information on registration of additional binary formats
-    and how to write rules.</para>
+    <para>Each file contains a list of binfmt_misc kernel binary format rules. Consult the kernel's <ulink
+    url="https://www.kernel.org/doc/html/latest/admin-guide/binfmt-misc.html">binfmt-misc.rst</ulink> documentation
+    file for more information on registration of additional binary formats and how to write rules.</para>
 
     <para>Empty lines and lines beginning with ; and # are ignored.
     Note that this means you may not use ; and # as delimiter in

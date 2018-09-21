@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include "macro.h"
 
 enum {
@@ -54,13 +35,16 @@ struct NLTypeSystemUnion {
         const NLTypeSystem *type_systems;
 };
 
-extern const NLTypeSystem type_system_root;
+extern const NLTypeSystem rtnl_type_system_root;
+extern const NLTypeSystem genl_type_system_root;
+extern const NLTypeSystem genl_family_type_system_root;
 
 uint16_t type_get_type(const NLType *type);
 size_t type_get_size(const NLType *type);
 void type_get_type_system(const NLType *type, const NLTypeSystem **ret);
 void type_get_type_system_union(const NLType *type, const NLTypeSystemUnion **ret);
 
+const NLTypeSystem* type_system_get_root(int protocol);
 uint16_t type_system_get_count(const NLTypeSystem *type_system);
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type);
 int type_system_get_type_system(const NLTypeSystem *type_system, const NLTypeSystem **ret, uint16_t type);
@@ -91,6 +75,9 @@ typedef enum NLUnionLinkInfoData {
         NL_UNION_LINK_INFO_DATA_VCAN,
         NL_UNION_LINK_INFO_DATA_GENEVE,
         NL_UNION_LINK_INFO_DATA_VXCAN,
+        NL_UNION_LINK_INFO_DATA_WIREGUARD,
+        NL_UNION_LINK_INFO_DATA_NETDEVSIM,
+        NL_UNION_LINK_INFO_DATA_CAN,
         _NL_UNION_LINK_INFO_DATA_MAX,
         _NL_UNION_LINK_INFO_DATA_INVALID = -1
 } NLUnionLinkInfoData;

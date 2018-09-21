@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include "socket-util.h"
 
 typedef struct DnsStream DnsStream;
@@ -27,6 +8,11 @@ typedef struct DnsStream DnsStream;
 #include "resolved-dns-packet.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-manager.h"
+#if ENABLE_DNS_OVER_TLS
+#include "resolved-dnstls.h"
+#endif
+
+#define DNS_STREAM_WRITE_TLS_DATA 1
 
 /* Streams are used by three subsystems:
  *
@@ -37,7 +23,7 @@ typedef struct DnsStream DnsStream;
 
 struct DnsStream {
         Manager *manager;
-        int n_ref;
+        unsigned n_ref;
 
         DnsProtocol protocol;
 
@@ -50,27 +36,48 @@ struct DnsStream {
         uint32_t ttl;
         bool identified;
 
+        /* only when using TCP fast open */
+        union sockaddr_union tfo_address;
+        socklen_t tfo_salen;
+
+#if ENABLE_DNS_OVER_TLS
+        DnsTlsStreamData dnstls_data;
+        int dnstls_events;
+#endif
+
         sd_event_source *io_event_source;
         sd_event_source *timeout_event_source;
 
         be16_t write_size, read_size;
         DnsPacket *write_packet, *read_packet;
         size_t n_written, n_read;
+        OrderedSet *write_queue;
 
+        int (*on_connection)(DnsStream *s);
         int (*on_packet)(DnsStream *s);
         int (*complete)(DnsStream *s, int error);
 
-        DnsTransaction *transaction; /* when used by the transaction logic */
+        LIST_HEAD(DnsTransaction, transactions); /* when used by the transaction logic */
+        DnsServer *server;                       /* when used by the transaction logic */
         DnsQuery *query;             /* when used by the DNS stub logic */
+
+        /* used when DNS-over-TLS is enabled */
+        bool encrypted:1;
 
         LIST_FIELDS(DnsStream, streams);
 };
 
-int dns_stream_new(Manager *m, DnsStream **s, DnsProtocol protocol, int fd);
+int dns_stream_new(Manager *m, DnsStream **s, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address);
+#if ENABLE_DNS_OVER_TLS
+int dns_stream_connect_tls(DnsStream *s, void *tls_session);
+#endif
 DnsStream *dns_stream_unref(DnsStream *s);
 DnsStream *dns_stream_ref(DnsStream *s);
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_unref);
+
 int dns_stream_write_packet(DnsStream *s, DnsPacket *p);
+ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, int flags);
 
 static inline bool DNS_STREAM_QUEUED(DnsStream *s) {
         assert(s);

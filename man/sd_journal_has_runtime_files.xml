@@ -5,38 +5,14 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
-  Copyright 2016 Jan Synáček
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2016 Jan Synáček
 -->
 
-<refentry id="sd_journal_has_runtime_files">
+<refentry id="sd_journal_has_runtime_files" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_has_runtime_files</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Jan</firstname>
-        <surname>Synáček</surname>
-        <email>jan.synacek@gmail.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -90,13 +66,9 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>All functions listed here are thread-agnostic and only a single thread may operate
-    on a given <structname>sd_journal</structname> object.</para>
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
 
-    <para>Functions listed here are available as a shared library, which can be compiled and linked
-    to with the <constant>libsystemd</constant> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>

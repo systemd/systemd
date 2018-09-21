@@ -10,7 +10,7 @@ struct ConfigPerfItem;
 %null_strings
 %language=ANSI-C
 %define slot-name section_and_lvalue
-%define hash-function-name timesyncdd_gperf_hash
+%define hash-function-name timesyncd_gperf_hash
 %define lookup-function-name timesyncd_gperf_lookup
 %readonly-tables
 %omit-struct-type

@@ -1,46 +1,17 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-hwdb" conditional="ENABLE_HWDB">
+<refentry id="systemd-hwdb" conditional="ENABLE_HWDB"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
   <refentryinfo>
     <title>systemd-hwdb</title>
     <productname>systemd</productname>
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Kay</firstname>
-        <surname>Sievers</surname>
-        <email>kay@vrfy.org</email>
-      </author>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-        <email>teg@jklm.no</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -69,13 +40,6 @@
   <refsect1><title>Options</title>
     <variablelist>
       <varlistentry>
-        <term><option>-h</option></term>
-        <term><option>--help</option></term>
-        <listitem>
-          <para>Print help text.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><option>--usr</option></term>
         <listitem>
           <para>Generate in /usr/lib/udev instead of /etc/udev.</para>
@@ -88,6 +52,15 @@
           <para>Alternate root path in the filesystem.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--strict</option></term>
+        <listitem>
+          <para>When updating, return non-zero exit value on any parsing error.</para>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
     </variablelist>
 
     <refsect2><title>systemd-hwdb

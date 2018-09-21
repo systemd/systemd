@@ -1,23 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright (C) 2012 Roberto Sassu - Politecnico di Torino, Italy
-                                     TORSEC group — http://security.polito.it
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2012 Roberto Sassu - Politecnico di Torino, Italy
+                                   TORSEC group — http://security.polito.it
 ***/
 
 #include <errno.h>
@@ -62,7 +46,7 @@ int ima_setup(void) {
         }
 
         /* attempt to write the name of the policy file into sysfs file */
-        if (write(imafd, IMA_POLICY_PATH, strlen(IMA_POLICY_PATH)) > 0)
+        if (write(imafd, IMA_POLICY_PATH, STRLEN(IMA_POLICY_PATH)) > 0)
                 goto done;
 
         /* fall back to copying the policy line-by-line */

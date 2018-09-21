@@ -3,9 +3,7 @@
 #define foosddhcpclienthfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
+  Copyright © 2013 Intel Corporation. All rights reserved.
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -82,6 +80,7 @@ enum {
         SD_DHCP_OPTION_REBINDING_T2_TIME           = 59,
         SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER     = 60,
         SD_DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
+        SD_DHCP_OPTION_USER_CLASS                  = 77,
         SD_DHCP_OPTION_FQDN                        = 81,
         SD_DHCP_OPTION_NEW_POSIX_TIMEZONE          = 100,
         SD_DHCP_OPTION_NEW_TZDB_TIMEZONE           = 101,
@@ -132,6 +131,18 @@ int sd_dhcp_client_set_iaid_duid(
                 uint16_t duid_type,
                 const void *duid,
                 size_t duid_len);
+int sd_dhcp_client_set_iaid_duid_llt(
+                sd_dhcp_client *client,
+                uint32_t iaid,
+                uint64_t llt_time);
+int sd_dhcp_client_set_duid(
+                sd_dhcp_client *client,
+                uint16_t duid_type,
+                const void *duid,
+                size_t duid_len);
+int sd_dhcp_client_set_duid_llt(
+                sd_dhcp_client *client,
+                uint64_t llt_time);
 int sd_dhcp_client_get_client_id(
                 sd_dhcp_client *client,
                 uint8_t *type,
@@ -149,6 +160,9 @@ int sd_dhcp_client_set_hostname(
 int sd_dhcp_client_set_vendor_class_identifier(
                 sd_dhcp_client *client,
                 const char *vci);
+int sd_dhcp_client_set_user_class(
+                sd_dhcp_client *client,
+                const char* const *user_class);
 int sd_dhcp_client_get_lease(
                 sd_dhcp_client *client,
                 sd_dhcp_lease **ret);

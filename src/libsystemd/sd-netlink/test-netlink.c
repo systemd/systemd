@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <net/if.h>
 #include <netinet/ether.h>
@@ -53,7 +35,7 @@ static void test_link_configure(sd_netlink *rtnl, int ifindex) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         const char *mac = "98:fe:94:3f:c6:18", *name = "test";
         char buffer[ETHER_ADDR_TO_STRING_MAX];
-        unsigned int mtu = 1450, mtu_out;
+        uint32_t mtu = 1450, mtu_out;
         const char *name_out;
         struct ether_addr mac_out;
 
@@ -79,7 +61,7 @@ static void test_link_configure(sd_netlink *rtnl, int ifindex) {
 static void test_link_get(sd_netlink *rtnl, int ifindex) {
         sd_netlink_message *m;
         sd_netlink_message *r;
-        unsigned int mtu = 1500;
+        uint32_t mtu = 1500;
         const char *str_data;
         uint8_t u8_data;
         uint32_t u32_data;
@@ -120,7 +102,6 @@ static void test_link_get(sd_netlink *rtnl, int ifindex) {
         assert_se((r = sd_netlink_message_unref(r)) == NULL);
 }
 
-
 static void test_address_get(sd_netlink *rtnl, int ifindex) {
         sd_netlink_message *m;
         sd_netlink_message *r;
@@ -143,13 +124,13 @@ static void test_address_get(sd_netlink *rtnl, int ifindex) {
 
 }
 
-static void test_route(void) {
+static void test_route(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req;
         struct in_addr addr, addr_data;
         uint32_t index = 2, u32_data;
         int r;
 
-        r = sd_rtnl_message_new_route(NULL, &req, RTM_NEWROUTE, AF_INET, RTPROT_STATIC);
+        r = sd_rtnl_message_new_route(rtnl, &req, RTM_NEWROUTE, AF_INET, RTPROT_STATIC);
         if (r < 0) {
                 log_error_errno(r, "Could not create RTM_NEWROUTE message: %m");
                 return;
@@ -291,13 +272,13 @@ static void test_pipe(int ifindex) {
         assert_se((rtnl = sd_netlink_unref(rtnl)) == NULL);
 }
 
-static void test_container(void) {
+static void test_container(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint16_t u16_data;
         uint32_t u32_data;
         const char *string_data;
 
-        assert_se(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);
 
         assert_se(sd_netlink_message_open_container(m, IFLA_LINKINFO) >= 0);
         assert_se(sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "vlan") >= 0);
@@ -369,10 +350,10 @@ static void test_get_addresses(sd_netlink *rtnl) {
         }
 }
 
-static void test_message(void) {
+static void test_message(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
-        assert_se(rtnl_message_new_synthetic_error(-ETIMEDOUT, 1, &m) >= 0);
+        assert_se(rtnl_message_new_synthetic_error(rtnl, -ETIMEDOUT, 1, &m) >= 0);
         assert_se(sd_netlink_message_get_errno(m) == -ETIMEDOUT);
 }
 
@@ -384,18 +365,18 @@ int main(void) {
         int if_loopback;
         uint16_t type;
 
-        test_message();
-
         test_match();
 
         test_multiple();
 
-        test_route();
-
-        test_container();
-
         assert_se(sd_netlink_open(&rtnl) >= 0);
         assert_se(rtnl);
+
+        test_route(rtnl);
+
+        test_message(rtnl);
+
+        test_container(rtnl);
 
         if_loopback = (int) if_nametoindex("lo");
         assert_se(if_loopback > 0);

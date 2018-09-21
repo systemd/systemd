@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 typedef struct Seat Seat;
 
 #include "list.h"
@@ -79,7 +60,7 @@ int seat_start(Seat *s);
 int seat_stop(Seat *s, bool force);
 int seat_stop_sessions(Seat *s, bool force);
 
-bool seat_check_gc(Seat *s, bool drop_not_started);
+bool seat_may_gc(Seat *s, bool drop_not_started);
 void seat_add_to_gc_queue(Seat *s);
 
 bool seat_name_is_valid(const char *name);

@@ -1,7 +1,7 @@
 [Unit]
-Description=Test for User
+Description=Test for User (daemon)
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$USER" = "nobody"'
+ExecStart=/bin/sh -x -c 'test "$$USER" = "daemon"'
 Type=oneshot
-User=nobody
+User=daemon

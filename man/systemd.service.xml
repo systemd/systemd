@@ -1,41 +1,15 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.service">
   <refentryinfo>
     <title>systemd.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -56,7 +30,7 @@
     <title>Description</title>
 
     <para>A unit configuration file whose name ends in
-    <filename>.service</filename> encodes information about a process
+    <literal>.service</literal> encodes information about a process
     controlled and supervised by systemd.</para>
 
     <para>This man page lists the configuration options specific to
@@ -91,55 +65,73 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Service Templates</title>
 
-    <para>The following dependencies are implicitly added:</para>
-
-    <itemizedlist>
-      <listitem><para>Services with <varname>Type=dbus</varname> set automatically
-      acquire dependencies of type <varname>Requires=</varname> and
-      <varname>After=</varname> on
-      <filename>dbus.socket</filename>.</para></listitem>
-
-      <listitem><para>Socket activated services are automatically ordered after
-      their activating <filename>.socket</filename> units via an
-      automatic <varname>After=</varname> dependency.
-      Services also pull in all <filename>.socket</filename> units
-      listed in <varname>Sockets=</varname> via automatic
-      <varname>Wants=</varname> and <varname>After=</varname> dependencies.</para></listitem>
-    </itemizedlist>
-
-    <para>Additional implicit dependencies may be added as result of
-    execution and resource control parameters as documented in
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <para>It is possible for <command>systemd</command> services to take a single argument via the
+    <literal><replaceable>service</replaceable>@<replaceable>argument</replaceable>.service</literal>
+    syntax. Such services are called "instantiated" services, while the unit definition without the
+    <replaceable>argument</replaceable> parameter is called a "template". An example could be a
+    <filename>dhcpcd@.service</filename> service template which takes a network interface as a
+    parameter to form an instantiated service. Within the service file, this parameter or "instance
+    name" can be accessed with %-specifiers. See
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.</para>
   </refsect1>
 
   <refsect1>
-    <title>Default Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Service units will have dependencies of type <varname>Requires=</varname> and
-      <varname>After=</varname> on <filename>sysinit.target</filename>, a dependency of type <varname>After=</varname> on
-      <filename>basic.target</filename> as well as dependencies of type <varname>Conflicts=</varname> and
-      <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure that normal service units pull in
-      basic system initialization, and are terminated cleanly prior to system shutdown. Only services involved with early
-      boot or late system shutdown should disable this option.</para></listitem>
+      <para>The following dependencies are implicitly added:</para>
 
-      <listitem><para>Instanced service units (i.e. service units with an <literal>@</literal> in their name) are assigned by
-      default a per-template slice unit (see
-      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>), named after the
-      template unit, containing all instances of the specific template. This slice is normally stopped at shutdown,
-      together with all template instances. If that is not desired, set <varname>DefaultDependencies=no</varname> in the
-      template unit, and either define your own per-template slice unit file that also sets
-      <varname>DefaultDependencies=no</varname>, or set <varname>Slice=system.slice</varname> (or another suitable slice)
-      in the template unit. Also see
-      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      </para></listitem>
-    </itemizedlist>
+      <itemizedlist>
+        <listitem><para>Services with <varname>Type=dbus</varname> set automatically
+        acquire dependencies of type <varname>Requires=</varname> and
+        <varname>After=</varname> on
+        <filename>dbus.socket</filename>.</para></listitem>
+
+        <listitem><para>Socket activated services are automatically ordered after
+        their activating <filename>.socket</filename> units via an
+        automatic <varname>After=</varname> dependency.
+        Services also pull in all <filename>.socket</filename> units
+        listed in <varname>Sockets=</varname> via automatic
+        <varname>Wants=</varname> and <varname>After=</varname> dependencies.</para></listitem>
+      </itemizedlist>
+
+      <para>Additional implicit dependencies may be added as result of
+      execution and resource control parameters as documented in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Default Dependencies</title>
+
+      <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+
+      <itemizedlist>
+        <listitem><para>Service units will have dependencies of type <varname>Requires=</varname> and
+        <varname>After=</varname> on <filename>sysinit.target</filename>, a dependency of type <varname>After=</varname> on
+        <filename>basic.target</filename> as well as dependencies of type <varname>Conflicts=</varname> and
+        <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure that normal service units pull in
+        basic system initialization, and are terminated cleanly prior to system shutdown. Only services involved with early
+        boot or late system shutdown should disable this option.</para></listitem>
+
+        <listitem><para>Instanced service units (i.e. service units with an <literal>@</literal> in their name) are assigned by
+        default a per-template slice unit (see
+        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>), named after the
+        template unit, containing all instances of the specific template. This slice is normally stopped at shutdown,
+        together with all template instances. If that is not desired, set <varname>DefaultDependencies=no</varname> in the
+        template unit, and either define your own per-template slice unit file that also sets
+        <varname>DefaultDependencies=no</varname>, or set <varname>Slice=system.slice</varname> (or another suitable slice)
+        in the template unit. Also see
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </itemizedlist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -161,77 +153,93 @@
       <varlistentry>
         <term><varname>Type=</varname></term>
 
-        <listitem><para>Configures the process start-up type for this
-        service unit. One of
-        <option>simple</option>,
-        <option>forking</option>,
-        <option>oneshot</option>,
-        <option>dbus</option>,
-        <option>notify</option> or
-        <option>idle</option>.</para>
+        <listitem>
+          <para>Configures the process start-up type for this service unit. One of <option>simple</option>,
+          <option>exec</option>, <option>forking</option>, <option>oneshot</option>, <option>dbus</option>,
+          <option>notify</option> or <option>idle</option>:</para>
 
-        <para>If set to <option>simple</option> (the default if
-        neither <varname>Type=</varname> nor
-        <varname>BusName=</varname>, but <varname>ExecStart=</varname>
-        are specified), it is expected that the process configured
-        with <varname>ExecStart=</varname> is the main process of the
-        service. In this mode, if the process offers functionality to
-        other processes on the system, its communication channels
-        should be installed before the daemon is started up (e.g.
-        sockets set up by systemd, via socket activation), as systemd
-        will immediately proceed starting follow-up units.</para>
+          <itemizedlist>
+            <listitem><para>If set to <option>simple</option> (the default if <varname>ExecStart=</varname> is
+            specified but neither <varname>Type=</varname> nor <varname>BusName=</varname> are), the service manager
+            will consider the unit started immediately after the main service process has been forked off. It is
+            expected that the process configured with <varname>ExecStart=</varname> is the main process of the
+            service. In this mode, if the process offers functionality to other processes on the system, its
+            communication channels should be installed before the service is started up (e.g.  sockets set up by
+            systemd, via socket activation), as the service manager will immediately proceed starting follow-up units,
+            right after creating the main service process, and before executing the service's binary. Note that this
+            means <command>systemctl start</command> command lines for <option>simple</option> services will report
+            success even if the service's binary cannot be invoked successfully (for example because the selected
+            <varname>User=</varname> doesn't exist, or the service binary is missing).</para></listitem>
 
-        <para>If set to <option>forking</option>, it is expected that
-        the process configured with <varname>ExecStart=</varname> will
-        call <function>fork()</function> as part of its start-up. The
-        parent process is expected to exit when start-up is complete
-        and all communication channels are set up. The child continues
-        to run as the main daemon process. This is the behavior of
-        traditional UNIX daemons. If this setting is used, it is
-        recommended to also use the <varname>PIDFile=</varname>
-        option, so that systemd can identify the main process of the
-        daemon. systemd will proceed with starting follow-up units as
-        soon as the parent process exits.</para>
+            <listitem><para>The <option>exec</option> type is similar to <option>simple</option>, but the service
+            manager will consider the unit started immediately after the main service binary has been executed. The service
+            manager will delay starting of follow-up units until that point. (Or in other words:
+            <option>simple</option> proceeds with further jobs right after <function>fork()</function> returns, while
+            <option>exec</option> will not proceed before both <function>fork()</function> and
+            <function>execve()</function> in the service process succeeded.) Note that this means <command>systemctl
+            start</command> command lines for <option>exec</option> services will report failure when the service's
+            binary cannot be invoked successfully (for example because the selected <varname>User=</varname> doesn't
+            exist, or the service binary is missing).</para></listitem>
 
-        <para>Behavior of <option>oneshot</option> is similar to
-        <option>simple</option>; however, it is expected that the
-        process has to exit before systemd starts follow-up units.
-        <varname>RemainAfterExit=</varname> is particularly useful for
-        this type of service. This is the implied default if neither
-        <varname>Type=</varname> nor <varname>ExecStart=</varname> are
-        specified.</para>
+            <listitem><para>If set to <option>forking</option>, it is expected that the process configured with
+            <varname>ExecStart=</varname> will call <function>fork()</function> as part of its start-up. The parent
+            process is expected to exit when start-up is complete and all communication channels are set up. The child
+            continues to run as the main service process, and the service manager will consider the unit started when
+            the parent process exits. This is the behavior of traditional UNIX services. If this setting is used, it is
+            recommended to also use the <varname>PIDFile=</varname> option, so that systemd can reliably identify the
+            main process of the service. systemd will proceed with starting follow-up units as soon as the parent
+            process exits.</para></listitem>
 
-        <para>Behavior of <option>dbus</option> is similar to
-        <option>simple</option>; however, it is expected that the
-        daemon acquires a name on the D-Bus bus, as configured by
-        <varname>BusName=</varname>. systemd will proceed with
-        starting follow-up units after the D-Bus bus name has been
-        acquired. Service units with this option configured implicitly
-        gain dependencies on the <filename>dbus.socket</filename>
-        unit. This type is the default if <varname>BusName=</varname>
-        is specified.</para>
+            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>simple</option>; however, the
+            service manager will consider the unit started after the main process exits. It will then start follow-up
+            units. <varname>RemainAfterExit=</varname> is particularly useful for this type of
+            service. <varname>Type=</varname><option>oneshot</option> is the implied default if neither
+            <varname>Type=</varname> nor <varname>ExecStart=</varname> are specified.</para></listitem>
 
-        <para>Behavior of <option>notify</option> is similar to
-        <option>simple</option>; however, it is expected that the
-        daemon sends a notification message via
-        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        or an equivalent call when it has finished starting up.
-        systemd will proceed with starting follow-up units after this
-        notification message has been sent. If this option is used,
-        <varname>NotifyAccess=</varname> (see below) should be set to
-        open access to the notification socket provided by systemd. If
-        <varname>NotifyAccess=</varname> is missing or set to
-        <option>none</option>, it will be forcibly set to
-        <option>main</option>. Note that currently
-        <varname>Type=</varname><option>notify</option> will not work
-        if used in combination with
-        <varname>PrivateNetwork=</varname><option>yes</option>.</para>
+            <listitem><para>Behavior of <option>dbus</option> is similar to <option>simple</option>; however, it is
+            expected that the service acquires a name on the D-Bus bus, as configured by
+            <varname>BusName=</varname>. systemd will proceed with starting follow-up units after the D-Bus bus name
+            has been acquired. Service units with this option configured implicitly gain dependencies on the
+            <filename>dbus.socket</filename> unit. This type is the default if <varname>BusName=</varname> is
+            specified.</para></listitem>
 
-        <para>Behavior of <option>idle</option> is very similar to <option>simple</option>; however, actual execution
-        of the service binary is delayed until all active jobs are dispatched. This may be used to avoid interleaving
-        of output of shell services with the status output on the console. Note that this type is useful only to
-        improve console output, it is not useful as a general unit ordering tool, and the effect of this service type
-        is subject to a 5s time-out, after which the service binary is invoked anyway.</para>
+            <listitem><para>Behavior of <option>notify</option> is similar to <option>exec</option>; however, it is
+            expected that the service sends a notification message via
+            <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> or an
+            equivalent call when it has finished starting up. systemd will proceed with starting follow-up units after
+            this notification message has been sent. If this option is used, <varname>NotifyAccess=</varname> (see
+            below) should be set to open access to the notification socket provided by systemd. If
+            <varname>NotifyAccess=</varname> is missing or set to <option>none</option>, it will be forcibly set to
+            <option>main</option>. Note that currently <varname>Type=</varname><option>notify</option> will not work if
+            used in combination with <varname>PrivateNetwork=</varname><option>yes</option>.</para></listitem>
+
+            <listitem><para>Behavior of <option>idle</option> is very similar to <option>simple</option>; however,
+            actual execution of the service program is delayed until all active jobs are dispatched. This may be used
+            to avoid interleaving of output of shell services with the status output on the console. Note that this
+            type is useful only to improve console output, it is not useful as a general unit ordering tool, and the
+            effect of this service type is subject to a 5s time-out, after which the service program is invoked
+            anyway.</para></listitem>
+          </itemizedlist>
+
+          <para>It is generally recommended to use <varname>Type=</varname><option>simple</option> for long-running
+          services whenever possible, as it is the simplest and fastest option. However, as this service type won't
+          propagate service start-up failures and doesn't allow ordering of other units against completion of
+          initialization of the service (which for example is useful if clients need to connect to the service through
+          some form of IPC, and the IPC channel is only established by the service itself — in contrast to doing this
+          ahead of time through socket or bus activation or similar), it might not be sufficient for many cases. If so,
+          <option>notify</option> or <option>dbus</option> (the latter only in case the service provides a D-Bus
+          interface) are the preferred options as they allow service program code to precisely schedule when to
+          consider the service started up successfully and when to proceed with follow-up units. The
+          <option>notify</option> service type requires explicit support in the service codebase (as
+          <function>sd_notify()</function> or an equivalent API needs to be invoked by the service at the appropriate
+          time) — if it's not supported, then <option>forking</option> is an alternative: it supports the traditional
+          UNIX service start-up protocol. Finally, <option>exec</option> might be an option for cases where it is
+          enough to ensure the service binary is invoked, and where the service binary itself executes no or little
+          initialization on its own (and its initialization is unlikely to fail). Note that using any type other than
+          <option>simple</option> possibly delays the boot process, as the service manager needs to wait for service
+          initialization to complete. It is hence recommended not to needlessly use any types other than
+          <option>simple</option>. (Also note it is generally not recommended to use <option>idle</option> or
+          <option>oneshot</option> for long-running services.)</para>
         </listitem>
       </varlistentry>
 
@@ -264,16 +272,14 @@
       <varlistentry>
         <term><varname>PIDFile=</varname></term>
 
-        <listitem><para>Takes an absolute filename pointing to the
-        PID file of this daemon. Use of this option is recommended for
-        services where <varname>Type=</varname> is set to
-        <option>forking</option>. systemd will read the PID of the
-        main process of the daemon after start-up of the service.
-        systemd will not write to the file configured here, although
-        it will remove the file after the service has shut down if it
-        still exists.
-        </para>
-        </listitem>
+        <listitem><para>Takes an absolute path referring to the PID file of the service. Usage of this option is
+        recommended for services where <varname>Type=</varname> is set to <option>forking</option>. The service manager
+        will read the PID of the main process of the service from this file after start-up of the service. The service
+        manager will not write to the file configured here, although it will remove the file after the service has shut
+        down if it still exists. The PID file does not need to be owned by a privileged user, but if it is owned by an
+        unprivileged user additional safety restrictions are enforced: the file may not be a symlink to a file owned by
+        a different user (neither directly nor indirectly), and the PID file must refer to a process already belonging
+        to the service.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -303,8 +309,9 @@
         <varname>ExecStop=</varname> line set. (Services lacking both <varname>ExecStart=</varname> and
         <varname>ExecStop=</varname> are not valid.)</para>
 
-        <para>For each of the specified commands, the first argument must be an absolute path to an
-        executable. Optionally, this filename may be prefixed with a number of special characters:</para>
+        <para>For each of the specified commands, the first argument must be either an absolute path to an executable
+        or a simple file name without any slashes. Optionally, this filename may be prefixed with a number of special
+        characters:</para>
 
         <table>
           <title>Special executable prefixes</title>
@@ -327,7 +334,7 @@
 
               <row>
                 <entry><literal>-</literal></entry>
-                <entry>If the executable path is prefixed with <literal>-</literal>, an exit code of the command normally considered a failure (i.e. non-zero exit status or abnormal exit due to signal) is ignored and considered success.</entry>
+                <entry>If the executable path is prefixed with <literal>-</literal>, an exit code of the command normally considered a failure (i.e. non-zero exit status or abnormal exit due to signal) is recorded, but has no further effect and is considered equivalent to success.</entry>
               </row>
 
               <row>
@@ -338,7 +345,7 @@
               <row>
                 <entry><literal>!</literal></entry>
 
-                <entry>Similar to the <literal>+</literal> character discussed above this permits invoking command lines with elevated privileges. However, unlike <literal>+</literal> the <literal>!</literal> character exclusively alters the effect of <varname>User=</varname>, <varname>Group=</varname> and <varname>SupplementaryGroups=</varname>, i.e. only the stanzas the affect user and group credentials. Note that this setting may be combined with <varname>DynamicUser=</varname>, in which case a dynamic user/group pair is allocated before the command is invoked, but credential changing is left to the executed process itself.</entry>
+                <entry>Similar to the <literal>+</literal> character discussed above this permits invoking command lines with elevated privileges. However, unlike <literal>+</literal> the <literal>!</literal> character exclusively alters the effect of <varname>User=</varname>, <varname>Group=</varname> and <varname>SupplementaryGroups=</varname>, i.e. only the stanzas that affect user and group credentials. Note that this setting may be combined with <varname>DynamicUser=</varname>, in which case a dynamic user/group pair is allocated before the command is invoked, but credential changing is left to the executed process itself.</entry>
               </row>
 
               <row>
@@ -517,17 +524,26 @@
         <varname>Type=oneshot</varname> is used, in which case the
         timeout is disabled by default (see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        </para>
+
+        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
+        the start time to be extended beyond <varname>TimeoutStartSec=</varname>. The first receipt of this message
+        must occur before <varname>TimeoutStartSec=</varname> is exceeded, and once the start time has exended beyond
+        <varname>TimeoutStartSec=</varname>, the service manager will allow the service to continue to start, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
+        startup status is finished by <literal>READY=1</literal>. (see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>TimeoutStopSec=</varname></term>
-        <listitem><para>Configures the time to wait for stop. If a
-        service is asked to stop, but does not terminate in the
-        specified time, it will be terminated forcibly via
-        <constant>SIGTERM</constant>, and after another timeout of
-        equal duration with <constant>SIGKILL</constant> (see
-        <varname>KillMode=</varname> in
+        <listitem><para>This option serves two purposes. First, it configures the time to wait for each
+        <constant>ExecStop=</constant> command. If any of them times out, subsequent <constant>ExecStop=</constant> commands
+        are skipped and the service will be terminated by <constant>SIGTERM</constant>. If no <constant>ExecStop=</constant>
+        commands are specified, the service gets the <constant>SIGTERM</constant> immediately. Second, it configures the time
+        to wait for the service itself to stop. If it doesn't terminate in the specified time, it will be forcibly terminated
+        by <constant>SIGKILL</constant> (see <varname>KillMode=</varname> in
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         Takes a unit-less value in seconds, or a time span value such
         as "5min 20s". Pass <literal>infinity</literal> to disable the
@@ -535,6 +551,14 @@
         <varname>DefaultTimeoutStopSec=</varname> from the manager
         configuration file (see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        </para>
+
+        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
+        the stop time to be extended beyond <varname>TimeoutStopSec=</varname>. The first receipt of this message
+        must occur before <varname>TimeoutStopSec=</varname> is exceeded, and once the stop time has exended beyond
+        <varname>TimeoutStopSec=</varname>, the service manager will allow the service to continue to stop, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
+        (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
 
@@ -553,7 +577,16 @@
         active for longer than the specified time it is terminated and put into a failure state. Note that this setting
         does not have any effect on <varname>Type=oneshot</varname> services, as they terminate immediately after
         activation completed. Pass <literal>infinity</literal> (the default) to configure no runtime
-        limit.</para></listitem>
+        limit.</para>
+
+        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
+        the runtime to be extended beyond <varname>RuntimeMaxSec=</varname>. The first receipt of this message
+        must occur before <varname>RuntimeMaxSec=</varname> is exceeded, and once the runtime has exended beyond
+        <varname>RuntimeMaxSec=</varname>, the service manager will allow the service to continue to run, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
+        shutdown is achieved by <literal>STOPPING=1</literal> (or termination). (see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -728,7 +761,8 @@
         limiting configured with <varname>StartLimitIntervalSec=</varname>
         and <varname>StartLimitBurst=</varname>, see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para>
+        for details.  A restarted service enters the failed state only
+        after the start limits are reached.</para>
 
         <para>Setting this to <option>on-failure</option> is the
         recommended choice for long-running services, in order to
@@ -906,7 +940,10 @@
         passed to the service manager from a specific service are passed back to the service's main process on the next
         service restart. Any file descriptors passed to the service manager are automatically closed when
         <constant>POLLHUP</constant> or <constant>POLLERR</constant> is seen on them, or when the service is fully
-        stopped and no job is queued or being executed for it.</para></listitem>
+        stopped and no job is queued or being executed for it. If this option is used, <varname>NotifyAccess=</varname>
+        (see above) should be set to open access to the notification socket provided by systemd. If
+        <varname>NotifyAccess=</varname> is not set, it will be implicitly set to
+        <option>main</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -979,14 +1016,10 @@
     <literal>&amp;</literal>, and <emphasis>other elements of shell
     syntax are not supported</emphasis>.</para>
 
-    <para>The command to execute must be an absolute path name. It may
-    contain spaces, but control characters are not allowed.</para>
+    <para>The command to execute may contain spaces, but control characters are not allowed.</para>
 
-    <para>The command line accepts <literal>%</literal> specifiers as
-    described in
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    Note that the first argument of the command line (i.e. the program
-    to execute) may not include specifiers.</para>
+    <para>The command line accepts <literal>%</literal> specifiers as described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its
@@ -999,10 +1032,21 @@
     For this type of expansion, quotes are respected when splitting
     into words, and afterwards removed.</para>
 
+    <para>If the command is not a full (absolute) path, it will be resolved to a full path using a
+    fixed search path determinted at compilation time. Searched directories include
+    <filename>/usr/local/bin/</filename>, <filename>/usr/bin/</filename>, <filename>/bin/</filename>
+    on systems using split <filename>/usr/bin/</filename> and <filename>/bin/</filename>
+    directories, and their <filename>sbin/</filename> counterparts on systems using split
+    <filename>bin/</filename> and <filename>sbin/</filename>. It is thus safe to use just the
+    executable name in case of executables located in any of the "standard" directories, and an
+    absolute path must be used in other cases. Using an absolute path is recommended to avoid
+    ambiguity. Hint: this search path may be queried using
+    <command>systemd-path search-binaries-default</command>.</para>
+
     <para>Example:</para>
 
     <programlisting>Environment="ONE=one" 'TWO=two two'
-ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
+ExecStart=echo $ONE $TWO ${TWO}</programlisting>
 
     <para>This will execute <command>/bin/echo</command> with four
     arguments: <literal>one</literal>, <literal>two</literal>,
@@ -1012,7 +1056,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
     <programlisting>Environment=ONE='one' "TWO='two two' too" THREE=
 ExecStart=/bin/echo ${ONE} ${TWO} ${THREE}
 ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
-    <para>This results in <filename>echo</filename> being
+    <para>This results in <filename>/bin/echo</filename> being
     called twice, the first time with arguments
     <literal>'one'</literal>,
     <literal>'two two' too</literal>, <literal></literal>,
@@ -1038,27 +1082,27 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     <para>Note that shell command lines are not directly supported. If
     shell command lines are to be used, they need to be passed
     explicitly to a shell implementation of some kind. Example:</para>
-    <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'</programlisting>
+    <programlisting>ExecStart=sh -c 'dmesg | tac'</programlisting>
 
     <para>Example:</para>
 
-    <programlisting>ExecStart=/bin/echo one ; /bin/echo "two two"</programlisting>
+    <programlisting>ExecStart=echo one ; echo "two two"</programlisting>
 
-    <para>This will execute <command>/bin/echo</command> two times,
+    <para>This will execute <command>echo</command> two times,
     each time with one argument: <literal>one</literal> and
     <literal>two two</literal>, respectively. Because two commands are
     specified, <varname>Type=oneshot</varname> must be used.</para>
 
     <para>Example:</para>
 
-    <programlisting>ExecStart=/bin/echo / &gt;/dev/null &amp; \; \
-/bin/ls</programlisting>
+    <programlisting>ExecStart=echo / &gt;/dev/null &amp; \; \
+ls</programlisting>
 
-    <para>This will execute <command>/bin/echo</command>
+    <para>This will execute <command>echo</command>
     with five arguments: <literal>/</literal>,
     <literal>&gt;/dev/null</literal>,
     <literal>&amp;</literal>, <literal>;</literal>, and
-    <literal>/bin/ls</literal>.</para>
+    <literal>ls</literal>.</para>
 
     <table>
       <title>C escapes supported in command lines and environment variables</title>

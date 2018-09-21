@@ -4,38 +4,12 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.target">
   <refentryinfo>
     <title>systemd.target</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -82,30 +56,35 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>There are no implicit dependencies for target units.</para>
-  </refsect1>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>There are no implicit dependencies for target units.</para>
+    </refsect2>
 
-    <para>The following dependencies are added unless
-    <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Target units will automatically complement all
-      configured dependencies of type <varname>Wants=</varname> or
-      <varname>Requires=</varname> with dependencies of type
-      <varname>After=</varname> unless <varname>DefaultDependencies=no</varname>
-      is set in the specified units. Note that <varname>Wants=</varname> or
-      <varname>Requires=</varname> must be defined in the target unit itself — if
-      you for example define <varname>Wants=</varname>some.target in
-      some.service, the automatic ordering will not be added.</para></listitem>
+      <para>The following dependencies are added unless
+      <varname>DefaultDependencies=no</varname> is set:</para>
 
-      <listitem><para>Target units automatically gain <varname>Conflicts=</varname>
-      dependency against <filename>shutdown.target</filename>.</para></listitem>
-    </itemizedlist>
+      <itemizedlist>
+        <listitem><para>Target units will automatically complement all
+        configured dependencies of type <varname>Wants=</varname> or
+        <varname>Requires=</varname> with dependencies of type
+        <varname>After=</varname> unless <varname>DefaultDependencies=no</varname>
+        is set in the specified units. Note that <varname>Wants=</varname> or
+        <varname>Requires=</varname> must be defined in the target unit itself — if
+        you for example define <varname>Wants=</varname>some.target in
+        some.service, the automatic ordering will not be added.</para></listitem>
+
+        <listitem><para>Target units automatically gain <varname>Conflicts=</varname>
+        and <varname>Before=</varname> dependencies against
+        <filename>shutdown.target</filename>.</para></listitem>
+      </itemizedlist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

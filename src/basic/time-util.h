@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -100,12 +81,12 @@ triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u)
 #define TRIPLE_TIMESTAMP_HAS_CLOCK(clock)                               \
         IN_SET(clock, CLOCK_REALTIME, CLOCK_REALTIME_ALARM, CLOCK_MONOTONIC, CLOCK_BOOTTIME, CLOCK_BOOTTIME_ALARM)
 
-static inline bool dual_timestamp_is_set(dual_timestamp *ts) {
+static inline bool dual_timestamp_is_set(const dual_timestamp *ts) {
         return ((ts->realtime > 0 && ts->realtime != USEC_INFINITY) ||
                 (ts->monotonic > 0 && ts->monotonic != USEC_INFINITY));
 }
 
-static inline bool triple_timestamp_is_set(triple_timestamp *ts) {
+static inline bool triple_timestamp_is_set(const triple_timestamp *ts) {
         return ((ts->realtime > 0 && ts->realtime != USEC_INFINITY) ||
                 (ts->monotonic > 0 && ts->monotonic != USEC_INFINITY) ||
                 (ts->boottime > 0 && ts->boottime != USEC_INFINITY));
@@ -141,7 +122,7 @@ int parse_nsec(const char *t, nsec_t *nsec);
 bool ntp_synced(void);
 
 int get_timezones(char ***l);
-bool timezone_is_valid(const char *name);
+bool timezone_is_valid(const char *name, int log_level);
 
 bool clock_boottime_supported(void);
 bool clock_supported(clockid_t clock);
@@ -196,5 +177,7 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
 /* With a 32bit time_t we can't go beyond 2038... */
 #define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 2147483647000000)
 #else
-#error "Yuck, time_t is neither 4 not 8 bytes wide?"
+#error "Yuck, time_t is neither 4 nor 8 bytes wide?"
 #endif
+
+int time_change_fd(void);

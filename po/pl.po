@@ -1,17 +1,16 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Polish translation for systemd.
-# Copyright © 2011-2017 the systemd authors.
 # This file is distributed under the same license as the systemd package.
-# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013-2017.
+# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013-2018.
 # Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>, 2011.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2017-10-06 15:29+0200\n"
-"PO-Revision-Date: 2017-10-05 15:30+0200\n"
+"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
+"POT-Creation-Date: 2018-08-23 15:26+0000\n"
+"PO-Revision-Date: 2018-08-24 15:33+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -21,43 +20,43 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2);\n"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+#: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
 msgstr "Wysłanie hasła z powrotem do systemu"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+#: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby wysłać podane hasło z powrotem do "
 "systemu."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+#: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
 msgstr "Zarządzanie usługami lub innymi jednostkami systemu"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+#: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać usługami lub innymi "
 "jednostkami systemu."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+#: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
 msgstr "Zarządzanie plikami usług lub jednostek systemu"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+#: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać plikami usług lub jednostek "
 "systemu."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+#: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr ""
 "Ustawienie lub usunięcie zmiennych środowiskowych menedżera systemu i usług"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+#: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
@@ -65,27 +64,27 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić lub usunąć zmienne środowiskowe "
 "menedżera systemu i usług."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+#: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
 msgstr "Ponowne wczytanie stanu systemd"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+#: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "Wymagane jest uwierzytelnienie, aby ponownie wczytać stan systemd."
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
+#: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
 msgstr "Ustawienie nazwy komputera"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
+#: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local host name."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić nazwę lokalnego komputera."
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
+#: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static host name"
 msgstr "Ustawienie statycznej nazwy komputera"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
+#: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local host name, "
 "as well as the pretty host name."
@@ -93,111 +92,119 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić statycznie skonfigurowaną nazwę "
 "lokalnego komputera, a także jego nazwę czytelną dla człowieka."
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
+#: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
 msgstr "Ustawienie informacji o komputerze"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
+#: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić informacje o lokalnym komputerze."
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:1
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "Uzyskanie UUID produktu"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "Wymagane jest uwierzytelnienie, aby uzyskać UUID produktu."
+
+#: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
 msgstr "Import obrazu maszyny wirtualnej lub kontenera"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:2
+#: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import a VM or container image"
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zaimportować obraz maszyny wirtualnej "
 "lub kontenera"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:3
+#: src/import/org.freedesktop.import1.policy:32
 msgid "Export a VM or container image"
 msgstr "Eksport obrazu maszyny wirtualnej lub kontenera"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:4
+#: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export a VM or container image"
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby wyeksportować obraz maszyny wirtualnej "
 "lub kontenera"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:5
+#: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
 msgstr "Pobranie obrazu maszyny wirtualnej lub kontenera"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:6
+#: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby pobrać obraz maszyny wirtualnej lub "
 "kontenera"
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:1
+#: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
 msgstr "Ustawienie lokalizacji systemu"
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:2
+#: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić lokalizację systemu."
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:3
+#: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
 msgstr "Ustawienie klawiatury systemu"
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:4
+#: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić klawiaturę systemu."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:1
+#: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
 msgstr "Zezwolenie programom na wstrzymywanie wyłączenia systemu"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:2
+#: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
 msgstr "Program wymaga uwierzytelnienia, aby wstrzymać wyłączenie systemu."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:3
+#: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
 msgstr "Zezwolenie programom na opóźnienie wyłączenia systemu"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:4
+#: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
 msgstr "Program wymaga uwierzytelnienia, aby opóźnić wyłączenie systemu."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:5
+#: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
 msgstr "Zezwolenie programom na wstrzymanie uśpienia systemu"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:6
+#: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
 msgstr "Program wymaga uwierzytelnienia, aby wstrzymać uśpienie systemu."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:7
+#: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
 msgstr "Zezwolenie programom na opóźnienie uśpienia systemu"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:8
+#: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
 msgstr "Program wymaga uwierzytelnienia, aby opóźnić uśpienie systemu."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:9
+#: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
 msgstr "Zezwolenie programom na wstrzymanie automatycznego uśpienia systemu"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:10
+#: src/login/org.freedesktop.login1.policy:66
 msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
 msgstr ""
 "Program wymaga uwierzytelnienia, aby wstrzymać automatyczne uśpienie systemu."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:11
+#: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
 msgstr ""
 "Zezwolenie programom na wstrzymanie obsługi klawisza zasilania przez system"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:12
+#: src/login/org.freedesktop.login1.policy:76
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
@@ -205,12 +212,12 @@ msgstr ""
 "Program wymaga uwierzytelnienia, aby wstrzymać obsługę klawisza zasilania "
 "przez system."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:13
+#: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
 msgstr ""
 "Zezwolenie programom na wstrzymanie obsługi klawisza uśpienia przez system"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:14
+#: src/login/org.freedesktop.login1.policy:87
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
@@ -218,12 +225,12 @@ msgstr ""
 "Program wymaga uwierzytelnienia, aby wstrzymać obsługę klawisza uśpienia "
 "przez system."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:15
+#: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr ""
 "Zezwolenie programom na wstrzymanie obsługi klawisza hibernacji przez system"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:16
+#: src/login/org.freedesktop.login1.policy:98
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
@@ -231,12 +238,12 @@ msgstr ""
 "Program wymaga uwierzytelnienia, aby wstrzymać obsługę klawisza hibernacji "
 "przez system."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:17
+#: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
 msgstr ""
 "Zezwolenie programom na wstrzymanie obsługi przełącznika pokrywy przez system"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:18
+#: src/login/org.freedesktop.login1.policy:108
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the lid switch."
@@ -244,59 +251,59 @@ msgstr ""
 "Program wymaga uwierzytelnienia, aby wstrzymać obsługę przełącznika pokrywy "
 "przez system."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:19
+#: src/login/org.freedesktop.login1.policy:117
 msgid "Allow non-logged-in user to run programs"
 msgstr "Zezwolenie niezalogowanemu użytkownikowi na uruchamianie programów"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:20
+#: src/login/org.freedesktop.login1.policy:118
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
 "Wymagane jest bezpośrednie żądanie, aby uruchamiać programy jako "
 "niezalogowany użytkownik."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:21
+#: src/login/org.freedesktop.login1.policy:127
 msgid "Allow non-logged-in users to run programs"
 msgstr "Zezwolenie niezalogowanym użytkownikom na uruchamianie programów"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:22
+#: src/login/org.freedesktop.login1.policy:128
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby uruchamiać programy jako niezalogowany "
 "użytkownik."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:23
+#: src/login/org.freedesktop.login1.policy:137
 msgid "Allow attaching devices to seats"
 msgstr "Zezwolenie na podłączanie urządzeń do stanowisk"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:24
+#: src/login/org.freedesktop.login1.policy:138
 msgid "Authentication is required for attaching a device to a seat."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby podłączyć urządzenie do stanowiska."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:25
+#: src/login/org.freedesktop.login1.policy:148
 msgid "Flush device to seat attachments"
 msgstr "Usunięcie podłączenia urządzeń do stanowisk"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:26
+#: src/login/org.freedesktop.login1.policy:149
 msgid ""
 "Authentication is required for resetting how devices are attached to seats."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie ustawić sposób podłączenia "
 "urządzeń do stanowisk."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:27
+#: src/login/org.freedesktop.login1.policy:158
 msgid "Power off the system"
 msgstr "Wyłączenie systemu"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:28
+#: src/login/org.freedesktop.login1.policy:159
 msgid "Authentication is required for powering off the system."
 msgstr "Wymagane jest uwierzytelnienie, aby wyłączyć system."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:29
+#: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system while other users are logged in"
 msgstr "Wyłączenie systemu, kiedy są zalogowani inni użytkownicy"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:30
+#: src/login/org.freedesktop.login1.policy:170
 msgid ""
 "Authentication is required for powering off the system while other users are "
 "logged in."
@@ -304,11 +311,11 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wyłączyć system, kiedy są zalogowani "
 "inni użytkownicy."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:31
+#: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while an application asked to inhibit it"
 msgstr "Wyłączenie systemu, kiedy program zażądał jego wstrzymania"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:32
+#: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required for powering off the system while an application "
 "asked to inhibit it."
@@ -316,19 +323,19 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wyłączyć system, kiedy program zażądał "
 "jego wstrzymania."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:33
+#: src/login/org.freedesktop.login1.policy:191
 msgid "Reboot the system"
 msgstr "Ponowne uruchomienie systemu"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:34
+#: src/login/org.freedesktop.login1.policy:192
 msgid "Authentication is required for rebooting the system."
 msgstr "Wymagane jest uwierzytelnienie, aby ponownie uruchomić system."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:35
+#: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system while other users are logged in"
 msgstr "Ponowne uruchomienie systemu, kiedy są zalogowani inni użytkownicy"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:36
+#: src/login/org.freedesktop.login1.policy:203
 msgid ""
 "Authentication is required for rebooting the system while other users are "
 "logged in."
@@ -336,11 +343,11 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić system, kiedy są "
 "zalogowani inni użytkownicy."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:37
+#: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while an application asked to inhibit it"
 msgstr "Ponowne uruchomienie systemu, kiedy program zażądał jego wstrzymania"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:38
+#: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required for rebooting the system while an application "
 "asked to inhibit it."
@@ -348,19 +355,19 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić system, kiedy program "
 "zażądał jego wstrzymania."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:39
+#: src/login/org.freedesktop.login1.policy:224
 msgid "Halt the system"
 msgstr "Zatrzymanie systemu"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:40
+#: src/login/org.freedesktop.login1.policy:225
 msgid "Authentication is required for halting the system."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać system."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:41
+#: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system while other users are logged in"
 msgstr "Zatrzymanie systemu, kiedy są zalogowani inni użytkownicy"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:42
+#: src/login/org.freedesktop.login1.policy:236
 msgid ""
 "Authentication is required for halting the system while other users are "
 "logged in."
@@ -368,11 +375,11 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby zatrzymać system, kiedy są zalogowani "
 "inni użytkownicy."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:43
+#: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while an application asked to inhibit it"
 msgstr "Zatrzymanie systemu, kiedy program zażądał jego wstrzymania"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:44
+#: src/login/org.freedesktop.login1.policy:247
 msgid ""
 "Authentication is required for halting the system while an application asked "
 "to inhibit it."
@@ -380,19 +387,19 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby zatrzymać system, kiedy program zażądał "
 "jego wstrzymania."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:45
+#: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
 msgstr "Uśpienie systemu"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:46
+#: src/login/org.freedesktop.login1.policy:258
 msgid "Authentication is required for suspending the system."
 msgstr "Wymagane jest uwierzytelnienie, aby uśpić system."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:47
+#: src/login/org.freedesktop.login1.policy:267
 msgid "Suspend the system while other users are logged in"
 msgstr "Uśpienie systemu, kiedy są zalogowani inni użytkownicy"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:48
+#: src/login/org.freedesktop.login1.policy:268
 msgid ""
 "Authentication is required for suspending the system while other users are "
 "logged in."
@@ -400,11 +407,11 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby uśpić system, kiedy są zalogowani inni "
 "użytkownicy."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:49
+#: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while an application asked to inhibit it"
 msgstr "Uśpienie systemu, kiedy program zażądał jego wstrzymania"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:50
+#: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required for suspending the system while an application "
 "asked to inhibit it."
@@ -412,19 +419,19 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby uśpić system, kiedy program zażądał jego "
 "wstrzymania."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:51
+#: src/login/org.freedesktop.login1.policy:289
 msgid "Hibernate the system"
 msgstr "Hibernacja systemu"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:52
+#: src/login/org.freedesktop.login1.policy:290
 msgid "Authentication is required for hibernating the system."
 msgstr "Wymagane jest uwierzytelnienie, aby zahibernować system."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:53
+#: src/login/org.freedesktop.login1.policy:299
 msgid "Hibernate the system while other users are logged in"
 msgstr "Hibernacja systemu, kiedy są zalogowani inni użytkownicy"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:54
+#: src/login/org.freedesktop.login1.policy:300
 msgid ""
 "Authentication is required for hibernating the system while other users are "
 "logged in."
@@ -432,11 +439,11 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby zahibernować system, kiedy są zalogowani "
 "inni użytkownicy."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:55
+#: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while an application asked to inhibit it"
 msgstr "Hibernacja systemu, kiedy program zażądał jej wstrzymania"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required for hibernating the system while an application "
 "asked to inhibit it."
@@ -444,31 +451,31 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby zahibernować system, kiedy program "
 "zażądał jej wstrzymania."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:57
+#: src/login/org.freedesktop.login1.policy:321
 msgid "Manage active sessions, users and seats"
 msgstr "Zarządzanie aktywnymi sesjami, użytkownikami i stanowiskami"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:58
+#: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required for managing active sessions, users and seats."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać aktywnymi sesjami, "
 "użytkownikami i stanowiskami."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:59
+#: src/login/org.freedesktop.login1.policy:331
 msgid "Lock or unlock active sessions"
 msgstr "Zablokowanie lub odblokowanie aktywnych sesji"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:60
+#: src/login/org.freedesktop.login1.policy:332
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zablokować lub odblokować aktywne sesje."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:61
+#: src/login/org.freedesktop.login1.policy:341
 msgid "Allow indication to the firmware to boot to setup interface"
 msgstr "Wskazanie oprogramowaniu sprzętowemu, aby uruchomić interfejs ustawień"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:62
+#: src/login/org.freedesktop.login1.policy:342
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -476,86 +483,86 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wskazać oprogramowaniu sprzętowemu, że "
 "należy uruchomić interfejs ustawień."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:63
+#: src/login/org.freedesktop.login1.policy:351
 msgid "Set a wall message"
 msgstr "Ustawienie komunikatu wall"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:64
+#: src/login/org.freedesktop.login1.policy:352
 msgid "Authentication is required to set a wall message"
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić komunikat wall"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:1
+#: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
 msgstr "Logowanie do lokalnego kontenera"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:2
+#: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zalogować się do lokalnego kontenera."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+#: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
 msgstr "Logowanie do lokalnego komputera"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#: src/machine/org.freedesktop.machine1.policy:33
 msgid "Authentication is required to log into the local host."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zalogować się do lokalnego komputera."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
 msgstr "Uzyskanie powłoki w lokalnym kontenerze"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby uzyskać powłokę w lokalnym kontenerze."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+#: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
 msgstr "Uzyskanie powłoki na lokalnym komputerze"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+#: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby uzyskać powłokę na lokalnym komputerze."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+#: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
 msgstr "Uzyskanie pseudo-TTY w lokalnym kontenerze"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+#: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby uzyskać pseudo-TTY w lokalnym kontenerze."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+#: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
 msgstr "Uzyskanie pseudo-TTY na lokalnym komputerze"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+#: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby uzyskać pseudo-TTY na lokalnym "
 "komputerze."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
+#: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
 msgstr "Zarządzanie lokalnymi maszynami wirtualnymi i kontenerami"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
+#: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać lokalnymi maszynami "
 "wirtualnymi i kontenerami."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
+#: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
 msgstr "Zarządzanie lokalnymi obrazami maszyn wirtualnych i kontenerów"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
+#: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -563,27 +570,73 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać lokalnymi obrazami maszyn "
 "wirtualnych i kontenerów."
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "Badanie obrazu przenośnej usługi"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service image."
+msgstr "Wymagane jest uwierzytelnienie, aby zbadać obraz przenośnej usługi."
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "Podłączenie lub odłączenie obrazu przenośnej usługi"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby podłączyć lub odłączyć obraz przenośnej "
+"usługi."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "Usunięcie lub modyfikacja obrazu przenośnej usługi"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby usunąć lub zmodyfikować obraz przenośnej "
+"usługi."
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "Rejestracja usługi DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+msgid "Authentication is required to register a DNS-SD service"
+msgstr "Wymagane jest uwierzytelnienie, aby zarejestrować usługę DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr "Wyrejestrowanie usługi DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+msgid "Authentication is required to unregister a DNS-SD service"
+msgstr "Wymagane jest uwierzytelnienie, aby wyrejestrować usługę DNS-SD"
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Ustawienie czasu systemu"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:2
+#: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić czas systemu."
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:3
+#: src/timedate/org.freedesktop.timedate1.policy:33
 msgid "Set system timezone"
 msgstr "Ustawienie strefy czasowej systemu"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:4
+#: src/timedate/org.freedesktop.timedate1.policy:34
 msgid "Authentication is required to set the system timezone."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić strefę czasową systemu."
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:5
+#: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
 msgstr "Ustawienie RTC na lokalną strefę czasową lub strefę UTC"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:6
+#: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
@@ -591,11 +644,11 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy RTC przechowuje czas "
 "lokalny lub czas UTC."
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:7
+#: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "Włączenie lub wyłączenie synchronizacji czasu przez sieć"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:8
+#: src/timedate/org.freedesktop.timedate1.policy:54
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
@@ -603,36 +656,36 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
 
-#: ../src/core/dbus-unit.c:458
+#: src/core/dbus-unit.c:326
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby uruchomić jednostkę „$(unit)”."
 
-#: ../src/core/dbus-unit.c:459
+#: src/core/dbus-unit.c:327
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać jednostkę „$(unit)”."
 
-#: ../src/core/dbus-unit.c:460
+#: src/core/dbus-unit.c:328
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie wczytać jednostkę „$(unit)”."
 
-#: ../src/core/dbus-unit.c:461 ../src/core/dbus-unit.c:462
+#: src/core/dbus-unit.c:329 src/core/dbus-unit.c:330
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić jednostkę „$(unit)”."
 
-#: ../src/core/dbus-unit.c:569
+#: src/core/dbus-unit.c:437
 msgid "Authentication is required to kill '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby wymusić wyłączenie jednostki „$(unit)”."
 
-#: ../src/core/dbus-unit.c:600
+#: src/core/dbus-unit.c:468
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby przywrócić stan „failed” (niepowodzenia) "
 "jednostki „$(unit)”."
 
-#: ../src/core/dbus-unit.c:633
+#: src/core/dbus-unit.c:501
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić właściwości jednostki „$(unit)”."

@@ -4,7 +4,7 @@
 set -e
 TEST_DESCRIPTION="systemd-nspawn smoke test"
 TEST_NO_NSPAWN=1
-SKIP_INITRD=yes
+
 . $TEST_BASE_DIR/test-functions
 
 test_setup() {
@@ -18,12 +18,12 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
-        dracut_install busybox chmod rmdir unshare
+        dracut_install busybox chmod rmdir unshare ip
 
         cp create-busybox-container $initdir/
 
         ./create-busybox-container $initdir/nc-container
-        initdir="$initdir/nc-container" dracut_install nc
+        initdir="$initdir/nc-container" dracut_install nc ip
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
@@ -34,6 +34,8 @@ After=multi-user.target
 [Service]
 ExecStart=/test-nspawn.sh
 Type=oneshot
+StandardOutput=tty
+StandardError=tty
 EOF
 
         cat >$initdir/test-nspawn.sh <<'EOF'
@@ -105,6 +107,52 @@ function run {
        [[ "$is_user_ns_supported" = "yes" && "$3" = "yes" ]] && return 1
     else
        [[ "$is_user_ns_supported" = "no" && "$3" = "yes" ]] && return 1
+    fi
+
+    local _netns_opt="--network-namespace-path=/proc/self/ns/net"
+
+    # --network-namespace-path and network-related options cannot be used together
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" --network-interface=lo -b; then
+       return 1
+    fi
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" --network-macvlan=lo -b; then
+       return 1
+    fi
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" --network-ipvlan=lo -b; then
+       return 1
+    fi
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" --network-veth -b; then
+       return 1
+    fi
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" --network-veth-extra=lo -b; then
+       return 1
+    fi
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" --network-bridge=lo -b; then
+       return 1
+    fi
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" --network-zone=zone -b; then
+       return 1
+    fi
+
+    if UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" --private-network -b; then
+       return 1
+    fi
+
+    # test --network-namespace-path works with a network namespace created by "ip netns"
+    ip netns add nspawn_test
+    _netns_opt="--network-namespace-path=/run/netns/nspawn_test"
+    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" /bin/ip a | grep -v -E '^1: lo.*UP'
+    local r=$?
+    ip netns del nspawn_test
+
+    if [ $r -ne 0 ]; then
+       return 1
     fi
 
     return 0

@@ -1,22 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Axis Communications AB. All rights reserved.
-  Copyright (C) 2015 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
 #include <arpa/inet.h>
@@ -25,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "sd-id128.h"
 #include "sd-ipv4acd.h"
 #include "sd-ipv4ll.h"
 
@@ -70,29 +55,14 @@ struct sd_ipv4ll {
 
 static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
 
-sd_ipv4ll *sd_ipv4ll_ref(sd_ipv4ll *ll) {
-        if (!ll)
-                return NULL;
-
-        assert(ll->n_ref >= 1);
-        ll->n_ref++;
-
-        return ll;
-}
-
-sd_ipv4ll *sd_ipv4ll_unref(sd_ipv4ll *ll) {
-        if (!ll)
-                return NULL;
-
-        assert(ll->n_ref >= 1);
-        ll->n_ref--;
-
-        if (ll->n_ref > 0)
-                return NULL;
+static sd_ipv4ll *ipv4ll_free(sd_ipv4ll *ll) {
+        assert(ll);
 
         sd_ipv4acd_unref(ll->acd);
         return mfree(ll);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4ll, sd_ipv4ll, ipv4ll_free);
 
 int sd_ipv4ll_new(sd_ipv4ll **ret) {
         _cleanup_(sd_ipv4ll_unrefp) sd_ipv4ll *ll = NULL;
@@ -114,8 +84,7 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
         if (r < 0)
                 return r;
 
-        *ret = ll;
-        ll = NULL;
+        *ret = TAKE_PTR(ll);
 
         return 0;
 }

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <limits.h>
@@ -33,6 +15,7 @@ int flush_fd(int fd) {
                 .fd = fd,
                 .events = POLLIN,
         };
+        int count = 0;
 
         /* Read from the specified file descriptor, until POLLIN is not set anymore, throwing away everything
          * read. Note that some file descriptors (notable IP sockets) will trigger POLLIN even when no data can be read
@@ -52,7 +35,7 @@ int flush_fd(int fd) {
                         return -errno;
 
                 } else if (r == 0)
-                        return 0;
+                        return count;
 
                 l = read(fd, buf, sizeof(buf));
                 if (l < 0) {
@@ -61,11 +44,13 @@ int flush_fd(int fd) {
                                 continue;
 
                         if (errno == EAGAIN)
-                                return 0;
+                                return count;
 
                         return -errno;
                 } else if (l == 0)
-                        return 0;
+                        return count;
+
+                count += (int) l;
         }
 }
 
@@ -134,7 +119,7 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         assert(fd >= 0);
         assert(buf);
 
-        if (nbytes > (size_t) SSIZE_MAX)
+        if (_unlikely_(nbytes > (size_t) SSIZE_MAX))
                 return -EINVAL;
 
         do {

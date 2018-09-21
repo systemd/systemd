@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdarg.h>
@@ -226,7 +208,7 @@ static const char *const __signal_table[] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(__signal, int);
 
 const char *signal_to_string(int signo) {
-        static thread_local char buf[sizeof("RTMIN+")-1 + DECIMAL_STR_MAX(int) + 1];
+        static thread_local char buf[STRLEN("RTMIN+") + DECIMAL_STR_MAX(int) + 1];
         const char *name;
 
         name = __signal_to_string(signo);
@@ -242,36 +224,65 @@ const char *signal_to_string(int signo) {
 }
 
 int signal_from_string(const char *s) {
-        int signo;
-        int offset = 0;
-        unsigned u;
+        const char *p;
+        int signo, r;
 
+        /* Check that the input is a signal number. */
+        if (safe_atoi(s, &signo) >= 0) {
+                if (SIGNAL_VALID(signo))
+                        return signo;
+                else
+                        return -ERANGE;
+        }
+
+        /* Drop "SIG" prefix. */
+        if (startswith(s, "SIG"))
+                s += 3;
+
+        /* Check that the input is a signal name. */
         signo = __signal_from_string(s);
         if (signo > 0)
                 return signo;
 
-        if (startswith(s, "RTMIN+")) {
-                s += 6;
-                offset = SIGRTMIN;
+        /* Check that the input is RTMIN or
+         * RTMIN+n (0 <= n <= SIGRTMAX-SIGRTMIN). */
+        p = startswith(s, "RTMIN");
+        if (p) {
+                if (*p == '\0')
+                        return SIGRTMIN;
+                if (*p != '+')
+                        return -EINVAL;
+
+                r = safe_atoi(p, &signo);
+                if (r < 0)
+                        return r;
+
+                if (signo < 0 || signo > SIGRTMAX - SIGRTMIN)
+                        return -ERANGE;
+
+                return signo + SIGRTMIN;
         }
-        if (safe_atou(s, &u) >= 0) {
-                signo = (int) u + offset;
-                if (SIGNAL_VALID(signo))
-                        return signo;
+
+        /* Check that the input is RTMAX or
+         * RTMAX-n (0 <= n <= SIGRTMAX-SIGRTMIN). */
+        p = startswith(s, "RTMAX");
+        if (p) {
+                if (*p == '\0')
+                        return SIGRTMAX;
+                if (*p != '-')
+                        return -EINVAL;
+
+                r = safe_atoi(p, &signo);
+                if (r < 0)
+                        return r;
+
+                if (signo > 0 || signo < SIGRTMIN - SIGRTMAX)
+                        return -ERANGE;
+
+                return signo + SIGRTMAX;
         }
+
         return -EINVAL;
-}
-
-int signal_from_string_try_harder(const char *s) {
-        int signo;
-        assert(s);
-
-        signo = signal_from_string(s);
-        if (signo <= 0)
-                if (startswith(s, "SIG"))
-                        return signal_from_string(s+3);
-
-        return signo;
 }
 
 void nop_signal_handler(int sig) {

@@ -1,31 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
- ***/
 
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "def.h"
 #include "extract-word.h"
+#include "hexdecoct.h"
 #include "parse-util.h"
 #include "resolved-conf.h"
+#include "resolved-dnssd.h"
+#include "specifier.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "utf8.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode, "Failed to parse DNS stub listener mode setting");
 
@@ -228,6 +214,158 @@ int config_parse_search_domains(
         return 0;
 }
 
+int config_parse_dnssd_service_name(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        static const Specifier specifier_table[] = {
+                { 'b', specifier_boot_id,         NULL },
+                { 'H', specifier_host_name,       NULL },
+                { 'm', specifier_machine_id,      NULL },
+                { 'v', specifier_kernel_release,  NULL },
+                {}
+        };
+        DnssdService *s = userdata;
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(s);
+
+        if (isempty(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name can't be empty. Ignoring.");
+                return -EINVAL;
+        }
+
+        r = free_and_strdup(&s->name_template, rvalue);
+        if (r < 0)
+                return log_oom();
+
+        r = specifier_printf(s->name_template, specifier_table, NULL, &name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to replace specifiers: %m");
+
+        if (!dns_service_name_is_valid(name)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name template renders to invalid name '%s'. Ignoring.", name);
+                return -EINVAL;
+        }
+
+        return 0;
+}
+
+int config_parse_dnssd_service_type(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        DnssdService *s = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(s);
+
+        if (isempty(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Service type can't be empty. Ignoring.");
+                return -EINVAL;
+        }
+
+        if (!dnssd_srv_type_is_valid(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Service type is invalid. Ignoring.");
+                return -EINVAL;
+        }
+
+        r = free_and_strdup(&s->type, rvalue);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+        _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
+        DnssdService *s = userdata;
+        DnsTxtItem *last = NULL;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(s);
+
+        if (isempty(rvalue)) {
+                /* Flush out collected items */
+                s->txt_data_items = dnssd_txtdata_free_all(s->txt_data_items);
+                return 0;
+        }
+
+        txt_data = new0(DnssdTxtData, 1);
+        if (!txt_data)
+                return log_oom();
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                _cleanup_free_ char *key = NULL;
+                _cleanup_free_ char *value = NULL;
+                _cleanup_free_ void *decoded = NULL;
+                size_t length = 0;
+                DnsTxtItem *i;
+                int r;
+
+                r = extract_first_word(&rvalue, &word, NULL,
+                                       EXTRACT_QUOTES|EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+
+                r = split_pair(word, "=", &key, &value);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r == -EINVAL)
+                        key = TAKE_PTR(word);
+
+                if (!ascii_is_valid(key)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid syntax, ignoring: %s", key);
+                        return -EINVAL;
+                }
+
+                switch (ltype) {
+
+                case DNS_TXT_ITEM_DATA:
+                        if (value) {
+                                r = unbase64mem(value, strlen(value), &decoded, &length);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        return log_syntax(unit, LOG_ERR, filename, line, r,
+                                                          "Invalid base64 encoding, ignoring: %s", value);
+                        }
+
+                        r = dnssd_txt_item_new_from_data(key, decoded, length, &i);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                case DNS_TXT_ITEM_TEXT:
+                        r = dnssd_txt_item_new_from_string(key, value, &i);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                default:
+                        assert_not_reached("Unknown type of Txt config");
+                }
+
+                LIST_INSERT_AFTER(items, txt_data->txt, last, i);
+                last = i;
+        }
+
+        if (!LIST_IS_EMPTY(txt_data->txt)) {
+                LIST_PREPEND(items, s->txt_data_items, txt_data);
+                txt_data = NULL;
+        }
+
+        return 0;
+}
+
 int manager_parse_config_file(Manager *m) {
         int r;
 
@@ -251,6 +389,13 @@ int manager_parse_config_file(Manager *m) {
         if (m->dnssec_mode != DNSSEC_NO) {
                 log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
                 m->dnssec_mode = DNSSEC_NO;
+        }
+#endif
+
+#if ! ENABLE_DNS_OVER_TLS
+        if (m->dns_over_tls_mode != DNS_OVER_TLS_NO) {
+                log_warning("DNS-over-TLS option cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
+                m->dns_over_tls_mode = DNS_OVER_TLS_NO;
         }
 #endif
         return 0;

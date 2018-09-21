@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2015 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "libudev.h"
 
@@ -219,79 +200,59 @@ int udev_device_rename(struct udev_device *udev_device, const char *name) {
 }
 
 struct udev_device *udev_device_shallow_clone(struct udev_device *old_device) {
-        struct udev_device *device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
         assert(old_device);
 
-        device = udev_device_new(old_device->udev);
-        if (!device)
-                return NULL;
-
-        r = device_shallow_clone(old_device->device, &device->device);
+        r = device_shallow_clone(old_device->device, &device);
         if (r < 0) {
-                udev_device_unref(device);
                 errno = -r;
                 return NULL;
         }
 
-        return device;
+        return udev_device_new(old_device->udev, device);
 }
 
 struct udev_device *udev_device_clone_with_db(struct udev_device *udev_device_old) {
-        struct udev_device *udev_device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
         assert(udev_device_old);
 
-        udev_device = udev_device_new(udev_device_old->udev);
-        if (!udev_device)
-                return NULL;
-
-        r = device_clone_with_db(udev_device_old->device, &udev_device->device);
+        r = device_clone_with_db(udev_device_old->device, &device);
         if (r < 0) {
-                udev_device_unref(udev_device);
                 errno = -r;
                 return NULL;
         }
 
-        return udev_device;
+        return udev_device_new(udev_device_old->udev, device);
 }
 
 struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr, ssize_t buflen) {
-        struct udev_device *device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
-        device = udev_device_new(udev);
-        if (!device)
-                return NULL;
-
-        r = device_new_from_nulstr(&device->device, (uint8_t*)nulstr, buflen);
+        r = device_new_from_nulstr(&device, (uint8_t*)nulstr, buflen);
         if (r < 0) {
-                udev_device_unref(device);
                 errno = -r;
                 return NULL;
         }
 
-        return device;
+        return udev_device_new(udev, device);
 }
 
 struct udev_device *udev_device_new_from_synthetic_event(struct udev *udev, const char *syspath, const char *action) {
-        struct udev_device *device;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
-        device = udev_device_new(udev);
-        if (!device)
-                return NULL;
-
-        r = device_new_from_synthetic_event(&device->device, syspath, action);
+        r = device_new_from_synthetic_event(&device, syspath, action);
         if (r < 0) {
-                udev_device_unref(device);
                 errno = -r;
                 return NULL;
         }
 
-        return device;
+        return udev_device_new(udev, device);
 }
 
 int udev_device_copy_properties(struct udev_device *udev_device_dst, struct udev_device *udev_device_src) {

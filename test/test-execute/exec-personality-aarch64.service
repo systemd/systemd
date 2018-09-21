@@ -1,4 +1,4 @@
-Unit]
+[Unit]
 Description=Test for Personality=aarch64
 
 [Service]

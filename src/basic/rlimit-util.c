@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <sys/resource.h>
@@ -46,11 +28,42 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
         if (getrlimit(resource, &highest) < 0)
                 return -errno;
 
+        /* If the hard limit is unbounded anyway, then the EPERM had other reasons, let's propagate the original EPERM
+         * then */
+        if (highest.rlim_max == RLIM_INFINITY)
+                return -EPERM;
+
         fixed.rlim_cur = MIN(rlim->rlim_cur, highest.rlim_max);
         fixed.rlim_max = MIN(rlim->rlim_max, highest.rlim_max);
 
         if (setrlimit(resource, &fixed) < 0)
                 return -errno;
+
+        return 0;
+}
+
+int setrlimit_closest_all(const struct rlimit *const *rlim, int *which_failed) {
+        int i, r;
+
+        assert(rlim);
+
+        /* On failure returns the limit's index that failed in *which_failed, but only if non-NULL */
+
+        for (i = 0; i < _RLIMIT_MAX; i++) {
+                if (!rlim[i])
+                        continue;
+
+                r = setrlimit_closest(i, rlim[i]);
+                if (r < 0) {
+                        if (which_failed)
+                                *which_failed = i;
+
+                        return r;
+                }
+        }
+
+        if (which_failed)
+                *which_failed = -1;
 
         return 0;
 }
@@ -302,22 +315,48 @@ int rlimit_format(const struct rlimit *rl, char **ret) {
 }
 
 static const char* const rlimit_table[_RLIMIT_MAX] = {
-        [RLIMIT_CPU] = "LimitCPU",
-        [RLIMIT_FSIZE] = "LimitFSIZE",
-        [RLIMIT_DATA] = "LimitDATA",
-        [RLIMIT_STACK] = "LimitSTACK",
-        [RLIMIT_CORE] = "LimitCORE",
-        [RLIMIT_RSS] = "LimitRSS",
-        [RLIMIT_NOFILE] = "LimitNOFILE",
-        [RLIMIT_AS] = "LimitAS",
-        [RLIMIT_NPROC] = "LimitNPROC",
-        [RLIMIT_MEMLOCK] = "LimitMEMLOCK",
-        [RLIMIT_LOCKS] = "LimitLOCKS",
-        [RLIMIT_SIGPENDING] = "LimitSIGPENDING",
-        [RLIMIT_MSGQUEUE] = "LimitMSGQUEUE",
-        [RLIMIT_NICE] = "LimitNICE",
-        [RLIMIT_RTPRIO] = "LimitRTPRIO",
-        [RLIMIT_RTTIME] = "LimitRTTIME"
+        [RLIMIT_AS]         = "AS",
+        [RLIMIT_CORE]       = "CORE",
+        [RLIMIT_CPU]        = "CPU",
+        [RLIMIT_DATA]       = "DATA",
+        [RLIMIT_FSIZE]      = "FSIZE",
+        [RLIMIT_LOCKS]      = "LOCKS",
+        [RLIMIT_MEMLOCK]    = "MEMLOCK",
+        [RLIMIT_MSGQUEUE]   = "MSGQUEUE",
+        [RLIMIT_NICE]       = "NICE",
+        [RLIMIT_NOFILE]     = "NOFILE",
+        [RLIMIT_NPROC]      = "NPROC",
+        [RLIMIT_RSS]        = "RSS",
+        [RLIMIT_RTPRIO]     = "RTPRIO",
+        [RLIMIT_RTTIME]     = "RTTIME",
+        [RLIMIT_SIGPENDING] = "SIGPENDING",
+        [RLIMIT_STACK]      = "STACK",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
+
+int rlimit_from_string_harder(const char *s) {
+        const char *suffix;
+
+        /* The official prefix */
+        suffix = startswith(s, "RLIMIT_");
+        if (suffix)
+                return rlimit_from_string(suffix);
+
+        /* Our own unit file setting prefix */
+        suffix = startswith(s, "Limit");
+        if (suffix)
+                return rlimit_from_string(suffix);
+
+        return rlimit_from_string(s);
+}
+
+void rlimit_free_all(struct rlimit **rl) {
+        int i;
+
+        if (!rl)
+                return;
+
+        for (i = 0; i < _RLIMIT_MAX; i++)
+                rl[i] = mfree(rl[i]);
+}

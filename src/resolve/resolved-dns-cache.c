@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <net/if.h>
 
@@ -246,11 +228,7 @@ void dns_cache_prune(DnsCache *c) {
 static int dns_cache_item_prioq_compare_func(const void *a, const void *b) {
         const DnsCacheItem *x = a, *y = b;
 
-        if (x->until < y->until)
-                return -1;
-        if (x->until > y->until)
-                return 1;
-        return 0;
+        return CMP(x->until, y->until);
 }
 
 static int dns_cache_init(DnsCache *c) {
@@ -476,7 +454,7 @@ static int dns_cache_put_positive(
         if (r < 0)
                 return r;
 
-        if (log_get_max_level() >= LOG_DEBUG) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = NULL;
 
                 (void) in_addr_to_string(i->owner_family, &i->owner_address, &t);
@@ -667,12 +645,13 @@ int dns_cache_put(
          * short time.) */
 
         if (IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN)) {
-
                 if (dns_answer_size(answer) <= 0) {
-                        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+                        if (key) {
+                                char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
-                        log_debug("Not caching negative entry without a SOA record: %s",
-                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+                                log_debug("Not caching negative entry without a SOA record: %s",
+                                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                        }
                         return 0;
                 }
 
@@ -697,13 +676,8 @@ int dns_cache_put(
 
         /* Second, add in positive entries for all contained RRs */
         DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, answer) {
-                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
-                        continue;
-
-                r = rr_eligible(rr);
-                if (r < 0)
-                        return r;
-                if (r == 0)
+                if ((flags & DNS_ANSWER_CACHEABLE) == 0 ||
+                    !rr_eligible(rr))
                         continue;
 
                 r = dns_cache_put_positive(
@@ -809,7 +783,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         if (dns_type_may_redirect(k->type)) {
                 /* Check if we have a CNAME record instead */
                 i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_CNAME, n));
-                if (i)
+                if (i && i->type != DNS_CACHE_NODATA)
                         return i;
 
                 /* OK, let's look for cached DNAME records. */
@@ -818,7 +792,7 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
                                 return NULL;
 
                         i = hashmap_get(c->by_key, &DNS_RESOURCE_KEY_CONST(k->class, DNS_TYPE_DNAME, n));
-                        if (i)
+                        if (i && i->type != DNS_CACHE_NODATA)
                                 return i;
 
                         /* Jump one label ahead */

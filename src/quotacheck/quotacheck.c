@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdbool.h>
@@ -71,14 +53,6 @@ static void test_files(void) {
 }
 
 int main(int argc, char *argv[]) {
-
-        static const char * const cmdline[] = {
-                QUOTACHECK,
-                "-anug",
-                NULL
-        };
-
-        pid_t pid;
         int r;
 
         if (argc > 1) {
@@ -106,24 +80,21 @@ int main(int argc, char *argv[]) {
                         return EXIT_SUCCESS;
         }
 
-        pid = fork();
-        if (pid < 0) {
-                r = log_error_errno(errno, "fork(): %m");
+        r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        if (r < 0)
                 goto finish;
-        }
-        if (pid == 0) {
+        if (r == 0) {
+                static const char * const cmdline[] = {
+                        QUOTACHECK,
+                        "-anug",
+                        NULL
+                };
 
                 /* Child */
 
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
                 execv(cmdline[0], (char**) cmdline);
-                _exit(1); /* Operational error */
+                _exit(EXIT_FAILURE); /* Operational error */
         }
-
-        r = wait_for_terminate_and_warn("quotacheck", pid, true);
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

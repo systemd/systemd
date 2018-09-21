@@ -1,31 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sys/wait.h>
 
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "macro.h"
+#include "parse-util.h"
+#include "process-util.h"
+#include "rm-rf.h"
 #include "signal-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
+#include "tests.h"
 #include "util.h"
 
 static int prepare_handler(sd_event_source *s, void *userdata) {
@@ -97,7 +88,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
         assert_se(pid >= 0);
 
         if (pid == 0)
-                _exit(0);
+                _exit(EXIT_SUCCESS);
 
         assert_se(sd_event_add_child(sd_event_source_get_event(s), &p, pid, WEXITED, child_handler, INT_TO_PTR('f')) >= 0);
         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
@@ -196,7 +187,7 @@ static void test_basic(void) {
 
         got_a = false, got_b = false, got_c = false, got_d = 0;
 
-        /* Add a oneshot handler, trigger it, re-enable it, and trigger
+        /* Add a oneshot handler, trigger it, reenable it, and trigger
          * it again. */
         assert_se(sd_event_add_io(e, &w, d[0], EPOLLIN, io_handler, INT_TO_PTR('d')) >= 0);
         assert_se(sd_event_source_set_enabled(w, SD_EVENT_ONESHOT) >= 0);
@@ -354,14 +345,151 @@ static void test_rtqueue(void) {
         sd_event_unref(e);
 }
 
-int main(int argc, char *argv[]) {
+#define CREATE_EVENTS_MAX (70000U)
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+struct inotify_context {
+        bool delete_self_handler_called;
+        unsigned create_called[CREATE_EVENTS_MAX];
+        unsigned create_overflow;
+        unsigned n_create_events;
+};
+
+static void maybe_exit(sd_event_source *s, struct inotify_context *c) {
+        unsigned n;
+
+        assert(s);
+        assert(c);
+
+        if (!c->delete_self_handler_called)
+                return;
+
+        for (n = 0; n < 3; n++) {
+                unsigned i;
+
+                if (c->create_overflow & (1U << n))
+                        continue;
+
+                for (i = 0; i < c->n_create_events; i++)
+                        if (!(c->create_called[i] & (1U << n)))
+                                return;
+        }
+
+        sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+static int inotify_handler(sd_event_source *s, const struct inotify_event *ev, void *userdata) {
+        struct inotify_context *c = userdata;
+        const char *description;
+        unsigned bit, n;
+
+        assert_se(sd_event_source_get_description(s, &description) >= 0);
+        assert_se(safe_atou(description, &n) >= 0);
+
+        assert_se(n <= 3);
+        bit = 1U << n;
+
+        if (ev->mask & IN_Q_OVERFLOW) {
+                log_info("inotify-handler <%s>: overflow", description);
+                c->create_overflow |= bit;
+        } else if (ev->mask & IN_CREATE) {
+                unsigned i;
+
+                log_info("inotify-handler <%s>: create on %s", description, ev->name);
+
+                if (!streq(ev->name, "sub")) {
+                        assert_se(safe_atou(ev->name, &i) >= 0);
+
+                        assert_se(i < c->n_create_events);
+                        c->create_called[i] |= bit;
+                }
+        } else if (ev->mask & IN_DELETE) {
+                log_info("inotify-handler <%s>: delete of %s", description, ev->name);
+                assert_se(streq(ev->name, "sub"));
+        } else
+                assert_not_reached("unexpected inotify event");
+
+        maybe_exit(s, c);
+        return 1;
+}
+
+static int delete_self_handler(sd_event_source *s, const struct inotify_event *ev, void *userdata) {
+        struct inotify_context *c = userdata;
+
+        if (ev->mask & IN_Q_OVERFLOW) {
+                log_info("delete-self-handler: overflow");
+                c->delete_self_handler_called = true;
+        } else if (ev->mask & IN_DELETE_SELF) {
+                log_info("delete-self-handler: delete-self");
+                c->delete_self_handler_called = true;
+        } else if (ev->mask & IN_IGNORED) {
+                log_info("delete-self-handler: ignore");
+        } else
+                assert_not_reached("unexpected inotify event (delete-self)");
+
+        maybe_exit(s, c);
+        return 1;
+}
+
+static void test_inotify(unsigned n_create_events) {
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        sd_event_source *a = NULL, *b = NULL, *c = NULL, *d = NULL;
+        struct inotify_context context = {
+                .n_create_events = n_create_events,
+        };
+        sd_event *e = NULL;
+        const char *q;
+        unsigned i;
+
+        assert_se(sd_event_default(&e) >= 0);
+
+        assert_se(mkdtemp_malloc("/tmp/test-inotify-XXXXXX", &p) >= 0);
+
+        assert_se(sd_event_add_inotify(e, &a, p, IN_CREATE|IN_ONLYDIR, inotify_handler, &context) >= 0);
+        assert_se(sd_event_add_inotify(e, &b, p, IN_CREATE|IN_DELETE|IN_DONT_FOLLOW, inotify_handler, &context) >= 0);
+        assert_se(sd_event_source_set_priority(b, SD_EVENT_PRIORITY_IDLE) >= 0);
+        assert_se(sd_event_source_set_priority(b, SD_EVENT_PRIORITY_NORMAL) >= 0);
+        assert_se(sd_event_add_inotify(e, &c, p, IN_CREATE|IN_DELETE|IN_EXCL_UNLINK, inotify_handler, &context) >= 0);
+        assert_se(sd_event_source_set_priority(c, SD_EVENT_PRIORITY_IDLE) >= 0);
+
+        assert_se(sd_event_source_set_description(a, "0") >= 0);
+        assert_se(sd_event_source_set_description(b, "1") >= 0);
+        assert_se(sd_event_source_set_description(c, "2") >= 0);
+
+        q = strjoina(p, "/sub");
+        assert_se(touch(q) >= 0);
+        assert_se(sd_event_add_inotify(e, &d, q, IN_DELETE_SELF, delete_self_handler, &context) >= 0);
+
+        for (i = 0; i < n_create_events; i++) {
+                char buf[DECIMAL_STR_MAX(unsigned)+1];
+                _cleanup_free_ char *z;
+
+                xsprintf(buf, "%u", i);
+                assert_se(z = strjoin(p, "/", buf));
+
+                assert_se(touch(z) >= 0);
+        }
+
+        assert_se(unlink(q) >= 0);
+
+        assert_se(sd_event_loop(e) >= 0);
+
+        sd_event_source_unref(a);
+        sd_event_source_unref(b);
+        sd_event_source_unref(c);
+        sd_event_source_unref(d);
+
+        sd_event_unref(e);
+}
+
+int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
 
         test_basic();
         test_sd_event_now();
         test_rtqueue();
+
+        test_inotify(100); /* should work without overflow */
+        test_inotify(33000); /* should trigger a q overflow */
 
         return 0;
 }

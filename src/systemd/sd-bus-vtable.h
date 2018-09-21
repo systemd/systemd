@@ -3,10 +3,6 @@
 #define foosdbusvtablehfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -157,8 +153,7 @@ struct sd_bus_vtable {
         {                                                               \
                 .type = _SD_BUS_VTABLE_END,                             \
                 .flags = 0,                                             \
-                .x = {                                                  \
-                },                                                      \
+                .x = { { 0 } },                                         \
         }
 
 _SD_END_DECLARATIONS;

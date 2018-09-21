@@ -1,28 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-  Copyright 2013 Kay Sievers
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "acpi-fpdt.h"
 #include "boot-timestamps.h"
 #include "efivars.h"
 #include "log.h"
+#include "tests.h"
 #include "util.h"
 
 static int test_acpi_fpdt(void) {
@@ -100,8 +82,7 @@ static int test_boot_timestamps(void) {
 int main(int argc, char* argv[]) {
         int p, q, r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         p = test_acpi_fpdt();
         assert(p >= 0);
@@ -110,5 +91,8 @@ int main(int argc, char* argv[]) {
         r = test_boot_timestamps();
         assert(r >= 0);
 
-        return (p > 0 || q > 0 || r >> 0) ? EXIT_SUCCESS : EXIT_TEST_SKIP;
+        if (p == 0 && q == 0 && r == 0)
+                return log_tests_skipped("access to firmware variables not possible");
+
+        return EXIT_SUCCESS;
 }

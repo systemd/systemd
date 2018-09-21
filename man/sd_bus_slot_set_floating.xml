@@ -1,0 +1,118 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_slot_set_floating" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_slot_set_floating</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_slot_set_floating</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_slot_set_floating</refname>
+    <refname>sd_bus_slot_get_floating</refname>
+
+    <refpurpose>Control whether a bus slot object is "floating".</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_slot_set_floating</function></funcdef>
+        <paramdef>sd_bus_slot *<parameter>slot</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_slot_get_floating</function></funcdef>
+        <paramdef>sd_bus_slot *<parameter>slot</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_slot_set_floating()</function> controls whether the specified bus slot object
+    <parameter>slot</parameter> shall be "floating" or not. A floating bus slot object's lifetime is bound to the
+    lifetime of the bus object it is associated with, meaning that it remains allocated as long as the bus object
+    itself and is freed automatically when the bus object is freed. Regular (i.e. non-floating) bus slot objects keep
+    the bus referenced, hence the bus object remains allocated at least as long as there remains at least one
+    referenced bus slot object around. The floating state hence controls the direction of referencing between the bus
+    object and the bus slot objects: if floating the bus pins the bus slot, and otherwise the bus slot pins the bus
+    objects. Use <function>sd_bus_slot_set_floating()</function> to switch between both modes: if the
+    <parameter>b</parameter> parameter is zero, the slot object is considered floating, otherwise it is made a regular
+    (non-floating) slot object.</para>
+
+    <para>Bus slot objects may be allocated with calls such as
+    <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If the
+    <parameter>slot</parameter> of these functions is non-<constant>NULL</constant> the slot object will be of the
+    regular kind (i.e. non-floating), otherwise it will be created floating. With
+    <function>sd_bus_slot_set_floating()</function> a bus slot object allocated as regular can be converted into a
+    floating object and back. This is particularly useful for creating a bus slot object, then changing parameters of
+    it, and then turning it into a floating object, whose lifecycle is managed by the bus object.</para>
+
+    <para><function>sd_bus_slot_get_floating()</function> returns the current floating state of the specified bus slot
+    object. It returns negative on error, zero if the bus slot object is a regular (non-floating) object and positive
+    otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return 0 or a positive integer. On failure, they return a negative errno-style
+    error code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>The <parameter>slot</parameter> parameter is <constant>NULL</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ECHILD</constant></term>
+
+        <listitem><para>The bus connection has been created in a different process.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ESTALE</constant></term>
+
+        <listitem><para>The bus object the specified bus slot object is associated with has already been freed, and
+        hence no change in the floating state can be made anymore.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_set_destroy_callback</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

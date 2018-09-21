@@ -1,29 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
-#include <libmount.h>
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "libudev.h"
 #include "sd-bus.h"
 #include "sd-event.h"
 
@@ -33,6 +14,9 @@
 #include "ip-address-access.h"
 #include "list.h"
 #include "ratelimit.h"
+
+struct libmnt_monitor;
+typedef struct Unit Unit;
 
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
@@ -70,6 +54,27 @@ typedef enum StatusType {
         STATUS_TYPE_EMERGENCY,
 } StatusType;
 
+/* Notes:
+ * 1. TIMESTAMP_FIRMWARE, TIMESTAMP_LOADER, TIMESTAMP_KERNEL, TIMESTAMP_INITRD,
+ *    TIMESTAMP_SECURITY_START, and TIMESTAMP_SECURITY_FINISH are set only when
+ *    the manager is system and not running under container environment.
+ *
+ * 2. The monotonic timestamp of TIMESTAMP_KERNEL is always zero.
+ *
+ * 3. The realtime timestamp of TIMESTAMP_KERNEL will be unset if the system does not
+ *    have RTC.
+ *
+ * 4. TIMESTAMP_FIRMWARE and TIMESTAMP_LOADER will be unset if the system does not
+ *    have RTC, or systemd is built without EFI support.
+ *
+ * 5. The monotonic timestamps of TIMESTAMP_FIRMWARE and TIMESTAMP_LOADER are stored as
+ *    negative of the actual value.
+ *
+ * 6. TIMESTAMP_USERSPACE is the timestamp of when the manager was started.
+ *
+ * 7. TIMESTAMP_INITRD_* are set only when the system is booted with an initrd.
+ */
+
 typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_FIRMWARE,
         MANAGER_TIMESTAMP_LOADER,
@@ -84,6 +89,13 @@ typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_GENERATORS_FINISH,
         MANAGER_TIMESTAMP_UNITS_LOAD_START,
         MANAGER_TIMESTAMP_UNITS_LOAD_FINISH,
+
+        MANAGER_TIMESTAMP_INITRD_SECURITY_START,
+        MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH,
+        MANAGER_TIMESTAMP_INITRD_GENERATORS_START,
+        MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH,
+        MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START,
+        MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH,
         _MANAGER_TIMESTAMP_MAX,
         _MANAGER_TIMESTAMP_INVALID = -1,
 } ManagerTimestamp;
@@ -96,10 +108,11 @@ typedef enum ManagerTimestamp {
 
 enum {
         /* 0 = run normally */
-        MANAGER_TEST_RUN_MINIMAL = 1,        /* run test w/o generators */
-        MANAGER_TEST_RUN_ENV_GENERATORS = 2, /* also run env generators  */
-        MANAGER_TEST_RUN_GENERATORS = 4,     /* also run unit generators */
-        MANAGER_TEST_FULL = MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
+        MANAGER_TEST_RUN_MINIMAL        = 1 << 1,  /* create basic data structures */
+        MANAGER_TEST_RUN_BASIC          = 1 << 2,  /* interact with the environment */
+        MANAGER_TEST_RUN_ENV_GENERATORS = 1 << 3,  /* also run env generators  */
+        MANAGER_TEST_RUN_GENERATORS     = 1 << 4,  /* also run unit generators */
+        MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
 };
 assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
 
@@ -143,16 +156,22 @@ struct Manager {
         /* Units whose cgroup ran empty */
         LIST_HEAD(Unit, cgroup_empty_queue);
 
+        /* Target units whose default target dependencies haven't been set yet */
+        LIST_HEAD(Unit, target_deps_queue);
+
+        /* Units that might be subject to StopWhenUnneeded= clean-up */
+        LIST_HEAD(Unit, stop_when_unneeded_queue);
+
         sd_event *event;
 
-        /* We use two hash tables here, since the same PID might be
-         * watched by two different units: once the unit that forked
-         * it off, and possibly a different unit to which it was
-         * joined as cgroup member. Since we know that it is either
-         * one or two units for each PID we just use to hashmaps
-         * here. */
-        Hashmap *watch_pids1;  /* pid => Unit object n:1 */
-        Hashmap *watch_pids2;  /* pid => Unit object n:1 */
+        /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in
+         * the same PID and multiple PIDs to be relevant to the same unit. Since in most cases only a single unit will
+         * be interested in the same PID we use a somewhat special encoding here: the first unit interested in a PID is
+         * stored directly in the hashmap, keyed by the PID unmodified. If there are other units interested too they'll
+         * be stored in a NULL-terminated array, and keyed by the negative PID. This is safe as pid_t is signed and
+         * negative PIDs are not used for regular processes but process groups, which we don't care about in this
+         * context, but this allows us to use the negative range for our own purposes. */
+        Hashmap *watch_pids;  /* pid => unit as well as -pid => array of units */
 
         /* A set contains all units which cgroup should be refreshed after startup */
         Set *startup_units;
@@ -172,13 +191,19 @@ struct Manager {
         int signal_fd;
         sd_event_source *signal_event_source;
 
+        sd_event_source *sigchld_event_source;
+
         int time_change_fd;
         sd_event_source *time_change_event_source;
+
+        sd_event_source *timezone_change_event_source;
 
         sd_event_source *jobs_in_progress_event_source;
 
         int user_lookup_fds[2];
         sd_event_source *user_lookup_event_source;
+
+        sd_event_source *sync_bus_names_event_source;
 
         UnitFileScope unit_file_scope;
         LookupPaths lookup_paths;
@@ -190,8 +215,6 @@ struct Manager {
         usec_t shutdown_watchdog;
 
         dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
-
-        struct udev* udev;
 
         /* Data specific to the device subsystem */
         struct udev_monitor* udev_monitor;
@@ -253,6 +276,10 @@ struct Manager {
 
         unsigned gc_marker;
 
+        /* The stat() data the last time we saw /etc/localtime */
+        usec_t etc_localtime_mtime;
+        bool etc_localtime_accessible:1;
+
         /* Flags */
         ManagerExitCode exit_code:5;
 
@@ -261,7 +288,14 @@ struct Manager {
 
         bool taint_usr:1;
 
+        /* Have we already sent out the READY=1 notification? */
         bool ready_sent:1;
+
+        /* Have we already printed the taint line if necessary? */
+        bool taint_logged:1;
+
+        /* Have we ever changed the "kernel.pid_max" sysctl? */
+        bool sysctl_pid_max_changed:1;
 
         unsigned test_run_flags:8;
 
@@ -273,6 +307,7 @@ struct Manager {
         ShowStatus show_status;
         char *confirm_spawn;
         bool no_console_output;
+        bool service_watchdogs;
 
         ExecOutput default_std_output, default_std_error;
 
@@ -291,10 +326,18 @@ struct Manager {
         uint64_t default_tasks_max;
         usec_t default_timer_accuracy_usec;
 
+        int original_log_level;
+        LogTarget original_log_target;
+        bool log_level_overridden:1;
+        bool log_target_overridden:1;
+
         struct rlimit *rlimit[_RLIMIT_MAX];
 
         /* non-zero if we are reloading or reexecuting, */
         int n_reloading;
+        /* A set which contains all jobs that started before reload and finished
+         * during it */
+        Set *pending_finished_jobs;
 
         unsigned n_installed_jobs;
         unsigned n_failed_jobs;
@@ -331,6 +374,9 @@ struct Manager {
         Hashmap *uid_refs;
         Hashmap *gid_refs;
 
+        /* ExecRuntime, indexed by their owner unit id */
+        Hashmap *exec_runtime_by_id;
+
         /* When the user hits C-A-D more than 7 times per 2s, do something immediately... */
         RateLimit ctrl_alt_del_ratelimit;
         EmergencyAction cad_burst_action;
@@ -343,8 +389,13 @@ struct Manager {
 
         int first_boot; /* tri-state */
 
-        /* prefixes of e.g. RuntimeDirectory= */
+        /* Prefixes of e.g. RuntimeDirectory= */
         char *prefix[_EXEC_DIRECTORY_TYPE_MAX];
+
+        /* Used in the SIGCHLD and sd_notify() message invocation logic to avoid that we dispatch the same event
+         * multiple times on the same unit. */
+        unsigned sigchldgen;
+        unsigned notifygen;
 };
 
 #define MANAGER_IS_SYSTEM(m) ((m)->unit_file_scope == UNIT_FILE_SYSTEM)
@@ -354,10 +405,13 @@ struct Manager {
 
 #define MANAGER_IS_FINISHED(m) (dual_timestamp_is_set((m)->timestamps + MANAGER_TIMESTAMP_FINISH))
 
+/* The exit code is set to OK as soon as we enter the main loop, and set otherwise as soon as we are done with it */
+#define MANAGER_IS_RUNNING(m) ((m)->exit_code == MANAGER_OK)
+
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
-void manager_enumerate(Manager *m);
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
 
 Job *manager_get_job(Manager *m, uint32_t id);
@@ -367,6 +421,7 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
 int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
 int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
+int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, Unit **ret);
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u);
 
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_error *e, Job **_ret);
@@ -404,6 +459,7 @@ bool manager_unit_inactive_or_pending(Manager *m, const char *name);
 
 void manager_check_finished(Manager *m);
 
+void manager_recheck_dbus(Manager *m);
 void manager_recheck_journal(Manager *m);
 
 void manager_set_show_status(Manager *m, ShowStatus mode);
@@ -413,8 +469,6 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
 void manager_flip_auto_status(Manager *m, bool enable);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
-
-void manager_set_exec_params(Manager *m, ExecParameters *p);
 
 ManagerState manager_state(Manager *m);
 
@@ -435,6 +489,17 @@ void manager_deserialize_uid_refs_one(Manager *m, const char *value);
 void manager_serialize_gid_refs(Manager *m, FILE *f);
 void manager_deserialize_gid_refs_one(Manager *m, const char *value);
 
+char *manager_taint_string(Manager *m);
+
+void manager_ref_console(Manager *m);
+void manager_unref_console(Manager *m);
+
+void manager_override_log_level(Manager *m, int level);
+void manager_restore_original_log_level(Manager *m);
+
+void manager_override_log_target(Manager *m, LogTarget target);
+void manager_restore_original_log_target(Manager *m);
+
 const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;
 
@@ -444,3 +509,4 @@ void manager_disable_confirm_spawn(void);
 
 const char *manager_timestamp_to_string(ManagerTimestamp m) _const_;
 ManagerTimestamp manager_timestamp_from_string(const char *s) _pure_;
+ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s);

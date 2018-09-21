@@ -1,23 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
+#include "condition.h"
 #include "conf-parser.h"
 #include "networkd-util.h"
 #include "parse-util.h"
@@ -98,4 +81,24 @@ int config_parse_address_family_boolean_with_kernel(
         *fwd = s;
 
         return 0;
+}
+
+/* Router lifetime can be set with netlink interface since kernel >= 4.5
+ * so for the supported kernel we dont need to expire routes in userspace */
+int kernel_route_expiration_supported(void) {
+        static int cached = -1;
+        int r;
+
+        if (cached < 0) {
+                Condition c = {
+                        .type = CONDITION_KERNEL_VERSION,
+                        .parameter = (char *) ">= 4.5"
+                };
+                r = condition_test(&c);
+                if (r < 0)
+                        return r;
+
+                cached = r;
+        }
+        return cached;
 }

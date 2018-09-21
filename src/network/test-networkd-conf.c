@@ -1,50 +1,40 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
+#include "ether-addr-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
+#include "set.h"
 #include "string-util.h"
-#include "ether-addr-util.h"
 
+#include "network-internal.h"
 #include "networkd-conf.h"
 #include "networkd-network.h"
-#include "network-internal.h"
 
-static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected) {
-        DUIDType actual = 0;
+static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected, usec_t expected_time) {
+        DUID actual = {};
         int r;
 
         r = config_parse_duid_type("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &actual, NULL);
-        log_info_errno(r, "\"%s\" → %d (%m)", rvalue, actual);
+        log_info_errno(r, "\"%s\" → %d (%m)", rvalue, actual.type);
         assert_se(r == ret);
-        assert_se(expected == actual);
+        assert_se(expected == actual.type);
+        if (expected == DUID_TYPE_LLT)
+                assert_se(expected_time == actual.llt_time);
 }
 
 static void test_config_parse_duid_type(void) {
-        test_config_parse_duid_type_one("", 0, 0);
-        test_config_parse_duid_type_one("link-layer-time", 0, DUID_TYPE_LLT);
-        test_config_parse_duid_type_one("vendor", 0, DUID_TYPE_EN);
-        test_config_parse_duid_type_one("link-layer", 0, DUID_TYPE_LL);
-        test_config_parse_duid_type_one("uuid", 0, DUID_TYPE_UUID);
-        test_config_parse_duid_type_one("foo", 0, 0);
+        test_config_parse_duid_type_one("", 0, 0, 0);
+        test_config_parse_duid_type_one("link-layer-time", 0, DUID_TYPE_LLT, 0);
+        test_config_parse_duid_type_one("link-layer-time:2000-01-01 00:00:00 UTC", 0, DUID_TYPE_LLT, (usec_t) 946684800000000);
+        test_config_parse_duid_type_one("vendor", 0, DUID_TYPE_EN, 0);
+        test_config_parse_duid_type_one("vendor:2000-01-01 00:00:00 UTC", 0, 0, 0);
+        test_config_parse_duid_type_one("link-layer", 0, DUID_TYPE_LL, 0);
+        test_config_parse_duid_type_one("link-layer:2000-01-01 00:00:00 UTC", 0, 0, 0);
+        test_config_parse_duid_type_one("uuid", 0, DUID_TYPE_UUID, 0);
+        test_config_parse_duid_type_one("uuid:2000-01-01 00:00:00 UTC", 0, 0, 0);
+        test_config_parse_duid_type_one("foo", 0, 0, 0);
+        test_config_parse_duid_type_one("foo:2000-01-01 00:00:00 UTC", 0, 0, 0);
 }
 
 static void test_config_parse_duid_rawdata_one(const char *rvalue, int ret, const DUID* expected) {
@@ -71,11 +61,27 @@ static void test_config_parse_hwaddr_one(const char *rvalue, int ret, const stru
         assert_se(ret == r);
         if (expected) {
                 assert_se(actual);
-                assert(ether_addr_equal(expected, actual));
-        } else {
+                assert_se(ether_addr_equal(expected, actual));
+        } else
                 assert_se(actual == NULL);
-        }
+
         free(actual);
+}
+
+static void test_config_parse_hwaddrs_one(const char *rvalue, const struct ether_addr* list, size_t n) {
+        _cleanup_set_free_free_ Set *s = NULL;
+        size_t m;
+
+        assert_se(config_parse_hwaddrs("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &s, NULL) == 0);
+        assert_se(set_size(s) == n);
+
+        for (m = 0; m < n; m++) {
+                _cleanup_free_ struct ether_addr *q = NULL;
+
+                assert_se(q = set_remove(s, &list[m]));
+        }
+
+        assert_se(set_size(s) == 0);
 }
 
 #define BYTES_0_128 "0:1:2:3:4:5:6:7:8:9:a:b:c:d:e:f:10:11:12:13:14:15:16:17:18:19:1a:1b:1c:1d:1e:1f:20:21:22:23:24:25:26:27:28:29:2a:2b:2c:2d:2e:2f:30:31:32:33:34:35:36:37:38:39:3a:3b:3c:3d:3e:3f:40:41:42:43:44:45:46:47:48:49:4a:4b:4c:4d:4e:4f:50:51:52:53:54:55:56:57:58:59:5a:5b:5c:5d:5e:5f:60:61:62:63:64:65:66:67:68:69:6a:6b:6c:6d:6e:6f:70:71:72:73:74:75:76:77:78:79:7a:7b:7c:7d:7e:7f:80"
@@ -103,12 +109,13 @@ static void test_config_parse_hwaddr(void) {
                 { .ether_addr_octet = { 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff } },
                 { .ether_addr_octet = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab } },
         };
+
         test_config_parse_hwaddr_one("", 0, NULL);
         test_config_parse_hwaddr_one("no:ta:ma:ca:dd:re", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:fx", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff", 0, &t[0]);
         test_config_parse_hwaddr_one(" aa:bb:cc:dd:ee:ff", 0, &t[0]);
-        test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff \t\n", 0, &t[0]);
+        test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff \t\n", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff \t\nxxx", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc: dd:ee:ff", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:d d:ee:ff", 0, NULL);
@@ -129,6 +136,36 @@ static void test_config_parse_hwaddr(void) {
         test_config_parse_hwaddr_one("aabbccddee:ff", 0, NULL);
         test_config_parse_hwaddr_one("012345.6789ab", 0, NULL);
         test_config_parse_hwaddr_one("123.4567.89ab", 0, &t[1]);
+
+        test_config_parse_hwaddrs_one("", t, 0);
+        test_config_parse_hwaddrs_one("no:ta:ma:ca:dd:re", t, 0);
+        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee:fx", t, 0);
+        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee:ff", t, 1);
+        test_config_parse_hwaddrs_one(" aa:bb:cc:dd:ee:ff", t, 1);
+        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee:ff \t\n", t, 1);
+        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee:ff \t\nxxx", t, 1);
+        test_config_parse_hwaddrs_one("aa:bb:cc: dd:ee:ff", t, 0);
+        test_config_parse_hwaddrs_one("aa:bb:cc:d d:ee:ff", t, 0);
+        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee", t, 0);
+        test_config_parse_hwaddrs_one("9:aa:bb:cc:dd:ee:ff", t, 0);
+        test_config_parse_hwaddrs_one("aa:bb:cc:dd:ee:ff:gg", t, 0);
+        test_config_parse_hwaddrs_one("aa:Bb:CC:dd:ee:ff", t, 1);
+        test_config_parse_hwaddrs_one("01:23:45:67:89:aB", &t[1], 1);
+        test_config_parse_hwaddrs_one("1:23:45:67:89:aB", &t[1], 1);
+        test_config_parse_hwaddrs_one("aa-bb-cc-dd-ee-ff", t, 1);
+        test_config_parse_hwaddrs_one("AA-BB-CC-DD-EE-FF", t, 1);
+        test_config_parse_hwaddrs_one("01-23-45-67-89-ab", &t[1], 1);
+        test_config_parse_hwaddrs_one("aabb.ccdd.eeff", t, 1);
+        test_config_parse_hwaddrs_one("0123.4567.89ab", &t[1], 1);
+        test_config_parse_hwaddrs_one("123.4567.89ab.", t, 0);
+        test_config_parse_hwaddrs_one("aabbcc.ddeeff", t, 0);
+        test_config_parse_hwaddrs_one("aabbccddeeff", t, 0);
+        test_config_parse_hwaddrs_one("aabbccddee:ff", t, 0);
+        test_config_parse_hwaddrs_one("012345.6789ab", t, 0);
+        test_config_parse_hwaddrs_one("123.4567.89ab", &t[1], 1);
+
+        test_config_parse_hwaddrs_one("123.4567.89ab aa:bb:cc:dd:ee:ff 01-23-45-67-89-ab aa:Bb:CC:dd:ee:ff", t, 2);
+        test_config_parse_hwaddrs_one("123.4567.89ab aa:bb:cc:dd:ee:fx hogehoge 01-23-45-67-89-ab aaaa aa:Bb:CC:dd:ee:ff", t, 2);
 }
 
 int main(int argc, char **argv) {

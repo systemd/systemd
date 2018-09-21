@@ -3,7 +3,7 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2010 Ran Benita
+# Copyright © 2010 Ran Benita
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -39,25 +39,25 @@ _journalctl() {
                 [STANDALONE]='-a --all --full --system --user
                               --disk-usage -f --follow --header
                               -h --help -l --local --new-id128 -m --merge --no-pager
-                              --no-tail -q --quiet --setup-keys --this-boot --verify
+                              --no-tail -q --quiet --setup-keys --verify
                               --version --list-catalog --update-catalog --list-boots
                               --show-cursor --dmesg -k --pager-end -e -r --reverse
                               --utc -x --catalog --no-full --force --dump-catalog
-                              --flush --rotate --sync --no-hostname'
-                       [ARG]='-b --boot --this-boot -D --directory --file -F --field
+                              --flush --rotate --sync --no-hostname -N --fields'
+                       [ARG]='-b --boot -D --directory --file -F --field -t --identifier
                               -M --machine -o --output -u --unit --user-unit -p --priority
-                              --vacuum-size --vacuum-time --vacuum-files'
+                              --root --case-sensitive'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
-                              --after-cursor --verify-key -t --identifier
-                              --root'
+                              --after-cursor --verify-key -g --grep
+                              --vacuum-size --vacuum-time --vacuum-files --output-fields'
         )
 
         if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
                 case $prev in
-                        --boot|--this-boot|-b)
+                        --boot|-b)
                                 comps=$(journalctl -F '_BOOT_ID' 2>/dev/null)
                         ;;
-                        --directory|-D)
+                        --directory|-D|--root)
                                 comps=$(compgen -d -- "$cur")
                                 compopt -o filenames
                         ;;
@@ -66,7 +66,7 @@ _journalctl() {
                                 compopt -o filenames
                         ;;
                         --output|-o)
-                                comps='short short-full short-iso short-precise short-monotonic short-unix verbose export json json-pretty json-sse cat'
+                                comps='short short-full short-iso short-iso-precise short-precise short-monotonic short-unix verbose export json json-pretty json-sse cat with-unit'
                         ;;
                         --field|-F)
                                 comps=$(journalctl --fields | sort 2>/dev/null)
@@ -85,6 +85,9 @@ _journalctl() {
                         ;;
                         --identifier|-t)
                                 comps=$(journalctl -F 'SYSLOG_IDENTIFIER' 2>/dev/null)
+                        ;;
+                        --case-sensitive)
+                                comps='yes no'
                         ;;
                         *)
                                 return 0

@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
- ***/
-
 #include <netinet/in.h>
 
 #include "bitmap.h"
@@ -57,6 +38,8 @@ enum {
         DNSSEC_ALGORITHM_ECC_GOST = 12,        /* RFC 5933 */
         DNSSEC_ALGORITHM_ECDSAP256SHA256 = 13, /* RFC 6605 */
         DNSSEC_ALGORITHM_ECDSAP384SHA384 = 14, /* RFC 6605 */
+        DNSSEC_ALGORITHM_ED25519 = 15,         /* RFC 8080 */
+        DNSSEC_ALGORITHM_ED448 = 16,           /* RFC 8080 */
         DNSSEC_ALGORITHM_INDIRECT = 252,
         DNSSEC_ALGORITHM_PRIVATEDNS,
         DNSSEC_ALGORITHM_PRIVATEOID,
@@ -97,7 +80,6 @@ struct DnsResourceKey {
                 .type = t,                              \
                 ._name = (char*) n,                     \
         })
-
 
 struct DnsTxtItem {
         size_t length;
@@ -262,7 +244,7 @@ struct DnsResourceRecord {
         };
 };
 
-static inline const void* DNS_RESOURCE_RECORD_RDATA(DnsResourceRecord *rr) {
+static inline const void* DNS_RESOURCE_RECORD_RDATA(const DnsResourceRecord *rr) {
         if (!rr)
                 return NULL;
 
@@ -273,7 +255,7 @@ static inline const void* DNS_RESOURCE_RECORD_RDATA(DnsResourceRecord *rr) {
         return (uint8_t*) rr->wire_format + rr->wire_format_rdata_offset;
 }
 
-static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(DnsResourceRecord *rr) {
+static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(const DnsResourceRecord *rr) {
         if (!rr)
                 return 0;
         if (!rr->wire_format)
@@ -283,7 +265,7 @@ static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(DnsResourceRecord *rr) {
         return rr->wire_format_size - rr->wire_format_rdata_offset;
 }
 
-static inline uint8_t DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(DnsResourceRecord *rr) {
+static inline uint8_t DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(const DnsResourceRecord *rr) {
         assert(rr);
         assert(rr->key->type == DNS_TYPE_OPT);
 
@@ -298,6 +280,7 @@ DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
 const char* dns_resource_key_name(const DnsResourceKey *key);
 bool dns_resource_key_is_address(const DnsResourceKey *key);
+bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
 int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, const char *search_domain);
 int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain);
@@ -341,6 +324,7 @@ int dns_resource_record_clamp_ttl(DnsResourceRecord **rr, uint32_t max_ttl);
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
+int dns_txt_item_new_empty(DnsTxtItem **ret);
 
 void dns_resource_record_hash_func(const void *i, struct siphash *state);
 

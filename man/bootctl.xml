@@ -4,21 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="bootctl" conditional='ENABLE_EFI'
@@ -26,15 +11,6 @@
   <refentryinfo>
     <title>bootctl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Kay</firstname>
-        <surname>Sievers</surname>
-        <email>kay@vrfy.org</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -49,51 +25,19 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> status</command>
-    </cmdsynopsis>
-    <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> list</command>
-    </cmdsynopsis>
-    <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> update</command>
-    </cmdsynopsis>
-    <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> install</command>
-    </cmdsynopsis>
-    <cmdsynopsis>
-      <command>bootctl <arg choice="opt" rep="repeat">OPTIONS</arg> remove</command>
+      <command>bootctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><command>bootctl</command> checks, updates,
-    installs or removes the boot loader from the current
-    system.</para>
-
-    <para><command>bootctl status</command> checks and prints the
-    currently installed versions of the boot loader binaries and
-    all current EFI boot variables.</para>
-
-    <para><command>bootctl list</command> displays all configured boot loader entries.
-    </para>
-
-    <para><command>bootctl update</command> updates all installed versions of systemd-boot, if the current version is
-    newer than the version installed in the EFI system partition. This also includes the EFI default/fallback loader at
-    <filename>/EFI/BOOT/BOOT*.EFI</filename>. A systemd-boot entry in the EFI boot variables is created if there is no
-    current entry. The created entry will be added to the end of the boot order list.</para>
-
-    <para><command>bootctl install</command> installs systemd-boot into the EFI system partition. A copy of
-    systemd-boot will be stored as the EFI default/fallback loader at <filename>/EFI/BOOT/BOOT*.EFI</filename>. A
-    systemd-boot entry in the EFI boot variables is created and added to the top of the boot order list.</para>
-
-    <para><command>bootctl remove</command> removes all installed
-    versions of systemd-boot from the EFI system partition, and removes
-    systemd-boot from the EFI boot variables.</para>
-
-    <para>If no command is passed, <command>status</command> is
-    implied.</para>
+    <para><command>bootctl</command> can check the EFI boot loader status, list
+    available entries, and install, update, or remove the
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    boot loader on the current system.</para>
   </refsect1>
 
   <refsect1>
@@ -126,16 +70,64 @@
   </refsect1>
 
   <refsect1>
+    <title>Commands</title>
+    <variablelist>
+
+      <varlistentry>
+        <term><option>status</option></term>
+
+        <listitem><para>Shows the currently installed versions of the boot loader binaries and all current
+        EFI boot variables. If no command is specified, this is the implied default.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>list</option></term>
+
+        <listitem><para>Shows all configured boot loader entries.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>update</option></term>
+
+        <listitem><para>Updates all installed versions of
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        if the current version is newer than the version installed in the EFI system
+        partition. This also includes the EFI default/fallback loader at
+        <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. A
+        systemd-boot entry in the EFI boot variables is created if there is no current
+        entry. The created entry will be added to the end of the boot order list.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>install</option></term>
+
+        <listitem><para>Installs systemd-boot into the EFI system partition. A copy of systemd-boot will
+        be stored as the EFI default/fallback loader at
+        <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. A systemd-boot entry in
+        the EFI boot variables is created and added to the top of the boot order list.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>remove</option></term>
+
+        <listitem><para>Removes all installed versions of systemd-boot from the EFI system partition,
+        and removes systemd-boot from the EFI boot variables.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Exit status</title>
-    <para>On success, 0 is returned, a non-zero failure
-    code otherwise.</para>
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
   </refsect1>
 
   <refsect1>
     <title>See Also</title>
     <para>
-      <ulink url="https://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Systemd boot loader interface</ulink>
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <ulink url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader Specification</ulink>,
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>
     </para>
   </refsect1>
 </refentry>

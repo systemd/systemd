@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <net/if.h>
 
 #include "in-addr-util.h"
@@ -72,6 +53,7 @@ struct Link {
 
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
+        DnsOverTlsMode dns_over_tls_mode;
         DnssecMode dnssec_mode;
         Set *dnssec_negative_trust_anchors;
 
@@ -103,6 +85,7 @@ void link_add_rrs(Link *l, bool force_remove);
 
 void link_flush_settings(Link *l);
 void link_set_dnssec_mode(Link *l, DnssecMode mode);
+void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode);
 void link_allocate_scopes(Link *l);
 
 DnsServer* link_set_dns_server(Link *l, DnsServer *s);
@@ -111,6 +94,8 @@ void link_next_dns_server(Link *l);
 
 DnssecMode link_get_dnssec_mode(Link *l);
 bool link_dnssec_supported(Link *l);
+
+DnsOverTlsMode link_get_dns_over_tls_mode(Link *l);
 
 int link_save_user(Link *l);
 int link_load_user(Link *l);

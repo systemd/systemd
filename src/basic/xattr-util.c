@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -29,8 +11,10 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "macro.h"
+#include "missing.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "time-util.h"
 #include "xattr-util.h"
 
@@ -104,24 +88,42 @@ int fgetxattr_malloc(int fd, const char *name, char **value) {
         }
 }
 
-ssize_t fgetxattrat_fake(int dirfd, const char *filename, const char *attribute, void *value, size_t size, int flags) {
-        char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
+int fgetxattrat_fake(
+                int dirfd,
+                const char *filename,
+                const char *attribute,
+                void *value, size_t size,
+                int flags,
+                size_t *ret_size) {
+
+        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -1;
         ssize_t l;
 
         /* The kernel doesn't have a fgetxattrat() command, hence let's emulate one */
 
-        fd = openat(dirfd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
-        if (fd < 0)
-                return -errno;
+        if (flags & ~(AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH))
+                return -EINVAL;
 
-        xsprintf(fn, "/proc/self/fd/%i", fd);
+        if (isempty(filename)) {
+                if (!(flags & AT_EMPTY_PATH))
+                        return -EINVAL;
+
+                xsprintf(fn, "/proc/self/fd/%i", dirfd);
+        } else {
+                fd = openat(dirfd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
+                if (fd < 0)
+                        return -errno;
+
+                xsprintf(fn, "/proc/self/fd/%i", fd);
+        }
 
         l = getxattr(fn, attribute, value, size);
         if (l < 0)
                 return -errno;
 
-        return l;
+        *ret_size = l;
+        return 0;
 }
 
 static int parse_crtime(le64_t le, usec_t *usec) {
@@ -137,52 +139,66 @@ static int parse_crtime(le64_t le, usec_t *usec) {
         return 0;
 }
 
-int fd_getcrtime(int fd, usec_t *usec) {
+int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
+        struct_statx sx;
+        usec_t a, b;
         le64_t le;
-        ssize_t n;
+        size_t n;
+        int r;
 
-        assert(fd >= 0);
-        assert(usec);
+        assert(ret);
 
-        /* Until Linux gets a real concept of birthtime/creation time,
-         * let's fake one with xattrs */
+        if (flags & ~(AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW))
+                return -EINVAL;
 
-        n = fgetxattr(fd, "user.crtime_usec", &le, sizeof(le));
-        if (n < 0)
-                return -errno;
-        if (n != sizeof(le))
-                return -EIO;
+        /* So here's the deal: the creation/birth time (crtime/btime) of a file is a relatively newly supported concept
+         * on Linux (or more strictly speaking: a concept that only recently got supported in the API, it was
+         * implemented on various file systems on the lower level since a while, but never was accessible). However, we
+         * needed a concept like that for vaccuuming algorithms and such, hence we emulated it via a user xattr for a
+         * long time. Starting with Linux 4.11 there's statx() which exposes the timestamp to userspace for the first
+         * time, where it is available. Thius function will read it, but it tries to keep some compatibility with older
+         * systems: we try to read both the crtime/btime and the xattr, and then use whatever is older. After all the
+         * concept is useful for determining how "old" a file really is, and hence using the older of the two makes
+         * most sense. */
 
-        return parse_crtime(le, usec);
+        if (statx(dirfd, strempty(name), flags|AT_STATX_DONT_SYNC, STATX_BTIME, &sx) >= 0 &&
+            (sx.stx_mask & STATX_BTIME) &&
+            sx.stx_btime.tv_sec != 0)
+                a = (usec_t) sx.stx_btime.tv_sec * USEC_PER_SEC +
+                        (usec_t) sx.stx_btime.tv_nsec / NSEC_PER_USEC;
+        else
+                a = USEC_INFINITY;
+
+        r = fgetxattrat_fake(dirfd, name, "user.crtime_usec", &le, sizeof(le), flags, &n);
+        if (r >= 0) {
+                if (n != sizeof(le))
+                        r = -EIO;
+                else
+                        r = parse_crtime(le, &b);
+        }
+        if (r < 0) {
+                if (a != USEC_INFINITY) {
+                        *ret = a;
+                        return 0;
+                }
+
+                return r;
+        }
+
+        if (a != USEC_INFINITY)
+                *ret = MIN(a, b);
+        else
+                *ret = b;
+
+        return 0;
 }
 
-int fd_getcrtime_at(int dirfd, const char *name, usec_t *usec, int flags) {
-        le64_t le;
-        ssize_t n;
-
-        n = fgetxattrat_fake(dirfd, name, "user.crtime_usec", &le, sizeof(le), flags);
-        if (n < 0)
-                return -errno;
-        if (n != sizeof(le))
-                return -EIO;
-
-        return parse_crtime(le, usec);
+int fd_getcrtime(int fd, usec_t *ret) {
+        return fd_getcrtime_at(fd, NULL, ret, AT_EMPTY_PATH);
 }
 
-int path_getcrtime(const char *p, usec_t *usec) {
-        le64_t le;
-        ssize_t n;
-
-        assert(p);
-        assert(usec);
-
-        n = getxattr(p, "user.crtime_usec", &le, sizeof(le));
-        if (n < 0)
-                return -errno;
-        if (n != sizeof(le))
-                return -EIO;
-
-        return parse_crtime(le, usec);
+int path_getcrtime(const char *p, usec_t *ret) {
+        return fd_getcrtime_at(AT_FDCWD, p, ret, 0);
 }
 
 int fd_setcrtime(int fd, usec_t usec) {
@@ -190,7 +206,7 @@ int fd_setcrtime(int fd, usec_t usec) {
 
         assert(fd >= 0);
 
-        if (usec <= 0)
+        if (IN_SET(usec, 0, USEC_INFINITY))
                 usec = now(CLOCK_REALTIME);
 
         le = htole64((uint64_t) usec);

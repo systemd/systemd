@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <curl/curl.h>
 #include <linux/fs.h>
@@ -166,8 +148,7 @@ int raw_pull_new(
         i->glue->on_finished = pull_job_curl_on_finished;
         i->glue->userdata = i;
 
-        *ret = i;
-        i = NULL;
+        *ret = TAKE_PTR(i);
 
         return 0;
 }
@@ -272,8 +253,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
         free_and_replace(i->temp_path, t);
 
         safe_close(i->raw_job->disk_fd);
-        i->raw_job->disk_fd = converted_fd;
-        converted_fd = -1;
+        i->raw_job->disk_fd = TAKE_FD(converted_fd);
 
         return 1;
 }

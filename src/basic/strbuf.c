@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Kay Sievers <kay@vrfy.org>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdlib.h>
@@ -24,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "strbuf.h"
+#include "util.h"
 
 /*
  * Strbuf stores given strings in a single continuous allocated memory
@@ -46,33 +29,31 @@
 struct strbuf *strbuf_new(void) {
         struct strbuf *str;
 
-        str = new0(struct strbuf, 1);
+        str = new(struct strbuf, 1);
         if (!str)
                 return NULL;
+        *str = (struct strbuf) {
+                .buf = new0(char, 1),
+                .root = new0(struct strbuf_node, 1),
+                .len = 1,
+                .nodes_count = 1,
+        };
+        if (!str->buf || !str->root) {
+                free(str->buf);
+                free(str->root);
+                return mfree(str);
+        }
 
-        str->buf = new0(char, 1);
-        if (!str->buf)
-                goto err;
-        str->len = 1;
-
-        str->root = new0(struct strbuf_node, 1);
-        if (!str->root)
-                goto err;
-        str->nodes_count = 1;
         return str;
-err:
-        free(str->buf);
-        free(str->root);
-        return mfree(str);
 }
 
-static void strbuf_node_cleanup(struct strbuf_node *node) {
+static struct strbuf_node* strbuf_node_cleanup(struct strbuf_node *node) {
         size_t i;
 
         for (i = 0; i < node->children_count; i++)
                 strbuf_node_cleanup(node->children[i].child);
         free(node->children);
-        free(node);
+        return mfree(node);
 }
 
 /* clean up trie data, leave only the string buffer */
@@ -80,16 +61,15 @@ void strbuf_complete(struct strbuf *str) {
         if (!str)
                 return;
         if (str->root)
-                strbuf_node_cleanup(str->root);
-        str->root = NULL;
+                str->root = strbuf_node_cleanup(str->root);
 }
 
 /* clean up everything */
 void strbuf_cleanup(struct strbuf *str) {
         if (!str)
                 return;
-        if (str->root)
-                strbuf_node_cleanup(str->root);
+
+        strbuf_complete(str);
         free(str->buf);
         free(str);
 }
@@ -138,13 +118,15 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
                 return -EINVAL;
 
         /* search string; start from last character to find possibly matching tails */
-        if (len == 0)
-                return 0;
+
         str->in_count++;
+        if (len == 0) {
+                str->dedup_count++;
+                return 0;
+        }
         str->in_len += len;
 
         node = str->root;
-        c = s[len-1];
         for (depth = 0; depth <= len; depth++) {
                 struct strbuf_child_entry search;
 
@@ -158,15 +140,9 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
 
                 c = s[len - 1 - depth];
 
-                /* bsearch is not allowed on a NULL sequence */
-                if (node->children_count == 0)
-                        break;
-
                 /* lookup child node */
                 search.c = c;
-                child = bsearch(&search, node->children, node->children_count,
-                                sizeof(struct strbuf_child_entry),
-                                (__compar_fn_t) strbuf_children_cmp);
+                child = typesafe_bsearch(&search, node->children, node->children_count, strbuf_children_cmp);
                 if (!child)
                         break;
                 node = child->child;
@@ -183,14 +159,16 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         str->buf[str->len++] = '\0';
 
         /* new node */
-        node_child = new0(struct strbuf_node, 1);
+        node_child = new(struct strbuf_node, 1);
         if (!node_child)
                 return -ENOMEM;
-        node_child->value_off = off;
-        node_child->value_len = len;
+        *node_child = (struct strbuf_node) {
+                .value_off = off,
+                .value_len = len,
+        };
 
         /* extend array, add new entry, sort for bisection */
-        child = realloc(node->children, (node->children_count + 1) * sizeof(struct strbuf_child_entry));
+        child = reallocarray(node->children, node->children_count + 1, sizeof(struct strbuf_child_entry));
         if (!child) {
                 free(node_child);
                 return -ENOMEM;

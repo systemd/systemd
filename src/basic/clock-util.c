@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010-2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -73,7 +55,7 @@ int clock_set_hwclock(const struct tm *tm) {
 int clock_is_localtime(const char* adjtime_path) {
         _cleanup_fclose_ FILE *f;
 
-        if (adjtime_path == NULL)
+        if (!adjtime_path)
                 adjtime_path = "/etc/adjtime";
 
         /*
@@ -108,13 +90,13 @@ int clock_is_localtime(const char* adjtime_path) {
 int clock_set_timezone(int *min) {
         const struct timeval *tv_null = NULL;
         struct timespec ts;
-        struct tm *tm;
+        struct tm tm;
         int minutesdelta;
         struct timezone tz;
 
         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
-        assert_se(tm = localtime(&ts.tv_sec));
-        minutesdelta = tm->tm_gmtoff / 60;
+        assert_se(localtime_r(&ts.tv_sec, &tm));
+        minutesdelta = tm.tm_gmtoff / 60;
 
         tz.tz_minuteswest = -minutesdelta;
         tz.tz_dsttime = 0; /* DST_NONE */

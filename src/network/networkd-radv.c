@@ -1,21 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2017 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
 #include <netinet/icmp6.h>
@@ -24,7 +9,293 @@
 #include "networkd-address.h"
 #include "networkd-manager.h"
 #include "networkd-radv.h"
+#include "parse-util.h"
 #include "sd-radv.h"
+#include "string-util.h"
+#include "strv.h"
+
+int config_parse_router_prefix_delegation(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        int d;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "static"))
+                network->router_prefix_delegation = RADV_PREFIX_DELEGATION_STATIC;
+        else if (streq(rvalue, "dhcpv6"))
+                network->router_prefix_delegation = RADV_PREFIX_DELEGATION_DHCP6;
+        else {
+                d = parse_boolean(rvalue);
+                if (d > 0)
+                        network->router_prefix_delegation = RADV_PREFIX_DELEGATION_BOTH;
+                else
+                        network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
+
+                if (d < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Router prefix delegation '%s' is invalid, ignoring assignment: %m", rvalue);
+        }
+
+        return 0;
+}
+
+int config_parse_router_preference(const char *unit,
+                                   const char *filename,
+                                   unsigned line,
+                                   const char *section,
+                                   unsigned section_line,
+                                   const char *lvalue,
+                                   int ltype,
+                                   const char *rvalue,
+                                   void *data,
+                                   void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "high"))
+                network->router_preference = SD_NDISC_PREFERENCE_HIGH;
+        else if (STR_IN_SET(rvalue, "medium", "normal", "default"))
+                network->router_preference = SD_NDISC_PREFERENCE_MEDIUM;
+        else if (streq(rvalue, "low"))
+                network->router_preference = SD_NDISC_PREFERENCE_LOW;
+        else
+                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Router preference '%s' is invalid, ignoring assignment: %m", rvalue);
+
+        return 0;
+}
+
+void prefix_free(Prefix *prefix) {
+        if (!prefix)
+                return;
+
+        if (prefix->network) {
+                LIST_REMOVE(prefixes, prefix->network->static_prefixes, prefix);
+                assert(prefix->network->n_static_prefixes > 0);
+                prefix->network->n_static_prefixes--;
+
+                if (prefix->section)
+                        hashmap_remove(prefix->network->prefixes_by_section,
+                                       prefix->section);
+        }
+
+        prefix->radv_prefix = sd_radv_prefix_unref(prefix->radv_prefix);
+
+        free(prefix);
+}
+
+int prefix_new(Prefix **ret) {
+        _cleanup_(prefix_freep) Prefix *prefix = NULL;
+
+        prefix = new0(Prefix, 1);
+        if (!prefix)
+                return -ENOMEM;
+
+        if (sd_radv_prefix_new(&prefix->radv_prefix) < 0)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(prefix);
+
+        return 0;
+}
+
+int prefix_new_static(Network *network, const char *filename,
+                      unsigned section_line, Prefix **ret) {
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(prefix_freep) Prefix *prefix = NULL;
+        int r;
+
+        assert(network);
+        assert(ret);
+        assert(!!filename == (section_line > 0));
+
+        if (filename) {
+                r = network_config_section_new(filename, section_line, &n);
+                if (r < 0)
+                        return r;
+
+                if (section_line) {
+                        prefix = hashmap_get(network->prefixes_by_section, n);
+                        if (prefix) {
+                                *ret = TAKE_PTR(prefix);
+
+                                return 0;
+                        }
+                }
+        }
+
+        r = prefix_new(&prefix);
+        if (r < 0)
+                return r;
+
+        if (filename) {
+                prefix->section = TAKE_PTR(n);
+
+                r = hashmap_put(network->prefixes_by_section, prefix->section,
+                                prefix);
+                if (r < 0)
+                        return r;
+        }
+
+        prefix->network = network;
+        LIST_APPEND(prefixes, network->static_prefixes, prefix);
+        network->n_static_prefixes++;
+
+        *ret = TAKE_PTR(prefix);
+
+        return 0;
+}
+
+int config_parse_prefix(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(prefix_freep) Prefix *p = NULL;
+        uint8_t prefixlen = 64;
+        union in_addr_union in6addr;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return r;
+
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, &in6addr, &prefixlen);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Prefix is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (sd_radv_prefix_set_prefix(p->radv_prefix, &in6addr.in6, prefixlen) < 0)
+                return -EADDRNOTAVAIL;
+
+        log_syntax(unit, LOG_INFO, filename, line, r, "Found prefix %s", rvalue);
+
+        p = NULL;
+
+        return 0;
+}
+
+int config_parse_prefix_flags(const char *unit,
+                              const char *filename,
+                              unsigned line,
+                              const char *section,
+                              unsigned section_line,
+                              const char *lvalue,
+                              int ltype,
+                              const char *rvalue,
+                              void *data,
+                              void *userdata) {
+        Network *network = userdata;
+        _cleanup_(prefix_freep) Prefix *p = NULL;
+        int r, val;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address flag, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        val = r;
+
+        if (streq(lvalue, "OnLink"))
+                r = sd_radv_prefix_set_onlink(p->radv_prefix, val);
+        else if (streq(lvalue, "AddressAutoconfiguration"))
+                r = sd_radv_prefix_set_address_autoconfiguration(p->radv_prefix, val);
+        if (r < 0)
+                return r;
+
+        p = NULL;
+
+        return 0;
+}
+
+int config_parse_prefix_lifetime(const char *unit,
+                                 const char *filename,
+                                 unsigned line,
+                                 const char *section,
+                                 unsigned section_line,
+                                 const char *lvalue,
+                                 int ltype,
+                                 const char *rvalue,
+                                 void *data,
+                                 void *userdata) {
+        Network *network = userdata;
+        _cleanup_(prefix_freep) Prefix *p = NULL;
+        usec_t usec;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Lifetime is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        /* a value of 0xffffffff represents infinity */
+        if (streq(lvalue, "PreferredLifetimeSec"))
+                r = sd_radv_prefix_set_preferred_lifetime(p->radv_prefix,
+                                                          DIV_ROUND_UP(usec, USEC_PER_SEC));
+        else if (streq(lvalue, "ValidLifetimeSec"))
+                r = sd_radv_prefix_set_valid_lifetime(p->radv_prefix,
+                                                      DIV_ROUND_UP(usec, USEC_PER_SEC));
+        if (r < 0)
+                return r;
+
+        p = NULL;
+
+        return 0;
+}
 
 static int radv_get_ip6dns(Network *network, struct in6_addr **dns,
                            size_t *n_dns) {
@@ -55,8 +326,7 @@ static int radv_get_ip6dns(Network *network, struct in6_addr **dns,
         }
 
         if (addresses) {
-                *dns = addresses;
-                addresses = NULL;
+                *dns = TAKE_PTR(addresses);
 
                 *n_dns = n_addresses;
         }
@@ -92,6 +362,11 @@ static int radv_set_dns(Link *link, Link *uplink) {
                 goto set_dns;
 
         if (uplink) {
+                if (uplink->network == NULL) {
+                        log_link_debug(uplink, "Cannot fetch DNS servers as uplink interface is not managed by us");
+                        return 0;
+                }
+
                 r = radv_get_ip6dns(uplink->network, &dns, &n_dns);
                 if (r > 0)
                         goto set_dns;
@@ -125,6 +400,11 @@ static int radv_set_domains(Link *link, Link *uplink) {
                 goto set_domains;
 
         if (uplink) {
+                if (uplink->network == NULL) {
+                        log_link_debug(uplink, "Cannot fetch DNS search domains as uplink interface is not managed by us");
+                        return 0;
+                }
+
                 search_domains = uplink->network->search_domains;
                 if (search_domains)
                         goto set_domains;
@@ -201,10 +481,14 @@ int radv_configure(Link *link) {
                         return r;
         }
 
-        LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
-                r = sd_radv_add_prefix(link->radv, p->radv_prefix);
-                if (r != -EEXIST && r < 0)
-                        return r;
+        if (IN_SET(link->network->router_prefix_delegation,
+                   RADV_PREFIX_DELEGATION_STATIC,
+                   RADV_PREFIX_DELEGATION_BOTH)) {
+                LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
+                        r = sd_radv_add_prefix(link->radv, p->radv_prefix, false);
+                        if (r != -EEXIST && r < 0)
+                                return r;
+                }
         }
 
         return radv_emit_dns(link);

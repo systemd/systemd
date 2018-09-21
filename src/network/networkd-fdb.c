@@ -1,21 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
 #include <net/ethernet.h>
@@ -38,7 +23,7 @@ int fdb_entry_new_static(
                 unsigned section,
                 FdbEntry **ret) {
 
-        _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
         struct ether_addr *mac_addr = NULL;
 
         assert(network);
@@ -48,8 +33,7 @@ int fdb_entry_new_static(
         if (section) {
                 fdb_entry = hashmap_get(network->fdb_entries_by_section, UINT_TO_PTR(section));
                 if (fdb_entry) {
-                        *ret = fdb_entry;
-                        fdb_entry = NULL;
+                        *ret = TAKE_PTR(fdb_entry);
 
                         return 0;
                 }
@@ -85,8 +69,7 @@ int fdb_entry_new_static(
         }
 
         /* return allocated FDB structure. */
-        *ret = fdb_entry;
-        fdb_entry = NULL;
+        *ret = TAKE_PTR(fdb_entry);
 
         return 0;
 }
@@ -192,7 +175,7 @@ int config_parse_fdb_hwaddr(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
         int r;
 
         assert(filename);
@@ -238,7 +221,7 @@ int config_parse_fdb_vlan_id(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
         int r;
 
         assert(filename);

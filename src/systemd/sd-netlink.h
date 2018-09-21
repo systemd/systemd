@@ -3,10 +3,6 @@
 #define foosdnetlinkhfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -34,7 +30,9 @@
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_netlink sd_netlink;
+typedef struct sd_genl_socket sd_genl_socket;
 typedef struct sd_netlink_message sd_netlink_message;
+typedef enum {SD_GENL_ID_CTRL, SD_GENL_WIREGUARD, SD_GENL_FOU} sd_genl_family;
 
 /* callback */
 
@@ -93,6 +91,9 @@ int sd_netlink_message_read_in_addr(sd_netlink_message *m, unsigned short type, 
 int sd_netlink_message_read_in6_addr(sd_netlink_message *m, unsigned short type, struct in6_addr *data);
 int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_exit_container(sd_netlink_message *m);
+
+int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type);
+int sd_netlink_message_cancel_array(sd_netlink_message *m);
 
 int sd_netlink_message_rewind(sd_netlink_message *m);
 
@@ -176,6 +177,10 @@ int sd_rtnl_message_routing_policy_rule_get_rtm_type(sd_netlink_message *m, unsi
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink, sd_netlink_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink_message, sd_netlink_message_unref);
+
+/* genl */
+int sd_genl_socket_open(sd_netlink **nl);
+int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_netlink_message **m);
 
 _SD_END_DECLARATIONS;
 

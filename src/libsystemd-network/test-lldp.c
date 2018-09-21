@@ -1,25 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Tom Gundersen
-  Copyright (C) 2014 Susant Sahani
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <net/ethernet.h>
 #include <stdio.h>
 #include <string.h>
@@ -138,7 +120,7 @@ static void test_receive_basic_packet(sd_event *e) {
         assert_se(sd_lldp_neighbor_get_port_id(neighbors[0], &type, &data, &length) == 0);
         assert_se(type == SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME);
         assert_se(length == 3);
-        assert_se(strneq((char *) data, "1/3", 3));
+        assert_se(!memcmp(data, "1/3", 3));
 
         assert_se(sd_lldp_neighbor_get_port_description(neighbors[0], &str) == 0);
         assert_se(streq(str, "Port"));

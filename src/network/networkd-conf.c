@@ -1,21 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2014 Vinay Kulkarni <kulkarniv@vmware.com>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2014 Vinay Kulkarni <kulkarniv@vmware.com>
  ***/
 
 #include <ctype.h>
@@ -46,7 +31,74 @@ static const char* const duid_type_table[_DUID_TYPE_MAX] = {
         [DUID_TYPE_UUID] = "uuid",
 };
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(duid_type, DUIDType);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_duid_type, duid_type, DUIDType, "Failed to parse DUID type");
+
+int config_parse_duid_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *type_string = NULL;
+        const char *p = rvalue;
+        DUID *duid = data;
+        DUIDType type;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(duid);
+
+        r = extract_first_word(&p, &type_string, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to extract DUID type from '%s', ignoring.", rvalue);
+                return 0;
+        }
+
+        type = duid_type_from_string(type_string);
+        if (type < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse DUID type '%s', ignoring.", type_string);
+                return 0;
+        }
+
+        if (!isempty(p)) {
+                usec_t u;
+
+                if (type != DUID_TYPE_LLT) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                r = parse_timestamp(p, &u);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse timestamp, ignoring: %s", p);
+                        return 0;
+                }
+
+                duid->llt_time = u;
+        }
+
+        duid->type = type;
+
+        return 0;
+}
 
 int config_parse_duid_rawdata(
                 const char *unit,

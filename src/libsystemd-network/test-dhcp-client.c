@@ -1,21 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
 #include <errno.h>
@@ -31,6 +16,7 @@
 #include "dhcp-internal.h"
 #include "dhcp-protocol.h"
 #include "fd-util.h"
+#include "tests.h"
 #include "util.h"
 
 static uint8_t mac_addr[] = {'A', 'B', 'C', '1', '2', '3'};
@@ -539,9 +525,7 @@ static void test_addr_acq(sd_event *e) {
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -552,7 +536,7 @@ int main(int argc, char *argv[]) {
         test_discover_message(e);
         test_addr_acq(e);
 
-#ifdef VALGRIND
+#if VALGRIND
         /* Make sure the async_close thread has finished.
          * valgrind would report some of the phread_* structures
          * as not cleaned up properly. */

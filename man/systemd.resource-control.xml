@@ -1,41 +1,15 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.resource-control">
   <refentryinfo>
     <title>systemd.resource-control</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -202,8 +176,6 @@
           the startup phase. Using <varname>StartupCPUWeight=</varname> allows prioritizing specific services at
           boot-up differently than during normal runtime.</para>
 
-          <para>Implies <literal>CPUAccounting=true</literal>.</para>
-
           <para>These settings replace <varname>CPUShares=</varname> and <varname>StartupCPUShares=</varname>.</para>
         </listitem>
       </varlistentry>
@@ -218,12 +190,11 @@
           <literal>cpu.max</literal> attribute on the unified control group hierarchy and
           <literal>cpu.cfs_quota_us</literal> on legacy. For details about these control group attributes, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and <ulink
-          url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
+          url="https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt">sched-bwc.txt</ulink>.</para>
 
           <para>Example: <varname>CPUQuota=20%</varname> ensures that the executed processes will never get more than
           20% CPU time on one CPU.</para>
 
-          <para>Implies <literal>CPUAccounting=true</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -243,6 +214,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MemoryMin=<replaceable>bytes</replaceable></varname></term>
+
+        <listitem>
+          <para>Specify the memory usage protection of the executed processes in this unit. If the memory usages of
+          this unit and all its ancestors are below their minimum boundaries, this unit's memory won't be reclaimed.</para>
+
+          <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
+          percentage value may be specified, which is taken relative to the installed physical memory on the
+          system. This controls the <literal>memory.min</literal> control group attribute. For details about this
+          control group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+
+          <para>This setting is supported only if the unified control group hierarchy is used and disables
+          <varname>MemoryLimit=</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MemoryLow=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
@@ -256,8 +246,6 @@
           system. This controls the <literal>memory.low</literal> control group attribute. For details about this
           control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
-
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
@@ -280,8 +268,6 @@
           <literal>memory.high</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
-
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
         </listitem>
@@ -303,8 +289,6 @@
           <literal>memory.max</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
-
           <para>This setting replaces <varname>MemoryLimit=</varname>.</para>
         </listitem>
       </varlistentry>
@@ -320,8 +304,6 @@
           special value <literal>infinity</literal>, no swap limit is applied. This controls the
           <literal>memory.swap.max</literal> control group attribute. For details about this control group attribute,
           see <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
-
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
@@ -358,7 +340,7 @@
           the <literal>pids.max</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/pids.txt">pids.txt</ulink>.</para>
 
-          <para>Implies <literal>TasksAccounting=true</literal>. The
+          <para>The
           system default for this setting may be controlled with
           <varname>DefaultTasksMax=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
@@ -400,8 +382,6 @@
           phase. This allows prioritizing specific services at boot-up
           differently than during runtime.</para>
 
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
-
           <para>These settings replace <varname>BlockIOWeight=</varname> and <varname>StartupBlockIOWeight=</varname>
           and disable settings prefixed with <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
         </listitem>
@@ -413,14 +393,12 @@
         <listitem>
           <para>Set the per-device overall block I/O weight for the executed processes, if the unified control group
           hierarchy is used on the system. Takes a space-separated pair of a file path and a weight value to specify
-          the device specific weight value, between 1 and 10000. (Example: "/dev/sda 1000"). The file path may be
-          specified as path to a block device node or as any other file, in which case the backing block device of the
-          file system of the file is determined. This controls the <literal>io.weight</literal> control group
-          attribute, which defaults to 100. Use this option multiple times to set weights for multiple devices. For
-          details about this control group attribute, see <ulink
+          the device specific weight value, between 1 and 10000. (Example: <literal>/dev/sda 1000</literal>). The file
+          path may be specified as path to a block device node or as any other file, in which case the backing block
+          device of the file system of the file is determined. This controls the <literal>io.weight</literal> control
+          group attribute, which defaults to 100. Use this option multiple times to set weights for multiple devices.
+          For details about this control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
-
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
 
           <para>This setting replaces <varname>BlockIODeviceWeight=</varname> and disables settings prefixed with
           <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
@@ -444,8 +422,6 @@
           about this control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.
           </para>
-
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
 
           <para>These settings replace <varname>BlockIOReadBandwidth=</varname> and
           <varname>BlockIOWriteBandwidth=</varname> and disable settings prefixed with <varname>BlockIO</varname> or
@@ -471,10 +447,27 @@
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.
           </para>
 
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
-
           <para>These settings are supported only if the unified control group hierarchy is used and disable settings
           prefixed with <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IODeviceLatencyTargetSec=<replaceable>device</replaceable> <replaceable>target</replaceable></varname></term>
+
+        <listitem>
+          <para>Set the per-device average target I/O latency for the executed processes, if the unified control group
+          hierarchy is used on the system. Takes a file path and a timespan separated by a space to specify
+          the device specific latency target. (Example: "/dev/sda 25ms"). The file path may be specified
+          as path to a block device node or as any other file, in which case the backing block device of the file
+          system of the file is determined. This controls the <literal>io.latency</literal> control group
+          attribute. Use this option multiple times to set latency target for multiple devices. For details about this
+          control group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+
+          <para>Implies <literal>IOAccounting=true</literal>.</para>
+
+          <para>These settings are supported only if the unified control group hierarchy is used.</para>
         </listitem>
       </varlistentry>
 
@@ -484,15 +477,17 @@
         <listitem>
           <para>Takes a boolean argument. If true, turns on IPv4 and IPv6 network traffic accounting for packets sent
           or received by the unit. When this option is turned on, all IPv4 and IPv6 sockets created by any process of
-          the unit are accounted for. When this option is used in socket units, it applies to all IPv4 and IPv6 sockets
+          the unit are accounted for.</para>
+
+          <para>When this option is used in socket units, it applies to all IPv4 and IPv6 sockets
           associated with it (including both listening and connection sockets where this applies). Note that for
           socket-activated services, this configuration setting and the accounting data of the service unit and the
           socket unit are kept separate, and displayed separately. No propagation of the setting and the collected
           statistics is done, in either direction. Moreover, any traffic sent or received on any of the socket unit's
           sockets is accounted to the socket unit — and never to the service unit it might have activated, even if the
-          socket is used by it. Note that IP accounting is currently not supported for slice units, and enabling this
-          option for them has no effect. The system default for this setting may be controlled with
-          <varname>DefaultIPAccounting=</varname> in
+          socket is used by it.</para>
+
+          <para>The system default for this setting may be controlled with <varname>DefaultIPAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
@@ -903,6 +898,7 @@
       <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/cpuacct.txt">cpuacct.txt</ulink>,
       <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">memory.txt</ulink>,
       <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt">blkio-controller.txt</ulink>.
+      <ulink url="https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt">sched-bwc.txt</ulink>.
     </para>
   </refsect1>
 </refentry>

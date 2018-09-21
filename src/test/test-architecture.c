@@ -1,31 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Kay Sievers
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "architecture.h"
 #include "log.h"
+#include "tests.h"
 #include "util.h"
 #include "virt.h"
 
 int main(int argc, char *argv[]) {
         int a, v;
         const char *p;
+
+        test_setup_logging(LOG_INFO);
 
         assert_se(architecture_from_string("") < 0);
         assert_se(architecture_from_string(NULL) < 0);
@@ -36,7 +21,7 @@ int main(int argc, char *argv[]) {
 
         v = detect_virtualization();
         if (IN_SET(v, -EPERM, -EACCES))
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("Cannot detect virtualization");
 
         assert_se(v >= 0);
 

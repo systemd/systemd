@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2009 Kay Sievers <kay@vrfy.org>
  * Copyright (c) 2009 Filippo Argiolas <filippo.argiolas@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -68,9 +67,11 @@ int main(int argc, char *argv[]) {
                 printf("ID_V4L_VERSION=2\n");
                 printf("ID_V4L_PRODUCT=%s\n", v2cap.card);
                 printf("ID_V4L_CAPABILITIES=:");
-                if ((v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) > 0)
+                if ((v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) > 0 ||
+                    (v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE) > 0)
                         printf("capture:");
-                if ((v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT) > 0)
+                if ((v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT) > 0 ||
+                    (v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT_MPLANE) > 0)
                         printf("video_output:");
                 if ((v2cap.capabilities & V4L2_CAP_VIDEO_OVERLAY) > 0)
                         printf("video_overlay:");

@@ -1,22 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
-  Copyright 2004-2012 Kay Sievers <kay@vrfy.org>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
 ***/
 
 #include <errno.h>
@@ -33,7 +17,6 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "udev.h"
 
 static int fake_filesystems(void) {
@@ -54,7 +37,7 @@ static int fake_filesystems(void) {
         if (unshare(CLONE_NEWNS) < 0)
                 return log_error_errno(errno, "failed to call unshare(): %m");
 
-        if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0)
+        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
                 return log_error_errno(errno, "failed to mount / as private: %m");
 
         for (i = 0; i < ELEMENTSOF(fakefss); i++) {
@@ -69,10 +52,9 @@ static int fake_filesystems(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_event_unref_ struct udev_event *event = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
-        _cleanup_udev_rules_unref_ struct udev_rules *rules = NULL;
+        _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+        _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
         char syspath[UTIL_PATH_SIZE];
         const char *devpath;
         const char *action;
@@ -83,10 +65,6 @@ int main(int argc, char *argv[]) {
 
         err = fake_filesystems();
         if (err < 0)
-                return EXIT_FAILURE;
-
-        udev = udev_new();
-        if (udev == NULL)
                 return EXIT_FAILURE;
 
         log_debug("version %s", PACKAGE_VERSION);
@@ -104,10 +82,10 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        rules = udev_rules_new(udev, 1);
+        rules = udev_rules_new(1);
 
         strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
-        dev = udev_device_new_from_synthetic_event(udev, syspath, action);
+        dev = udev_device_new_from_synthetic_event(NULL, syspath, action);
         if (dev == NULL) {
                 log_debug("unknown device '%s'", devpath);
                 goto out;

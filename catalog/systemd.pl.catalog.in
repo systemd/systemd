@@ -1,22 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-#  This file is part of systemd.
-#
-#  Copyright 2012 Lennart Poettering
-#  Copyright 2014-2017 Piotr Drąg
-#
-#  systemd is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU Lesser General Public License as published by
-#  the Free Software Foundation; either version 2.1 of the License, or
-#  (at your option) any later version.
-#
-#  systemd is distributed in the hope that it will be useful, but
-#  WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-#  Lesser General Public License for more details.
-#
-#  You should have received a copy of the GNU Lesser General Public License
-#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+#  Copyright © 2014-2017 Piotr Drąg
 
 # Message catalog for systemd's own messages
 # Polish translation
@@ -49,7 +33,7 @@ Support: %SUPPORT_URL%
 
 @JOURNAL_NAME@ (@JOURNAL_PATH@) obecnie używa @CURRENT_USE_PRETTY@.
 Maksymalnie może używać @MAX_USE_PRETTY@.
-Zostawianie co najmniej @DISK_KEEP_FREE_PRETTY@ wolnego (z obecnie dostępnego @DISK_AVAILABLE_PRETTY@ miejsca na dysku).
+Zostawianie co najmniej @DISK_KEEP_FREE_PRETTY@ wolnego (z obecnie dostępnego @DISK_AVAILABLE_PRETTY@ miejsca na dysku).
 Wymuszone ograniczenie użycia wynosi więc @LIMIT_PRETTY@, z czego @AVAILABLE_PRETTY@ jest nadal dostępne.
 
 Ograniczenia kontrolujące ilość miejsca na dysku używanego przez dziennik
@@ -94,13 +78,13 @@ Zwykle wskazuje to na błąd programistyczny w danym programie i powinno zosta
 zgłoszone jego producentowi jako błąd.
 
 -- 5aadd8e954dc4b1a8c954d63fd9e1137
-Subject: Plik core został skrócony do @SIZE_LIMIT@ B.
+Subject: Plik core został skrócony do @SIZE_LIMIT@ B.
 Defined-By: systemd
 Support: %SUPPORT_URL%
 Documentation: man:coredump.conf(5)
 
 Proces miał więcej zmapowanej pamięci niż maksimum dla przetwarzania i miejsca
-skonfigurowane przez systemd-coredump(8). Tylko pierwsze @SIZE_LIMIT@ B
+skonfigurowane przez systemd-coredump(8). Tylko pierwsze @SIZE_LIMIT@ B
 zostało zapisanych. Ten plik core może nadal być używalny, ale narzędzia typu
 gdb(1) będą ostrzegały o skróceniu pliku.
 
@@ -144,7 +128,7 @@ Subject: Zmiana czasu
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Zegar systemowy został zmieniony na @REALTIME@ μs po 1 stycznia 1970.
+Zegar systemowy został zmieniony na @REALTIME@ μs po 1 stycznia 1970.
 
 -- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Zmiana strefy czasowej na @TIMEZONE@
@@ -163,11 +147,11 @@ uruchamiania systemu zostały uruchomione. Proszę zauważyć, że nie oznacza
 to, że komputer jest bezczynny, jako że usługi mogą wciąż kończyć proces
 uruchamiania.
 
-Uruchamianie jądra zajęło @KERNEL_USEC@ μs.
+Uruchamianie jądra zajęło @KERNEL_USEC@ μs.
 
-Uruchamianie początkowego dysku RAM zajęło @INITRD_USEC@ μs.
+Uruchamianie początkowego dysku RAM zajęło @INITRD_USEC@ μs.
 
-Uruchamianie przestrzeni użytkownika zajęło @USERSPACE_USEC@ μs.
+Uruchamianie przestrzeni użytkownika zajęło @USERSPACE_USEC@ μs.
 
 -- eed00a68ffd84e31882105fd973abdd1
 Subject: Ukończono uruchamianie menedżera użytkownika
@@ -179,7 +163,7 @@ Wszystkie usługi zakolejkowane do włączenia zostały uruchomione.
 Proszę zauważyć, że inne usługi mogą być nadal uruchamiane
 lub zostać uruchomione później.
 
-Uruchamianie menedżera zajęło @USERSPACE_USEC@ μs.
+Uruchamianie menedżera zajęło @USERSPACE_USEC@ μs.
 
 -- 6bbd95ee977941e497c48be27c254128
 Subject: Przejście do stanu uśpienia @SLEEP@
@@ -200,7 +184,7 @@ Subject: Zainicjowano wyłączenie systemu
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Zainicjowano wyłączenie systemd. Wyłączenie zostało rozpoczęte i wszystkie
+Zainicjowano wyłączenie systemu. Wyłączenie zostało rozpoczęte i wszystkie
 usługi systemowe zostały zakończone, a wszystkie systemy plików odmontowane.
 
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
@@ -353,3 +337,22 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 Jednostka @UNIT@ została ukończona, zużywając wskazane zasoby.
+
+-- 50876a9db00f4c40bde1a2ad381c3a1b
+Subject: System jest skonfigurowany w sposób, który może powodować problemy
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Możliwe są następujące „etykiety”:
+• „split-usr” — /usr jest oddzielnym systemem plików, który nie był
+  zamontowany w czasie uruchomienia systemd,
+• „cgroups-missing” — jądro zostało skompilowane bez obsługi cgroups
+  lub dostęp do oczekiwanych plików interfejsu jest ograniczony,
+• „var-run-bad” — /var/run nie jest dowiązaniem symbolicznym do /run,
+• „overflowuid-not-65534” — identyfikator użytkownika dla „nieznanych”
+  użytkowników (przy wykorzystaniu przestrzeni nazw użytkowników lub NFS)
+  nie wynosi 65534,
+• „overflowgid-not-65534” — identyfikator grupy dla „nieznanych”
+  użytkowników (przy wykorzystaniu przestrzeni nazw użytkowników lub NFS)
+  nie wynosi 65534.
+Obecny system ma etykietę „@TAINT@”.

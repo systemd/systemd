@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-run"
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>systemd-run</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -47,7 +21,7 @@
 
   <refnamediv>
     <refname>systemd-run</refname>
-    <refpurpose>Run programs in transient scope units, service units, or timer-scheduled service units</refpurpose>
+    <refpurpose>Run programs in transient scope units, service units, or path-, socket-, or timer-triggered service units</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -57,6 +31,20 @@
       <arg choice="plain"><replaceable>COMMAND</replaceable>
       <arg choice="opt" rep="repeat">ARGS</arg>
       </arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-run</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat">PATH OPTIONS</arg>
+      <arg choice="req"><replaceable>COMMAND</replaceable></arg>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-run</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat">SOCKET OPTIONS</arg>
+      <arg choice="req"><replaceable>COMMAND</replaceable></arg>
+      <arg choice="opt" rep="repeat">ARGS</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-run</command>
@@ -72,8 +60,8 @@
 
     <para><command>systemd-run</command> may be used to create and start a transient <filename>.service</filename> or
     <filename>.scope</filename> unit and run the specified <replaceable>COMMAND</replaceable> in it. It may also be
-    used to create and start a transient <filename>.timer</filename> unit, that activates a
-    <filename>.service</filename> unit when elapsing.</para>
+    used to create and start a transient <filename>.path</filename>, <filename>.socket</filename>, or
+    <filename>.timer</filename> unit, that activates a <filename>.service</filename> unit when elapsing.</para>
 
     <para>If a command is run as transient service unit, it will be started and managed by the service manager like any
     other service, and thus shows up in the output of <command>systemctl list-units</command> like any other unit. It
@@ -88,12 +76,23 @@
     list-units</command>. Execution in this case is synchronous, and will return only when the command finishes. This
     mode is enabled via the <option>--scope</option> switch (see below). </para>
 
-    <para>If a command is run with timer options such as <option>--on-calendar=</option> (see below), a transient timer
-    unit is created alongside the service unit for the specified command. Only the transient timer unit is started
-    immediately, the transient service unit will be started when the timer elapses. If the <option>--unit=</option>
-    option is specified, the <replaceable>COMMAND</replaceable> may be omitted. In this case,
-    <command>systemd-run</command> creates only a <filename>.timer</filename> unit that invokes the specified unit when
-    elapsing.</para>
+    <para>If a command is run with path, socket, or timer options such as <option>--on-calendar=</option> (see below),
+    a transient path, socket, or timer unit is created alongside the service unit for the specified command. Only the
+    transient path, socket, or timer unit is started immediately, the transient service unit will be triggered by the
+    path, socket, or timer unit. If the <option>--unit=</option> option is specified, the
+    <replaceable>COMMAND</replaceable> may be omitted. In this case, <command>systemd-run</command> creates only a
+    <filename>.path</filename>, <filename>.socket</filename>, or <filename>.timer</filename> unit that triggers the
+    specified unit.</para>
+
+    <para>By default, services created with <command>systemd-run</command> default to the <option>simple</option> type,
+    see the description of <varname>Type=</varname> in
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details. Note that when this type is used the service manager (and thus the <command>systemd-run</command> command)
+    considers service start-up successful as soon as the <function>fork()</function> for the main service process
+    succeeded, i.e. before the <function>execve()</function> is invoked, and thus even if the specified command cannot
+    be started. Consider using the <option>exec</option> service type (i.e. <option>--property=Type=exec</option>) to
+    ensure that <command>systemd-run</command> returns successfully only if the specified command line has been
+    successfully started.</para>
   </refsect1>
 
   <refsect1>
@@ -140,8 +139,8 @@
       <varlistentry>
         <term><option>--description=</option></term>
 
-        <listitem><para>Provide a description for the service, scope or timer unit. If not specified, the command
-        itself will be used as a description. See <varname>Description=</varname> in
+        <listitem><para>Provide a description for the service, scope, path, socket, or timer unit. If not specified,
+        the command itself will be used as a description. See <varname>Description=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
@@ -155,6 +154,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-r</option></term>
         <term><option>--remain-after-exit</option></term>
 
         <listitem><para>After the service process has terminated, keep the service around until it is explicitly
@@ -278,7 +278,8 @@
         command. See <varname>OnActiveSec=</varname>, <varname>OnBootSec=</varname>, <varname>OnStartupSec=</varname>,
         <varname>OnUnitActiveSec=</varname> and <varname>OnUnitInactiveSec=</varname> in
         <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details. These options may not be combined with <option>--scope</option> or <option>--pty</option>.</para>
+        details. These options are shortcuts for <command>--timer-property=</command> with the relevant properties.
+        These options may not be combined with <option>--scope</option> or <option>--pty</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -287,20 +288,23 @@
 
         <listitem><para>Defines a calendar timer for starting the specified command. See <varname>OnCalendar=</varname>
         in <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
-        option may not be combined with <option>--scope</option> or <option>--pty</option>.</para>
+        option is a shortcut for <command>--timer-property=OnCalendar=</command>. This option may not be combined with
+        <option>--scope</option> or <option>--pty</option>.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
+        <term><option>--path-property=</option></term>
+        <term><option>--socket-property=</option></term>
         <term><option>--timer-property=</option></term>
 
-        <listitem><para>Sets a property on the timer unit that is created. This option is similar to
-        <option>--property=</option> but applies to the transient timer unit rather than the transient service unit
-        created. This option only has an effect in conjunction with <option>--on-active=</option>,
-        <option>--on-boot=</option>, <option>--on-startup=</option>, <option>--on-unit-active=</option>,
-        <option>--on-unit-inactive=</option> or <option>--on-calendar=</option>. This option takes an assignment in the
-        same format as <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-        <command>set-property</command> command.</para> </listitem>
+        <listitem><para>Sets a property on the path, socket, or timer unit that is created. This option is similar to
+        <option>--property=</option> but applies to the transient path, socket, or timer unit rather than the
+        transient service unit created. This option takes an assignment in the same format as
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>set-property</command> command. These options may not be combined with
+        <option>--scope</option> or <option>--pty</option>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -323,7 +327,7 @@
         completed). On exit, terse information about the unit's runtime is shown, including total runtime (as well as
         CPU usage, if <option>--property=CPUAccounting=1</option> was set) and the exit code and status of the main
         process. This output may be suppressed with <option>--quiet</option>. This option may not be combined with
-        <option>--no-block</option>, <option>--scope</option> or the various timer options.</para></listitem>
+        <option>--no-block</option>, <option>--scope</option> or the various path, socket, or timer options.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -352,8 +356,8 @@
 
     <para>All command line arguments after the first non-option
     argument become part of the command line of the launched
-    process. If a command is run as service unit, its first argument
-    needs to be an absolute binary path.</para>
+    process. If a command is run as service unit, the first argument
+    needs to be an absolute program path.</para>
   </refsect1>
 
   <refsect1>

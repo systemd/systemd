@@ -69,11 +69,10 @@ REQUIREMENTS:
         create additional symlinks in /dev/disk/ and /dev/tape:
           CONFIG_BLK_DEV_BSG
 
-        Required for PrivateNetwork= and PrivateDevices= in service units:
+        Required for PrivateNetwork= in service units:
           CONFIG_NET_NS
-          CONFIG_DEVPTS_MULTIPLE_INSTANCES
         Note that systemd-localed.service and other systemd units use
-        PrivateNetwork and PrivateDevices so this is effectively required.
+        PrivateNetwork so this is effectively required.
 
         Required for PrivateUsers= in service units:
           CONFIG_USER_NS
@@ -82,7 +81,7 @@ REQUIREMENTS:
           CONFIG_IPV6
           CONFIG_AUTOFS4_FS
           CONFIG_TMPFS_XATTR
-          CONFIG_{TMPFS,EXT4,XFS,BTRFS_FS,...}_POSIX_ACL
+          CONFIG_{TMPFS,EXT4_FS,XFS,BTRFS_FS,...}_POSIX_ACL
           CONFIG_SECCOMP
           CONFIG_SECCOMP_FILTER (required for seccomp support)
           CONFIG_CHECKPOINT_RESTORE (for the kcmp() syscall)
@@ -119,6 +118,9 @@ REQUIREMENTS:
         isn't. The next best thing is to make this change through a modprobe.d
         drop-in. This is shipped by default, see modprobe.d/systemd.conf.
 
+        Required for systemd-nspawn:
+          CONFIG_DEVPTS_MULTIPLE_INSTANCES or Linux kernel >= 4.7
+
         Note that kernel auditing is broken when used with systemd's
         container code. When using systemd in conjunction with
         containers, please make sure to either turn off auditing at
@@ -152,6 +154,8 @@ REQUIREMENTS:
         libmicrohttpd (optional)
         libpython (optional)
         libidn2 or libidn (optional)
+        gnutls >= 3.1.4 (optional, >= 3.5.3 is required to support DNS-over-TLS with gnutls)
+        openssl >= 1.1.0 (optional, required to support DNS-over-TLS with openssl)
         elfutils >= 158 (optional)
         polkit (optional)
         pkg-config
@@ -159,18 +163,18 @@ REQUIREMENTS:
         docbook-xsl (optional, required for documentation)
         xsltproc    (optional, required for documentation)
         python-lxml (optional, required to build the indices)
-        python, meson, ninja
+        python >= 3.5, meson >= 0.46, ninja
         gcc, awk, sed, grep, m4, and similar tools
 
         During runtime, you need the following additional
         dependencies:
 
         util-linux >= v2.27.1 required
-        dbus >= 1.4.0 (strictly speaking optional, but recommended)
+        dbus >= 1.9.14 (strictly speaking optional, but recommended)
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
         dracut (optional)
-        PolicyKit (optional)
+        polkit (optional)
 
         To build in directory build/:
           meson build/ && ninja -C build
@@ -202,10 +206,12 @@ REQUIREMENTS:
         make use of DynamicUser= now, hence enabling nss-systemd is not
         optional.
 
-        Note that the build prefix for systemd must be /usr. -Dsplit-usr=false
-        (which is the default and does not need to be specified) is the
-        recommended setting, and -Dsplit-usr=true should be used on systems
-        which have /usr on a separate partition.
+        Note that the build prefix for systemd must be /usr. (Moreover,
+        packages systemd relies on — such as D-Bus — really should use the same
+        prefix, otherwise you are on your own.) -Dsplit-usr=false (which is the
+        default and does not need to be specified) is the recommended setting,
+        and -Dsplit-usr=true should be used on systems which have /usr on a
+        separate partition.
 
         Additional packages are necessary to run some tests:
         - busybox            (used by test/TEST-13-NSPAWN-SMOKE)
@@ -230,13 +236,10 @@ USERS AND GROUPS:
         groups "wheel" and "adm" will be given read-only access to
         journal files using systemd-tmpfiles.service.
 
-        The journal gateway daemon requires the
-        "systemd-journal-gateway" system user and group to
+        The journal remote daemon requires the
+        "systemd-journal-remote" system user and group to
         exist. During execution this network facing service will drop
         privileges and assume this uid/gid for security reasons.
-
-        Similarly, the NTP daemon requires the "systemd-timesync" system
-        user and group to exist.
 
         Similarly, the network management daemon requires the
         "systemd-network" system user and group to exist.
@@ -273,7 +276,7 @@ NSS:
 
                 passwd: compat mymachines systemd
                 group: compat mymachines systemd
-                hosts: files mymachines resolve myhostname
+                hosts: files mymachines resolve [!UNAVAIL=return] dns myhostname
 
 SYSV INIT.D SCRIPTS:
         When calling "systemctl enable/disable/is-enabled" on a unit which is a
@@ -304,13 +307,23 @@ WARNINGS:
         For more information on this issue consult
         https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
 
-        To run systemd under valgrind, compile with VALGRIND defined
-        (e.g. CPPFLAGS='... -DVALGRIND=1' meson <options>) and have valgrind
-        development headers installed (i.e. valgrind-devel or
-        equivalent). Otherwise, false positives will be triggered by code which
-        violates some rules but is actually safe. Note that valgrind generates
-        nice output only on exit(), hence on shutdown we don't execve()
-        systemd-shutdown.
+        To run systemd under valgrind, compile with meson option
+        -Dvalgrind=true and have valgrind development headers installed
+        (i.e. valgrind-devel or equivalent). Otherwise, false positives will be
+        triggered by code which violates some rules but is actually safe. Note
+        that valgrind generates nice output only on exit(), hence on shutdown
+        we don't execve() systemd-shutdown.
+
+STABLE BRANCHES AND BACKPORTS
+
+       Stable branches with backported patches are available in the
+       systemd-stable repo at https://github.com/systemd/systemd-stable.
+
+       Stable branches are started for certain releases of systemd and named
+       after them, e.g. v238-stable. Stable branches are managed by
+       distribution maintainers on an as needed basis. See
+       https://www.freedesktop.org/wiki/Software/systemd/Backports/ for some
+       more information and examples.
 
 ENGINEERING AND CONSULTING SERVICES:
         Kinvolk (https://kinvolk.io) offers professional engineering

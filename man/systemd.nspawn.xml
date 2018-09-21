@@ -1,4 +1,4 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
@@ -7,23 +7,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.nspawn">
@@ -31,15 +14,6 @@
   <refentryinfo>
     <title>systemd.nspawn</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -236,6 +210,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NoNewPrivileges=</varname></term>
+
+        <listitem><para>Takes a boolean argument that controls the <constant>PR_SET_NO_NEW_PRIVS</constant> flag for
+        the container payload. This is equivalent to the
+        <option>--no-new-privileges=</option> command line switch. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>KillSignal=</varname></term>
 
         <listitem><para>Specify the process signal to send to the
@@ -287,6 +272,84 @@
 
         <listitem><para>Configures the system call filter applied to containers. This is equivalent to the
         <option>--system-call-filter=</option> command line switch, and takes the same list parameter. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LimitCPU=</varname></term>
+        <term><varname>LimitFSIZE=</varname></term>
+        <term><varname>LimitDATA=</varname></term>
+        <term><varname>LimitSTACK=</varname></term>
+        <term><varname>LimitCORE=</varname></term>
+        <term><varname>LimitRSS=</varname></term>
+        <term><varname>LimitNOFILE=</varname></term>
+        <term><varname>LimitAS=</varname></term>
+        <term><varname>LimitNPROC=</varname></term>
+        <term><varname>LimitMEMLOCK=</varname></term>
+        <term><varname>LimitLOCKS=</varname></term>
+        <term><varname>LimitSIGPENDING=</varname></term>
+        <term><varname>LimitMSGQUEUE=</varname></term>
+        <term><varname>LimitNICE=</varname></term>
+        <term><varname>LimitRTPRIO=</varname></term>
+        <term><varname>LimitRTTIME=</varname></term>
+
+        <listitem><para>Configures various types of resource limits applied to containers. This is equivalent to the
+        <option>--rlimit=</option> command line switch, and takes the same arguments. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OOMScoreAdjust=</varname></term>
+
+        <listitem><para>Configures the OOM score adjustment value. This is equivalent to the
+        <option>--oom-score-adjust=</option> command line switch, and takes the same argument. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CPUAffinity=</varname></term>
+
+        <listitem><para>Configures the CPU affinity. This is equivalent to the <option>--cpu-affinity=</option> command
+        line switch, and takes the same argument. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Hostname=</varname></term>
+
+        <listitem><para>Configures the kernel hostname set for the container. This is equivalent to the
+        <option>--hostname=</option> command line switch, and takes the same argument. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ResolvConf=</varname></term>
+
+        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> in the container shall be handled. This is
+        equivalent to the <option>--resolv-conf=</option> command line switch, and takes the same argument. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Timezone=</varname></term>
+
+        <listitem><para>Configures how <filename>/etc/localtime</filename> in the container shall be handled. This is
+        equivalent to the <option>--localtime=</option> command line switch, and takes the same argument. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LinkJournal=</varname></term>
+
+        <listitem><para>Configures how to link host and container journal setups. This is equivalent to the
+        <option>--link-journal=</option> command line switch, and takes the same parameter. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>

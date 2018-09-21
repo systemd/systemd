@@ -1,27 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sys/xattr.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "gcrypt-util.h"
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "io-util.h"
@@ -335,6 +318,8 @@ static int pull_job_open_disk(PullJob *j) {
         }
 
         if (j->calc_checksum) {
+                initialize_libgcrypt(false);
+
                 if (gcry_md_open(&j->checksum_context, GCRY_MD_SHA256, 0) != 0) {
                         log_error("Failed to initialize hash context.");
                         return -EIO;
@@ -581,8 +566,7 @@ int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata)
         if (!j->url)
                 return -ENOMEM;
 
-        *ret = j;
-        j = NULL;
+        *ret = TAKE_PTR(j);
 
         return 0;
 }

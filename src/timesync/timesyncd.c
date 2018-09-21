@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Kay Sievers, Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -29,9 +11,13 @@
 #include "network-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "timesyncd-bus.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "user-util.h"
+
+#define STATE_DIR   "/var/lib/systemd/timesync"
+#define CLOCK_FILE  STATE_DIR "/clock"
 
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
@@ -46,7 +32,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
          * systems lacking a battery backed RTC. We also will adjust
          * the time to at least the build time of systemd. */
 
-        fd = open("/var/lib/systemd/timesync/clock", O_RDWR|O_CLOEXEC, 0644);
+        fd = open(CLOCK_FILE, O_RDWR|O_CLOEXEC, 0644);
         if (fd >= 0) {
                 struct stat st;
                 usec_t stamp;
@@ -62,22 +48,26 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 if (geteuid() == 0) {
                         /* Try to fix the access mode, so that we can still
                            touch the file after dropping priviliges */
-                        r = fchmod(fd, 0644);
+                        r = fchmod_and_chown(fd, 0644, uid, gid);
                         if (r < 0)
-                                return log_error_errno(errno, "Failed to change file access mode: %m");
-                        r = fchown(fd, uid, gid);
-                                return log_error_errno(errno, "Failed to change file owner: %m");
+                                log_warning_errno(r, "Failed to chmod or chown %s, ignoring: %m", CLOCK_FILE);
                 }
 
         } else {
-                r = mkdir_safe_label("/var/lib/systemd/timesync", 0755, uid, gid, true);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create state directory: %m");
+                r = mkdir_safe_label(STATE_DIR, 0755, uid, gid,
+                                     MKDIR_FOLLOW_SYMLINK | MKDIR_WARN_MODE);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to create state directory, ignoring: %m");
+                        goto settime;
+                }
 
                 /* create stamp file with the compiled-in date */
-                (void) touch_file("/var/lib/systemd/timesync/clock", false, min, uid, gid, 0644);
+                r = touch_file(CLOCK_FILE, false, min, uid, gid, 0644);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to create %s, ignoring: %m", CLOCK_FILE);
         }
 
+settime:
         ct = now(CLOCK_REALTIME);
         if (ct < min) {
                 struct timespec ts;
@@ -87,7 +77,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                          format_timestamp(date, sizeof(date), min));
 
                 if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, min)) < 0)
-                        log_error_errno(errno, "Failed to restore system clock: %m");
+                        log_error_errno(errno, "Failed to restore system clock, ignoring: %m");
         }
 
         return 0;
@@ -96,7 +86,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         const char *user = "systemd-timesync";
-        uid_t uid;
+        uid_t uid, uid_current;
         gid_t gid;
         int r;
 
@@ -113,10 +103,15 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Cannot resolve user name %s: %m", user);
-                goto finish;
+        uid = uid_current = geteuid();
+        gid = getegid();
+
+        if (uid_current == 0) {
+                r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                if (r < 0) {
+                        log_error_errno(r, "Cannot resolve user name %s: %m", user);
+                        goto finish;
+                }
         }
 
         r = load_clock_timestamp(uid, gid);
@@ -125,7 +120,7 @@ int main(int argc, char *argv[]) {
 
         /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
          * privileges are already dropped. */
-        if (geteuid() == 0) {
+        if (uid_current == 0) {
                 r = drop_privileges(uid, gid, (1ULL << CAP_SYS_TIME));
                 if (r < 0)
                         goto finish;
@@ -139,9 +134,15 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        r = manager_connect_bus(m);
+        if (r < 0) {
+                log_error_errno(r, "Could not connect to bus: %m");
+                goto finish;
+        }
+
         if (clock_is_localtime(NULL) > 0) {
                 log_info("The system is configured to read the RTC time in the local time zone. "
-                         "This mode can not be fully supported. All system time to RTC updates are disabled.");
+                         "This mode cannot be fully supported. All system time to RTC updates are disabled.");
                 m->rtc_local_time = true;
         }
 
@@ -173,8 +174,11 @@ int main(int argc, char *argv[]) {
         }
 
         /* if we got an authoritative time, store it in the file system */
-        if (m->sync)
-                (void) touch("/var/lib/systemd/timesync/clock");
+        if (m->sync) {
+                r = touch(CLOCK_FILE);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to touch %s, ignoring: %m", CLOCK_FILE);
+        }
 
         sd_event_get_exit_code(m->event, &r);
 

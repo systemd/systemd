@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-sysusers"
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>systemd-sysusers</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -69,15 +43,18 @@
     <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>If invoked with no arguments, it applies all directives from
-    all files found. If one or more filenames are passed on the
-    command line, only the directives in these files are applied. If
-    only the basename of a file is specified, all directories as
-    specified in
-    <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    are searched for a matching file. If the string
-    <literal>-</literal> is specified instead of a filename, entries from the
-    standard input of the process are read.</para>
+    <para>If invoked with no arguments, it applies all directives from all files
+    found in the directories specified by
+    <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    When invoked with positional arguments, if option
+    <option>--replace=<replaceable>PATH</replaceable></option> is specified, arguments
+    specified on the command line are used instead of the configuration file
+    <replaceable>PATH</replaceable>. Otherwise, just the configuration specified by
+    the command line arguments is executed. The string <literal>-</literal> may be
+    specified instead of a filename to instruct <command>systemd-sysusers</command>
+    to read the configuration from standard input. If only the basename of a file is
+    specified, all configuration directories are searched for a matching file and
+    the file found that has the highest priority is executed.</para>
   </refsect1>
 
   <refsect1>
@@ -94,6 +71,48 @@
         paths. </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--replace=<replaceable>PATH</replaceable></option></term>
+        <listitem><para>When this option is given, one ore more positional arguments
+        must be specified. All configuration files found in the directories listed in
+        <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        will be read, and the configuration given on the command line will be
+        handled instead of and with the same priority as the configuration file
+        <replaceable>PATH</replaceable>.</para>
+
+        <para>This option is intended to be used when package installation scripts
+        are running and files belonging to that package are not yet available on
+        disk, so their contents must be given on the command line, but the admin
+        configuration might already exist and should be given higher priority.
+        </para>
+
+        <example>
+          <title>RPM installation script for radvd</title>
+
+          <programlisting>echo 'u radvd - "radvd daemon"' | \
+          systemd-sysusers --replace=/usr/lib/sysusers.d/radvd.conf -</programlisting>
+
+          <para>This will create the radvd user as if
+          <filename>/usr/lib/sysusers.d/radvd.conf</filename> was already on disk.
+          An admin might override the configuration specified on the command line by
+          placing <filename>/etc/sysusers.d/radvd.conf</filename> or even
+          <filename>/etc/sysusers.d/00-overrides.conf</filename>.</para>
+
+          <para>Note that this is the expanded from, and when used in a package, this
+          would be written using a macro with "radvd" and a file containing the
+          configuration line as arguments.</para>
+        </example>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--inline</option></term>
+        <listitem><para>Treat each positional argument as a separate configuration
+        line instead of a file name.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="cat-config" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="machinectl" conditional='ENABLE_MACHINED'
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>machinectl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -157,13 +131,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--kill-who=</option></term>
 
         <listitem><para>When used with <command>kill</command>, choose
@@ -212,7 +179,7 @@
 
         <listitem><para>When used with <command>bind</command>, creates the destination file or directory before
         applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
-        directories, this option also creates the destination file node to mount over if the the object to mount is not
+        directories, this option also creates the destination file node to mount over if the object to mount is not
         a directory, but a regular file, device node, socket or FIFO.</para></listitem>
       </varlistentry>
 
@@ -301,6 +268,13 @@
         <literal>,</literal> if another address will be output afterwards. </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses additional informational output while running.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
 
       <varlistentry>
@@ -315,6 +289,7 @@
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -432,9 +407,9 @@
         specified, the connection is made to the local host
         instead. This works similar to <command>login</command> but
         immediately invokes a user process. This command runs the
-        specified executable with the specified arguments, or
-        <filename>/bin/sh</filename> if none is specified. By default,
-        opens a <literal>root</literal> shell, but by using
+        specified executable with the specified arguments, or the
+        default shell for the user if none is specified, or
+        <filename>/bin/sh</filename> if no default shell is found. By default,
         <option>--uid=</option>, or by prefixing the machine name with
         a username and an <literal>@</literal> character, a different
         user may be selected. Use <option>--setenv=</option> to set
@@ -874,7 +849,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>cancel-transfers</command> <replaceable>ID</replaceable>…</term>
+        <term><command>cancel-transfer</command> <replaceable>ID</replaceable>…</term>
 
         <listitem><para>Aborts a download, import or export of the
         container or VM image with the specified ID. To list ongoing
@@ -992,12 +967,12 @@
       <title>Download a Fedora image, set a root password in it, start
       it as service</title>
 
-      <programlisting># machinectl pull-raw --verify=no https://dl.fedoraproject.org/pub/fedora/linux/releases/23/Cloud/x86_64/Images/Fedora-Cloud-Base-23-20151030.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-23-20151030
+      <programlisting># machinectl pull-raw --verify=no https://dl.fedoraproject.org/pub/fedora/linux/releases/27/CloudImages/x86_64/images/Fedora-Cloud-Base-27-1.6.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-27-1.6.x86_64
 # passwd
 # exit
-# machinectl start Fedora-Cloud-Base-23-20151030
-# machinectl login Fedora-Cloud-Base-23-20151030</programlisting>
+# machinectl start Fedora-Cloud-Base-27-1.6.x86_64
+# machinectl login Fedora-Cloud-Base-27-1.6.x86_64</programlisting>
 
       <para>This downloads the specified <filename>.raw</filename>
       image with verification disabled. Then, a shell is opened in it
@@ -1041,6 +1016,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,

@@ -1,51 +1,35 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <string.h>
 
-#include "libudev.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
+#include "device-enumerator-private.h"
 #include "locale-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "sysfs-show.h"
 #include "terminal-util.h"
-#include "udev-util.h"
 #include "util.h"
 
 static int show_sysfs_one(
-                struct udev *udev,
                 const char *seat,
-                struct udev_list_entry **item,
+                sd_device **dev_list,
+                size_t *i_dev,
+                size_t n_dev,
                 const char *sub,
                 const char *prefix,
                 unsigned n_columns,
                 OutputFlags flags) {
 
         size_t max_width;
+        int r;
 
-        assert(udev);
         assert(seat);
-        assert(item);
+        assert(dev_list);
+        assert(i_dev);
         assert(prefix);
 
         if (flags & OUTPUT_FULL_WIDTH)
@@ -55,73 +39,58 @@ static int show_sysfs_one(
         else
                 max_width = n_columns;
 
-        while (*item) {
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-                struct udev_list_entry *next, *lookahead;
-                const char *sn, *name, *sysfs, *subsystem, *sysname;
+        while (*i_dev < n_dev) {
+                const char *sysfs, *sn, *name = NULL, *subsystem = NULL, *sysname = NULL;
                 _cleanup_free_ char *k = NULL, *l = NULL;
+                size_t lookahead;
                 bool is_master;
 
-                sysfs = udev_list_entry_get_name(*item);
-                if (!path_startswith(sysfs, sub))
+                if (sd_device_get_syspath(dev_list[*i_dev], &sysfs) < 0 ||
+                    !path_startswith(sysfs, sub))
                         return 0;
 
-                d = udev_device_new_from_syspath(udev, sysfs);
-                if (!d) {
-                        *item = udev_list_entry_get_next(*item);
-                        continue;
-                }
-
-                sn = udev_device_get_property_value(d, "ID_SEAT");
-                if (isempty(sn))
+                if (sd_device_get_property_value(dev_list[*i_dev], "ID_SEAT", &sn) < 0 || isempty(sn))
                         sn = "seat0";
 
                 /* Explicitly also check for tag 'seat' here */
-                if (!streq(seat, sn) || !udev_device_has_tag(d, "seat")) {
-                        *item = udev_list_entry_get_next(*item);
+                if (!streq(seat, sn) || sd_device_has_tag(dev_list[*i_dev], "seat") <= 0) {
+                        (*i_dev)++;
                         continue;
                 }
 
-                is_master = udev_device_has_tag(d, "master-of-seat");
+                is_master = sd_device_has_tag(dev_list[*i_dev], "master-of-seat") > 0;
 
-                name = udev_device_get_sysattr_value(d, "name");
-                if (!name)
-                        name = udev_device_get_sysattr_value(d, "id");
-                subsystem = udev_device_get_subsystem(d);
-                sysname = udev_device_get_sysname(d);
+                if (sd_device_get_sysattr_value(dev_list[*i_dev], "name", &name) < 0)
+                        (void) sd_device_get_sysattr_value(dev_list[*i_dev], "id", &name);
+
+                (void) sd_device_get_subsystem(dev_list[*i_dev], &subsystem);
+                (void) sd_device_get_sysname(dev_list[*i_dev], &sysname);
 
                 /* Look if there's more coming after this */
-                lookahead = next = udev_list_entry_get_next(*item);
-                while (lookahead) {
+                for (lookahead = *i_dev + 1; lookahead < n_dev; lookahead++) {
                         const char *lookahead_sysfs;
 
-                        lookahead_sysfs = udev_list_entry_get_name(lookahead);
+                        if (sd_device_get_syspath(dev_list[lookahead], &lookahead_sysfs) < 0)
+                                continue;
 
                         if (path_startswith(lookahead_sysfs, sub) &&
                             !path_startswith(lookahead_sysfs, sysfs)) {
-                                _cleanup_udev_device_unref_ struct udev_device *lookahead_d = NULL;
+                                const char *lookahead_sn;
 
-                                lookahead_d = udev_device_new_from_syspath(udev, lookahead_sysfs);
-                                if (lookahead_d) {
-                                        const char *lookahead_sn;
+                                if (sd_device_get_property_value(dev_list[lookahead], "ID_SEAT", &lookahead_sn) < 0 ||
+                                    isempty(lookahead_sn))
+                                        lookahead_sn = "seat0";
 
-                                        lookahead_sn = udev_device_get_property_value(d, "ID_SEAT");
-                                        if (isempty(lookahead_sn))
-                                                lookahead_sn = "seat0";
-
-                                        if (streq(seat, lookahead_sn) && udev_device_has_tag(lookahead_d, "seat"))
-                                                break;
-                                }
+                                if (streq(seat, lookahead_sn) && sd_device_has_tag(dev_list[lookahead], "seat") > 0)
+                                        break;
                         }
-
-                        lookahead = udev_list_entry_get_next(lookahead);
                 }
 
                 k = ellipsize(sysfs, max_width, 20);
                 if (!k)
                         return -ENOMEM;
 
-                printf("%s%s%s\n", prefix, special_glyph(lookahead ? TREE_BRANCH : TREE_RIGHT), k);
+                printf("%s%s%s\n", prefix, special_glyph(lookahead < n_dev ? TREE_BRANCH : TREE_RIGHT), k);
 
                 if (asprintf(&l,
                              "%s%s:%s%s%s%s",
@@ -135,29 +104,31 @@ static int show_sysfs_one(
                 if (!k)
                         return -ENOMEM;
 
-                printf("%s%s%s\n", prefix, lookahead ? special_glyph(TREE_VERTICAL) : "  ", k);
+                printf("%s%s%s\n", prefix, lookahead < n_dev ? special_glyph(TREE_VERTICAL) : "  ", k);
 
-                *item = next;
-                if (*item) {
+                if (++(*i_dev) < n_dev) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strappend(prefix, lookahead ? special_glyph(TREE_VERTICAL) : "  ");
+                        p = strappend(prefix, lookahead < n_dev ? special_glyph(TREE_VERTICAL) : "  ");
                         if (!p)
                                 return -ENOMEM;
 
-                        show_sysfs_one(udev, seat, item, sysfs, p,
-                                       n_columns == (unsigned) -1 || n_columns < 2 ? n_columns : n_columns - 2,
-                                       flags);
+                        r = show_sysfs_one(seat, dev_list, i_dev, n_dev, sysfs, p,
+                                           n_columns == (unsigned) -1 || n_columns < 2 ? n_columns : n_columns - 2,
+                                           flags);
+                        if (r < 0)
+                                return r;
                 }
+
         }
 
         return 0;
 }
 
 int show_sysfs(const char *seat, const char *prefix, unsigned n_columns, OutputFlags flags) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        struct udev_list_entry *first = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        size_t n_dev = 0, i = 0;
+        sd_device **dev_list;
         int r;
 
         if (n_columns <= 0)
@@ -168,34 +139,28 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns, OutputF
         if (isempty(seat))
                 seat = "seat0";
 
-        udev = udev_new();
-        if (!udev)
-                return -ENOMEM;
-
-        e = udev_enumerate_new(udev);
-        if (!e)
-                return -ENOMEM;
-
-        if (!streq(seat, "seat0"))
-                r = udev_enumerate_add_match_tag(e, seat);
-        else
-                r = udev_enumerate_add_match_tag(e, "seat");
+        r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_add_match_is_initialized(e);
+        r = sd_device_enumerator_allow_uninitialized(e);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_scan_devices(e);
+        r = sd_device_enumerator_add_match_tag(e, streq(seat, "seat0") ? "seat" : seat);
         if (r < 0)
                 return r;
 
-        first = udev_enumerate_get_list_entry(e);
-        if (first)
-                show_sysfs_one(udev, seat, &first, "/", prefix, n_columns, flags);
+        r = device_enumerator_scan_devices(e);
+        if (r < 0)
+                return r;
+
+        dev_list = device_enumerator_get_devices(e, &n_dev);
+
+        if (dev_list && n_dev > 0)
+                show_sysfs_one(seat, dev_list, &i, n_dev, "/", prefix, n_columns, flags);
         else
                 printf("%s%s%s\n", prefix, special_glyph(TREE_RIGHT), "(none)");
 
-        return r;
+        return 0;
 }

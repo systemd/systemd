@@ -1,21 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
 #include <netinet/icmp6.h>
@@ -30,28 +15,7 @@
 #include "ndisc-router.h"
 #include "strv.h"
 
-_public_ sd_ndisc_router* sd_ndisc_router_ref(sd_ndisc_router *rt) {
-        if (!rt)
-                return NULL;
-
-        assert(rt->n_ref > 0);
-        rt->n_ref++;
-
-        return rt;
-}
-
-_public_ sd_ndisc_router* sd_ndisc_router_unref(sd_ndisc_router *rt) {
-        if (!rt)
-                return NULL;
-
-        assert(rt->n_ref > 0);
-        rt->n_ref--;
-
-        if (rt->n_ref > 0)
-                return NULL;
-
-        return mfree(rt);
-}
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, mfree);
 
 sd_ndisc_router *ndisc_router_new(size_t raw_size) {
         sd_ndisc_router *rt;
@@ -82,8 +46,7 @@ _public_ int sd_ndisc_router_from_raw(sd_ndisc_router **ret, const void *raw, si
         if (r < 0)
                 return r;
 
-        *ret = rt;
-        rt = NULL;
+        *ret = TAKE_PTR(rt);
 
         return r;
 }
@@ -765,8 +728,7 @@ _public_ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret)
                 return 0;
         }
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
 
         return k;
 }

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdio.h>
@@ -47,13 +29,15 @@ int mac_selinux_setup(bool *loaded_policy) {
         usec_t before_load, after_load;
         char *con;
         int r;
-        union selinux_callback cb;
+        static const union selinux_callback cb = {
+                .func_log = null_log,
+        };
+
         bool initialized = false;
 
         assert(loaded_policy);
 
         /* Turn off all of SELinux' own logging, we want to do that */
-        cb.func_log = null_log;
         selinux_set_callback(SELINUX_CB_LOG, cb);
 
         /* Don't load policy in the initrd if we don't appear to have

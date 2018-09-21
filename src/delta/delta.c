@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <getopt.h>
@@ -75,12 +56,12 @@ static bool arg_no_pager = false;
 static int arg_diff = -1;
 
 static enum {
-        SHOW_MASKED = 1 << 0,
+        SHOW_MASKED     = 1 << 0,
         SHOW_EQUIVALENT = 1 << 1,
         SHOW_REDIRECTED = 1 << 2,
         SHOW_OVERRIDDEN = 1 << 3,
-        SHOW_UNCHANGED = 1 << 4,
-        SHOW_EXTENDED = 1 << 5,
+        SHOW_UNCHANGED  = 1 << 4,
+        SHOW_EXTENDED   = 1 << 5,
 
         SHOW_DEFAULTS =
         (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN | SHOW_EXTENDED)
@@ -90,11 +71,11 @@ static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
         int r;
 
-        r = chase_symlinks(a, NULL, 0, &x);
+        r = chase_symlinks(a, NULL, CHASE_TRAIL_SLASH, &x);
         if (r < 0)
                 return r;
 
-        r = chase_symlinks(b, NULL, 0, &y);
+        r = chase_symlinks(b, NULL, CHASE_TRAIL_SLASH, &y);
         if (r < 0)
                 return r;
 
@@ -161,8 +142,8 @@ static int notify_override_unchanged(const char *f) {
 
 static int found_override(const char *top, const char *bottom) {
         _cleanup_free_ char *dest = NULL;
-        int k;
         pid_t pid;
+        int r;
 
         assert(top);
         assert(bottom);
@@ -170,40 +151,36 @@ static int found_override(const char *top, const char *bottom) {
         if (null_or_empty_path(top) > 0)
                 return notify_override_masked(top, bottom);
 
-        k = readlink_malloc(top, &dest);
-        if (k >= 0) {
+        r = readlink_malloc(top, &dest);
+        if (r >= 0) {
                 if (equivalent(dest, bottom) > 0)
                         return notify_override_equivalent(top, bottom);
                 else
                         return notify_override_redirected(top, bottom);
         }
 
-        k = notify_override_overridden(top, bottom);
+        r = notify_override_overridden(top, bottom);
         if (!arg_diff)
-                return k;
+                return r;
 
         putchar('\n');
 
         fflush(stdout);
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork off diff: %m");
-        else if (pid == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
+        r = safe_fork("(diff)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 execlp("diff", "diff", "-us", "--", bottom, top, NULL);
+                log_open();
                 log_error_errno(errno, "Failed to execute diff: %m");
                 _exit(EXIT_FAILURE);
         }
 
-        wait_for_terminate_and_warn("diff", pid, false);
+        (void) wait_for_terminate_and_check("diff", pid, WAIT_LOG_ABNORMAL);
         putchar('\n');
 
-        return k;
+        return r;
 }
 
 static int enumerate_dir_d(
@@ -392,19 +369,28 @@ static int enumerate_dir(
         return 0;
 }
 
-static int should_skip_prefix(const char* p) {
+static bool should_skip_path(const char *prefix, const char *suffix) {
 #if HAVE_SPLIT_USR
-        int r;
         _cleanup_free_ char *target = NULL;
+        const char *p;
+        char *dirname;
 
-        r = chase_symlinks(p, NULL, 0, &target);
-        if (r < 0)
-                return r;
+        dirname = strjoina(prefix, "/", suffix);
 
-        return !streq(p, target) && nulstr_contains(prefixes, target);
-#else
-        return 0;
+        if (chase_symlinks(dirname, NULL, 0, &target) < 0)
+                return false;
+
+        NULSTR_FOREACH(p, prefixes) {
+                if (path_startswith(dirname, p))
+                        continue;
+
+                if (path_equal(target, strjoina(p, "/", suffix))) {
+                        log_debug("%s redirects to %s, skipping.", dirname, target);
+                        return true;
+                }
+        }
 #endif
+        return false;
 }
 
 static int process_suffix(const char *suffix, const char *onlyprefix) {
@@ -434,14 +420,8 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 
         NULSTR_FOREACH(p, prefixes) {
                 _cleanup_free_ char *t = NULL;
-                int skip;
 
-                skip = should_skip_prefix(p);
-                if (skip < 0) {
-                        r = skip;
-                        goto finish;
-                }
-                if (skip)
+                if (should_skip_path(p, suffix))
                         continue;
 
                 t = strjoin(p, "/", suffix);
@@ -520,19 +500,12 @@ static int process_suffix_chop(const char *arg) {
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
                 const char *suffix;
-                int skip;
-
-                skip = should_skip_prefix(p);
-                if (skip < 0)
-                        return skip;
-                if (skip)
-                        continue;
 
                 suffix = startswith(arg, p);
                 if (suffix) {
                         suffix += strspn(suffix, "/");
                         if (*suffix)
-                                return process_suffix(suffix, NULL);
+                                return process_suffix(suffix, p);
                         else
                                 return process_suffixes(arg);
                 }
@@ -542,7 +515,14 @@ static int process_suffix_chop(const char *arg) {
         return -EINVAL;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-delta", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [SUFFIX...]\n\n"
                "Find overridden configuration files.\n\n"
                "  -h --help           Show this help\n"
@@ -550,7 +530,12 @@ static void help(void) {
                "     --no-pager       Do not pipe output into a pager\n"
                "     --diff[=1|0]     Show a diff when overridden files differ\n"
                "  -t --type=LIST...   Only display a selected set of override types\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_flags(const char *flag_str, int flags) {
@@ -605,8 +590,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -670,13 +654,13 @@ int main(int argc, char *argv[]) {
         else if (arg_diff)
                 arg_flags |= SHOW_OVERRIDDEN;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         if (optind < argc) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        path_kill_slashes(argv[i]);
+                        path_simplify(argv[i], false);
 
                         k = process_suffix_chop(argv[i]);
                         if (k < 0)

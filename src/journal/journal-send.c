@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -96,7 +78,7 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
         /* FIXME: Instead of limiting things to LINE_MAX we could do a
            C99 variable-length array on the stack here in a loop. */
 
-        char buffer[8 + LINE_MAX], p[sizeof("PRIORITY=")-1 + DECIMAL_STR_MAX(int) + 1];
+        char buffer[8 + LINE_MAX], p[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int) + 1];
         struct iovec iov[2];
 
         assert_return(priority >= 0, -EINVAL);
@@ -357,7 +339,7 @@ static int fill_iovec_perror_and_send(const char *message, int skip, struct iove
                 errno = 0;
                 j = strerror_r(_saved_errno_, buffer + 8 + k, n - 8 - k);
                 if (errno == 0) {
-                        char error[sizeof("ERRNO=")-1 + DECIMAL_STR_MAX(int) + 1];
+                        char error[STRLEN("ERRNO=") + DECIMAL_STR_MAX(int) + 1];
 
                         if (j != buffer + 8 + k)
                                 memmove(buffer + 8 + k, j, strlen(j)+1);
@@ -416,10 +398,9 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         if (shutdown(fd, SHUT_RD) < 0)
                 return -errno;
 
-        fd_inc_sndbuf(fd, SNDBUF_SIZE);
+        (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
-        if (!identifier)
-                identifier = "";
+        identifier = strempty(identifier);
 
         l = strlen(identifier);
         header = alloca(l + 1 + 1 + 2 + 2 + 2 + 2 + 2);
@@ -442,9 +423,7 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         if (r < 0)
                 return r;
 
-        r = fd;
-        fd = -1;
-        return r;
+        return TAKE_FD(fd);
 }
 
 _public_ int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) {
@@ -459,7 +438,7 @@ _public_ int sd_journal_print_with_location(int priority, const char *file, cons
 }
 
 _public_ int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) {
-        char buffer[8 + LINE_MAX], p[sizeof("PRIORITY=")-1 + DECIMAL_STR_MAX(int) + 1];
+        char buffer[8 + LINE_MAX], p[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int) + 1];
         struct iovec iov[5];
         char *f;
 
@@ -534,7 +513,7 @@ _public_ int sd_journal_sendv_with_location(
         assert_return(iov, -EINVAL);
         assert_return(n > 0, -EINVAL);
 
-        niov = alloca(sizeof(struct iovec) * (n + 3));
+        niov = newa(struct iovec, n + 3);
         memcpy(niov, iov, sizeof(struct iovec) * n);
 
         ALLOCA_CODE_FUNC(f, func);

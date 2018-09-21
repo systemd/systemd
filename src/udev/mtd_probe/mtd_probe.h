@@ -2,7 +2,7 @@
 #pragma once
 
 /*
- * Copyright (C) 2010 - Maxim Levitsky
+ * Copyright © 2010 - Maxim Levitsky
  *
  * mtd_probe is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,4 +49,4 @@ struct sm_oob {
 #define SM_SMALL_PAGE                 256
 #define SM_SMALL_OOB_SIZE        8
 
-void probe_smart_media(int mtd_fd, mtd_info_t *info);
+int probe_smart_media(int mtd_fd, mtd_info_t *info);

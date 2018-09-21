@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <fcntl.h>
 #include <getopt.h>
@@ -31,9 +13,11 @@
 #include "bus-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "pager.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -41,6 +25,7 @@ static const char* arg_what = "idle:sleep:shutdown";
 static const char* arg_who = NULL;
 static const char* arg_why = "Unknown reason";
 static const char* arg_mode = NULL;
+static bool arg_no_pager = false;
 
 static enum {
         ACTION_INHIBIT,
@@ -81,6 +66,8 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
         unsigned int uid, pid;
         unsigned n = 0;
         int r;
+
+        (void) pager_open(arg_no_pager, false);
 
         r = sd_bus_call_method(
                         bus,
@@ -129,11 +116,19 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-inhibit", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Execute a process while inhibiting shutdown/sleep/idle.\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
+               "     --no-pager           Do not pipe output into a pager\n"
                "     --what=WHAT          Operations to inhibit, colon separated list of:\n"
                "                          shutdown, sleep, idle, handle-power-key,\n"
                "                          handle-suspend-key, handle-hibernate-key,\n"
@@ -142,7 +137,12 @@ static void help(void) {
                "     --why=STRING         A descriptive string why is being inhibited\n"
                "     --mode=MODE          One of block or delay\n"
                "     --list               List active inhibitors\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -154,6 +154,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WHY,
                 ARG_MODE,
                 ARG_LIST,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
@@ -164,6 +165,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "why",          required_argument, NULL, ARG_WHY          },
                 { "mode",         required_argument, NULL, ARG_MODE         },
                 { "list",         no_argument,       NULL, ARG_LIST         },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
                 {}
         };
 
@@ -177,8 +179,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -201,6 +202,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LIST:
                         arg_action = ACTION_LIST;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
                         break;
 
                 case '?':
@@ -244,6 +249,7 @@ int main(int argc, char *argv[]) {
         if (arg_action == ACTION_LIST) {
 
                 r = print_inhibitors(bus, &error);
+                pager_close();
                 if (r < 0) {
                         log_error("Failed to list inhibitors: %s", bus_error_message(&error, -r));
                         return EXIT_FAILURE;
@@ -253,6 +259,9 @@ int main(int argc, char *argv[]) {
                 _cleanup_close_ int fd = -1;
                 _cleanup_free_ char *w = NULL;
                 pid_t pid;
+
+                /* Ignore SIGINT and allow the forked process to receive it */
+                (void) ignore_signals(SIGINT, -1);
 
                 if (!arg_who)
                         arg_who = w = strv_join(argv + optind, " ");
@@ -266,28 +275,20 @@ int main(int argc, char *argv[]) {
                         return EXIT_FAILURE;
                 }
 
-                pid = fork();
-                if (pid < 0) {
-                        log_error_errno(errno, "Failed to fork: %m");
+                r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+                if (r < 0)
                         return EXIT_FAILURE;
-                }
-
-                if (pid == 0) {
+                if (r == 0) {
                         /* Child */
-
-                        (void) reset_all_signal_handlers();
-                        (void) reset_signal_mask();
-
-                        close_all_fds(NULL, 0);
-
                         execvp(argv[optind], argv + optind);
+                        log_open();
                         log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
                         _exit(EXIT_FAILURE);
                 }
 
-                r = wait_for_terminate_and_warn(argv[optind], pid, true);
+                r = wait_for_terminate_and_check(argv[optind], pid, WAIT_LOG);
                 return r < 0 ? EXIT_FAILURE : r;
         }
 
-        return 0;
+        return EXIT_SUCCESS;
 }

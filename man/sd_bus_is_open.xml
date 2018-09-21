@@ -1,0 +1,106 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+
+<refentry id="sd_bus_is_open"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_is_open</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_is_open</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_is_open</refname>
+    <refname>sd_bus_is_ready</refname>
+
+    <refpurpose>Check whether the a bus connection is open or ready.</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_is_open</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_is_ready</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_is_open()</function> checks whether the specified bus connection is open, i.e. in the
+    process of being established, already established or in the process of being torn down. It returns zero when the
+    connection has not been started yet
+    (i.e. <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry> or some
+    equivalent call has not been invoked yet), or is fully terminated again (for example after
+    <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>), it returns
+    positive otherwise.</para>
+
+    <para><function>sd_bus_is_ready()</function> checks whether the specified connection is fully established,
+    i.e. completed the connection and authentication phases of the protocol and received the
+    <function>Hello()</function> method call response, and is not in the process of being torn down again. It returns
+    zero outside of this state, and positive otherwise. Effectively, this function returns positive while regular
+    messages can be sent or received on the connection.</para>
+
+    <para>To be notified when the connection is fully established, use
+    <citerefentry><refentrytitle>sd_bus_set_connected_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    install a match for the <function>Connected()</function> signal on the
+    <literal>org.freedesktop.DBus.Local</literal> interface. To be notified when the connection is torn down again,
+    install a match for the <function>Disconnected()</function> signal on the
+    <literal>org.freedesktop.DBus.Local</literal> interface.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return 0 or a positive integer. On failure, they return a negative errno-style
+    error code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>-ECHILD</constant></term>
+
+        <listitem><para>The bus connection has been created in a different process.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_set_connected_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

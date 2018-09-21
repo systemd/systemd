@@ -1,0 +1,131 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_slot_set_destroy_callback"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_slot_set_destroy_callback</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_slot_set_destroy_callback</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_slot_set_destroy_callback</refname>
+    <refname>sd_bus_slot_get_destroy_callback</refname>
+    <refname>sd_bus_track_set_destroy_callback</refname>
+    <refname>sd_bus_track_get_destroy_callback</refname>
+    <refname>sd_bus_destroy_t</refname>
+
+    <refpurpose>Define the callback function for resource cleanup.</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>typedef int (*<function>sd_bus_destroy_t</function>)</funcdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_slot_set_destroy_callback</function></funcdef>
+        <paramdef>sd_bus_slot *<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_destroy_t <parameter>callback</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_slot_get_destroy_callback</function></funcdef>
+        <paramdef>sd_bus_slot *<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_destroy_t *<parameter>callback</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_track_set_destroy_callback</function></funcdef>
+        <paramdef>sd_bus_track *<parameter>track</parameter></paramdef>
+        <paramdef>sd_bus_destroy_t <parameter>callback</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_track_get_destroy_callback</function></funcdef>
+        <paramdef>sd_bus_track *<parameter>track</parameter></paramdef>
+        <paramdef>sd_bus_destroy_t *<parameter>callback</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_slot_set_destroy_callback()</function> sets <parameter>callback</parameter> as the callback
+    function to be called right before the bus slot object <parameter>slot</parameter> is deallocated. The
+    <parameter>userdata</parameter> pointer from the slot object will be passed as the <parameter>userdata</parameter>
+    parameter. This pointer can be set by an argument to the constructor functions, see
+    <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>, or directly,
+    see <citerefentry><refentrytitle>sd_bus_slot_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    This callback function is called even if <parameter>userdata</parameter> is <constant>NULL</constant>. Note that
+    this callback is invoked at a time where the bus slot object itself is already invalidated, and executing
+    operations or taking new references to the bus slot object is not permissible.</para>
+
+    <para><function>sd_bus_slot_get_destroy_callback()</function> returns the current callback
+    for <parameter>slot</parameter> in the <parameter>callback</parameter> parameter.</para>
+
+    <para><function>sd_bus_track_set_destroy_callback()</function> and
+    <function>sd_bus_track_get_destroy_callback()</function> provide equivalent functionality for the
+    <parameter>userdata</parameter> pointer associated with bus peer tracking objects. For details about bus peer
+    tracking objects, see
+    <citerefentry><refentrytitle>sd_bus_track_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_slot_set_destroy_callback()</function> and
+    <function>sd_bus_track_set_destroy_callback()</function> return 0 or a positive integer. On failure, they return a
+    negative errno-style error code.</para>
+
+    <para><function>sd_bus_slot_get_destroy_callback()</function> and
+    <function>sd_bus_track_get_destroy_callback()</function> return positive if the destroy callback function is set, 0
+    if not. On failure, they return a negative errno-style error code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>The <parameter>slot</parameter> or <parameter>track</parameter> parameter is
+        <constant>NULL</constant>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_track_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_track_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

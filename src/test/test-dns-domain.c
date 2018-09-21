@@ -1,27 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
- ***/
 
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_dns_label_unescape_one(const char *what, const char *expect, size_t buffer_sz, int ret) {
         char buffer[buffer_sz];
@@ -230,7 +213,7 @@ static void test_dns_name_between_one(const char *a, const char *b, const char *
 
         r = dns_name_between(c, b, a);
         if (ret >= 0)
-                assert_se(r == 0);
+                assert_se(r == 0 || dns_name_equal(a, c) > 0);
         else
                 assert_se(r == ret);
 }
@@ -249,9 +232,11 @@ static void test_dns_name_between(void) {
         test_dns_name_between_one("*.z.example", "\\200.z.example", "example", true);
         test_dns_name_between_one("\\200.z.example", "example", "a.example", true);
 
-        test_dns_name_between_one("example", "a.example", "example", -EINVAL);
+        test_dns_name_between_one("example", "a.example", "example", true);
+        test_dns_name_between_one("example", "example", "example", false);
         test_dns_name_between_one("example", "example", "yljkjljk.a.example", false);
         test_dns_name_between_one("example", "yljkjljk.a.example", "yljkjljk.a.example", false);
+        test_dns_name_between_one("hkps.pool.sks-keyservers.net", "_pgpkey-https._tcp.hkps.pool.sks-keyservers.net", "ipv4.pool.sks-keyservers.net", true);
 }
 
 static void test_dns_name_endswith_one(const char *a, const char *b, int ret) {
@@ -425,6 +410,30 @@ static void test_dns_srv_type_is_valid(void) {
         assert_se(!dns_srv_type_is_valid("_-800._tcp"));
         assert_se(!dns_srv_type_is_valid("_-foo._tcp"));
         assert_se(!dns_srv_type_is_valid("_piep._foo._udp"));
+}
+
+static void test_dnssd_srv_type_is_valid(void) {
+
+        assert_se(dnssd_srv_type_is_valid("_http._tcp"));
+        assert_se(dnssd_srv_type_is_valid("_foo-bar._tcp"));
+        assert_se(dnssd_srv_type_is_valid("_w._udp"));
+        assert_se(dnssd_srv_type_is_valid("_a800._tcp"));
+        assert_se(dnssd_srv_type_is_valid("_a-800._tcp"));
+
+        assert_se(!dnssd_srv_type_is_valid(NULL));
+        assert_se(!dnssd_srv_type_is_valid(""));
+        assert_se(!dnssd_srv_type_is_valid("x"));
+        assert_se(!dnssd_srv_type_is_valid("_foo"));
+        assert_se(!dnssd_srv_type_is_valid("_tcp"));
+        assert_se(!dnssd_srv_type_is_valid("_"));
+        assert_se(!dnssd_srv_type_is_valid("_foo."));
+        assert_se(!dnssd_srv_type_is_valid("_föo._tcp"));
+        assert_se(!dnssd_srv_type_is_valid("_f\no._tcp"));
+        assert_se(!dnssd_srv_type_is_valid("_800._tcp"));
+        assert_se(!dnssd_srv_type_is_valid("_-800._tcp"));
+        assert_se(!dnssd_srv_type_is_valid("_-foo._tcp"));
+        assert_se(!dnssd_srv_type_is_valid("_piep._foo._udp"));
+        assert_se(!dnssd_srv_type_is_valid("_foo._unknown"));
 }
 
 static void test_dns_service_join_one(const char *a, const char *b, const char *c, int r, const char *d) {
@@ -679,9 +688,7 @@ static void test_dns_name_is_valid_or_address(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_dns_label_unescape();
         test_dns_label_unescape_suffix();
@@ -699,6 +706,7 @@ int main(int argc, char *argv[]) {
         test_dns_name_to_wire_format();
         test_dns_service_name_is_valid();
         test_dns_srv_type_is_valid();
+        test_dnssd_srv_type_is_valid();
         test_dns_service_join();
         test_dns_service_split();
         test_dns_name_change_suffix();

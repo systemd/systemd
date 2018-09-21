@@ -4,38 +4,12 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.kill">
   <refentryinfo>
     <title>systemd.kill</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -120,7 +94,8 @@
         enabled with <varname>SendSIGHUP=</varname>). If then, after a
         delay (configured via the <varname>TimeoutStopSec=</varname>
         option), processes still remain, the termination request is
-        repeated with the <constant>SIGKILL</constant> signal (unless
+        repeated with the <constant>SIGKILL</constant> signal or the
+        signal specified via <varname>FinalKillSignal=</varname> (unless
         this is disabled via the <varname>SendSIGKILL=</varname>
         option). See
         <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
@@ -161,9 +136,27 @@
       <varlistentry>
         <term><varname>SendSIGKILL=</varname></term>
         <listitem><para>Specifies whether to send
-        <constant>SIGKILL</constant> to remaining processes after a
-        timeout, if the normal shutdown procedure left processes of
-        the service around. Takes a boolean value. Defaults to "yes".
+        <constant>SIGKILL</constant> (or the signal specified by
+        <varname>FinalKillSignal=</varname>) to remaining processes
+        after a timeout, if the normal shutdown procedure left
+        processes of the service around. Takes a boolean value.
+        Defaults to "yes".
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FinalKillSignal=</varname></term>
+        <listitem><para>Specifies which signal to send to remaining
+        processes after a timeout if <varname>SendSIGKILL=</varname>
+        is enabled. The signal configured here should be one that is
+        not typically caught and processed by services (<constant>SIGTERM</constant>
+        is not suitable). Developers can find it useful to use this to
+        generate a coredump to troubleshoot why a service did not
+        terminate upon receiving the initial <constant>SIGTERM</constant>
+        signal. This can be achieved by configuring <varname>LimitCORE=</varname>
+        and setting <varname>FinalKillSignal=</varname> to either
+        <constant>SIGQUIT</constant> or <constant>SIGABRT</constant>
+        Defaults to <constant>SIGKILL</constant>.
         </para></listitem>
       </varlistentry>
 

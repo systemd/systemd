@@ -1,0 +1,17 @@
+[Unit]
+Description=Test for BindPaths= and BindReadOnlyPaths=
+
+[Service]
+Type=oneshot
+# Create a file in /tmp/test-exec-bindpaths
+ExecStart=touch /tmp/test-exec-bindpaths/thisisasimpletest
+# Then, the file can be access through /tmp
+ExecStart=test -f /tmp/thisisasimpletest
+# Also, through /tmp/test-exec-bindreadonlypaths
+ExecStart=test -f /tmp/test-exec-bindreadonlypaths/thisisasimpletest
+# The file cannot modify through /tmp/test-exec-bindreadonlypaths
+ExecStart=/bin/sh -x -c '! touch /tmp/test-exec-bindreadonlypaths/thisisasimpletest'
+# Cleanup
+ExecStart=rm /tmp/thisisasimpletest
+BindPaths=/tmp:/tmp/test-exec-bindpaths
+BindReadOnlyPaths=/tmp:/tmp/test-exec-bindreadonlypaths

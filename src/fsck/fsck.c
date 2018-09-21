@@ -1,22 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2014 Holger Hans Peter Freyther
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2014 Holger Hans Peter Freyther
 ***/
 
 #include <errno.h>
@@ -50,14 +34,14 @@
 
 /* exit codes as defined in fsck(8) */
 enum {
-        FSCK_SUCCESS = 0,
-        FSCK_ERROR_CORRECTED = 1,
-        FSCK_SYSTEM_SHOULD_REBOOT = 2,
-        FSCK_ERRORS_LEFT_UNCORRECTED = 4,
-        FSCK_OPERATIONAL_ERROR = 8,
-        FSCK_USAGE_OR_SYNTAX_ERROR = 16,
-        FSCK_USER_CANCELLED = 32,
-        FSCK_SHARED_LIB_ERROR = 128,
+        FSCK_SUCCESS                 = 0,
+        FSCK_ERROR_CORRECTED         = 1 << 0,
+        FSCK_SYSTEM_SHOULD_REBOOT    = 1 << 1,
+        FSCK_ERRORS_LEFT_UNCORRECTED = 1 << 2,
+        FSCK_OPERATIONAL_ERROR       = 1 << 3,
+        FSCK_USAGE_OR_SYNTAX_ERROR   = 1 << 4,
+        FSCK_USER_CANCELLED          = 1 << 5,
+        FSCK_SHARED_LIB_ERROR        = 1 << 7,
 };
 
 static bool arg_skip = false;
@@ -284,9 +268,8 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         const char *device, *type;
         bool root_directory;
-        siginfo_t status;
         struct stat st;
-        int r;
+        int r, exit_status;
         pid_t pid;
 
         if (argc > 2) {
@@ -392,22 +375,16 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        pid = fork();
-        if (pid < 0) {
-                r = log_error_errno(errno, "fork(): %m");
+        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        if (r < 0)
                 goto finish;
-        }
-        if (pid == 0) {
-                char dash_c[sizeof("-C")-1 + DECIMAL_STR_MAX(int) + 1];
+        if (r == 0) {
+                char dash_c[STRLEN("-C") + DECIMAL_STR_MAX(int) + 1];
                 int progress_socket = -1;
                 const char *cmdline[9];
                 int i = 0;
 
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 /* Close the reading side of the progress pipe */
                 progress_pipe[0] = safe_close(progress_pipe[0]);
@@ -455,38 +432,30 @@ int main(int argc, char *argv[]) {
         (void) process_progress(progress_pipe[0]);
         progress_pipe[0] = -1;
 
-        r = wait_for_terminate(pid, &status);
-        if (r < 0) {
-                log_error_errno(r, "waitid(): %m");
+        exit_status = wait_for_terminate_and_check("fsck", pid, WAIT_LOG_ABNORMAL);
+        if (exit_status < 0) {
+                r = exit_status;
                 goto finish;
         }
+        if (exit_status & ~1) {
+                log_error("fsck failed with exit status %i.", exit_status);
 
-        if (status.si_code != CLD_EXITED || (status.si_status & ~1)) {
-
-                if (IN_SET(status.si_code, CLD_KILLED, CLD_DUMPED))
-                        log_error("fsck terminated by signal %s.", signal_to_string(status.si_status));
-                else if (status.si_code == CLD_EXITED)
-                        log_error("fsck failed with error code %i.", status.si_status);
-                else
-                        log_error("fsck failed due to unknown reason.");
-
-                r = -EINVAL;
-
-                if (status.si_code == CLD_EXITED && (status.si_status & FSCK_SYSTEM_SHOULD_REBOOT) && root_directory)
+                if ((exit_status & FSCK_SYSTEM_SHOULD_REBOOT) && root_directory) {
                         /* System should be rebooted. */
                         start_target(SPECIAL_REBOOT_TARGET, "replace-irreversibly");
-                else if (status.si_code == CLD_EXITED && (status.si_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)))
+                        r = -EINVAL;
+                } else if (exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)) {
                         /* Some other problem */
                         start_target(SPECIAL_EMERGENCY_TARGET, "replace");
-                else {
+                        r = -EINVAL;
+                } else {
                         log_warning("Ignoring error.");
                         r = 0;
                 }
-
         } else
                 r = 0;
 
-        if (status.si_code == CLD_EXITED && (status.si_status & FSCK_ERROR_CORRECTED))
+        if (exit_status & FSCK_ERROR_CORRECTED)
                 (void) touch("/run/systemd/quotacheck");
 
 finish:

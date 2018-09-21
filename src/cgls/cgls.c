@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <getopt.h>
@@ -36,6 +18,7 @@
 #include "pager.h"
 #include "path-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
 
@@ -53,7 +36,14 @@ static char **arg_names = NULL;
 static int arg_full = -1;
 static char* arg_machine = NULL;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-cgls", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] [CGROUP...]\n\n"
                "Recursively show control group contents.\n\n"
                "  -h --help           Show this help\n"
@@ -65,7 +55,12 @@ static void help(void) {
                "  -l --full           Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n"
                "  -M --machine=       Show container\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -98,8 +93,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -162,7 +156,7 @@ static void show_cg_info(const char *controller, const char *path) {
         if (cg_all_unified() == 0 && controller && !streq(controller, SYSTEMD_CGROUP_CONTROLLER))
                 printf("Controller %s; ", controller);
 
-        printf("Control group %s:\n", isempty(path) ? "/" : path);
+        printf("Control group %s:\n", empty_to_root(path));
         fflush(stdout);
 }
 
@@ -176,11 +170,9 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (!arg_no_pager) {
-                r = pager_open(arg_no_pager, false);
-                if (r > 0 && arg_full < 0)
-                        arg_full = true;
-        }
+        r = pager_open(arg_no_pager, false);
+        if (r > 0 && arg_full < 0)
+                arg_full = true;
 
         output_flags =
                 arg_all * OUTPUT_SHOW_ALL |
@@ -256,7 +248,7 @@ int main(int argc, char *argv[]) {
                                                 goto finish;
                                         }
 
-                                        path_kill_slashes(j);
+                                        path_simplify(j, false);
                                         path = j;
                                 } else
                                         path = root;
@@ -277,9 +269,9 @@ int main(int argc, char *argv[]) {
                 if (!arg_machine)  {
                         _cleanup_free_ char *cwd = NULL;
 
-                        cwd = get_current_dir_name();
-                        if (!cwd) {
-                                r = log_error_errno(errno, "Cannot determine current working directory: %m");
+                        r = safe_getcwd(&cwd);
+                        if (r < 0) {
+                                log_error_errno(r, "Cannot determine current working directory: %m");
                                 goto finish;
                         }
 

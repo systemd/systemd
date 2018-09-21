@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 David Strauss
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <stdio.h>
 
@@ -30,26 +12,23 @@
 
 static int test_cgroup_mask(void) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         Unit *son, *daughter, *parent, *root, *grandchild, *parent_deep;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
         int r;
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                puts("Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         /* Prepare the manager. */
-        assert_se(set_unit_path(get_testdata_dir("")) >= 0);
+        assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
-        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (IN_SET(r, -EPERM, -EACCES)) {
-                puts("manager_new: Permission denied. Skipping test.");
-                return EXIT_TEST_SKIP;
+                log_error_errno(r, "manager_new: %m");
+                return log_tests_skipped("cannot create manager");
         }
+
         assert_se(r >= 0);
 
         /* Turn off all kinds of default accouning, so that we can
@@ -63,19 +42,14 @@ static int test_cgroup_mask(void) {
         m->default_tasks_max = (uint64_t) -1;
 
         assert_se(r >= 0);
-        assert_se(manager_startup(m, serial, fdset) >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         /* Load units and verify hierarchy. */
-        assert_se(manager_load_unit(m, "parent.slice", NULL, NULL, &parent) >= 0);
-        assert_se(manager_load_unit(m, "son.service", NULL, NULL, &son) >= 0);
-        assert_se(manager_load_unit(m, "daughter.service", NULL, NULL, &daughter) >= 0);
-        assert_se(manager_load_unit(m, "grandchild.service", NULL, NULL, &grandchild) >= 0);
-        assert_se(manager_load_unit(m, "parent-deep.slice", NULL, NULL, &parent_deep) >= 0);
-        assert_se(parent->load_state == UNIT_LOADED);
-        assert_se(son->load_state == UNIT_LOADED);
-        assert_se(daughter->load_state == UNIT_LOADED);
-        assert_se(grandchild->load_state == UNIT_LOADED);
-        assert_se(parent_deep->load_state == UNIT_LOADED);
+        assert_se(manager_load_startable_unit_or_warn(m, "parent.slice", NULL, &parent) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "son.service", NULL, &son) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "daughter.service", NULL, &daughter) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "grandchild.service", NULL, &grandchild) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "parent-deep.slice", NULL, &parent_deep) >= 0);
         assert_se(UNIT_DEREF(son->slice) == parent);
         assert_se(UNIT_DEREF(daughter->slice) == parent);
         assert_se(UNIT_DEREF(parent_deep->slice) == parent);
@@ -114,8 +88,6 @@ static int test_cgroup_mask(void) {
         assert_se(unit_get_target_mask(parent) == ((CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY) & m->cgroup_supported));
         assert_se(unit_get_target_mask(root) == ((CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT | CGROUP_MASK_IO | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY) & m->cgroup_supported));
 
-        manager_free(m);
-
         return 0;
 }
 
@@ -144,13 +116,12 @@ static void test_cg_mask_to_string(void) {
 }
 
 int main(int argc, char* argv[]) {
-        int rc = 0;
+        int rc = EXIT_SUCCESS;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
-        TEST_REQ_RUNNING_SYSTEMD(rc = test_cgroup_mask());
         test_cg_mask_to_string();
+        TEST_REQ_RUNNING_SYSTEMD(rc = test_cgroup_mask());
 
         return rc;
 }

@@ -4,38 +4,12 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="machine-id">
   <refentryinfo>
     <title>machine-id</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -95,7 +69,7 @@
     <title>Initialization</title>
 
     <para>Each machine should have a non-empty ID in normal operation. The ID of each
-    machine should be unique. To achive those objectives,
+    machine should be unique. To achieve those objectives,
     <filename>/etc/machine-id</filename> can be initialized in a few different ways.
     </para>
 
@@ -117,7 +91,7 @@
     to be bind-mounted over the real file, in case the image is used read-only.</para>
 
     <para><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    may be used to to initialize <filename>/etc/machine-id</filename> on mounted (but not
+    may be used to initialize <filename>/etc/machine-id</filename> on mounted (but not
     booted) system images.</para>
 
     <para>When a machine is booted with

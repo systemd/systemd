@@ -43,7 +43,7 @@
 #   udevadm info /dev/input/eventXX.
 #
 # Allowed properties are:
-#   POINTINGSTICK_CONST_ACCEL
+#   POINTINGSTICK_CONST_ACCEL (deprecated)
 #   POINTINGSTICK_SENSITIVITY
 #
 # Entries should be sorted with growing _SENSITIVITY and _CONST_ACCEL.
@@ -51,6 +51,11 @@
 #########################################
 #      POINTINGSTICK_CONST_ACCEL        #
 #########################################
+#
+# DO NOT USE THIS PROPERTY. This property is kept for backwards
+# compatibility. The only known consumer, libinput, stopped reading this
+# property in version 1.9.0. No new entries for this property should be
+# added.
 #
 # Trackpoint const accel settings are specified as
 #    POINTINGSTICK_CONST_ACCEL=<accel>
@@ -104,10 +109,15 @@ evdev:name:*DualPoint Stick:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE7470*:pvr*
 
 # Lenovo Thinkpad X220
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX220:*
+# Lenovo Thinkpad X220 tablet
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX220Tablet:*
 # Lenovo Thinkpad X230
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX230:*
 # Lenovo Thinkpad X230 tablet
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX230Tablet:*
+# Lenovo ThinkPad *30 series
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??30:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??30?:*
 # Lenovo Thinkpad *40 series
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??40:*
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPad??40?:*
@@ -126,12 +136,13 @@ evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Ta
  POINTINGSTICK_SENSITIVITY=200
  POINTINGSTICK_CONST_ACCEL=1.0
 
-# Lenovo Thinkpad X200/X201/X200s/X201s
+# Lenovo Thinkpad X200/X201/X200s/X201s/X200 Tablet/X201 Tablet
 # Note these come with 2 revisions of keyboard, with the trackpoints having a
 # different sensitivity in the different revisions. 1.25 is a bit slow for the
 # least sensitive revision, but it is better to be a bit slow than too fast.
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20?:*
 evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20??:*
+evdev:name:TPPS/2 IBM TrackPoint:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX20?Tablet:*
  POINTINGSTICK_SENSITIVITY=200
  POINTINGSTICK_CONST_ACCEL=1.25
 

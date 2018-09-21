@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Czech translation for systemd.
-# Copyright (C) 2016-2017 systemd's author and translators.
 # This file is distributed under the same license as the systemd package.
 # Daniel Maixner <xskipy@gmail.com>, 2016.
 # Daniel Rusek <mail@asciiwolf.com>, 2016, 2017.
@@ -73,7 +72,7 @@ msgstr "Pro nastavení lokálního názvu stroje je vyžadováno ověření."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
 msgid "Set static host name"
-msgstr "Nastavit statický název stoje"
+msgstr "Nastavit statický název stroje"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
 msgid ""

@@ -1,20 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /*
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
  * Port to systemd-boot
- * Copyright 2017 Max Resch <resch.max@gmail.com>
+ * Copyright © 2017 Max Resch <resch.max@gmail.com>
  *
  * Security Policy Handling
- * Copyright 2012 <James.Bottomley@HansenPartnership.com>
+ * Copyright © 2012 <James.Bottomley@HansenPartnership.com>
  * https://github.com/mjg59/efitools
  */
 
@@ -66,15 +56,11 @@ static BOOLEAN shim_validate(VOID *data, UINT32 size) {
 }
 
 BOOLEAN secure_boot_enabled(void) {
-        CHAR8 *b;
+        _cleanup_freepool_ CHAR8 *b = NULL;
         UINTN size;
-        BOOLEAN result;
 
-        if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS) {
-                result = *b > 0;
-                FreePool(b);
-                return result;
-        }
+        if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS)
+                return *b > 0;
 
         return FALSE;
 }
@@ -156,12 +142,12 @@ static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PR
 static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROTOCOL *this, UINT32 authentication_status,
                                                          const EFI_DEVICE_PATH_PROTOCOL *device_path_const) {
         EFI_STATUS status;
-        EFI_DEVICE_PATH *dev_path;
+        _cleanup_freepool_ EFI_DEVICE_PATH *dev_path = NULL;
+        _cleanup_freepool_ CHAR16 *dev_path_str = NULL;
         EFI_HANDLE h;
         EFI_FILE *root;
-        CHAR8 *file_buffer = NULL;
+        _cleanup_freepool_ CHAR8 *file_buffer = NULL;
         UINTN file_size;
-        CHAR16 *dev_path_str;
 
         if (!device_path_const)
                 return EFI_INVALID_PARAMETER;
@@ -169,28 +155,23 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         dev_path = DuplicateDevicePath((EFI_DEVICE_PATH*) device_path_const);
 
         status = uefi_call_wrapper(BS->LocateDevicePath, 3, (EFI_GUID*) &simple_fs_guid, &dev_path, &h);
-        if (status != EFI_SUCCESS) {
-                FreePool(dev_path);
+        if (status != EFI_SUCCESS)
                 return status;
-        }
 
         /* No need to check return value, this already happend in efi_main() */
         root = LibOpenRoot(h);
         dev_path_str = DevicePathToStr(dev_path);
-        FreePool(dev_path);
 
-        file_size = file_read(root, dev_path_str, 0, 0, &file_buffer);
-        FreePool(dev_path_str);
+        status = file_read(root, dev_path_str, 0, 0, &file_buffer, &file_size);
+        if (EFI_ERROR(status))
+                return status;
         uefi_call_wrapper(root->Close, 1, root);
 
         if (shim_validate(file_buffer, file_size))
-                status = EFI_SUCCESS;
-        else
-                /* Try using the platform's native policy.... */
-                status = uefi_call_wrapper(esfas, 3, this, authentication_status, device_path_const);
-        FreePool(file_buffer);
+                return EFI_SUCCESS;
 
-        return status;
+        /* Try using the platform's native policy.... */
+        return uefi_call_wrapper(esfas, 3, this, authentication_status, device_path_const);
 }
 
 EFI_STATUS security_policy_install(void) {

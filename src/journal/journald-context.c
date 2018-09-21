@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -439,13 +421,10 @@ static int client_context_read_extra_fields(
         free(c->extra_fields_iovec);
         free(c->extra_fields_data);
 
-        c->extra_fields_iovec = iovec;
+        c->extra_fields_iovec = TAKE_PTR(iovec);
         c->extra_fields_n_iovec = n_iovec;
-        c->extra_fields_data = data;
+        c->extra_fields_data = TAKE_PTR(data);
         c->extra_fields_mtime = timespec_load_nsec(&st.st_mtim);
-
-        iovec = NULL;
-        data = NULL;
 
         return 0;
 }

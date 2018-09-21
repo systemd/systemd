@@ -1,26 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
- ***/
 
 #include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/fib_rules.h>
+#include <stdio_ext.h>
 
 #include "sd-daemon.h"
 #include "sd-netlink.h"
@@ -39,7 +22,6 @@
 #include "ordered-set.h"
 #include "path-util.h"
 #include "set.h"
-#include "udev-util.h"
 #include "virt.h"
 
 /* use 8 MB for receive socket kernel queue. */
@@ -81,19 +63,6 @@ static int setup_default_address_pool(Manager *m) {
         return 0;
 }
 
-static int on_bus_retry(sd_event_source *s, usec_t usec, void *userdata) {
-        Manager *m = userdata;
-
-        assert(s);
-        assert(m);
-
-        m->bus_retry_event_source = sd_event_source_unref(m->bus_retry_event_source);
-
-        manager_connect_bus(m);
-
-        return 0;
-}
-
 static int manager_reset_all(Manager *m) {
         Link *link;
         Iterator i;
@@ -115,6 +84,7 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
         int b, r;
 
         assert(message);
+        assert(m);
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {
@@ -127,7 +97,24 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
 
         log_debug("Coming back from suspend, resetting all connections...");
 
-        manager_reset_all(m);
+        (void) manager_reset_all(m);
+
+        return 0;
+}
+
+static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+        Manager *m = userdata;
+
+        assert(message);
+        assert(m);
+
+        /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
+        if (m->dynamic_hostname)
+                (void) manager_set_hostname(m, m->dynamic_hostname);
+        if (m->dynamic_timezone)
+                (void) manager_set_timezone(m, m->dynamic_timezone);
+        if (m->links_requesting_uuid)
+                (void) manager_request_product_uuid(m, NULL);
 
         return 0;
 }
@@ -137,30 +124,12 @@ int manager_connect_bus(Manager *m) {
 
         assert(m);
 
-        r = sd_bus_default_system(&m->bus);
-        if (r < 0) {
-                /* We failed to connect? Yuck, we must be in early
-                 * boot. Let's try in 5s again. */
-
-                log_debug_errno(r, "Failed to connect to bus, trying again in 5s: %m");
-
-                r = sd_event_add_time(m->event, &m->bus_retry_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 5*USEC_PER_SEC, 0, on_bus_retry, m);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to install bus reconnect time event: %m");
-
+        if (m->bus)
                 return 0;
-        }
 
-        r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
-                             "type='signal',"
-                             "sender='org.freedesktop.login1',"
-                             "interface='org.freedesktop.login1.Manager',"
-                             "member='PrepareForSleep',"
-                             "path='/org/freedesktop/login1'",
-                             match_prepare_for_sleep,
-                             m);
+        r = bus_open_system_watch_bind_with_description(&m->bus, "bus-api-network");
         if (r < 0)
-                return log_error_errno(r, "Failed to add match for PrepareForSleep: %m");
+                return log_error_errno(r, "Failed to connect to bus: %m");
 
         r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/network1", "org.freedesktop.network1.Manager", manager_vtable, m);
         if (r < 0)
@@ -182,41 +151,53 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add network enumerator: %m");
 
-        r = sd_bus_request_name(m->bus, "org.freedesktop.network1", 0);
+        r = bus_request_name_async_may_reload_dbus(m->bus, NULL, "org.freedesktop.network1", 0, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to register name: %m");
+                return log_error_errno(r, "Failed to request name: %m");
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-       /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
-        if (m->dynamic_hostname) {
-                r = manager_set_hostname(m, m->dynamic_hostname);
-                if (r < 0)
-                        return r;
-        }
-        if (m->dynamic_timezone) {
-                r = manager_set_timezone(m, m->dynamic_timezone);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.DBus.Local",
+                        NULL,
+                        "org.freedesktop.DBus.Local",
+                        "Connected",
+                        on_connected, NULL, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request match on Connected signal: %m");
+
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "PrepareForSleep",
+                        match_prepare_for_sleep, NULL, m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
 
         return 0;
 }
 
-static int manager_udev_process_link(Manager *m, struct udev_device *device) {
+static int manager_udev_process_link(Manager *m, sd_device *device) {
+        const char *action;
         Link *link = NULL;
         int r, ifindex;
 
         assert(m);
         assert(device);
 
-        if (!streq_ptr(udev_device_get_action(device), "add"))
+        r = sd_device_get_property_value(device, "ACTION", &action);
+        if (r < 0 || !streq_ptr(action, "add"))
                 return 0;
 
-        ifindex = udev_device_get_ifindex(device);
-        if (ifindex <= 0) {
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0 || ifindex <= 0) {
                 log_debug("Ignoring udev ADD event for device with invalid ifindex");
                 return 0;
         }
@@ -237,13 +218,15 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
 static int manager_dispatch_link_udev(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
         struct udev_monitor *monitor = m->udev_monitor;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        int r;
 
-        device = udev_monitor_receive_device(monitor);
-        if (!device)
-                return -ENOMEM;
+        r = udev_monitor_receive_sd_device(monitor, &device);
+        if (r < 0)
+                return r;
 
-        manager_udev_process_link(m, device);
+        (void) manager_udev_process_link(m, device);
+
         return 0;
 }
 
@@ -256,11 +239,7 @@ static int manager_connect_udev(Manager *m) {
         if (detect_container() > 0)
                 return 0;
 
-        m->udev = udev_new();
-        if (!m->udev)
-                return -ENOMEM;
-
-        m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        m->udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
         if (!m->udev_monitor)
                 return -ENOMEM;
 
@@ -308,17 +287,17 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive route: %m");
+                        log_warning_errno(r, "rtnl: failed to receive route, ignoring: %m");
 
                 return 0;
         }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get message type: %m");
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
         } else if (!IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE)) {
-                log_warning("rtnl: received unexpected message type when processing route");
+                log_warning("rtnl: received unexpected message type when processing route, ignoring");
                 return 0;
         }
 
@@ -345,7 +324,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
 
         r = sd_rtnl_message_route_get_family(message, &family);
         if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received address with invalid family, ignoring.");
+                log_link_warning(link, "rtnl: received address with invalid family, ignoring");
                 return 0;
         }
 
@@ -457,15 +436,17 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 return 0;
         }
 
-        route_get(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
+        (void) route_get(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
 
         switch (type) {
         case RTM_NEWROUTE:
                 if (!route) {
                         /* A route appeared that we did not request */
                         r = route_add_foreign(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to add route, ignoring: %m");
                                 return 0;
+                        }
                 }
 
                 route_update(route, &src, src_prefixlen, &gw, &prefsrc, scope, protocol, rt_type);
@@ -505,26 +486,26 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive address: %m");
+                        log_warning_errno(r, "rtnl: failed to receive address, ignoring: %m");
 
                 return 0;
         }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get message type: %m");
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
         } else if (!IN_SET(type, RTM_NEWADDR, RTM_DELADDR)) {
-                log_warning("rtnl: received unexpected message type when processing address");
+                log_warning("rtnl: received unexpected message type when processing address, ignoring");
                 return 0;
         }
 
         r = sd_rtnl_message_addr_get_ifindex(message, &ifindex);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get ifindex from address: %m");
+                log_warning_errno(r, "rtnl: could not get ifindex from address, ignoring: %m");
                 return 0;
         } else if (ifindex <= 0) {
-                log_warning("rtnl: received address message with invalid ifindex: %d", ifindex);
+                log_warning("rtnl: received address message with invalid ifindex, ignoring: %d", ifindex);
                 return 0;
         } else {
                 r = link_get(m, ifindex, &link);
@@ -539,7 +520,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
         r = sd_rtnl_message_addr_get_family(message, &family);
         if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received address with invalid family, ignoring.");
+                log_link_warning(link, "rtnl: received address with invalid family, ignoring");
                 return 0;
         }
 
@@ -581,23 +562,26 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 break;
 
         default:
-                log_link_debug(link, "rtnl: ignoring unsupported address family: %d", family);
+                assert_not_reached("Received unsupported address family");
         }
 
         if (!inet_ntop(family, &in_addr, buf, INET6_ADDRSTRLEN)) {
-                log_link_warning(link, "Could not print address");
+                log_link_warning(link, "Could not print address, ignoring");
                 return 0;
         }
 
         r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &cinfo);
-        if (r >= 0) {
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: cannot get IFA_CACHEINFO attribute, ignoring: %m");
+                return 0;
+        } else if (r >= 0) {
                 if (cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
                         valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
                                                     cinfo.ifa_valid * USEC_PER_SEC,
                                                     USEC_PER_SEC);
         }
 
-        address_get(link, family, &in_addr, prefixlen, &address);
+        (void) address_get(link, family, &in_addr, prefixlen, &address);
 
         switch (type) {
         case RTM_NEWADDR:
@@ -608,14 +592,18 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         /* An address appeared that we did not request */
                         r = address_add_foreign(link, family, &in_addr, prefixlen, &address);
                         if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to add address %s/%u: %m", buf, prefixlen);
+                                log_link_warning_errno(link, r, "Failed to add address %s/%u, ignoring: %m", buf, prefixlen);
                                 return 0;
                         } else
                                 log_link_debug(link, "Adding address: %s/%u (valid %s%s)", buf, prefixlen,
                                                valid_str ? "for " : "forever", strempty(valid_str));
                 }
 
-                address_update(address, flags, scope, &cinfo);
+                r = address_update(address, flags, scope, &cinfo);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to update address %s/%u, ignoring: %m", buf, prefixlen);
+                        return 0;
+                }
 
                 break;
 
@@ -624,9 +612,9 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 if (address) {
                         log_link_debug(link, "Removing address: %s/%u (valid %s%s)", buf, prefixlen,
                                        valid_str ? "for " : "forever", strempty(valid_str));
-                        address_drop(address);
+                        (void) address_drop(address);
                 } else
-                        log_link_warning(link, "Removing non-existent address: %s/%u (valid %s%s)", buf, prefixlen,
+                        log_link_warning(link, "Removing non-existent address: %s/%u (valid %s%s), ignoring", buf, prefixlen,
                                          valid_str ? "for " : "forever", strempty(valid_str));
 
                 break;
@@ -652,32 +640,32 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: Could not receive link: %m");
+                        log_warning_errno(r, "rtnl: Could not receive link, ignoring: %m");
 
                 return 0;
         }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: Could not get message type: %m");
+                log_warning_errno(r, "rtnl: Could not get message type, ignoring: %m");
                 return 0;
         } else if (!IN_SET(type, RTM_NEWLINK, RTM_DELLINK)) {
-                log_warning("rtnl: Received unexpected message type when processing link");
+                log_warning("rtnl: Received unexpected message type when processing link, ignoring");
                 return 0;
         }
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: Could not get ifindex from link: %m");
+                log_warning_errno(r, "rtnl: Could not get ifindex from link, ignoring: %m");
                 return 0;
         } else if (ifindex <= 0) {
-                log_warning("rtnl: received link message with invalid ifindex: %d", ifindex);
+                log_warning("rtnl: received link message with invalid ifindex %d, ignoring", ifindex);
                 return 0;
         }
 
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &name);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: Received link message without ifname: %m");
+                log_warning_errno(r, "rtnl: Received link message without ifname, ignoring: %m");
                 return 0;
         }
 
@@ -690,7 +678,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
                         /* link is new, so add it */
                         r = link_add(m, message, &link);
                         if (r < 0) {
-                                log_warning_errno(r, "Could not add new link: %m");
+                                log_warning_errno(r, "Could not add new link, ignoring: %m");
                                 return 0;
                         }
                 }
@@ -699,14 +687,16 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
                         /* netdev exists, so make sure the ifindex matches */
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
-                                log_warning_errno(r, "Could not set ifindex on netdev: %m");
+                                log_warning_errno(r, "Could not set ifindex on netdev, ignoring: %m");
                                 return 0;
                         }
                 }
 
                 r = link_update(link, message);
-                if (r < 0)
+                if (r < 0) {
+                        log_warning_errno(r, "Could not update link, ignoring: %m");
                         return 0;
+                }
 
                 break;
 
@@ -725,11 +715,11 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
         uint8_t tos = 0, to_prefixlen = 0, from_prefixlen = 0;
+        union in_addr_union to = {}, from = {};
         RoutingPolicyRule *rule = NULL;
-        union in_addr_union to, from;
         uint32_t fwmark = 0, table = 0;
+        char *iif = NULL, *oif = NULL;
         Manager *m = userdata;
-        char *iif, *oif;
         uint16_t type;
         int family;
         int r;
@@ -741,60 +731,80 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive rule: %m");
+                        log_warning_errno(r, "rtnl: failed to receive rule, ignoring: %m");
 
                 return 0;
         }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get message type: %m");
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
         } else if (!IN_SET(type, RTM_NEWRULE, RTM_DELRULE)) {
-                log_warning("rtnl: received unexpected message type '%u' when processing rule.", type);
+                log_warning("rtnl: received unexpected message type '%u' when processing rule, ignoring", type);
                 return 0;
         }
 
         r = sd_rtnl_message_get_family(message, &family);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get rule family: %m");
+                log_warning_errno(r, "rtnl: could not get rule family, ignoring: %m");
                 return 0;
         } else if (!IN_SET(family, AF_INET, AF_INET6)) {
-                log_debug("rtnl: received address with invalid family %u, ignoring.", family);
+                log_debug("rtnl: received address with invalid family %u, ignoring", family);
                 return 0;
         }
 
         switch (family) {
         case AF_INET:
                 r = sd_netlink_message_read_in_addr(message, FRA_SRC, &from.in);
-                if (r >= 0) {
+                if (r < 0 && r != -ENODATA) {
+                        log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
+                        return 0;
+                } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &from_prefixlen);
-                        if (r < 0)
-                                log_warning_errno(r, "rtnl: failed to retrive rule from prefix length: %m");
+                        if (r < 0) {
+                                log_warning_errno(r, "rtnl: failed to retrieve rule from prefix length, ignoring: %m");
+                                return 0;
+                        }
                 }
 
                 r = sd_netlink_message_read_in_addr(message, FRA_DST, &to.in);
-                if (r >= 0) {
+                if (r < 0 && r != -ENODATA) {
+                        log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
+                        return 0;
+                } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &to_prefixlen);
-                        if (r < 0)
-                                log_warning_errno(r, "rtnl: failed to retrive rule to prefix length: %m");
+                        if (r < 0) {
+                                log_warning_errno(r, "rtnl: failed to retrieve rule to prefix length, ignoring: %m");
+                                return 0;
+                        }
                 }
 
                 break;
 
         case AF_INET6:
                 r = sd_netlink_message_read_in6_addr(message, FRA_SRC, &from.in6);
-                if (r >= 0) {
+                if (r < 0 && r != -ENODATA) {
+                        log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
+                        return 0;
+                } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &from_prefixlen);
-                        if (r < 0)
-                                log_warning_errno(r, "rtnl: failed to retrive rule from prefix length: %m");
+                        if (r < 0) {
+                                log_warning_errno(r, "rtnl: failed to retrieve rule from prefix length, ignoring: %m");
+                                return 0;
+                        }
                 }
 
                 r = sd_netlink_message_read_in6_addr(message, FRA_DST, &to.in6);
-                if (r >= 0) {
+                if (r < 0 && r != -ENODATA) {
+                        log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
+                        return 0;
+                } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &to_prefixlen);
-                        if (r < 0)
-                                log_warning_errno(r, "rtnl: failed to retrive rule to prefix length: %m");
+                        if (r < 0) {
+                                log_warning_errno(r, "rtnl: failed to retrieve rule to prefix length, ignoring: %m");
+                                return 0;
+                        }
                 }
 
                 break;
@@ -806,11 +816,35 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         if (from_prefixlen == 0 && to_prefixlen == 0)
                 return 0;
 
-        (void) sd_netlink_message_read_u32(message, FRA_FWMARK, &fwmark);
-        (void) sd_netlink_message_read_u32(message, FRA_TABLE, &table);
-        (void) sd_rtnl_message_routing_policy_rule_get_tos(message, &tos);
-        (void) sd_netlink_message_read_string(message, FRA_IIFNAME, (const char **) &iif);
-        (void) sd_netlink_message_read_string(message, FRA_OIFNAME, (const char **) &oif);
+        r = sd_netlink_message_read_u32(message, FRA_FWMARK, &fwmark);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_FWMARK attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, FRA_TABLE, &table);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_TABLE attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_routing_policy_rule_get_tos(message, &tos);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get ip rule TOS, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_string(message, FRA_IIFNAME, (const char **) &iif);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_IIFNAME attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_string(message, FRA_OIFNAME, (const char **) &oif);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_OIFNAME attribute, ignoring: %m");
+                return 0;
+        }
 
         (void) routing_policy_rule_get(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, &rule);
 
@@ -819,7 +853,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 if (!rule) {
                         r = routing_policy_rule_add_foreign(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, &rule);
                         if (r < 0) {
-                                log_warning_errno(r, "Could not add rule: %m");
+                                log_warning_errno(r, "Could not add rule, ignoring: %m");
                                 return 0;
                         }
                 }
@@ -853,6 +887,26 @@ static int systemd_netlink_fd(void) {
         }
 
         return rtnl_fd;
+}
+
+static int manager_connect_genl(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = sd_genl_socket_open(&m->genl);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_inc_rcvbuf(m->genl, RCVBUF_SIZE);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_attach_event(m->genl, m->event, 0);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int manager_connect_rtnl(Manager *m) {
@@ -991,12 +1045,12 @@ static void print_string_set(FILE *f, const char *field, OrderedSet *s) {
         if (ordered_set_isempty(s))
                 return;
 
-        fputs_unlocked(field, f);
+        fputs(field, f);
 
         ORDERED_SET_FOREACH(p, s, i)
                 fputs_with_space(f, p, NULL, &space);
 
-        fputc_unlocked('\n', f);
+        fputc('\n', f);
 }
 
 static int manager_save(Manager *m) {
@@ -1114,6 +1168,7 @@ static int manager_save(Manager *m) {
         if (r < 0)
                 return r;
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
@@ -1176,8 +1231,147 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-int manager_new(Manager **ret, sd_event *event) {
-        _cleanup_manager_free_ Manager *m = NULL;
+Link *manager_dhcp6_prefix_get(Manager *m, struct in6_addr *addr) {
+        assert_return(m, NULL);
+        assert_return(m->dhcp6_prefixes, NULL);
+        assert_return(addr, NULL);
+
+        return hashmap_get(m->dhcp6_prefixes, addr);
+}
+
+static int dhcp6_route_add_callback(sd_netlink *nl, sd_netlink_message *m,
+                                       void *userdata) {
+        Link *l = userdata;
+        int r;
+        union in_addr_union prefix;
+        _cleanup_free_ char *buf = NULL;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r != 0) {
+                log_link_debug_errno(l, r, "Received error adding DHCPv6 Prefix Delegation route: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_in6_addr(m, RTA_DST, &prefix.in6);
+        if (r < 0) {
+                log_link_debug_errno(l, r, "Could not read IPv6 address from DHCPv6 Prefix Delegation while adding route: %m");
+                return 0;
+        }
+
+        (void) in_addr_to_string(AF_INET6, &prefix, &buf);
+        log_link_debug(l, "Added DHCPv6 Prefix Deleagtion route %s/64",
+                       strnull(buf));
+
+        return 0;
+}
+
+int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
+        int r;
+        Route *route;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->dhcp6_prefixes, -ENODATA);
+        assert_return(addr, -EINVAL);
+
+        r = route_add(link, AF_INET6, (union in_addr_union *) addr, 64,
+                      0, 0, 0, &route);
+        if (r < 0)
+                return r;
+
+        r = route_configure(route, link, dhcp6_route_add_callback);
+        if (r < 0)
+                return r;
+
+        return hashmap_put(m->dhcp6_prefixes, addr, link);
+}
+
+static int dhcp6_route_remove_callback(sd_netlink *nl, sd_netlink_message *m,
+                                       void *userdata) {
+        Link *l = userdata;
+        int r;
+        union in_addr_union prefix;
+        _cleanup_free_ char *buf = NULL;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r != 0) {
+                log_link_debug_errno(l, r, "Received error on DHCPv6 Prefix Delegation route removal: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_in6_addr(m, RTA_DST, &prefix.in6);
+        if (r < 0) {
+                log_link_debug_errno(l, r, "Could not read IPv6 address from DHCPv6 Prefix Delegation while removing route: %m");
+                return 0;
+        }
+
+        (void) in_addr_to_string(AF_INET6, &prefix, &buf);
+        log_link_debug(l, "Removed DHCPv6 Prefix Delegation route %s/64",
+                       strnull(buf));
+
+        return 0;
+}
+
+int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
+        Link *l;
+        int r;
+        Route *route;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->dhcp6_prefixes, -ENODATA);
+        assert_return(addr, -EINVAL);
+
+        l = hashmap_remove(m->dhcp6_prefixes, addr);
+        if (!l)
+                return -EINVAL;
+
+        (void) sd_radv_remove_prefix(l->radv, addr, 64);
+        r = route_get(l, AF_INET6, (union in_addr_union *) addr, 64,
+                      0, 0, 0, &route);
+        if (r >= 0)
+                (void) route_remove(route, l, dhcp6_route_remove_callback);
+
+        return 0;
+}
+
+int manager_dhcp6_prefix_remove_all(Manager *m, Link *link) {
+        Iterator i;
+        Link *l;
+        struct in6_addr *addr;
+
+        assert_return(m, -EINVAL);
+        assert_return(link, -EINVAL);
+
+        HASHMAP_FOREACH_KEY(l, addr, m->dhcp6_prefixes, i) {
+                if (l != link)
+                        continue;
+
+                (void) manager_dhcp6_prefix_remove(m, addr);
+        }
+
+        return 0;
+}
+
+static void dhcp6_prefixes_hash_func(const void *p, struct siphash *state) {
+        const struct in6_addr *addr = p;
+
+        assert(p);
+
+        siphash24_compress(addr, sizeof(*addr), state);
+}
+
+static int dhcp6_prefixes_compare_func(const void *_a, const void *_b) {
+        const struct in6_addr *a = _a, *b = _b;
+
+        return memcmp(a, b, sizeof(*a));
+}
+
+static const struct hash_ops dhcp6_prefixes_hash_ops = {
+        .hash = dhcp6_prefixes_hash_func,
+        .compare = dhcp6_prefixes_compare_func,
+};
+
+int manager_new(Manager **ret) {
+        _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         m = new0(Manager, 1);
@@ -1188,13 +1382,23 @@ int manager_new(Manager **ret, sd_event *event) {
         if (!m->state_file)
                 return -ENOMEM;
 
-        m->event = sd_event_ref(event);
+        r = sd_event_default(&m->event);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_set_watchdog(m->event, true);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         r = sd_event_add_post(m->event, NULL, manager_dirty_handler, m);
         if (r < 0)
                 return r;
 
         r = manager_connect_rtnl(m);
+        if (r < 0)
+                return r;
+
+        r = manager_connect_genl(m);
         if (r < 0)
                 return r;
 
@@ -1208,16 +1412,27 @@ int manager_new(Manager **ret, sd_event *event) {
 
         LIST_HEAD_INIT(m->networks);
 
+        r = sd_resolve_default(&m->resolve);
+        if (r < 0)
+                return r;
+
+        r = sd_resolve_attach_event(m->resolve, m->event, 0);
+        if (r < 0)
+                return r;
+
         r = setup_default_address_pool(m);
         if (r < 0)
                 return r;
+
+        m->dhcp6_prefixes = hashmap_new(&dhcp6_prefixes_hash_ops);
+        if (!m->dhcp6_prefixes)
+                return -ENOMEM;
 
         m->duid.type = DUID_TYPE_EN;
 
         (void) routing_policy_load_rules(m->state_file, &m->rules_saved);
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }
@@ -1236,9 +1451,16 @@ void manager_free(Manager *m) {
         while ((network = m->networks))
                 network_free(network);
 
+        while ((link = hashmap_first(m->dhcp6_prefixes)))
+                link_unref(link);
+        hashmap_free(m->dhcp6_prefixes);
+
         while ((link = hashmap_first(m->links)))
                 link_unref(link);
         hashmap_free(m->links);
+
+        set_free(m->links_requesting_uuid);
+        set_free(m->duids_requesting_uuid);
 
         hashmap_free(m->networks_by_name);
 
@@ -1255,15 +1477,15 @@ void manager_free(Manager *m) {
         set_free_with_destructor(m->rules_saved, routing_policy_rule_free);
 
         sd_netlink_unref(m->rtnl);
+        sd_netlink_unref(m->genl);
         sd_event_unref(m->event);
+
+        sd_resolve_unref(m->resolve);
 
         sd_event_source_unref(m->udev_event_source);
         udev_monitor_unref(m->udev_monitor);
-        udev_unref(m->udev);
 
         sd_bus_unref(m->bus);
-        sd_bus_slot_unref(m->prepare_for_sleep_slot);
-        sd_event_source_unref(m->bus_retry_event_source);
 
         free(m->dynamic_timezone);
         free(m->dynamic_hostname);
@@ -1537,12 +1759,12 @@ int manager_set_hostname(Manager *m, const char *hostname) {
         int r;
 
         log_debug("Setting transient hostname: '%s'", strna(hostname));
+
         if (free_and_strdup(&m->dynamic_hostname, hostname) < 0)
                 return log_oom();
 
-        if (!m->bus) {
-                /* TODO: replace by assert when we can rely on kdbus */
-                log_info("Not connected to system bus, ignoring transient hostname.");
+        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
+                log_debug("Not connected to system bus, setting hostname later.");
                 return 0;
         }
 
@@ -1589,8 +1811,8 @@ int manager_set_timezone(Manager *m, const char *tz) {
         if (free_and_strdup(&m->dynamic_timezone, tz) < 0)
                 return log_oom();
 
-        if (!m->bus) {
-                log_info("Not connected to system bus, ignoring timezone.");
+        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
+                log_debug("Not connected to system bus, setting timezone later.");
                 return 0;
         }
 
@@ -1608,6 +1830,60 @@ int manager_set_timezone(Manager *m, const char *tz) {
                         false);
         if (r < 0)
                 return log_error_errno(r, "Could not set timezone: %m");
+
+        return 0;
+}
+
+int manager_request_product_uuid(Manager *m, Link *link) {
+        int r;
+
+        assert(m);
+
+        if (m->has_product_uuid)
+                return 0;
+
+        log_debug("Requesting product UUID");
+
+        if (link) {
+                DUID *duid;
+
+                assert_se(duid = link_get_duid(link));
+
+                r = set_ensure_allocated(&m->links_requesting_uuid, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_ensure_allocated(&m->duids_requesting_uuid, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put(m->links_requesting_uuid, link);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put(m->duids_requesting_uuid, duid);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
+                log_debug("Not connected to system bus, requesting product UUID later.");
+                return 0;
+        }
+
+        r = sd_bus_call_method_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "GetProductUUID",
+                        get_product_uuid_handler,
+                        m,
+                        "b",
+                        false);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get product UUID: %m");
 
         return 0;
 }

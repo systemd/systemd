@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
- ***/
 
 #if HAVE_LIBIDN2
 #  include <idn2.h>
@@ -295,8 +277,7 @@ int dns_label_escape_new(const char *p, size_t l, char **ret) {
         if (r < 0)
                 return r;
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return r;
 }
@@ -367,10 +348,7 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
         if (encoded_size <= 0 || encoded_size > DNS_LABEL_MAX)
                 return -EINVAL;
 
-        if (encoded_size < sizeof(IDNA_ACE_PREFIX)-1)
-                return 0;
-
-        if (memcmp(encoded, IDNA_ACE_PREFIX, sizeof(IDNA_ACE_PREFIX) -1) != 0)
+        if (!memory_startswith(encoded, encoded_size, IDNA_ACE_PREFIX))
                 return 0;
 
         input = stringprep_utf8_to_ucs4(encoded, encoded_size, &input_size);
@@ -409,10 +387,9 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
 
         if (a)
                 p = a;
-        else if (b) {
-                p = b;
-                b = NULL;
-        } else
+        else if (b)
+                p = TAKE_PTR(b);
+        else
                 goto finish;
 
         for (;;) {
@@ -427,8 +404,7 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
 
                         if (b) {
                                 /* Now continue with the second string, if there is one */
-                                p = b;
-                                b = NULL;
+                                p = TAKE_PTR(b);
                                 continue;
                         }
 
@@ -478,8 +454,7 @@ finish:
                 }
 
                 ret[n] = 0;
-                *_ret = ret;
-                ret = NULL;
+                *_ret = TAKE_PTR(ret);
         }
 
         return 0;
@@ -528,7 +503,7 @@ int dns_name_compare_func(const void *a, const void *b) {
                 r = dns_label_unescape_suffix(a, &x, la, sizeof(la));
                 q = dns_label_unescape_suffix(b, &y, lb, sizeof(lb));
                 if (r < 0 || q < 0)
-                        return r - q;
+                        return CMP(r, q);
 
                 r = ascii_strcasecmp_nn(la, r, lb, q);
                 if (r != 0)
@@ -601,8 +576,7 @@ int dns_name_endswith(const char *name, const char *suffix) {
 
                         /* Not the same, let's jump back, and try with the next label again */
                         s = suffix;
-                        n = saved_n;
-                        saved_n = NULL;
+                        n = TAKE_PTR(saved_n);
                 }
         }
 }
@@ -677,8 +651,8 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
 
                         /* Not the same, let's jump back, and try with the next label again */
                         s = old_suffix;
-                        n = saved_after;
-                        saved_after = saved_before = NULL;
+                        n = TAKE_PTR(saved_after);
+                        saved_before = NULL;
                 }
         }
 
@@ -693,23 +667,26 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
 }
 
 int dns_name_between(const char *a, const char *b, const char *c) {
-        int n;
-
         /* Determine if b is strictly greater than a and strictly smaller than c.
            We consider the order of names to be circular, so that if a is
            strictly greater than c, we consider b to be between them if it is
            either greater than a or smaller than c. This is how the canonical
            DNS name order used in NSEC records work. */
 
-        n = dns_name_compare_func(a, c);
-        if (n == 0)
-                return -EINVAL;
-        else if (n < 0)
-                /*       a<---b--->c       */
+        if (dns_name_compare_func(a, c) < 0)
+                /*
+                   a and c are properly ordered:
+                   a<---b--->c
+                */
                 return dns_name_compare_func(a, b) < 0 &&
                        dns_name_compare_func(b, c) < 0;
         else
-                /* <--b--c         a--b--> */
+                /*
+                   a and c are equal or 'reversed':
+                   <--b--c         a----->
+                   or:
+                   <-----c         a--b-->
+                */
                 return dns_name_compare_func(b, c) < 0 ||
                        dns_name_compare_func(a, b) < 0;
 }
@@ -959,6 +936,12 @@ bool dns_srv_type_is_valid(const char *name) {
         return c == 2; /* exactly two labels */
 }
 
+bool dnssd_srv_type_is_valid(const char *name) {
+        return dns_srv_type_is_valid(name) &&
+                ((dns_name_endswith(name, "_tcp") > 0) ||
+                 (dns_name_endswith(name, "_udp") > 0)); /* Specific to DNS-SD. RFC 6763, Section 7 */
+}
+
 bool dns_service_name_is_valid(const char *name) {
         size_t l;
 
@@ -1104,20 +1087,14 @@ finish:
         if (r < 0)
                 return r;
 
-        if (_domain) {
-                *_domain = domain;
-                domain = NULL;
-        }
+        if (_domain)
+                *_domain = TAKE_PTR(domain);
 
-        if (_type) {
-                *_type = type;
-                type = NULL;
-        }
+        if (_type)
+                *_type = TAKE_PTR(type);
 
-        if (_name) {
-                *_name = name;
-                name = NULL;
-        }
+        if (_name)
+                *_name = TAKE_PTR(name);
 
         return 0;
 }
@@ -1300,8 +1277,8 @@ int dns_name_apply_idna(const char *name, char **ret) {
                         }
                 }
 
-                *ret = t;
-                t = NULL;
+                *ret = TAKE_PTR(t);
+
                 return 1; /* *ret has been written */
         }
 
@@ -1358,8 +1335,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
                 return -ENOMEM;
 
         buf[n] = 0;
-        *ret = buf;
-        buf = NULL;
+        *ret = TAKE_PTR(buf);
 
         return 1;
 #else

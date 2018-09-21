@@ -4,40 +4,14 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="timedatectl" conditional='ENABLE_TIMEDATED'
+<refentry id="timedatectl" conditional='ENABLE_TIMEDATECTL'
   xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>timedatectl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -66,6 +40,11 @@
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     to initialize the system time zone for mounted (but not booted)
     system images.</para>
+
+    <para><command>timedatectl</command> may be used to show the current status of
+    <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+
   </refsect1>
 
   <refsect1>
@@ -91,6 +70,43 @@
         clock.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--monitor</option></term>
+
+        <listitem><para>If <command>timesync-status</command> is invoked and this option is passed,
+        then <command>timedatectl</command> monitors the status of
+        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and updates the outputs. Use Ctrl-C to terminate the monitoring.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>-all</option></term>
+
+        <listitem><para>When showing properties of
+        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        show all properties regardless of whether they are set or not.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--property=</option></term>
+
+        <listitem><para>When showing properties of
+        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        limit display to certain properties as specified as argument. If not specified, all set properties are shown.
+        The argument should be a property name, such as <literal>ServerName</literal>. If specified more than once,
+        all properties with the specified names are shown.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--value</option></term>
+
+        <listitem>
+          <para>When printing properties with <command>show-timesync</command>, only print the value, and skip the
+          property name and <literal>=</literal>.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
@@ -98,6 +114,10 @@
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
 
     <para>The following commands are understood:</para>
 
@@ -109,7 +129,18 @@
         including whether network time synchronization through
         <filename>systemd-timesyncd.service</filename> is active. Even if it is
         inactive, a different service might still synchronize the clock.
+        If no command is specified, this is the implied default.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>show</command></term>
+
+        <listitem><para>Show the same information as <option>status</option>, but in machine readable form.
+        This command is intended to be used whenever computer-parsable output is required.
+        Use <option>status</option> if you are looking for formatted human-readable output.</para>
+        <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
+        To select specific properties to show, use <option>--property=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -164,31 +195,43 @@
       <varlistentry>
         <term><command>set-ntp [BOOL]</command></term>
 
-        <listitem><para>Takes a boolean argument. Controls whether
-        network time synchronization is active and enabled (if
-        available). This enables and starts, or disables and stops the
-        <filename>systemd-timesyncd.service</filename> unit. It does
-        not affect the state of any other, unrelated network time
-        synchronization services that might be installed on the
-        system. This command is hence mostly equivalent to:
-        <command>systemctl enable --now
-        systemd-timesyncd.service</command> and <command>systemctl
-        disable --now systemd-timesyncd.service</command>, but is
-        protected by a different access policy.</para>
-
-        <para>Note that even if time synchronization is turned off
-        with this command, another unrelated system service might
-        still synchronize the clock with the network. Also note that,
-        strictly speaking,
-        <filename>systemd-timesyncd.service</filename> does more than
-        just network time synchronization, as it ensures a monotonic
-        clock on systems without RTC even if no network is
-        available. See
-        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details about this.</para></listitem>
+        <listitem><para>Takes a boolean argument. Controls whether network time synchronization is active
+        and enabled (if available). If the argument is true, this enables and starts the first existed
+        service listed in the environment variable <varname>$SYSTEMD_TIMEDATED_NTP_SERVICES</varname>
+        of <filename>systemd-timedated.service</filename>. If the argument is false, then this disables and
+        stops the all services listed in <varname>$SYSTEMD_TIMEDATED_NTP_SERVICES</varname>.</para></listitem>
       </varlistentry>
 
     </variablelist>
+
+    <refsect2>
+      <title>systemd-timesyncd Commands</title>
+
+      <para>The following commands are specific to
+      <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      </para>
+
+      <variablelist>
+        <varlistentry>
+          <term><command>timesync-status</command></term>
+
+          <listitem><para>Show current status of
+          <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          If <option>--monitor</option> is specified, then this will monitor the status updates.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>show-timesync</command></term>
+
+          <listitem><para>Show the same information as <option>timesync-status</option>, but in machine readable form.
+          This command is intended to be used whenever computer-parsable output is required.
+          Use <option>timesync-status</option> if you are looking for formatted human-readable output.</para>
+          <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
+          To select specific properties to show, use <option>--property=</option>.</para></listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2>
 
   </refsect1>
 
@@ -205,13 +248,13 @@
     <title>Examples</title>
     <para>Show current settings:
     <programlisting>$ timedatectl
-                      Local time: Thu 2017-09-21 16:08:56 CEST
-                  Universal time: Thu 2017-09-21 14:08:56 UTC
-                        RTC time: Thu 2017-09-21 14:08:56
-                       Time zone: Europe/Warsaw (CEST, +0200)
-       System clock synchronized: yes
-systemd-timesyncd.service active: yes
-                 RTC in local TZ: no</programlisting>
+               Local time: Thu 2017-09-21 16:08:56 CEST
+           Universal time: Thu 2017-09-21 14:08:56 UTC
+                 RTC time: Thu 2017-09-21 14:08:56
+                Time zone: Europe/Warsaw (CEST, +0200)
+System clock synchronized: yes
+              NTP service: active
+          RTC in local TZ: no</programlisting>
     </para>
 
     <para>Enable network time synchronization:
@@ -233,6 +276,25 @@ Password: ********
            └─595 /usr/lib/systemd/systemd-timesyncd
 …</programlisting>
     </para>
+
+    <para>Show current status of
+    <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>:
+    <programlisting>$ timedatectl timesync-status
+       Server: 216.239.38.15 (time4.google.com)
+Poll interval: 1min 4s (min: 32s; max 34min 8s)
+         Leap: normal
+      Version: 4
+      Stratum: 1
+    Reference: GPS
+    Precision: 1us (-20)
+Root distance: 335us (max: 5s)
+       Offset: +316us
+        Delay: 349us
+       Jitter: 0
+ Packet count: 1
+    Frequency: -8.802ppm</programlisting>
+    </para>
+
   </refsect1>
 
   <refsect1>

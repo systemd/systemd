@@ -1,0 +1,16 @@
+sys:x:3:
+mem:x:8:
+ftp:x:11:
+mail:x:12:
+log:x:19:
+smmsp:x:25:
+proc:x:26:
+games:x:50:
+lock:x:54:
+network:x:90:
+floppy:x:94:
+scanner:x:96:
+power:x:98:
+bin:x:1:
+daemon:x:2:
+http:x:33:

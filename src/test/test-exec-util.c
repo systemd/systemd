@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2013 Thomas H.P. Andersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <string.h>
@@ -38,6 +19,7 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static int here = 0, here2 = 0, here3 = 0;
 void *ignore_stdout_args[] = {&here, &here2, &here3};
@@ -249,7 +231,6 @@ const gather_stdout_callback_t gather_stdout[] = {
         gather_stdout_three,
 };
 
-
 static void test_stdout_gathering(void) {
         char template[] = "/tmp/test-exec-util.XXXXXXX";
         const char *dirs[] = {template, NULL};
@@ -354,9 +335,7 @@ static void test_environment_gathering(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_execute_directory(true);
         test_execute_directory(false);

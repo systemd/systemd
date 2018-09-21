@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <ctype.h>
 #include <errno.h>
@@ -26,9 +8,11 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
@@ -55,6 +39,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -86,20 +71,31 @@ int get_process_state(pid_t pid) {
         return (unsigned char) state;
 }
 
-int get_process_comm(pid_t pid, char **name) {
+int get_process_comm(pid_t pid, char **ret) {
+        _cleanup_free_ char *escaped = NULL, *comm = NULL;
         const char *p;
         int r;
 
-        assert(name);
+        assert(ret);
         assert(pid >= 0);
+
+        escaped = new(char, TASK_COMM_LEN);
+        if (!escaped)
+                return -ENOMEM;
 
         p = procfs_file_alloca(pid, "comm");
 
-        r = read_one_line_file(p, name);
+        r = read_one_line_file(p, &comm);
         if (r == -ENOENT)
                 return -ESRCH;
+        if (r < 0)
+                return r;
 
-        return r;
+        /* Escape unprintable characters, just in case, but don't grow the string beyond the underlying size */
+        cellescape(escaped, TASK_COMM_LEN, comm);
+
+        *ret = TAKE_PTR(escaped);
+        return 0;
 }
 
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
@@ -129,6 +125,8 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                         return -ESRCH;
                 return -errno;
         }
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         if (max_length == 1) {
 
@@ -255,15 +253,10 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                                 memcpy(ans, "[...]", max_length-1);
                                 ans[max_length-1] = 0;
                         } else {
-                                char *e;
-
                                 t[max_length - 6] = 0;
 
                                 /* Chop off final spaces */
-                                e = strchr(t, 0);
-                                while (e > t && isspace(e[-1]))
-                                        e--;
-                                *e = 0;
+                                delete_trailing_chars(t, WHITESPACE);
 
                                 ans = strjoin("[", t, "...]");
                         }
@@ -293,11 +286,18 @@ int rename_process(const char name[]) {
         if (isempty(name))
                 return -EINVAL; /* let's not confuse users unnecessarily with an empty name */
 
+        if (!is_main_thread())
+                return -EPERM; /* Let's not allow setting the process name from other threads than the main one, as we
+                                * cache things without locking, and we make assumptions that PR_SET_NAME sets the
+                                * process name that isn't correct on any other threads */
+
         l = strlen(name);
 
-        /* First step, change the comm field. */
-        (void) prctl(PR_SET_NAME, name);
-        if (l > 15) /* Linux process names can be 15 chars at max */
+        /* First step, change the comm field. The main thread's comm is identical to the process comm. This means we
+         * can use PR_SET_NAME, which sets the thread name for the calling thread. */
+        if (prctl(PR_SET_NAME, name) < 0)
+                log_debug_errno(errno, "PR_SET_NAME failed: %m");
+        if (l >= TASK_COMM_LEN) /* Linux process names can be 15 chars at max */
                 truncated = true;
 
         /* Second step, change glibc's ID of the process name. */
@@ -387,35 +387,61 @@ use_saved_argv:
 }
 
 int is_kernel_thread(pid_t pid) {
+        _cleanup_free_ char *line = NULL;
+        unsigned long long flags;
+        size_t l, i;
         const char *p;
-        size_t count;
-        char c;
-        bool eof;
-        FILE *f;
+        char *q;
+        int r;
 
         if (IN_SET(pid, 0, 1) || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
                 return 0;
+        if (!pid_is_valid(pid))
+                return -EINVAL;
 
-        assert(pid > 1);
+        p = procfs_file_alloca(pid, "stat");
+        r = read_one_line_file(p, &line);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
 
-        p = procfs_file_alloca(pid, "cmdline");
-        f = fopen(p, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return -ESRCH;
-                return -errno;
+        /* Skip past the comm field */
+        q = strrchr(line, ')');
+        if (!q)
+                return -EINVAL;
+        q++;
+
+        /* Skip 6 fields to reach the flags field */
+        for (i = 0; i < 6; i++) {
+                l = strspn(q, WHITESPACE);
+                if (l < 1)
+                        return -EINVAL;
+                q += l;
+
+                l = strcspn(q, WHITESPACE);
+                if (l < 1)
+                        return -EINVAL;
+                q += l;
         }
 
-        count = fread(&c, 1, 1, f);
-        eof = feof(f);
-        fclose(f);
+        /* Skip preceeding whitespace */
+        l = strspn(q, WHITESPACE);
+        if (l < 1)
+                return -EINVAL;
+        q += l;
 
-        /* Kernel threads have an empty cmdline */
+        /* Truncate the rest */
+        l = strcspn(q, WHITESPACE);
+        if (l < 1)
+                return -EINVAL;
+        q[l] = 0;
 
-        if (count <= 0)
-                return eof ? 1 : -errno;
+        r = safe_atollu(q, &flags);
+        if (r < 0)
+                return r;
 
-        return 0;
+        return !!(flags & PF_KTHREAD);
 }
 
 int get_process_capeff(pid_t pid, char **capeff) {
@@ -486,6 +512,8 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
                         return -ESRCH;
                 return -errno;
         }
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         FOREACH_LINE(line, f, return -errno) {
                 char *l;
@@ -565,6 +593,8 @@ int get_process_environ(pid_t pid, char **env) {
                 return -errno;
         }
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
         while ((c = fgetc(f)) != EOF) {
                 if (!GREEDY_REALLOC(outcome, allocated, sz + 5))
                         return -ENOMEM;
@@ -582,8 +612,7 @@ int get_process_environ(pid_t pid, char **env) {
         } else
                 outcome[sz] = '\0';
 
-        *env = outcome;
-        outcome = NULL;
+        *env = TAKE_PTR(outcome);
 
         return 0;
 }
@@ -670,32 +699,107 @@ int wait_for_terminate(pid_t pid, siginfo_t *status) {
  * A warning is emitted if the process terminates abnormally,
  * and also if it returns non-zero unless check_exit_code is true.
  */
-int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code) {
-        int r;
+int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
+        _cleanup_free_ char *buffer = NULL;
         siginfo_t status;
+        int r, prio;
 
-        assert(name);
         assert(pid > 1);
+
+        if (!name) {
+                r = get_process_comm(pid, &buffer);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to acquire process name of " PID_FMT ", ignoring: %m", pid);
+                else
+                        name = buffer;
+        }
+
+        prio = flags & WAIT_LOG_ABNORMAL ? LOG_ERR : LOG_DEBUG;
 
         r = wait_for_terminate(pid, &status);
         if (r < 0)
-                return log_warning_errno(r, "Failed to wait for %s: %m", name);
+                return log_full_errno(prio, r, "Failed to wait for %s: %m", strna(name));
 
         if (status.si_code == CLD_EXITED) {
-                if (status.si_status != 0)
-                        log_full(check_exit_code ? LOG_WARNING : LOG_DEBUG,
-                                 "%s failed with error code %i.", name, status.si_status);
+                if (status.si_status != EXIT_SUCCESS)
+                        log_full(flags & WAIT_LOG_NON_ZERO_EXIT_STATUS ? LOG_ERR : LOG_DEBUG,
+                                 "%s failed with exit status %i.", strna(name), status.si_status);
                 else
                         log_debug("%s succeeded.", name);
 
                 return status.si_status;
+
         } else if (IN_SET(status.si_code, CLD_KILLED, CLD_DUMPED)) {
 
-                log_warning("%s terminated by signal %s.", name, signal_to_string(status.si_status));
+                log_full(prio, "%s terminated by signal %s.", strna(name), signal_to_string(status.si_status));
                 return -EPROTO;
         }
 
-        log_warning("%s failed due to unknown reason.", name);
+        log_full(prio, "%s failed due to unknown reason.", strna(name));
+        return -EPROTO;
+}
+
+/*
+ * Return values:
+ *
+ * < 0 : wait_for_terminate_with_timeout() failed to get the state of the process, the process timed out, the process
+ *       was terminated by a signal, or failed for an unknown reason.
+ *
+ * >=0 : The process terminated normally with no failures.
+ *
+ * Success is indicated by a return value of zero, a timeout is indicated by ETIMEDOUT, and all other child failure
+ * states are indicated by error is indicated by a non-zero value.
+ *
+ * This call assumes SIGCHLD has been blocked already, in particular before the child to wait for has been forked off
+ * to remain entirely race-free.
+ */
+int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
+        sigset_t mask;
+        int r;
+        usec_t until;
+
+        assert_se(sigemptyset(&mask) == 0);
+        assert_se(sigaddset(&mask, SIGCHLD) == 0);
+
+        /* Drop into a sigtimewait-based timeout. Waiting for the
+         * pid to exit. */
+        until = now(CLOCK_MONOTONIC) + timeout;
+        for (;;) {
+                usec_t n;
+                siginfo_t status = {};
+                struct timespec ts;
+
+                n = now(CLOCK_MONOTONIC);
+                if (n >= until)
+                        break;
+
+                r = sigtimedwait(&mask, NULL, timespec_store(&ts, until - n)) < 0 ? -errno : 0;
+                /* Assuming we woke due to the child exiting. */
+                if (waitid(P_PID, pid, &status, WEXITED|WNOHANG) == 0) {
+                        if (status.si_pid == pid) {
+                                /* This is the correct child.*/
+                                if (status.si_code == CLD_EXITED)
+                                        return (status.si_status == 0) ? 0 : -EPROTO;
+                                else
+                                        return -EPROTO;
+                        }
+                }
+                /* Not the child, check for errors and proceed appropriately */
+                if (r < 0) {
+                        switch (r) {
+                        case -EAGAIN:
+                                /* Timed out, child is likely hung. */
+                                return -ETIMEDOUT;
+                        case -EINTR:
+                                /* Received a different signal and should retry */
+                                continue;
+                        default:
+                                /* Return any unexpected errors */
+                                return r;
+                        }
+                }
+        }
+
         return -EPROTO;
 }
 
@@ -707,12 +811,21 @@ void sigkill_wait(pid_t pid) {
 }
 
 void sigkill_waitp(pid_t *pid) {
+        PROTECT_ERRNO;
+
         if (!pid)
                 return;
         if (*pid <= 1)
                 return;
 
         sigkill_wait(*pid);
+}
+
+void sigterm_wait(pid_t pid) {
+        assert(pid > 1);
+
+        if (kill_and_sigcont(pid, SIGTERM) > 0)
+                (void) wait_for_terminate(pid, NULL);
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {
@@ -728,17 +841,33 @@ int kill_and_sigcont(pid_t pid, int sig) {
         return r;
 }
 
-int getenv_for_pid(pid_t pid, const char *field, char **_value) {
+int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         char *value = NULL;
-        int r;
         bool done = false;
-        size_t l;
         const char *path;
+        size_t l;
 
         assert(pid >= 0);
         assert(field);
-        assert(_value);
+        assert(ret);
+
+        if (pid == 0 || pid == getpid_cached()) {
+                const char *e;
+
+                e = getenv(field);
+                if (!e) {
+                        *ret = NULL;
+                        return 0;
+                }
+
+                value = strdup(e);
+                if (!value)
+                        return -ENOMEM;
+
+                *ret = value;
+                return 1;
+        }
 
         path = procfs_file_alloca(pid, "environ");
 
@@ -746,15 +875,17 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
         if (!f) {
                 if (errno == ENOENT)
                         return -ESRCH;
+
                 return -errno;
         }
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
         l = strlen(field);
-        r = 0;
 
         do {
                 char line[LINE_MAX];
-                unsigned i;
+                size_t i;
 
                 for (i = 0; i < sizeof(line)-1; i++) {
                         int c;
@@ -775,14 +906,14 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
                         if (!value)
                                 return -ENOMEM;
 
-                        r = 1;
-                        break;
+                        *ret = value;
+                        return 1;
                 }
 
         } while (!done);
 
-        *_value = value;
-        return r;
+        *ret = NULL;
+        return 0;
 }
 
 bool pid_is_unwaited(pid_t pid) {
@@ -847,7 +978,7 @@ bool is_main_thread(void) {
         return cached > 0;
 }
 
-noreturn void freeze(void) {
+_noreturn_ void freeze(void) {
 
         log_close();
 
@@ -856,6 +987,17 @@ noreturn void freeze(void) {
 
         sync();
 
+        /* Let's not freeze right away, but keep reaping zombies. */
+        for (;;) {
+                int r;
+                siginfo_t si = {};
+
+                r = waitid(P_ALL, 0, &si, WEXITED);
+                if (r < 0 && errno != EINTR)
+                        break;
+        }
+
+        /* waitid() failed with an unexpected error, things are really borked. Freeze now! */
         for (;;)
                 pause();
 }
@@ -962,16 +1104,9 @@ void valgrind_summary_hack(void) {
 #endif
 }
 
-int pid_compare_func(const void *a, const void *b) {
-        const pid_t *p = a, *q = b;
-
+int pid_compare_func(const pid_t *a, const pid_t *b) {
         /* Suitable for usage in qsort() */
-
-        if (*p < *q)
-                return -1;
-        if (*p > *q)
-                return 1;
-        return 0;
+        return CMP(*a, *b);
 }
 
 int ioprio_parse_priority(const char *s, int *ret) {
@@ -1003,7 +1138,7 @@ int ioprio_parse_priority(const char *s, int *ret) {
 
 static pid_t cached_pid = CACHED_PID_UNSET;
 
-static void reset_cached_pid(void) {
+void reset_cached_pid(void) {
         /* Invoked in the child after a fork(), i.e. at the first moment the PID changed */
         cached_pid = CACHED_PID_UNSET;
 }
@@ -1011,10 +1146,11 @@ static void reset_cached_pid(void) {
 /* We use glibc __register_atfork() + __dso_handle directly here, as they are not included in the glibc
  * headers. __register_atfork() is mostly equivalent to pthread_atfork(), but doesn't require us to link against
  * libpthread, as it is part of glibc anyway. */
-extern int __register_atfork(void (*prepare) (void), void (*parent) (void), void (*child) (void), void * __dso_handle);
+extern int __register_atfork(void (*prepare) (void), void (*parent) (void), void (*child) (void), void *dso_handle);
 extern void* __dso_handle __attribute__ ((__weak__));
 
 pid_t getpid_cached(void) {
+        static bool installed = false;
         pid_t current_value;
 
         /* getpid_cached() is much like getpid(), but caches the value in local memory, to avoid having to invoke a
@@ -1033,12 +1169,20 @@ pid_t getpid_cached(void) {
         case CACHED_PID_UNSET: { /* Not initialized yet, then do so now */
                 pid_t new_pid;
 
-                new_pid = getpid();
+                new_pid = raw_getpid();
 
-                if (__register_atfork(NULL, NULL, reset_cached_pid, __dso_handle) != 0) {
-                        /* OOM? Let's try again later */
-                        cached_pid = CACHED_PID_UNSET;
-                        return new_pid;
+                if (!installed) {
+                        /* __register_atfork() either returns 0 or -ENOMEM, in its glibc implementation. Since it's
+                         * only half-documented (glibc doesn't document it but LSB does — though only superficially)
+                         * we'll check for errors only in the most generic fashion possible. */
+
+                        if (__register_atfork(NULL, NULL, reset_cached_pid, __dso_handle) != 0) {
+                                /* OOM? Let's try again later */
+                                cached_pid = CACHED_PID_UNSET;
+                                return new_pid;
+                        }
+
+                        installed = true;
                 }
 
                 cached_pid = new_pid;
@@ -1046,11 +1190,276 @@ pid_t getpid_cached(void) {
         }
 
         case CACHED_PID_BUSY: /* Somebody else is currently initializing */
-                return getpid();
+                return raw_getpid();
 
         default: /* Properly initialized */
                 return current_value;
         }
+}
+
+int must_be_root(void) {
+
+        if (geteuid() == 0)
+                return 0;
+
+        log_error("Need to be root.");
+        return -EPERM;
+}
+
+int safe_fork_full(
+                const char *name,
+                const int except_fds[],
+                size_t n_except_fds,
+                ForkFlags flags,
+                pid_t *ret_pid) {
+
+        pid_t original_pid, pid;
+        sigset_t saved_ss, ss;
+        bool block_signals = false;
+        int prio, r;
+
+        /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
+         * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
+
+        prio = flags & FORK_LOG ? LOG_ERR : LOG_DEBUG;
+
+        original_pid = getpid_cached();
+
+        if (flags & (FORK_RESET_SIGNALS|FORK_DEATHSIG)) {
+
+                /* We temporarily block all signals, so that the new child has them blocked initially. This way, we can
+                 * be sure that SIGTERMs are not lost we might send to the child. */
+
+                if (sigfillset(&ss) < 0)
+                        return log_full_errno(prio, errno, "Failed to reset signal set: %m");
+
+                block_signals = true;
+
+        } else if (flags & FORK_WAIT) {
+
+                /* Let's block SIGCHLD at least, so that we can safely watch for the child process */
+
+                if (sigemptyset(&ss) < 0)
+                        return log_full_errno(prio, errno, "Failed to clear signal set: %m");
+
+                if (sigaddset(&ss, SIGCHLD) < 0)
+                        return log_full_errno(prio, errno, "Failed to add SIGCHLD to signal set: %m");
+
+                block_signals = true;
+        }
+
+        if (block_signals)
+                if (sigprocmask(SIG_SETMASK, &ss, &saved_ss) < 0)
+                        return log_full_errno(prio, errno, "Failed to set signal mask: %m");
+
+        if (flags & FORK_NEW_MOUNTNS)
+                pid = raw_clone(SIGCHLD|CLONE_NEWNS);
+        else
+                pid = fork();
+        if (pid < 0) {
+                r = -errno;
+
+                if (block_signals) /* undo what we did above */
+                        (void) sigprocmask(SIG_SETMASK, &saved_ss, NULL);
+
+                return log_full_errno(prio, r, "Failed to fork: %m");
+        }
+        if (pid > 0) {
+                /* We are in the parent process */
+
+                log_debug("Successfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
+
+                if (flags & FORK_WAIT) {
+                        r = wait_for_terminate_and_check(name, pid, (flags & FORK_LOG ? WAIT_LOG : 0));
+                        if (r < 0)
+                                return r;
+                        if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
+                                return -EPROTO;
+                }
+
+                if (block_signals) /* undo what we did above */
+                        (void) sigprocmask(SIG_SETMASK, &saved_ss, NULL);
+
+                if (ret_pid)
+                        *ret_pid = pid;
+
+                return 1;
+        }
+
+        /* We are in the child process */
+
+        if (flags & FORK_REOPEN_LOG) {
+                /* Close the logs if requested, before we log anything. And make sure we reopen it if needed. */
+                log_close();
+                log_set_open_when_needed(true);
+        }
+
+        if (name) {
+                r = rename_process(name);
+                if (r < 0)
+                        log_full_errno(flags & FORK_LOG ? LOG_WARNING : LOG_DEBUG,
+                                       r, "Failed to rename process, ignoring: %m");
+        }
+
+        if (flags & FORK_DEATHSIG)
+                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0) {
+                        log_full_errno(prio, errno, "Failed to set death signal: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+        if (flags & FORK_RESET_SIGNALS) {
+                r = reset_all_signal_handlers();
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to reset signal handlers: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* This implicitly undoes the signal mask stuff we did before the fork()ing above */
+                r = reset_signal_mask();
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to reset signal mask: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        } else if (block_signals) { /* undo what we did above */
+                if (sigprocmask(SIG_SETMASK, &saved_ss, NULL) < 0) {
+                        log_full_errno(prio, errno, "Failed to restore signal mask: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        if (flags & FORK_DEATHSIG) {
+                pid_t ppid;
+                /* Let's see if the parent PID is still the one we started from? If not, then the parent
+                 * already died by the time we set PR_SET_PDEATHSIG, hence let's emulate the effect */
+
+                ppid = getppid();
+                if (ppid == 0)
+                        /* Parent is in a differn't PID namespace. */;
+                else if (ppid != original_pid) {
+                        log_debug("Parent died early, raising SIGTERM.");
+                        (void) raise(SIGTERM);
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        if (FLAGS_SET(flags, FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE)) {
+
+                /* Optionally, make sure we never propagate mounts to the host. */
+
+                if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0) {
+                        log_full_errno(prio, errno, "Failed to remount root directory as MS_SLAVE: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        if (flags & FORK_CLOSE_ALL_FDS) {
+                /* Close the logs here in case it got reopened above, as close_all_fds() would close them for us */
+                log_close();
+
+                r = close_all_fds(except_fds, n_except_fds);
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to close all file descriptors: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        /* When we were asked to reopen the logs, do so again now */
+        if (flags & FORK_REOPEN_LOG) {
+                log_open();
+                log_set_open_when_needed(false);
+        }
+
+        if (flags & FORK_NULL_STDIO) {
+                r = make_null_stdio();
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to connect stdin/stdout to /dev/null: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        if (ret_pid)
+                *ret_pid = getpid_cached();
+
+        return 0;
+}
+
+int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
+        bool stdout_is_tty, stderr_is_tty;
+        size_t n, i;
+        va_list ap;
+        char **l;
+        int r;
+
+        assert(path);
+
+        /* Spawns a temporary TTY agent, making sure it goes away when we go away */
+
+        r = safe_fork_full(name, except, n_except, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS, ret_pid);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        /* In the child: */
+
+        stdout_is_tty = isatty(STDOUT_FILENO);
+        stderr_is_tty = isatty(STDERR_FILENO);
+
+        if (!stdout_is_tty || !stderr_is_tty) {
+                int fd;
+
+                /* Detach from stdout/stderr. and reopen
+                 * /dev/tty for them. This is important to
+                 * ensure that when systemctl is started via
+                 * popen() or a similar call that expects to
+                 * read EOF we actually do generate EOF and
+                 * not delay this indefinitely by because we
+                 * keep an unused copy of stdin around. */
+                fd = open("/dev/tty", O_WRONLY);
+                if (fd < 0) {
+                        log_error_errno(errno, "Failed to open /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (!stdout_is_tty && dup2(fd, STDOUT_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (!stderr_is_tty && dup2(fd, STDERR_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                safe_close_above_stdio(fd);
+        }
+
+        /* Count arguments */
+        va_start(ap, path);
+        for (n = 0; va_arg(ap, char*); n++)
+                ;
+        va_end(ap);
+
+        /* Allocate strv */
+        l = newa(char*, n + 1);
+
+        /* Fill in arguments */
+        va_start(ap, path);
+        for (i = 0; i <= n; i++)
+                l[i] = va_arg(ap, char*);
+        va_end(ap);
+
+        execv(path, l);
+        _exit(EXIT_FAILURE);
+}
+
+int set_oom_score_adjust(int value) {
+        char t[DECIMAL_STR_MAX(int)];
+
+        sprintf(t, "%i", value);
+
+        return write_string_file("/proc/self/oom_score_adj", t,
+                                 WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_DISABLE_BUFFER);
 }
 
 static const char *const ioprio_class_table[] = {
@@ -1060,7 +1469,7 @@ static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_IDLE] = "idle"
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, INT_MAX);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, IOPRIO_N_CLASSES);
 
 static const char *const sigchld_code_table[] = {
         [CLD_EXITED] = "exited",

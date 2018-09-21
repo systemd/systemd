@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Florian Klink <flokli@flokli.de>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <netinet/ether.h>
 #include <linux/if.h>
@@ -29,6 +11,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "string-util.h"
+#include "socket-util.h"
 
 static bool ipv6_proxy_ndp_is_needed(Link *link) {
         assert(link);
@@ -39,7 +22,7 @@ static bool ipv6_proxy_ndp_is_needed(Link *link) {
         if (!link->network)
                 return false;
 
-        if (link->network->ipv6_proxy_ndp != -1)
+        if (link->network->ipv6_proxy_ndp >= 0)
                 return link->network->ipv6_proxy_ndp;
 
         if (link->network->n_ipv6_proxy_ndp_addresses == 0)
@@ -53,6 +36,9 @@ static int ipv6_proxy_ndp_set(Link *link) {
         int r, v;
 
         assert(link);
+
+        if (!socket_ipv6_is_supported())
+                return 0;
 
         v = ipv6_proxy_ndp_is_needed(link);
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/proxy_ndp");
@@ -138,7 +124,7 @@ int config_parse_ipv6_proxy_ndp_address(
         r = in_addr_is_null(AF_INET6, &buffer);
         if (r != 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "IPv6 proxy NDP address can not be the ANY address, ignoring: %s", rvalue);
+                           "IPv6 proxy NDP address cannot be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -198,6 +184,8 @@ int ipv6_proxy_ndp_address_configure(Link *link, IPv6ProxyNDPAddress *ipv6_proxy
 int ipv6_proxy_ndp_addresses_configure(Link *link) {
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
         int r;
+
+        assert(link);
 
         /* enable or disable proxy_ndp itself depending on whether ipv6_proxy_ndp_addresses are set or not */
         r = ipv6_proxy_ndp_set(link);

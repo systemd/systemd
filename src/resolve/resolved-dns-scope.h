@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include "list.h"
 
 typedef struct DnsScope DnsScope;
@@ -48,6 +29,7 @@ struct DnsScope {
         DnsProtocol protocol;
         int family;
         DnssecMode dnssec_mode;
+        DnsOverTlsMode dns_over_tls_mode;
 
         Link *link;
 
@@ -88,13 +70,14 @@ void dns_scope_packet_received(DnsScope *s, usec_t rtt);
 void dns_scope_packet_lost(DnsScope *s, usec_t usec);
 
 int dns_scope_emit_udp(DnsScope *s, int fd, DnsPacket *p);
-int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port);
+int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port, union sockaddr_union *ret_socket_address);
 int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port);
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain);
 bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key);
 
 DnsServer *dns_scope_get_dns_server(DnsScope *s);
+unsigned dns_scope_get_n_dns_servers(DnsScope *s);
 void dns_scope_next_dns_server(DnsScope *s);
 
 int dns_scope_llmnr_membership(DnsScope *s, bool b);
@@ -119,3 +102,7 @@ bool dns_scope_network_good(DnsScope *s);
 int dns_scope_ifindex(DnsScope *s);
 
 int dns_scope_announce(DnsScope *scope, bool goodbye);
+
+int dns_scope_add_dnssd_services(DnsScope *scope);
+
+int dns_scope_remove_dnssd_services(DnsScope *scope);

@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="coredumpctl" conditional='ENABLE_COREDUMP'
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>coredumpctl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -133,6 +107,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--debugger=</option><replaceable>DEBUGGER</replaceable></term>
+
+        <listitem><para>Use the given debugger for the <command>debug</command>
+        command. If not given and <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
+        <citerefentry><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        will be used. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-D</option> <replaceable>DIR</replaceable></term>
         <term><option>--directory=</option><replaceable>DIR</replaceable></term>
 
@@ -144,7 +127,7 @@
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
-        <listitem><para>Suppresses info messages about lack
+        <listitem><para>Suppresses informational messages about lack
         of access to journal files and possible in-flight coredumps.
         </para></listitem>
       </varlistentry>
@@ -227,7 +210,8 @@
       <varlistentry>
         <term><command>info</command></term>
 
-        <listitem><para>Show detailed information about core dumps
+        <listitem><para>Show detailed information about the last core dump
+        or core dumps matching specified characteristics
         captured in the journal.</para></listitem>
       </varlistentry>
 
@@ -241,10 +225,14 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>gdb</command></term>
+        <term><command>debug</command></term>
 
-        <listitem><para>Invoke the GNU debugger on the last core dump
-        matching specified characteristics. </para></listitem>
+        <listitem><para>Invoke a debugger on the last core dump
+        matching specified characteristics. By default,
+        <citerefentry><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        will be used. This may be changed using the <option>--debugger=</option>
+        option or the <varname>$SYSTEMD_DEBUGGER</varname> environment
+        variable.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -284,9 +272,10 @@
       <varlistentry>
         <term><replaceable>MATCH</replaceable></term>
 
-        <listitem><para>General journalctl predicate (see
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
-        Must contain an equals sign (<literal>=</literal>).</para></listitem>
+        <listitem><para>General journalctl match filter, must contain an equals
+        sign (<literal>=</literal>). See
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -297,6 +286,18 @@
     code is returned. Not finding any matching core dumps is treated as
     failure.
     </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_DEBUGGER</varname></term>
+        <listitem><para>Use the given debugger for the <command>debug</command>
+        command. See the <option>--debugger=</option> option.</para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -311,7 +312,7 @@
     <example>
       <title>Invoke gdb on the last core dump</title>
 
-      <programlisting># coredumpctl gdb</programlisting>
+      <programlisting># coredumpctl debug</programlisting>
     </example>
 
     <example>

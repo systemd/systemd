@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <dirent.h>
 #include <errno.h>
@@ -249,8 +231,7 @@ int efi_get_variable(
         ((char*) buf)[st.st_size - 4] = 0;
         ((char*) buf)[st.st_size - 4 + 1] = 0;
 
-        *value = buf;
-        buf = NULL;
+        *value = TAKE_PTR(buf);
         *size = (size_t) st.st_size - 4;
 
         if (attribute)
@@ -428,16 +409,12 @@ int efi_get_boot_option(
                 }
         }
 
-        if (title) {
-                *title = s;
-                s = NULL;
-        }
+        if (title)
+                *title = TAKE_PTR(s);
         if (part_uuid)
                 *part_uuid = p_uuid;
-        if (path) {
-                *path = p;
-                p = NULL;
-        }
+        if (path)
+                *path = TAKE_PTR(p);
         if (active)
                 *active = !!(header->attr & LOAD_OPTION_ACTIVE);
 
@@ -563,8 +540,7 @@ int efi_get_boot_order(uint16_t **order) {
             l / sizeof(uint16_t) > INT_MAX)
                 return -EINVAL;
 
-        *order = buf;
-        buf = NULL;
+        *order = TAKE_PTR(buf);
         return (int) (l / sizeof(uint16_t));
 }
 
@@ -587,10 +563,8 @@ static int boot_id_hex(const char s[4]) {
         return id;
 }
 
-static int cmp_uint16(const void *_a, const void *_b) {
-        const uint16_t *a = _a, *b = _b;
-
-        return (int)*a - (int)*b;
+static int cmp_uint16(const uint16_t *a, const uint16_t *b) {
+        return CMP(*a, *b);
 }
 
 int efi_get_boot_options(uint16_t **options) {
@@ -628,10 +602,10 @@ int efi_get_boot_options(uint16_t **options) {
                 list[count++] = id;
         }
 
-        qsort_safe(list, count, sizeof(uint16_t), cmp_uint16);
+        typesafe_qsort(list, count, cmp_uint16);
 
-        *options = list;
-        list = NULL;
+        *options = TAKE_PTR(list);
+
         return count;
 }
 

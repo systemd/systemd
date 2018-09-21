@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <netinet/in.h>
@@ -29,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
@@ -51,6 +34,7 @@ int socket_address_listen(
                 const char *label) {
 
         _cleanup_close_ int fd = -1;
+        const char *p;
         int r, one;
 
         assert(a);
@@ -112,19 +96,23 @@ int socket_address_listen(
         if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0)
                 return -errno;
 
-        if (socket_address_family(a) == AF_UNIX && a->sockaddr.un.sun_path[0] != 0) {
+        p = socket_address_get_path(a);
+        if (p) {
                 /* Create parents */
-                (void) mkdir_parents_label(a->sockaddr.un.sun_path, directory_mode);
+                (void) mkdir_parents_label(p, directory_mode);
 
                 /* Enforce the right access mode for the socket */
                 RUN_WITH_UMASK(~socket_mode) {
                         r = mac_selinux_bind(fd, &a->sockaddr.sa, a->size);
                         if (r == -EADDRINUSE) {
                                 /* Unlink and try again */
-                                unlink(a->sockaddr.un.sun_path);
-                                if (bind(fd, &a->sockaddr.sa, a->size) < 0)
-                                        return -errno;
-                        } else if (r < 0)
+
+                                if (unlink(p) < 0)
+                                        return r; /* didn't work, return original error */
+
+                                r = mac_selinux_bind(fd, &a->sockaddr.sa, a->size);
+                        }
+                        if (r < 0)
                                 return r;
                 }
         } else {
@@ -135,6 +123,11 @@ int socket_address_listen(
         if (socket_address_can_accept(a))
                 if (listen(fd, backlog) < 0)
                         return -errno;
+
+        /* Let's trigger an inotify event on the socket node, so that anyone waiting for this socket to be connectable
+         * gets notified */
+        if (p)
+                (void) touch(p);
 
         r = fd;
         fd = -1;

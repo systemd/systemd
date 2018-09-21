@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <net/if.h>
 #include <stdlib.h>
@@ -32,21 +14,27 @@
 struct state {
         unsigned n_messages;
         int rcode;
-        const char *title;
+        const char *error_message;
+        const char *success_message;
 };
 
 static int generic_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         struct state *s = userdata;
+        int r;
 
         assert(s);
         assert(s->n_messages > 0);
         s->n_messages--;
 
         errno = 0;
-        log_debug_errno(sd_netlink_message_get_errno(m), "Failed to %s: %m", s->title);
 
-        s->rcode = sd_netlink_message_get_errno(m);
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                log_debug_errno(r, "%s: %m", s->error_message);
+        else
+                log_debug("%s", s->success_message);
 
+        s->rcode = r;
         return 0;
 }
 
@@ -165,9 +153,16 @@ static bool check_loopback(sd_netlink *rtnl) {
 
 int loopback_setup(void) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        struct state state_4 = { .title = "add address 127.0.0.1 to loopback interface" },
-                     state_6 = { .title = "add address ::1 to loopback interface"},
-                     state_up = { .title = "bring loopback interface up" };
+        struct state state_4 = {
+                .error_message = "Failed to add address 127.0.0.1 to loopback interface",
+                .success_message = "Successfully added address 127.0.0.1 to loopback interface",
+        }, state_6 = {
+                .error_message = "Failed to add address ::1 to loopback interface",
+                .success_message = "Successfully added address ::1 to loopback interface",
+        }, state_up = {
+                .error_message = "Failed to bring loopback interface up",
+                .success_message = "Successfully brought loopback interface up",
+        };
         int r;
 
         r = sd_netlink_open(&rtnl);

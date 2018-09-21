@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <linux/fs.h>
 
@@ -141,8 +123,7 @@ int raw_import_new(
                         return r;
         }
 
-        *ret = i;
-        i = NULL;
+        *ret = TAKE_PTR(i);
 
         return 0;
 }
@@ -163,7 +144,7 @@ static void raw_import_report_progress(RawImport *i) {
         if (percent == i->last_percent)
                 return;
 
-        if (!ratelimit_test(&i->progress_rate_limit))
+        if (!ratelimit_below(&i->progress_rate_limit))
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
@@ -210,8 +191,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
         free_and_replace(i->temp_path, t);
 
         safe_close(i->output_fd);
-        i->output_fd = converted_fd;
-        converted_fd = -1;
+        i->output_fd = TAKE_FD(converted_fd);
 
         return 1;
 }

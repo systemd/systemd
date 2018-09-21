@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <fcntl.h>
 #include <pwd.h>
@@ -24,17 +6,65 @@
 #include <sys/types.h>
 #include <linux/vt.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
+#include "conf-parser.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "logind.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "udev-util.h"
 #include "user-util.h"
+
+void manager_reset_config(Manager *m) {
+        assert(m);
+
+        m->n_autovts = 6;
+        m->reserve_vt = 6;
+        m->remove_ipc = true;
+        m->inhibit_delay_max = 5 * USEC_PER_SEC;
+        m->handle_power_key = HANDLE_POWEROFF;
+        m->handle_suspend_key = HANDLE_SUSPEND;
+        m->handle_hibernate_key = HANDLE_HIBERNATE;
+        m->handle_lid_switch = HANDLE_SUSPEND;
+        m->handle_lid_switch_ep = _HANDLE_ACTION_INVALID;
+        m->handle_lid_switch_docked = HANDLE_IGNORE;
+        m->power_key_ignore_inhibited = false;
+        m->suspend_key_ignore_inhibited = false;
+        m->hibernate_key_ignore_inhibited = false;
+        m->lid_switch_ignore_inhibited = true;
+
+        m->holdoff_timeout_usec = 30 * USEC_PER_SEC;
+
+        m->idle_action_usec = 30 * USEC_PER_MINUTE;
+        m->idle_action = HANDLE_IGNORE;
+
+        m->runtime_dir_size = physical_memory_scale(10U, 100U); /* 10% */
+        m->user_tasks_max = system_tasks_max_scale(DEFAULT_USER_TASKS_MAX_PERCENTAGE, 100U); /* 33% */
+        m->sessions_max = 8192;
+        m->inhibitors_max = 8192;
+
+        m->kill_user_processes = KILL_USER_PROCESSES;
+
+        m->kill_only_users = strv_free(m->kill_only_users);
+        m->kill_exclude_users = strv_free(m->kill_exclude_users);
+}
+
+int manager_parse_config_file(Manager *m) {
+        assert(m);
+
+        return config_parse_many_nulstr(PKGSYSCONFDIR "/logind.conf",
+                                        CONF_PATHS_NULSTR("systemd/logind.conf.d"),
+                                        "Login\0",
+                                        config_item_perf_lookup, logind_gperf_lookup,
+                                        CONFIG_PARSE_WARN, m);
+}
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
         Device *d;
@@ -124,7 +154,7 @@ int manager_add_user_by_name(Manager *m, const char *name, User **_user) {
         assert(m);
         assert(name);
 
-        r = get_user_creds(&name, &uid, &gid, NULL, NULL);
+        r = get_user_creds(&name, &uid, &gid, NULL, NULL, 0);
         if (r < 0)
                 return r;
 
@@ -187,15 +217,22 @@ int manager_add_button(Manager *m, const char *name, Button **_button) {
         return 0;
 }
 
-int manager_process_seat_device(Manager *m, struct udev_device *d) {
+int manager_process_seat_device(Manager *m, sd_device *d) {
+        const char *action = NULL;
         Device *device;
         int r;
 
         assert(m);
 
-        if (streq_ptr(udev_device_get_action(d), "remove")) {
+        (void) sd_device_get_property_value(d, "ACTION", &action);
+        if (streq_ptr(action, "remove")) {
+                const char *syspath;
 
-                device = hashmap_get(m->devices, udev_device_get_syspath(d));
+                r = sd_device_get_syspath(d, &syspath);
+                if (r < 0)
+                        return 0;
+
+                device = hashmap_get(m->devices, syspath);
                 if (!device)
                         return 0;
 
@@ -203,12 +240,11 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
                 device_free(device);
 
         } else {
-                const char *sn;
-                Seat *seat = NULL;
+                const char *sn, *syspath;
                 bool master;
+                Seat *seat;
 
-                sn = udev_device_get_property_value(d, "ID_SEAT");
-                if (isempty(sn))
+                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
                         sn = "seat0";
 
                 if (!seat_name_is_valid(sn)) {
@@ -217,13 +253,17 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
                 }
 
                 seat = hashmap_get(m->seats, sn);
-                master = udev_device_has_tag(d, "master-of-seat");
+                master = sd_device_has_tag(d, "master-of-seat") > 0;
 
                 /* Ignore non-master devices for unknown seats */
                 if (!master && !seat)
                         return 0;
 
-                r = manager_add_device(m, udev_device_get_syspath(d), master, &device);
+                r = sd_device_get_syspath(d, &syspath);
+                if (r < 0)
+                        return r;
+
+                r = manager_add_device(m, syspath, master, &device);
                 if (r < 0)
                         return r;
 
@@ -244,30 +284,34 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
         return 0;
 }
 
-int manager_process_button_device(Manager *m, struct udev_device *d) {
+int manager_process_button_device(Manager *m, sd_device *d) {
+        const char *action = NULL, *sysname;
         Button *b;
-
         int r;
 
         assert(m);
 
-        if (streq_ptr(udev_device_get_action(d), "remove")) {
+        r = sd_device_get_sysname(d, &sysname);
+        if (r < 0)
+                return r;
 
-                b = hashmap_get(m->buttons, udev_device_get_sysname(d));
+        (void) sd_device_get_property_value(d, "ACTION", &action);
+        if (streq_ptr(action, "remove")) {
+
+                b = hashmap_get(m->buttons, sysname);
                 if (!b)
                         return 0;
 
                 button_free(b);
 
         } else {
-                const char *sn;
+                const char *sn = NULL;
 
-                r = manager_add_button(m, udev_device_get_sysname(d), &b);
+                r = manager_add_button(m, sysname, &b);
                 if (r < 0)
                         return r;
 
-                sn = udev_device_get_property_value(d, "ID_SEAT");
-                if (isempty(sn))
+                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
                         sn = "seat0";
 
                 button_set_seat(b, sn);
@@ -281,7 +325,7 @@ int manager_process_button_device(Manager *m, struct udev_device *d) {
         return 0;
 }
 
-int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
+int manager_get_session_by_pid(Manager *m, pid_t pid, Session **ret) {
         _cleanup_free_ char *unit = NULL;
         Session *s;
         int r;
@@ -293,38 +337,51 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
 
         r = cg_pid_get_unit(pid, &unit);
         if (r < 0)
-                return 0;
+                goto not_found;
 
         s = hashmap_get(m->session_units, unit);
         if (!s)
-                return 0;
+                goto not_found;
 
-        if (session)
-                *session = s;
+        if (ret)
+                *ret = s;
+
         return 1;
+
+not_found:
+        if (ret)
+                *ret = NULL;
+        return 0;
 }
 
-int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
+int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
         _cleanup_free_ char *unit = NULL;
         User *u;
         int r;
 
         assert(m);
-        assert(user);
 
         if (!pid_is_valid(pid))
                 return -EINVAL;
 
         r = cg_pid_get_slice(pid, &unit);
         if (r < 0)
-                return 0;
+                goto not_found;
 
         u = hashmap_get(m->user_units, unit);
         if (!u)
-                return 0;
+                goto not_found;
 
-        *user = u;
+        if (ret)
+                *ret = u;
+
         return 1;
+
+not_found:
+        if (ret)
+                *ret = NULL;
+
+        return 0;
 }
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
@@ -481,9 +538,9 @@ int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
                         NULL,
                         "ss", name, "fail");
         if (r < 0)
-                log_error("Failed to start %s: %s", name, bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to start %s: %s", name, bus_error_message(&error, r));
 
-        return r;
+        return 0;
 }
 
 static bool manager_is_docked(Manager *m) {
@@ -498,46 +555,37 @@ static bool manager_is_docked(Manager *m) {
 }
 
 static int manager_count_external_displays(Manager *m) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
-        int r;
-        int n = 0;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
+        int r, n = 0;
 
-        e = udev_enumerate_new(m->udev);
-        if (!e)
-                return -ENOMEM;
-
-        r = udev_enumerate_add_match_subsystem(e, "drm");
+        r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
 
-        r = udev_enumerate_scan_devices(e);
+        r = sd_device_enumerator_allow_uninitialized(e);
         if (r < 0)
                 return r;
 
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-                struct udev_device *p;
-                const char *status, *enabled, *dash, *nn, *i;
+        r = sd_device_enumerator_add_match_subsystem(e, "drm", true);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                sd_device *p;
+                const char *status, *enabled, *dash, *nn, *i, *subsys;
                 bool external = false;
 
-                d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
-                if (!d)
-                        return -ENOMEM;
-
-                p = udev_device_get_parent(d);
-                if (!p)
+                if (sd_device_get_parent(d, &p) < 0)
                         continue;
 
                 /* If the parent shares the same subsystem as the
                  * device we are looking at then it is a connector,
                  * which is what we are interested in. */
-                if (!streq_ptr(udev_device_get_subsystem(p), "drm"))
+                if (sd_device_get_subsystem(p, &subsys) < 0 || !streq(subsys, "drm"))
                         continue;
 
-                nn = udev_device_get_sysname(d);
-                if (!nn)
+                if (sd_device_get_sysname(d, &nn) < 0)
                         continue;
 
                 /* Ignore internal displays: the type is encoded in
@@ -564,16 +612,12 @@ static int manager_count_external_displays(Manager *m) {
                         continue;
 
                 /* Ignore ports that are not enabled */
-                enabled = udev_device_get_sysattr_value(d, "enabled");
-                if (!enabled)
-                        continue;
-                if (!streq_ptr(enabled, "enabled"))
+                if (sd_device_get_sysattr_value(d, "enabled", &enabled) < 0 || !streq(enabled, "enabled"))
                         continue;
 
                 /* We count any connector which is not explicitly
                  * "disconnected" as connected. */
-                status = udev_device_get_sysattr_value(d, "status");
-                if (!streq_ptr(status, "disconnected"))
+                if (sd_device_get_sysattr_value(d, "status", &status) < 0 || !streq(status, "disconnected"))
                         n++;
         }
 
@@ -600,4 +644,38 @@ bool manager_is_docked_or_external_displays(Manager *m) {
         }
 
         return false;
+}
+
+bool manager_is_on_external_power(void) {
+        int r;
+
+        /* For now we only check for AC power, but 'external power' can apply
+         * to anything that isn't an internal battery */
+        r = on_ac_power();
+        if (r < 0)
+                log_warning_errno(r, "Failed to read AC power status: %m");
+        else if (r > 0)
+                return true;
+
+        return false;
+}
+
+bool manager_all_buttons_ignored(Manager *m) {
+        assert(m);
+
+        if (m->handle_power_key != HANDLE_IGNORE)
+                return false;
+        if (m->handle_suspend_key != HANDLE_IGNORE)
+                return false;
+        if (m->handle_hibernate_key != HANDLE_IGNORE)
+                return false;
+        if (m->handle_lid_switch != HANDLE_IGNORE)
+                return false;
+        if (m->handle_lid_switch_ep != _HANDLE_ACTION_INVALID &&
+            m->handle_lid_switch_ep != HANDLE_IGNORE)
+                return false;
+        if (m->handle_lid_switch_docked != HANDLE_IGNORE)
+                return false;
+
+        return true;
 }

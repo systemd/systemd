@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <ctype.h>
 #include <net/if.h>
@@ -444,7 +425,7 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 FOREACH_WORD_SEPARATOR(word, l, value, ":", state) {
                         char tag[l + 1];
 
-                        (void)strncpy(tag, word, l);
+                        (void) strncpy(tag, word, l);
                         tag[l] = '\0';
 
                         r = device_add_tag(device, tag);
@@ -586,8 +567,7 @@ int device_new_from_strv(sd_device **ret, char **strv) {
         if (r < 0)
                 return r;
 
-        *ret = device;
-        device = NULL;
+        *ret = TAKE_PTR(device);
 
         return 0;
 }
@@ -635,8 +615,7 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
         if (r < 0)
                 return r;
 
-        *ret = device;
-        device = NULL;
+        *ret = TAKE_PTR(device);
 
         return 0;
 }
@@ -812,8 +791,7 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
 
         ret->devnum = old_device->devnum;
 
-        *new_device = ret;
-        ret = NULL;
+        *new_device = TAKE_PTR(ret);
 
         return 0;
 }
@@ -835,8 +813,7 @@ int device_clone_with_db(sd_device *old_device, sd_device **new_device) {
 
         ret->sealed = true;
 
-        *new_device = ret;
-        ret = NULL;
+        *new_device = TAKE_PTR(ret);
 
         return 0;
 }
@@ -861,10 +838,25 @@ int device_new_from_synthetic_event(sd_device **new_device, const char *syspath,
         if (r < 0)
                 return r;
 
-        *new_device = ret;
-        ret = NULL;
+        *new_device = TAKE_PTR(ret);
 
         return 0;
+}
+
+int device_new_from_stat_rdev(sd_device **ret, const struct stat *st) {
+        char type;
+
+        assert(ret);
+        assert(st);
+
+        if (S_ISBLK(st->st_mode))
+                type = 'b';
+        else if (S_ISCHR(st->st_mode))
+                type = 'c';
+        else
+                return -ENOTTY;
+
+        return sd_device_new_from_devnum(ret, type, st->st_rdev);
 }
 
 int device_copy_properties(sd_device *device_dst, sd_device *device_src) {
@@ -1050,7 +1042,7 @@ int device_update_db(sd_device *device) {
                         const char *devlink;
 
                         FOREACH_DEVICE_DEVLINK(device, devlink)
-                                fprintf(f, "S:%s\n", devlink + strlen("/dev/"));
+                                fprintf(f, "S:%s\n", devlink + STRLEN("/dev/"));
 
                         if (device->devlink_priority != 0)
                                 fprintf(f, "L:%i\n", device->devlink_priority);

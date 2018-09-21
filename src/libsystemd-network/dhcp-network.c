@@ -1,21 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
 #include <errno.h>
@@ -32,6 +17,7 @@
 #include "dhcp-internal.h"
 #include "fd-util.h"
 #include "socket-util.h"
+#include "unaligned.h"
 
 static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                             uint32_t xid, const uint8_t *mac_addr,
@@ -70,13 +56,13 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.xid)),    /* A <- client identifier */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, xid, 1, 0),                        /* client identifier == xid ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe32(*((unsigned int *) eth_mac))),                     /* A <- 4 bytes of client's MAC */
+                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be32(&eth_mac->ether_addr_octet[0])),        /* A <- 4 bytes of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr)),                 /* A <- 4 bytes of MAC from dhcp.chaddr */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                                          /* A == 0 ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                          /* ignore */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe16(*((unsigned short *) (((char *) eth_mac) + 4)))),   /* A <- remainder of client's MAC */
+                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be16(&eth_mac->ether_addr_octet[4])),        /* A <- remainder of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
                 BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr) + 4),             /* A <- remainder of MAC from dhcp.chaddr */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */
@@ -122,10 +108,7 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
         if (r < 0)
                 return -errno;
 
-        r = s;
-        s = -1;
-
-        return r;
+        return TAKE_FD(s);
 }
 
 int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
@@ -142,8 +125,6 @@ int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
         struct ether_addr eth_mac = { { 0, 0, 0, 0, 0, 0 } };
         const uint8_t *bcast_addr = NULL;
         uint8_t dhcp_hlen = 0;
-
-        assert_return(mac_addr_len > 0, -EINVAL);
 
         if (arp_type == ARPHRD_ETHER) {
                 assert_return(mac_addr_len == ETH_ALEN, -EINVAL);
@@ -210,10 +191,7 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         if (r < 0)
                 return -errno;
 
-        r = s;
-        s = -1;
-
-        return r;
+        return TAKE_FD(s);
 }
 
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,

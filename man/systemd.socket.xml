@@ -1,41 +1,15 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.socket">
   <refentryinfo>
     <title>systemd.socket</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -123,53 +97,57 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>The following dependencies are implicitly added:</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Socket units automatically gain a <varname>Before=</varname>
-      dependency on the service units they activate.</para></listitem>
+      <para>The following dependencies are implicitly added:</para>
 
-      <listitem><para>Socket units referring to file system paths (such as AF_UNIX
-      sockets or FIFOs) implicitly gain <varname>Requires=</varname> and
-      <varname>After=</varname> dependencies on all mount units
-      necessary to access those paths.</para></listitem>
+      <itemizedlist>
+        <listitem><para>Socket units automatically gain a <varname>Before=</varname>
+        dependency on the service units they activate.</para></listitem>
 
-      <listitem><para>Socket units using the <varname>BindToDevice=</varname>
-      setting automatically gain a <varname>BindsTo=</varname> and
-      <varname>After=</varname> dependency on the device unit
-      encapsulating the specified network interface.</para></listitem>
-    </itemizedlist>
+        <listitem><para>Socket units referring to file system paths (such as AF_UNIX
+        sockets or FIFOs) implicitly gain <varname>Requires=</varname> and
+        <varname>After=</varname> dependencies on all mount units
+        necessary to access those paths.</para></listitem>
 
-    <para>Additional implicit dependencies may be added as result of
-    execution and resource control parameters as documented in
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-  </refsect1>
+        <listitem><para>Socket units using the <varname>BindToDevice=</varname>
+        setting automatically gain a <varname>BindsTo=</varname> and
+        <varname>After=</varname> dependency on the device unit
+        encapsulating the specified network interface.</para></listitem>
+      </itemizedlist>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>Additional implicit dependencies may be added as result of
+      execution and resource control parameters as documented in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    </refsect2>
 
-    <para>The following dependencies are added unless
-    <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Socket units automatically gain a
-      <varname>Before=</varname> dependency on
-      <filename>sockets.target</filename>.</para></listitem>
+      <para>The following dependencies are added unless
+      <varname>DefaultDependencies=no</varname> is set:</para>
 
-      <listitem><para>Socket units automatically gain a pair of
-      <varname>After=</varname> and <varname>Requires=</varname>
-      dependency on <filename>sysinit.target</filename>, and a pair of
-      <varname>Before=</varname> and <varname>Conflicts=</varname>
-      dependencies on <filename>shutdown.target</filename>. These
-      dependencies ensure that the socket unit is started before normal
-      services at boot, and is stopped on shutdown. Only sockets
-      involved with early boot or late system shutdown should disable
-      <varname>DefaultDependencies=</varname> option.</para></listitem>
-    </itemizedlist>
+      <itemizedlist>
+        <listitem><para>Socket units automatically gain a
+        <varname>Before=</varname> dependency on
+        <filename>sockets.target</filename>.</para></listitem>
+
+        <listitem><para>Socket units automatically gain a pair of
+        <varname>After=</varname> and <varname>Requires=</varname>
+        dependency on <filename>sysinit.target</filename>, and a pair of
+        <varname>Before=</varname> and <varname>Conflicts=</varname>
+        dependencies on <filename>shutdown.target</filename>. These
+        dependencies ensure that the socket unit is started before normal
+        services at boot, and is stopped on shutdown. Only sockets
+        involved with early boot or late system shutdown should disable
+        <varname>DefaultDependencies=</varname> option.</para></listitem>
+      </itemizedlist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -325,7 +303,7 @@
 
       <varlistentry>
         <term><varname>SocketProtocol=</varname></term>
-        <listitem><para>Takes a one of <option>udplite</option>
+        <listitem><para>Takes one of <option>udplite</option>
         or <option>sctp</option>. Specifies a socket protocol
         (<constant>IPPROTO_UDPLITE</constant>) UDP-Lite
         (<constant>IPPROTO_SCTP</constant>) SCTP socket respectively. </para>
@@ -334,7 +312,7 @@
 
       <varlistentry>
         <term><varname>BindIPv6Only=</varname></term>
-        <listitem><para>Takes a one of <option>default</option>,
+        <listitem><para>Takes one of <option>default</option>,
         <option>both</option> or <option>ipv6-only</option>. Controls
         the IPV6_V6ONLY socket option (see
         <citerefentry project='die-net'><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>

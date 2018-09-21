@@ -1,26 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
-  Copyright 2013 Thomas H.P. Andersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
+#include <errno.h>
 #include <locale.h>
 #include <math.h>
+#include <sys/socket.h>
 
 #include "alloc-util.h"
 #include "errno-list.h"
@@ -467,6 +450,44 @@ static void test_safe_atoi16(void) {
         assert_se(r == -EINVAL);
 }
 
+static void test_safe_atoux16(void) {
+        int r;
+        uint16_t l;
+
+        r = safe_atoux16("1234", &l);
+        assert_se(r == 0);
+        assert_se(l == 0x1234);
+
+        r = safe_atoux16("abcd", &l);
+        assert_se(r == 0);
+        assert_se(l == 0xabcd);
+
+        r = safe_atoux16("  1234", &l);
+        assert_se(r == 0);
+        assert_se(l == 0x1234);
+
+        r = safe_atoux16("12345", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoux16("-1", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoux16("  -1", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoux16("junk", &l);
+        assert_se(r == -EINVAL);
+
+        r = safe_atoux16("123x", &l);
+        assert_se(r == -EINVAL);
+
+        r = safe_atoux16("12.3", &l);
+        assert_se(r == -EINVAL);
+
+        r = safe_atoux16("", &l);
+        assert_se(r == -EINVAL);
+}
+
 static void test_safe_atou64(void) {
         int r;
         uint64_t l;
@@ -621,6 +642,54 @@ static void test_parse_percent_unbounded(void) {
         assert_se(parse_percent_unbounded("400%") == 400);
 }
 
+static void test_parse_permille(void) {
+        assert_se(parse_permille("") == -EINVAL);
+        assert_se(parse_permille("foo") == -EINVAL);
+        assert_se(parse_permille("0") == -EINVAL);
+        assert_se(parse_permille("50") == -EINVAL);
+        assert_se(parse_permille("100") == -EINVAL);
+        assert_se(parse_permille("-1") == -EINVAL);
+
+        assert_se(parse_permille("0‰") == 0);
+        assert_se(parse_permille("555‰") == 555);
+        assert_se(parse_permille("1000‰") == 1000);
+        assert_se(parse_permille("-7‰") == -ERANGE);
+        assert_se(parse_permille("1007‰") == -ERANGE);
+        assert_se(parse_permille("‰") == -EINVAL);
+        assert_se(parse_permille("‰‰") == -EINVAL);
+        assert_se(parse_permille("‰1") == -EINVAL);
+        assert_se(parse_permille("1‰‰") == -EINVAL);
+        assert_se(parse_permille("3.2‰") == -EINVAL);
+
+        assert_se(parse_permille("0%") == 0);
+        assert_se(parse_permille("55%") == 550);
+        assert_se(parse_permille("55.5%") == 555);
+        assert_se(parse_permille("100%") == 1000);
+        assert_se(parse_permille("-7%") == -ERANGE);
+        assert_se(parse_permille("107%") == -ERANGE);
+        assert_se(parse_permille("%") == -EINVAL);
+        assert_se(parse_permille("%%") == -EINVAL);
+        assert_se(parse_permille("%1") == -EINVAL);
+        assert_se(parse_permille("1%%") == -EINVAL);
+        assert_se(parse_permille("3.21%") == -EINVAL);
+}
+
+static void test_parse_permille_unbounded(void) {
+        assert_se(parse_permille_unbounded("1001‰") == 1001);
+        assert_se(parse_permille_unbounded("4000‰") == 4000);
+        assert_se(parse_permille_unbounded("2147483647‰") == 2147483647);
+        assert_se(parse_permille_unbounded("2147483648‰") == -ERANGE);
+        assert_se(parse_permille_unbounded("4294967295‰") == -ERANGE);
+        assert_se(parse_permille_unbounded("4294967296‰") == -ERANGE);
+
+        assert_se(parse_permille_unbounded("101%") == 1010);
+        assert_se(parse_permille_unbounded("400%") == 4000);
+        assert_se(parse_permille_unbounded("214748364.7%") == 2147483647);
+        assert_se(parse_permille_unbounded("214748364.8%") == -ERANGE);
+        assert_se(parse_permille_unbounded("429496729.5%") == -ERANGE);
+        assert_se(parse_permille_unbounded("429496729.6%") == -ERANGE);
+}
+
 static void test_parse_nice(void) {
         int n;
 
@@ -635,7 +704,6 @@ static void test_parse_nice(void) {
         assert_se(parse_nice("-20", &n) >= 0 && n == -20);
         assert_se(parse_nice("19", &n) >= 0 && n == 19);
         assert_se(parse_nice("+19", &n) >= 0 && n == 19);
-
 
         assert_se(parse_nice("", &n) == -EINVAL);
         assert_se(parse_nice("-", &n) == -EINVAL);
@@ -732,6 +800,27 @@ static void test_parse_syscall_and_errno(void) {
         assert_se(parse_syscall_and_errno("hoge:", &n, &e) == -EINVAL);
 }
 
+static void test_parse_mtu(void) {
+        uint32_t mtu = 0;
+
+        assert_se(parse_mtu(AF_UNSPEC, "1500", &mtu) >= 0 && mtu == 1500);
+        assert_se(parse_mtu(AF_UNSPEC, "1400", &mtu) >= 0 && mtu == 1400);
+        assert_se(parse_mtu(AF_UNSPEC, "65535", &mtu) >= 0 && mtu == 65535);
+        assert_se(parse_mtu(AF_UNSPEC, "65536", &mtu) >= 0 && mtu == 65536);
+        assert_se(parse_mtu(AF_UNSPEC, "4294967295", &mtu) >= 0 && mtu == 4294967295);
+        assert_se(parse_mtu(AF_UNSPEC, "500", &mtu) >= 0 && mtu == 500);
+        assert_se(parse_mtu(AF_UNSPEC, "1280", &mtu) >= 0 && mtu == 1280);
+        assert_se(parse_mtu(AF_INET6, "1280", &mtu) >= 0 && mtu == 1280);
+        assert_se(parse_mtu(AF_INET6, "1279", &mtu) == -ERANGE);
+        assert_se(parse_mtu(AF_UNSPEC, "4294967296", &mtu) == -ERANGE);
+        assert_se(parse_mtu(AF_INET6, "4294967296", &mtu) == -ERANGE);
+        assert_se(parse_mtu(AF_INET6, "68", &mtu) == -ERANGE);
+        assert_se(parse_mtu(AF_UNSPEC, "68", &mtu) >= 0 && mtu == 68);
+        assert_se(parse_mtu(AF_UNSPEC, "67", &mtu) == -ERANGE);
+        assert_se(parse_mtu(AF_UNSPEC, "0", &mtu) == -ERANGE);
+        assert_se(parse_mtu(AF_UNSPEC, "", &mtu) == -EINVAL);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -744,15 +833,19 @@ int main(int argc, char *argv[]) {
         test_safe_atolli();
         test_safe_atou16();
         test_safe_atoi16();
+        test_safe_atoux16();
         test_safe_atou64();
         test_safe_atoi64();
         test_safe_atod();
         test_parse_percent();
         test_parse_percent_unbounded();
+        test_parse_permille();
+        test_parse_permille_unbounded();
         test_parse_nice();
         test_parse_dev();
         test_parse_errno();
         test_parse_syscall_and_errno();
+        test_parse_mtu();
 
         return 0;
 }

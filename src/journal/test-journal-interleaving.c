@@ -1,22 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Marius Vollmer
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2013 Marius Vollmer
 ***/
 
 #include <fcntl.h>
@@ -31,13 +15,13 @@
 #include "parse-util.h"
 #include "rm-rf.h"
 #include "util.h"
+#include "tests.h"
 
-/* This program tests skipping around in a multi-file journal.
- */
+/* This program tests skipping around in a multi-file journal. */
 
 static bool arg_keep = false;
 
-noreturn static void log_assert_errno(const char *text, int error, const char *file, int line, const char *func) {
+_noreturn_ static void log_assert_errno(const char *text, int error, const char *file, int line, const char *func) {
         log_internal(LOG_CRIT, error, file, line, func,
                      "'%s' failed at %s:%u (%s): %m", text, file, line, func);
         abort();
@@ -52,7 +36,7 @@ noreturn static void log_assert_errno(const char *text, int error, const char *f
 
 static JournalFile *test_open(const char *name) {
         JournalFile *f;
-        assert_ret(journal_file_open(-1, name, O_RDWR|O_CREAT, 0644, true, false, NULL, NULL, NULL, NULL, &f));
+        assert_ret(journal_file_open(-1, name, O_RDWR|O_CREAT, 0644, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f));
         return f;
 }
 
@@ -79,7 +63,7 @@ static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
         assert_se(asprintf(&p, "NUMBER=%d", n) >= 0);
         iovec[0].iov_base = p;
         iovec[0].iov_len = strlen(p);
-        assert_ret(journal_file_append_entry(f, &ts, iovec, 1, seqnum, NULL, NULL));
+        assert_ret(journal_file_append_entry(f, &ts, NULL, iovec, 1, seqnum, NULL, NULL));
         free(p);
 }
 
@@ -217,7 +201,7 @@ static void test_sequence_numbers(void) {
         assert_se(chdir(t) >= 0);
 
         assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0644,
-                                    true, false, NULL, NULL, NULL, NULL, &one) == 0);
+                                    true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);
 
         append_number(one, 1, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -234,7 +218,7 @@ static void test_sequence_numbers(void) {
         memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
 
         assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0644,
-                                    true, false, NULL, NULL, NULL, one, &two) == 0);
+                                    true, (uint64_t) -1, false, NULL, NULL, NULL, one, &two) == 0);
 
         assert_se(two->header->state == STATE_ONLINE);
         assert_se(!sd_id128_equal(two->header->file_id, one->header->file_id));
@@ -265,7 +249,7 @@ static void test_sequence_numbers(void) {
         seqnum = 0;
 
         assert_se(journal_file_open(-1, "two.journal", O_RDWR, 0,
-                                    true, false, NULL, NULL, NULL, NULL, &two) == 0);
+                                    true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &two) == 0);
 
         assert_se(sd_id128_equal(two->header->seqnum_id, seqnum_id));
 
@@ -290,11 +274,11 @@ static void test_sequence_numbers(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         /* journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("/etc/machine-id not found");
 
         arg_keep = argc > 1;
 

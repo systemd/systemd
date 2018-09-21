@@ -3,33 +3,15 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2010 Ran Benita
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# Copyright © 2010 Ran Benita
 
 __systemctl() {
         local mode=$1; shift 1
-        systemctl $mode --full --no-legend "$@" 2>/dev/null
+        systemctl $mode --full --no-legend --no-pager "$@" 2>/dev/null
 }
 
 __systemd_properties() {
-        local mode=$1
-        { __systemctl $mode show --all;
-         @rootlibexecdir@/systemd --dump-configuration-items; } |
-        while IFS='=' read -r key value; do
-            [[ $value ]] && echo "$key"
-        done
+        @rootlibexecdir@/systemd --dump-bus-properties
 }
 
 __contains_word () {
@@ -39,79 +21,92 @@ __contains_word () {
         done
 }
 
-__filter_units_by_property () {
-        local mode=$1 property=$2 value=$3 ; shift 3
-        local units=("$@")
-        local props i
-        IFS=$'\n' read -rd '' -a props < \
-            <(__systemctl $mode show --property "$property" -- "${units[@]}")
-        for ((i=0; $i < ${#units[*]}; i++)); do
-                if [[ "${props[i]}" = "$property=$value" ]]; then
-                        echo " ${units[i]}"
-                fi
-        done
-}
-
 __filter_units_by_properties () {
-        local mode=$1 properties=$2 values=$3 ; shift 3
+        local mode=$1 properties=$2; shift 2
         local units=("$@")
-        local props i j conditions=()
-        IFS=$'\n' read -rd '' -a props < \
-            <(__systemctl $mode show --property "$properties" -- "${units[@]}")
-        IFS=$',' read -r -a properties < <(echo $properties)
-        IFS=$',' read -r -a values < <(echo $values)
-        for ((i=0; i < ${#properties[*]}; i++)); do
-                for ((j=0; j < ${#properties[*]}; j++)); do
-                        if [[ ${props[i]%%=*} == ${properties[j]} ]]; then
-                                conditions+=( "${properties[j]}=${values[j]}" )
+        local props i p n
+        local names= count=0
+
+        IFS=$',' read -r -a p < <(echo "Names,$properties")
+        n=${#p[*]}
+        readarray -t props < \
+                  <(__systemctl $mode show --property "Names,$properties" -- "${units[@]}")
+
+        for ((i=0; i < ${#props[*]}; i++)); do
+                if [[ -z ${props[i]} ]]; then
+                        if (( count == n )) && [[ -n $names ]]; then
+                                echo $names
                         fi
-                done
-        done
-        for ((i=0; i < ${#units[*]}; i++)); do
-                for ((j=0; j < ${#conditions[*]}; j++)); do
-                        if [[ "${props[i * ${#conditions[*]} + j]}" != "${conditions[j]}" ]]; then
-                                break
+                        names=
+                        count=0
+                else
+                        (( count++ ))
+                        if [[ ${props[i]%%=*} == 'Names' ]]; then
+                                names=${props[i]#*=}
                         fi
-                done
-                if (( j == ${#conditions[*]} )); then
-                        echo " ${units[i]}"
                 fi
         done
+        if (( count == n )) && [[ -n $names ]]; then
+                echo $names
+        fi
 }
 
-__get_all_units      () { { __systemctl $1 list-unit-files; __systemctl $1 list-units --all; } \
-        | { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }; }
-__get_template_names () { __systemctl $1 list-unit-files \
-        | { while read -r a b; do [[ $a =~ @\. ]] && echo " ${a%%@.*}@"; done; }; }
-
-__get_active_units   () { __systemctl $1 list-units       \
+__get_all_units      () { { __systemctl $1 list-unit-files "$2*"; __systemctl $1 list-units --all "$2*"; } \
         | { while read -r a b; do echo " $a"; done; }; }
+__get_non_template_units() { { __systemctl $1 list-unit-files "$2*"; __systemctl $1 list-units --all "$2*"; } \
+        | { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }; }
+__get_template_names () { __systemctl $1 list-unit-files "$2*" \
+        | { while read -r a b; do [[ $a =~ @\. ]] && echo " ${a%%@.*}@"; done; }; }
+__get_active_units   () { __systemctl $1 list-units "$2*"      \
+        | { while read -r a b; do echo " $a"; done; }; }
+
+__get_not_masked_unit_files() {
+        # filter out masked, not-found, or template units.
+        __systemctl $1 list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$2*" | \
+                { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
+}
+
 __get_startable_units () {
-        # find startable inactive units
-        __filter_units_by_properties $1 ActiveState,CanStart inactive,yes $(
-            { __systemctl $1 list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient | \
-                      { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
-              __systemctl $1 list-units --state inactive,failed | \
+        __filter_units_by_properties $1 ActiveState=inactive,CanStart=yes $(
+                { __get_not_masked_unit_files $1 $2
+                  # get inactive template units
+                  __systemctl $1 list-units --state inactive,failed "$2*" | \
                       { while read -r a b c; do [[ $b == "loaded" ]] && echo " $a"; done; }
-            } | sort -u )
+                } | sort -u )
 }
 __get_restartable_units () {
         # filter out masked and not-found
-        __filter_units_by_property $1 CanStart yes $(
-            __systemctl $1 list-unit-files --state enabled,disabled,static | \
-                    { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
-            __systemctl $1 list-units | \
-                    { while read -r a b; do echo " $a"; done; } )
+        __filter_units_by_properties $1 CanStart=yes $(
+                { __get_not_masked_unit_files $1 $2
+                  __get_active_units $1 $2
+                } | sort -u )
 }
-__get_failed_units   () { __systemctl $1 list-units       \
+
+__get_stoppable_units () {
+        # filter out masked and not-found
+        __filter_units_by_properties $1 ActiveState=active,CanStop=yes $(
+                { __get_not_masked_unit_files $1 $2
+                  __get_active_units $1 $2
+                } | sort -u )
+}
+
+__get_reloadable_units () {
+        # filter out masked and not-found
+        __filter_units_by_properties $1 ActiveState=active,CanReload=yes $(
+                { __get_not_masked_unit_files $1 $2
+                  __get_active_units $1 $2
+                } | sort -u )
+}
+
+__get_failed_units   () { __systemctl $1 list-units "$2*"      \
         | { while read -r a b c d; do [[ $c == "failed"   ]] && echo " $a"; done; }; }
-__get_enabled_units  () { __systemctl $1 list-unit-files  \
+__get_enabled_units  () { __systemctl $1 list-unit-files "$2*" \
         | { while read -r a b c  ; do [[ $b == "enabled"  ]] && echo " $a"; done; }; }
-__get_disabled_units () { __systemctl $1 list-unit-files  \
+__get_disabled_units () { __systemctl $1 list-unit-files "$2*" \
         | { while read -r a b c  ; do [[ $b == "disabled" ]] && echo " $a"; done; }; }
-__get_masked_units   () { __systemctl $1 list-unit-files  \
+__get_masked_units   () { __systemctl $1 list-unit-files "$2*" \
         | { while read -r a b c  ; do [[ $b == "masked"   ]] && echo " $a"; done; }; }
-__get_all_unit_files () { { __systemctl $1 list-unit-files; } | { while read -r a b; do echo " $a"; done; }; }
+__get_all_unit_files () { { __systemctl $1 list-unit-files "$2*"; } | { while read -r a b; do echo " $a"; done; }; }
 
 __get_machines() {
         local a b
@@ -126,10 +121,10 @@ _systemctl () {
         local -A OPTS=(
                [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
                              --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall --now
-                             --quiet -q --privileged -P --system --user --version --runtime --recursive -r --firmware-setup
-                             --show-types -i --ignore-inhibitors --plain --failed'
+                             --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
+                             --show-types -i --ignore-inhibitors --plain --failed --value --fail --dry-run --wait'
                       [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root
-                             --preset-mode -n --lines -o --output -M --machine'
+                             --preset-mode -n --lines -o --output -M --machine --message'
         )
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -167,7 +162,7 @@ _systemctl () {
                                 comps=$(compgen -A hostname)
                         ;;
                         --property|-p)
-                                comps=$(__systemd_properties $mode)
+                                comps=$(__systemd_properties)
                         ;;
                         --preset-mode)
                                 comps='full enable-only disable-only'
@@ -190,7 +185,8 @@ _systemctl () {
         fi
 
         local -A VERBS=(
-                [ALL_UNITS]='is-active is-failed is-enabled status show cat mask preset help list-dependencies edit set-property revert'
+                [ALL_UNITS]='cat mask'
+        [NONTEMPLATE_UNITS]='is-active is-failed is-enabled status show preset help list-dependencies edit set-property revert'
             [ENABLED_UNITS]='disable'
            [DISABLED_UNITS]='enable'
         [REENABLABLE_UNITS]='reenable'
@@ -203,14 +199,16 @@ _systemctl () {
          [TARGET_AND_UNITS]='add-wants add-requires'
              [MASKED_UNITS]='unmask'
                      [JOBS]='cancel'
-                     [ENVS]='set-environment unset-environment'
+                     [ENVS]='set-environment unset-environment import-environment'
                [STANDALONE]='daemon-reexec daemon-reload default
-                             emergency exit halt hibernate hybrid-sleep kexec list-jobs
-                             list-sockets list-timers list-units list-unit-files poweroff
+                             emergency exit halt hibernate hybrid-sleep
+                             suspend-then-hibernate kexec list-jobs list-sockets
+                             list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
-                             is-system-running'
+                             is-system-running preset-all'
                      [FILE]='link switch-root'
                   [TARGETS]='set-default'
+                 [MACHINES]='list-machines'
         )
 
         for ((i=0; i < COMP_CWORD; i++)); do
@@ -225,64 +223,64 @@ _systemctl () {
                 comps="${VERBS[*]}"
 
         elif __contains_word "$verb" ${VERBS[ALL_UNITS]}; then
-                comps=$( __get_all_units $mode )
+                comps=$( __get_all_units $mode "$cur" )
+                compopt -o filenames
+
+        elif __contains_word "$verb" ${VERBS[NONTEMPLATE_UNITS]}; then
+                comps=$( __get_non_template_units $mode "$cur" )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[ENABLED_UNITS]}; then
-                comps=$( __get_enabled_units $mode )
+                comps=$( __get_enabled_units $mode "$cur" )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[DISABLED_UNITS]}; then
-                comps=$( __get_disabled_units $mode;
-                        __get_template_names $mode)
+                comps=$( __get_disabled_units $mode "$cur";
+                         __get_template_names $mode "$cur")
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[REENABLABLE_UNITS]}; then
-                comps=$( __get_disabled_units $mode;
-                         __get_enabled_units $mode;
-                         __get_template_names $mode)
+                comps=$( __get_disabled_units $mode "$cur";
+                         __get_enabled_units $mode "$cur";
+                         __get_template_names $mode "$cur")
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[STARTABLE_UNITS]}; then
-                comps=$( __get_startable_units $mode;
-                         __get_template_names $mode)
+                comps=$( __get_startable_units $mode "$cur" )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[RESTARTABLE_UNITS]}; then
-                comps=$( __get_restartable_units $mode;
-                         __get_template_names $mode)
+                comps=$( __get_restartable_units $mode "$cur" )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then
-                comps=$( __filter_units_by_property $mode CanStop yes \
-                      $( __get_active_units $mode ) )
+                comps=$( __get_stoppable_units $mode "$cur" )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[RELOADABLE_UNITS]}; then
-                comps=$( __filter_units_by_property $mode CanReload yes \
-                      $( __get_active_units $mode ) )
+                comps=$( __get_reloadable_units $mode "$cur" )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[ISOLATABLE_UNITS]}; then
-                comps=$( __filter_units_by_property $mode AllowIsolate yes \
-                      $( __get_all_units $mode ) )
+                comps=$( __filter_units_by_properties $mode AllowIsolate=yes \
+                      $( __get_all_units $mode "$cur" ) )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[FAILED_UNITS]}; then
-                comps=$( __get_failed_units $mode )
+                comps=$( __get_failed_units $mode "$cur" )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[MASKED_UNITS]}; then
-                comps=$( __get_masked_units $mode )
+                comps=$( __get_masked_units $mode "$cur" )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[TARGET_AND_UNITS]}; then
                 if __contains_word "$prev" ${VERBS[TARGET_AND_UNITS]} \
                 || __contains_word "$prev" ${OPTS[STANDALONE]}; then
-                        comps=$( __systemctl $mode list-unit-files --type target --all \
+                        comps=$( __systemctl $mode list-unit-files --type target --all "$cur*" \
                         | { while read -r a b; do echo " $a"; done; } )
                 else
-                        comps=$( __get_all_unit_files $mode )
+                        comps=$( __get_all_unit_files $mode "$cur" )
                 fi
                 compopt -o filenames
 
@@ -294,14 +292,15 @@ _systemctl () {
 
         elif __contains_word "$verb" ${VERBS[ENVS]}; then
                 comps=$( __systemctl $mode show-environment \
-                    | while read -r line; do echo " ${line%%=*}=";done )
+                    | while read -r line; do echo " ${line%%=*}="; done )
                 compopt -o nospace
 
         elif __contains_word "$verb" ${VERBS[FILE]}; then
                 comps=$( compgen -A file -- "$cur" )
                 compopt -o filenames
+
         elif __contains_word "$verb" ${VERBS[TARGETS]}; then
-                comps=$( __systemctl $mode list-unit-files --type target --full --all \
+                comps=$( __systemctl $mode list-unit-files --type target --full --all "$cur*" \
                         | { while read -r a b; do echo " $a"; done; } )
         fi
 

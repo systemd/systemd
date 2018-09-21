@@ -1,22 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2004-2012 Kay Sievers <kay@vrfy.org>
- * Copyright (C) 2004 Chris Friesen <chris_friesen@sympatico.ca>
- * Copyright (C) 2009 Canonical Ltd.
- * Copyright (C) 2009 Scott James Remnant <scott@netsplit.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright © 2004 Chris Friesen <chris_friesen@sympatico.ca>
+ * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  */
 
 #include <errno.h>
@@ -77,7 +63,6 @@ static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
 
 typedef struct Manager {
-        struct udev *udev;
         sd_event *event;
         Hashmap *workers;
         LIST_HEAD(struct event, events);
@@ -112,7 +97,6 @@ enum event_state {
 struct event {
         LIST_FIELDS(struct event, event);
         Manager *manager;
-        struct udev *udev;
         struct udev_device *dev;
         struct udev_device *dev_kernel;
         struct worker *worker;
@@ -140,7 +124,6 @@ enum worker_state {
 
 struct worker {
         Manager *manager;
-        int refcount;
         pid_t pid;
         struct udev_monitor *monitor;
         enum worker_state state;
@@ -218,7 +201,6 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         if (!worker)
                 return -ENOMEM;
 
-        worker->refcount = 1;
         worker->manager = manager;
         /* close monitor, but keep address around */
         udev_monitor_disconnect(worker_monitor);
@@ -233,8 +215,7 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         if (r < 0)
                 return r;
 
-        *ret = worker;
-        worker = NULL;
+        *ret = TAKE_PTR(worker);
 
         return 0;
 }
@@ -293,13 +274,12 @@ static void manager_free(Manager *manager) {
         if (!manager)
                 return;
 
-        udev_builtin_exit(manager->udev);
+        udev_builtin_exit();
 
         sd_event_source_unref(manager->ctrl_event);
         sd_event_source_unref(manager->uevent_event);
         sd_event_source_unref(manager->inotify_event);
 
-        udev_unref(manager->udev);
         sd_event_unref(manager->event);
         manager_workers_free(manager);
         event_queue_cleanup(manager, EVENT_UNDEF);
@@ -325,14 +305,25 @@ static int worker_send_message(int fd) {
         return loop_write(fd, &message, sizeof(message), false);
 }
 
+static bool shall_lock_device(struct udev_device *dev) {
+        const char *sysname;
+
+        if (!streq_ptr("block", udev_device_get_subsystem(dev)))
+                return false;
+
+        sysname = udev_device_get_sysname(dev);
+        return !startswith(sysname, "dm-") &&
+               !startswith(sysname, "md") &&
+               !startswith(sysname, "drbd");
+}
+
 static void worker_spawn(Manager *manager, struct event *event) {
-        struct udev *udev = event->udev;
-        _cleanup_udev_monitor_unref_ struct udev_monitor *worker_monitor = NULL;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *worker_monitor = NULL;
         pid_t pid;
         int r = 0;
 
         /* listen for new events */
-        worker_monitor = udev_monitor_new_from_netlink(udev, NULL);
+        worker_monitor = udev_monitor_new_from_netlink(NULL, NULL);
         if (worker_monitor == NULL)
                 return;
         /* allow the main daemon netlink address to send devices to the worker */
@@ -353,8 +344,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 sigset_t mask;
 
                 /* take initial device from queue */
-                dev = event->dev;
-                event->dev = NULL;
+                dev = TAKE_PTR(event->dev);
 
                 unsetenv("NOTIFY_SOCKET");
 
@@ -427,9 +417,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                          * udev has finished its event handling.
                          */
                         if (!streq_ptr(udev_device_get_action(dev), "remove") &&
-                            streq_ptr("block", udev_device_get_subsystem(dev)) &&
-                            !startswith(udev_device_get_sysname(dev), "dm-") &&
-                            !startswith(udev_device_get_sysname(dev), "md")) {
+                            shall_lock_device(dev)) {
                                 struct udev_device *d = dev;
 
                                 if (streq_ptr("partition", udev_device_get_devtype(d)))
@@ -463,7 +451,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
 
                         /* apply/restore inotify watch */
                         if (udev_event->inotify_watch) {
-                                udev_watch_begin(udev, dev);
+                                udev_watch_begin(dev);
                                 udev_device_update_db(dev);
                         }
 
@@ -597,7 +585,6 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
         if (!event)
                 return -ENOMEM;
 
-        event->udev = udev_device_get_udev(dev);
         event->manager = manager;
         event->dev = dev;
         event->dev_kernel = udev_device_shallow_clone(dev);
@@ -648,7 +635,7 @@ static bool is_devpath_busy(Manager *manager, struct event *event) {
 
         /* check if queue contains events we depend on */
         LIST_FOREACH(event, loop_event, manager->events) {
-                /* we already found a later event, earlier can not block us, no need to check again */
+                /* we already found a later event, earlier cannot block us, no need to check again */
                 if (loop_event->seqnum < event->delaying_seqnum)
                         continue;
 
@@ -768,7 +755,7 @@ static void manager_reload(Manager *manager) {
 
         manager_kill_workers(manager);
         manager->rules = udev_rules_unref(manager->rules);
-        udev_builtin_exit(manager->udev);
+        udev_builtin_exit();
 
         sd_notifyf(false,
                    "READY=1\n"
@@ -790,16 +777,16 @@ static void event_queue_start(Manager *manager) {
         if (manager->last_usec == 0 ||
             (usec - manager->last_usec) > 3 * USEC_PER_SEC) {
                 if (udev_rules_check_timestamp(manager->rules) ||
-                    udev_builtin_validate(manager->udev))
+                    udev_builtin_validate())
                         manager_reload(manager);
 
                 manager->last_usec = usec;
         }
 
-        udev_builtin_init(manager->udev);
+        udev_builtin_init();
 
         if (!manager->rules) {
-                manager->rules = udev_rules_new(manager->udev, arg_resolve_names);
+                manager->rules = udev_rules_new(arg_resolve_names);
                 if (!manager->rules)
                         return;
         }
@@ -923,8 +910,8 @@ static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdat
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *manager = userdata;
-        _cleanup_udev_ctrl_connection_unref_ struct udev_ctrl_connection *ctrl_conn = NULL;
-        _cleanup_udev_ctrl_msg_unref_ struct udev_ctrl_msg *ctrl_msg = NULL;
+        _cleanup_(udev_ctrl_connection_unrefp) struct udev_ctrl_connection *ctrl_conn = NULL;
+        _cleanup_(udev_ctrl_msg_unrefp) struct udev_ctrl_msg *ctrl_msg = NULL;
         const char *str;
         int i;
 
@@ -1020,8 +1007,7 @@ static int synthesize_change(struct udev_device *dev) {
                 bool part_table_read = false;
                 bool has_partitions = false;
                 int fd;
-                struct udev *udev = udev_device_get_udev(dev);
-                _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+                _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
                 struct udev_list_entry *item;
 
                 /*
@@ -1042,7 +1028,7 @@ static int synthesize_change(struct udev_device *dev) {
                 }
 
                 /* search for partitions */
-                e = udev_enumerate_new(udev);
+                e = udev_enumerate_new(NULL);
                 if (!e)
                         return -ENOMEM;
 
@@ -1059,9 +1045,9 @@ static int synthesize_change(struct udev_device *dev) {
                         return r;
 
                 udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
-                        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
 
-                        d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                        d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                         if (!d)
                                 continue;
 
@@ -1089,9 +1075,9 @@ static int synthesize_change(struct udev_device *dev) {
                 write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
 
                 udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
-                        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
 
-                        d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                        d = udev_device_new_from_syspath(NULL, udev_list_entry_get_name(item));
                         if (!d)
                                 continue;
 
@@ -1131,9 +1117,9 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
         }
 
         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
 
-                dev = udev_watch_lookup(manager->udev, e->wd);
+                dev = udev_watch_lookup(e->wd);
                 if (!dev)
                         continue;
 
@@ -1148,7 +1134,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                          */
                         on_uevent(NULL, -1, 0, manager);
                 } else if (e->mask & IN_IGNORED)
-                        udev_watch_end(manager->udev, dev);
+                        udev_watch_end(dev);
         }
 
         return 1;
@@ -1258,7 +1244,6 @@ static int on_post(sd_event_source *s, void *userdata) {
 }
 
 static int listen_fds(int *rctrl, int *rnetlink) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
         int ctrl_fd = -1, netlink_fd = -1;
         int fd, n, r;
 
@@ -1288,13 +1273,9 @@ static int listen_fds(int *rctrl, int *rnetlink) {
         }
 
         if (ctrl_fd < 0) {
-                _cleanup_udev_ctrl_unref_ struct udev_ctrl *ctrl = NULL;
+                _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *ctrl = NULL;
 
-                udev = udev_new();
-                if (!udev)
-                        return -ENOMEM;
-
-                ctrl = udev_ctrl_new(udev);
+                ctrl = udev_ctrl_new();
                 if (!ctrl)
                         return log_error_errno(EINVAL, "error initializing udev control socket");
 
@@ -1312,15 +1293,9 @@ static int listen_fds(int *rctrl, int *rnetlink) {
         }
 
         if (netlink_fd < 0) {
-                _cleanup_udev_monitor_unref_ struct udev_monitor *monitor = NULL;
+                _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
 
-                if (!udev) {
-                        udev = udev_new();
-                        if (!udev)
-                                return -ENOMEM;
-                }
-
-                monitor = udev_monitor_new_from_netlink(udev, "kernel");
+                monitor = udev_monitor_new_from_netlink(NULL, "kernel");
                 if (!monitor)
                         return log_error_errno(EINVAL, "error initializing netlink socket");
 
@@ -1403,7 +1378,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-udevd.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "Manages devices.\n\n"
                "  -h --help                   Print this message\n"
@@ -1415,7 +1397,12 @@ static void help(void) {
                "  -t --event-timeout=SECONDS  Seconds to wait before terminating an event\n"
                "  -N --resolve-names=early|late|never\n"
                "                              When to resolve users and groups\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1479,8 +1466,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
                 case 'V':
                         printf("%s\n", PACKAGE_VERSION);
                         return 0;
@@ -1511,26 +1497,22 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         manager->worker_watch[WRITE_END] = -1;
         manager->worker_watch[READ_END] = -1;
 
-        manager->udev = udev_new();
-        if (!manager->udev)
-                return log_error_errno(errno, "could not allocate udev context: %m");
+        udev_builtin_init();
 
-        udev_builtin_init(manager->udev);
-
-        manager->rules = udev_rules_new(manager->udev, arg_resolve_names);
+        manager->rules = udev_rules_new(arg_resolve_names);
         if (!manager->rules)
                 return log_error_errno(ENOMEM, "error reading rules");
 
         LIST_HEAD_INIT(manager->events);
-        udev_list_init(manager->udev, &manager->properties, true);
+        udev_list_init(NULL, &manager->properties, true);
 
         manager->cgroup = cgroup;
 
-        manager->ctrl = udev_ctrl_new_from_fd(manager->udev, fd_ctrl);
+        manager->ctrl = udev_ctrl_new_from_fd(fd_ctrl);
         if (!manager->ctrl)
                 return log_error_errno(EINVAL, "error taking over udev control socket");
 
-        manager->monitor = udev_monitor_new_from_netlink_fd(manager->udev, "kernel", fd_uevent);
+        manager->monitor = udev_monitor_new_from_netlink_fd(NULL, "kernel", fd_uevent);
         if (!manager->monitor)
                 return log_error_errno(EINVAL, "error taking over netlink socket");
 
@@ -1545,11 +1527,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(errno, "could not enable SO_PASSCRED: %m");
 
-        manager->fd_inotify = udev_watch_init(manager->udev);
+        manager->fd_inotify = udev_watch_init();
         if (manager->fd_inotify < 0)
                 return log_error_errno(ENOMEM, "error initializing inotify");
 
-        udev_watch_restore(manager->udev);
+        udev_watch_restore();
 
         /* block and listen to all signals on signalfd */
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
@@ -1606,8 +1588,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "error creating post event source: %m");
 
-        *ret = manager;
-        manager = NULL;
+        *ret = TAKE_PTR(manager);
 
         return 0;
 }
@@ -1670,18 +1651,21 @@ int main(int argc, char *argv[]) {
                 log_set_max_level(LOG_DEBUG);
         }
 
-        if (getuid() != 0) {
-                r = log_error_errno(EPERM, "root privileges required");
+        r = must_be_root();
+        if (r < 0)
                 goto exit;
-        }
 
         if (arg_children_max == 0) {
                 cpu_set_t cpu_set;
+                unsigned long mem_limit;
 
                 arg_children_max = 8;
 
                 if (sched_getaffinity(0, sizeof(cpu_set), &cpu_set) == 0)
                         arg_children_max += CPU_COUNT(&cpu_set) * 2;
+
+                mem_limit = physical_memory() / (128LU*1024*1024);
+                arg_children_max = MAX(10U, MIN(arg_children_max, mem_limit));
 
                 log_debug("set children_max to %u", arg_children_max);
         }
@@ -1701,9 +1685,9 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
 
-        r = mkdir("/run/udev", 0755);
-        if (r < 0 && errno != EEXIST) {
-                r = log_error_errno(errno, "could not create /run/udev: %m");
+        r = mkdir_errno_wrapper("/run/udev", 0755);
+        if (r < 0 && r != -EEXIST) {
+                log_error_errno(r, "could not create /run/udev: %m");
                 goto exit;
         }
 
@@ -1739,8 +1723,6 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to redirect standard streams to /dev/null: %m");
                 }
-
-
 
                 pid = fork();
                 switch (pid) {

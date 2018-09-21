@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <pthread.h>
@@ -27,49 +9,82 @@
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "process-util.h"
+#include "signal-util.h"
 #include "util.h"
 
 int asynchronous_job(void* (*func)(void *p), void *arg) {
+        sigset_t ss, saved_ss;
         pthread_attr_t a;
         pthread_t t;
-        int r;
+        int r, k;
 
-        /* It kinda sucks that we have to resort to threads to
-         * implement an asynchronous sync(), but well, such is
-         * life.
-         *
-         * Note that issuing this command right before exiting a
-         * process will cause the process to wait for the sync() to
-         * complete. This function hence is nicely asynchronous really
-         * only in long running processes. */
+        /* It kinda sucks that we have to resort to threads to implement an asynchronous close(), but well, such is
+         * life. */
 
         r = pthread_attr_init(&a);
         if (r > 0)
                 return -r;
 
         r = pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
-        if (r > 0)
+        if (r > 0) {
+                r = -r;
                 goto finish;
+        }
+
+        if (sigfillset(&ss) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        /* Block all signals before forking off the thread, so that the new thread is started with all signals
+         * blocked. This way the existence of the new thread won't affect signal handling in other threads. */
+
+        r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
+        if (r > 0) {
+                r = -r;
+                goto finish;
+        }
 
         r = pthread_create(&t, &a, func, arg);
 
+        k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
+
+        if (r > 0)
+                r = -r;
+        else if (k > 0)
+                r = -k;
+        else
+                r = 0;
+
 finish:
         pthread_attr_destroy(&a);
-        return -r;
+        return r;
 }
 
-static void *sync_thread(void *p) {
-        sync();
-        return NULL;
-}
+int asynchronous_sync(pid_t *ret_pid) {
+        int r;
 
-int asynchronous_sync(void) {
-        log_debug("Spawning new thread for sync");
+        /* This forks off an invocation of fork() as a child process, in order to initiate synchronization to
+         * disk. Note that we implement this as helper process rather than thread as we don't want the sync() to hang our
+         * original process ever, and a thread would do that as the process can't exit with threads hanging in blocking
+         * syscalls. */
 
-        return asynchronous_job(sync_thread, NULL);
+        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, ret_pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child process */
+                (void) sync();
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
 }
 
 static void *close_thread(void *p) {
+        (void) pthread_setname_np(pthread_self(), "close");
+
         assert_se(close_nointr(PTR_TO_FD(p)) != -EBADF);
         return NULL;
 }

@@ -4,9 +4,9 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
 #include <stddef.h>
 #include "conf-parser.h"
-#include "network-internal.h"
-#include "link-config.h"
 #include "ethtool-util.h"
+#include "link-config.h"
+#include "network-internal.h"
 %}
 struct ConfigPerfItem;
 %null_strings
@@ -19,14 +19,15 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Match.MACAddress,                config_parse_hwaddr,        0,                             offsetof(link_config, match_mac)
+Match.MACAddress,                config_parse_hwaddrs,       0,                             offsetof(link_config, match_mac)
 Match.OriginalName,              config_parse_ifnames,       0,                             offsetof(link_config, match_name)
 Match.Path,                      config_parse_strv,          0,                             offsetof(link_config, match_path)
 Match.Driver,                    config_parse_strv,          0,                             offsetof(link_config, match_driver)
 Match.Type,                      config_parse_strv,          0,                             offsetof(link_config, match_type)
 Match.Host,                      config_parse_net_condition, CONDITION_HOST,                offsetof(link_config, match_host)
 Match.Virtualization,            config_parse_net_condition, CONDITION_VIRTUALIZATION,      offsetof(link_config, match_virt)
-Match.KernelCommandLine,         config_parse_net_condition, CONDITION_KERNEL_COMMAND_LINE, offsetof(link_config, match_kernel)
+Match.KernelCommandLine,         config_parse_net_condition, CONDITION_KERNEL_COMMAND_LINE, offsetof(link_config, match_kernel_cmdline)
+Match.KernelVersion,             config_parse_net_condition, CONDITION_KERNEL_VERSION,      offsetof(link_config, match_kernel_version)
 Match.Architecture,              config_parse_net_condition, CONDITION_ARCHITECTURE,        offsetof(link_config, match_arch)
 Link.Description,                config_parse_string,        0,                             offsetof(link_config, description)
 Link.MACAddressPolicy,           config_parse_mac_policy,    0,                             offsetof(link_config, mac_policy)
@@ -34,7 +35,7 @@ Link.MACAddress,                 config_parse_hwaddr,        0,                 
 Link.NamePolicy,                 config_parse_name_policy,   0,                             offsetof(link_config, name_policy)
 Link.Name,                       config_parse_ifname,        0,                             offsetof(link_config, name)
 Link.Alias,                      config_parse_ifalias,       0,                             offsetof(link_config, alias)
-Link.MTUBytes,                   config_parse_iec_size,      0,                             offsetof(link_config, mtu)
+Link.MTUBytes,                   config_parse_mtu,           AF_UNSPEC,                     offsetof(link_config, mtu)
 Link.BitsPerSecond,              config_parse_si_size,       0,                             offsetof(link_config, speed)
 Link.Duplex,                     config_parse_duplex,        0,                             offsetof(link_config, duplex)
 Link.AutoNegotiation,            config_parse_tristate,      0,                             offsetof(link_config, autonegotiation)
@@ -43,6 +44,10 @@ Link.Port,                       config_parse_port,          0,                 
 Link.GenericSegmentationOffload, config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_GSO])
 Link.TCPSegmentationOffload,     config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_TSO])
 Link.TCP6SegmentationOffload,    config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_TSO6])
-Link.UDPSegmentationOffload,     config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_UFO])
+Link.UDPSegmentationOffload,     config_parse_warn_compat,   DISABLED_LEGACY,               0
 Link.GenericReceiveOffload,      config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_GRO])
 Link.LargeReceiveOffload,        config_parse_tristate,      0,                             offsetof(link_config, features[NET_DEV_FEAT_LRO])
+Link.RxChannels,                 config_parse_channel,       0,                             0
+Link.TxChannels,                 config_parse_channel,       0,                             0
+Link.OtherChannels,              config_parse_channel,       0,                             0
+Link.CombinedChannels,           config_parse_channel,       0,                             0

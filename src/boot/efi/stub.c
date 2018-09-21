@@ -3,13 +3,6 @@
  * under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation; either version 2.1 of the License, or
  * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * Copyright (C) 2015 Kay Sievers <kay@vrfy.org>
  */
 
 #include <efi.h>
@@ -30,7 +23,7 @@ static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
-        CHAR8 *b;
+        _cleanup_freepool_ CHAR8 *b = NULL;
         UINTN size;
         BOOLEAN secure = FALSE;
         CHAR8 *sections[] = {
@@ -58,11 +51,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return err;
         }
 
-        if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS) {
+        if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS)
                 if (*b > 0)
                         secure = TRUE;
-                FreePool(b);
-        }
+
         err = pe_memory_locate_sections(loaded_image->ImageBase, sections, addrs, offs, szs);
         if (EFI_ERROR(err)) {
                 Print(L"Unable to locate embedded .linux section: %r ", err);
@@ -76,7 +68,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         cmdline_len = szs[0];
 
         /* if we are not in secure boot mode, accept a custom command line and replace the built-in one */
-        if (!secure && loaded_image->LoadOptionsSize > 0 && *(CHAR16 *)loaded_image->LoadOptions != 0) {
+        if (!secure && loaded_image->LoadOptionsSize > 0 && *(CHAR16 *)loaded_image->LoadOptions > 0x1F) {
                 CHAR16 *options;
                 CHAR8 *line;
                 UINTN i;
@@ -91,7 +83,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 #if ENABLE_TPM
                 /* Try to log any options to the TPM, especially manually edited options */
                 err = tpm_log_event(SD_TPM_PCR,
-                                    (EFI_PHYSICAL_ADDRESS) loaded_image->LoadOptions,
+                                    (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->LoadOptions,
                                     loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
                 if (EFI_ERROR(err)) {
                         Print(L"Unable to add image options measurement: %r", err);
@@ -104,12 +96,40 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
                 efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
 
+        /* if LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from UEFI */
+        if (efivar_get_raw(&global_guid, L"LoaderImageIdentifier", &b, &size) != EFI_SUCCESS) {
+                _cleanup_freepool_ CHAR16 *s;
+
+                s = DevicePathToStr(loaded_image->FilePath);
+                efivar_set(L"LoaderImageIdentifier", s, FALSE);
+        }
+
+        /* if LoaderFirmwareInfo is not set, let's set it */
+        if (efivar_get_raw(&global_guid, L"LoaderFirmwareInfo", &b, &size) != EFI_SUCCESS) {
+                _cleanup_freepool_ CHAR16 *s;
+
+                s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                efivar_set(L"LoaderFirmwareInfo", s, FALSE);
+        }
+
+        /* ditto for LoaderFirmwareType */
+        if (efivar_get_raw(&global_guid, L"LoaderFirmwareType", &b, &size) != EFI_SUCCESS) {
+                _cleanup_freepool_ CHAR16 *s;
+
+                s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                efivar_set(L"LoaderFirmwareType", s, FALSE);
+        }
+
+        /* add StubInfo */
+        if (efivar_get_raw(&global_guid, L"StubInfo", &b, &size) != EFI_SUCCESS)
+                efivar_set(L"StubInfo", L"systemd-stub " PACKAGE_VERSION, FALSE);
+
         if (szs[3] > 0)
                 graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
 
         err = linux_exec(image, cmdline, cmdline_len,
                          (UINTN)loaded_image->ImageBase + addrs[1],
-                         (UINTN)loaded_image->ImageBase + addrs[2], szs[2]);
+                         (UINTN)loaded_image->ImageBase + addrs[2], szs[2], secure);
 
         graphics_mode(FALSE);
         Print(L"Execution of embedded linux image failed: %r\n", err);

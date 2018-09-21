@@ -3,7 +3,7 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2010 Ran Benita
+# Copyright © 2010 Ran Benita
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -34,10 +34,11 @@ _loginctl () {
         local i verb comps
 
         local -A OPTS=(
-               [STANDALONE]='--all -a --help -h --no-pager --privileged -P --version
-                             --no-legend --no-ask-password -l --full'
-                      [ARG]='--host -H --kill-who --property -p --signal -s --machine'
-                      )
+               [STANDALONE]='--all -a --help -h --no-pager --version
+                             --no-legend --no-ask-password -l --full --value'
+                      [ARG]='--host -H --kill-who --property -p --signal -s -M --machine
+                             -n --lines -o --output'
+        )
 
         if __contains_word "$prev" ${OPTS[ARG]}; then
                 case $prev in
@@ -69,7 +70,7 @@ _loginctl () {
                 [SESSIONS]='session-status show-session activate lock-session unlock-session terminate-session kill-session'
                 [USERS]='user-status show-user enable-linger disable-linger terminate-user kill-user'
                 [SEATS]='seat-status show-seat terminate-seat'
-                [STANDALONE]='list-sessions list-users list-seats flush-devices'
+                [STANDALONE]='list-sessions lock-sessions unlock-sessions list-users list-seats flush-devices'
                 [ATTACH]='attach'
         )
 

@@ -1,0 +1,185 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="loader.conf" conditional='ENABLE_EFI'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>loader.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>loader.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>loader.conf</refname>
+    <refpurpose>Configuration file for systemd-boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>,
+    <filename><replaceable>ESP</replaceable>/loader/loader.conf.d/*.conf</filename>
+    </para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    will read <filename>/loader/loader.conf</filename> and any files with the
+    <literal>.conf</literal> extension under
+    <filename>/loader/loader.conf.d/</filename> on the EFI system partition (ESP).
+    </para>
+
+    <para>Each configuration file must consist of an option name, followed by
+    whitespace, and the option value. <literal>#</literal> may be used to start
+    a comment line. Empty and comment lines are ignored.</para>
+
+    <para>Boolean arguments may be written as
+    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>1</literal> or
+    <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>0</literal>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following configuration options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>default</term>
+
+        <listitem><para>A glob pattern to select the default entry. The default entry
+        may be changed in the boot menu itself, in which case the name of the
+        selected entry will be stored as an EFI variable, overriding this option.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>timeout</term>
+
+        <listitem><para>How long the boot menu should be shown before the default
+        entry is booted, in seconds. This may be changed in the boot menu itself and
+        will be stored as an EFI variable in that case, overriding this option.
+        </para>
+
+        <para>If the timeout is disabled, the default entry will be booted
+        immediately. The menu can be shown by pressing and holding a key before
+        systemd-boot is launched.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>console-mode</term>
+
+        <listitem><para>This option configures the resolution of the console. Takes a
+        number or one of the special values listed below. The following values may be
+        used:</para>
+
+        <variablelist>
+          <varlistentry>
+            <term>0</term>
+            <listitem>
+              <para>Standard UEFI 80x25 mode</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>1</term>
+            <listitem>
+              <para>80x50 mode, not supported by all devices</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>2</term>
+            <listitem>
+              <para>the first non-standard mode provided by the device
+              firmware, if any</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>auto</term>
+            <listitem>
+              <para>Pick a suitable mode automatically using heuristics</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>max</term>
+            <listitem>
+              <para>Pick the highest-numbered available mode</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term>keep</term>
+            <listitem>
+              <para>Keep the mode selected by firmware (the default)</para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>editor</term>
+
+        <listitem><para>Takes a boolean argument. Enable (the default) or disable the
+        editor. The editor should be disabled if the machine can be accessed by
+        unauthorized persons.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>auto-entries</term>
+
+        <listitem><para>Takes a boolean argument. Enable (the default) or disable
+        entries for other boot entries found on the boot partition. In particular,
+        this may be useful when loader entries are created to show replacement
+        descriptions for those entries.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>auto-firmware</term>
+
+        <listitem><para>Takes a boolean argument. Enable (the default) or disable
+        the "Reboot into firmware" entry.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <programlisting># /boot/efi/loader/loader.conf
+timeout 0
+default 01234567890abcdef1234567890abdf0-*
+editor no
+    </programlisting>
+
+    <para>The menu will not be shown by default (the menu can still be shown by
+    pressing and holding a key during boot). One of the entries with files with a
+    name starting with <literal>01234567890abcdef1234567890abdf0-</literal> will be
+    selected by default. If more than one entry matches, the one with the highest
+    priority will be selected (generally the one with the highest version number).
+    The editor will be disabled, so it is not possible to alter the kernel command
+    line.</para>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para>
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      </para>
+  </refsect1>
+</refentry>

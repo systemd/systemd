@@ -3,23 +3,6 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 <refentry id="sysusers.d" conditional='ENABLE_SYSUSERS'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -27,15 +10,6 @@
   <refentryinfo>
     <title>sysusers.d</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -57,11 +31,14 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-sysusers</command> uses the files from <filename>sysusers.d</filename> directory to create
-    system users and groups at package installation or boot time. This tool may be used to allocate system users and
-    groups only, it is not useful for creating non-system (i.e. regular, "human") users and groups, as it accesses
-    <filename>/etc/passwd</filename> and <filename>/etc/group</filename> directly, bypassing any more complex user
-    databases, for example any database involving NIS or LDAP.</para>
+    <para><command>systemd-sysusers</command> uses the files from
+    <filename>sysusers.d</filename> directory to create system users and groups and
+    to add users to groups, at package installation or boot time. This tool may be
+    used to allocate system users and groups only, it is not useful for creating
+    non-system (i.e. regular, "human") users and groups, as it accesses
+    <filename>/etc/passwd</filename> and <filename>/etc/group</filename> directly,
+    bypassing any more complex user databases, for example any database involving NIS
+    or LDAP.</para>
   </refsect1>
 
   <refsect1>
@@ -100,15 +77,16 @@
   <refsect1>
     <title>Configuration File Format</title>
 
-    <para>The file format is one line per user or group containing
-    name, ID, GECOS field description and home directory:</para>
+    <para>The file format is one line per user or group containing name, ID, GECOS
+    field description, home directory, and login shell:</para>
 
-    <programlisting>#Type  Name   ID              GECOS                 Home directory
-u      httpd  440             "HTTP User"
-u      authd  /usr/bin/authd  "Authorization user"
-g      input  -               -
-m      authd  input
-u      root   0               "Superuser"           /root</programlisting>
+    <programlisting>#Type Name     ID             GECOS                 Home directory Shell
+u     httpd    404            "HTTP User"
+u     authd    /usr/bin/authd "Authorization user"
+u     postgres -              "Postgresql Database" /var/lib/pgsql /usr/libexec/postgresdb
+g     input    -              -
+m     authd    input
+u     root     0              "Superuser"           /root          /bin/zsh</programlisting>
 
     <para>Empty lines and lines beginning with the <literal>#</literal> character are ignored, and may be used for
     commenting.</para>
@@ -122,14 +100,10 @@ u      root   0               "Superuser"           /root</programlisting>
       <variablelist>
         <varlistentry>
           <term><varname>u</varname></term>
-          <listitem><para>Create a system user and group of the
-          specified name should they not exist yet. The user's primary
-          group will be set to the group bearing the same name. The
-          user's shell will be set to
-          <filename>/sbin/nologin</filename>, the home directory to
-          the specified home directory, or <filename>/</filename> if
-          none is given. The account will be created disabled, so that
-          logins are not allowed.</para></listitem>
+          <listitem><para>Create a system user and group of the specified name should
+          they not exist yet. The user's primary group will be set to the group
+          bearing the same name. The account will be created disabled, so that logins
+          are not allowed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -187,11 +161,16 @@ u      root   0               "Superuser"           /root</programlisting>
       numeric 32-bit UID or GID of the user/group. Do not use IDs 65535
       or 4294967295, as they have special placeholder meanings.
       Specify <literal>-</literal> for automatic UID/GID allocation
-      for the user or group. Alternatively, specify an absolute path
+      for the user or group (this is strongly recommended unless it is strictly
+      necessary to use a specific UID or GID). Alternatively, specify an absolute path
       in the file system. In this case, the UID/GID is read from the
       path's owner/group. This is useful to create users whose UID/GID
       match the owners of pre-existing files (such as SUID or SGID
-      binaries).</para>
+      binaries).
+      The syntax <literal><replaceable>uid</replaceable>:<replaceable>gid</replaceable></literal> is also supported to
+      allow creating user and group pairs with different numeric UID and GID values. The group with the indicated GID must get created explicitly before or it must already exist. Specifying <literal>-</literal> for the UID in this syntax
+      is also supported.
+      </para>
 
       <para>For <varname>m</varname> lines, this field should contain
       the group name to add to a user to.</para>
@@ -206,37 +185,105 @@ u      root   0               "Superuser"           /root</programlisting>
     <refsect2>
       <title>GECOS</title>
 
-      <para>A short, descriptive string for users to be created,
-      enclosed in quotation marks. Note that this field may not
-      contain colons.</para>
+      <para>A short, descriptive string for users to be created, enclosed in
+      quotation marks. Note that this field may not contain colons.</para>
 
-      <para>Only applies to lines of type <varname>u</varname> and
-      should otherwise be left unset, or be set to
-      <literal>-</literal>.</para>
+      <para>Only applies to lines of type <varname>u</varname> and should otherwise
+      be left unset (or <literal>-</literal>).</para>
     </refsect2>
 
     <refsect2>
       <title>Home Directory</title>
 
-      <para>The home directory for a new system user. If omitted,
-      defaults to the root directory. It is recommended to not
-      unnecessarily specify home directories for system users, unless
-      software strictly requires one to be set.</para>
+      <para>The home directory for a new system user. If omitted, defaults to the
+      root directory.</para>
 
-      <para>Only applies to lines of type <varname>u</varname> and
-      should otherwise be left unset, or be set to
-      <literal>-</literal>.</para>
+      <para>Only applies to lines of type <varname>u</varname> and should otherwise
+      be left unset (or <literal>-</literal>). It is recommended to omit this, unless
+      software strictly requires a home directory to be set.</para>
     </refsect2>
+
+    <refsect2>
+      <title>Shell</title>
+
+      <para>The login shell of the user. If not specified, this will be set to
+      <filename>/sbin/nologin</filename>, except if the UID of the user is 0, in
+      which case <filename>/bin/sh</filename> will be used.</para>
+
+      <para>Only applies to lines of type <varname>u</varname> and should otherwise
+      be left unset (or <literal>-</literal>). It is recommended to omit this, unless
+      a shell different <filename>/sbin/nologin</filename> must be used.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers can be used in the "Name", "ID", "GECOS", "Home directory", and "Shell" fields.
+    An unknown or unresolvable specifier is treated as invalid configuration.
+    The following expansions are understood:</para>
+      <table>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><literal>%b</literal></entry>
+              <entry>Boot ID</entry>
+              <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+            </row>
+            <row>
+              <entry><literal>%H</literal></entry>
+              <entry>Host name</entry>
+              <entry>The hostname of the running system.</entry>
+            </row>
+            <row>
+              <entry><literal>%m</literal></entry>
+              <entry>Machine ID</entry>
+              <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+            </row>
+            <row>
+              <entry><literal>%T</literal></entry>
+              <entry>Directory for temporary files</entry>
+              <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
+            </row>
+            <row>
+              <entry><literal>%v</literal></entry>
+              <entry>Kernel release</entry>
+              <entry>Identical to <command>uname -r</command> output.</entry>
+            </row>
+            <row>
+              <entry><literal>%V</literal></entry>
+              <entry>Directory for larger and persistent temporary files</entry>
+              <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
+            </row>
+            <row>
+              <entry><literal>%%</literal></entry>
+              <entry>Escaped <literal>%</literal></entry>
+              <entry>Single percent sign.</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
   </refsect1>
 
   <refsect1>
     <title>Idempotence</title>
 
-    <para>Note that <command>systemd-sysusers</command> will do
-    nothing if the specified users or groups already exist, so
-    normally, there is no reason to override
-    <filename>sysusers.d</filename> vendor configuration, except to
-    block certain users or groups from being created.</para>
+    <para>Note that <command>systemd-sysusers</command> will do nothing if the
+    specified users or groups already exist or the users are members of specified
+    groups, so normally there is no reason to override
+    <filename>sysusers.d</filename> vendor configuration, except to block certain
+    users or groups from being created.</para>
   </refsect1>
 
   <refsect1>

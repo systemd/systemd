@@ -1,20 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (C) 2004-2008 Kay Sievers <kay@vrfy.org>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright © 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
  */
 
 #include <errno.h>
@@ -27,74 +13,91 @@
 #include <unistd.h>
 
 #include "string-util.h"
-#include "udev-util.h"
 #include "udev.h"
+#include "udevadm.h"
 
-static void help(void) {
+static const char *arg_action = "add";
+static int arg_resolve_names = 1;
+static char arg_syspath[UTIL_PATH_SIZE] = {};
 
-        printf("%s test OPTIONS <syspath>\n\n"
-               "Test an event run.\n"
+static int help(void) {
+
+        printf("%s test [OPTIONS] DEVPATH\n\n"
+               "Test an event run.\n\n"
                "  -h --help                            Show this help\n"
-               "     --version                         Show package version\n"
+               "  -V --version                         Show package version\n"
                "  -a --action=ACTION                   Set action string\n"
                "  -N --resolve-names=early|late|never  When to resolve names\n"
                , program_invocation_short_name);
+
+        return 0;
 }
 
-static int adm_test(struct udev *udev, int argc, char *argv[]) {
-        int resolve_names = 1;
-        char filename[UTIL_PATH_SIZE];
-        const char *action = "add";
-        const char *syspath = NULL;
-        struct udev_list_entry *entry;
-        _cleanup_udev_rules_unref_ struct udev_rules *rules = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
-        _cleanup_udev_event_unref_ struct udev_event *event = NULL;
-        sigset_t mask, sigmask_orig;
-        int rc = 0, c;
-
+static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
-                { "action", required_argument, NULL, 'a' },
+                { "action",        required_argument, NULL, 'a' },
                 { "resolve-names", required_argument, NULL, 'N' },
-                { "help", no_argument, NULL, 'h' },
+                { "version",       no_argument,       NULL, 'V' },
+                { "help",          no_argument,       NULL, 'h' },
                 {}
         };
 
-        log_debug("version %s", PACKAGE_VERSION);
+        int c;
 
-        while ((c = getopt_long(argc, argv, "a:N:h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "a:N:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'a':
-                        action = optarg;
+                        arg_action = optarg;
                         break;
                 case 'N':
                         if (streq (optarg, "early")) {
-                                resolve_names = 1;
+                                arg_resolve_names = 1;
                         } else if (streq (optarg, "late")) {
-                                resolve_names = 0;
+                                arg_resolve_names = 0;
                         } else if (streq (optarg, "never")) {
-                                resolve_names = -1;
+                                arg_resolve_names = -1;
                         } else {
-                                fprintf(stderr, "resolve-names must be early, late or never\n");
                                 log_error("resolve-names must be early, late or never");
-                                exit(EXIT_FAILURE);
+                                return -EINVAL;
                         }
                         break;
+                case 'V':
+                        return print_version();
                 case 'h':
-                        help();
-                        exit(EXIT_SUCCESS);
+                        return help();
                 case '?':
-                        exit(EXIT_FAILURE);
+                        return -EINVAL;
                 default:
                         assert_not_reached("Unknown option");
                 }
 
-        syspath = argv[optind];
-        if (syspath == NULL) {
-                fprintf(stderr, "syspath parameter missing\n");
-                rc = 2;
-                goto out;
+        if (!argv[optind]) {
+                log_error("syspath parameter missing.");
+                return -EINVAL;
         }
+
+        /* add /sys if needed */
+        if (!startswith(argv[optind], "/sys"))
+                strscpyl(arg_syspath, sizeof(arg_syspath), "/sys", argv[optind], NULL);
+        else
+                strscpy(arg_syspath, sizeof(arg_syspath), argv[optind]);
+
+        return 1;
+}
+
+int test_main(int argc, char *argv[], void *userdata) {
+        _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+        _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
+        struct udev_list_entry *entry;
+        sigset_t mask, sigmask_orig;
+        int r;
+
+        log_set_max_level(LOG_DEBUG);
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
 
         printf("This program is for debugging only, it does not run any program\n"
                "specified by a RUN key. It may show incorrect results, because\n"
@@ -103,26 +106,18 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
 
         sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
-        udev_builtin_init(udev);
+        udev_builtin_init();
 
-        rules = udev_rules_new(udev, resolve_names);
-        if (rules == NULL) {
-                fprintf(stderr, "error reading rules\n");
-                rc = 3;
+        rules = udev_rules_new(arg_resolve_names);
+        if (!rules) {
+                log_error("Failed to read udev rules.");
+                r = -ENOMEM;
                 goto out;
         }
 
-        /* add /sys if needed */
-        if (!startswith(syspath, "/sys"))
-                strscpyl(filename, sizeof(filename), "/sys", syspath, NULL);
-        else
-                strscpy(filename, sizeof(filename), syspath);
-        delete_trailing_chars(filename, "/");
-
-        dev = udev_device_new_from_synthetic_event(udev, filename, action);
+        dev = udev_device_new_from_synthetic_event(NULL, arg_syspath, arg_action);
         if (dev == NULL) {
-                fprintf(stderr, "unable to open device '%s'\n", filename);
-                rc = 4;
+                r = log_error_errno(errno, "Failed to open device '%s': %m", arg_syspath);
                 goto out;
         }
 
@@ -148,14 +143,9 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
                 udev_event_apply_format(event, udev_list_entry_get_name(entry), program, sizeof(program), false);
                 printf("run: '%s'\n", program);
         }
-out:
-        udev_builtin_exit(udev);
-        return rc;
-}
 
-const struct udevadm_cmd udevadm_test = {
-        .name = "test",
-        .cmd = adm_test,
-        .help = "Test an event run",
-        .debug = true,
-};
+        r = 0;
+out:
+        udev_builtin_exit();
+        return r;
+}

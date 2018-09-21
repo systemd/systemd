@@ -11,6 +11,7 @@
 # systemd-rc-local-generator if @RC_LOCAL_SCRIPT_PATH_START@ is executable.
 [Unit]
 Description=@RC_LOCAL_SCRIPT_PATH_START@ Compatibility
+Documentation=man:systemd-rc-local-generator(8)
 ConditionFileIsExecutable=@RC_LOCAL_SCRIPT_PATH_START@
 After=network.target
 

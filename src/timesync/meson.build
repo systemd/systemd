@@ -1,26 +1,14 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 systemd_timesyncd_sources = files('''
         timesyncd.c
-        timesyncd-manager.c
-        timesyncd-manager.h
+        timesyncd-bus.c
+        timesyncd-bus.h
         timesyncd-conf.c
         timesyncd-conf.h
+        timesyncd-manager.c
+        timesyncd-manager.h
+        timesyncd-ntp-message.h
         timesyncd-server.c
         timesyncd-server.h
 '''.split())
@@ -40,6 +28,10 @@ if conf.get('ENABLE_TIMESYNCD') == 1
                 configuration : substs)
         install_data(timesyncd_conf,
                      install_dir : pkgsysconfdir)
+        install_data('org.freedesktop.timesync1.conf',
+                     install_dir : dbuspolicydir)
+        install_data('org.freedesktop.timesync1.service',
+                     install_dir : dbussystemservicedir)
 endif
 
 ############################################################

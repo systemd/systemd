@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
         "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-coredump" conditional='ENABLE_COREDUMP'
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>systemd-coredump</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -112,7 +86,7 @@
     <citerefentry project='man-pages'><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     parameter <varname>kernel.core_pattern</varname>. The syntax of this parameter is explained in
     <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    Systemd installs the file <filename>/usr/lib/sysctl.d/50-coredump.conf</filename> which configures
+    systemd installs the file <filename>/usr/lib/sysctl.d/50-coredump.conf</filename> which configures
     <varname>kernel.core_pattern</varname> accordingly. This file may be masked or overridden to use a different
     setting following normal
     <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -141,6 +115,16 @@
     core dumps and files can be set in files <filename>/etc/systemd/coredump.conf</filename> and snippets mentioned
     above. In addition the storage time of core dump files is restricted by <command>systemd-tmpfiles</command>,
     corresponding settings are by default in <filename>/usr/lib/tmpfiles.d/systemd.conf</filename>.</para>
+
+    <refsect2>
+      <title>Disabling coredump processing</title>
+
+      <para>To disable potentially resource-intensive processing by <command>systemd-coredump</command>,
+      set <programlisting>Storage=none
+ProcessSizeMax=0</programlisting> in
+      <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      </para>
+    </refsect2>
   </refsect1>
 
   <refsect1>

@@ -3,7 +3,7 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2010 Ran Benita
+# Copyright © 2010 Ran Benita
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -35,7 +35,7 @@ _localectl() {
         local i verb comps locale_vals
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local OPTS='-h --help --version --no-convert --no-pager --no-ask-password
-                    -H --host --machine'
+                    -H --host -M --machine'
 
         if __contains_word "$prev" $OPTS; then
                 case $prev in
@@ -53,10 +53,11 @@ _localectl() {
         fi
 
         local -A VERBS=(
-               [STANDALONE]='status list-locales list-keymaps'
-                  [LOCALES]='set-locale'
-                  [KEYMAPS]='set-keymap'
-                      [X11]='set-x11-keymap'
+                [STANDALONE]='status list-locales list-keymaps list-x11-keymap-models list-x11-keymap-layouts list-x11-keymap-options'
+                  [VARIANTS]='list-x11-keymap-variants'
+                   [LOCALES]='set-locale'
+                   [KEYMAPS]='set-keymap'
+                       [X11]='set-x11-keymap'
         )
 
         for ((i=0; i < COMP_CWORD; i++)); do
@@ -68,6 +69,8 @@ _localectl() {
 
         if [[ -z $verb ]]; then
                 comps=${VERBS[*]}
+        elif __contains_word "$verb" ${VERBS[VARIANTS]}; then
+                comps=$(command localectl list-x11-keymap-layouts)
         elif __contains_word "$verb" ${VERBS[LOCALES]}; then
                 if [[ $cur = *=* ]]; then
                         mapfile -t locale_vals < <(command localectl list-locales 2>/dev/null)

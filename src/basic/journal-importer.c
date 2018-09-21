@@ -1,29 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
+#include <errno.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "journal-file.h"
 #include "journal-importer.h"
+#include "journal-util.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "unaligned.h"
@@ -96,7 +82,7 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
         assert(imp->state == IMPORTER_STATE_LINE);
         assert(imp->offset <= imp->filled);
         assert(imp->filled <= imp->size);
-        assert(imp->buf == NULL || imp->size > 0);
+        assert(!imp->buf || imp->size > 0);
         assert(imp->fd >= 0);
 
         for (;;) {
@@ -159,8 +145,8 @@ static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
         assert(size <= DATA_SIZE_MAX);
         assert(imp->offset <= imp->filled);
         assert(imp->filled <= imp->size);
-        assert(imp->buf != NULL || imp->size == 0);
-        assert(imp->buf == NULL || imp->size > 0);
+        assert(imp->buf || imp->size == 0);
+        assert(!imp->buf || imp->size > 0);
         assert(imp->fd >= 0);
         assert(data);
 
@@ -244,56 +230,78 @@ static int get_data_newline(JournalImporter *imp) {
 
         assert(data);
         if (*data != '\n') {
-                log_error("expected newline, got '%c'", *data);
+                char buf[4];
+                int l;
+
+                l = cescape_char(*data, buf);
+                log_error("Expected newline, got '%.*s'", l, buf);
                 return -EINVAL;
         }
 
         return 1;
 }
 
-static int process_dunder(JournalImporter *imp, char *line, size_t n) {
-        const char *timestamp;
+static int process_special_field(JournalImporter *imp, char *line) {
+        const char *value;
+        char buf[CELLESCAPE_DEFAULT_LENGTH];
         int r;
 
         assert(line);
-        assert(n > 0);
-        assert(line[n-1] == '\n');
 
-        /* XXX: is it worth to support timestamps in extended format?
-         * We don't produce them, but who knows... */
-
-        timestamp = startswith(line, "__CURSOR=");
-        if (timestamp)
+        value = startswith(line, "__CURSOR=");
+        if (value)
                 /* ignore __CURSOR */
                 return 1;
 
-        timestamp = startswith(line, "__REALTIME_TIMESTAMP=");
-        if (timestamp) {
-                long long unsigned x;
-                line[n-1] = '\0';
-                r = safe_atollu(timestamp, &x);
+        value = startswith(line, "__REALTIME_TIMESTAMP=");
+        if (value) {
+                uint64_t x;
+
+                r = safe_atou64(value, &x);
                 if (r < 0)
-                        log_warning("Failed to parse __REALTIME_TIMESTAMP: '%s'", timestamp);
-                else
-                        imp->ts.realtime = x;
-                return r < 0 ? r : 1;
+                        return log_warning_errno(r, "Failed to parse __REALTIME_TIMESTAMP '%s': %m",
+                                                 cellescape(buf, sizeof buf, value));
+                else if (!VALID_REALTIME(x)) {
+                        log_warning("__REALTIME_TIMESTAMP out of range, ignoring: %"PRIu64, x);
+                        return -ERANGE;
+                }
+
+                imp->ts.realtime = x;
+                return 1;
         }
 
-        timestamp = startswith(line, "__MONOTONIC_TIMESTAMP=");
-        if (timestamp) {
-                long long unsigned x;
-                line[n-1] = '\0';
-                r = safe_atollu(timestamp, &x);
+        value = startswith(line, "__MONOTONIC_TIMESTAMP=");
+        if (value) {
+                uint64_t x;
+
+                r = safe_atou64(value, &x);
                 if (r < 0)
-                        log_warning("Failed to parse __MONOTONIC_TIMESTAMP: '%s'", timestamp);
-                else
-                        imp->ts.monotonic = x;
-                return r < 0 ? r : 1;
+                        return log_warning_errno(r, "Failed to parse __MONOTONIC_TIMESTAMP '%s': %m",
+                                                 cellescape(buf, sizeof buf, value));
+                else if (!VALID_MONOTONIC(x)) {
+                        log_warning("__MONOTONIC_TIMESTAMP out of range, ignoring: %"PRIu64, x);
+                        return -ERANGE;
+                }
+
+                imp->ts.monotonic = x;
+                return 1;
         }
 
-        timestamp = startswith(line, "__");
-        if (timestamp) {
-                log_notice("Unknown dunder line %s", line);
+        /* Just a single underline, but it needs special treatment too. */
+        value = startswith(line, "_BOOT_ID=");
+        if (value) {
+                r = sd_id128_from_string(value, &imp->boot_id);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse _BOOT_ID '%s': %m",
+                                                 cellescape(buf, sizeof buf, value));
+
+                /* store the field in the usual fashion too */
+                return 0;
+        }
+
+        value = startswith(line, "__");
+        if (value) {
+                log_notice("Unknown dunder line __%s, ignoring.", cellescape(buf, sizeof buf, value));
                 return 1;
         }
 
@@ -326,10 +334,6 @@ int journal_importer_process_data(JournalImporter *imp) {
                         return 1;
                 }
 
-                r = process_dunder(imp, line, n);
-                if (r != 0)
-                        return r < 0 ? r : 0;
-
                 /* MESSAGE=xxx\n
                    or
                    COREDUMP\n
@@ -339,6 +343,21 @@ int journal_importer_process_data(JournalImporter *imp) {
                 if (sep) {
                         /* chomp newline */
                         n--;
+
+                        if (!journal_field_valid(line, sep - line, true)) {
+                                char buf[64], *t;
+
+                                t = strndupa(line, sep - line);
+                                log_debug("Ignoring invalid field: \"%s\"",
+                                          cellescape(buf, sizeof buf, t));
+
+                                return 0;
+                        }
+
+                        line[n] = '\0';
+                        r = process_special_field(imp, line);
+                        if (r != 0)
+                                return r < 0 ? r : 0;
 
                         r = iovw_put(&imp->iovw, line, n);
                         if (r < 0)

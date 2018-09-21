@@ -1,8 +1,6 @@
 /***
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -530,3 +528,51 @@ global:
         sd_bus_message_new;
         sd_bus_message_seal;
 } LIBSYSTEMD_234;
+
+LIBSYSTEMD_237 {
+global:
+        sd_bus_set_watch_bind;
+        sd_bus_get_watch_bind;
+        sd_bus_request_name_async;
+        sd_bus_release_name_async;
+        sd_bus_add_match_async;
+        sd_bus_match_signal;
+        sd_bus_match_signal_async;
+        sd_bus_is_ready;
+        sd_bus_set_connected_signal;
+        sd_bus_get_connected_signal;
+        sd_bus_set_sender;
+        sd_bus_get_sender;
+        sd_bus_message_set_sender;
+        sd_event_source_get_io_fd_own;
+        sd_event_source_set_io_fd_own;
+} LIBSYSTEMD_236;
+
+LIBSYSTEMD_238 {
+global:
+        sd_bus_get_n_queued_read;
+        sd_bus_get_n_queued_write;
+} LIBSYSTEMD_237;
+
+LIBSYSTEMD_239 {
+global:
+        sd_bus_open_with_description;
+        sd_bus_open_user_with_description;
+        sd_bus_open_system_with_description;
+        sd_bus_slot_get_floating;
+        sd_bus_slot_set_floating;
+        sd_bus_slot_get_destroy_callback;
+        sd_bus_slot_set_destroy_callback;
+        sd_bus_track_get_destroy_callback;
+        sd_bus_track_set_destroy_callback;
+        sd_event_add_inotify;
+        sd_event_source_get_inotify_mask;
+        sd_event_source_set_destroy_callback;
+        sd_event_source_get_destroy_callback;
+} LIBSYSTEMD_238;
+
+LIBSYSTEMD_240 {
+        sd_bus_message_readv;
+        sd_bus_set_method_call_timeout;
+        sd_bus_get_method_call_timeout;
+} LIBSYSTEMD_239;

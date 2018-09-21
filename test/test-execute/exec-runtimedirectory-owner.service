@@ -2,8 +2,8 @@
 Description=Test for RuntimeDirectory owner (must not be the default group of the user if Group is set)
 
 [Service]
-ExecStart=/bin/sh -x -c 'group=$$(stat -c %%G /tmp/test-exec_runtimedirectory-owner); test "$$group" = "nobody"'
+ExecStart=/bin/sh -x -c 'group=$$(stat -c %%G %t/test-exec_runtimedirectory-owner-daemon); test "$$group" = "daemon"'
 Type=oneshot
-Group=nobody
+Group=daemon
 User=root
-RuntimeDirectory=test-exec_runtimedirectory-owner
+RuntimeDirectory=test-exec_runtimedirectory-owner-daemon

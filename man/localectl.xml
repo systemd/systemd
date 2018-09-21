@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="localectl" conditional='ENABLE_LOCALED'
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>localectl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -112,11 +86,16 @@
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
 
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
 
     <para>The following commands are understood:</para>
 
@@ -124,16 +103,17 @@
       <varlistentry>
         <term><command>status</command></term>
 
-        <listitem><para>Show current settings of the system locale and
-        keyboard mapping.</para></listitem>
+        <listitem><para>Show current settings of the system locale and keyboard mapping.
+        If no command is specified, this is the implied default.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>set-locale LOCALE…</command></term>
+        <term><command>set-locale LOCALE</command></term>
+        <term><command>set-locale VARIABLE=LOCALE…</command></term>
 
-        <listitem><para>Set the system locale. This takes one or more
-        assignments such as "LANG=de_DE.utf8",
-        "LC_MESSAGES=en_GB.utf8", and so on. See
+        <listitem><para>Set the system locale. This takes one locale such as <literal>en_US.UTF-8</literal>, or takes one or more
+        locale assignments such as <literal>LANG=de_DE.utf8</literal>, <literal>LC_MESSAGES=en_GB.utf8</literal>, and so on. If
+        one locale without variable name is provided, then <literal>LANG=</literal> locale variable will be set. See
         <citerefentry project='man-pages'><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details on the available settings and their meanings. Use
         <command>list-locales</command> for a list of available

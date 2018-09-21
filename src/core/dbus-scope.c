@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -26,6 +8,7 @@
 #include "dbus-kill.h"
 #include "dbus-scope.h"
 #include "dbus-unit.h"
+#include "dbus-util.h"
 #include "dbus.h"
 #include "scope.h"
 #include "selinux-access.h"
@@ -84,18 +67,43 @@ static int bus_scope_set_transient_property(
 
         flags |= UNIT_PRIVATE;
 
+        if (streq(name, "TimeoutStopUSec"))
+                return bus_set_transient_usec(UNIT(s), name, &s->timeout_stop_usec, message, flags, error);
+
         if (streq(name, "PIDs")) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 unsigned n = 0;
-                uint32_t pid;
 
                 r = sd_bus_message_enter_container(message, 'a', "u");
                 if (r < 0)
                         return r;
 
-                while ((r = sd_bus_message_read(message, "u", &pid)) > 0) {
+                for (;;) {
+                        uint32_t upid;
+                        pid_t pid;
 
-                        if (pid <= 1)
-                                return -EINVAL;
+                        r = sd_bus_message_read(message, "u", &upid);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (upid == 0) {
+                                if (!creds) {
+                                        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                r = sd_bus_creds_get_pid(creds, &pid);
+                                if (r < 0)
+                                        return r;
+                        } else
+                                pid = (uid_t) upid;
+
+                        r = unit_pid_attachable(UNIT(s), pid, error);
+                        if (r < 0)
+                                return r;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = unit_watch_pid(UNIT(s), pid);
@@ -105,8 +113,6 @@ static int bus_scope_set_transient_property(
 
                         n++;
                 }
-                if (r < 0)
-                        return r;
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
@@ -136,21 +142,6 @@ static int bus_scope_set_transient_property(
                         r = free_and_strdup(&s->controller, empty_to_null(controller));
                         if (r < 0)
                                 return r;
-                }
-
-                return 1;
-
-        } else if (streq(name, "TimeoutStopUSec")) {
-                uint64_t t;
-
-                r = sd_bus_message_read(message, "t", &t);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->timeout_stop_usec = t;
-
-                        unit_write_settingf(UNIT(s), flags, name, "TimeoutStopSec=" USEC_FMT "us", t);
                 }
 
                 return 1;

@@ -1,22 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-#  This file is part of systemd.
-#
-#  Copyright 2012 Lennart Poettering
-#  Copyright 2013-2016 Sylvain Plantefève
-#
-#  systemd is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU Lesser General Public License as published by
-#  the Free Software Foundation; either version 2.1 of the License, or
-#  (at your option) any later version.
-#
-#  systemd is distributed in the hope that it will be useful, but
-#  WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-#  Lesser General Public License for more details.
-#
-#  You should have received a copy of the GNU Lesser General Public License
-#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+#  Copyright © 2013-2016 Sylvain Plantefève
 
 # Message catalog for systemd's own messages
 # French translation
@@ -346,3 +330,21 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 L'unité (unit) @UNIT@ s'est arrêtée et a consommé les ressources indiquées.
+
+-- 50876a9db00f4c40bde1a2ad381c3a1b
+Subject: Le système est configuré d'une manière qui pourrait causer des problèmes
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Les étiquettes suivantes sont possibles :
+- "split-usr" — /usr est un système de fichiers séparé et nétait pas
+  monté quand systemd a été démarré
+- "cgroups-missing" — le noyau a été compilé sans le support des groupes
+  de contrôle (cgroups) ou l'accès aux fichiers d'interface est restreint
+- "var-run-bad" — /var/run n'est pas un lien symbolique vers /run
+- "overflowuid-not-65534" — l'ID utilisé par le noyau pour l'utilisateur
+  "unknown" (avec NFS ou l'espace de noms utilisateurs) n'est pas 65534
+- "overflowgid-not-65534" — l'ID utilisé par le noyau pour le groupe
+  "unknown" (avec NFS ou l'espace de noms utilisateurs) n'est pas 65534
+
+Le présent système est étiqueté @TAINT@.

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <stddef.h>
 #include <unistd.h>
@@ -106,7 +88,7 @@ struct StdoutStream {
         LIST_FIELDS(StdoutStream, stdout_stream);
         LIST_FIELDS(StdoutStream, stdout_stream_notify_queue);
 
-        char id_field[sizeof("_STREAM_ID=")-1 + SD_ID128_STRING_MAX];
+        char id_field[STRLEN("_STREAM_ID=") + SD_ID128_STRING_MAX];
 };
 
 void stdout_stream_free(StdoutStream *s) {
@@ -194,7 +176,7 @@ static int stdout_stream_save(StdoutStream *s) {
                 s->forward_to_syslog,
                 s->forward_to_kmsg,
                 s->forward_to_console,
-                s->id_field + strlen("_STREAM_ID="));
+                s->id_field + STRLEN("_STREAM_ID="));
 
         if (!isempty(s->identifier)) {
                 _cleanup_free_ char *escaped;
@@ -255,7 +237,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         struct iovec *iovec;
         int priority;
         char syslog_priority[] = "PRIORITY=\0";
-        char syslog_facility[sizeof("SYSLOG_FACILITY=")-1 + DECIMAL_STR_MAX(int) + 1];
+        char syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
         size_t n = 0, m;
         int r;
@@ -300,7 +282,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=stdout");
         iovec[n++] = IOVEC_MAKE_STRING(s->id_field);
 
-        syslog_priority[strlen("PRIORITY=")] = '0' + LOG_PRI(priority);
+        syslog_priority[STRLEN("PRIORITY=")] = '0' + LOG_PRI(priority);
         iovec[n++] = IOVEC_MAKE_STRING(syslog_priority);
 
         if (priority & LOG_FACMASK) {
@@ -391,7 +373,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->level_prefix = !!r;
+                s->level_prefix = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_SYSLOG;
                 return 0;
 
@@ -402,7 +384,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->forward_to_syslog = !!r;
+                s->forward_to_syslog = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_KMSG;
                 return 0;
 
@@ -413,7 +395,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->forward_to_kmsg = !!r;
+                s->forward_to_kmsg = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_CONSOLE;
                 return 0;
 
@@ -424,7 +406,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->forward_to_console = !!r;
+                s->forward_to_console = r;
                 s->state = STDOUT_STREAM_RUNNING;
 
                 /* Try to save the stream, so that journald can be restarted and we can recover */
@@ -659,7 +641,7 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
                         return log_oom();
         }
 
-        r = parse_env_file(stream->state_file, NEWLINE,
+        r = parse_env_file(NULL, stream->state_file, NEWLINE,
                            "PRIORITY", &priority,
                            "LEVEL_PREFIX", &level_prefix,
                            "FORWARD_TO_SYSLOG", &forward_to_syslog,
@@ -778,7 +760,9 @@ int server_restore_streams(Server *s, FDSet *fds) {
                 if (!found) {
                         /* No file descriptor? Then let's delete the state file */
                         log_debug("Cannot restore stream file %s", de->d_name);
-                        unlinkat(dirfd(d), de->d_name, 0);
+                        if (unlinkat(dirfd(d), de->d_name, 0) < 0)
+                                log_warning_errno(errno, "Failed to remove /run/systemd/journal/streams/%s: %m",
+                                                  de->d_name);
                         continue;
                 }
 
@@ -836,7 +820,7 @@ int server_open_stdout_socket(Server *s) {
 void stdout_stream_send_notify(StdoutStream *s) {
         struct iovec iovec = {
                 .iov_base = (char*) "FDSTORE=1",
-                .iov_len = strlen("FDSTORE=1"),
+                .iov_len = STRLEN("FDSTORE=1"),
         };
         struct msghdr msghdr = {
                 .msg_iov = &iovec,

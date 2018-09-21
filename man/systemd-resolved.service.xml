@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-resolved.service" conditional='ENABLE_RESOLVE'>
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>systemd-resolved.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-        <email>teg@jklm.no</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -59,8 +33,8 @@
     <title>Description</title>
 
     <para><command>systemd-resolved</command> is a system service that provides network name resolution to local
-    applications. It implements a caching and validating DNS/DNSSEC stub resolver, as well as an LLMNR resolver and
-    responder. Local applications may submit network name resolution requests via three interfaces:</para>
+    applications. It implements a caching and validating DNS/DNSSEC stub resolver, as well as an LLMNR and MulticastDNS
+    resolver and responder. Local applications may submit network name resolution requests via three interfaces:</para>
 
     <itemizedlist>
       <listitem><para>The native, fully-featured API <command>systemd-resolved</command> exposes on the bus. See the
@@ -90,8 +64,10 @@
 
     <para>The DNS servers contacted are determined from the global settings in
     <filename>/etc/systemd/resolved.conf</filename>, the per-link static settings in
-    <filename>/etc/systemd/network/*.network</filename> files, the per-link dynamic settings received over DHCP and any
-    DNS server information made available by other system services. See
+    <filename>/etc/systemd/network/*.network</filename> files (in case
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+    used), the per-link dynamic settings received over DHCP, and any DNS server information made available by other
+    system services. See
     <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details
     about systemd's own configuration files for DNS servers. To improve compatibility,
@@ -124,27 +100,31 @@
       non-address types (like MX).</para></listitem>
     </itemizedlist>
 
-    <para>Lookup requests are routed to the available DNS servers
-    and LLMNR interfaces according to the following rules:</para>
+    <para>Lookup requests are routed to the available DNS servers, LLMNR and MulticastDNS interfaces according to the
+    following rules:</para>
 
     <itemizedlist>
-      <listitem><para>Lookups for the special hostname
-      <literal>localhost</literal> are never routed to the
-      network. (A few other, special domains are handled the same way.)</para></listitem>
+      <listitem><para>Lookups for the special hostname <literal>localhost</literal> are never routed to the network. (A
+      few other, special domains are handled the same way.)</para></listitem>
 
-      <listitem><para>Single-label names are routed to all local
-      interfaces capable of IP multicasting, using the LLMNR
-      protocol. Lookups for IPv4 addresses are only sent via LLMNR on
-      IPv4, and lookups for IPv6 addresses are only sent via LLMNR on
-      IPv6. Lookups for the locally configured host name and the
-      <literal>_gateway</literal> host name are never routed to
-      LLMNR.</para></listitem>
+      <listitem><para>Single-label names are routed to all local interfaces capable of IP multicasting, using the LLMNR
+      protocol. Lookups for IPv4 addresses are only sent via LLMNR on IPv4, and lookups for IPv6 addresses are only
+      sent via LLMNR on IPv6. Lookups for the locally configured host name and the <literal>_gateway</literal> host
+      name are never routed to LLMNR.</para></listitem>
 
-      <listitem><para>Multi-label names are routed to all local
-      interfaces that have a DNS server configured, plus the globally
-      configured DNS server if there is one. Address lookups from the
-      link-local address range are never routed to
-      DNS.</para></listitem>
+      <listitem><para>Multi-label names with the domain suffix <literal>.local</literal> are routed to all local
+      interfaces capable of IP multicasting, using the MulticastDNS protocol. As with LLMNR IPv4 address lookups are
+      sent via IPv4 and IPv6 address lookups are sent via IPv6.</para></listitem>
+
+      <listitem><para>Other multi-label names are routed to all local interfaces that have a DNS server configured,
+      plus the globally configured DNS server if there is one. Address lookups from the link-local address range are
+      never routed to DNS. Note that by default lookups for domains with the <literal>.local</literal> suffix are not
+      routed to DNS servers, unless the domain is specified explicitly as routing or search domain for the DNS server
+      and interface. This means that on networks where the <literal>.local</literal> domain is defined in a
+      site-specific DNS server, explicit search or routing domains need to be configured to make lookups within this
+      DNS domain work. Note that today it's generally recommended to avoid defining <literal>.local</literal> in a DNS
+      server, as <ulink url="https://tools.ietf.org/html/rfc6762">RFC6762</ulink> reserves this domain for exclusive
+      MulticastDNS use.</para></listitem>
     </itemizedlist>
 
     <para>If lookups are routed to multiple interfaces, the first
@@ -229,7 +209,7 @@
         <command>systemd-resolved</command> will flush all caches it maintains. Note that it should normally not be
         necessary to request this explicitly – except for debugging purposes – as <command>systemd-resolved</command>
         flushes the caches automatically anyway any time the host's network configuration changes. Sending this signal
-        to <command>systemd-resolved</command> is equivalent to the <command>systemd-resolve --flush-caches</command>
+        to <command>systemd-resolved</command> is equivalent to the <command>resolvectl --flush-caches</command>
         command, however the latter is recommended since it operates in a synchronous way.</para></listitem>
       </varlistentry>
 
@@ -243,7 +223,7 @@
         should normally not be necessary to request this explicitly – except for debugging purposes – as
         <command>systemd-resolved</command> automatically forgets learnt information any time the DNS server
         configuration changes. Sending this signal to <command>systemd-resolved</command> is equivalent to the
-        <command>systemd-resolve --reset-server-features</command> command, however the latter is recommended since it
+        <command>resolvectl --reset-server-features</command> command, however the latter is recommended since it
         operates in a synchronous way.</para></listitem>
       </varlistentry>
     </variablelist>
@@ -257,7 +237,7 @@
       <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-resolve</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>hosts</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

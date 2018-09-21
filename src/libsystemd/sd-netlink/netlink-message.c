@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -55,7 +37,7 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
                 return -ENOMEM;
 
         m->n_ref = REFCNT_INIT;
-
+        m->protocol = rtnl->protocol;
         m->sealed = false;
 
         *ret = m;
@@ -66,10 +48,15 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
 int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const NLType *nl_type;
+        const NLTypeSystem *type_system_root;
         size_t size;
         int r;
 
-        r = type_system_get_type(&type_system_root, &nl_type, type);
+        assert_return(rtnl, -EINVAL);
+
+        type_system_root = type_system_get_root(rtnl->protocol);
+
+        r = type_system_get_type(type_system_root, &nl_type, type);
         if (r < 0)
                 return r;
 
@@ -93,8 +80,7 @@ int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
         m->hdr->nlmsg_len = size;
         m->hdr->nlmsg_type = type;
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }
@@ -110,12 +96,7 @@ int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
         return 0;
 }
 
-sd_netlink_message *sd_netlink_message_ref(sd_netlink_message *m) {
-        if (m)
-                assert_se(REFCNT_INC(m->n_ref) >= 2);
-
-        return m;
-}
+DEFINE_ATOMIC_REF_FUNC(sd_netlink_message, sd_netlink_message);
 
 sd_netlink_message *sd_netlink_message_unref(sd_netlink_message *m) {
         sd_netlink_message *t;
@@ -185,6 +166,10 @@ static int add_rtattr(sd_netlink_message *m, unsigned short type, const void *da
 
         /* get the new message size (with padding at the end) */
         message_length = offset + RTA_ALIGN(rta_length);
+
+        /* buffer should be smaller than both one page or 8K to be accepted by the kernel */
+        if (message_length > MIN(page_size(), 8192UL))
+                return -ENOBUFS;
 
         /* realloc to fit the new attribute */
         new_hdr = realloc(m->hdr, message_length);
@@ -301,7 +286,6 @@ int sd_netlink_message_append_u8(sd_netlink_message *m, unsigned short type, uin
 
         return 0;
 }
-
 
 int sd_netlink_message_append_u16(sd_netlink_message *m, unsigned short type, uint16_t data) {
         int r;
@@ -490,7 +474,7 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned shor
         if (r < 0)
                 return r;
 
-        /* do we evere need non-null size */
+        /* do we ever need non-null size */
         r = add_rtattr(m, type | NLA_F_NESTED, NULL, 0);
         if (r < 0)
                 return r;
@@ -500,14 +484,53 @@ int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned shor
         return 0;
 }
 
-
 int sd_netlink_message_close_container(sd_netlink_message *m) {
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(m->n_containers > 0, -EINVAL);
 
         m->containers[m->n_containers].type_system = NULL;
+        m->containers[m->n_containers].offset = 0;
         m->n_containers--;
+
+        return 0;
+}
+
+int sd_netlink_message_open_array(sd_netlink_message *m, uint16_t type) {
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(m->n_containers > 0, -EINVAL);
+
+        r = add_rtattr(m, type | NLA_F_NESTED, NULL, 0);
+        if (r < 0)
+                return r;
+
+        m->containers[m->n_containers].offset = r;
+        m->n_containers++;
+        m->containers[m->n_containers].type_system = m->containers[m->n_containers - 1].type_system;
+
+        return 0;
+}
+
+int sd_netlink_message_cancel_array(sd_netlink_message *m) {
+        unsigned i;
+        uint32_t rta_len;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(m->n_containers > 1, -EINVAL);
+
+        rta_len = GET_CONTAINER(m, (m->n_containers - 1))->rta_len;
+
+        for (i = 0; i < m->n_containers; i++)
+                GET_CONTAINER(m, i)->rta_len -= rta_len;
+
+        m->hdr->nlmsg_len -= rta_len;
+
+        m->n_containers--;
+        m->containers[m->n_containers].type_system = NULL;
 
         return 0;
 }
@@ -519,13 +542,14 @@ static int netlink_message_read_internal(sd_netlink_message *m, unsigned short t
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
         assert_return(data, -EINVAL);
+
         assert(m->n_containers < RTNL_CONTAINER_DEPTH);
         assert(m->containers[m->n_containers].attributes);
         assert(type < m->containers[m->n_containers].n_attributes);
 
         attribute = &m->containers[m->n_containers].attributes[type];
 
-        if (!attribute->offset)
+        if (attribute->offset == 0)
                 return -ENODATA;
 
         rta = (struct rtattr*)((uint8_t *) m->hdr + attribute->offset);
@@ -745,7 +769,7 @@ static int netlink_container_parse(sd_netlink_message *m,
                 if (type >= count)
                         continue;
 
-                if (attributes[type].offset)
+                if (attributes[type].offset != 0)
                         log_debug("rtnl: message parse - overwriting repeated attribute");
 
                 attributes[type].offset = (uint8_t *) rta - (uint8_t *) m->hdr;
@@ -753,8 +777,7 @@ static int netlink_container_parse(sd_netlink_message *m,
                 attributes[type].net_byteorder = RTA_FLAGS(rta) & NLA_F_NET_BYTEORDER;
         }
 
-        container->attributes = attributes;
-        attributes = NULL;
+        container->attributes = TAKE_PTR(attributes);
         container->n_attributes = count;
 
         return 0;
@@ -899,6 +922,7 @@ int sd_netlink_message_get_errno(sd_netlink_message *m) {
 
 int sd_netlink_message_rewind(sd_netlink_message *m) {
         const NLType *nl_type;
+        const NLTypeSystem *type_system_root;
         uint16_t type;
         size_t size;
         unsigned i;
@@ -909,6 +933,8 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
         /* don't allow appending to message once parsed */
         if (!m->sealed)
                 rtnl_message_seal(m);
+
+        type_system_root = type_system_get_root(m->protocol);
 
         for (i = 1; i <= m->n_containers; i++)
                 m->containers[i].attributes = mfree(m->containers[i].attributes);
@@ -921,7 +947,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m) {
 
         assert(m->hdr);
 
-        r = type_system_get_type(&type_system_root, &nl_type, m->hdr->nlmsg_type);
+        r = type_system_get_type(type_system_root, &nl_type, m->hdr->nlmsg_type);
         if (r < 0)
                 return r;
 

@@ -1,30 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
- This file is part of systemd.
-
- Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
-#include "libudev.h"
+#include "sd-device.h"
 
 #include "condition.h"
 #include "ethtool-util.h"
 #include "list.h"
+#include "set.h"
 
 typedef struct link_config_ctx link_config_ctx;
 typedef struct link_config link_config;
@@ -51,14 +33,15 @@ typedef enum NamePolicy {
 struct link_config {
         char *filename;
 
-        struct ether_addr *match_mac;
+        Set *match_mac;
         char **match_path;
         char **match_driver;
         char **match_type;
         char **match_name;
         Condition *match_host;
         Condition *match_virt;
-        Condition *match_kernel;
+        Condition *match_kernel_cmdline;
+        Condition *match_kernel_version;
         Condition *match_arch;
 
         char *description;
@@ -67,13 +50,14 @@ struct link_config {
         NamePolicy *name_policy;
         char *name;
         char *alias;
-        size_t mtu;
+        uint32_t mtu;
         size_t speed;
         Duplex duplex;
         int autonegotiation;
         WakeOnLan wol;
         NetDevPort port;
-        NetDevFeature features[_NET_DEV_FEAT_MAX];
+        int features[_NET_DEV_FEAT_MAX];
+        netdev_channels channels;
 
         LIST_FIELDS(link_config, links);
 };
@@ -84,10 +68,9 @@ void link_config_ctx_free(link_config_ctx *ctx);
 int link_config_load(link_config_ctx *ctx);
 bool link_config_should_reload(link_config_ctx *ctx);
 
-int link_config_get(link_config_ctx *ctx, struct udev_device *device, struct link_config **ret);
-int link_config_apply(link_config_ctx *ctx, struct link_config *config, struct udev_device *device, const char **name);
-
-int link_get_driver(link_config_ctx *ctx, struct udev_device *device, char **ret);
+int link_config_get(link_config_ctx *ctx, sd_device *device, struct link_config **ret);
+int link_config_apply(link_config_ctx *ctx, struct link_config *config, sd_device *device, const char **name);
+int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret);
 
 const char *name_policy_to_string(NamePolicy p) _const_;
 NamePolicy name_policy_from_string(const char *p) _pure_;

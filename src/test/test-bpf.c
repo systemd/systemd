@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Daniel Mack
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <linux/libbpf.h>
 #include <string.h>
@@ -41,22 +23,18 @@ int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         CGroupContext *cc = NULL;
         _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
-        Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         char log_buf[65535];
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice("cgroupfs not available, skipping tests");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
-        assert_se(set_unit_path(get_testdata_dir("")) >= 0);
+        assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &p);
@@ -65,17 +43,18 @@ int main(int argc, char *argv[]) {
         r = bpf_program_add_instructions(p, exit_insn, ELEMENTSOF(exit_insn));
         assert(r == 0);
 
-        if (getuid() != 0) {
-                log_notice("Not running as root, skipping kernel related tests.");
-                return EXIT_TEST_SKIP;
-        }
+        if (getuid() != 0)
+                return log_tests_skipped("not running as root");
 
         r = bpf_firewall_supported();
-        if (r == 0) {
-                log_notice("BPF firewalling not supported, skipping");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == BPF_FIREWALL_UNSUPPORTED)
+                return log_tests_skipped("BPF firewalling not supported");
         assert_se(r > 0);
+
+        if (r == BPF_FIREWALL_SUPPORTED_WITH_MULTI)
+                log_notice("BPF firewalling with BPF_F_ALLOW_MULTI supported. Yay!");
+        else
+                log_notice("BPF firewalling (though without BPF_F_ALLOW_MULTI) supported. Good.");
 
         r = bpf_program_load_kernel(p, log_buf, ELEMENTSOF(log_buf));
         assert(r >= 0);
@@ -123,11 +102,8 @@ int main(int argc, char *argv[]) {
         unit_dump(u, stdout, NULL);
 
         r = bpf_firewall_compile(u);
-        if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM )) {
-                /* Kernel doesn't support the necessary bpf bits, or masked out via seccomp? */
-                manager_free(m);
-                return EXIT_TEST_SKIP;
-        }
+        if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM))
+                return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
         assert_se(r >= 0);
 
         assert(u->ip_bpf_ingress);
@@ -161,8 +137,6 @@ int main(int argc, char *argv[]) {
 
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.code != CLD_EXITED ||
                   SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.status != EXIT_SUCCESS);
-
-        manager_free(m);
 
         return 0;
 }

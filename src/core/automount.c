@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -185,16 +167,16 @@ static int automount_verify(Automount *a) {
 
         if (path_equal(a->where, "/")) {
                 log_unit_error(UNIT(a), "Cannot have an automount unit for the root directory. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         r = unit_name_from_path(a->where, ".automount", &e);
         if (r < 0)
-                return log_unit_error(UNIT(a), "Failed to generate unit name from path: %m");
+                return log_unit_error_errno(UNIT(a), r, "Failed to generate unit name from path: %m");
 
         if (!unit_has_name(UNIT(a), e)) {
                 log_unit_error(UNIT(a), "Where= setting doesn't match unit name. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;
@@ -212,7 +194,7 @@ static int automount_set_where(Automount *a) {
         if (r < 0)
                 return r;
 
-        path_kill_slashes(a->where);
+        path_simplify(a->where, false);
         return 1;
 }
 
@@ -265,7 +247,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(a), "Changed %s -> %s", automount_state_to_string(old_state), automount_state_to_string(state));
 
-        unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], true);
+        unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
 static int automount_coldplug(Unit *u) {
@@ -346,7 +328,7 @@ static int open_dev_autofs(Manager *m) {
         if (m->dev_autofs_fd >= 0)
                 return m->dev_autofs_fd;
 
-        label_fix("/dev/autofs", false, false);
+        (void) label_fix("/dev/autofs", 0);
 
         m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
         if (m->dev_autofs_fd < 0)
@@ -429,7 +411,7 @@ static int autofs_set_timeout(int dev_autofs_fd, int ioctl_fd, usec_t usec) {
                 param.timeout.timeout = 0;
         else
                 /* Convert to seconds, rounding up. */
-                param.timeout.timeout = (usec + USEC_PER_SEC - 1) / USEC_PER_SEC;
+                param.timeout.timeout = DIV_ROUND_UP(usec, USEC_PER_SEC);
 
         if (ioctl(dev_autofs_fd, AUTOFS_DEV_IOCTL_TIMEOUT, &param) < 0)
                 return -errno;
@@ -565,8 +547,8 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 static void automount_enter_waiting(Automount *a) {
         _cleanup_close_ int ioctl_fd = -1;
         int p[2] = { -1, -1 };
-        char name[sizeof("systemd-")-1 + DECIMAL_STR_MAX(pid_t) + 1];
-        char options[sizeof("fd=,pgrp=,minproto=5,maxproto=5,direct")-1
+        char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
+        char options[STRLEN("fd=,pgrp=,minproto=5,maxproto=5,direct")
                      + DECIMAL_STR_MAX(int) + DECIMAL_STR_MAX(gid_t) + 1];
         bool mounted = false;
         int r, dev_autofs_fd;
@@ -578,7 +560,7 @@ static void automount_enter_waiting(Automount *a) {
 
         set_clear(a->tokens);
 
-        r = unit_fail_if_symlink(UNIT(a), a->where);
+        r = unit_fail_if_noncanonical(UNIT(a), a->where);
         if (r < 0)
                 goto fail;
 
@@ -965,13 +947,16 @@ static const char *automount_sub_state_to_string(Unit *u) {
         return automount_state_to_string(AUTOMOUNT(u)->state);
 }
 
-static bool automount_check_gc(Unit *u) {
+static bool automount_may_gc(Unit *u) {
+        Unit *t;
+
         assert(u);
 
-        if (!UNIT_TRIGGER(u))
-                return false;
+        t = UNIT_TRIGGER(u);
+        if (!t)
+                return true;
 
-        return UNIT_VTABLE(UNIT_TRIGGER(u))->check_gc(UNIT_TRIGGER(u));
+        return UNIT_VTABLE(t)->may_gc(t);
 }
 
 static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata) {
@@ -1124,7 +1109,7 @@ const UnitVTable automount_vtable = {
         .active_state = automount_active_state,
         .sub_state_to_string = automount_sub_state_to_string,
 
-        .check_gc = automount_check_gc,
+        .may_gc = automount_may_gc,
 
         .trigger_notify = automount_trigger_notify,
 

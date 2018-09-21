@@ -1,24 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <arpa/inet.h>
+#include <stdio_ext.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -27,6 +10,7 @@
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "dbus-cgroup.h"
+#include "dbus-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "path-util.h"
@@ -128,6 +112,36 @@ static int property_get_io_device_limits(
                         continue;
 
                 r = sd_bus_message_append(reply, "(st)", l->path, l->limits[type]);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int property_get_io_device_latency(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupContext *c = userdata;
+        CGroupIODeviceLatency *l;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'a', "(st)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(device_latencies, l, c->io_device_latencies) {
+                r = sd_bus_message_append(reply, "(st)", l->path, l->target_usec);
                 if (r < 0)
                         return r;
         }
@@ -307,6 +321,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IOWriteBandwidthMax", "a(st)", property_get_io_device_limits, 0, 0),
         SD_BUS_PROPERTY("IOReadIOPSMax", "a(st)", property_get_io_device_limits, 0, 0),
         SD_BUS_PROPERTY("IOWriteIOPSMax", "a(st)", property_get_io_device_limits, 0, 0),
+        SD_BUS_PROPERTY("IODeviceLatencyTargetUSec", "a(st)", property_get_io_device_latency, 0, 0),
         SD_BUS_PROPERTY("BlockIOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, blockio_accounting), 0),
         SD_BUS_PROPERTY("BlockIOWeight", "t", NULL, offsetof(CGroupContext, blockio_weight), 0),
         SD_BUS_PROPERTY("StartupBlockIOWeight", "t", NULL, offsetof(CGroupContext, startup_blockio_weight), 0),
@@ -314,6 +329,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("BlockIOReadBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
         SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
         SD_BUS_PROPERTY("MemoryAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, memory_accounting), 0),
+        SD_BUS_PROPERTY("MemoryMin", "t", NULL, offsetof(CGroupContext, memory_min), 0),
         SD_BUS_PROPERTY("MemoryLow", "t", NULL, offsetof(CGroupContext, memory_low), 0),
         SD_BUS_PROPERTY("MemoryHigh", "t", NULL, offsetof(CGroupContext, memory_high), 0),
         SD_BUS_PROPERTY("MemoryMax", "t", NULL, offsetof(CGroupContext, memory_max), 0),
@@ -349,6 +365,9 @@ static int bus_cgroup_set_transient_property(
         if (streq(name, "Delegate")) {
                 int b;
 
+                if (!UNIT_VTABLE(u)->can_delegate)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
+
                 r = sd_bus_message_read(message, "b", &b);
                 if (r < 0)
                         return r;
@@ -364,6 +383,9 @@ static int bus_cgroup_set_transient_property(
 
         } else if (streq(name, "DelegateControllers")) {
                 CGroupMask mask = 0;
+
+                if (!UNIT_VTABLE(u)->can_delegate)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
 
                 r = sd_bus_message_enter_container(message, 'a', "s");
                 if (r < 0)
@@ -381,7 +403,7 @@ static int bus_cgroup_set_transient_property(
 
                         cc = cgroup_controller_from_string(t);
                         if (cc < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown cgroup contoller '%s'", t);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown cgroup controller '%s'", t);
 
                         mask |= CGROUP_CONTROLLER_TO_MASK(cc);
                 }
@@ -412,6 +434,156 @@ static int bus_cgroup_set_transient_property(
         return 0;
 }
 
+static int bus_cgroup_set_boolean(
+                Unit *u,
+                const char *name,
+                bool *p,
+                CGroupMask mask,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        int b, r;
+
+        assert(p);
+
+        r = sd_bus_message_read(message, "b", &b);
+        if (r < 0)
+                return r;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                *p = b;
+                unit_invalidate_cgroup(u, mask);
+                unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(b));
+        }
+
+        return 1;
+}
+
+#define BUS_DEFINE_SET_CGROUP_WEIGHT(function, mask, check, val)        \
+        static int bus_cgroup_set_##function(                           \
+                        Unit *u,                                        \
+                        const char *name,                               \
+                        uint64_t *p,                                    \
+                        sd_bus_message *message,                        \
+                        UnitWriteFlags flags,                           \
+                        sd_bus_error *error) {                          \
+                                                                        \
+                uint64_t v;                                             \
+                int r;                                                  \
+                                                                        \
+                assert(p);                                              \
+                                                                        \
+                r = sd_bus_message_read(message, "t", &v);              \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                if (!check(v))                                          \
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, \
+                                                 "Value specified in %s is out of range", name); \
+                                                                        \
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
+                        *p = v;                                         \
+                        unit_invalidate_cgroup(u, (mask));              \
+                                                                        \
+                        if (v == (val))                                 \
+                                unit_write_settingf(u, flags, name,     \
+                                                    "%s=", name);       \
+                        else                                            \
+                                unit_write_settingf(u, flags, name,     \
+                                                    "%s=%" PRIu64, name, v); \
+                }                                                       \
+                                                                        \
+                return 1;                                               \
+        }
+
+#define BUS_DEFINE_SET_CGROUP_LIMIT(function, mask, scale, minimum)     \
+        static int bus_cgroup_set_##function(                           \
+                        Unit *u,                                        \
+                        const char *name,                               \
+                        uint64_t *p,                                    \
+                        sd_bus_message *message,                        \
+                        UnitWriteFlags flags,                           \
+                        sd_bus_error *error) {                          \
+                                                                        \
+                uint64_t v;                                             \
+                int r;                                                  \
+                                                                        \
+                assert(p);                                              \
+                                                                        \
+                r = sd_bus_message_read(message, "t", &v);              \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                if (v < minimum)                                        \
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, \
+                                                 "Value specified in %s is out of range", name); \
+                                                                        \
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
+                        *p = v;                                         \
+                        unit_invalidate_cgroup(u, (mask));              \
+                                                                        \
+                        if (v == CGROUP_LIMIT_MAX)                      \
+                                unit_write_settingf(u, flags, name,     \
+                                                    "%s=infinity", name); \
+                        else                                            \
+                                unit_write_settingf(u, flags, name,     \
+                                                    "%s=%" PRIu64, name, v); \
+                }                                                       \
+                                                                        \
+                return 1;                                               \
+        }                                                               \
+        static int bus_cgroup_set_##function##_scale(                   \
+                        Unit *u,                                        \
+                        const char *name,                               \
+                        uint64_t *p,                                    \
+                        sd_bus_message *message,                        \
+                        UnitWriteFlags flags,                           \
+                        sd_bus_error *error) {                          \
+                                                                        \
+                uint64_t v;                                             \
+                uint32_t raw;                                           \
+                int r;                                                  \
+                                                                        \
+                assert(p);                                              \
+                                                                        \
+                r = sd_bus_message_read(message, "u", &raw);            \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                v = scale(raw, UINT32_MAX);                             \
+                if (v < minimum || v >= UINT64_MAX)                     \
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, \
+                                                 "Value specified in %s is out of range", name); \
+                                                                        \
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
+                        const char *e;                                  \
+                                                                        \
+                        *p = v;                                         \
+                        unit_invalidate_cgroup(u, (mask));              \
+                                                                        \
+                        /* Chop off suffix */                           \
+                        assert_se(e = endswith(name, "Scale"));         \
+                        name = strndupa(name, e - name);                \
+                                                                        \
+                        unit_write_settingf(u, flags, name, "%s=%" PRIu32 "%%", name, \
+                                            (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX))); \
+                }                                                       \
+                                                                        \
+                return 1;                                               \
+        }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+BUS_DEFINE_SET_CGROUP_WEIGHT(cpu_weight, CGROUP_MASK_CPU, CGROUP_WEIGHT_IS_OK, CGROUP_WEIGHT_INVALID);
+BUS_DEFINE_SET_CGROUP_WEIGHT(cpu_shares, CGROUP_MASK_CPU, CGROUP_CPU_SHARES_IS_OK, CGROUP_CPU_SHARES_INVALID);
+BUS_DEFINE_SET_CGROUP_WEIGHT(io_weight, CGROUP_MASK_IO, CGROUP_WEIGHT_IS_OK, CGROUP_WEIGHT_INVALID);
+BUS_DEFINE_SET_CGROUP_WEIGHT(blockio_weight, CGROUP_MASK_BLKIO, CGROUP_BLKIO_WEIGHT_IS_OK, CGROUP_BLKIO_WEIGHT_INVALID);
+BUS_DEFINE_SET_CGROUP_LIMIT(memory, CGROUP_MASK_MEMORY, physical_memory_scale, 1);
+BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
+BUS_DEFINE_SET_CGROUP_LIMIT(tasks_max, CGROUP_MASK_PIDS, system_tasks_max_scale, 1);
+#pragma GCC diagnostic pop
+
 int bus_cgroup_set_property(
                 Unit *u,
                 CGroupContext *c,
@@ -430,110 +602,88 @@ int bus_cgroup_set_property(
 
         flags |= UNIT_PRIVATE;
 
-        if (streq(name, "CPUAccounting")) {
-                int b;
+        if (streq(name, "CPUAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->cpu_accounting, CGROUP_MASK_CPUACCT|CGROUP_MASK_CPU, message, flags, error);
 
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
+        if (streq(name, "CPUWeight"))
+                return bus_cgroup_set_cpu_weight(u, name, &c->cpu_weight, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->cpu_accounting = b;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_CPUACCT|CGROUP_MASK_CPU);
-                        unit_write_settingf(u, flags, name, "CPUAccounting=%s", yes_no(b));
-                }
+        if (streq(name, "StartupCPUWeight"))
+                return bus_cgroup_set_cpu_weight(u, name, &c->startup_cpu_weight, message, flags, error);
 
-                return 1;
+        if (streq(name, "CPUShares"))
+                return bus_cgroup_set_cpu_shares(u, name, &c->cpu_shares, message, flags, error);
 
-        } else if (streq(name, "CPUWeight")) {
-                uint64_t weight;
+        if (streq(name, "StartupCPUShares"))
+                return bus_cgroup_set_cpu_shares(u, name, &c->startup_cpu_shares, message, flags, error);
 
-                r = sd_bus_message_read(message, "t", &weight);
-                if (r < 0)
-                        return r;
+        if (streq(name, "IOAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->io_accounting, CGROUP_MASK_IO, message, flags, error);
 
-                if (!CGROUP_WEIGHT_IS_OK(weight))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "CPUWeight= value out of range");
+        if (streq(name, "IOWeight"))
+                return bus_cgroup_set_io_weight(u, name, &c->io_weight, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->cpu_weight = weight;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
+        if (streq(name, "StartupIOWeight"))
+                return bus_cgroup_set_io_weight(u, name, &c->startup_io_weight, message, flags, error);
 
-                        if (weight == CGROUP_WEIGHT_INVALID)
-                                unit_write_setting(u, flags, name, "CPUWeight=");
-                        else
-                                unit_write_settingf(u, flags, name, "CPUWeight=%" PRIu64, weight);
-                }
+        if (streq(name, "BlockIOAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->blockio_accounting, CGROUP_MASK_BLKIO, message, flags, error);
 
-                return 1;
+        if (streq(name, "BlockIOWeight"))
+                return bus_cgroup_set_blockio_weight(u, name, &c->blockio_weight, message, flags, error);
 
-        } else if (streq(name, "StartupCPUWeight")) {
-                uint64_t weight;
+        if (streq(name, "StartupBlockIOWeight"))
+                return bus_cgroup_set_blockio_weight(u, name, &c->startup_blockio_weight, message, flags, error);
 
-                r = sd_bus_message_read(message, "t", &weight);
-                if (r < 0)
-                        return r;
+        if (streq(name, "MemoryAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->memory_accounting, CGROUP_MASK_MEMORY, message, flags, error);
 
-                if (!CGROUP_WEIGHT_IS_OK(weight))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "StartupCPUWeight= value out of range");
+        if (streq(name, "MemoryMin"))
+                return bus_cgroup_set_memory(u, name, &c->memory_min, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->startup_cpu_weight = weight;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
+        if (streq(name, "MemoryLow"))
+                return bus_cgroup_set_memory(u, name, &c->memory_low, message, flags, error);
 
-                        if (weight == CGROUP_CPU_SHARES_INVALID)
-                                unit_write_setting(u, flags, name, "StartupCPUWeight=");
-                        else
-                                unit_write_settingf(u, flags, name, "StartupCPUWeight=%" PRIu64, weight);
-                }
+        if (streq(name, "MemoryHigh"))
+                return bus_cgroup_set_memory(u, name, &c->memory_high, message, flags, error);
 
-                return 1;
+        if (streq(name, "MemorySwapMax"))
+                return bus_cgroup_set_swap(u, name, &c->memory_swap_max, message, flags, error);
 
-        } else if (streq(name, "CPUShares")) {
-                uint64_t shares;
+        if (streq(name, "MemoryMax"))
+                return bus_cgroup_set_memory(u, name, &c->memory_max, message, flags, error);
 
-                r = sd_bus_message_read(message, "t", &shares);
-                if (r < 0)
-                        return r;
+        if (streq(name, "MemoryLimit"))
+                return bus_cgroup_set_memory(u, name, &c->memory_limit, message, flags, error);
 
-                if (!CGROUP_CPU_SHARES_IS_OK(shares))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "CPUShares= value out of range");
+        if (streq(name, "MemoryMinScale"))
+                return bus_cgroup_set_memory_scale(u, name, &c->memory_min, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->cpu_shares = shares;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
+        if (streq(name, "MemoryLowScale"))
+                return bus_cgroup_set_memory_scale(u, name, &c->memory_low, message, flags, error);
 
-                        if (shares == CGROUP_CPU_SHARES_INVALID)
-                                unit_write_setting(u, flags, name, "CPUShares=");
-                        else
-                                unit_write_settingf(u, flags, name, "CPUShares=%" PRIu64, shares);
-                }
+        if (streq(name, "MemoryHighScale"))
+                return bus_cgroup_set_memory_scale(u, name, &c->memory_high, message, flags, error);
 
-                return 1;
+        if (streq(name, "MemorySwapMaxScale"))
+                return bus_cgroup_set_swap_scale(u, name, &c->memory_swap_max, message, flags, error);
 
-        } else if (streq(name, "StartupCPUShares")) {
-                uint64_t shares;
+        if (streq(name, "MemoryMaxScale"))
+                return bus_cgroup_set_memory_scale(u, name, &c->memory_max, message, flags, error);
 
-                r = sd_bus_message_read(message, "t", &shares);
-                if (r < 0)
-                        return r;
+        if (streq(name, "MemoryLimitScale"))
+                return bus_cgroup_set_memory_scale(u, name, &c->memory_limit, message, flags, error);
 
-                if (!CGROUP_CPU_SHARES_IS_OK(shares))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "StartupCPUShares= value out of range");
+        if (streq(name, "TasksAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->tasks_accounting, CGROUP_MASK_PIDS, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->startup_cpu_shares = shares;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
+        if (streq(name, "TasksMax"))
+                return bus_cgroup_set_tasks_max(u, name, &c->tasks_max, message, flags, error);
 
-                        if (shares == CGROUP_CPU_SHARES_INVALID)
-                                unit_write_setting(u, flags, name, "StartupCPUShares=");
-                        else
-                                unit_write_settingf(u, flags, name, "StartupCPUShares=%" PRIu64, shares);
-                }
+        if (streq(name, "TasksMaxScale"))
+                return bus_cgroup_set_tasks_max_scale(u, name, &c->tasks_max, message, flags, error);
 
-                return 1;
-
-        } else if (streq(name, "CPUQuotaPerSecUSec")) {
+        if (streq(name, "CPUQuotaPerSecUSec")) {
                 uint64_t u64;
 
                 r = sd_bus_message_read(message, "t", &u64);
@@ -559,65 +709,6 @@ int bus_cgroup_set_property(
 
                 return 1;
 
-        } else if (streq(name, "IOAccounting")) {
-                int b;
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->io_accounting = b;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_IO);
-                        unit_write_settingf(u, flags, name, "IOAccounting=%s", yes_no(b));
-                }
-
-                return 1;
-
-        } else if (streq(name, "IOWeight")) {
-                uint64_t weight;
-
-                r = sd_bus_message_read(message, "t", &weight);
-                if (r < 0)
-                        return r;
-
-                if (!CGROUP_WEIGHT_IS_OK(weight))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "IOWeight= value out of range");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->io_weight = weight;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_IO);
-
-                        if (weight == CGROUP_WEIGHT_INVALID)
-                                unit_write_setting(u, flags, name, "IOWeight=");
-                        else
-                                unit_write_settingf(u, flags, name, "IOWeight=%" PRIu64, weight);
-                }
-
-                return 1;
-
-        } else if (streq(name, "StartupIOWeight")) {
-                uint64_t weight;
-
-                r = sd_bus_message_read(message, "t", &weight);
-                if (r < 0)
-                        return r;
-
-                if (CGROUP_WEIGHT_IS_OK(weight))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "StartupIOWeight= value out of range");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->startup_io_weight = weight;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_IO);
-
-                        if (weight == CGROUP_WEIGHT_INVALID)
-                                unit_write_setting(u, flags, name, "StartupIOWeight=");
-                        else
-                                unit_write_settingf(u, flags, name, "StartupIOWeight=%" PRIu64, weight);
-                }
-
-                return 1;
-
         } else if ((iol_type = cgroup_io_limit_type_from_string(name)) >= 0) {
                 const char *path;
                 unsigned n = 0;
@@ -628,6 +719,9 @@ int bus_cgroup_set_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(st)", &path, &u64)) > 0) {
+
+                        if (!path_is_normalized(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupIODeviceLimit *a = NULL, *b;
@@ -687,6 +781,8 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
                         fprintf(f, "%s=\n", name);
                         LIST_FOREACH(device_limits, a, c->io_device_limits)
                                         if (a->limits[iol_type] != cgroup_io_limit_defaults[iol_type])
@@ -711,6 +807,9 @@ int bus_cgroup_set_property(
 
                 while ((r = sd_bus_message_read(message, "(st)", &path, &weight)) > 0) {
 
+                        if (!path_is_normalized(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
+
                         if (!CGROUP_WEIGHT_IS_OK(weight) || weight == CGROUP_WEIGHT_INVALID)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "IODeviceWeight= value out of range");
 
@@ -734,7 +833,7 @@ int bus_cgroup_set_property(
                                                 free(a);
                                                 return -ENOMEM;
                                         }
-                                        LIST_PREPEND(device_weights,c->io_device_weights, a);
+                                        LIST_PREPEND(device_weights, c->io_device_weights, a);
                                 }
 
                                 a->weight = weight;
@@ -764,7 +863,9 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs_unlocked("IODeviceWeight=\n", f);
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                        fputs("IODeviceWeight=\n", f);
                         LIST_FOREACH(device_weights, a, c->io_device_weights)
                                 fprintf(f, "IODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
 
@@ -776,61 +877,82 @@ int bus_cgroup_set_property(
 
                 return 1;
 
-        } else if (streq(name, "BlockIOAccounting")) {
-                int b;
+        } else if (streq(name, "IODeviceLatencyTargetUSec")) {
+                const char *path;
+                uint64_t target;
+                unsigned n = 0;
 
-                r = sd_bus_message_read(message, "b", &b);
+                r = sd_bus_message_enter_container(message, 'a', "(st)");
                 if (r < 0)
                         return r;
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->blockio_accounting = b;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
-                        unit_write_settingf(u, flags, name, "BlockIOAccounting=%s", yes_no(b));
+                while ((r = sd_bus_message_read(message, "(st)", &path, &target)) > 0) {
+
+                        if (!path_is_normalized(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                CGroupIODeviceLatency *a = NULL, *b;
+
+                                LIST_FOREACH(device_latencies, b, c->io_device_latencies) {
+                                        if (path_equal(b->path, path)) {
+                                                a = b;
+                                                break;
+                                        }
+                                }
+
+                                if (!a) {
+                                        a = new0(CGroupIODeviceLatency, 1);
+                                        if (!a)
+                                                return -ENOMEM;
+
+                                        a->path = strdup(path);
+                                        if (!a->path) {
+                                                free(a);
+                                                return -ENOMEM;
+                                        }
+                                        LIST_PREPEND(device_latencies, c->io_device_latencies, a);
+                                }
+
+                                a->target_usec = target;
+                        }
+
+                        n++;
                 }
 
-                return 1;
-
-        } else if (streq(name, "BlockIOWeight")) {
-                uint64_t weight;
-
-                r = sd_bus_message_read(message, "t", &weight);
+                r = sd_bus_message_exit_container(message);
                 if (r < 0)
                         return r;
 
-                if (!CGROUP_BLKIO_WEIGHT_IS_OK(weight))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "BlockIOWeight= value out of range");
-
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->blockio_weight = weight;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        char ts[FORMAT_TIMESPAN_MAX];
+                        CGroupIODeviceLatency *a;
+                        size_t size = 0;
 
-                        if (weight == CGROUP_BLKIO_WEIGHT_INVALID)
-                                unit_write_setting(u, flags, name, "BlockIOWeight=");
-                        else
-                                unit_write_settingf(u, flags, name, "BlockIOWeight=%" PRIu64, weight);
-                }
+                        if (n == 0) {
+                                while (c->io_device_latencies)
+                                        cgroup_context_free_io_device_latency(c, c->io_device_latencies);
+                        }
 
-                return 1;
+                        unit_invalidate_cgroup(u, CGROUP_MASK_IO);
 
-        } else if (streq(name, "StartupBlockIOWeight")) {
-                uint64_t weight;
+                        f = open_memstream(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
 
-                r = sd_bus_message_read(message, "t", &weight);
-                if (r < 0)
-                        return r;
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
-                if (!CGROUP_BLKIO_WEIGHT_IS_OK(weight))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "StartupBlockIOWeight= value out of range");
+                        fputs("IODeviceLatencyTargetSec=\n", f);
+                        LIST_FOREACH(device_latencies, a, c->io_device_latencies)
+                                fprintf(f, "IODeviceLatencyTargetSec=%s %s\n",
+                                        a->path, format_timespan(ts, sizeof(ts), a->target_usec, 1));
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->startup_blockio_weight = weight;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
-
-                        if (weight == CGROUP_BLKIO_WEIGHT_INVALID)
-                                unit_write_setting(u, flags, name, "StartupBlockIOWeight=");
-                        else
-                                unit_write_settingf(u, flags, name, "StartupBlockIOWeight=%" PRIu64, weight);
+                        r = fflush_and_check(f);
+                        if (r < 0)
+                                return r;
+                        unit_write_setting(u, flags, name, buf);
                 }
 
                 return 1;
@@ -849,6 +971,9 @@ int bus_cgroup_set_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(st)", &path, &u64)) > 0) {
+
+                        if (!path_is_normalized(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupBlockIODeviceBandwidth *a = NULL, *b;
@@ -912,13 +1037,15 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
                         if (read) {
-                                fputs_unlocked("BlockIOReadBandwidth=\n", f);
+                                fputs("BlockIOReadBandwidth=\n", f);
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
                                         if (a->rbps != CGROUP_LIMIT_MAX)
                                                 fprintf(f, "BlockIOReadBandwidth=%s %" PRIu64 "\n", a->path, a->rbps);
                         } else {
-                                fputs_unlocked("BlockIOWriteBandwidth=\n", f);
+                                fputs("BlockIOWriteBandwidth=\n", f);
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
                                         if (a->wbps != CGROUP_LIMIT_MAX)
                                                 fprintf(f, "BlockIOWriteBandwidth=%s %" PRIu64 "\n", a->path, a->wbps);
@@ -944,6 +1071,9 @@ int bus_cgroup_set_property(
 
                 while ((r = sd_bus_message_read(message, "(st)", &path, &weight)) > 0) {
 
+                        if (!path_is_normalized(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
+
                         if (!CGROUP_BLKIO_WEIGHT_IS_OK(weight) || weight == CGROUP_BLKIO_WEIGHT_INVALID)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "BlockIODeviceWeight= out of range");
 
@@ -967,7 +1097,7 @@ int bus_cgroup_set_property(
                                                 free(a);
                                                 return -ENOMEM;
                                         }
-                                        LIST_PREPEND(device_weights,c->blockio_device_weights, a);
+                                        LIST_PREPEND(device_weights, c->blockio_device_weights, a);
                                 }
 
                                 a->weight = weight;
@@ -997,7 +1127,9 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs_unlocked("BlockIODeviceWeight=\n", f);
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                        fputs("BlockIODeviceWeight=\n", f);
                         LIST_FOREACH(device_weights, a, c->blockio_device_weights)
                                 fprintf(f, "BlockIODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
 
@@ -1006,127 +1138,6 @@ int bus_cgroup_set_property(
                                 return r;
 
                         unit_write_setting(u, flags, name, buf);
-                }
-
-                return 1;
-
-        } else if (streq(name, "MemoryAccounting")) {
-                int b;
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->memory_accounting = b;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
-                        unit_write_settingf(u, flags, name, "MemoryAccounting=%s", yes_no(b));
-                }
-
-                return 1;
-
-        } else if (STR_IN_SET(name, "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax")) {
-                uint64_t v;
-
-                r = sd_bus_message_read(message, "t", &v);
-                if (r < 0)
-                        return r;
-                if (v <= 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= is too small", name);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(name, "MemoryLow"))
-                                c->memory_low = v;
-                        else if (streq(name, "MemoryHigh"))
-                                c->memory_high = v;
-                        else if (streq(name, "MemorySwapMax"))
-                                c->memory_swap_max = v;
-                        else
-                                c->memory_max = v;
-
-                        unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
-
-                        if (v == CGROUP_LIMIT_MAX)
-                                unit_write_settingf(u, flags, name, "%s=infinity", name);
-                        else
-                                unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, v);
-                }
-
-                return 1;
-
-        } else if (STR_IN_SET(name, "MemoryLowScale", "MemoryHighScale", "MemoryMaxScale", "MemorySwapMaxScale")) {
-                uint32_t raw;
-                uint64_t v;
-
-                r = sd_bus_message_read(message, "u", &raw);
-                if (r < 0)
-                        return r;
-
-                v = physical_memory_scale(raw, UINT32_MAX);
-                if (v <= 0 || v == UINT64_MAX)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= is out of range", name);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        const char *e;
-
-                        /* Chop off suffix */
-                        assert_se(e = endswith(name, "Scale"));
-                        name = strndupa(name, e - name);
-
-                        if (streq(name, "MemoryLow"))
-                                c->memory_low = v;
-                        else if (streq(name, "MemoryHigh"))
-                                c->memory_high = v;
-                        else if (streq(name, "MemorySwapMaxScale"))
-                                c->memory_swap_max = v;
-                        else /* MemoryMax */
-                                c->memory_max = v;
-
-                        unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
-                        unit_write_settingf(u, flags, name, "%s=%" PRIu32 "%%", name,
-                                            (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX)));
-                }
-
-                return 1;
-
-        } else if (streq(name, "MemoryLimit")) {
-                uint64_t limit;
-
-                r = sd_bus_message_read(message, "t", &limit);
-                if (r < 0)
-                        return r;
-                if (limit <= 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= is too small", name);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->memory_limit = limit;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
-
-                        if (limit == CGROUP_LIMIT_MAX)
-                                unit_write_setting(u, flags, name, "MemoryLimit=infinity");
-                        else
-                                unit_write_settingf(u, flags, name, "MemoryLimit=%" PRIu64, limit);
-                }
-
-                return 1;
-
-        } else if (streq(name, "MemoryLimitScale")) {
-                uint64_t limit;
-                uint32_t raw;
-
-                r = sd_bus_message_read(message, "u", &raw);
-                if (r < 0)
-                        return r;
-
-                limit = physical_memory_scale(raw, UINT32_MAX);
-                if (limit <= 0 || limit == UINT64_MAX)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= is out of range", name);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->memory_limit = limit;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_MEMORY);
-                        unit_write_settingf(u, flags, "MemoryLimit", "MemoryLimit=%" PRIu32 "%%",
-                                                          (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX)));
                 }
 
                 return 1;
@@ -1161,17 +1172,12 @@ int bus_cgroup_set_property(
 
                 while ((r = sd_bus_message_read(message, "(ss)", &path, &rwm)) > 0) {
 
-                        if ((!path_startswith(path, "/dev/") &&
-                             !path_startswith(path, "/run/systemd/inaccessible/") &&
-                             !startswith(path, "block-") &&
-                             !startswith(path, "char-")) ||
-                            strpbrk(path, WHITESPACE))
-                            return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node");
+                        if (!valid_device_allow_pattern(path) || strpbrk(path, WHITESPACE))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node or pattern");
 
                         if (isempty(rwm))
                                 rwm = "rwm";
-
-                        if (!in_charset(rwm, "rwm"))
+                        else if (!in_charset(rwm, "rwm"))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -1229,7 +1235,9 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs_unlocked("DeviceAllow=\n", f);
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                        fputs("DeviceAllow=\n", f);
                         LIST_FOREACH(device_allow, a, c->device_allow)
                                 fprintf(f, "DeviceAllow=%s %s%s%s\n", a->path, a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
 
@@ -1237,63 +1245,6 @@ int bus_cgroup_set_property(
                         if (r < 0)
                                 return r;
                         unit_write_setting(u, flags, name, buf);
-                }
-
-                return 1;
-
-        } else if (streq(name, "TasksAccounting")) {
-                int b;
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->tasks_accounting = b;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
-                        unit_write_settingf(u, flags, name, "TasksAccounting=%s", yes_no(b));
-                }
-
-                return 1;
-
-        } else if (streq(name, "TasksMax")) {
-                uint64_t limit;
-
-                r = sd_bus_message_read(message, "t", &limit);
-                if (r < 0)
-                        return r;
-                if (limit <= 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= is too small", name);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->tasks_max = limit;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
-
-                        if (limit == (uint64_t) -1)
-                                unit_write_setting(u, flags, name, "TasksMax=infinity");
-                        else
-                                unit_write_settingf(u, flags, name, "TasksMax=%" PRIu64, limit);
-                }
-
-                return 1;
-
-        } else if (streq(name, "TasksMaxScale")) {
-                uint64_t limit;
-                uint32_t raw;
-
-                r = sd_bus_message_read(message, "u", &raw);
-                if (r < 0)
-                        return r;
-
-                limit = system_tasks_max_scale(raw, UINT32_MAX);
-                if (limit <= 0 || limit >= UINT64_MAX)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= is out of range", name);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->tasks_max = limit;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
-                        unit_write_settingf(u, flags, name, "TasksMax=%" PRIu32 "%%",
-                                            (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX)));
                 }
 
                 return 1;
@@ -1399,8 +1350,10 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs_unlocked(name, f);
-                        fputs_unlocked("=\n", f);
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                        fputs(name, f);
+                        fputs("=\n", f);
 
                         LIST_FOREACH(items, item, *list) {
                                 char buffer[CONST_MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];
@@ -1422,7 +1375,7 @@ int bus_cgroup_set_property(
                                 r = bpf_firewall_supported();
                                 if (r < 0)
                                         return r;
-                                if (r == 0) {
+                                if (r == BPF_FIREWALL_UNSUPPORTED) {
                                         static bool warned = false;
 
                                         log_full(warned ? LOG_DEBUG : LOG_WARNING,
@@ -1437,12 +1390,8 @@ int bus_cgroup_set_property(
                 return 1;
         }
 
-        if (u->transient && u->load_state == UNIT_STUB) {
-                r = bus_cgroup_set_transient_property(u, c, name, message, flags, error);
-                if (r != 0)
-                        return r;
-
-        }
+        if (u->transient && u->load_state == UNIT_STUB)
+                return bus_cgroup_set_transient_property(u, c, name, message, flags, error);
 
         return 0;
 }

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Kay Sievers <kay@vrfy.org>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 /*
  * Predictable network interface device names based on:
@@ -51,6 +33,9 @@
  *
  * All multi-function PCI devices will carry the [f<function>] number in the
  * device name, including the function 0 device.
+ *
+ * SR-IOV virtual devices are named based on the name of the parent interface,
+ * with a suffix of "v<N>", where <N> is the virtual device number.
  *
  * When using PCI geography, The PCI domain is only prepended when it is not 0.
  *
@@ -112,6 +97,8 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev.h"
@@ -148,6 +135,11 @@ struct netnames {
         char platform_path[IFNAMSIZ];
 };
 
+struct virtfn_info {
+        struct udev_device *physfn_pcidev;
+        char suffix[IFNAMSIZ];
+};
+
 /* skip intermediate virtio devices */
 static struct udev_device *skip_virtio(struct udev_device *dev) {
         struct udev_device *parent = dev;
@@ -158,6 +150,63 @@ static struct udev_device *skip_virtio(struct udev_device *dev) {
         while (parent && streq_ptr("virtio", udev_device_get_subsystem(parent)))
                 parent = udev_device_get_parent(parent);
         return parent;
+}
+
+static int get_virtfn_info(struct udev_device *dev, struct netnames *names, struct virtfn_info *vf_info) {
+        const char *physfn_link_file;
+        _cleanup_free_ char *physfn_pci_syspath = NULL;
+        _cleanup_free_ char *virtfn_pci_syspath = NULL;
+        struct dirent *dent;
+        _cleanup_closedir_ DIR *dir = NULL;
+        struct virtfn_info vf_info_local = {};
+        int r;
+
+        /* Check if this is a virtual function. */
+        physfn_link_file = strjoina(udev_device_get_syspath(names->pcidev), "/physfn");
+        r = chase_symlinks(physfn_link_file, NULL, 0, &physfn_pci_syspath);
+        if (r < 0)
+                return r;
+
+        /* Get physical function's pci device. */
+        vf_info_local.physfn_pcidev = udev_device_new_from_syspath(NULL, physfn_pci_syspath);
+        if (!vf_info_local.physfn_pcidev)
+                return -ENOENT;
+
+        /* Find the virtual function number by finding the right virtfn link. */
+        dir = opendir(physfn_pci_syspath);
+        if (!dir) {
+                r = -errno;
+                goto out_unref;
+        }
+        FOREACH_DIRENT_ALL(dent, dir, break) {
+                _cleanup_free_ char *virtfn_link_file = NULL;
+                if (!startswith(dent->d_name, "virtfn"))
+                        continue;
+                virtfn_link_file = strjoin(physfn_pci_syspath, "/", dent->d_name);
+                if (!virtfn_link_file) {
+                        r = -ENOMEM;
+                        goto out_unref;
+                }
+                if (chase_symlinks(virtfn_link_file, NULL, 0, &virtfn_pci_syspath) < 0)
+                        continue;
+                if (streq(udev_device_get_syspath(names->pcidev), virtfn_pci_syspath)) {
+                        if (!snprintf_ok(vf_info_local.suffix, sizeof(vf_info_local.suffix), "v%s", &dent->d_name[6])) {
+                                r = -ENOENT;
+                                goto out_unref;
+                        }
+                        break;
+                }
+        }
+        if (isempty(vf_info_local.suffix)) {
+                r = -ENOENT;
+                goto out_unref;
+        }
+        *vf_info = vf_info_local;
+        return 0;
+
+out_unref:
+        udev_device_unref(vf_info_local.physfn_pcidev);
+        return r;
 }
 
 /* retrieve on-board index number and label from firmware */
@@ -230,20 +279,28 @@ static bool is_pci_multifunction(struct udev_device *dev) {
         return false;
 }
 
+static bool is_pci_ari_enabled(struct udev_device *dev) {
+        return streq_ptr(udev_device_get_sysattr_value(dev, "ari_enabled"), "1");
+}
+
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
-        struct udev *udev = udev_device_get_udev(names->pcidev);
-        unsigned domain, bus, slot, func, dev_port = 0;
+        unsigned domain, bus, slot, func, dev_port = 0, hotplug_slot = 0;
         size_t l;
         char *s;
         const char *attr, *port_name;
-        struct udev_device *pci = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *pci = NULL;
+        struct udev_device *hotplug_slot_dev;
         char slots[PATH_MAX];
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
-        int hotplug_slot = 0, err = 0;
 
         if (sscanf(udev_device_get_sysname(names->pcidev), "%x:%x:%x.%u", &domain, &bus, &slot, &func) != 4)
                 return -ENOENT;
+        if (is_pci_ari_enabled(names->pcidev))
+                /* ARI devices support up to 256 functions on a single device ("slot"), and interpret the
+                 * traditional 5-bit slot and 3-bit function number as a single 8-bit function number,
+                 * where the slot makes up the upper 5 bits. */
+                func += slot * 8;
 
         /* kernel provided port index for multiple ports on a single PCI function */
         attr = udev_device_get_sysattr_value(dev, "dev_port");
@@ -269,41 +326,44 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 names->pci_path[0] = '\0';
 
         /* ACPI _SUN  — slot user number */
-        pci = udev_device_new_from_subsystem_sysname(udev, "subsystem", "pci");
-        if (!pci) {
-                err = -ENOENT;
-                goto out;
-        }
+        pci = udev_device_new_from_subsystem_sysname(NULL, "subsystem", "pci");
+        if (!pci)
+                return -ENOENT;
 
-        xsprintf(slots, "%s/slots", udev_device_get_syspath(pci));
+        if (!snprintf_ok(slots, sizeof slots, "%s/slots", udev_device_get_syspath(pci)))
+                return -ENAMETOOLONG;
+
         dir = opendir(slots);
-        if (!dir) {
-                err = -errno;
-                goto out;
-        }
+        if (!dir)
+                return -errno;
 
-        FOREACH_DIRENT_ALL(dent, dir, break) {
-                int i;
-                char *rest, *address, str[PATH_MAX];
+        hotplug_slot_dev = names->pcidev;
+        while (hotplug_slot_dev) {
+                FOREACH_DIRENT_ALL(dent, dir, break) {
+                        unsigned i;
+                        int r;
+                        char str[PATH_MAX];
+                        _cleanup_free_ char *address = NULL;
 
-                if (dent->d_name[0] == '.')
-                        continue;
-                i = strtol(dent->d_name, &rest, 10);
-                if (rest[0] != '\0')
-                        continue;
-                if (i < 1)
-                        continue;
+                        if (dent->d_name[0] == '.')
+                                continue;
+                        r = safe_atou_full(dent->d_name, 10, &i);
+                        if (i < 1 || r < 0)
+                                continue;
 
-                xsprintf(str, "%s/%s/address", slots, dent->d_name);
-                if (read_one_line_file(str, &address) >= 0) {
-                        /* match slot address with device by stripping the function */
-                        if (strneq(address, udev_device_get_sysname(names->pcidev), strlen(address)))
-                                hotplug_slot = i;
-                        free(address);
+                        if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
+                            read_one_line_file(str, &address) >= 0)
+                                /* match slot address with device by stripping the function */
+                                if (startswith(udev_device_get_sysname(hotplug_slot_dev), address))
+                                        hotplug_slot = i;
+
+                        if (hotplug_slot > 0)
+                                break;
                 }
-
                 if (hotplug_slot > 0)
                         break;
+                rewinddir(dir);
+                hotplug_slot_dev = udev_device_get_parent_with_subsystem_devtype(hotplug_slot_dev, "pci", NULL);
         }
 
         if (hotplug_slot > 0) {
@@ -321,9 +381,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 if (l == 0)
                         names->pci_slot[0] = '\0';
         }
-out:
-        udev_device_unref(pci);
-        return err;
+
+        return 0;
 }
 
 static int names_vio(struct udev_device *dev, struct netnames *names) {
@@ -409,6 +468,8 @@ static int names_platform(struct udev_device *dev, struct netnames *names, bool 
 
 static int names_pci(struct udev_device *dev, struct netnames *names) {
         struct udev_device *parent;
+        struct netnames vf_names = {};
+        struct virtfn_info vf_info = {};
 
         assert(dev);
         assert(names);
@@ -429,8 +490,29 @@ static int names_pci(struct udev_device *dev, struct netnames *names) {
                 if (!names->pcidev)
                         return -ENOENT;
         }
-        dev_pci_onboard(dev, names);
-        dev_pci_slot(dev, names);
+
+        if (get_virtfn_info(dev, names, &vf_info) >= 0) {
+                /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
+                vf_names.pcidev = vf_info.physfn_pcidev;
+                dev_pci_onboard(dev, &vf_names);
+                dev_pci_slot(dev, &vf_names);
+                if (vf_names.pci_onboard[0])
+                        if (strlen(vf_names.pci_onboard) + strlen(vf_info.suffix) < sizeof(names->pci_onboard))
+                                strscpyl(names->pci_onboard, sizeof(names->pci_onboard),
+                                         vf_names.pci_onboard, vf_info.suffix, NULL);
+                if (vf_names.pci_slot[0])
+                        if (strlen(vf_names.pci_slot) + strlen(vf_info.suffix) < sizeof(names->pci_slot))
+                                strscpyl(names->pci_slot, sizeof(names->pci_slot),
+                                         vf_names.pci_slot, vf_info.suffix, NULL);
+                if (vf_names.pci_path[0])
+                        if (strlen(vf_names.pci_path) + strlen(vf_info.suffix) < sizeof(names->pci_path))
+                                strscpyl(names->pci_path, sizeof(names->pci_path),
+                                         vf_names.pci_path, vf_info.suffix, NULL);
+                udev_device_unref(vf_info.physfn_pcidev);
+        } else {
+                dev_pci_onboard(dev, names);
+                dev_pci_slot(dev, names);
+        }
         return 0;
 }
 
@@ -517,7 +599,6 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
         const char *bus_id, *subsys;
         size_t bus_id_len;
         size_t bus_id_start;
-        int rc;
 
         assert(dev);
         assert(names);
@@ -547,7 +628,7 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
          * verify each bus-ID part...
          */
         bus_id_len = strlen(bus_id);
-        if (!bus_id_len || bus_id_len < 8 || bus_id_len > 9)
+        if (!IN_SET(bus_id_len, 8, 9))
                 return -EINVAL;
 
         /* Strip leading zeros from the bus id for aesthetic purposes. This
@@ -559,9 +640,9 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
         bus_id += bus_id_start < bus_id_len ? bus_id_start : bus_id_len - 1;
 
         /* Store the CCW bus-ID for use as network device name */
-        rc = snprintf(names->ccw_busid, sizeof(names->ccw_busid), "c%s", bus_id);
-        if (rc >= 0 && rc < (int)sizeof(names->ccw_busid))
+        if (snprintf_ok(names->ccw_busid, sizeof(names->ccw_busid), "c%s", bus_id))
                 names->type = NET_CCW;
+
         return 0;
 }
 
@@ -674,7 +755,7 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.type == NET_CCW) {
                 char str[IFNAMSIZ];
 
-                if (snprintf(str, sizeof(str), "%s%s", prefix, names.ccw_busid) < (int)sizeof(str))
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.ccw_busid))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
                 goto out;
         }
@@ -684,7 +765,7 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.type == NET_VIO) {
                 char str[IFNAMSIZ];
 
-                if (snprintf(str, sizeof(str), "%s%s", prefix, names.vio_slot) < (int)sizeof(str))
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.vio_slot))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
@@ -694,7 +775,7 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.type == NET_PLATFORM) {
                 char str[IFNAMSIZ];
 
-                if (snprintf(str, sizeof(str), "%s%s", prefix, names.platform_path) < (int)sizeof(str))
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.platform_path))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
                 goto out;
         }
@@ -708,21 +789,21 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (names.type == NET_PCI) {
                 char str[IFNAMSIZ];
 
-                if (names.pci_onboard[0])
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_onboard) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
+                if (names.pci_onboard[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
 
-                if (names.pci_onboard_label)
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_onboard_label) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
+                if (names.pci_onboard_label &&
+                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard_label))
+                        udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
 
-                if (names.pci_path[0])
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_path) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                if (names.pci_path[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_path))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
-                if (names.pci_slot[0])
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_slot) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                if (names.pci_slot[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_slot))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
 
@@ -731,13 +812,13 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.type == NET_USB) {
                 char str[IFNAMSIZ];
 
-                if (names.pci_path[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_path, names.usb_ports) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                if (names.pci_path[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_path, names.usb_ports))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
-                if (names.pci_slot[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.usb_ports) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                if (names.pci_slot[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.usb_ports))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
 
@@ -746,13 +827,13 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.type == NET_BCMA) {
                 char str[IFNAMSIZ];
 
-                if (names.pci_path[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_path, names.bcma_core) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                if (names.pci_path[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_path, names.bcma_core))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
-                if (names.pci_slot[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.bcma_core) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                if (names.pci_slot[0] &&
+                    snprintf(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.bcma_core))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
 out:

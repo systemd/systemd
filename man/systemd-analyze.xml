@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-analyze"
@@ -29,21 +12,6 @@
   <refentryinfo>
     <title>systemd-analyze</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Harald</firstname>
-        <surname>Hoyer</surname>
-        <email>harald@redhat.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -53,7 +21,7 @@
 
   <refnamediv>
     <refname>systemd-analyze</refname>
-    <refpurpose>Analyze system boot-up performance</refpurpose>
+    <refpurpose>Analyze and debug system manager</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -94,24 +62,25 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="plain">set-log-level</arg>
-      <arg choice="plain"><replaceable>LEVEL</replaceable></arg>
+      <arg choice="plain">cat-config</arg>
+      <arg choice="plain" rep="repeat"><replaceable>NAME</replaceable>|<replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="plain">set-log-target</arg>
-      <arg choice="plain"><replaceable>TARGET</replaceable></arg>
+      <arg choice="plain">unit-paths</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="plain">get-log-level</arg>
+      <arg choice="plain">log-level</arg>
+      <arg choice="opt"><replaceable>LEVEL</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="plain">get-log-target</arg>
+      <arg choice="plain">log-target</arg>
+      <arg choice="opt"><replaceable>TARGET</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -131,6 +100,12 @@
       <arg choice="plain">calendar</arg>
       <arg choice="plain" rep="repeat"><replaceable>SPECS</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">service-watchdogs</arg>
+      <arg choice="opt"><replaceable>BOOL</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -139,7 +114,8 @@
     <para><command>systemd-analyze</command> may be used to determine
     system boot-up performance statistics and retrieve other state and
     tracing information from the system and service manager, and to
-    verify the correctness of unit files.</para>
+    verify the correctness of unit files. It is also used to access
+    special functions useful for advanced system manager debugging.</para>
 
     <para><command>systemd-analyze time</command> prints the time
     spent in the kernel before userspace has been reached, the time
@@ -155,7 +131,11 @@
     This information may be used to optimize boot-up times. Note that
     the output might be misleading as the initialization of one
     service might be slow simply because it waits for the
-    initialization of another service to complete.</para>
+    initialization of another service to complete.
+    Also note: <command>systemd-analyze blame</command> doesn't display
+    results for services with <varname>Type=simple</varname>,
+    because systemd considers such services to be started immediately,
+    hence no measurement of the initialization delays can be done.</para>
 
     <para><command>systemd-analyze critical-chain
     [<replaceable>UNIT…</replaceable>]</command> prints a tree of
@@ -191,25 +171,58 @@
     state. Its format is subject to change without notice and should
     not be parsed by applications.</para>
 
-    <para><command>systemd-analyze set-log-level
-    <replaceable>LEVEL</replaceable></command> changes the current log
-    level of the <command>systemd</command> daemon to
-    <replaceable>LEVEL</replaceable> (accepts the same values as
+    <para><command>systemd-analyze cat-config</command> is similar
+    to <command>systemctl cat</command>, but operates on config files.
+    It will copy the contents of a config file and any drop-ins to standard
+    output, using the usual systemd set of directories and rules for
+    precedence. Each argument must be either an absolute path including
+    the prefix (such as <filename>/etc/systemd/logind.conf</filename> or
+    <filename>/usr/lib/systemd/logind.conf</filename>), or a name
+    relative to the prefix (such as <filename>systemd/logind.conf</filename>).
+    </para>
+
+    <example>
+      <title>Showing logind configuration</title>
+      <programlisting>$ systemd-analyze cat-config systemd/logind.conf
+# /etc/systemd/logind.conf
+...
+[Login]
+NAutoVTs=8
+...
+
+# /usr/lib/systemd/logind.conf.d/20-test.conf
+... some override from another package
+
+# /etc/systemd/logind.conf.d/50-override.conf
+... some administrator override
+      </programlisting>
+    </example>
+
+    <para><command>systemd-analyze unit-paths</command> outputs a list of all
+    directories from which unit files, <filename>.d</filename> overrides, and
+    <filename>.wants</filename>, <filename>.requires</filename> symlinks may be
+    loaded. Combine with <option>--user</option> to retrieve the list for the user
+    manager instance, and <option>--global</option> for the global configuration of
+    user manager instances. Note that this verb prints the list that is compiled into
+    <command>systemd-analyze</command> itself, and does not comunicate with the
+    running manager. Use
+    <programlisting>systemctl [--user] [--global] show -p UnitPath --value</programlisting>
+    to retrieve the actual list that the manager uses, with any empty directories
+    omitted.</para>
+
+    <para><command>systemd-analyze log-level</command>
+    prints the current log level of the <command>systemd</command> daemon.
+    If an optional argument <replaceable>LEVEL</replaceable> is provided, then the command changes the current log
+    level of the <command>systemd</command> daemon to <replaceable>LEVEL</replaceable> (accepts the same values as
     <option>--log-level=</option> described in
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
 
-    <para><command>systemd-analyze set-log-target
-    <replaceable>TARGET</replaceable></command> changes the current log
-    target of the <command>systemd</command> daemon to
-    <replaceable>TARGET</replaceable> (accepts the same values as
+    <para><command>systemd-analyze log-target</command>
+    prints the current log target of the <command>systemd</command> daemon.
+    If an optional argument <replaceable>TARGET</replaceable> is provided, then the command changes the current log
+    target of the <command>systemd</command> daemon to <replaceable>TARGET</replaceable> (accepts the same values as
     <option>--log-target=</option>, described in
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
-
-    <para><command>systemd-analyze get-log-level</command>
-    prints the current log level of the <command>systemd</command> daemon.</para>
-
-    <para><command>systemd-analyze get-log-target</command>
-    prints the current log target of the <command>systemd</command> daemon.</para>
 
     <para><command>systemd-analyze syscall-filter <optional><replaceable>SET</replaceable>…</optional></command>
     will list system calls contained in the specified system call set <replaceable>SET</replaceable>,
@@ -232,6 +245,14 @@
     syntax described in
     <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
+    <para><command>systemd-analyze service-watchdogs</command>
+    prints the current state of service runtime watchdogs of the <command>systemd</command> daemon.
+    If an optional boolean argument is provided, then globally enables or disables the service
+    runtime watchdogs (<option>WatchdogSec=</option>) and emergency actions (e.g.
+    <option>OnFailure=</option> or <option>StartLimitAction=</option>); see
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    The hardware watchdog is not affected by this setting.</para>
+
     <para>If no command is passed, <command>systemd-analyze
     time</command> is implied.</para>
 
@@ -244,6 +265,13 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>--system</option></term>
+
+        <listitem><para>Operates on the system systemd instance. This
+        is the implied default.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--user</option></term>
 
         <listitem><para>Operates on the user systemd
@@ -251,10 +279,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--system</option></term>
+        <term><option>--global</option></term>
 
-        <listitem><para>Operates on the system systemd instance. This
-        is the implied default.</para></listitem>
+        <listitem><para>Operates on the system-wide configuration for
+        user systemd instance.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -323,9 +351,15 @@
 
         <listitem><para>Invoke unit generators, see
         <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-        Some generators require root privileges. When run under a
-        normal users, enabling generators will generally result in
-        some warnings.</para></listitem>
+        Some generators require root privileges. Under a normal user, running with
+        generators enabled will generally result in some warnings.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>cat-files</command>, show config files underneath
+        the specified root path <replaceable>PATH</replaceable>.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />

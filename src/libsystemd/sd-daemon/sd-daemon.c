@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <limits.h>
@@ -39,6 +21,7 @@
 #include "fs-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "util.h"
@@ -140,8 +123,7 @@ _public_ int sd_listen_fds_with_names(int unset_environment, char ***names) {
                         return r;
         }
 
-        *names = l;
-        l = NULL;
+        *names = TAKE_PTR(l);
 
         return n_fds;
 }
@@ -306,17 +288,13 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
                         return 0;
 
         if (port > 0) {
-                if (sockaddr.sa.sa_family == AF_INET) {
-                        if (l < sizeof(struct sockaddr_in))
-                                return -EINVAL;
+                unsigned sa_port;
 
-                        return htobe16(port) == sockaddr.in.sin_port;
-                } else {
-                        if (l < sizeof(struct sockaddr_in6))
-                                return -EINVAL;
+                r = sockaddr_port(&sockaddr.sa, &sa_port);
+                if (r < 0)
+                        return r;
 
-                        return htobe16(port) == sockaddr.in6.sin6_port;
-                }
+                return port == sa_port;
         }
 
         return 1;
@@ -459,7 +437,13 @@ _public_ int sd_is_mq(int fd, const char *path) {
         return 1;
 }
 
-_public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char *state, const int *fds, unsigned n_fds) {
+_public_ int sd_pid_notify_with_fds(
+                pid_t pid,
+                int unset_environment,
+                const char *state,
+                const int *fds,
+                unsigned n_fds) {
+
         union sockaddr_union sockaddr = {
                 .sa.sa_family = AF_UNIX,
         };
@@ -474,7 +458,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
         _cleanup_close_ int fd = -1;
         struct cmsghdr *cmsg = NULL;
         const char *e;
-        bool have_pid;
+        bool send_ucred;
         int r;
 
         if (!state) {
@@ -508,7 +492,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
                 goto finish;
         }
 
-        fd_inc_sndbuf(fd, SNDBUF_SIZE);
+        (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         iovec.iov_len = strlen(state);
 
@@ -518,13 +502,16 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
 
         msghdr.msg_namelen = SOCKADDR_UN_LEN(sockaddr.un);
 
-        have_pid = pid != 0 && pid != getpid_cached();
+        send_ucred =
+                (pid != 0 && pid != getpid_cached()) ||
+                getuid() != geteuid() ||
+                getgid() != getegid();
 
-        if (n_fds > 0 || have_pid) {
+        if (n_fds > 0 || send_ucred) {
                 /* CMSG_SPACE(0) may return value different than zero, which results in miscalculated controllen. */
                 msghdr.msg_controllen =
                         (n_fds > 0 ? CMSG_SPACE(sizeof(int) * n_fds) : 0) +
-                        (have_pid ? CMSG_SPACE(sizeof(struct ucred)) : 0);
+                        (send_ucred ? CMSG_SPACE(sizeof(struct ucred)) : 0);
 
                 msghdr.msg_control = alloca0(msghdr.msg_controllen);
 
@@ -536,11 +523,11 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
 
                         memcpy(CMSG_DATA(cmsg), fds, sizeof(int) * n_fds);
 
-                        if (have_pid)
+                        if (send_ucred)
                                 assert_se(cmsg = CMSG_NXTHDR(&msghdr, cmsg));
                 }
 
-                if (have_pid) {
+                if (send_ucred) {
                         struct ucred *ucred;
 
                         cmsg->cmsg_level = SOL_SOCKET;
@@ -548,7 +535,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
                         cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
 
                         ucred = (struct ucred*) CMSG_DATA(cmsg);
-                        ucred->pid = pid;
+                        ucred->pid = pid != 0 ? pid : getpid_cached();
                         ucred->uid = getuid();
                         ucred->gid = getgid();
                 }
@@ -561,7 +548,7 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
         }
 
         /* If that failed, try with our own ucred instead */
-        if (have_pid) {
+        if (send_ucred) {
                 msghdr.msg_controllen -= CMSG_SPACE(sizeof(struct ucred));
                 if (msghdr.msg_controllen == 0)
                         msghdr.msg_control = NULL;

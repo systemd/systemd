@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -31,6 +12,7 @@ typedef enum ConditionType {
         CONDITION_VIRTUALIZATION,
         CONDITION_HOST,
         CONDITION_KERNEL_COMMAND_LINE,
+        CONDITION_KERNEL_VERSION,
         CONDITION_SECURITY,
         CONDITION_CAPABILITY,
         CONDITION_AC_POWER,
@@ -52,6 +34,8 @@ typedef enum ConditionType {
 
         CONDITION_USER,
         CONDITION_GROUP,
+
+        CONDITION_CONTROL_GROUP_CONTROLLER,
 
         _CONDITION_TYPE_MAX,
         _CONDITION_TYPE_INVALID = -1
@@ -96,3 +80,17 @@ ConditionType assert_type_from_string(const char *s) _pure_;
 
 const char* condition_result_to_string(ConditionResult r) _const_;
 ConditionResult condition_result_from_string(const char *s) _pure_;
+
+static inline bool condition_takes_path(ConditionType t) {
+        return IN_SET(t,
+                      CONDITION_PATH_EXISTS,
+                      CONDITION_PATH_EXISTS_GLOB,
+                      CONDITION_PATH_IS_DIRECTORY,
+                      CONDITION_PATH_IS_SYMBOLIC_LINK,
+                      CONDITION_PATH_IS_MOUNT_POINT,
+                      CONDITION_PATH_IS_READ_WRITE,
+                      CONDITION_DIRECTORY_NOT_EMPTY,
+                      CONDITION_FILE_NOT_EMPTY,
+                      CONDITION_FILE_IS_EXECUTABLE,
+                      CONDITION_NEEDS_UPDATE);
+}

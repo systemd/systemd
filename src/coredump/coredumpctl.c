@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <fcntl.h>
 #include <getopt.h>
@@ -51,32 +33,24 @@
 #include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
+#include "verbs.h"
 
 #define SHORT_BUS_CALL_TIMEOUT_USEC (3 * USEC_PER_SEC)
 
 static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
-
-static enum {
-        ACTION_NONE,
-        ACTION_INFO,
-        ACTION_LIST,
-        ACTION_DUMP,
-        ACTION_GDB,
-} arg_action = ACTION_LIST;
 static const char* arg_field = NULL;
+static const char *arg_debugger = NULL;
 static const char *arg_directory = NULL;
 static bool arg_no_pager = false;
 static int arg_no_legend = false;
 static int arg_one = false;
 static FILE* arg_output = NULL;
 static bool arg_reverse = false;
-static char** arg_matches = NULL;
 static bool arg_quiet = false;
 
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
-        char *pattern = NULL;
-        const char* prefix;
+        const char* prefix, *pattern;
         pid_t pid;
         int r;
 
@@ -94,18 +68,16 @@ static int add_match(sd_journal *j, const char *match) {
         else
                 prefix = "COREDUMP_COMM=";
 
-        pattern = strjoin(prefix, match);
-        if (!pattern)
-                return log_oom();
-
+        pattern = strjoina(prefix, match);
         log_debug("Adding match: %s", pattern);
         r = sd_journal_add_match(j, pattern, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s\": %m", match);
+
         return 0;
 }
 
-static int add_matches(sd_journal *j) {
+static int add_matches(sd_journal *j, char **matches) {
         char **match;
         int r;
 
@@ -117,7 +89,7 @@ static int add_matches(sd_journal *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
 
-        STRV_FOREACH(match, arg_matches) {
+        STRV_FOREACH(match, matches) {
                 r = add_match(j, *match);
                 if (r < 0)
                         return r;
@@ -126,28 +98,77 @@ static int add_matches(sd_journal *j) {
         return 0;
 }
 
-static void help(void) {
+static int acquire_journal(sd_journal **ret, char **matches) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        int r;
+
+        assert(ret);
+
+        if (arg_directory) {
+                r = sd_journal_open_directory(&j, arg_directory, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open journals in directory: %s: %m", arg_directory);
+        } else {
+                r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open journal: %m");
+        }
+
+        r = journal_access_check_and_warn(j, arg_quiet, true);
+        if (r < 0)
+                return r;
+
+        r = add_matches(j, matches);
+        if (r < 0)
+                return r;
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *filter;
+
+                filter = journal_make_match_string(j);
+                log_debug("Journal filter: %s", filter);
+        }
+
+        *ret = TAKE_PTR(j);
+
+        return 0;
+}
+
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("coredumpctl", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...]\n\n"
                "List or retrieve coredumps from the journal.\n\n"
                "Flags:\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version string\n"
-               "     --no-pager      Do not pipe output into a pager\n"
-               "     --no-legend     Do not print the column headers.\n"
-               "  -1                 Show information about most recent entry only\n"
-               "  -S --since=DATE    Only print coredumps since the date\n"
-               "  -U --until=DATE    Only print coredumps until the date\n"
-               "  -r --reverse       Show the newest entries first\n"
-               "  -F --field=FIELD   List all values a certain field takes\n"
-               "  -o --output=FILE   Write output to FILE\n"
-               "  -D --directory=DIR Use journal files from directory\n\n"
-               "  -q --quiet         Do not show info messages and privilege warning\n"
+               "  -h --help              Show this help\n"
+               "     --version           Print version string\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "     --no-legend         Do not print the column headers\n"
+               "     --debugger=DEBUGGER Use the given debugger\n"
+               "  -1                     Show information about most recent entry only\n"
+               "  -S --since=DATE        Only print coredumps since the date\n"
+               "  -U --until=DATE        Only print coredumps until the date\n"
+               "  -r --reverse           Show the newest entries first\n"
+               "  -F --field=FIELD       List all values a certain field takes\n"
+               "  -o --output=FILE       Write output to FILE\n"
+               "  -D --directory=DIR     Use journal files from directory\n\n"
+               "  -q --quiet             Do not show info messages and privilege warning\n"
                "Commands:\n"
                "  list [MATCHES...]  List available coredumps (default)\n"
                "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
                "  dump [MATCHES...]  Print first matching coredump to stdout\n"
-               "  gdb [MATCHES...]   Start gdb for the first matching coredump\n"
-               , program_invocation_short_name);
+               "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -155,6 +176,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_DEBUGGER,
         };
 
         int c, r;
@@ -164,6 +186,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version" ,     no_argument,       NULL, ARG_VERSION   },
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND },
+                { "debugger",     required_argument, NULL, ARG_DEBUGGER  },
                 { "output",       required_argument, NULL, 'o'           },
                 { "field",        required_argument, NULL, 'F'           },
                 { "directory",    required_argument, NULL, 'D'           },
@@ -180,12 +203,9 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "ho:F:1D:rS:U:q", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        arg_action = ACTION_NONE;
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
-                        arg_action = ACTION_NONE;
                         return version();
 
                 case ARG_NO_PAGER:
@@ -196,9 +216,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_no_legend = true;
                         break;
 
+                case ARG_DEBUGGER:
+                        arg_debugger = optarg;
+                        break;
+
                 case 'o':
                         if (arg_output) {
-                                log_error("cannot set output more than once");
+                                log_error("Cannot set output more than once.");
                                 return -EINVAL;
                         }
 
@@ -222,7 +246,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'F':
                         if (arg_field) {
-                                log_error("cannot use --field/-F more than once");
+                                log_error("Cannot use --field/-F more than once.");
                                 return -EINVAL;
                         }
                         arg_field = optarg;
@@ -257,31 +281,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (optind < argc) {
-                const char *cmd = argv[optind++];
-                if (streq(cmd, "list"))
-                        arg_action = ACTION_LIST;
-                else if (streq(cmd, "dump"))
-                        arg_action = ACTION_DUMP;
-                else if (streq(cmd, "gdb"))
-                        arg_action = ACTION_GDB;
-                else if (streq(cmd, "info"))
-                        arg_action = ACTION_INFO;
-                else {
-                        log_error("Unknown action '%s'", cmd);
-                        return -EINVAL;
-                }
-        }
-
-        if (arg_field && arg_action != ACTION_LIST) {
-                log_error("Option --field/-F only makes sense with list");
-                return -EINVAL;
-        }
-
-        if (optind < argc)
-                arg_matches = argv + optind;
-
-        return 0;
+        return 1;
 }
 
 static int retrieve(const void *data,
@@ -634,10 +634,10 @@ static int focus(sd_journal *j) {
         return r;
 }
 
-static int print_entry(sd_journal *j, unsigned n_found) {
+static int print_entry(sd_journal *j, unsigned n_found, bool verb_is_info) {
         assert(j);
 
-        if (arg_action == ACTION_INFO)
+        if (verb_is_info)
                 return print_info(stdout, j, n_found);
         else if (arg_field)
                 return print_field(stdout, j);
@@ -645,23 +645,32 @@ static int print_entry(sd_journal *j, unsigned n_found) {
                 return print_list(stdout, j, n_found);
 }
 
-static int dump_list(sd_journal *j) {
+static int dump_list(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         unsigned n_found = 0;
+        bool verb_is_info;
         int r;
 
-        assert(j);
+        verb_is_info = (argc >= 1 && streq(argv[0], "info"));
+
+        r = acquire_journal(&j, argv + 1);
+        if (r < 0)
+                return r;
+
+        (void) pager_open(arg_no_pager, false);
 
         /* The coredumps are likely to compressed, and for just
          * listing them we don't need to decompress them, so let's
          * pick a fairly low data threshold here */
         sd_journal_set_data_threshold(j, 4096);
 
-        if (arg_one) {
+        /* "info" without pattern implies "-1" */
+        if (arg_one || (verb_is_info && argc == 1)) {
                 r = focus(j);
                 if (r < 0)
                         return r;
 
-                return print_entry(j, 0);
+                return print_entry(j, 0, verb_is_info);
         } else {
                 if (arg_since != USEC_INFINITY && !arg_reverse)
                         r = sd_journal_seek_realtime_usec(j, arg_since);
@@ -706,7 +715,7 @@ static int dump_list(sd_journal *j) {
                                         continue;
                         }
 
-                        r = print_entry(j, n_found++);
+                        r = print_entry(j, n_found++, verb_is_info);
                         if (r < 0)
                                 return r;
                 }
@@ -755,8 +764,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
 
                 if (path && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
-                        *path = filename;
-                        filename = NULL;
+                        *path = TAKE_PTR(filename);
 
                         return 0;
                 }
@@ -859,10 +867,18 @@ error:
         return r;
 }
 
-static int dump_core(sd_journal* j) {
+static int dump_core(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
-        assert(j);
+        if (arg_field) {
+                log_error("Option --field/-F only makes sense with list");
+                return -EINVAL;
+        }
+
+        r = acquire_journal(&j, argv + 1);
+        if (r < 0)
+                return r;
 
         r = focus(j);
         if (r < 0)
@@ -881,16 +897,33 @@ static int dump_core(sd_journal* j) {
         return 0;
 }
 
-static int run_gdb(sd_journal *j) {
+static int run_debug(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_free_ char *exe = NULL, *path = NULL;
         bool unlink_path = false;
-        const char *data;
-        siginfo_t st;
+        const char *data, *fork_name;
         size_t len;
         pid_t pid;
         int r;
 
-        assert(j);
+        if (!arg_debugger) {
+                char *env_debugger;
+
+                env_debugger = getenv("SYSTEMD_DEBUGGER");
+                if (env_debugger)
+                        arg_debugger = env_debugger;
+                else
+                        arg_debugger = "gdb";
+        }
+
+        if (arg_field) {
+                log_error("Option --field/-F only makes sense with list");
+                return -EINVAL;
+        }
+
+        r = acquire_journal(&j, argv + 1);
+        if (r < 0)
+                return r;
 
         r = focus(j);
         if (r < 0)
@@ -903,9 +936,9 @@ static int run_gdb(sd_journal *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve COREDUMP_EXE field: %m");
 
-        assert(len > strlen("COREDUMP_EXE="));
-        data += strlen("COREDUMP_EXE=");
-        len -= strlen("COREDUMP_EXE=");
+        assert(len > STRLEN("COREDUMP_EXE="));
+        data += STRLEN("COREDUMP_EXE=");
+        len -= STRLEN("COREDUMP_EXE=");
 
         exe = strndup(data, len);
         if (!exe)
@@ -928,28 +961,19 @@ static int run_gdb(sd_journal *j) {
         /* Don't interfere with gdb and its handling of SIGINT. */
         (void) ignore_signals(SIGINT, -1);
 
-        pid = fork();
-        if (pid < 0) {
-                r = log_error_errno(errno, "Failed to fork(): %m");
+        fork_name = strjoina("(", arg_debugger, ")");
+
+        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+        if (r < 0)
                 goto finish;
-        }
-        if (pid == 0) {
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
-                execlp("gdb", "gdb", exe, path, NULL);
-
-                log_error_errno(errno, "Failed to invoke gdb: %m");
-                _exit(1);
+        if (r == 0) {
+                execlp(arg_debugger, arg_debugger, exe, "-c", path, NULL);
+                log_open();
+                log_error_errno(errno, "Failed to invoke %s: %m", arg_debugger);
+                _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate(pid, &st);
-        if (r < 0) {
-                log_error_errno(r, "Failed to wait for gdb: %m");
-                goto finish;
-        }
-
-        r = st.si_code == CLD_EXITED ? st.si_status : 255;
+        r = wait_for_terminate_and_check(arg_debugger, pid, WAIT_LOG_ABNORMAL);
 
 finish:
         (void) default_signals(SIGINT, -1);
@@ -1022,73 +1046,36 @@ static int check_units_active(void) {
         return c;
 }
 
+static int coredumpctl_main(int argc, char *argv[]) {
+
+        static const Verb verbs[] = {
+                { "list",  VERB_ANY, VERB_ANY, VERB_DEFAULT, dump_list },
+                { "info",  VERB_ANY, VERB_ANY, 0,            dump_list },
+                { "dump",  VERB_ANY, VERB_ANY, 0,            dump_core },
+                { "debug", VERB_ANY, VERB_ANY, 0,            run_debug },
+                { "gdb",   VERB_ANY, VERB_ANY, 0,            run_debug },
+                {}
+        };
+
+        return dispatch_verb(argc, argv, verbs, NULL);
+}
+
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_journal_closep) sd_journal*j = NULL;
-        int r = 0, units_active;
+        int r, units_active;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 
         r = parse_argv(argc, argv);
-        if (r < 0)
-                goto end;
-
-        if (arg_action == ACTION_NONE)
+        if (r <= 0)
                 goto end;
 
         sigbus_install();
 
-        if (arg_directory) {
-                r = sd_journal_open_directory(&j, arg_directory, 0);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to open journals in directory: %s: %m", arg_directory);
-                        goto end;
-                }
-        } else {
-                r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to open journal: %m");
-                        goto end;
-                }
-        }
-
-        r = journal_access_check_and_warn(j, arg_quiet);
-        if (r < 0)
-                goto end;
-
-        r = add_matches(j);
-        if (r < 0)
-                goto end;
-
-        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
-                _cleanup_free_ char *filter;
-
-                filter = journal_make_match_string(j);
-                log_debug("Journal filter: %s", filter);
-        }
-
         units_active = check_units_active(); /* error is treated the same as 0 */
 
-        switch(arg_action) {
-
-        case ACTION_LIST:
-        case ACTION_INFO:
-                pager_open(arg_no_pager, false);
-                r = dump_list(j);
-                break;
-
-        case ACTION_DUMP:
-                r = dump_core(j);
-                break;
-
-        case  ACTION_GDB:
-                r = run_gdb(j);
-                break;
-
-        default:
-                assert_not_reached("Shouldn't be here");
-        }
+        r = coredumpctl_main(argc, argv);
 
         if (units_active > 0)
                 printf("%s-- Notice: %d systemd-coredump@.service %s, output may be incomplete.%s\n",
@@ -1098,8 +1085,7 @@ int main(int argc, char *argv[]) {
 end:
         pager_close();
 
-        if (arg_output)
-                fclose(arg_output);
+        safe_fclose(arg_output);
 
         return r >= 0 ? r : EXIT_FAILURE;
 }

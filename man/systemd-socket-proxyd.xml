@@ -4,23 +4,6 @@
      "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 David Strauss
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 <refentry id="systemd-socket-proxyd"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -28,14 +11,6 @@
   <refentryinfo>
     <title>systemd-socket-proxyd</title>
     <productname>systemd</productname>
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>David</firstname>
-        <surname>Strauss</surname>
-        <email>david@davidstrauss.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
   <refmeta>
     <refentrytitle>systemd-socket-proxyd</refentrytitle>
@@ -124,7 +99,7 @@ Requires=proxy-to-nginx.socket
 After=proxy-to-nginx.socket
 
 [Service]
-ExecStart=/usr/lib/systemd/systemd-socket-proxyd /tmp/nginx.sock
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd /run/nginx/socket
 PrivateTmp=yes
 PrivateNetwork=yes]]></programlisting>
       </example>
@@ -133,7 +108,7 @@ PrivateNetwork=yes]]></programlisting>
         <programlisting>
 <![CDATA[[…]
 server {
-    listen       unix:/tmp/nginx.sock;
+    listen       unix:/run/nginx/socket;
     […]]]>
 </programlisting>
       </example>

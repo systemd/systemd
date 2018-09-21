@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <mntent.h>
@@ -87,18 +69,11 @@ int main(int argc, char *argv[]) {
 
                 log_debug("Remounting %s", me->mnt_dir);
 
-                pid = fork();
-                if (pid < 0) {
-                        r = log_error_errno(errno, "Failed to fork: %m");
+                r = safe_fork("(remount)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+                if (r < 0)
                         goto finish;
-                }
-
-                if (pid == 0) {
+                if (r == 0) {
                         /* Child */
-
-                        (void) reset_all_signal_handlers();
-                        (void) reset_signal_mask();
-                        (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
 
                         execv(MOUNT_PATH, STRV_MAKE(MOUNT_PATH, me->mnt_dir, "-o", "remount"));
 

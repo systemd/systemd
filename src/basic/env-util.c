@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <limits.h>
@@ -84,9 +66,9 @@ bool env_value_is_valid(const char *e) {
         if (!utf8_is_valid(e))
                 return false;
 
-        /* bash allows tabs in environment variables, and so should
-         * we */
-        if (string_has_cc(e, "\t"))
+        /* bash allows tabs and newlines in environment variables, and so
+         * should we */
+        if (string_has_cc(e, "\t\n"))
                 return false;
 
         /* POSIX says the overall size of the environment block cannot
@@ -209,11 +191,11 @@ static int env_append(char **r, char ***k, char **a) {
         return 0;
 }
 
-char **strv_env_merge(unsigned n_lists, ...) {
+char **strv_env_merge(size_t n_lists, ...) {
         size_t n = 0;
         char **l, **k, **r;
         va_list ap;
-        unsigned i;
+        size_t i;
 
         /* Merges an arbitrary number of environment sets */
 
@@ -288,7 +270,7 @@ static bool env_entry_has_name(const char *entry, const char *name) {
         return *t == '=';
 }
 
-char **strv_env_delete(char **x, unsigned n_lists, ...) {
+char **strv_env_delete(char **x, size_t n_lists, ...) {
         size_t n, i = 0;
         char **k, **r;
         va_list ap;
@@ -303,7 +285,7 @@ char **strv_env_delete(char **x, unsigned n_lists, ...) {
                 return NULL;
 
         STRV_FOREACH(k, x) {
-                unsigned v;
+                size_t v;
 
                 va_start(ap, n_lists);
                 for (v = 0; v < n_lists; v++) {
@@ -430,7 +412,8 @@ int strv_env_replace(char ***l, char *p) {
 
 char **strv_env_set(char **x, const char *p) {
 
-        char **k, **r;
+        char **k;
+        _cleanup_strv_free_ char **r = NULL;
         char* m[2] = { (char*) p, NULL };
 
         /* Overrides the env var setting of p, returns a new copy */
@@ -441,18 +424,14 @@ char **strv_env_set(char **x, const char *p) {
 
         k = r;
         if (env_append(r, &k, x) < 0)
-                goto fail;
+                return NULL;
 
         if (env_append(r, &k, m) < 0)
-                goto fail;
+                return NULL;
 
         *k = NULL;
 
-        return r;
-
-fail:
-        strv_free(r);
-        return NULL;
+        return TAKE_PTR(r);
 }
 
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
@@ -539,8 +518,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
         assert(format);
 
-        for (e = format, i = 0; *e && i < n; e ++, i ++) {
-
+        for (e = format, i = 0; *e && i < n; e ++, i ++)
                 switch (state) {
 
                 case WORD:
@@ -554,8 +532,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 if (!k)
                                         return NULL;
 
-                                free(r);
-                                r = k;
+                                free_and_replace(r, k);
 
                                 word = e-1;
                                 state = VARIABLE;
@@ -565,8 +542,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 if (!k)
                                         return NULL;
 
-                                free(r);
-                                r = k;
+                                free_and_replace(r, k);
 
                                 word = e+1;
                                 state = WORD;
@@ -576,8 +552,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 if (!k)
                                         return NULL;
 
-                                free(r);
-                                r = k;
+                                free_and_replace(r, k);
 
                                 word = e-1;
                                 state = VARIABLE_RAW;
@@ -596,8 +571,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 if (!k)
                                         return NULL;
 
-                                free(r);
-                                r = k;
+                                free_and_replace(r, k);
 
                                 word = e+1;
                                 state = WORD;
@@ -653,8 +627,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 if (!k)
                                         return NULL;
 
-                                free(r);
-                                r = k;
+                                free_and_replace(r, k);
 
                                 word = e+1;
                                 state = WORD;
@@ -673,8 +646,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 if (!k)
                                         return NULL;
 
-                                free(r);
-                                r = k;
+                                free_and_replace(r, k);
 
                                 word = e--;
                                 i--;
@@ -682,7 +654,6 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                         }
                         break;
                 }
-        }
 
         if (state == VARIABLE_RAW) {
                 const char *t;
@@ -697,7 +668,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
 char **replace_env_argv(char **argv, char **env) {
         char **ret, **i;
-        unsigned k = 0, l = 0;
+        size_t k = 0, l = 0;
 
         l = strv_length(argv);
 
@@ -711,7 +682,7 @@ char **replace_env_argv(char **argv, char **env) {
                 if ((*i)[0] == '$' && !IN_SET((*i)[1], '{', '$')) {
                         char *e;
                         char **w, **m = NULL;
-                        unsigned q;
+                        size_t q;
 
                         e = strv_env_get(env, *i+1);
                         if (e) {
@@ -729,7 +700,7 @@ char **replace_env_argv(char **argv, char **env) {
                         q = strv_length(m);
                         l = l + q - 1;
 
-                        w = realloc(ret, sizeof(char*) * (l+1));
+                        w = reallocarray(ret, l + 1, sizeof(char *));
                         if (!w) {
                                 ret[k] = NULL;
                                 strv_free(ret);

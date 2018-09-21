@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="hostnamectl" conditional='ENABLE_HOSTNAMED'
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>hostnamectl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -121,6 +95,10 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
 
     <para>The following commands are understood:</para>
 
@@ -128,9 +106,8 @@
       <varlistentry>
         <term><command>status</command></term>
 
-        <listitem><para>Show current system
-        hostname and related
-        information.</para></listitem>
+        <listitem><para>Show current system hostname and related information. If no command is specified,
+        this is the implied default.</para></listitem>
       </varlistentry>
 
       <varlistentry>

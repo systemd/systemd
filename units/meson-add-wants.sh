@@ -1,4 +1,5 @@
-#!/bin/sh -eu
+#!/bin/sh
+set -eu
 
 unitdir="$1"
 target="$2"
@@ -17,10 +18,10 @@ unitpath="${DESTDIR:-}${unitdir}/${unit}"
 
 case "$target" in
         */)
-                mkdir -p -m 0755 "$dir"
+                mkdir -vp -m 0755 "$dir"
                 ;;
         *)
-                mkdir -p -m 0755 "$(basename "$dir")"
+                mkdir -vp -m 0755 "$(dirname "$dir")"
                 ;;
 esac
 

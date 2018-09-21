@@ -1,28 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <endian.h>
 
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-dhcp-client.h"
 #include "sd-dhcp-server.h"
 #include "sd-dhcp6-client.h"
@@ -62,11 +44,12 @@ typedef enum LinkOperationalState {
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Address Address;
+typedef struct DUID DUID;
 
 typedef struct Link {
         Manager *manager;
 
-        int n_ref;
+        unsigned n_ref;
 
         int ifindex;
         char *ifname;
@@ -76,7 +59,7 @@ typedef struct Link {
         struct ether_addr mac;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
-        struct udev_device *udev_device;
+        sd_device *sd_device;
 
         unsigned flags;
         uint8_t kernel_operstate;
@@ -86,7 +69,11 @@ typedef struct Link {
         LinkState state;
         LinkOperationalState operstate;
 
-        unsigned link_messages;
+        unsigned address_messages;
+        unsigned address_label_messages;
+        unsigned route_messages;
+        unsigned routing_policy_rule_messages;
+        unsigned routing_policy_rule_remove_messages;
         unsigned enslaving;
 
         Set *addresses;
@@ -97,7 +84,7 @@ typedef struct Link {
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
         char *lease_file;
-        uint16_t original_mtu;
+        uint32_t original_mtu;
         unsigned dhcp4_messages;
         bool dhcp4_configured;
         bool dhcp6_configured;
@@ -109,7 +96,8 @@ typedef struct Link {
         bool ipv4ll_address:1;
         bool ipv4ll_route:1;
 
-        bool static_configured;
+        bool static_routes_configured;
+        bool routing_policy_rules_configured;
         bool setting_mtu;
 
         LIST_HEAD(Address, pool_addresses);
@@ -137,6 +125,9 @@ typedef struct Link {
         Hashmap *bound_to_links;
 } Link;
 
+DUID *link_get_duid(Link *link);
+int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
+
 Link *link_unref(Link *link);
 Link *link_ref(Link *link);
 int link_get(Manager *m, int ifindex, Link **ret);
@@ -150,7 +141,7 @@ int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
 int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
 
 void link_enter_failed(Link *link);
-int link_initialized(Link *link, struct udev_device *device);
+int link_initialized(Link *link, sd_device *device);
 
 void link_check_ready(Link *link);
 
@@ -170,6 +161,7 @@ int link_set_mtu(Link *link, uint32_t mtu);
 
 int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
+int dhcp4_set_client_identifier(Link *link);
 int dhcp4_set_promote_secondaries(Link *link);
 int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link, int ir);
@@ -187,7 +179,6 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
 int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
-#define _cleanup_link_unref_ _cleanup_(link_unrefp)
 
 /* Macros which append INTERFACE= to the message */
 

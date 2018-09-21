@@ -1,21 +1,29 @@
+[Unit]
+Description=Test for specifiers
+
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/test %n = exec-specifier.service
-ExecStart=/usr/bin/test %N = exec-specifier
-ExecStart=/usr/bin/test %p = exec-specifier
-ExecStart=/usr/bin/test %P = exec/specifier
-ExecStart=/usr/bin/test %i = ""
-ExecStart=/usr/bin/test %I = ""
-ExecStart=/usr/bin/test %f = /exec/specifier
-ExecStart=/usr/bin/test %t = /run
-ExecStart=/usr/bin/test %S = /var/lib
-ExecStart=/usr/bin/test %C = /var/cache
-ExecStart=/usr/bin/test %L = /var/log
-ExecStart=/bin/sh -c 'test %u = $$(id -un 0)'
-ExecStart=/usr/bin/test %U = 0
-ExecStart=/bin/sh -c 'test %h = $$(getent passwd 0 | cut -d: -f 6)
-ExecStart=/bin/sh -c 'test %s = $$(getent passwd 0 | cut -d: -f 7)
-ExecStart=/bin/sh -c 'test %m = $$(cat /etc/machine-id)'
-ExecStart=/bin/sh -c 'test %b = $$(cat /proc/sys/kernel/random/boot_id | sed -e 's/-//g')'
-ExecStart=/bin/sh -c 'test %H = $$(hostname)'
-ExecStart=/bin/sh -c 'test %v = $$(uname -r)'
+ExecStart=test %n = exec-specifier.service
+ExecStart=test %N = exec-specifier
+ExecStart=test %p = exec-specifier
+ExecStart=test %P = exec/specifier
+ExecStart=test %i = ""
+ExecStart=test %I = ""
+ExecStart=test %j = specifier
+ExecStart=test %J = specifier
+ExecStart=test %f = /exec/specifier
+ExecStart=test %t = /run
+ExecStart=test %S = /var/lib
+ExecStart=test %C = /var/cache
+ExecStart=test %L = /var/log
+ExecStart=test %E = /etc
+ExecStart=test %T = /tmp
+ExecStart=test %V = /var/tmp
+ExecStart=sh -c 'test %u = $$(id -un 0)'
+ExecStart=test %U = 0
+ExecStart=sh -c 'test %h = $$(getent passwd 0 | cut -d: -f 6)'
+ExecStart=sh -c 'test %s = /bin/sh'
+ExecStart=sh -c 'test %m = $$(cat /etc/machine-id)'
+ExecStart=sh -c 'test %b = $$(cat /proc/sys/kernel/random/boot_id | sed -e 's/-//g')'
+ExecStart=sh -c 'test %H = $$(hostname)'
+ExecStart=sh -c 'test %v = $$(uname -r)'

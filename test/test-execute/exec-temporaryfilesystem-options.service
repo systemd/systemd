@@ -1,0 +1,16 @@
+[Unit]
+Description=Test for TemporaryFileSystem with mount options
+
+[Service]
+Type=oneshot
+
+# The mount options default to "mode=0755,nodev,strictatime".
+# Let's override some of them, and test "ro".
+TemporaryFileSystem=/var:ro,mode=0700,nostrictatime
+
+# Check /proc/self/mountinfo
+ExecStart=/bin/sh -x -c 'test "$$(awk \'$$5 == "/var" && $$11 !~ /(^|,)mode=700(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'
+
+ExecStart=/bin/sh -x -c 'test "$$(awk \'$$5 == "/var" && $$6 !~ /(^|,)ro(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'
+ExecStart=/bin/sh -x -c 'test "$$(awk \'$$5 == "/var" && $$6 !~ /(^|,)nodev(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'
+ExecStart=/bin/sh -x -c 'test "$$(awk \'$$5 == "/var" && $$6 ~ /(^|,)strictatime(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'

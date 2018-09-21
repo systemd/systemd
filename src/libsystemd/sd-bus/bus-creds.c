@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <linux/capability.h>
 #include <stdlib.h>
@@ -129,7 +111,6 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                 sd_bus_message_unref(m);
         }
 
-
         return NULL;
 }
 
@@ -221,7 +202,6 @@ _public_ int sd_bus_creds_get_suid(sd_bus_creds *c, uid_t *suid) {
         *suid = c->suid;
         return 0;
 }
-
 
 _public_ int sd_bus_creds_get_fsuid(sd_bus_creds *c, uid_t *fsuid) {
         assert_return(c, -EINVAL);
@@ -1344,7 +1324,7 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         if (r < 0)
                 return r;
 
-        *ret = n;
-        n = NULL;
+        *ret = TAKE_PTR(n);
+
         return 0;
 }

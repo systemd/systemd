@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <alloca.h>
 #include <errno.h>
@@ -105,27 +87,40 @@ char *getusername_malloc(void) {
         return uid_to_name(getuid());
 }
 
-int get_user_creds(
+static inline bool is_nologin_shell(const char *shell) {
+
+        return PATH_IN_SET(shell,
+                           /* 'nologin' is the friendliest way to disable logins for a user account. It prints a nice
+                            * message and exits. Different distributions place the binary at different places though,
+                            * hence let's list them all. */
+                           "/bin/nologin",
+                           "/sbin/nologin",
+                           "/usr/bin/nologin",
+                           "/usr/sbin/nologin",
+                           /* 'true' and 'false' work too for the same purpose, but are less friendly as they don't do
+                            * any message printing. Different distributions place the binary at various places but at
+                            * least not in the 'sbin' directory. */
+                           "/bin/false",
+                           "/usr/bin/false",
+                           "/bin/true",
+                           "/usr/bin/true");
+}
+
+static int synthesize_user_creds(
                 const char **username,
                 uid_t *uid, gid_t *gid,
                 const char **home,
-                const char **shell) {
+                const char **shell,
+                UserCredsFlags flags) {
 
-        struct passwd *p;
-        uid_t u;
+        /* We enforce some special rules for uid=0 and uid=65534: in order to avoid NSS lookups for root we hardcode
+         * their user record data. */
 
-        assert(username);
-        assert(*username);
-
-        /* We enforce some special rules for uid=0: in order to avoid
-         * NSS lookups for root we hardcode its data. */
-
-        if (streq(*username, "root") || streq(*username, "0")) {
+        if (STR_IN_SET(*username, "root", "0")) {
                 *username = "root";
 
                 if (uid)
                         *uid = 0;
-
                 if (gid)
                         *gid = 0;
 
@@ -138,24 +133,95 @@ int get_user_creds(
                 return 0;
         }
 
+        if (synthesize_nobody() &&
+            STR_IN_SET(*username, NOBODY_USER_NAME, "65534")) {
+                *username = NOBODY_USER_NAME;
+
+                if (uid)
+                        *uid = UID_NOBODY;
+                if (gid)
+                        *gid = GID_NOBODY;
+
+                if (home)
+                        *home = FLAGS_SET(flags, USER_CREDS_CLEAN) ? NULL : "/";
+
+                if (shell)
+                        *shell = FLAGS_SET(flags, USER_CREDS_CLEAN) ? NULL : "/sbin/nologin";
+
+                return 0;
+        }
+
+        return -ENOMEDIUM;
+}
+
+int get_user_creds(
+                const char **username,
+                uid_t *uid, gid_t *gid,
+                const char **home,
+                const char **shell,
+                UserCredsFlags flags) {
+
+        uid_t u = UID_INVALID;
+        struct passwd *p;
+        int r;
+
+        assert(username);
+        assert(*username);
+
+        if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS) ||
+            (!home && !shell)) {
+
+                /* So here's the deal: normally, we'll try to synthesize all records we can synthesize, and override
+                 * the user database with that. However, if the user specifies USER_CREDS_PREFER_NSS then the
+                 * user database will override the synthetic records instead — except if the user is only interested in
+                 * the UID and/or GID (but not the home directory, or the shell), in which case we'll always override
+                 * the user database (i.e. the USER_CREDS_PREFER_NSS flag has no effect in this case). Why?
+                 * Simply because there are valid usecase where the user might change the home directory or the shell
+                 * of the relevant users, but changing the UID/GID mappings for them is something we explicitly don't
+                 * support. */
+
+                r = synthesize_user_creds(username, uid, gid, home, shell, flags);
+                if (r >= 0)
+                        return 0;
+                if (r != -ENOMEDIUM) /* not a username we can synthesize */
+                        return r;
+        }
+
         if (parse_uid(*username, &u) >= 0) {
                 errno = 0;
                 p = getpwuid(u);
 
-                /* If there are multiple users with the same id, make
-                 * sure to leave $USER to the configured value instead
-                 * of the first occurrence in the database. However if
-                 * the uid was configured by a numeric uid, then let's
-                 * pick the real username from /etc/passwd. */
+                /* If there are multiple users with the same id, make sure to leave $USER to the configured value
+                 * instead of the first occurrence in the database. However if the uid was configured by a numeric uid,
+                 * then let's pick the real username from /etc/passwd. */
                 if (p)
                         *username = p->pw_name;
+                else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING) && !gid && !home && !shell) {
+
+                        /* If the specified user is a numeric UID and it isn't in the user database, and the caller
+                         * passed USER_CREDS_ALLOW_MISSING and was only interested in the UID, then juts return that
+                         * and don't complain. */
+
+                        if (uid)
+                                *uid = u;
+
+                        return 0;
+                }
         } else {
                 errno = 0;
                 p = getpwnam(*username);
         }
+        if (!p) {
+                r = errno > 0 ? -errno : -ESRCH;
 
-        if (!p)
-                return errno > 0 ? -errno : -ESRCH;
+                /* If the user requested that we only synthesize as fallback, do so now */
+                if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS)) {
+                        if (synthesize_user_creds(username, uid, gid, home, shell, flags) >= 0)
+                                return 0;
+                }
+
+                return r;
+        }
 
         if (uid) {
                 if (!uid_is_valid(p->pw_uid))
@@ -171,58 +237,46 @@ int get_user_creds(
                 *gid = p->pw_gid;
         }
 
-        if (home)
-                *home = p->pw_dir;
+        if (home) {
+                if (FLAGS_SET(flags, USER_CREDS_CLEAN) && empty_or_root(p->pw_dir))
+                        *home = NULL;
+                else
+                        *home = p->pw_dir;
+        }
 
-        if (shell)
-                *shell = p->pw_shell;
-
-        return 0;
-}
-
-int get_user_creds_clean(
-                const char **username,
-                uid_t *uid, gid_t *gid,
-                const char **home,
-                const char **shell) {
-
-        int r;
-
-        /* Like get_user_creds(), but resets home/shell to NULL if they don't contain anything relevant. */
-
-        r = get_user_creds(username, uid, gid, home, shell);
-        if (r < 0)
-                return r;
-
-        if (shell &&
-            (isempty(*shell) || PATH_IN_SET(*shell,
-                                            "/bin/nologin",
-                                            "/sbin/nologin",
-                                            "/usr/bin/nologin",
-                                            "/usr/sbin/nologin")))
-                *shell = NULL;
-
-        if (home &&
-            (isempty(*home) || path_equal(*home, "/")))
-                *home = NULL;
+        if (shell) {
+                if (FLAGS_SET(flags, USER_CREDS_CLEAN) && (isempty(p->pw_shell) || is_nologin_shell(p->pw_shell)))
+                        *shell = NULL;
+                else
+                        *shell = p->pw_shell;
+        }
 
         return 0;
 }
 
-int get_group_creds(const char **groupname, gid_t *gid) {
+int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
         struct group *g;
         gid_t id;
 
         assert(groupname);
 
-        /* We enforce some special rules for gid=0: in order to avoid
-         * NSS lookups for root we hardcode its data. */
+        /* We enforce some special rules for gid=0: in order to avoid NSS lookups for root we hardcode its data. */
 
-        if (streq(*groupname, "root") || streq(*groupname, "0")) {
+        if (STR_IN_SET(*groupname, "root", "0")) {
                 *groupname = "root";
 
                 if (gid)
                         *gid = 0;
+
+                return 0;
+        }
+
+        if (synthesize_nobody() &&
+            STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534")) {
+                *groupname = NOBODY_GROUP_NAME;
+
+                if (gid)
+                        *gid = GID_NOBODY;
 
                 return 0;
         }
@@ -233,6 +287,12 @@ int get_group_creds(const char **groupname, gid_t *gid) {
 
                 if (g)
                         *groupname = g->gr_name;
+                else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING)) {
+                        if (gid)
+                                *gid = id;
+
+                        return 0;
+                }
         } else {
                 errno = 0;
                 g = getgrnam(*groupname);
@@ -258,6 +318,9 @@ char* uid_to_name(uid_t uid) {
         /* Shortcut things to avoid NSS lookups */
         if (uid == 0)
                 return strdup("root");
+        if (synthesize_nobody() &&
+            uid == UID_NOBODY)
+                return strdup(NOBODY_USER_NAME);
 
         if (uid_is_valid(uid)) {
                 long bufsize;
@@ -296,6 +359,9 @@ char* gid_to_name(gid_t gid) {
 
         if (gid == 0)
                 return strdup("root");
+        if (synthesize_nobody() &&
+            gid == GID_NOBODY)
+                return strdup(NOBODY_GROUP_NAME);
 
         if (gid_is_valid(gid)) {
                 long bufsize;
@@ -329,8 +395,9 @@ char* gid_to_name(gid_t gid) {
 }
 
 int in_gid(gid_t gid) {
+        long ngroups_max;
         gid_t *gids;
-        int ngroups_max, r, i;
+        int r, i;
 
         if (getgid() == gid)
                 return 1;
@@ -344,7 +411,7 @@ int in_gid(gid_t gid) {
         ngroups_max = sysconf(_SC_NGROUPS_MAX);
         assert(ngroups_max > 0);
 
-        gids = alloca(sizeof(gid_t) * ngroups_max);
+        gids = newa(gid_t, ngroups_max);
 
         r = getgroups(ngroups_max, gids);
         if (r < 0)
@@ -361,7 +428,7 @@ int in_group(const char *name) {
         int r;
         gid_t gid;
 
-        r = get_group_creds(&name, &gid);
+        r = get_group_creds(&name, &gid, 0);
         if (r < 0)
                 return r;
 
@@ -387,10 +454,19 @@ int get_home_dir(char **_h) {
                 return 0;
         }
 
-        /* Hardcode home directory for root to avoid NSS */
+        /* Hardcode home directory for root and nobody to avoid NSS */
         u = getuid();
         if (u == 0) {
                 h = strdup("/root");
+                if (!h)
+                        return -ENOMEM;
+
+                *_h = h;
+                return 0;
+        }
+        if (synthesize_nobody() &&
+            u == UID_NOBODY) {
+                h = strdup("/");
                 if (!h)
                         return -ENOMEM;
 
@@ -434,10 +510,19 @@ int get_shell(char **_s) {
                 return 0;
         }
 
-        /* Hardcode home directory for root to avoid NSS */
+        /* Hardcode shell for root and nobody to avoid NSS */
         u = getuid();
         if (u == 0) {
                 s = strdup("/bin/sh");
+                if (!s)
+                        return -ENOMEM;
+
+                *_s = s;
+                return 0;
+        }
+        if (synthesize_nobody() &&
+            u == UID_NOBODY) {
+                s = strdup("/sbin/nologin");
                 if (!s)
                         return -ENOMEM;
 
@@ -501,18 +586,18 @@ int take_etc_passwd_lock(const char *root) {
          * awfully racy, and thus we just won't do them. */
 
         if (root)
-                path = prefix_roota(root, "/etc/.pwd.lock");
+                path = prefix_roota(root, ETC_PASSWD_LOCK_PATH);
         else
-                path = "/etc/.pwd.lock";
+                path = ETC_PASSWD_LOCK_PATH;
 
         fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
         if (fd < 0)
-                return -errno;
+                return log_debug_errno(errno, "Cannot open %s: %m", path);
 
         r = fcntl(fd, F_SETLKW, &flock);
         if (r < 0) {
                 safe_close(fd);
-                return -errno;
+                return log_debug_errno(errno, "Locking %s failed: %m", path);
         }
 
         return fd;
@@ -593,6 +678,8 @@ bool valid_gecos(const char *d) {
 }
 
 bool valid_home(const char *p) {
+        /* Note that this function is also called by valid_shell(), any
+         * changes must account for that. */
 
         if (isempty(p))
                 return false;
@@ -644,3 +731,132 @@ int maybe_setgroups(size_t size, const gid_t *list) {
 
         return 0;
 }
+
+bool synthesize_nobody(void) {
+
+#ifdef NOLEGACY
+        return true;
+#else
+        /* Returns true when we shall synthesize the "nobody" user (which we do by default). This can be turned off by
+         * touching /etc/systemd/dont-synthesize-nobody in order to provide upgrade compatibility with legacy systems
+         * that used the "nobody" user name and group name for other UIDs/GIDs than 65534.
+         *
+         * Note that we do not employ any kind of synchronization on the following caching variable. If the variable is
+         * accessed in multi-threaded programs in the worst case it might happen that we initialize twice, but that
+         * shouldn't matter as each initialization should come to the same result. */
+        static int cache = -1;
+
+        if (cache < 0)
+                cache = access("/etc/systemd/dont-synthesize-nobody", F_OK) < 0;
+
+        return cache;
+#endif
+}
+
+int putpwent_sane(const struct passwd *pw, FILE *stream) {
+        assert(pw);
+        assert(stream);
+
+        errno = 0;
+        if (putpwent(pw, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+int putspent_sane(const struct spwd *sp, FILE *stream) {
+        assert(sp);
+        assert(stream);
+
+        errno = 0;
+        if (putspent(sp, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+int putgrent_sane(const struct group *gr, FILE *stream) {
+        assert(gr);
+        assert(stream);
+
+        errno = 0;
+        if (putgrent(gr, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+#if ENABLE_GSHADOW
+int putsgent_sane(const struct sgrp *sg, FILE *stream) {
+        assert(sg);
+        assert(stream);
+
+        errno = 0;
+        if (putsgent(sg, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+#endif
+
+int fgetpwent_sane(FILE *stream, struct passwd **pw) {
+        struct passwd *p;
+
+        assert(pw);
+        assert(stream);
+
+        errno = 0;
+        p = fgetpwent(stream);
+        if (!p && errno != ENOENT)
+                return errno > 0 ? -errno : -EIO;
+
+        *pw = p;
+        return !!p;
+}
+
+int fgetspent_sane(FILE *stream, struct spwd **sp) {
+        struct spwd *s;
+
+        assert(sp);
+        assert(stream);
+
+        errno = 0;
+        s = fgetspent(stream);
+        if (!s && errno != ENOENT)
+                return errno > 0 ? -errno : -EIO;
+
+        *sp = s;
+        return !!s;
+}
+
+int fgetgrent_sane(FILE *stream, struct group **gr) {
+        struct group *g;
+
+        assert(gr);
+        assert(stream);
+
+        errno = 0;
+        g = fgetgrent(stream);
+        if (!g && errno != ENOENT)
+                return errno > 0 ? -errno : -EIO;
+
+        *gr = g;
+        return !!g;
+}
+
+#if ENABLE_GSHADOW
+int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
+        struct sgrp *s;
+
+        assert(sg);
+        assert(stream);
+
+        errno = 0;
+        s = fgetsgent(stream);
+        if (!s && errno != ENOENT)
+                return errno > 0 ? -errno : -EIO;
+
+        *sg = s;
+        return !!s;
+}
+#endif

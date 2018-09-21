@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fnmatch.h>
@@ -120,8 +102,8 @@ char **strv_copy(char * const *l) {
         return r;
 }
 
-unsigned strv_length(char * const *l) {
-        unsigned n = 0;
+size_t strv_length(char * const *l) {
+        size_t n = 0;
 
         if (!l)
                 return 0;
@@ -134,8 +116,8 @@ unsigned strv_length(char * const *l) {
 
 char **strv_new_ap(const char *x, va_list ap) {
         const char *s;
-        char **a;
-        unsigned n = 0, i = 0;
+        _cleanup_strv_free_ char **a = NULL;
+        size_t n = 0, i = 0;
         va_list aq;
 
         /* As a special trick we ignore all listed strings that equal
@@ -165,7 +147,7 @@ char **strv_new_ap(const char *x, va_list ap) {
                 if (x != STRV_IGNORE) {
                         a[i] = strdup(x);
                         if (!a[i])
-                                goto fail;
+                                return NULL;
                         i++;
                 }
 
@@ -176,7 +158,7 @@ char **strv_new_ap(const char *x, va_list ap) {
 
                         a[i] = strdup(s);
                         if (!a[i])
-                                goto fail;
+                                return NULL;
 
                         i++;
                 }
@@ -184,11 +166,7 @@ char **strv_new_ap(const char *x, va_list ap) {
 
         a[i] = NULL;
 
-        return a;
-
-fail:
-        strv_free(a);
-        return NULL;
+        return TAKE_PTR(a);
 }
 
 char **strv_new(const char *x, ...) {
@@ -214,7 +192,7 @@ int strv_extend_strv(char ***a, char **b, bool filter_duplicates) {
         p = strv_length(*a);
         q = strv_length(b);
 
-        t = realloc(*a, sizeof(char*) * (p + q + 1));
+        t = reallocarray(*a, p + q + 1, sizeof(char *));
         if (!t)
                 return -ENOMEM;
 
@@ -270,10 +248,14 @@ int strv_extend_strv_concat(char ***a, char **b, const char *suffix) {
 char **strv_split(const char *s, const char *separator) {
         const char *word, *state;
         size_t l;
-        unsigned n, i;
+        size_t n, i;
         char **r;
 
         assert(s);
+
+        s += strspn(s, separator);
+        if (isempty(s))
+                return new0(char*, 1);
 
         n = 0;
         FOREACH_WORD_SEPARATOR(word, l, s, separator, state)
@@ -300,7 +282,7 @@ char **strv_split(const char *s, const char *separator) {
 
 char **strv_split_newlines(const char *s) {
         char **l;
-        unsigned n;
+        size_t n;
 
         assert(s);
 
@@ -341,8 +323,7 @@ int strv_split_extract(char ***t, const char *s, const char *separators, Extract
                 if (!GREEDY_REALLOC(l, allocated, n + 2))
                         return -ENOMEM;
 
-                l[n++] = word;
-                word = NULL;
+                l[n++] = TAKE_PTR(word);
 
                 l[n] = NULL;
         }
@@ -353,8 +334,7 @@ int strv_split_extract(char ***t, const char *s, const char *separators, Extract
                         return -ENOMEM;
         }
 
-        *t = l;
-        l = NULL;
+        *t = TAKE_PTR(l);
 
         return (int) n;
 }
@@ -393,45 +373,9 @@ char *strv_join(char **l, const char *separator) {
         return r;
 }
 
-char *strv_join_quoted(char **l) {
-        char *buf = NULL;
-        char **s;
-        size_t allocated = 0, len = 0;
-
-        STRV_FOREACH(s, l) {
-                /* assuming here that escaped string cannot be more
-                 * than twice as long, and reserving space for the
-                 * separator and quotes.
-                 */
-                _cleanup_free_ char *esc = NULL;
-                size_t needed;
-
-                if (!GREEDY_REALLOC(buf, allocated,
-                                    len + strlen(*s) * 2 + 3))
-                        goto oom;
-
-                esc = cescape(*s);
-                if (!esc)
-                        goto oom;
-
-                needed = snprintf(buf + len, allocated - len, "%s\"%s\"",
-                                  len > 0 ? " " : "", esc);
-                assert(needed < allocated - len);
-                len += needed;
-        }
-
-        if (!buf)
-                buf = malloc0(1);
-
-        return buf;
-
- oom:
-        return mfree(buf);
-}
-
 int strv_push(char ***l, char *value) {
         char **c;
-        unsigned n, m;
+        size_t n, m;
 
         if (!value)
                 return 0;
@@ -443,7 +387,7 @@ int strv_push(char ***l, char *value) {
         if (m < n)
                 return -ENOMEM;
 
-        c = realloc_multiply(*l, sizeof(char*), m);
+        c = reallocarray(*l, m, sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -456,7 +400,7 @@ int strv_push(char ***l, char *value) {
 
 int strv_push_pair(char ***l, char *a, char *b) {
         char **c;
-        unsigned n, m;
+        size_t n, m;
 
         if (!a && !b)
                 return 0;
@@ -468,7 +412,7 @@ int strv_push_pair(char ***l, char *a, char *b) {
         if (m < n)
                 return -ENOMEM;
 
-        c = realloc_multiply(*l, sizeof(char*), m);
+        c = reallocarray(*l, m, sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -482,14 +426,15 @@ int strv_push_pair(char ***l, char *a, char *b) {
         return 0;
 }
 
-int strv_push_prepend(char ***l, char *value) {
+int strv_insert(char ***l, size_t position, char *value) {
         char **c;
-        unsigned n, m, i;
+        size_t n, m, i;
 
         if (!value)
                 return 0;
 
         n = strv_length(*l);
+        position = MIN(position, n);
 
         /* increase and check for overflow */
         m = n + 2;
@@ -500,10 +445,12 @@ int strv_push_prepend(char ***l, char *value) {
         if (!c)
                 return -ENOMEM;
 
-        for (i = 0; i < n; i++)
+        for (i = 0; i < position; i++)
+                c[i] = (*l)[i];
+        c[position] = value;
+        for (i = position; i < n; i++)
                 c[i+1] = (*l)[i];
 
-        c[0] = value;
         c[n+1] = NULL;
 
         free(*l);
@@ -579,7 +526,7 @@ int strv_extend_front(char ***l, const char *value) {
         if (!v)
                 return -ENOMEM;
 
-        c = realloc_multiply(*l, sizeof(char*), m);
+        c = reallocarray(*l, m, sizeof(char*));
         if (!c) {
                 free(v);
                 return -ENOMEM;
@@ -649,7 +596,7 @@ char **strv_parse_nulstr(const char *s, size_t l) {
          */
 
         const char *p;
-        unsigned c = 0, i = 0;
+        size_t c = 0, i = 0;
         char **v;
 
         assert(s || l <= 0);
@@ -764,14 +711,12 @@ bool strv_overlap(char **a, char **b) {
         return false;
 }
 
-static int str_compare(const void *_a, const void *_b) {
-        const char **a = (const char**) _a, **b = (const char**) _b;
-
+static int str_compare(char * const *a, char * const *b) {
         return strcmp(*a, *b);
 }
 
 char **strv_sort(char **l) {
-        qsort_safe(l, strv_length(l), sizeof(char*), str_compare);
+        typesafe_qsort(l, strv_length(l), str_compare);
         return l;
 }
 
@@ -813,7 +758,7 @@ int strv_extendf(char ***l, const char *format, ...) {
 }
 
 char **strv_reverse(char **l) {
-        unsigned n, i;
+        size_t n, i;
 
         n = strv_length(l);
         if (n <= 1)
@@ -894,7 +839,7 @@ int strv_extend_n(char ***l, const char *value, size_t n) {
 
         k = strv_length(*l);
 
-        nl = realloc(*l, sizeof(char*) * (k + n + 1));
+        nl = reallocarray(*l, k + n + 1, sizeof(char *));
         if (!nl)
                 return -ENOMEM;
 

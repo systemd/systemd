@@ -3,7 +3,6 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2014 Thomas H.P. Andersen
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -30,13 +29,21 @@ __get_machines() {
         machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
+__get_units_have_cgroup() {
+        systemctl $1 list-units | {
+                while read -r a b c d; do
+                        [[ $c == "active" && ${a##*.} =~ (service|socket|mount|swap|slice|scope) ]] && echo " $a"
+                done
+        };
+}
+
 _systemd_cgls() {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local i verb comps
 
         local -A OPTS=(
                [STANDALONE]='-h --help --version --all -l --full -k --no-pager'
-                      [ARG]='-M --machine'
+                      [ARG]='-M --machine -u --unit --user-unit'
         )
 
         _init_completion || return
@@ -45,6 +52,12 @@ _systemd_cgls() {
                 case $prev in
                         --machine|-M)
                                 comps=$( __get_machines )
+                        ;;
+                        --unit|-u)
+                                comps=$( __get_units_have_cgroup --system )
+                        ;;
+                        --user-unit)
+                                comps=$( __get_units_have_cgroup --user )
                         ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

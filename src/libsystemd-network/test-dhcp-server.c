@@ -1,22 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
-  Copyright (C) 2014 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
 #include <errno.h>
@@ -25,6 +9,7 @@
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "tests.h"
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
@@ -70,9 +55,8 @@ static int test_basic(sd_event *event) {
         test_pool(&address_lo, 1, 0);
 
         r = sd_dhcp_server_start(server);
-
         if (r == -EPERM)
-                return EXIT_TEST_SKIP;
+                return log_info_errno(r, "sd_dhcp_server_start failed: %m");
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_server_start(server) == -EBUSY);
@@ -245,15 +229,13 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(sd_event_new(&e) >= 0);
 
         r = test_basic(e);
         if (r != 0)
-                return r;
+                return log_tests_skipped("cannot start dhcp server");
 
         test_message_handler();
         test_client_id_hash();

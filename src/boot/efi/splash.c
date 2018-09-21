@@ -1,18 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/*
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * Copyright (C) 2012-2013 Kay Sievers <kay@vrfy.org>
- * Copyright (C) 2012 Harald Hoyer <harald@redhat.com>
- */
 
 #include <efi.h>
 #include <efilib.h>
@@ -260,7 +246,7 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         struct bmp_map *map;
         UINT8 *pixmap;
         UINT64 blt_size;
-        VOID *blt = NULL;
+        _cleanup_freepool_ VOID *blt = NULL;
         UINTN x_pos = 0;
         UINTN y_pos = 0;
         EFI_STATUS err;
@@ -280,7 +266,7 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
 
         err = bmp_parse_header(content, len, &dib, &map, &pixmap);
         if (EFI_ERROR(err))
-                goto err;
+                return err;
 
         if (dib->x < GraphicsOutput->Mode->Info->HorizontalResolution)
                 x_pos = (GraphicsOutput->Mode->Info->HorizontalResolution - dib->x) / 2;
@@ -303,20 +289,17 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
                                 blt, EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0,
                                 dib->x, dib->y, 0);
         if (EFI_ERROR(err))
-                goto err;
+                return err;
 
         err = bmp_to_blt(blt, dib, map, pixmap);
         if (EFI_ERROR(err))
-                goto err;
+                return err;
 
         err = graphics_mode(TRUE);
         if (EFI_ERROR(err))
-                goto err;
+                return err;
 
-        err = uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                                blt, EfiBltBufferToVideo, 0, 0, x_pos, y_pos,
-                                dib->x, dib->y, 0);
-err:
-        FreePool(blt);
-        return err;
+        return uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
+                                 blt, EfiBltBufferToVideo, 0, 0, x_pos, y_pos,
+                                 dib->x, dib->y, 0);
 }

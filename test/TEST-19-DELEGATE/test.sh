@@ -2,7 +2,7 @@
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
-TEST_DESCRIPTION="test cgroup delegation in the unifier hierarchy"
+TEST_DESCRIPTION="test cgroup delegation in the unified hierarchy"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions

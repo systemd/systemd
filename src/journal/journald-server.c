@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -27,7 +9,6 @@
 #include <sys/statvfs.h>
 #include <linux/sockios.h>
 
-#include "libudev.h"
 #include "sd-daemon.h"
 #include "sd-journal.h"
 #include "sd-messages.h"
@@ -79,7 +60,7 @@
 
 #define DEFAULT_SYNC_INTERVAL_USEC (5*USEC_PER_MINUTE)
 #define DEFAULT_RATE_LIMIT_INTERVAL (30*USEC_PER_SEC)
-#define DEFAULT_RATE_LIMIT_BURST 1000
+#define DEFAULT_RATE_LIMIT_BURST 10000
 #define DEFAULT_MAX_FILE_USEC USEC_PER_MONTH
 
 #define RECHECK_SPACE_USEC (30*USEC_PER_SEC)
@@ -133,7 +114,7 @@ static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used,
 }
 
 static void cache_space_invalidate(JournalStorageSpace *space) {
-        memset(space, 0, sizeof(*space));
+        zero(*space);
 }
 
 static int cache_space_refresh(Server *s, JournalStorage *storage) {
@@ -179,7 +160,6 @@ static void patch_min_use(JournalStorage *storage) {
 
         storage->metrics.min_use = MAX(storage->metrics.min_use, storage->space.vfs_used);
 }
-
 
 static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
         JournalStorage *js;
@@ -241,6 +221,13 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
                               NULL);
 }
 
+static bool uid_for_system_journal(uid_t uid) {
+
+        /* Returns true if the specified UID shall get its data stored in the system journal*/
+
+        return uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY;
+}
+
 static void server_add_acls(JournalFile *f, uid_t uid) {
 #if HAVE_ACL
         int r;
@@ -248,7 +235,7 @@ static void server_add_acls(JournalFile *f, uid_t uid) {
         assert(f);
 
 #if HAVE_ACL
-        if (uid <= SYSTEM_UID_MAX)
+        if (uid_for_system_journal(uid))
                 return;
 
         r = add_acls_for_user(f->fd, uid);
@@ -273,9 +260,12 @@ static int open_journal(
         assert(ret);
 
         if (reliably)
-                r = journal_file_open_reliably(fname, flags, 0640, s->compress, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
+                r = journal_file_open_reliably(fname, flags, 0640, s->compress.enabled, s->compress.threshold_bytes,
+                                               seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
         else
-                r = journal_file_open(-1, fname, flags, 0640, s->compress, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
+                r = journal_file_open(-1, fname, flags, 0640, s->compress.enabled, s->compress.threshold_bytes, seal,
+                                      metrics, s->mmap, s->deferred_closes, NULL, &f);
+
         if (r < 0)
                 return r;
 
@@ -318,7 +308,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         server_add_acls(s->system_journal, 0);
                         (void) cache_space_refresh(s, &s->system_storage);
                         patch_min_use(&s->system_storage);
-                } else if (r < 0) {
+                } else {
                         if (!IN_SET(r, -ENOENT, -EROFS))
                                 log_warning_errno(r, "Failed to open system journal: %m");
 
@@ -406,7 +396,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (s->runtime_journal)
                 return s->runtime_journal;
 
-        if (uid <= SYSTEM_UID_MAX || uid_is_dynamic(uid))
+        if (uid_for_system_journal(uid))
                 return s->system_journal;
 
         r = sd_id128_get_machine(&machine);
@@ -456,14 +446,15 @@ static int do_rotate(
         if (!*f)
                 return -EINVAL;
 
-        r = journal_file_rotate(f, s->compress, seal, s->deferred_closes);
-        if (r < 0)
+        r = journal_file_rotate(f, s->compress.enabled, s->compress.threshold_bytes, seal, s->deferred_closes);
+        if (r < 0) {
                 if (*f)
-                        log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
+                        return log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
                 else
-                        log_error_errno(r, "Failed to create new %s journal: %m", name);
-        else
-                server_add_acls(*f, uid);
+                        return log_error_errno(r, "Failed to create new %s journal: %m", name);
+        }
+
+        server_add_acls(*f, uid);
 
         return r;
 }
@@ -647,7 +638,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         }
 }
 
-static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned n, int priority) {
+static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n, int priority) {
         bool vacuumed = false, rotate = false;
         struct dual_timestamp ts;
         JournalFile *f;
@@ -695,14 +686,14 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 
         s->last_realtime_clock = ts.realtime;
 
-        r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r >= 0) {
                 server_schedule_sync(s, priority);
                 return;
         }
 
         if (vacuumed || !shall_try_append_again(f, r)) {
-                log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_error_errno(r, "Failed to write entry (%zu items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
                 return;
         }
 
@@ -714,9 +705,9 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 return;
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_error_errno(r, "Failed to write entry (%zu items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
         else
                 server_schedule_sync(s, priority);
 }
@@ -724,7 +715,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 #define IOVEC_ADD_NUMERIC_FIELD(iovec, n, value, type, isset, format, field)  \
         if (isset(value)) {                                             \
                 char *k;                                                \
-                k = newa(char, strlen(field "=") + DECIMAL_STR_MAX(type) + 1); \
+                k = newa(char, STRLEN(field "=") + DECIMAL_STR_MAX(type) + 1); \
                 sprintf(k, field "=" format, value);                    \
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
@@ -739,7 +730,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 #define IOVEC_ADD_ID128_FIELD(iovec, n, value, field)                   \
         if (!sd_id128_is_null(value)) {                                 \
                 char *k;                                                \
-                k = newa(char, strlen(field "=") + SD_ID128_STRING_MAX); \
+                k = newa(char, STRLEN(field "=") + SD_ID128_STRING_MAX); \
                 sd_id128_to_string(value, stpcpy(k, field "="));        \
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
@@ -747,7 +738,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 #define IOVEC_ADD_SIZED_FIELD(iovec, n, value, value_size, field)       \
         if (value_size > 0) {                                           \
                 char *k;                                                \
-                k = newa(char, strlen(field "=") + value_size + 1);     \
+                k = newa(char, STRLEN(field "=") + value_size + 1);     \
                 *((char*) mempcpy(stpcpy(k, field "="), value, value_size)) = 0; \
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }                                                               \
@@ -1015,7 +1006,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                         goto finish;
                 }
 
-                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
+                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset);
                 if (r >= 0)
                         continue;
 
@@ -1034,7 +1025,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                 }
 
                 log_debug("Retrying write.");
-                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
+                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset);
                 if (r < 0) {
                         log_error_errno(r, "Can't write entry: %m");
                         goto finish;
@@ -1044,7 +1035,8 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         r = 0;
 
 finish:
-        journal_file_post_change(s->system_journal);
+        if (s->system_journal)
+                journal_file_post_change(s->system_journal);
 
         s->runtime_journal = journal_file_close(s->runtime_journal);
 
@@ -1072,7 +1064,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
         struct iovec iovec;
         ssize_t n;
         int *fds = NULL, v = 0;
-        unsigned n_fds = 0;
+        size_t n_fds = 0;
 
         union {
                 struct cmsghdr cmsghdr;
@@ -1158,7 +1150,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
 
         if (fd == s->syslog_fd) {
                 if (n > 0 && n_fds == 0)
-                        server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
+                        server_process_syslog_message(s, s->buffer, n, ucred, tv, label, label_len);
                 else if (n_fds > 0)
                         log_warning("Got file descriptors via syslog socket. Ignoring.");
 
@@ -1489,7 +1481,8 @@ static int server_open_hostname(Server *s) {
 
         assert(s);
 
-        s->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY|O_NOCTTY);
+        s->hostname_fd = open("/proc/sys/kernel/hostname",
+                              O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (s->hostname_fd < 0)
                 return log_error_errno(errno, "Failed to open /proc/sys/kernel/hostname: %m");
 
@@ -1686,7 +1679,8 @@ int server_init(Server *s) {
 
         zero(*s);
         s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = s->notify_fd = -1;
-        s->compress = true;
+        s->compress.enabled = true;
+        s->compress.threshold_bytes = (uint64_t) -1;
         s->seal = true;
         s->read_kmsg = true;
 
@@ -1851,10 +1845,6 @@ int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        s->udev = udev_new();
-        if (!s->udev)
-                return -ENOMEM;
-
         s->rate_limit = journal_rate_limit_new(s->rate_limit_interval, s->rate_limit_burst);
         if (!s->rate_limit)
                 return -ENOMEM;
@@ -1955,8 +1945,6 @@ void server_done(Server *s) {
 
         if (s->mmap)
                 mmap_cache_unref(s->mmap);
-
-        udev_unref(s->udev);
 }
 
 static const char* const storage_table[_STORAGE_MAX] = {
@@ -2026,6 +2014,40 @@ int config_parse_line_max(
                 } else
                         *sz = (size_t) v;
         }
+
+        return 0;
+}
+
+int config_parse_compress(const char* unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
+        JournalCompressOptions* compress = data;
+        int r;
+
+        if (streq(rvalue, "1")) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Compress= ambiguously specified as 1, enabling compression with default threshold");
+                compress->enabled = true;
+        } else if (streq(rvalue, "0")) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Compress= ambiguously specified as 0, disabling compression");
+                compress->enabled = false;
+        } else if ((r = parse_boolean(rvalue)) >= 0)
+                compress->enabled = r;
+        else if (parse_size(rvalue, 1024, &compress->threshold_bytes) == 0)
+                compress->enabled = true;
+        else if (isempty(rvalue)) {
+                compress->enabled = true;
+                compress->threshold_bytes = (uint64_t) -1;
+        } else
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Compress= value, ignoring: %s", rvalue);
 
         return 0;
 }

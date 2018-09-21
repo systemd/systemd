@@ -1,21 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
 #include <errno.h>
@@ -25,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "utf8.h"
+#include "strv.h"
 
 #include "dhcp-internal.h"
 
@@ -48,6 +34,34 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 *offset += 1;
                 break;
 
+        case SD_DHCP_OPTION_USER_CLASS: {
+                size_t len = 0;
+                char **s;
+
+                STRV_FOREACH(s, (char **) optval)
+                        len += strlen(*s) + 1;
+
+                if (size < *offset + len + 2)
+                        return -ENOBUFS;
+
+                options[*offset] = code;
+                options[*offset + 1] =  len;
+                *offset += 2;
+
+                STRV_FOREACH(s, (char **) optval) {
+                        len = strlen(*s);
+
+                        if (len > 255)
+                                return -ENAMETOOLONG;
+
+                        options[*offset] = len;
+
+                        memcpy_safe(&options[*offset + 1], *s, len);
+                        *offset += len + 1;
+                }
+
+                break;
+        }
         default:
                 if (size < *offset + optlen + 2)
                         return -ENOBUFS;
@@ -253,10 +267,8 @@ int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t c
         if (message_type == 0)
                 return -ENOMSG;
 
-        if (_error_message && IN_SET(message_type, DHCP_NAK, DHCP_DECLINE)) {
-                *_error_message = error_message;
-                error_message = NULL;
-        }
+        if (_error_message && IN_SET(message_type, DHCP_NAK, DHCP_DECLINE))
+                *_error_message = TAKE_PTR(error_message);
 
         return message_type;
 }

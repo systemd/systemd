@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2005-2008 Lennart Poettering
-  Copyright 2014 Daniel Buch
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -89,7 +70,9 @@ int main(int argc, char *argv[]) {
         assert_se(sd_resolve_default(&resolve) >= 0);
 
         /* Test a floating resolver query */
-        sd_resolve_getaddrinfo(resolve, NULL, "redhat.com", "http", NULL, getaddrinfo_handler, NULL);
+        r = sd_resolve_getaddrinfo(resolve, NULL, "redhat.com", "http", NULL, getaddrinfo_handler, NULL);
+        if (r < 0)
+                log_error_errno(r, "sd_resolve_getaddrinfo(): %m");
 
         /* Make a name -> address query */
         r = sd_resolve_getaddrinfo(resolve, &q1, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints, getaddrinfo_handler, NULL);
@@ -114,7 +97,6 @@ int main(int argc, char *argv[]) {
 
                         log_notice_errno(r, "sd_resolve_wait() timed out, but that's OK");
                         exit(EXIT_SUCCESS);
-                        break;
                 }
                 if (r < 0) {
                         log_error_errno(r, "sd_resolve_wait(): %m");

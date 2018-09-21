@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <alloca.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -31,9 +12,17 @@
 
 #define new0(t, n) ((t*) calloc((n), sizeof(t)))
 
-#define newa(t, n) ((t*) alloca(sizeof(t)*(n)))
+#define newa(t, n)                                              \
+        ({                                                      \
+                assert(!size_multiply_overflow(sizeof(t), n));  \
+                (t*) alloca(sizeof(t)*(n));                     \
+        })
 
-#define newa0(t, n) ((t*) alloca0(sizeof(t)*(n)))
+#define newa0(t, n)                                             \
+        ({                                                      \
+                assert(!size_multiply_overflow(sizeof(t), n));  \
+                (t*) alloca0(sizeof(t)*(n));                    \
+        })
 
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 
@@ -74,12 +63,14 @@ _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t size, size_t 
         return malloc(size * need);
 }
 
-_alloc_(2, 3) static inline void *realloc_multiply(void *p, size_t size, size_t need) {
+#if !HAVE_REALLOCARRAY
+_alloc_(2, 3) static inline void *reallocarray(void *p, size_t need, size_t size) {
         if (size_multiply_overflow(size, need))
                 return NULL;
 
         return realloc(p, size * need);
 }
+#endif
 
 _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t size, size_t need) {
         if (size_multiply_overflow(size, need))
@@ -127,4 +118,13 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
                 size_t _size_ = (size);                                 \
                 _new_ = alloca_align(_size_, (align));                  \
                 (void*)memset(_new_, 0, _size_);                        \
+        })
+
+/* Takes inspiration from Rusts's Option::take() method: reads and returns a pointer, but at the same time resets it to
+ * NULL. See: https://doc.rust-lang.org/std/option/enum.Option.html#method.take */
+#define TAKE_PTR(ptr)                           \
+        ({                                      \
+                typeof(ptr) _ptr_ = (ptr);      \
+                (ptr) = NULL;                   \
+                _ptr_;                          \
         })

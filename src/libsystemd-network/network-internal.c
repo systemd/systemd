@@ -1,27 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
- This file is part of systemd.
-
- Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <arpa/inet.h>
 #include <linux/if.h>
 #include <netinet/ether.h>
 
+#include "sd-id128.h"
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
@@ -40,24 +23,22 @@
 #include "utf8.h"
 #include "util.h"
 
-const char *net_get_name(struct udev_device *device) {
+const char *net_get_name(sd_device *device) {
         const char *name, *field;
 
         assert(device);
 
         /* fetch some persistent data unique (on this machine) to this device */
-        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
-                name = udev_device_get_property_value(device, field);
-                if (name)
+        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC")
+                if (sd_device_get_property_value(device, field, &name) >= 0)
                         return name;
-        }
 
         return NULL;
 }
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
 
-int net_get_unique_predictable_data(struct udev_device *device, uint64_t *result) {
+int net_get_unique_predictable_data(sd_device *device, uint64_t *result) {
         size_t l, sz = 0;
         const char *name = NULL;
         int r;
@@ -95,7 +76,7 @@ static bool net_condition_test_strv(char * const *raw_patterns,
         /* If the patterns begin with "!", edit it out and negate the test. */
         if (raw_patterns[0][0] == '!') {
                 char **patterns;
-                unsigned i, length;
+                size_t i, length;
 
                 length = strv_length(raw_patterns) + 1; /* Include the NULL. */
                 patterns = newa(char*, length);
@@ -109,14 +90,15 @@ static bool net_condition_test_strv(char * const *raw_patterns,
         return string && strv_fnmatch(raw_patterns, string, 0);
 }
 
-bool net_match_config(const struct ether_addr *match_mac,
+bool net_match_config(Set *match_mac,
                       char * const *match_paths,
                       char * const *match_drivers,
                       char * const *match_types,
                       char * const *match_names,
                       Condition *match_host,
                       Condition *match_virt,
-                      Condition *match_kernel,
+                      Condition *match_kernel_cmdline,
+                      Condition *match_kernel_version,
                       Condition *match_arch,
                       const struct ether_addr *dev_mac,
                       const char *dev_path,
@@ -131,13 +113,16 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_virt && condition_test(match_virt) <= 0)
                 return false;
 
-        if (match_kernel && condition_test(match_kernel) <= 0)
+        if (match_kernel_cmdline && condition_test(match_kernel_cmdline) <= 0)
+                return false;
+
+        if (match_kernel_version && condition_test(match_kernel_version) <= 0)
                 return false;
 
         if (match_arch && condition_test(match_arch) <= 0)
                 return false;
 
-        if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))
+        if (match_mac && (!dev_mac || !set_contains(match_mac, dev_mac)))
                 return false;
 
         if (!net_condition_test_strv(match_paths, dev_path))
@@ -271,10 +256,9 @@ int config_parse_ifalias(const char *unit,
         }
 
         free(*s);
-        if (*n) {
-                *s = n;
-                n = NULL;
-        } else
+        if (*n)
+                *s = TAKE_PTR(n);
+        else
                 *s = NULL;
 
         return 0;
@@ -290,10 +274,9 @@ int config_parse_hwaddr(const char *unit,
                         const char *rvalue,
                         void *data,
                         void *userdata) {
+
+        _cleanup_free_ struct ether_addr *n = NULL;
         struct ether_addr **hwaddr = data;
-        struct ether_addr *n;
-        const char *start;
-        size_t offset;
         int r;
 
         assert(filename);
@@ -305,17 +288,86 @@ int config_parse_hwaddr(const char *unit,
         if (!n)
                 return log_oom();
 
-        start = rvalue + strspn(rvalue, WHITESPACE);
-        r = ether_addr_from_string(start, n, &offset);
-
-        if (r || (start[offset + strspn(start + offset, WHITESPACE)] != '\0')) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring assignment: %s", rvalue);
-                free(n);
+        r = ether_addr_from_string(rvalue, n);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        free(*hwaddr);
-        *hwaddr = n;
+        *hwaddr = TAKE_PTR(n);
+
+        return 0;
+}
+
+int config_parse_hwaddrs(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
+
+        _cleanup_set_free_free_ Set *s = NULL;
+        const char *p = rvalue;
+        Set **hwaddrs = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *hwaddrs = set_free_free(*hwaddrs);
+                return 0;
+        }
+
+        s = set_new(&ether_addr_hash_ops);
+        if (!s)
+                return log_oom();
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                _cleanup_free_ struct ether_addr *n = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                n = new(struct ether_addr, 1);
+                if (!n)
+                        return log_oom();
+
+                r = ether_addr_from_string(word, n);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring: %s", word);
+                        continue;
+                }
+
+                r = set_put(s, n);
+                if (r < 0)
+                        return log_oom();
+                if (r > 0)
+                        n = NULL; /* avoid cleanup */
+        }
+
+        r = set_ensure_allocated(hwaddrs, &ether_addr_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        r = set_move(*hwaddrs, s);
+        if (r < 0)
+                return log_oom();
 
         return 0;
 }
@@ -388,7 +440,6 @@ int config_parse_bridge_port_priority(
         return 0;
 }
 
-
 void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
         unsigned i;
 
@@ -419,7 +470,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
                 if (r == 0)
                         break;
 
-                new_addresses = realloc(addresses, (size + 1) * sizeof(struct in_addr));
+                new_addresses = reallocarray(addresses, size + 1, sizeof(struct in_addr));
                 if (!new_addresses)
                         return -ENOMEM;
                 else
@@ -432,8 +483,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
                 size++;
         }
 
-        *ret = addresses;
-        addresses = NULL;
+        *ret = TAKE_PTR(addresses);
 
         return size;
 }
@@ -473,7 +523,7 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
                 if (r == 0)
                         break;
 
-                new_addresses = realloc(addresses, (size + 1) * sizeof(struct in6_addr));
+                new_addresses = reallocarray(addresses, size + 1, sizeof(struct in6_addr));
                 if (!new_addresses)
                         return -ENOMEM;
                 else
@@ -486,8 +536,7 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
                 size++;
         }
 
-        *ret = addresses;
-        addresses = NULL;
+        *ret = TAKE_PTR(addresses);
 
         return size;
 }
@@ -580,8 +629,7 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t
 
         *ret_size = size;
         *ret_allocated = allocated;
-        *ret = routes;
-        routes = NULL;
+        *ret = TAKE_PTR(routes);
 
         return 0;
 }
@@ -600,15 +648,4 @@ int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t siz
         fprintf(f, "%s=%s\n", key, hex_buf);
 
         return 0;
-}
-
-int deserialize_dhcp_option(void **data, size_t *data_len, const char *string) {
-        assert(data);
-        assert(data_len);
-        assert(string);
-
-        if (strlen(string) % 2)
-                return -EINVAL;
-
-        return unhexmem(string, strlen(string), (void **)data, data_len);
 }

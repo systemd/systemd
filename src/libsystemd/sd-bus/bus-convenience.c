@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "bus-internal.h"
 #include "bus-message.h"
@@ -36,6 +18,7 @@ _public_ int sd_bus_emit_signal(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -73,6 +56,7 @@ _public_ int sd_bus_call_method_async(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -614,4 +598,72 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
         }
 
         return 0;
+}
+
+#define make_expression(sender, path, interface, member)        \
+        strjoina(                                               \
+                "type='signal'",                                \
+                sender ? ",sender='" : "",                      \
+                sender ?: "",                                   \
+                sender ? "'" : "",                              \
+                path ? ",path='" : "",                          \
+                path ?: "",                                     \
+                path ? "'" : "",                                \
+                interface ? ",interface='" : "",                \
+                interface ?: "",                                \
+                interface ? "'" : "",                           \
+                member ? ",member='" : "",                      \
+                member ?: "",                                   \
+                member ? "'" : ""                               \
+        )
+
+_public_ int sd_bus_match_signal(
+                sd_bus *bus,
+                sd_bus_slot **ret,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
+
+        const char *expression;
+
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!sender || service_name_is_valid(sender), -EINVAL);
+        assert_return(!path || object_path_is_valid(path), -EINVAL);
+        assert_return(!interface || interface_name_is_valid(interface), -EINVAL);
+        assert_return(!member || member_name_is_valid(member), -EINVAL);
+
+        expression = make_expression(sender, path, interface, member);
+
+        return sd_bus_add_match(bus, ret, expression, callback, userdata);
+}
+
+_public_ int sd_bus_match_signal_async(
+                sd_bus *bus,
+                sd_bus_slot **ret,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                sd_bus_message_handler_t install_callback,
+                void *userdata) {
+
+        const char *expression;
+
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!sender || service_name_is_valid(sender), -EINVAL);
+        assert_return(!path || object_path_is_valid(path), -EINVAL);
+        assert_return(!interface || interface_name_is_valid(interface), -EINVAL);
+        assert_return(!member || member_name_is_valid(member), -EINVAL);
+
+        expression = make_expression(sender, path, interface, member);
+
+        return sd_bus_add_match_async(bus, ret, expression, callback, install_callback, userdata);
 }

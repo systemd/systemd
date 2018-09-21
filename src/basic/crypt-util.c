@@ -1,27 +1,28 @@
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
+/* SPDX-License-Identifier: LGPL-2.1+ */
 
 #if HAVE_LIBCRYPTSETUP
 #include "crypt-util.h"
 #include "log.h"
 
 void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
-        log_debug("%s", msg);
+        switch (level) {
+        case CRYPT_LOG_NORMAL:
+                level = LOG_NOTICE;
+                break;
+        case CRYPT_LOG_ERROR:
+                level = LOG_ERR;
+                break;
+        case CRYPT_LOG_VERBOSE:
+                level = LOG_INFO;
+                break;
+        case CRYPT_LOG_DEBUG:
+                level = LOG_DEBUG;
+                break;
+        default:
+                log_error("Unknown libcryptsetup log level: %d", level);
+                level = LOG_ERR;
+        }
+
+        log_full(level, "%s", msg);
 }
 #endif

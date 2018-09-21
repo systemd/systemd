@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sys/reboot.h>
 #include <sys/wait.h>
@@ -25,6 +7,7 @@
 
 #include "fd-util.h"
 #include "log.h"
+#include "missing.h"
 #include "nspawn-stub-pid1.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -92,7 +75,7 @@ int stub_pid1(sd_id128_t uuid) {
         sd_id128_to_string(uuid, new_environment + sizeof(new_environment) - SD_ID128_STRING_MAX);
         reset_environ(new_environment, sizeof(new_environment));
 
-        rename_process("STUBINIT");
+        (void) rename_process("(sd-stubinit)");
 
         assert_se(sigemptyset(&waitmask) >= 0);
         assert_se(sigset_add_many(&waitmask,

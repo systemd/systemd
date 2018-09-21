@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="journald.conf"
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>journald.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -60,9 +34,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para>These files configure various parameters of the systemd
-    journal service,
-    <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <para>These files configure various parameters of the systemd journal service,
+    <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
 
   </refsect1>
 
@@ -107,10 +83,13 @@
       <varlistentry>
         <term><varname>Compress=</varname></term>
 
-        <listitem><para>Takes a boolean value. If enabled (the
-        default), data objects that shall be stored in the journal and
-        are larger than a certain threshold are compressed before they
-        are written to the file system.</para></listitem>
+        <listitem><para>Can take a boolean value. If enabled (the
+        default), data objects that shall be stored in the journal
+        and are larger than the default threshold of 512 bytes are
+        compressed before they are written to the file system. It
+        can also be set to a number of bytes to specify the
+        compression threshold directly. Suffixes like K, M, and G
+        can be used to specify larger units.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -155,7 +134,7 @@
         interval is over. A message about the number of dropped
         messages is generated. This rate limiting is applied
         per-service, so that two services which log do not interfere
-        with each other's limits. Defaults to 1000 messages in 30s.
+        with each other's limits. Defaults to 10000 messages in 30s.
         The time specification for
         <varname>RateLimitIntervalSec=</varname> may be specified in the
         following units: <literal>s</literal>, <literal>min</literal>,
@@ -216,7 +195,11 @@
         subsequently something else causes the file system to fill up,
         journald will stop using more space, but it will not be
         removing existing files to reduce the footprint again,
-        either.</para>
+        either. Also note that only archived files are deleted to reduce the
+        space occupied by journal files. This means that, in effect, there might
+        still be more space used than <varname>SystemMaxUse=</varname> or
+        <varname>RuntimeMaxUse=</varname> limit after a vacuuming operation is
+        complete.</para>
 
         <para><varname>SystemMaxFileSize=</varname> and
         <varname>RuntimeMaxFileSize=</varname> control how large
@@ -283,7 +266,6 @@
         m</literal> to override the default time unit of
         seconds.</para></listitem>
       </varlistentry>
-
 
       <varlistentry>
         <term><varname>SyncIntervalSec=</varname></term>

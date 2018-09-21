@@ -1,53 +1,56 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"
 
 int main(int argc, char *argv[]) {
-        char *p;
+        _cleanup_free_ char *urlified = NULL, *q = NULL, *qq = NULL;
+        char *p, *z;
 
         assert_se(p = strdup("\tFoobar\tbar\twaldo\t"));
-        assert_se(strip_tab_ansi(&p, NULL));
+        assert_se(strip_tab_ansi(&p, NULL, NULL));
         fprintf(stdout, "<%s>\n", p);
         assert_se(streq(p, "        Foobar        bar        waldo        "));
         free(p);
 
         assert_se(p = strdup(ANSI_HIGHLIGHT "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
-        assert_se(strip_tab_ansi(&p, NULL));
+        assert_se(strip_tab_ansi(&p, NULL, NULL));
         fprintf(stdout, "<%s>\n", p);
         assert_se(streq(p, "Hello world!"));
         free(p);
 
         assert_se(p = strdup("\x1B[\x1B[\t\x1B[" ANSI_HIGHLIGHT "\x1B[" "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
-        assert_se(strip_tab_ansi(&p, NULL));
+        assert_se(strip_tab_ansi(&p, NULL, NULL));
         assert_se(streq(p, "\x1B[\x1B[        \x1B[\x1B[Hello world!"));
         free(p);
 
         assert_se(p = strdup("\x1B[waldo"));
-        assert_se(strip_tab_ansi(&p, NULL));
+        assert_se(strip_tab_ansi(&p, NULL, NULL));
         assert_se(streq(p, "\x1B[waldo"));
         free(p);
+
+        assert_se(terminal_urlify_path("/etc/fstab", "i am a fabulous link", &urlified) >= 0);
+        assert_se(p = strjoin("something ", urlified, " something-else"));
+        assert_se(q = strdup(p));
+        printf("<%s>\n", p);
+        assert_se(strip_tab_ansi(&p, NULL, NULL));
+        printf("<%s>\n", p);
+        assert_se(streq(p, "something i am a fabulous link something-else"));
+        p = mfree(p);
+
+        /* Truncate the formatted string in the middle of an ANSI sequence (in which case we shouldn't touch the
+         * incomplete sequence) */
+        z = strstr(q, "fstab");
+        if (z) {
+                *z = 0;
+                assert_se(qq = strdup(q));
+                assert_se(strip_tab_ansi(&q, NULL, NULL));
+                assert_se(streq(q, qq));
+        }
 
         return 0;
 }

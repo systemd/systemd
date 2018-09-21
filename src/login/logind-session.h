@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 typedef struct Session Session;
 typedef enum KillWho KillWho;
 
@@ -131,7 +112,7 @@ struct Session {
 Session *session_new(Manager *m, const char *id);
 void session_free(Session *s);
 void session_set_user(Session *s, User *u);
-bool session_check_gc(Session *s, bool drop_not_started);
+bool session_may_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
 bool session_is_active(Session *s);
@@ -140,7 +121,7 @@ void session_set_idle_hint(Session *s, bool b);
 int session_get_locked_hint(Session *s);
 void session_set_locked_hint(Session *s, bool b);
 int session_create_fifo(Session *s);
-int session_start(Session *s);
+int session_start(Session *s, sd_bus_message *properties);
 int session_stop(Session *s, bool force);
 int session_finalize(Session *s);
 int session_release(Session *s);

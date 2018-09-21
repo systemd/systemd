@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <linux/seccomp.h>
@@ -650,7 +632,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "setresuid32\0"
                 "setreuid\0"
                 "setreuid32\0"
-                "setuid\0"
+                "setuid\0"      /* We list the explicit system calls here, as @setuid also includes setgid() which is not necessarily privileged */
                 "setuid32\0"
                 "vhangup\0"
         },
@@ -669,6 +651,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "rt_sigqueueinfo\0"
                 "rt_tgsigqueueinfo\0"
                 "setns\0"
+                "swapcontext\0" /* Some archs e.g. powerpc32 are using it to do userspace context switches */
                 "tgkill\0"
                 "times\0"
                 "tkill\0"
@@ -773,6 +756,75 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "sync\0"
                 "sync_file_range\0"
                 "syncfs\0"
+        },
+        [SYSCALL_FILTER_SET_SYSTEM_SERVICE] = {
+                .name = "@system-service",
+                .help = "General system service operations",
+                .value =
+                "@aio\0"
+                "@basic-io\0"
+                "@chown\0"
+                "@default\0"
+                "@file-system\0"
+                "@io-event\0"
+                "@ipc\0"
+                "@keyring\0"
+                "@memlock\0"
+                "@network-io\0"
+                "@process\0"
+                "@resources\0"
+                "@setuid\0"
+                "@signal\0"
+                "@sync\0"
+                "@timer\0"
+                "brk\0"
+                "capget\0"
+                "capset\0"
+                "copy_file_range\0"
+                "fadvise64\0"
+                "fadvise64_64\0"
+                "flock\0"
+                "get_mempolicy\0"
+                "getcpu\0"
+                "getpriority\0"
+                "getrandom\0"
+                "ioctl\0"
+                "ioprio_get\0"
+                "kcmp\0"
+                "madvise\0"
+                "mincore\0"
+                "mprotect\0"
+                "mremap\0"
+                "name_to_handle_at\0"
+                "oldolduname\0"
+                "olduname\0"
+                "personality\0"
+                "readahead\0"
+                "readdir\0"
+                "remap_file_pages\0"
+                "sched_get_priority_max\0"
+                "sched_get_priority_min\0"
+                "sched_getaffinity\0"
+                "sched_getattr\0"
+                "sched_getparam\0"
+                "sched_getscheduler\0"
+                "sched_rr_get_interval\0"
+                "sched_yield\0"
+                "sendfile\0"
+                "sendfile64\0"
+                "setfsgid\0"
+                "setfsgid32\0"
+                "setfsuid\0"
+                "setfsuid32\0"
+                "setpgid\0"
+                "setsid\0"
+                "splice\0"
+                "sysinfo\0"
+                "tee\0"
+                "umask\0"
+                "uname\0"
+                "userfaultfd\0"
+                "vmsplice\0"
         },
         [SYSCALL_FILTER_SET_TIMER] = {
                 .name = "@timer",
@@ -935,7 +987,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
                                 /* If the system call is not known on this architecture, then that's fine, let's ignore it */
                                 _cleanup_free_ char *n = NULL;
 
-                                n = seccomp_syscall_resolve_num_arch(arch, PTR_TO_INT(id) - 1);
+                                n = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
                                 log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", strna(n), PTR_TO_INT(id) - 1);
                         }
                 }
@@ -950,14 +1002,85 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
         return 0;
 }
 
+int seccomp_parse_syscall_filter_full(
+                const char *name,
+                int errno_num,
+                Hashmap *filter,
+                SeccompParseFlags flags,
+                const char *unit,
+                const char *filename,
+                unsigned line) {
+
+        int r;
+
+        assert(name);
+        assert(filter);
+
+        if (name[0] == '@') {
+                const SyscallFilterSet *set;
+                const char *i;
+
+                set = syscall_filter_set_find(name);
+                if (!set) {
+                        if (!(flags & SECCOMP_PARSE_PERMISSIVE))
+                                return -EINVAL;
+
+                        log_syntax(unit, flags & SECCOMP_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                                   "Unknown system call group, ignoring: %s", name);
+                        return 0;
+                }
+
+                NULSTR_FOREACH(i, set->value) {
+                        /* Call ourselves again, for the group to parse. Note that we downgrade logging here (i.e. take
+                         * away the SECCOMP_PARSE_LOG flag) since any issues in the group table are our own problem,
+                         * not a problem in user configuration data and we shouldn't pretend otherwise by complaining
+                         * about them. */
+                        r = seccomp_parse_syscall_filter_full(i, errno_num, filter, flags &~ SECCOMP_PARSE_LOG, unit, filename, line);
+                        if (r < 0)
+                                return r;
+                }
+        } else {
+                int id;
+
+                id = seccomp_syscall_resolve_name(name);
+                if (id == __NR_SCMP_ERROR) {
+                        if (!(flags & SECCOMP_PARSE_PERMISSIVE))
+                                return -EINVAL;
+
+                        log_syntax(unit, flags & SECCOMP_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                                   "Failed to parse system call, ignoring: %s", name);
+                        return 0;
+                }
+
+                /* If we previously wanted to forbid a syscall and now
+                 * we want to allow it, then remove it from the list. */
+                if (!(flags & SECCOMP_PARSE_INVERT) == !!(flags & SECCOMP_PARSE_WHITELIST)) {
+                        r = hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
+                        if (r < 0)
+                                switch (r) {
+                                case -ENOMEM:
+                                        return flags & SECCOMP_PARSE_LOG ? log_oom() : -ENOMEM;
+                                case -EEXIST:
+                                        assert_se(hashmap_update(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num)) == 0);
+                                        break;
+                                default:
+                                        return r;
+                                }
+                } else
+                        (void) hashmap_remove(filter, INT_TO_PTR(id + 1));
+        }
+
+        return 0;
+}
+
 int seccomp_restrict_namespaces(unsigned long retain) {
         uint32_t arch;
         int r;
 
-        if (log_get_max_level() >= LOG_DEBUG) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *s = NULL;
 
-                (void) namespace_flag_to_string_many(retain, &s);
+                (void) namespace_flags_to_string(retain, &s);
                 log_debug("Restricting namespace to: %s.", strna(s));
         }
 
@@ -1119,16 +1242,22 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_ARM:
                 case SCMP_ARCH_AARCH64:
+                case SCMP_ARCH_PPC:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
+                case SCMP_ARCH_MIPSEL64N32:
+                case SCMP_ARCH_MIPS64N32:
+                case SCMP_ARCH_MIPSEL64:
+                case SCMP_ARCH_MIPS64:
                         /* These we know we support (i.e. are the ones that do not use socketcall()) */
                         supported = true;
                         break;
 
                 case SCMP_ARCH_S390:
                 case SCMP_ARCH_S390X:
-                case SCMP_ARCH_PPC:
                 case SCMP_ARCH_X86:
+                case SCMP_ARCH_MIPSEL:
+                case SCMP_ARCH_MIPS:
                 default:
                         /* These we either know we don't support (i.e. are the ones that do use socketcall()), or we
                          * don't know */
@@ -1386,6 +1515,7 @@ int seccomp_memory_deny_write_execute(void) {
                         block_syscall = SCMP_SYS(mmap);
                         break;
 
+                case SCMP_ARCH_PPC:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
                         filter_syscall = SCMP_SYS(mmap);
@@ -1410,7 +1540,7 @@ int seccomp_memory_deny_write_execute(void) {
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__)
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__)
 #warning "Consider adding the right mmap() syscall definitions here!"
 #endif
                 }
@@ -1474,17 +1604,35 @@ int seccomp_restrict_archs(Set *archs) {
         int r;
 
         /* This installs a filter with no rules, but that restricts the system call architectures to the specified
-         * list. */
+         * list.
+         *
+         * There are some qualifications. However the most important use is to stop processes from bypassing
+         * system call restrictions, in case they used a broader (multiplexing) syscall which is only available
+         * in a non-native architecture. There are no holes in this use case, at least so far. */
 
+        /* Note libseccomp includes our "native" (current) architecture in the filter by default.
+         * We do not remove it. For example, our callers expect to be able to call execve() afterwards
+         * to run a program with the restrictions applied. */
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
                 return -ENOMEM;
 
         SET_FOREACH(id, archs, i) {
                 r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
+                if (r < 0 && r != -EEXIST)
+                        return r;
+        }
+
+        /* The vdso for x32 assumes that x86-64 syscalls are available.  Let's allow them, since x32
+         * x32 syscalls should basically match x86-64 for everything except the pointer type.
+         * The important thing is that you can block the old 32-bit x86 syscalls.
+         * https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=850047 */
+
+        if (seccomp_arch_native() == SCMP_ARCH_X32 ||
+            set_contains(archs, UINT32_TO_PTR(SCMP_ARCH_X32 + 1))) {
+
+                r = seccomp_arch_add(seccomp, SCMP_ARCH_X86_64);
+                if (r < 0 && r != -EEXIST)
                         return r;
         }
 
@@ -1525,8 +1673,7 @@ int parse_syscall_archs(char **l, Set **archs) {
                         return -ENOMEM;
         }
 
-        *archs = _archs;
-        _archs = NULL;
+        *archs = TAKE_PTR(_archs);
 
         return 0;
 }

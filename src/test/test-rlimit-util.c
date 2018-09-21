@@ -1,20 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sys/resource.h>
 
@@ -55,6 +39,7 @@ int main(int argc, char *argv[]) {
                 .rlim_cur = 10,
                 .rlim_max = 5,
         };
+        int i;
 
         log_parse_environment();
         log_open();
@@ -66,10 +51,41 @@ int main(int argc, char *argv[]) {
         new.rlim_max = old.rlim_max;
         assert_se(setrlimit(RLIMIT_NOFILE, &new) >= 0);
 
-        assert_se(rlimit_from_string("LimitNOFILE") == RLIMIT_NOFILE);
+        assert_se(rlimit_from_string("NOFILE") == RLIMIT_NOFILE);
+        assert_se(rlimit_from_string("LimitNOFILE") == -1);
+        assert_se(rlimit_from_string("RLIMIT_NOFILE") == -1);
+        assert_se(rlimit_from_string("xxxNOFILE") == -1);
         assert_se(rlimit_from_string("DefaultLimitNOFILE") == -1);
 
-        assert_se(streq_ptr(rlimit_to_string(RLIMIT_NOFILE), "LimitNOFILE"));
+        assert_se(rlimit_from_string_harder("NOFILE") == RLIMIT_NOFILE);
+        assert_se(rlimit_from_string_harder("LimitNOFILE") == RLIMIT_NOFILE);
+        assert_se(rlimit_from_string_harder("RLIMIT_NOFILE") == RLIMIT_NOFILE);
+        assert_se(rlimit_from_string_harder("xxxNOFILE") == -1);
+        assert_se(rlimit_from_string_harder("DefaultLimitNOFILE") == -1);
+
+        for (i = 0; i < _RLIMIT_MAX; i++) {
+                _cleanup_free_ char *prefixed = NULL;
+                const char *p;
+
+                assert_se(p = rlimit_to_string(i));
+                log_info("%i = %s", i, p);
+
+                assert_se(rlimit_from_string(p) == i);
+                assert_se(rlimit_from_string_harder(p) == i);
+
+                assert_se(prefixed = strjoin("Limit", p));
+
+                assert_se(rlimit_from_string(prefixed) < 0);
+                assert_se(rlimit_from_string_harder(prefixed) == i);
+
+                prefixed = mfree(prefixed);
+                assert_se(prefixed = strjoin("RLIMIT_", p));
+
+                assert_se(rlimit_from_string(prefixed) < 0);
+                assert_se(rlimit_from_string_harder(prefixed) == i);
+        }
+
+        assert_se(streq_ptr(rlimit_to_string(RLIMIT_NOFILE), "NOFILE"));
         assert_se(rlimit_to_string(-1) == NULL);
 
         assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);

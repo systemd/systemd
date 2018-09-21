@@ -1,25 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2012 Holger Hans Peter Freyther
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2012 Holger Hans Peter Freyther
 ***/
 
 #include <sched.h>
 
+#include "all-units.h"
 #include "macro.h"
 #include "manager.h"
 #include "rm-rf.h"
@@ -28,33 +14,28 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         Unit *idle_ok, *idle_bad, *rr_ok, *rr_bad, *rr_sched;
         Service *ser;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
         int r;
 
+        test_setup_logging(LOG_INFO);
+
         r = enter_cgroup_subroot();
-        if (r == -ENOMEDIUM) {
-                log_notice_errno(r, "Skipping test: cgroupfs not available");
-                return EXIT_TEST_SKIP;
-        }
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
 
         /* prepare the test */
-        assert_se(set_unit_path(get_testdata_dir("")) >= 0);
+        assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
-        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
-        if (MANAGER_SKIP_TEST(r)) {
-                log_notice_errno(r, "Skipping test: manager_new: %m");
-                return EXIT_TEST_SKIP;
-        }
+        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m);
+        if (MANAGER_SKIP_TEST(r))
+                return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
-        assert_se(manager_startup(m, serial, fdset) >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         /* load idle ok */
-        assert_se(manager_load_unit(m, "sched_idle_ok.service", NULL, NULL, &idle_ok) >= 0);
-        assert_se(idle_ok->load_state == UNIT_LOADED);
+        assert_se(manager_load_startable_unit_or_warn(m, "sched_idle_ok.service", NULL, &idle_ok) >= 0);
         ser = SERVICE(idle_ok);
         assert_se(ser->exec_context.cpu_sched_policy == SCHED_OTHER);
         assert_se(ser->exec_context.cpu_sched_priority == 0);
@@ -62,8 +43,7 @@ int main(int argc, char *argv[]) {
         /*
          * load idle bad. This should print a warning but we have no way to look at it.
          */
-        assert_se(manager_load_unit(m, "sched_idle_bad.service", NULL, NULL, &idle_bad) >= 0);
-        assert_se(idle_bad->load_state == UNIT_LOADED);
+        assert_se(manager_load_startable_unit_or_warn(m, "sched_idle_bad.service", NULL, &idle_bad) >= 0);
         ser = SERVICE(idle_ok);
         assert_se(ser->exec_context.cpu_sched_policy == SCHED_OTHER);
         assert_se(ser->exec_context.cpu_sched_priority == 0);
@@ -72,8 +52,7 @@ int main(int argc, char *argv[]) {
          * load rr ok.
          * Test that the default priority is moving from 0 to 1.
          */
-        assert_se(manager_load_unit(m, "sched_rr_ok.service", NULL, NULL, &rr_ok) >= 0);
-        assert_se(rr_ok->load_state == UNIT_LOADED);
+        assert_se(manager_load_startable_unit_or_warn(m, "sched_rr_ok.service", NULL, &rr_ok) >= 0);
         ser = SERVICE(rr_ok);
         assert_se(ser->exec_context.cpu_sched_policy == SCHED_RR);
         assert_se(ser->exec_context.cpu_sched_priority == 1);
@@ -82,8 +61,7 @@ int main(int argc, char *argv[]) {
          * load rr bad.
          * Test that the value of 0 and 100 is ignored.
          */
-        assert_se(manager_load_unit(m, "sched_rr_bad.service", NULL, NULL, &rr_bad) >= 0);
-        assert_se(rr_bad->load_state == UNIT_LOADED);
+        assert_se(manager_load_startable_unit_or_warn(m, "sched_rr_bad.service", NULL, &rr_bad) >= 0);
         ser = SERVICE(rr_bad);
         assert_se(ser->exec_context.cpu_sched_policy == SCHED_RR);
         assert_se(ser->exec_context.cpu_sched_priority == 1);
@@ -92,13 +70,10 @@ int main(int argc, char *argv[]) {
          * load rr change.
          * Test that anything between 1 and 99 can be set.
          */
-        assert_se(manager_load_unit(m, "sched_rr_change.service", NULL, NULL, &rr_sched) >= 0);
-        assert_se(rr_sched->load_state == UNIT_LOADED);
+        assert_se(manager_load_startable_unit_or_warn(m, "sched_rr_change.service", NULL, &rr_sched) >= 0);
         ser = SERVICE(rr_sched);
         assert_se(ser->exec_context.cpu_sched_policy == SCHED_RR);
         assert_se(ser->exec_context.cpu_sched_priority == 99);
-
-        manager_free(m);
 
         return EXIT_SUCCESS;
 }

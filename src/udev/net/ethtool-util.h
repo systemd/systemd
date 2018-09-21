@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
- This file is part of systemd.
-
- Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <macro.h>
 #include <linux/ethtool.h>
 
@@ -55,7 +36,6 @@ typedef enum NetDevFeature {
         NET_DEV_FEAT_LRO,
         NET_DEV_FEAT_TSO,
         NET_DEV_FEAT_TSO6,
-        NET_DEV_FEAT_UFO,
         _NET_DEV_FEAT_MAX,
         _NET_DEV_FEAT_INVALID = -1
 } NetDevFeature;
@@ -86,13 +66,26 @@ struct ethtool_link_usettings {
         } link_modes;
 };
 
+typedef struct netdev_channels {
+        uint32_t rx_count;
+        uint32_t tx_count;
+        uint32_t other_count;
+        uint32_t combined_count;
+
+        bool rx_count_set;
+        bool tx_count_set;
+        bool other_count_set;
+        bool combined_count_set;
+} netdev_channels;
+
 int ethtool_connect(int *ret);
 
 int ethtool_get_driver(int *fd, const char *ifname, char **ret);
 int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex duplex);
 int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol);
-int ethtool_set_features(int *fd, const char *ifname, NetDevFeature *features);
+int ethtool_set_features(int *fd, const char *ifname, int *features);
 int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *link);
+int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels);
 
 const char *duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;
@@ -106,3 +99,4 @@ NetDevPort port_from_string(const char *port) _pure_;
 int config_parse_duplex(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_wol(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_port(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_channel(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

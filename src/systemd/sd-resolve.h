@@ -3,10 +3,6 @@
 #define foosdresolvehfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2005-2014 Lennart Poettering
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -43,9 +39,9 @@ typedef int (*sd_resolve_getaddrinfo_handler_t)(sd_resolve_query *q, int ret, co
 typedef int (*sd_resolve_getnameinfo_handler_t)(sd_resolve_query *q, int ret, const char *host, const char *serv, void *userdata);
 
 enum {
-        SD_RESOLVE_GET_HOST = UINT64_C(1),
-        SD_RESOLVE_GET_SERVICE = UINT64_C(2),
-        SD_RESOLVE_GET_BOTH = UINT64_C(3),
+        SD_RESOLVE_GET_HOST    = 1 << 0,
+        SD_RESOLVE_GET_SERVICE = 1 << 1,
+        SD_RESOLVE_GET_BOTH = SD_RESOLVE_GET_HOST | SD_RESOLVE_GET_SERVICE,
 };
 
 int sd_resolve_default(sd_resolve **ret);

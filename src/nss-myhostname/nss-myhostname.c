@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2008-2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <net/if.h>
@@ -63,6 +45,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         char *r_name;
         unsigned n;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -82,7 +65,6 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
                 n_addresses = local_gateways(NULL, 0, AF_UNSPEC, &addresses);
                 if (n_addresses <= 0) {
-                        *errnop = ENOENT;
                         *h_errnop = HOST_NOT_FOUND;
                         return NSS_STATUS_NOTFOUND;
                 }
@@ -99,7 +81,6 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
                 /* We respond to our local host name, our hostname suffixed with a single dot. */
                 if (!streq(name, hn) && !streq_ptr(startswith(name, hn), ".")) {
-                        *errnop = ENOENT;
                         *h_errnop = HOST_NOT_FOUND;
                         return NSS_STATUS_NOTFOUND;
                 }
@@ -175,8 +156,8 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         if (ttlp)
                 *ttlp = 0;
 
-        /* Explicitly reset all error variables */
-        *errnop = 0;
+        /* Explicitly reset both *h_errnop and h_errno to work around
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1125975 */
         *h_errnop = NETDB_SUCCESS;
         h_errno = 0;
 
@@ -304,8 +285,8 @@ static enum nss_status fill_in_hostent(
         if (canonp)
                 *canonp = r_name;
 
-        /* Explicitly reset all error variables */
-        *errnop = 0;
+        /* Explicitly reset both *h_errnop and h_errno to work around
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1125975 */
         *h_errnop = NETDB_SUCCESS;
         h_errno = 0;
 
@@ -327,6 +308,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         uint32_t local_address_ipv4 = 0;
         int n_addresses = 0;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -352,7 +334,6 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
 
                 n_addresses = local_gateways(NULL, 0, af, &addresses);
                 if (n_addresses <= 0) {
-                        *errnop = ENOENT;
                         *h_errnop = HOST_NOT_FOUND;
                         return NSS_STATUS_NOTFOUND;
                 }
@@ -368,7 +349,6 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 }
 
                 if (!streq(name, hn) && !streq_ptr(startswith(name, hn), ".")) {
-                        *errnop = ENOENT;
                         *h_errnop = HOST_NOT_FOUND;
                         return NSS_STATUS_NOTFOUND;
                 }
@@ -411,6 +391,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         bool additional_from_hostname = false;
         unsigned n;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(addr);
@@ -473,7 +454,6 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 }
         }
 
-        *errnop = ENOENT;
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
 

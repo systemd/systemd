@@ -1,23 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2008 Alan Jenkins <alan.christopher.jenkins@googlemail.com>
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2008 Alan Jenkins <alan.christopher.jenkins@googlemail.com>
 ***/
 
 #include <errno.h>
@@ -37,10 +20,10 @@
 #include "hwdb-util.h"
 #include "refcnt.h"
 #include "string-util.h"
+#include "util.h"
 
 struct sd_hwdb {
         RefCount n_ref;
-        int refcount;
 
         FILE *f;
         struct stat st;
@@ -164,7 +147,6 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
                 old = ordered_hashmap_get(hwdb->properties, key);
                 if (old) {
                         /* On duplicates, we order by filename priority and line-number.
-                         *
                          *
                          * v2 of the format had 64 bits for the line number.
                          * v3 reuses top 32 bits of line_number to store the priority.
@@ -373,31 +355,22 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
         log_debug("strings           %8"PRIu64" bytes", le64toh(hwdb->head->strings_len));
         log_debug("nodes             %8"PRIu64" bytes", le64toh(hwdb->head->nodes_len));
 
-        *ret = hwdb;
-        hwdb = NULL;
+        *ret = TAKE_PTR(hwdb);
 
         return 0;
 }
 
-_public_ sd_hwdb *sd_hwdb_ref(sd_hwdb *hwdb) {
-        assert_return(hwdb, NULL);
+static sd_hwdb *hwdb_free(sd_hwdb *hwdb) {
+        assert(hwdb);
 
-        assert_se(REFCNT_INC(hwdb->n_ref) >= 2);
-
-        return hwdb;
+        if (hwdb->map)
+                munmap((void *)hwdb->map, hwdb->st.st_size);
+        safe_fclose(hwdb->f);
+        ordered_hashmap_free(hwdb->properties);
+        return mfree(hwdb);
 }
 
-_public_ sd_hwdb *sd_hwdb_unref(sd_hwdb *hwdb) {
-        if (hwdb && REFCNT_DEC(hwdb->n_ref) == 0) {
-                if (hwdb->map)
-                        munmap((void *)hwdb->map, hwdb->st.st_size);
-                safe_fclose(hwdb->f);
-                ordered_hashmap_free(hwdb->properties);
-                free(hwdb);
-        }
-
-        return NULL;
-}
+DEFINE_PUBLIC_ATOMIC_REF_UNREF_FUNC(sd_hwdb, sd_hwdb, hwdb_free)
 
 bool hwdb_validate(sd_hwdb *hwdb) {
         bool found = false;

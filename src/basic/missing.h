@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 /* Missing glibc definitions to access certain kernel APIs */
 
 #include <errno.h>
@@ -27,6 +8,7 @@
 #include <inttypes.h>
 #include <linux/audit.h>
 #include <linux/capability.h>
+#include <linux/falloc.h>
 #include <linux/if_link.h>
 #include <linux/input.h>
 #include <linux/loop.h>
@@ -37,9 +19,14 @@
 #include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <uchar.h>
 #include <unistd.h>
+
+#if WANT_LINUX_STAT_H
+#include <linux/stat.h>
+#endif
 
 #if HAVE_AUDIT
 #include <libaudit.h>
@@ -206,6 +193,32 @@ struct sockaddr_vm {
 #endif
 
 #if ! HAVE_LINUX_BTRFS_H
+#define BTRFS_IOC_QGROUP_ASSIGN _IOW(BTRFS_IOCTL_MAGIC, 41, \
+                               struct btrfs_ioctl_qgroup_assign_args)
+#define BTRFS_IOC_QGROUP_CREATE _IOW(BTRFS_IOCTL_MAGIC, 42, \
+                               struct btrfs_ioctl_qgroup_create_args)
+#define BTRFS_IOC_QUOTA_RESCAN _IOW(BTRFS_IOCTL_MAGIC, 44, \
+                               struct btrfs_ioctl_quota_rescan_args)
+#define BTRFS_IOC_QUOTA_RESCAN_STATUS _IOR(BTRFS_IOCTL_MAGIC, 45, \
+                               struct btrfs_ioctl_quota_rescan_args)
+
+struct btrfs_ioctl_quota_rescan_args {
+        __u64   flags;
+        __u64   progress;
+        __u64   reserved[6];
+};
+
+struct btrfs_ioctl_qgroup_assign_args {
+        __u64 assign;
+        __u64 src;
+        __u64 dst;
+};
+
+struct btrfs_ioctl_qgroup_create_args {
+        __u64 create;
+        __u64 qgroupid;
+};
+
 struct btrfs_ioctl_vol_args {
         int64_t fd;
         char name[BTRFS_PATH_NAME_MAX + 1];
@@ -312,7 +325,6 @@ struct btrfs_ioctl_search_header {
         __u32 type;
         __u32 len;
 };
-
 
 struct btrfs_ioctl_search_args {
         struct btrfs_ioctl_search_key key;
@@ -491,6 +503,10 @@ struct btrfs_ioctl_quota_ctl_args {
 #define BPF_FS_MAGIC 0xcafe4a11
 #endif
 
+#ifndef OCFS2_SUPER_MAGIC
+#define OCFS2_SUPER_MAGIC 0x7461636f
+#endif
+
 #ifndef MS_MOVE
 #define MS_MOVE 8192
 #endif
@@ -543,6 +559,38 @@ struct btrfs_ioctl_quota_ctl_args {
 #define PR_SET_CHILD_SUBREAPER 36
 #endif
 
+#ifndef PR_SET_MM_ARG_START
+#define PR_SET_MM_ARG_START 8
+#endif
+
+#ifndef PR_SET_MM_ARG_END
+#define PR_SET_MM_ARG_END 9
+#endif
+
+#ifndef PR_SET_MM_ENV_START
+#define PR_SET_MM_ENV_START 10
+#endif
+
+#ifndef PR_SET_MM_ENV_END
+#define PR_SET_MM_ENV_END 11
+#endif
+
+#ifndef EFIVARFS_MAGIC
+#define EFIVARFS_MAGIC 0xde5e81e4
+#endif
+
+#ifndef SMACK_MAGIC
+#define SMACK_MAGIC 0x43415d53
+#endif
+
+#ifndef DM_DEFERRED_REMOVE
+#define DM_DEFERRED_REMOVE (1 << 17)
+#endif
+
+#ifndef MAX_HANDLE_SZ
+#define MAX_HANDLE_SZ 128
+#endif
+
 #if ! HAVE_SECURE_GETENV
 #  if HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv
@@ -561,6 +609,10 @@ struct btrfs_ioctl_quota_ctl_args {
 
 #ifndef SO_REUSEPORT
 #  define SO_REUSEPORT 15
+#endif
+
+#ifndef SO_PEERGROUPS
+#  define SO_PEERGROUPS 59
 #endif
 
 #ifndef EVIOCREVOKE
@@ -653,16 +705,26 @@ struct input_mask {
 #define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
 #endif
 
-#if !HAVE_IFLA_IPVLAN_MODE
+#if !HAVE_IFLA_IPVLAN_FLAGS
 #define IFLA_IPVLAN_UNSPEC 0
 #define IFLA_IPVLAN_MODE 1
-#define __IFLA_IPVLAN_MAX 2
+#define IFLA_IPVLAN_FLAGS 2
+#define __IFLA_IPVLAN_MAX 3
 
 #define IFLA_IPVLAN_MAX (__IFLA_IPVLAN_MAX - 1)
 
 #define IPVLAN_MODE_L2 0
 #define IPVLAN_MODE_L3 1
+#define IPVLAN_MODE_L3S 2
 #define IPVLAN_MAX 2
+#endif
+
+#if !HAVE_IPVLAN_F_PRIVATE
+#define IPVLAN_F_PRIVATE 0x01
+#define IPVLAN_F_VEPA    0x02
+#define __IPVLAN_F_PRIVATE_MAX 3
+
+#define HAVE_IPVLAN_F_PRIVATE_MAX (__HAVE_IPVLAN_F_PRIVATE_MAX - 1)
 #endif
 
 #if !HAVE_IFLA_VTI_REMOTE
@@ -975,12 +1037,24 @@ struct input_mask {
 #define RTA_PREF 20
 #endif
 
+#ifndef RTAX_QUICKACK
+#define RTAX_QUICKACK 15
+#endif
+
+#ifndef RTA_EXPIRES
+#define RTA_EXPIRES 23
+#endif
+
 #ifndef IPV6_UNICAST_IF
 #define IPV6_UNICAST_IF 76
 #endif
 
 #ifndef IPV6_MIN_MTU
 #define IPV6_MIN_MTU 1280
+#endif
+
+#ifndef IPV4_MIN_MTU
+#define IPV4_MIN_MTU 68
 #endif
 
 #ifndef IFF_MULTI_QUEUE
@@ -1109,9 +1183,7 @@ struct input_mask {
 #define KEY_ALS_TOGGLE 0x230
 #endif
 
-#if ! HAVE_KEY_SERIAL_T
 typedef int32_t key_serial_t;
-#endif
 
 #ifndef KEYCTL_JOIN_SESSION_KEYRING
 #define KEYCTL_JOIN_SESSION_KEYRING 1
@@ -1269,6 +1341,111 @@ struct fib_rule_uid_range {
 
 #ifndef EXT4_IOC_RESIZE_FS
 #  define EXT4_IOC_RESIZE_FS              _IOW('f', 16, __u64)
+#endif
+
+#ifndef NSFS_MAGIC
+#define NSFS_MAGIC 0x6e736673
+#endif
+
+#ifndef NS_GET_NSTYPE
+#define NS_GET_NSTYPE _IO(0xb7, 0x3)
+#endif
+
+#ifndef FALLOC_FL_KEEP_SIZE
+#define FALLOC_FL_KEEP_SIZE 0x01
+#endif
+
+#ifndef FALLOC_FL_PUNCH_HOLE
+#define FALLOC_FL_PUNCH_HOLE 0x02
+#endif
+
+#ifndef PF_KTHREAD
+#define PF_KTHREAD 0x00200000
+#endif
+
+#if ! HAVE_STRUCT_STATX
+struct statx_timestamp {
+        int64_t tv_sec;
+        uint32_t tv_nsec;
+        uint32_t __reserved;
+};
+struct statx {
+        uint32_t stx_mask;
+        uint32_t stx_blksize;
+        uint64_t stx_attributes;
+        uint32_t stx_nlink;
+        uint32_t stx_uid;
+        uint32_t stx_gid;
+        uint16_t stx_mode;
+        uint16_t __spare0[1];
+        uint64_t stx_ino;
+        uint64_t stx_size;
+        uint64_t stx_blocks;
+        uint64_t stx_attributes_mask;
+        struct statx_timestamp stx_atime;
+        struct statx_timestamp stx_btime;
+        struct statx_timestamp stx_ctime;
+        struct statx_timestamp stx_mtime;
+        uint32_t stx_rdev_major;
+        uint32_t stx_rdev_minor;
+        uint32_t stx_dev_major;
+        uint32_t stx_dev_minor;
+        uint64_t __spare2[14];
+};
+#endif
+
+#ifndef STATX_BTIME
+#define STATX_BTIME 0x00000800U
+#endif
+
+#ifndef AT_STATX_DONT_SYNC
+#define AT_STATX_DONT_SYNC 0x4000
+#endif
+
+/* The maximum thread/process name length including trailing NUL byte. This mimics the kernel definition of the same
+ * name, which we need in userspace at various places but is not defined in userspace currently, neither under this
+ * name nor any other. */
+#ifndef TASK_COMM_LEN
+#define TASK_COMM_LEN 16
+#endif
+
+#ifndef FOU_GENL_NAME
+#define FOU_GENL_NAME           "fou"
+#endif
+
+#ifndef FOU_GENL_VERSION
+#define FOU_GENL_VERSION        0x1
+#endif
+
+#if !HAVE_FOU_ATTR_REMCSUM_NOPARTIAL
+#define FOU_ATTR_UNSPEC 0
+#define FOU_ATTR_PORT 1
+#define FOU_ATTR_AF 2
+#define FOU_ATTR_IPPROTO 3
+#define FOU_ATTR_TYPE 4
+#define FOU_ATTR_REMCSUM_NOPARTIAL 5
+#define __FOU_ATTR_MAX 6
+
+#define FOU_ATTR_MAX (__FOU_ATTR_MAX - 1)
+#endif
+
+#if !HAVE_FOU_CMD_GET
+#define FOU_CMD_UNSPEC 0
+#define FOU_CMD_ADD 1
+#define FOU_CMD_DEL 2
+#define FOU_CMD_GET 3
+#define __FOU_CMD_MAX 4
+
+#define FOU_CMD_MAX (__FOU_CMD_MAX - 1)
+#endif
+
+#if !HAVE_FOU_ENCAP_GUE
+#define FOU_ENCAP_UNSPEC 0
+#define FOU_ENCAP_DIRECT 1
+#define FOU_ENCAP_GUE 2
+#define __FOU_ENCAP_MAX 3
+
+#define FOU_ENCAP_MAX (__FOU_ENCAP_MAX - 1)
 #endif
 
 #include "missing_syscall.h"

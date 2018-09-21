@@ -1,34 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2016 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
 
+#include "sd-device.h"
+#include "sd-id128.h"
+
 #include "architecture.h"
 #include "ask-password-api.h"
 #include "blkid-util.h"
+#include "blockdev-util.h"
 #include "copy.h"
 #include "crypt-util.h"
 #include "def.h"
 #include "device-nodes.h"
+#include "device-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -38,7 +25,9 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "linux-3.13/dm-ioctl.h"
+#include "missing.h"
 #include "mount-util.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
@@ -48,7 +37,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "udev-util.h"
+#include "user-util.h"
 #include "xattr-util.h"
 
 int probe_filesystem(const char *node, char **ret_fstype) {
@@ -57,7 +46,7 @@ int probe_filesystem(const char *node, char **ret_fstype) {
          * different error otherwise. */
 
 #if HAVE_BLKID
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         const char *fstype;
         int r;
 
@@ -103,23 +92,50 @@ not_found:
 #endif
 }
 
-int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret) {
+#if HAVE_BLKID
+/* Detect RPMB and Boot partitions, which are not listed by blkid.
+ * See https://github.com/systemd/systemd/issues/5806. */
+static bool device_is_mmc_special_partition(sd_device *d) {
+        const char *sysname;
+
+        if (sd_device_get_sysname(d, &sysname) < 0)
+                return false;
+
+        return startswith(sysname, "mmcblk") &&
+                (endswith(sysname, "rpmb") || endswith(sysname, "boot0") || endswith(sysname, "boot1"));
+}
+
+static bool device_is_block(sd_device *d) {
+        const char *ss;
+
+        if (sd_device_get_subsystem(d, &ss) < 0)
+                return false;
+
+        return streq(ss, "block");
+}
+#endif
+
+int dissect_image(
+                int fd,
+                const void *root_hash,
+                size_t root_hash_size,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
 
 #if HAVE_BLKID
         sd_id128_t root_uuid = SD_ID128_NULL, verity_uuid = SD_ID128_NULL;
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool is_gpt, is_mbr, generic_rw, multiple_generic = false;
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
         const char *pttype = NULL;
-        struct udev_list_entry *first, *item;
         blkid_partlist pl;
         int r, generic_nr;
         struct stat st;
+        sd_device *q;
         unsigned i;
 
         assert(fd >= 0);
@@ -211,16 +227,13 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 .rw = true,
                                 .partno = -1,
                                 .architecture = _ARCHITECTURE_INVALID,
-                                .fstype = t,
-                                .node = n,
+                                .fstype = TAKE_PTR(t),
+                                .node = TAKE_PTR(n),
                         };
-
-                        t = n = NULL;
 
                         m->encrypted = streq(fstype, "crypto_LUKS");
 
-                        *ret = m;
-                        m = NULL;
+                        *ret = TAKE_PTR(m);
 
                         return 0;
                 }
@@ -241,13 +254,9 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
         if (!pl)
                 return -errno ?: -ENOMEM;
 
-        udev = udev_new();
-        if (!udev)
-                return -errno;
-
-        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
-        if (!d)
-                return -ENOMEM;
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return r;
 
         for (i = 0;; i++) {
                 int n, z;
@@ -257,23 +266,33 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                         return -ENXIO;
                 }
 
-                e = udev_enumerate_new(udev);
-                if (!e)
-                        return -errno;
-
-                r = udev_enumerate_add_match_parent(e, d);
+                r = sd_device_enumerator_new(&e);
                 if (r < 0)
                         return r;
 
-                r = udev_enumerate_scan_devices(e);
+                r = sd_device_enumerator_allow_uninitialized(e);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_add_match_parent(e, d);
                 if (r < 0)
                         return r;
 
                 /* Count the partitions enumerated by the kernel */
                 n = 0;
-                first = udev_enumerate_get_list_entry(e);
-                udev_list_entry_foreach(item, first)
+                FOREACH_DEVICE(e, q) {
+                        dev_t qn;
+
+                        if (sd_device_get_devnum(q, &qn) < 0)
+                                continue;
+
+                        if (!device_is_block(q))
+                                continue;
+
+                        if (device_is_mmc_special_partition(q))
+                                continue;
                         n++;
+                }
 
                 /* Count the partitions enumerated by blkid */
                 z = blkid_partlist_numof_partitions(pl);
@@ -324,37 +343,31 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                         }
                 }
 
-                e = udev_enumerate_unref(e);
+                e = sd_device_enumerator_unref(e);
         }
 
-        first = udev_enumerate_get_list_entry(e);
-        udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *q;
+        FOREACH_DEVICE(e, q) {
                 unsigned long long pflags;
                 blkid_partition pp;
-                const char *node, *sysname;
+                const char *node;
                 dev_t qn;
                 int nr;
 
-                q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
-                if (!q)
-                        return -errno;
-
-                qn = udev_device_get_devnum(q);
-                if (major(qn) == 0)
+                r = sd_device_get_devnum(q, &qn);
+                if (r < 0)
                         continue;
 
                 if (st.st_rdev == qn)
                         continue;
 
-                /* Filter out weird MMC RPMB partitions, which cannot reasonably be read, see
-                 * https://github.com/systemd/systemd/issues/5806 */
-                sysname = udev_device_get_sysname(q);
-                if (sysname && startswith(sysname, "mmcblk") && endswith(sysname, "rpmb"))
+                if (!device_is_block(q))
                         continue;
 
-                node = udev_device_get_devnode(q);
-                if (!node)
+                if (device_is_mmc_special_partition(q))
+                        continue;
+
+                r = sd_device_get_devname(q, &node);
+                if (r < 0)
                         continue;
 
                 pp = blkid_partlist_devno_to_partition(pl, qn);
@@ -517,12 +530,10 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                         .partno = nr,
                                         .rw = rw,
                                         .architecture = architecture,
-                                        .node = n,
-                                        .fstype = t,
+                                        .node = TAKE_PTR(n),
+                                        .fstype = TAKE_PTR(t),
                                         .uuid = id,
                                 };
-
-                                n = t = NULL;
                         }
 
                 } else if (is_mbr) {
@@ -580,11 +591,9 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 .rw = generic_rw,
                                 .partno = generic_nr,
                                 .architecture = _ARCHITECTURE_INVALID,
-                                .node = generic_node,
+                                .node = TAKE_PTR(generic_node),
                                 .uuid = generic_uuid,
                         };
-
-                        generic_node = NULL;
                 }
         }
 
@@ -627,8 +636,7 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                         p->rw = false;
         }
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 #else
@@ -686,10 +694,11 @@ static int mount_partition(
                 DissectedPartition *m,
                 const char *where,
                 const char *directory,
+                uid_t uid_shift,
                 DissectImageFlags flags) {
 
-        const char *p, *options = NULL, *node, *fstype;
-        _cleanup_free_ char *chased = NULL;
+        _cleanup_free_ char *chased = NULL, *options = NULL;
+        const char *p, *node, *fstype;
         bool rw;
         int r;
 
@@ -720,13 +729,26 @@ static int mount_partition(
         /* If requested, turn on discard support. */
         if (fstype_can_discard(fstype) &&
             ((flags & DISSECT_IMAGE_DISCARD) ||
-             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node))))
-                options = "discard";
+             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node)))) {
+                options = strdup("discard");
+                if (!options)
+                        return -ENOMEM;
+        }
+
+        if (uid_is_valid(uid_shift) && uid_shift != 0 && fstype_can_uid_gid(fstype)) {
+                _cleanup_free_ char *uid_option = NULL;
+
+                if (asprintf(&uid_option, "uid=" UID_FMT ",gid=" GID_FMT, uid_shift, (gid_t) uid_shift) < 0)
+                        return -ENOMEM;
+
+                if (!strextend_with_separator(&options, ",", uid_option, NULL))
+                        return -ENOMEM;
+        }
 
         return mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
 }
 
-int dissected_image_mount(DissectedImage *m, const char *where, DissectImageFlags flags) {
+int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags) {
         int r;
 
         assert(m);
@@ -735,15 +757,28 @@ int dissected_image_mount(DissectedImage *m, const char *where, DissectImageFlag
         if (!m->partitions[PARTITION_ROOT].found)
                 return -ENXIO;
 
-        r = mount_partition(m->partitions + PARTITION_ROOT, where, NULL, flags);
+        if ((flags & DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) == 0) {
+                r = mount_partition(m->partitions + PARTITION_ROOT, where, NULL, uid_shift, flags);
+                if (r < 0)
+                        return r;
+
+                if (flags & DISSECT_IMAGE_VALIDATE_OS) {
+                        r = path_is_os_tree(where);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EMEDIUMTYPE;
+                }
+        }
+
+        if ((flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY))
+                return 0;
+
+        r = mount_partition(m->partitions + PARTITION_HOME, where, "/home", uid_shift, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(m->partitions + PARTITION_HOME, where, "/home", flags);
-        if (r < 0)
-                return r;
-
-        r = mount_partition(m->partitions + PARTITION_SRV, where, "/srv", flags);
+        r = mount_partition(m->partitions + PARTITION_SRV, where, "/srv", uid_shift, flags);
         if (r < 0)
                 return r;
 
@@ -761,7 +796,7 @@ int dissected_image_mount(DissectedImage *m, const char *where, DissectImageFlag
 
                         r = dir_is_empty(p);
                         if (r > 0) {
-                                r = mount_partition(m->partitions + PARTITION_ESP, where, mp, flags);
+                                r = mount_partition(m->partitions + PARTITION_ESP, where, mp, uid_shift, flags);
                                 if (r < 0)
                                         return r;
                         }
@@ -840,10 +875,9 @@ static int make_dm_name_and_node(const void *original_node, const char *suffix, 
         if (!node)
                 return -ENOMEM;
 
-        *ret_name = name;
-        *ret_node = node;
+        *ret_name = TAKE_PTR(name);
+        *ret_node = TAKE_PTR(node);
 
-        name = node = NULL;
         return 0;
 }
 
@@ -892,15 +926,11 @@ static int decrypt_partition(
                 return r == -EPERM ? -EKEYREJECTED : r;
         }
 
-        d->decrypted[d->n_decrypted].name = name;
-        name = NULL;
-
-        d->decrypted[d->n_decrypted].device = cd;
-        cd = NULL;
+        d->decrypted[d->n_decrypted].name = TAKE_PTR(name);
+        d->decrypted[d->n_decrypted].device = TAKE_PTR(cd);
         d->n_decrypted++;
 
-        m->decrypted_node = node;
-        node = NULL;
+        m->decrypted_node = TAKE_PTR(node);
 
         return 0;
 }
@@ -954,15 +984,11 @@ static int verity_partition(
         if (r < 0)
                 return r;
 
-        d->decrypted[d->n_decrypted].name = name;
-        name = NULL;
-
-        d->decrypted[d->n_decrypted].device = cd;
-        cd = NULL;
+        d->decrypted[d->n_decrypted].name = TAKE_PTR(name);
+        d->decrypted[d->n_decrypted].device = TAKE_PTR(cd);
         d->n_decrypted++;
 
-        m->decrypted_node = node;
-        node = NULL;
+        m->decrypted_node = TAKE_PTR(node);
 
         return 0;
 }
@@ -976,8 +1002,8 @@ int dissected_image_decrypt(
                 DissectImageFlags flags,
                 DecryptedImage **ret) {
 
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
 #if HAVE_LIBCRYPTSETUP
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
         unsigned i;
         int r;
 #endif
@@ -1031,8 +1057,7 @@ int dissected_image_decrypt(
                 }
         }
 
-        *ret = d;
-        d = NULL;
+        *ret = TAKE_PTR(d);
 
         return 1;
 #else
@@ -1060,10 +1085,8 @@ int dissected_image_decrypt_interactively(
                         return r;
                 if (r == -EKEYREJECTED)
                         log_error_errno(r, "Incorrect passphrase, try again!");
-                else if (r != -ENOKEY) {
-                        log_error_errno(r, "Failed to decrypt image: %m");
-                        return r;
-                }
+                else if (r != -ENOKEY)
+                        return log_error_errno(r, "Failed to decrypt image: %m");
 
                 if (--n < 0) {
                         log_error("Too many retries.");
@@ -1166,7 +1189,7 @@ int root_hash_load(const char *image, void **ret, size_t *ret_size) {
                 if (!IN_SET(r, -ENODATA, -EOPNOTSUPP, -ENOENT))
                         return r;
 
-                fn = newa(char, strlen(image) + strlen(".roothash") + 1);
+                fn = newa(char, strlen(image) + STRLEN(".roothash") + 1);
                 n = stpcpy(fn, image);
                 e = endswith(fn, ".raw");
                 if (e)
@@ -1190,10 +1213,8 @@ int root_hash_load(const char *image, void **ret, size_t *ret_size) {
         if (l < sizeof(sd_id128_t))
                 return -EINVAL;
 
-        *ret = k;
+        *ret = TAKE_PTR(k);
         *ret_size = l;
-
-        k = NULL;
 
         return 1;
 }
@@ -1222,7 +1243,6 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         _cleanup_free_ char *hostname = NULL;
         unsigned n_meta_initialized = 0, k;
         int fds[2 * _META_MAX], r;
-        siginfo_t si;
 
         BLOCK_SIGNALS(SIGCHLD);
 
@@ -1238,25 +1258,15 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         if (r < 0)
                 goto finish;
 
-        child = raw_clone(SIGCHLD|CLONE_NEWNS);
-        if (child < 0) {
-                r = -errno;
+        r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, &child);
+        if (r < 0)
                 goto finish;
-        }
-
-        if (child == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
-                /* Make sure we never propagate to the host */
-                if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
+        if (r == 0) {
+                r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_VALIDATE_OS);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to mount dissected image: %m");
                         _exit(EXIT_FAILURE);
-
-                r = dissected_image_mount(m, t, DISSECT_IMAGE_READ_ONLY);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
+                }
 
                 for (k = 0; k < _META_MAX; k++) {
                         _cleanup_close_ int fd = -1;
@@ -1265,18 +1275,14 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                         fds[2*k] = safe_close(fds[2*k]);
 
                         NULSTR_FOREACH(p, paths[k]) {
-                                _cleanup_free_ char *q = NULL;
-
-                                r = chase_symlinks(p, t, CHASE_PREFIX_ROOT, &q);
-                                if (r < 0)
-                                        continue;
-
-                                fd = open(q, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                                fd = chase_symlinks_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                                 if (fd >= 0)
                                         break;
                         }
-                        if (fd < 0)
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
                                 continue;
+                        }
 
                         r = copy_bytes(fd, fds[2*k+1], (uint64_t) -1, 0);
                         if (r < 0)
@@ -1344,15 +1350,12 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 }
         }
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
+        child = 0;
         if (r < 0)
                 goto finish;
-        child = 0;
-
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS) {
-                r = -EPROTO;
-                goto finish;
-        }
+        if (r != EXIT_SUCCESS)
+                return -EPROTO;
 
         free_and_replace(m->hostname, hostname);
         m->machine_id = machine_id;
@@ -1364,6 +1367,55 @@ finish:
                 safe_close_pair(fds + 2*k);
 
         return r;
+}
+
+int dissect_image_and_warn(
+                int fd,
+                const char *name,
+                const void *root_hash,
+                size_t root_hash_size,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
+
+        _cleanup_free_ char *buffer = NULL;
+        int r;
+
+        if (!name) {
+                r = fd_get_path(fd, &buffer);
+                if (r < 0)
+                        return r;
+
+                name = buffer;
+        }
+
+        r = dissect_image(fd, root_hash, root_hash_size, flags, ret);
+
+        switch (r) {
+
+        case -EOPNOTSUPP:
+                return log_error_errno(r, "Dissecting images is not supported, compiled without blkid support.");
+
+        case -ENOPKG:
+                return log_error_errno(r, "Couldn't identify a suitable partition table or file system in '%s'.", name);
+
+        case -EADDRNOTAVAIL:
+                return log_error_errno(r, "No root partition for specified root hash found in '%s'.", name);
+
+        case -ENOTUNIQ:
+                return log_error_errno(r, "Multiple suitable root partitions found in image '%s'.", name);
+
+        case -ENXIO:
+                return log_error_errno(r, "No suitable root partition found in image '%s'.", name);
+
+        case -EPROTONOSUPPORT:
+                return log_error_errno(r, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", name);
+
+        default:
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dissect image '%s': %m", name);
+
+                return r;
+        }
 }
 
 static const char *const partition_designator_table[] = {

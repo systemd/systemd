@@ -1,40 +1,15 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.link">
   <refentryinfo>
     <title>systemd.link</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -101,7 +76,12 @@
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
         <listitem>
-          <para>The hardware address.</para>
+          <para>A whitespace-separated list of hardware addresses. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example below.
+          This option may appear more than once, in which case the lists are merged. If the empty string is assigned to this option, the list
+          of hardware addresses defined prior to this is reset.</para>
+
+          <para>Example:
+          <programlisting>MACAddress=01:23:45:67:89:ab 00-11-22-33-44-55 AABB.CCDD.EEFF</programlisting></para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -172,6 +152,17 @@
           for details.</para>
         </listitem>
       </varlistentry>
+        <varlistentry>
+          <term><varname>KernelVersion=</varname></term>
+          <listitem>
+            <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
+            expression (or if prefixed with the exclamation mark does not match it). See
+            <literal>ConditionKernelVersion=</literal> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+            details.
+            </para>
+          </listitem>
+        </varlistentry>
       <varlistentry>
         <term><varname>Architecture=</varname></term>
         <listitem>
@@ -442,6 +433,8 @@
               </listitem>
             </varlistentry>
           </variablelist>
+
+          <para>Defaults to <literal>off</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -509,14 +502,6 @@
           Defaults to "unset".</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-        <term><varname>UDPSegmentationOffload=</varname></term>
-        <listitem>
-          <para>The UDP Segmentation Offload (USO) when true enables
-          UDP segmentation offload. Takes a boolean value.
-          Defaults to "unset".</para>
-        </listitem>
-      </varlistentry>
     <varlistentry>
         <term><varname>GenericReceiveOffload=</varname></term>
         <listitem>
@@ -531,6 +516,30 @@
           <para>The Large Receive Offload (LRO) when true enables
           large receive offload. Takes a boolean value.
           Defaults to "unset".</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RxChannels=</varname></term>
+        <listitem>
+          <para>Sets the number of receive channels (a number between 1 and 4294967295) .</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TxChannels=</varname></term>
+        <listitem>
+          <para>Sets the number of transmit channels (a number between 1 and 4294967295).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>OtherChannels=</varname></term>
+        <listitem>
+          <para>Sets the number of other channels (a number between 1 and 4294967295).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>CombinedChannels=</varname></term>
+        <listitem>
+          <para>Sets the number of combined set channels (a number between 1 and 4294967295).</para>
         </listitem>
       </varlistentry>
     </variablelist>

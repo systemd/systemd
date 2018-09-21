@@ -1,51 +1,43 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
+#include "unit.h"
 
 typedef struct Device Device;
 
+/* A mask specifying where we have seen the device currently. This is a bitmask because the device might show up
+ * asynchronously from each other at various places. For example, in very common case a device might already be mounted
+ * before udev finished probing it (think: a script setting up a loopback block device, formatting it and mounting it
+ * in quick succession). Hence we need to track precisely where it is already visible and where not. */
 typedef enum DeviceFound {
-        DEVICE_NOT_FOUND = 0,
-        DEVICE_FOUND_UDEV = 1,
-        DEVICE_FOUND_MOUNT = 2,
-        DEVICE_FOUND_SWAP = 4,
+        DEVICE_NOT_FOUND   = 0,
+        DEVICE_FOUND_UDEV  = 1U << 1, /* The device has shown up in the udev database */
+        DEVICE_FOUND_MOUNT = 1U << 2, /* The device has shown up in /proc/self/mountinfo */
+        DEVICE_FOUND_SWAP  = 1U << 3, /* The device has shown up in /proc/swaps */
+        DEVICE_FOUND_MASK  = DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP,
 } DeviceFound;
 
 struct Device {
         Unit meta;
 
         char *sysfs;
-        DeviceFound found;
 
-        /* In order to be able to distinguish dependencies on
-        different device nodes we might end up creating multiple
-        devices for the same sysfs path. We chain them up here. */
+        /* In order to be able to distinguish dependencies on different device nodes we might end up creating multiple
+         * devices for the same sysfs path. We chain them up here. */
         LIST_FIELDS(struct Device, same_sysfs);
 
         DeviceState state, deserialized_state;
+        DeviceFound found, deserialized_found, enumerated_found;
 
         bool bind_mounts;
+
+        /* The SYSTEMD_WANTS udev property for this device the last time we saw it */
+        char **wants_property;
 };
 
 extern const UnitVTable device_vtable;
 
-int device_found_node(Manager *m, const char *node, bool add, DeviceFound found, bool now);
+void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFound mask);
 bool device_shall_be_bound_by(Unit *device, Unit *u);
+
+DEFINE_CAST(DEVICE, Device);

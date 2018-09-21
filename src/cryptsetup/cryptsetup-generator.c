@@ -1,24 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
+#include <stdio_ext.h>
 
 #include "alloc-util.h"
 #include "dropin.h"
@@ -41,6 +24,7 @@
 typedef struct crypto_device {
         char *uuid;
         char *keyfile;
+        char *keydev;
         char *name;
         char *options;
         bool create;
@@ -54,14 +38,71 @@ static Hashmap *arg_disks = NULL;
 static char *arg_default_options = NULL;
 static char *arg_default_keyfile = NULL;
 
+static int generate_keydev_mount(const char *name, const char *keydev, char **unit, char **mount) {
+        _cleanup_free_ char *u = NULL, *what = NULL, *where = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(name);
+        assert(keydev);
+        assert(unit);
+        assert(mount);
+
+        r = mkdir_parents("/run/systemd/cryptsetup", 0755);
+        if (r < 0)
+                return r;
+
+        r = mkdir("/run/systemd/cryptsetup", 0700);
+        if (r < 0)
+                return r;
+
+        where = strjoin("/run/systemd/cryptsetup/keydev-", name);
+        if (!where)
+                return -ENOMEM;
+
+        r = mkdir(where, 0700);
+        if (r < 0)
+                return r;
+
+        r = unit_name_from_path(where, ".mount", &u);
+        if (r < 0)
+                return r;
+
+        r = generator_open_unit_file(arg_dest, NULL, u, &f);
+        if (r < 0)
+                return r;
+
+        what = fstab_node_to_udev_node(keydev);
+        if (!what)
+                return -ENOMEM;
+
+        fprintf(f,
+                "[Unit]\n"
+                "DefaultDependencies=no\n\n"
+                "[Mount]\n"
+                "What=%s\n"
+                "Where=%s\n"
+                "Options=ro\n", what, where);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
+        *unit = TAKE_PTR(u);
+        *mount = TAKE_PTR(where);
+
+        return 0;
+}
+
 static int create_disk(
                 const char *name,
                 const char *device,
+                const char *keydev,
                 const char *password,
                 const char *options) {
 
-        _cleanup_free_ char *p = NULL, *n = NULL, *d = NULL, *u = NULL, *e = NULL,
-                *filtered = NULL, *u_escaped = NULL, *password_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL;
+        _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL,
+                *filtered = NULL, *u_escaped = NULL, *password_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL, *keydev_mount = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
         bool noauto, nofail, tmp, swap, netdev;
@@ -89,17 +130,13 @@ static int create_disk(
         if (!e)
                 return log_oom();
 
-        r = unit_name_build("systemd-cryptsetup", e, ".service", &n);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate unit name: %m");
-
-        p = strjoin(arg_dest, "/", n);
-        if (!p)
-                return log_oom();
-
         u = fstab_node_to_udev_node(device);
         if (!u)
                 return log_oom();
+
+        r = unit_name_build("systemd-cryptsetup", e, ".service", &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name: %m");
 
         u_escaped = specifier_escape(u);
         if (!u_escaped)
@@ -109,16 +146,20 @@ static int create_disk(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        password_escaped = specifier_escape(password);
-        if (!password_escaped)
-                return log_oom();
+        if (password) {
+                password_escaped = specifier_escape(password);
+                if (!password_escaped)
+                        return log_oom();
+        }
 
-        f = fopen(p, "wxe");
-        if (!f)
-                return log_error_errno(errno, "Failed to create unit file %s: %m", p);
+        if (keydev && !password)
+                return log_error_errno(-EINVAL, "Keydev is specified, but path to the password file is missing: %m");
+
+        r = generator_open_unit_file(arg_dest, NULL, n, &f);
+        if (r < 0)
+                return r;
 
         fprintf(f,
-                "# Automatically generated by systemd-cryptsetup-generator\n\n"
                 "[Unit]\n"
                 "Description=Cryptography Setup for %%I\n"
                 "Documentation=man:crypttab(5) man:systemd-cryptsetup-generator(8) man:systemd-cryptsetup@.service(8)\n"
@@ -129,6 +170,20 @@ static int create_disk(
                 "After=%s\n",
                 netdev ? "remote-fs-pre.target" : "cryptsetup-pre.target");
 
+        if (keydev) {
+                _cleanup_free_ char *unit = NULL, *p = NULL;
+
+                r = generate_keydev_mount(name, keydev, &unit, &keydev_mount);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate keydev mount unit: %m");
+
+                p = prefix_root(keydev_mount, password_escaped);
+                if (!p)
+                        return log_oom();
+
+                free_and_replace(password_escaped, p);
+        }
+
         if (!nofail)
                 fprintf(f,
                         "Before=%s\n",
@@ -136,7 +191,7 @@ static int create_disk(
 
         if (password) {
                 if (STR_IN_SET(password, "/dev/urandom", "/dev/random", "/dev/hw_random"))
-                        fputs_unlocked("After=systemd-random-seed.service\n", f);
+                        fputs("After=systemd-random-seed.service\n", f);
                 else if (!STR_IN_SET(password, "-", "none")) {
                         _cleanup_free_ char *uu;
 
@@ -168,21 +223,27 @@ static int create_disk(
                         d, d);
 
                 if (swap)
-                        fputs_unlocked("Before=dev-mapper-%i.swap\n",
-                                       f);
+                        fputs("Before=dev-mapper-%i.swap\n",
+                              f);
         } else
+                /* For loopback devices, add systemd-tmpfiles-setup-dev.service
+                   dependency to ensure that loopback support is available in
+                   the kernel (/dev/loop-control needs to exist) */
                 fprintf(f,
-                        "RequiresMountsFor=%s\n",
+                        "RequiresMountsFor=%s\n"
+                        "Requires=systemd-tmpfiles-setup-dev.service\n"
+                        "After=systemd-tmpfiles-setup-dev.service\n",
                         u_escaped);
-
 
         r = generator_write_timeouts(arg_dest, device, name, options, &filtered);
         if (r < 0)
                 return r;
 
-        filtered_escaped = specifier_escape(filtered);
-        if (!filtered_escaped)
-                return log_oom();
+        if (filtered) {
+                filtered_escaped = specifier_escape(filtered);
+                if (!filtered_escaped)
+                        return log_oom();
+        }
 
         fprintf(f,
                 "\n[Service]\n"
@@ -205,9 +266,14 @@ static int create_disk(
                         "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n",
                         name_escaped);
 
+        if (keydev)
+                fprintf(f,
+                        "ExecStartPost=" UMOUNT_PATH " %s\n\n",
+                        keydev_mount);
+
         r = fflush_and_check(f);
         if (r < 0)
-                return log_error_errno(r, "Failed to write file %s: %m", p);
+                return log_error_errno(r, "Failed to write unit file %s: %m", n);
 
         if (!noauto) {
                 r = generator_add_symlink(arg_dest, d, "wants", n);
@@ -240,6 +306,7 @@ static int create_disk(
 static void crypt_device_free(crypto_device *d) {
         free(d->uuid);
         free(d->keyfile);
+        free(d->keydev);
         free(d->name);
         free(d->options);
         free(d);
@@ -328,11 +395,27 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = sscanf(value, "%m[0-9a-fA-F-]=%ms", &uuid, &uuid_value);
                 if (r == 2) {
+                        char *c;
+                        _cleanup_free_ char *keyfile = NULL, *keydev = NULL;
+
                         d = get_crypto_device(uuid);
                         if (!d)
                                 return log_oom();
 
-                        free_and_replace(d->keyfile, uuid_value);
+                        c = strrchr(uuid_value, ':');
+                        if (!c)
+                                /* No keydev specified */
+                                return free_and_replace(d->keyfile, uuid_value);
+
+                        *c = '\0';
+                        keyfile = strdup(uuid_value);
+                        keydev = strdup(++c);
+
+                        if (!keyfile || !keydev)
+                                return log_oom();
+
+                        free_and_replace(d->keyfile, keyfile);
+                        free_and_replace(d->keydev, keydev);
                 } else if (free_and_strdup(&arg_default_keyfile, value) < 0)
                         return log_oom();
 
@@ -371,6 +454,8 @@ static int add_crypttab_devices(void) {
                         log_error_errno(errno, "Failed to open /etc/crypttab: %m");
                 return 0;
         }
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         if (fstat(fileno(f), &st) < 0) {
                 log_error_errno(errno, "Failed to stat /etc/crypttab: %m");
@@ -411,7 +496,7 @@ static int add_crypttab_devices(void) {
                         continue;
                 }
 
-                r = create_disk(name, device, keyfile, (d && d->options) ? d->options : options);
+                r = create_disk(name, device, NULL, keyfile, (d && d->options) ? d->options : options);
                 if (r < 0)
                         return r;
 
@@ -451,7 +536,7 @@ static int add_proc_cmdline_devices(void) {
                 else
                         options = "timeout=0";
 
-                r = create_disk(d->name, device, d->keyfile ?: arg_default_keyfile, options);
+                r = create_disk(d->name, device, d->keydev, d->keyfile ?: arg_default_keyfile, options);
                 if (r < 0)
                         return r;
         }
@@ -470,7 +555,8 @@ int main(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[1];
 
-        log_set_target(LOG_TARGET_SAFE);
+        log_set_prohibit_ipc(true);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 

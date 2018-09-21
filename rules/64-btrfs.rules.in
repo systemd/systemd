@@ -3,6 +3,7 @@
 SUBSYSTEM!="block", GOTO="btrfs_end"
 ACTION=="remove", GOTO="btrfs_end"
 ENV{ID_FS_TYPE}!="btrfs", GOTO="btrfs_end"
+ENV{SYSTEMD_READY}=="0", GOTO="btrfs_end"
 
 # let the kernel know about this btrfs filesystem, and check if it is complete
 IMPORT{builtin}="btrfs ready $devnode"

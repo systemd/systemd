@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include "sd-netlink.h"
 
 #include "list.h"
@@ -60,11 +41,15 @@ typedef enum NetDevKind {
         NETDEV_KIND_VCAN,
         NETDEV_KIND_GENEVE,
         NETDEV_KIND_VXCAN,
+        NETDEV_KIND_WIREGUARD,
+        NETDEV_KIND_NETDEVSIM,
+        NETDEV_KIND_FOU,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
 
 typedef enum NetDevState {
+        NETDEV_STATE_LOADING,
         NETDEV_STATE_FAILED,
         NETDEV_STATE_CREATING,
         NETDEV_STATE_READY,
@@ -87,13 +72,14 @@ typedef struct Condition Condition;
 typedef struct NetDev {
         Manager *manager;
 
-        int n_ref;
+        unsigned n_ref;
 
         char *filename;
 
         Condition *match_host;
         Condition *match_virt;
-        Condition *match_kernel;
+        Condition *match_kernel_cmdline;
+        Condition *match_kernel_version;
         Condition *match_arch;
 
         NetDevState state;
@@ -101,7 +87,7 @@ typedef struct NetDev {
         char *description;
         char *ifname;
         struct ether_addr *mac;
-        size_t mtu;
+        uint32_t mtu;
         int ifindex;
 
         LIST_HEAD(netdev_join_callback, callbacks);
@@ -143,12 +129,14 @@ typedef struct NetDevVTable {
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 
-#define NETDEV_VTABLE(n) netdev_vtable[(n)->kind]
+#define NETDEV_VTABLE(n) ((n)->kind != _NETDEV_KIND_INVALID ? netdev_vtable[(n)->kind] : NULL)
 
 /* For casting a netdev into the various netdev kinds */
 #define DEFINE_NETDEV_CAST(UPPERCASE, MixedCase)                            \
         static inline MixedCase* UPPERCASE(NetDev *n) {                     \
-                if (_unlikely_(!n || n->kind != NETDEV_KIND_##UPPERCASE))   \
+                if (_unlikely_(!n ||                                        \
+                               n->kind != NETDEV_KIND_##UPPERCASE) ||       \
+                               n->state == _NETDEV_STATE_INVALID)           \
                         return NULL;                                        \
                                                                             \
                 return (MixedCase*) n;                                      \
@@ -164,7 +152,6 @@ NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
-#define _cleanup_netdev_unref_ _cleanup_(netdev_unrefp)
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);

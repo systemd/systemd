@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <inttypes.h>
 #include <limits.h>
 #include <stddef.h>
@@ -35,6 +16,7 @@ int parse_dev(const char *s, dev_t *ret);
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_mode(const char *s, mode_t *ret);
 int parse_ifindex(const char *s, int *ret);
+int parse_mtu(int family, const char *s, uint32_t *ret);
 
 int parse_size(const char *t, uint64_t base, uint64_t *size);
 int parse_range(const char *t, unsigned *lower, unsigned *upper);
@@ -44,14 +26,28 @@ int parse_syscall_and_errno(const char *in, char **name, int *error);
 #define FORMAT_BYTES_MAX 8
 char *format_bytes(char *buf, size_t l, uint64_t t);
 
-int safe_atou(const char *s, unsigned *ret_u);
+int safe_atou_full(const char *s, unsigned base, unsigned *ret_u);
+
+static inline int safe_atou(const char *s, unsigned *ret_u) {
+        return safe_atou_full(s, 0, ret_u);
+}
+
 int safe_atoi(const char *s, int *ret_i);
 int safe_atollu(const char *s, unsigned long long *ret_u);
 int safe_atolli(const char *s, long long int *ret_i);
 
 int safe_atou8(const char *s, uint8_t *ret);
 
-int safe_atou16(const char *s, uint16_t *ret);
+int safe_atou16_full(const char *s, unsigned base, uint16_t *ret);
+
+static inline int safe_atou16(const char *s, uint16_t *ret) {
+        return safe_atou16_full(s, 0, ret);
+}
+
+static inline int safe_atoux16(const char *s, uint16_t *ret) {
+        return safe_atou16_full(s, 16, ret);
+}
+
 int safe_atoi16(const char *s, int16_t *ret);
 
 static inline int safe_atou32(const char *s, uint32_t *ret_u) {
@@ -113,6 +109,11 @@ int parse_fractional_part_u(const char **s, size_t digits, unsigned *res);
 int parse_percent_unbounded(const char *p);
 int parse_percent(const char *p);
 
+int parse_permille_unbounded(const char *p);
+int parse_permille(const char *p);
+
 int parse_nice(const char *p, int *ret);
 
 int parse_ip_port(const char *s, uint16_t *ret);
+
+int parse_oom_score_adjust(const char *s, int *ret);

@@ -4,49 +4,16 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-
   This is based on crypttab(5) from Fedora's initscripts package, which in
   turn is based on Debian's version.
 
   The Red Hat version has been written by Miloslav Trmac <mitr@redhat.com>.
-
 -->
 <refentry id="crypttab" conditional='HAVE_LIBCRYPTSETUP'>
 
   <refentryinfo>
     <title>crypttab</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Documentation</contrib>
-        <firstname>Miloslav</firstname>
-        <surname>Trmac</surname>
-        <email>mitr@redhat.com</email>
-      </author>
-      <author>
-        <contrib>Documentation</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -218,16 +185,23 @@
       <varlistentry>
         <term><option>noauto</option></term>
 
-        <listitem><para>This device will not be automatically unlocked
-        on boot.</para></listitem>
+        <listitem><para>This device will not be added to <filename>cryptsetup.target</filename>.
+        This means that it will not be automatically unlocked on boot, unless something else pulls
+        it in. In particular, if the device is used for a mount point, it'll be unlocked
+        automatically during boot, unless the mount point itself is also disabled with
+        <option>noauto</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>nofail</option></term>
 
-        <listitem><para>The system will not wait for the device to
-        show up and be unlocked at boot, and not fail the boot if it
-        does not show up.</para></listitem>
+        <listitem><para>This device will not be a hard dependency of
+        <filename>cryptsetup.target</filename>. It'll be still pulled in and started, but the system
+        will not wait for the device to show up and be unlocked, and boot will not fail if this is
+        unsuccessful. Note that other units that depend on the unlocked device may still fail. In
+        particular, if the device is used for a mount point, the mount point itself is also needs to
+        have <option>noauto</option> option, or the boot will fail if the device is not unlocked
+        successfully.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -271,6 +245,15 @@
         <term><option>size=</option></term>
 
         <listitem><para>Specifies the key size in bits. See
+        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this
+        option.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>sector-size=</option></term>
+
+        <listitem><para>Specifies the sector size in bytes. See
         <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values and the default value of this
         option.</para></listitem>

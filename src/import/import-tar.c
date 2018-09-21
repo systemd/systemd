@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <linux/fs.h>
 
@@ -148,8 +130,7 @@ int tar_import_new(
                         return r;
         }
 
-        *ret = i;
-        i = NULL;
+        *ret = TAKE_PTR(i);
 
         return 0;
 }
@@ -170,7 +151,7 @@ static void tar_import_report_progress(TarImport *i) {
         if (percent == i->last_percent)
                 return;
 
-        if (!ratelimit_test(&i->progress_rate_limit))
+        if (!ratelimit_below(&i->progress_rate_limit))
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
@@ -190,7 +171,7 @@ static int tar_import_finish(TarImport *i) {
         i->tar_fd = safe_close(i->tar_fd);
 
         if (i->tar_pid > 0) {
-                r = wait_for_terminate_and_warn("tar", i->tar_pid, true);
+                r = wait_for_terminate_and_check("tar", i->tar_pid, WAIT_LOG);
                 i->tar_pid = 0;
                 if (r < 0)
                         return r;

@@ -4,39 +4,13 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_journal_get_catalog">
+<refentry id="sd_journal_get_catalog" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_get_catalog</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -65,7 +39,6 @@
         <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
         <paramdef>char **<parameter>ret</parameter></paramdef>
       </funcprototype>
-
 
     </funcsynopsis>
   </refsynopsisdiv>
@@ -114,16 +87,16 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>Function <function>sd_journal_get_catalog()</function> is thread-agnostic and only a
-    single thread may operate on a given <structname>sd_journal</structname> object. Function
-    <function>sd_journal_get_catalog_for_message_id()</function> is thread-safe.</para>
+    <para>Function <function>sd_journal_get_catalog()</function> is thread-agnostic and only
+    a single specific thread may operate on a given object during its entire lifetime. It's safe to allocate multiple
+    independent objects and use each from a specific thread in parallel. However, it's not safe to allocate such an
+    object in one thread, and operate or free it from any other, even if locking is used to ensure these threads don't
+    operate on it at the very same time.</para>
 
-    <para>The <function>sd_journal_get_catalog()</function> and
-    <function>sd_journal_get_catalog_for_message_id()</function>
-    interfaces are available as a shared library, which can be
-    compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <para>Function <function>sd_journal_get_catalog_for_message_id()</function> is are thread-safe and may be called in
+    parallel from multiple threads.</para>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>

@@ -21,6 +21,7 @@ KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
 SuccessExitStatus=133
+WatchdogSec=3min
 Slice=machine.slice
 Delegate=yes
 TasksMax=16384

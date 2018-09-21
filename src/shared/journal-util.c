@@ -1,23 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "acl-util.h"
 #include "fs-util.h"
@@ -28,7 +9,7 @@
 #include "strv.h"
 #include "user-util.h"
 
-static int access_check_var_log_journal(sd_journal *j) {
+static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
 #if HAVE_ACL
         _cleanup_strv_free_ char **g = NULL;
         const char* dir;
@@ -81,22 +62,25 @@ static int access_check_var_log_journal(sd_journal *j) {
                 if (!s)
                         return log_oom();
 
-                log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
+                log_notice("Hint: You are currently not seeing messages from %s.\n"
                            "      Users in groups '%s' can see all messages.\n"
-                           "      Pass -q to turn off this notice.", s);
+                           "      Pass -q to turn off this notice.",
+                           want_other_users ? "other users and the system" : "the system",
+                           s);
                 return 1;
         }
 #endif
 
         /* If no ACLs were found, print a short version of the message. */
-        log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
+        log_notice("Hint: You are currently not seeing messages from %s.\n"
                    "      Users in the 'systemd-journal' group can see all messages. Pass -q to\n"
-                   "      turn off this notice.");
+                   "      turn off this notice.",
+                   want_other_users ? "other users and the system" : "the system");
 
         return 1;
 }
 
-int journal_access_check_and_warn(sd_journal *j, bool quiet) {
+int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_users) {
         Iterator it;
         void *code;
         char *path;
@@ -113,7 +97,7 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet) {
 
         if (hashmap_contains(j->errors, INT_TO_PTR(-EACCES))) {
                 if (!quiet)
-                        (void) access_check_var_log_journal(j);
+                        (void) access_check_var_log_journal(j, want_other_users);
 
                 if (ordered_hashmap_isempty(j->files))
                         r = log_error_errno(EACCES, "No journal files were opened due to insufficient permissions.");

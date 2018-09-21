@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -413,7 +395,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    j->unit->id,
                                    unit_id == array ? "ordering cycle" : "dependency",
                                    *unit_id, *job_type,
-                                   unit_ids, NULL);
+                                   unit_ids);
 
                 if (delete) {
                         const char *status;
@@ -422,7 +404,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    "MESSAGE=%s: Job %s/%s deleted to break ordering cycle starting with %s/%s",
                                    j->unit->id, delete->unit->id, job_type_to_string(delete->type),
                                    j->unit->id, job_type_to_string(j->type),
-                                   unit_ids, NULL);
+                                   unit_ids);
 
                         if (log_get_show_color())
                                 status = ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL;
@@ -438,7 +420,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 log_struct(LOG_ERR,
                            "MESSAGE=%s: Unable to break cycle starting with %s/%s",
                            j->unit->id, j->unit->id, job_type_to_string(j->type),
-                           unit_ids, NULL);
+                           unit_ids);
 
                 return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
                                          "Transaction order is cyclic. See system logs for details.");
@@ -713,10 +695,8 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error
                 if (r >= 0)
                         break;
 
-                if (r != -EAGAIN) {
-                        log_warning("Requested transaction contains an unfixable cyclic ordering dependency: %s", bus_error_message(e, r));
-                        return r;
-                }
+                if (r != -EAGAIN)
+                        return log_warning_errno(r, "Requested transaction contains an unfixable cyclic ordering dependency: %s", bus_error_message(e, r));
 
                 /* Let's see if the resulting transaction ordering
                  * graph is still cyclic... */
@@ -730,10 +710,8 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error
                 if (r >= 0)
                         break;
 
-                if (r != -EAGAIN) {
-                        log_warning("Requested transaction contains unmergeable jobs: %s", bus_error_message(e, r));
-                        return r;
-                }
+                if (r != -EAGAIN)
+                        return log_warning_errno(r, "Requested transaction contains unmergeable jobs: %s", bus_error_message(e, r));
 
                 /* Seventh step: an entry got dropped, let's garbage
                  * collect its dependencies. */
@@ -749,10 +727,8 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error
 
         /* Ninth step: check whether we can actually apply this */
         r = transaction_is_destructive(tr, mode, e);
-        if (r < 0) {
-                log_notice("Requested transaction contradicts existing jobs: %s", bus_error_message(e, r));
-                return r;
-        }
+        if (r < 0)
+                return log_notice_errno(r, "Requested transaction contradicts existing jobs: %s", bus_error_message(e, r));
 
         /* Tenth step: apply changes */
         r = transaction_apply(tr, m, mode);
@@ -919,11 +895,13 @@ int transaction_add_job_and_dependencies(
         /*           by ? by->unit->id : "NA", */
         /*           by ? job_type_to_string(by->type) : "NA"); */
 
-        if (!IN_SET(unit->load_state, UNIT_LOADED, UNIT_ERROR, UNIT_NOT_FOUND, UNIT_MASKED))
+        /* Safety check that the unit is a valid state, i.e. not in UNIT_STUB or UNIT_MERGED which should only be set
+         * temporarily. */
+        if (!IN_SET(unit->load_state, UNIT_LOADED, UNIT_ERROR, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_MASKED))
                 return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
 
         if (type != JOB_STOP) {
-                r = bus_unit_check_load_state(unit, e);
+                r = bus_unit_validate_load_state(unit, e);
                 if (r < 0)
                         return r;
         }
@@ -932,7 +910,6 @@ int transaction_add_job_and_dependencies(
                 return sd_bus_error_setf(e, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE,
                                          "Job type %s is not applicable for unit %s.",
                                          job_type_to_string(type), unit->id);
-
 
         /* First add the job. */
         ret = transaction_add_one_job(tr, type, unit, &is_new);

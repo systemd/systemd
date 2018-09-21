@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2017 Susant Sahani
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <net/if.h>
 #include <linux/if_addrlabel.h>
@@ -30,14 +12,13 @@
 #include "socket-util.h"
 
 int address_label_new(AddressLabel **ret) {
-        _cleanup_address_label_free_ AddressLabel *addrlabel = NULL;
+        _cleanup_(address_label_freep) AddressLabel *addrlabel = NULL;
 
         addrlabel = new0(AddressLabel, 1);
         if (!addrlabel)
                 return -ENOMEM;
 
-        *ret = addrlabel;
-        addrlabel = NULL;
+        *ret = TAKE_PTR(addrlabel);
 
         return 0;
 }
@@ -61,8 +42,8 @@ void address_label_free(AddressLabel *label) {
 }
 
 static int address_label_new_static(Network *network, const char *filename, unsigned section_line, AddressLabel **ret) {
-        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
-        _cleanup_address_label_free_ AddressLabel *label = NULL;
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(address_label_freep) AddressLabel *label = NULL;
         int r;
 
         assert(network);
@@ -75,8 +56,7 @@ static int address_label_new_static(Network *network, const char *filename, unsi
 
         label = hashmap_get(network->address_labels_by_section, n);
         if (label) {
-                *ret = label;
-                label = NULL;
+                *ret = TAKE_PTR(label);
 
                 return 0;
         }
@@ -85,8 +65,7 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         if (r < 0)
                 return r;
 
-        label->section = n;
-        n = NULL;
+        label->section = TAKE_PTR(n);
 
         r = hashmap_put(network->address_labels_by_section, label->section, label);
         if (r < 0)
@@ -96,8 +75,7 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         LIST_APPEND(labels, network->address_labels, label);
         network->n_address_labels++;
 
-        *ret = label;
-        label = NULL;
+        *ret = TAKE_PTR(label);
 
         return 0;
 }
@@ -154,7 +132,7 @@ int config_parse_address_label_prefix(const char *unit,
                                       void *data,
                                       void *userdata) {
 
-        _cleanup_address_label_free_ AddressLabel *n = NULL;
+        _cleanup_(address_label_freep) AddressLabel *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -191,7 +169,7 @@ int config_parse_address_label(
                 void *data,
                 void *userdata) {
 
-        _cleanup_address_label_free_ AddressLabel *n = NULL;
+        _cleanup_(address_label_freep) AddressLabel *n = NULL;
         Network *network = userdata;
         uint32_t k;
         int r;
@@ -213,7 +191,7 @@ int config_parse_address_label(
         }
 
         if (k == 0xffffffffUL) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Adress label is invalid, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Address label is invalid, ignoring: %s", rvalue);
                 return 0;
         }
 

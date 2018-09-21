@@ -1,24 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
@@ -26,8 +9,12 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+/* Include later */
+#include <libmount.h>
+
 #include "alloc-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -55,7 +42,7 @@ int name_to_handle_at_loop(
                 int *ret_mnt_id,
                 int flags) {
 
-        _cleanup_free_ struct file_handle *h;
+        _cleanup_free_ struct file_handle *h = NULL;
         size_t n = ORIGINAL_MAX_HANDLE_SZ;
 
         /* We need to invoke name_to_handle_at() in a loop, given that it might return EOVERFLOW when the specified
@@ -65,21 +52,19 @@ int name_to_handle_at_loop(
          * This improves on raw name_to_handle_at() also in one other regard: ret_handle and ret_mnt_id can be passed
          * as NULL if there's no interest in either. */
 
-        h = malloc0(offsetof(struct file_handle, f_handle) + n);
-        if (!h)
-                return -ENOMEM;
-
-        h->handle_bytes = n;
-
         for (;;) {
                 int mnt_id = -1;
 
+                h = malloc0(offsetof(struct file_handle, f_handle) + n);
+                if (!h)
+                        return -ENOMEM;
+
+                h->handle_bytes = n;
+
                 if (name_to_handle_at(fd, path, h, &mnt_id, flags) >= 0) {
 
-                        if (ret_handle) {
-                                *ret_handle = h;
-                                h = NULL;
-                        }
+                        if (ret_handle)
+                                *ret_handle = TAKE_PTR(h);
 
                         if (ret_mnt_id)
                                 *ret_mnt_id = mnt_id;
@@ -110,17 +95,12 @@ int name_to_handle_at_loop(
                 if (offsetof(struct file_handle, f_handle) + n < n) /* check for addition overflow */
                         return -EOVERFLOW;
 
-                free(h);
-                h = malloc0(offsetof(struct file_handle, f_handle) + n);
-                if (!h)
-                        return -ENOMEM;
-
-                h->handle_bytes = n;
+                h = mfree(h);
         }
 }
 
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id) {
-        char path[strlen("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
+        char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *fdinfo = NULL;
         _cleanup_close_ int subfd = -1;
         char *p;
@@ -281,7 +261,7 @@ fallback_fstat:
 
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
 int path_is_mount_point(const char *t, const char *root, int flags) {
-        _cleanup_free_ char *canonical = NULL, *parent = NULL;
+        _cleanup_free_ char *canonical = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -296,18 +276,14 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
          * /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
          * look at needs to be /usr, not /. */
         if (flags & AT_SYMLINK_FOLLOW) {
-                r = chase_symlinks(t, root, 0, &canonical);
+                r = chase_symlinks(t, root, CHASE_TRAIL_SLASH, &canonical);
                 if (r < 0)
                         return r;
 
                 t = canonical;
         }
 
-        parent = dirname_malloc(t);
-        if (!parent)
-                return -ENOMEM;
-
-        fd = openat(AT_FDCWD, parent, O_DIRECTORY|O_CLOEXEC|O_PATH);
+        fd = open_parent(t, O_PATH|O_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
@@ -341,6 +317,8 @@ int umount_recursive(const char *prefix, int flags) {
                 proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
                 if (!proc_self_mountinfo)
                         return -errno;
+
+                (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
 
                 for (;;) {
                         _cleanup_free_ char *path = NULL, *p = NULL;
@@ -426,9 +404,9 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
         if (!cleaned)
                 return -ENOMEM;
 
-        path_kill_slashes(cleaned);
+        path_simplify(cleaned, false);
 
-        done = set_new(&string_hash_ops);
+        done = set_new(&path_hash_ops);
         if (!done)
                 return -ENOMEM;
 
@@ -438,7 +416,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                 char *x;
                 unsigned long orig_flags;
 
-                todo = set_new(&string_hash_ops);
+                todo = set_new(&path_hash_ops);
                 if (!todo)
                         return -ENOMEM;
 
@@ -539,7 +517,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                         (void) get_mount_flags(cleaned, &orig_flags);
                         orig_flags &= ~MS_RDONLY;
 
-                        if (mount(NULL, prefix, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
+                        if (mount(NULL, cleaned, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
                                 return -errno;
 
                         log_debug("Made top-level directory %s a mount point.", prefix);
@@ -565,6 +543,18 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                         r = path_is_mount_point(x, NULL, 0);
                         if (IN_SET(r, 0, -ENOENT))
                                 continue;
+                        if (IN_SET(r, -EACCES, -EPERM)) {
+                                /* Even if root user invoke this, submounts under private FUSE or NFS mount points
+                                 * may not be acceessed. E.g.,
+                                 *
+                                 * $ bindfs --no-allow-other ~/mnt/mnt ~/mnt/mnt
+                                 * $ bindfs --no-allow-other ~/mnt ~/mnt
+                                 *
+                                 * Then, root user cannot access the mount point ~/mnt/mnt.
+                                 * In such cases, the submounts are ignored, as we have no way to manage them. */
+                                log_debug_errno(r, "Failed to determine '%s' is mount point or not, ignoring: %m", x);
+                                continue;
+                        }
                         if (r < 0)
                                 return r;
 
@@ -587,6 +577,8 @@ int bind_remount_recursive(const char *prefix, bool ro, char **blacklist) {
         proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
         if (!proc_self_mountinfo)
                 return -errno;
+
+        (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
 
         return bind_remount_recursive_with_mountinfo(prefix, ro, blacklist, proc_self_mountinfo);
 }
@@ -673,6 +665,22 @@ bool fstype_can_discard(const char *fstype) {
                           "xfs");
 }
 
+bool fstype_can_uid_gid(const char *fstype) {
+
+        /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and directories,
+         * current and future. */
+
+        return STR_IN_SET(fstype,
+                          "adfs",
+                          "fat",
+                          "hfs",
+                          "hpfs",
+                          "iso9660",
+                          "msdos",
+                          "ntfs",
+                          "vfat");
+}
+
 int repeat_unmount(const char *path, int flags) {
         bool done = false;
 
@@ -695,24 +703,33 @@ int repeat_unmount(const char *path, int flags) {
 }
 
 const char* mode_to_inaccessible_node(mode_t mode) {
-        /* This function maps a node type to the correspondent inaccessible node type.
-         * Character and block inaccessible devices may not be created (because major=0 and minor=0),
-         * in such case we map character and block devices to the inaccessible node type socket. */
+        /* This function maps a node type to a corresponding inaccessible file node. These nodes are created during
+         * early boot by PID 1. In some cases we lacked the privs to create the character and block devices (maybe
+         * because we run in an userns environment, or miss CAP_SYS_MKNOD, or run with a devices policy that excludes
+         * device nodes with major and minor of 0), but that's fine, in that case we use an AF_UNIX file node instead,
+         * which is not the same, but close enough for most uses. And most importantly, the kernel allows bind mounts
+         * from socket nodes to any non-directory file nodes, and that's the most important thing that matters. */
+
         switch(mode & S_IFMT) {
                 case S_IFREG:
                         return "/run/systemd/inaccessible/reg";
+
                 case S_IFDIR:
                         return "/run/systemd/inaccessible/dir";
+
                 case S_IFCHR:
                         if (access("/run/systemd/inaccessible/chr", F_OK) == 0)
                                 return "/run/systemd/inaccessible/chr";
                         return "/run/systemd/inaccessible/sock";
+
                 case S_IFBLK:
                         if (access("/run/systemd/inaccessible/blk", F_OK) == 0)
                                 return "/run/systemd/inaccessible/blk";
                         return "/run/systemd/inaccessible/sock";
+
                 case S_IFIFO:
                         return "/run/systemd/inaccessible/fifo";
+
                 case S_IFSOCK:
                         return "/run/systemd/inaccessible/sock";
         }
@@ -794,29 +811,37 @@ int mount_verbose(
                 unsigned long flags,
                 const char *options) {
 
-        _cleanup_free_ char *fl = NULL;
+        _cleanup_free_ char *fl = NULL, *o = NULL;
+        unsigned long f;
+        int r;
 
-        fl = mount_flags_to_string(flags);
+        r = mount_option_mangle(options, flags, &f, &o);
+        if (r < 0)
+                return log_full_errno(error_log_level, r,
+                                      "Failed to mangle mount options %s: %m",
+                                      strempty(options));
 
-        if ((flags & MS_REMOUNT) && !what && !type)
+        fl = mount_flags_to_string(f);
+
+        if ((f & MS_REMOUNT) && !what && !type)
                 log_debug("Remounting %s (%s \"%s\")...",
-                          where, strnull(fl), strempty(options));
+                          where, strnull(fl), strempty(o));
         else if (!what && !type)
                 log_debug("Mounting %s (%s \"%s\")...",
-                          where, strnull(fl), strempty(options));
-        else if ((flags & MS_BIND) && !type)
+                          where, strnull(fl), strempty(o));
+        else if ((f & MS_BIND) && !type)
                 log_debug("Bind-mounting %s on %s (%s \"%s\")...",
-                          what, where, strnull(fl), strempty(options));
-        else if (flags & MS_MOVE)
+                          what, where, strnull(fl), strempty(o));
+        else if (f & MS_MOVE)
                 log_debug("Moving mount %s → %s (%s \"%s\")...",
-                          what, where, strnull(fl), strempty(options));
+                          what, where, strnull(fl), strempty(o));
         else
                 log_debug("Mounting %s on %s (%s \"%s\")...",
-                          strna(type), where, strnull(fl), strempty(options));
-        if (mount(what, where, type, flags, options) < 0)
+                          strna(type), where, strnull(fl), strempty(o));
+        if (mount(what, where, type, f, o) < 0)
                 return log_full_errno(error_log_level, errno,
                                       "Failed to mount %s on %s (%s \"%s\"): %m",
-                                      strna(type), where, strnull(fl), strempty(options));
+                                      strna(type), where, strnull(fl), strempty(o));
         return 0;
 }
 
@@ -843,7 +868,6 @@ const char *mount_propagation_flags_to_string(unsigned long flags) {
         return NULL;
 }
 
-
 int mount_propagation_flags_from_string(const char *name, unsigned long *ret) {
 
         if (isempty(name))
@@ -857,4 +881,109 @@ int mount_propagation_flags_from_string(const char *name, unsigned long *ret) {
         else
                 return -EINVAL;
         return 0;
+}
+
+int mount_option_mangle(
+                const char *options,
+                unsigned long mount_flags,
+                unsigned long *ret_mount_flags,
+                char **ret_remaining_options) {
+
+        const struct libmnt_optmap *map;
+        _cleanup_free_ char *ret = NULL;
+        const char *p;
+        int r;
+
+        /* This extracts mount flags from the mount options, and store
+         * non-mount-flag options to '*ret_remaining_options'.
+         * E.g.,
+         * "rw,nosuid,nodev,relatime,size=1630748k,mode=700,uid=1000,gid=1000"
+         * is split to MS_NOSUID|MS_NODEV|MS_RELATIME and
+         * "size=1630748k,mode=700,uid=1000,gid=1000".
+         * See more examples in test-mount-utils.c.
+         *
+         * Note that if 'options' does not contain any non-mount-flag options,
+         * then '*ret_remaining_options' is set to NULL instread of empty string.
+         * Note that this does not check validity of options stored in
+         * '*ret_remaining_options'.
+         * Note that if 'options' is NULL, then this just copies 'mount_flags'
+         * to '*ret_mount_flags'. */
+
+        assert(ret_mount_flags);
+        assert(ret_remaining_options);
+
+        map = mnt_get_builtin_optmap(MNT_LINUX_MAP);
+        if (!map)
+                return -EINVAL;
+
+        p = options;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                const struct libmnt_optmap *ent;
+
+                r = extract_first_word(&p, &word, ",", EXTRACT_QUOTES);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                for (ent = map; ent->name; ent++) {
+                        /* All entries in MNT_LINUX_MAP do not take any argument.
+                         * Thus, ent->name does not contain "=" or "[=]". */
+                        if (!streq(word, ent->name))
+                                continue;
+
+                        if (!(ent->mask & MNT_INVERT))
+                                mount_flags |= ent->id;
+                        else if (mount_flags & ent->id)
+                                mount_flags ^= ent->id;
+
+                        break;
+                }
+
+                /* If 'word' is not a mount flag, then store it in '*ret_remaining_options'. */
+                if (!ent->name && !strextend_with_separator(&ret, ",", word, NULL))
+                        return -ENOMEM;
+        }
+
+        *ret_mount_flags = mount_flags;
+        *ret_remaining_options = TAKE_PTR(ret);
+
+        return 0;
+}
+
+int dev_is_devtmpfs(void) {
+        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        char line[LINE_MAX], *e;
+        int mount_id, r;
+
+        r = path_get_mnt_id("/dev", &mount_id);
+        if (r < 0)
+                return r;
+
+        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+        if (!proc_self_mountinfo)
+                return -errno;
+
+        (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
+
+        FOREACH_LINE(line, proc_self_mountinfo, return -errno) {
+                int mid;
+
+                if (sscanf(line, "%i", &mid) != 1)
+                        continue;
+
+                if (mid != mount_id)
+                        continue;
+
+                e = strstr(line, " - ");
+                if (!e)
+                        continue;
+
+                /* accept any name that starts with the currently expected type */
+                if (startswith(e + 3, "devtmpfs"))
+                        return true;
+        }
+
+        return false;
 }

@@ -1,21 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2017 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
 #include <netinet/icmp6.h>
@@ -28,6 +13,7 @@
 #include "icmp6-util.h"
 #include "socket-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = { 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53 }
@@ -342,8 +328,8 @@ static void test_ra(void) {
                 if (prefix[i].preferred)
                         assert_se(sd_radv_prefix_set_preferred_lifetime(p, prefix[i].preferred) >= 0);
 
-                assert_se((sd_radv_add_prefix(ra, p) >= 0) == prefix[i].succesful);
-                assert_se(sd_radv_add_prefix(ra, p) < 0);
+                assert_se((sd_radv_add_prefix(ra, p, false) >= 0) == prefix[i].succesful);
+                assert_se(sd_radv_add_prefix(ra, p, false) < 0);
 
                 p = sd_radv_prefix_unref(p);
                 assert_se(!p);
@@ -372,9 +358,7 @@ static void test_ra(void) {
 
 int main(int argc, char *argv[]) {
 
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_radv_prefix();
         test_radv();

@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 typedef struct Service Service;
 typedef struct ServiceFDStore ServiceFDStore;
 
@@ -27,6 +8,8 @@ typedef struct ServiceFDStore ServiceFDStore;
 #include "kill.h"
 #include "path.h"
 #include "ratelimit.h"
+#include "socket.h"
+#include "unit.h"
 
 typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
@@ -47,6 +30,7 @@ typedef enum ServiceType {
         SERVICE_DBUS,     /* we fork and wait until a specific D-Bus name appears on the bus */
         SERVICE_NOTIFY,   /* we fork and wait until a daemon sends us a ready message with sd_notify() */
         SERVICE_IDLE,     /* much like simple, but delay exec() until all jobs are dispatched. */
+        SERVICE_EXEC,     /* we fork and wait until we execute exec() (this means our own setup is waited for) */
         _SERVICE_TYPE_MAX,
         _SERVICE_TYPE_INVALID = -1
 } ServiceType;
@@ -164,6 +148,8 @@ struct Service {
         bool main_pid_alien:1;
         bool bus_name_good:1;
         bool forbid_restart:1;
+        /* Keep restart intention between UNIT_FAILED and UNIT_ACTIVATING */
+        bool will_auto_restart:1;
         bool start_timeout_defined:1;
 
         char *bus_name;
@@ -180,8 +166,10 @@ struct Service {
         NotifyAccess notify_access;
         NotifyState notify_state;
 
+        sd_event_source *exec_fd_event_source;
+
         ServiceFDStore *fd_store;
-        unsigned n_fd_store;
+        size_t n_fd_store;
         unsigned n_fd_store_max;
         unsigned n_keep_fd_store;
 
@@ -194,6 +182,7 @@ struct Service {
 
         unsigned n_restarts;
         bool flush_n_restarts;
+        bool exec_fd_hot;
 };
 
 extern const UnitVTable service_vtable;
@@ -215,3 +204,5 @@ NotifyState notify_state_from_string(const char *s) _pure_;
 
 const char* service_result_to_string(ServiceResult i) _const_;
 ServiceResult service_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(SERVICE, Service);

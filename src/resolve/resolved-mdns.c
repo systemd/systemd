@@ -1,30 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Daniel Mack
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
- ***/
 
 #include <resolv.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
+
+#define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH & (x))
 
 void manager_mdns_stop(Manager *m) {
         assert(m);
@@ -68,10 +53,135 @@ eaddrinuse:
         return 0;
 }
 
+static int mdns_rr_compare(DnsResourceRecord * const *a, DnsResourceRecord * const *b) {
+        DnsResourceRecord *x = *(DnsResourceRecord **) a, *y = *(DnsResourceRecord **) b;
+        size_t m;
+        int r;
+
+        assert(x);
+        assert(y);
+
+        r = CMP(CLEAR_CACHE_FLUSH(x->key->class), CLEAR_CACHE_FLUSH(y->key->class));
+        if (r != 0)
+                return r;
+
+        r = CMP(x->key->type, y->key->type);
+        if (r != 0)
+                return r;
+
+        r = dns_resource_record_to_wire_format(x, false);
+        if (r < 0) {
+                log_warning_errno(r, "Can't wire-format RR: %m");
+                return 0;
+        }
+
+        r = dns_resource_record_to_wire_format(y, false);
+        if (r < 0) {
+                log_warning_errno(r, "Can't wire-format RR: %m");
+                return 0;
+        }
+
+        m = MIN(DNS_RESOURCE_RECORD_RDATA_SIZE(x), DNS_RESOURCE_RECORD_RDATA_SIZE(y));
+
+        r = memcmp(DNS_RESOURCE_RECORD_RDATA(x), DNS_RESOURCE_RECORD_RDATA(y), m);
+        if (r != 0)
+                return r;
+
+        return CMP(DNS_RESOURCE_RECORD_RDATA_SIZE(x), DNS_RESOURCE_RECORD_RDATA_SIZE(y));
+}
+
+static int proposed_rrs_cmp(DnsResourceRecord **x, unsigned x_size, DnsResourceRecord **y, unsigned y_size) {
+        unsigned m;
+        int r;
+
+        m = MIN(x_size, y_size);
+        for (unsigned i = 0; i < m; i++) {
+                r = mdns_rr_compare(&x[i], &y[i]);
+                if (r != 0)
+                        return r;
+        }
+
+        if (x_size < y_size)
+                return -1;
+        if (x_size > y_size)
+                return 1;
+
+        return 0;
+}
+
+static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, DnsResourceRecord ***ret_rrs) {
+        _cleanup_free_ DnsResourceRecord **list = NULL;
+        unsigned n = 0, size = 0;
+        int r;
+
+        assert(p);
+        assert(key);
+        assert(ret_rrs);
+        assert_return(DNS_PACKET_NSCOUNT(p) > 0, -EINVAL);
+
+        for (size_t i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
+                r = dns_resource_key_match_rr(key, p->answer->items[i].rr, NULL);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        size++;
+        }
+
+        if (size == 0)
+                return 0;
+
+        list = new(DnsResourceRecord *, size);
+        if (!list)
+                return -ENOMEM;
+
+        for (size_t i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
+                r = dns_resource_key_match_rr(key, p->answer->items[i].rr, NULL);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        list[n++] = p->answer->items[i].rr;
+        }
+        assert(n == size);
+        typesafe_qsort(list, size, mdns_rr_compare);
+
+        *ret_rrs = TAKE_PTR(list);
+
+        return size;
+}
+
+static int mdns_do_tiebreak(DnsResourceKey *key, DnsAnswer *answer, DnsPacket *p) {
+        _cleanup_free_ DnsResourceRecord **our = NULL, **remote = NULL;
+        DnsResourceRecord *rr;
+        size_t i = 0, size;
+        int r;
+
+        size = dns_answer_size(answer);
+        our = new(DnsResourceRecord *, size);
+        if (!our)
+                return -ENOMEM;
+
+        DNS_ANSWER_FOREACH(rr, answer)
+                our[i++] = rr;
+
+        typesafe_qsort(our, size, mdns_rr_compare);
+
+        r = mdns_packet_extract_matching_rrs(p, key, &remote);
+        if (r < 0)
+                return r;
+
+        assert(r > 0);
+
+        if (proposed_rrs_cmp(remote, r, our, size) > 0)
+                return 1;
+
+        return 0;
+}
+
 static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *full_answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         DnsResourceKey *key = NULL;
+        DnsResourceRecord *rr;
         bool tentative = false;
         int r;
 
@@ -82,21 +192,53 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
 
-        /* TODO: there might be more than one question in mDNS queries. */
         assert_return((dns_question_size(p->question) > 0), -EINVAL);
-        key = p->question->keys[0];
 
-        r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to lookup key: %m");
-        if (r == 0)
+        DNS_QUESTION_FOREACH(key, p->question) {
+                _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+
+                r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to lookup key: %m");
+
+                if (tentative && DNS_PACKET_NSCOUNT(p) > 0) {
+                        /*
+                         * A race condition detected with the probe packet from
+                         * a remote host.
+                         * Do simultaneous probe tiebreaking as described in
+                         * RFC 6762, Section 8.2. In case we lost don't reply
+                         * the question and withdraw conflicting RRs.
+                         */
+                        r = mdns_do_tiebreak(key, answer, p);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to do tiebreaking");
+
+                        if (r > 0) { /* we lost */
+                                DNS_ANSWER_FOREACH(rr, answer) {
+                                        DnsZoneItem *i;
+
+                                        i = dns_zone_get(&s->zone, rr);
+                                        if (i)
+                                                dns_zone_item_conflict(i);
+                                }
+
+                                continue;
+                        }
+                }
+
+                r = dns_answer_extend(&full_answer, answer);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extend answer: %m");
+        }
+
+        if (dns_answer_isempty(full_answer))
                 return 0;
 
-        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, NULL, answer, NULL, false, &reply);
+        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, NULL, full_answer, NULL, false, &reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build reply packet: %m");
 
-        if (!ratelimit_test(&s->ratelimit))
+        if (!ratelimit_below(&s->ratelimit))
                 return 0;
 
         r = dns_scope_emit_udp(s, -1, reply);
@@ -121,7 +263,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
         scope = manager_find_scope(m, p);
         if (!scope) {
-                log_warning("Got mDNS UDP packet on unknown scope. Ignoring.");
+                log_debug("Got mDNS UDP packet on unknown scope. Ignoring.");
                 return 0;
         }
 

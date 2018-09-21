@@ -1,7 +1,7 @@
-#!/usr/bin/perl
+# SPDX-License-Identifier: CC0-1.0
+#!/usr/bin/env perl
 #
 # checkincludes: Find files included more than once in (other) files.
-# Copyright abandoned, 2000, Niels Kristian Bech Jensen <nkbj@image.dk>.
 
 foreach $file (@ARGV) {
 	open(FILE, $file) or die "Cannot open $file: $!.\n";

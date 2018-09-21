@@ -1,32 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "libudev.h"
+#include "sd-device.h"
 
 #include "alloc-util.h"
 #include "dbus-swap.h"
+#include "device-private.h"
+#include "device-util.h"
+#include "device.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -39,7 +24,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "swap.h"
-#include "udev-util.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "virt.h"
@@ -85,7 +69,7 @@ static int swap_set_devnode(Swap *s, const char *devnode) {
 
         assert(s);
 
-        r = hashmap_ensure_allocated(&UNIT(s)->manager->swaps_by_devnode, &string_hash_ops);
+        r = hashmap_ensure_allocated(&UNIT(s)->manager->swaps_by_devnode, &path_hash_ops);
         if (r < 0)
                 return r;
 
@@ -157,7 +141,7 @@ static void swap_done(Unit *u) {
         s->parameters_fragment.what = mfree(s->parameters_fragment.what);
         s->parameters_fragment.options = mfree(s->parameters_fragment.options);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, false);
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -252,33 +236,36 @@ static int swap_verify(Swap *s) {
 
         if (!unit_has_name(UNIT(s), e)) {
                 log_unit_error(UNIT(s), "Value of What= and unit name do not match, not loading.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_unit_error(UNIT(s), "Unit has PAM enabled. Kill mode must be set to 'control-group'. Refusing to load.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;
 }
 
 static int swap_load_devnode(Swap *s) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         struct stat st;
         const char *p;
+        int r;
 
         assert(s);
 
         if (stat(s->what, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        d = udev_device_new_from_devnum(UNIT(s)->manager->udev, 'b', st.st_rdev);
-        if (!d)
+        r = device_new_from_stat_rdev(&d, &st);
+        if (r < 0) {
+                log_unit_full(UNIT(s), r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to allocate device for swap %s: %m", s->what);
                 return 0;
+        }
 
-        p = udev_device_get_devnode(d);
-        if (!p)
+        if (sd_device_get_devname(d, &p) < 0)
                 return 0;
 
         return swap_set_devnode(s, p);
@@ -319,7 +306,7 @@ static int swap_load(Unit *u) {
                                 return -ENOMEM;
                 }
 
-                path_kill_slashes(s->what);
+                path_simplify(s->what, false);
 
                 if (!UNIT(s)->description) {
                         r = unit_set_description(u, s->what);
@@ -438,10 +425,9 @@ fail:
 }
 
 static int swap_process_new(Manager *m, const char *device, int prio, bool set_flags) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        struct udev_list_entry *item = NULL, *first = NULL;
-        const char *dn;
-        struct stat st;
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        const char *dn, *devlink;
+        struct stat st, st_link;
         int r;
 
         assert(m);
@@ -455,35 +441,33 @@ static int swap_process_new(Manager *m, const char *device, int prio, bool set_f
         if (stat(device, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        d = udev_device_new_from_devnum(m->udev, 'b', st.st_rdev);
-        if (!d)
+        r = device_new_from_stat_rdev(&d, &st);
+        if (r < 0) {
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to allocate device for swap %s: %m", device);
                 return 0;
+        }
 
         /* Add the main device node */
-        dn = udev_device_get_devnode(d);
-        if (dn && !streq(dn, device))
+        if (sd_device_get_devname(d, &dn) >= 0 && !streq(dn, device))
                 swap_setup_unit(m, dn, device, prio, set_flags);
 
         /* Add additional units for all symlinks */
-        first = udev_device_get_devlinks_list_entry(d);
-        udev_list_entry_foreach(item, first) {
-                const char *p;
+        FOREACH_DEVICE_DEVLINK(d, devlink) {
 
                 /* Don't bother with the /dev/block links */
-                p = udev_list_entry_get_name(item);
-
-                if (streq(p, device))
+                if (streq(devlink, device))
                         continue;
 
-                if (path_startswith(p, "/dev/block/"))
+                if (path_startswith(devlink, "/dev/block/"))
                         continue;
 
-                if (stat(p, &st) >= 0)
-                        if (!S_ISBLK(st.st_mode) ||
-                            st.st_rdev != udev_device_get_devnum(d))
-                                continue;
+                if (stat(devlink, &st_link) >= 0 &&
+                    (!S_ISBLK(st_link.st_mode) ||
+                     st_link.st_rdev != st.st_rdev))
+                        continue;
 
-                swap_setup_unit(m, p, device, prio, set_flags);
+                swap_setup_unit(m, devlink, device, prio, set_flags);
         }
 
         return r;
@@ -508,7 +492,7 @@ static void swap_set_state(Swap *s, SwapState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", swap_state_to_string(old_state), swap_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], 0);
 
         /* If there other units for the same device node have a job
            queued it might be worth checking again if it is runnable
@@ -549,14 +533,17 @@ static int swap_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED))
+        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED)) {
                 (void) unit_setup_dynamic_creds(u);
+                (void) unit_setup_exec_runtime(u);
+        }
 
         swap_set_state(s, new_state);
         return 0;
 }
 
 static void swap_dump(Unit *u, FILE *f, const char *prefix) {
+        char buf[FORMAT_TIMESPAN_MAX];
         Swap *s = SWAP(u);
         SwapParameters *p;
 
@@ -592,6 +579,10 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, p->priority,
                         prefix, strempty(p->options));
 
+        fprintf(f,
+                "%sTimeoutSec: %s\n",
+                prefix, format_timespan(buf, sizeof(buf), s->timeout_usec, USEC_PER_SEC));
+
         if (s->control_pid > 0)
                 fprintf(f,
                         "%sControl PID: "PID_FMT"\n",
@@ -609,6 +600,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                 .stdin_fd  = -1,
                 .stdout_fd = -1,
                 .stderr_fd = -1,
+                .exec_fd   = -1,
         };
         pid_t pid;
         int r;
@@ -625,7 +617,6 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
-        manager_set_exec_params(UNIT(s)->manager, &exec_params);
         unit_set_exec_params(UNIT(s), &exec_params);
 
         r = exec_spawn(UNIT(s),
@@ -664,8 +655,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
 
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 
-        exec_runtime_destroy(s->exec_runtime);
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
 
         exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
@@ -858,6 +848,7 @@ static int swap_start(Unit *u) {
                 return r;
 
         s->result = SWAP_SUCCESS;
+        exec_command_reset_status_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
 
         u->reset_accounting = true;
 
@@ -973,12 +964,15 @@ _pure_ static const char *swap_sub_state_to_string(Unit *u) {
         return swap_state_to_string(SWAP(u)->state);
 }
 
-_pure_ static bool swap_check_gc(Unit *u) {
+_pure_ static bool swap_may_gc(Unit *u) {
         Swap *s = SWAP(u);
 
         assert(s);
 
-        return s->from_proc_swaps;
+        if (s->from_proc_swaps)
+                return false;
+
+        return true;
 }
 
 static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -1116,7 +1110,7 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
                 if (cunescape(dev, UNESCAPE_RELAX, &d) < 0)
                         return log_oom();
 
-                device_found_node(m, d, true, DEVICE_FOUND_SWAP, set_flags);
+                device_found_node(m, d, DEVICE_FOUND_SWAP, DEVICE_FOUND_SWAP);
 
                 k = swap_process_new(m, d, prio, set_flags);
                 if (k < 0)
@@ -1171,7 +1165,7 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
                         }
 
                         if (swap->what)
-                                device_found_node(m, swap->what, false, DEVICE_FOUND_SWAP, true);
+                                device_found_node(m, swap->what, 0, DEVICE_FOUND_SWAP);
 
                 } else if (swap->just_activated) {
 
@@ -1245,7 +1239,7 @@ static Unit *swap_following(Unit *u) {
 
 static int swap_following_set(Unit *u, Set **_set) {
         Swap *s = SWAP(u), *other;
-        Set *set;
+        _cleanup_set_free_ Set *set = NULL;
         int r;
 
         assert(s);
@@ -1263,24 +1257,18 @@ static int swap_following_set(Unit *u, Set **_set) {
         LIST_FOREACH_OTHERS(same_devnode, other, s) {
                 r = set_put(set, other);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
-        *_set = set;
+        *_set = TAKE_PTR(set);
         return 1;
-
-fail:
-        set_free(set);
-        return r;
 }
 
 static void swap_shutdown(Manager *m) {
         assert(m);
 
         m->swap_event_source = sd_event_source_unref(m->swap_event_source);
-
         m->proc_swaps = safe_fclose(m->proc_swaps);
-
         m->swaps_by_devnode = hashmap_free(m->swaps_by_devnode);
 }
 
@@ -1293,9 +1281,9 @@ static void swap_enumerate(Manager *m) {
                 m->proc_swaps = fopen("/proc/swaps", "re");
                 if (!m->proc_swaps) {
                         if (errno == ENOENT)
-                                log_debug("Not swap enabled, skipping enumeration");
+                                log_debug_errno(errno, "Not swap enabled, skipping enumeration.");
                         else
-                                log_error_errno(errno, "Failed to open /proc/swaps: %m");
+                                log_warning_errno(errno, "Failed to open /proc/swaps, ignoring: %m");
 
                         return;
                 }
@@ -1309,7 +1297,7 @@ static void swap_enumerate(Manager *m) {
                 /* Dispatch this before we dispatch SIGCHLD, so that
                  * we always get the events from /proc/swaps before
                  * the SIGCHLD of /sbin/swapon. */
-                r = sd_event_source_set_priority(m->swap_event_source, -10);
+                r = sd_event_source_set_priority(m->swap_event_source, SD_EVENT_PRIORITY_NORMAL-10);
                 if (r < 0) {
                         log_error_errno(r, "Failed to change /proc/swaps priority: %m");
                         goto fail;
@@ -1328,18 +1316,17 @@ fail:
         swap_shutdown(m);
 }
 
-int swap_process_device_new(Manager *m, struct udev_device *dev) {
-        struct udev_list_entry *item = NULL, *first = NULL;
+int swap_process_device_new(Manager *m, sd_device *dev) {
         _cleanup_free_ char *e = NULL;
-        const char *dn;
+        const char *dn, *devlink;
         Unit *u;
         int r = 0;
 
         assert(m);
         assert(dev);
 
-        dn = udev_device_get_devnode(dev);
-        if (!dn)
+        r = sd_device_get_devname(dev, &dn);
+        if (r < 0)
                 return 0;
 
         r = unit_name_from_path(dn, ".swap", &e);
@@ -1350,12 +1337,11 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
         if (u)
                 r = swap_set_devnode(SWAP(u), dn);
 
-        first = udev_device_get_devlinks_list_entry(dev);
-        udev_list_entry_foreach(item, first) {
+        FOREACH_DEVICE_DEVLINK(dev, devlink) {
                 _cleanup_free_ char *n = NULL;
                 int q;
 
-                q = unit_name_from_path(udev_list_entry_get_name(item), ".swap", &n);
+                q = unit_name_from_path(devlink, ".swap", &n);
                 if (q < 0)
                         return q;
 
@@ -1370,13 +1356,13 @@ int swap_process_device_new(Manager *m, struct udev_device *dev) {
         return r;
 }
 
-int swap_process_device_remove(Manager *m, struct udev_device *dev) {
+int swap_process_device_remove(Manager *m, sd_device *dev) {
         const char *dn;
         int r = 0;
         Swap *s;
 
-        dn = udev_device_get_devnode(dev);
-        if (!dn)
+        r = sd_device_get_devname(dev, &dn);
+        if (r < 0)
                 return 0;
 
         while ((s = hashmap_get(m->swaps_by_devnode, dn))) {
@@ -1500,7 +1486,7 @@ const UnitVTable swap_vtable = {
         .active_state = swap_active_state,
         .sub_state_to_string = swap_sub_state_to_string,
 
-        .check_gc = swap_check_gc,
+        .may_gc = swap_may_gc,
 
         .sigchld_event = swap_sigchld_event,
 

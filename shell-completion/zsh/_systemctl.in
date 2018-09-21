@@ -18,6 +18,7 @@
     "force-reload:Reload one or more units if possible, otherwise restart if active"
     "hibernate:Hibernate the system"
     "hybrid-sleep:Hibernate and suspend the system"
+    "suspend-then-hibernate:Suspend the system for a period of time, and then hibernate it"
     "try-reload-or-restart:Reload one or more units if possible, otherwise restart if active"
     "isolate:Start one unit and stop all others"
     "kill:Send signal to processes of a unit"
@@ -105,7 +106,7 @@ _systemctl_all_units()
   if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS$_sys_service_mgr ) ||
     ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
   then
-    _sys_all_units=( ${${(f)"$(__systemctl list-units --all)"}%% *} )
+    _sys_all_units=( ${${(f)"$(__systemctl list-units --all "$PREFIX*" )"}%% *} )
     _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_units
   fi
 }
@@ -118,7 +119,7 @@ _systemctl_really_all_units()
   if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr ) ||
     ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr;
   then
-    all_unit_files=( ${${(f)"$(__systemctl list-unit-files)"}%% *} )
+    all_unit_files=( ${${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}%% *} )
     _systemctl_all_units
     really_all_units=($_sys_all_units $all_unit_files)
     _sys_really_all_units=(${(u)really_all_units})
@@ -134,39 +135,52 @@ _filter_units_by_property() {
   echo -E - "${(@g:o:)${(k@)props[(Re)$property=$value]}#Id=}"
 }
 
-_systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files "*$PREFIX*$SUFFIX*" )"}##*@.[^[:space:]]##}%%@.*}\@ }
+_systemctl_get_non_template_names() { echo -E - ${^${(R)${(f)"$(
+    __systemctl $mode list-unit-files "$PREFIX*"
+    __systemctl $mode list-units --all "$PREFIX*"
+  )"}:#*@.*}%%[[:space:]]*} }
+
+_systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}##*@.[^[:space:]]##}%%@.*}\@ }
 
 
-_systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units "*$PREFIX*$SUFFIX*" )"}%% *} )}
+_systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units "$PREFIX*" )"}%% *} )}
 
 _systemctl_startable_units(){
-    _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
-                          _filter_units_by_property CanStart yes $(
-                          __systemctl $mode list-unit-files --state enabled,disabled,static "*$PREFIX*$SUFFIX*" | \
-                               { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; }
-                          __systemctl $mode list-units --state inactive,failed "*$PREFIX*$SUFFIX*" | \
-                               { while read -r a b; do echo -E - " $a"; done; } )) ) )
+  _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
+    _filter_units_by_property CanStart yes ${${${(f)"$(
+      __systemctl $mode list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$PREFIX*"
+      __systemctl $mode list-units --state inactive,failed "$PREFIX*"
+    )"}:#*@.*}%%[[:space:]]*}
+  )) )
 }
 
 _systemctl_restartable_units(){
-    _sys_restartable_units=( $(_filter_units_by_property CanStart yes $(
-                          __systemctl $mode list-unit-files --state enabled,disabled,static "*$PREFIX*$SUFFIX*" | \
-                               { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; }
-                          __systemctl $mode list-units "*$PREFIX*$SUFFIX*" | \
-                               { while read -r a b; do echo -E - " $a"; done; } )) )
+  _sys_restartable_units=( $( _filter_units_by_property CanStart yes ${${${(f)"$(
+    __systemctl $mode list-unit-files --state enabled,disabled,static "$PREFIX*"
+    __systemctl $mode list-units "$PREFIX*"
+  )"}:#*@.*}%%[[:space:]]*} ) )
 }
 
-_systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed "*$PREFIX*$SUFFIX*" )"}%% *} ) }
-_systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files "*$PREFIX*$SUFFIX*" ) ) }
+_systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed "$PREFIX*" )"}%% *} ) }
+_systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files "$PREFIX*" ) ) }
 
 local fun
 # Completion functions for ALL_UNITS
-for fun in is-active is-failed is-enabled status show cat mask preset help list-dependencies edit revert add-wants add-requires ; do
+for fun in cat mask ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     _systemctl_really_all_units
     _wanted systemd-units expl unit \
       compadd "$@" -a - _sys_really_all_units
+  }
+done
+
+# Completion functions for NONTEMPLATE_UNITS
+for fun in is-active is-failed is-enabled status show preset help list-dependencies edit revert add-wants add-requires ; do
+  (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
+  {
+    _wanted systemd-units expl unit \
+      compadd "$@" - $(_systemctl_get_non_template_names)
   }
 done
 
@@ -206,7 +220,7 @@ done
 {
    local _sys_startable_units; _systemctl_startable_units
    _wanted systemd-units expl 'startable unit' \
-     compadd "$@" - ${_sys_startable_units[*]} $(_systemctl_get_template_names)
+     compadd "$@" - ${_sys_startable_units[*]}
 }
 
 # Completion functions for STOPPABLE_UNITS
@@ -246,7 +260,7 @@ for fun in restart reload-or-restart ; do
   {
     local _sys_restartable_units; _systemctl_restartable_units
     _wanted systemd-units expl 'restartable unit' \
-      compadd "$@" - ${_sys_restartable_units[*]} $(_systemctl_get_template_names)
+      compadd "$@" - ${_sys_restartable_units[*]}
   }
 done
 
@@ -270,7 +284,7 @@ done
 (( $+functions[_systemctl_set-default] )) || _systemctl_set-default()
 {
   _wanted systemd-targets expl target \
-    compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all)"}%% *} ||
+    compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all "$PREFIX*" )"}%% *} ||
       _message "no targets found"
 }
 
@@ -337,9 +351,7 @@ _unit_properties() {
   if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES$_sys_service_mgr ) ||
     ! _retrieve_cache SYS_ALL_PROPERTIES$_sys_service_mgr;
   then
-    _sys_all_properties=( ${${(M)${(f)"$(__systemctl show --all;
-    @rootlibexecdir@/systemd --dump-configuration-items)"}##[[:alnum:]]##=*}%%=*}
-    )
+    _sys_all_properties=( ${${(M)${(f)"$(@rootlibexecdir@/systemd --dump-bus-properties)"}}} )
     _store_cache SYS_ALL_PROPERTIES$_sys_service_mgr _sys_all_properties
   fi
   _values -s , "${_sys_all_properties[@]}"

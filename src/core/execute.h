@@ -1,30 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 typedef struct ExecStatus ExecStatus;
 typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
 typedef struct ExecRuntime ExecRuntime;
 typedef struct ExecParameters ExecParameters;
+typedef struct Manager Manager;
 
 #include <sched.h>
 #include <stdbool.h>
@@ -74,6 +56,7 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_SOCKET,
         EXEC_OUTPUT_NAMED_FD,
         EXEC_OUTPUT_FILE,
+        EXEC_OUTPUT_FILE_APPEND,
         _EXEC_OUTPUT_MAX,
         _EXEC_OUTPUT_INVALID = -1
 } ExecOutput;
@@ -94,21 +77,23 @@ typedef enum ExecKeyringMode {
         _EXEC_KEYRING_MODE_INVALID = -1,
 } ExecKeyringMode;
 
+/* Contains start and exit information about an executed command.  */
 struct ExecStatus {
+        pid_t pid;
         dual_timestamp start_timestamp;
         dual_timestamp exit_timestamp;
-        pid_t pid;
         int code;     /* as in siginfo_t::si_code */
         int status;   /* as in sigingo_t::si_status */
 };
 
 typedef enum ExecCommandFlags {
-        EXEC_COMMAND_IGNORE_FAILURE = 1,
-        EXEC_COMMAND_FULLY_PRIVILEGED = 2,
-        EXEC_COMMAND_NO_SETUID = 4,
-        EXEC_COMMAND_AMBIENT_MAGIC = 8,
+        EXEC_COMMAND_IGNORE_FAILURE   = 1 << 0,
+        EXEC_COMMAND_FULLY_PRIVILEGED = 1 << 1,
+        EXEC_COMMAND_NO_SETUID        = 1 << 2,
+        EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
 } ExecCommandFlags;
 
+/* Stores information about commands we execute. Covers both configuration settings as well as runtime data. */
 struct ExecCommand {
         char *path;
         char **argv;
@@ -117,8 +102,16 @@ struct ExecCommand {
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
 };
 
+/* Encapsulates certain aspects of the runtime environment that is to be shared between multiple otherwise separate
+ * invocations of commands. Specifically, this allows sharing of /tmp and /var/tmp data as well as network namespaces
+ * between invocations of commands. This is a reference counted object, with one reference taken by each currently
+ * active command invocation that wants to share this runtime. */
 struct ExecRuntime {
-        int n_ref;
+        unsigned n_ref;
+
+        Manager *manager;
+
+        char *id; /* Unit id of the owner */
 
         char *tmp_dir;
         char *var_tmp_dir;
@@ -143,6 +136,9 @@ typedef struct ExecDirectory {
         mode_t mode;
 } ExecDirectory;
 
+/* Encodes configuration parameters applied to invoked commands. Does not carry runtime data, but only configuration
+ * changes sourced from unit files and suchlike. ExecContext objects are usually embedded into Unit objects, and do not
+ * change after being loaded. */
 struct ExecContext {
         char **environment;
         char **environment_files;
@@ -212,7 +208,9 @@ struct ExecContext {
         char **read_write_paths, **read_only_paths, **inaccessible_paths;
         unsigned long mount_flags;
         BindMount *bind_mounts;
-        unsigned n_bind_mounts;
+        size_t n_bind_mounts;
+        TemporaryFileSystem *temporary_filesystems;
+        size_t n_temporary_filesystems;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;
@@ -233,6 +231,7 @@ struct ExecContext {
         bool private_network;
         bool private_devices;
         bool private_users;
+        bool private_mounts;
         ProtectSystem protect_system;
         ProtectHome protect_home;
         bool protect_kernel_tunables;
@@ -284,30 +283,31 @@ static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
 }
 
 typedef enum ExecFlags {
-        EXEC_APPLY_SANDBOXING  = 1U << 0,
-        EXEC_APPLY_CHROOT      = 1U << 1,
-        EXEC_APPLY_TTY_STDIN   = 1U << 2,
-        EXEC_NEW_KEYRING       = 1U << 3,
-        EXEC_PASS_LOG_UNIT     = 1U << 4, /* Whether to pass the unit name to the service's journal stream connection */
-        EXEC_CHOWN_DIRECTORIES = 1U << 5, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
-        EXEC_NSS_BYPASS_BUS    = 1U << 6, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
-        EXEC_CGROUP_DELEGATE   = 1U << 7,
+        EXEC_APPLY_SANDBOXING  = 1 << 0,
+        EXEC_APPLY_CHROOT      = 1 << 1,
+        EXEC_APPLY_TTY_STDIN   = 1 << 2,
+        EXEC_NEW_KEYRING       = 1 << 3,
+        EXEC_PASS_LOG_UNIT     = 1 << 4, /* Whether to pass the unit name to the service's journal stream connection */
+        EXEC_CHOWN_DIRECTORIES = 1 << 5, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
+        EXEC_NSS_BYPASS_BUS    = 1 << 6, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
+        EXEC_CGROUP_DELEGATE   = 1 << 7,
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS          = 1U << 8,
-        EXEC_IS_CONTROL        = 1U << 9,
-        EXEC_SETENV_RESULT     = 1U << 10,
-        EXEC_SET_WATCHDOG      = 1U << 11,
+        EXEC_PASS_FDS          = 1 << 8,
+        EXEC_IS_CONTROL        = 1 << 9,
+        EXEC_SETENV_RESULT     = 1 << 10,
+        EXEC_SET_WATCHDOG      = 1 << 11,
 } ExecFlags;
 
+/* Parameters for a specific invocation of a command. This structure is put together right before a command is
+ * executed. */
 struct ExecParameters {
-        char **argv;
         char **environment;
 
         int *fds;
         char **fd_names;
-        unsigned n_storage_fds;
-        unsigned n_socket_fds;
+        size_t n_socket_fds;
+        size_t n_storage_fds;
 
         ExecFlags flags;
         bool selinux_context_net:1;
@@ -326,6 +326,9 @@ struct ExecParameters {
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
+
+        /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done */
+        int exec_fd;
 };
 
 #include "unit.h"
@@ -339,15 +342,11 @@ int exec_spawn(Unit *unit,
                DynamicCreds *dynamic_creds,
                pid_t *ret);
 
-void exec_command_done(ExecCommand *c);
-void exec_command_done_array(ExecCommand *c, unsigned n);
-
+void exec_command_done_array(ExecCommand *c, size_t n);
 ExecCommand* exec_command_free_list(ExecCommand *c);
-void exec_command_free_array(ExecCommand **c, unsigned n);
-
-char *exec_command_line(char **argv);
-
-void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix);
+void exec_command_free_array(ExecCommand **c, size_t n);
+void exec_command_reset_status_array(ExecCommand *c, size_t n);
+void exec_command_reset_status_list_array(ExecCommand **c, size_t n);
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_append_list(ExecCommand **l, ExecCommand *e);
 int exec_command_set(ExecCommand *c, const char *path, ...);
@@ -355,33 +354,31 @@ int exec_command_append(ExecCommand *c, const char *path, ...);
 
 void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
-void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
+void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
-int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_root);
+int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
 
-int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l);
-int exec_context_named_iofds(Unit *unit, const ExecContext *c, const ExecParameters *p, int named_iofds[3]);
 const char* exec_context_fdname(const ExecContext *c, int fd_index);
 
-bool exec_context_may_touch_console(ExecContext *c);
-bool exec_context_maintains_privileges(ExecContext *c);
+bool exec_context_may_touch_console(const ExecContext *c);
+bool exec_context_maintains_privileges(const ExecContext *c);
 
-int exec_context_get_effective_ioprio(ExecContext *c);
+int exec_context_get_effective_ioprio(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
-void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);
-void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
+void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
+void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
+void exec_status_reset(ExecStatus *s);
 
-int exec_runtime_make(ExecRuntime **rt, ExecContext *c, const char *id);
-ExecRuntime *exec_runtime_ref(ExecRuntime *r);
-ExecRuntime *exec_runtime_unref(ExecRuntime *r);
+int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecRuntime **ret);
+ExecRuntime *exec_runtime_unref(ExecRuntime *r, bool destroy);
 
-int exec_runtime_serialize(Unit *unit, ExecRuntime *rt, FILE *f, FDSet *fds);
-int exec_runtime_deserialize_item(Unit *unit, ExecRuntime **rt, const char *key, const char *value, FDSet *fds);
-
-void exec_runtime_destroy(ExecRuntime *rt);
+int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
+int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
+void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
+void exec_runtime_vacuum(Manager *m);
 
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;

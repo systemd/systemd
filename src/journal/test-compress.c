@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd
-
-  Copyright 2014 Ronny Chevalier
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #if HAVE_LZ4
 #include <lz4.h>
@@ -26,9 +8,11 @@
 #include "compress.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "random-util.h"
+#include "tests.h"
 #include "util.h"
 
 #if HAVE_XZ
@@ -155,8 +139,9 @@ static void test_compress_stream(int compression,
                                  const char *srcfile) {
 
         _cleanup_close_ int src = -1, dst = -1, dst2 = -1;
-        char pattern[] = "/tmp/systemd-test.compressed.XXXXXX",
-             pattern2[] = "/tmp/systemd-test.compressed.XXXXXX";
+        _cleanup_(unlink_tempfilep) char
+                pattern[] = "/tmp/systemd-test.compressed.XXXXXX",
+                pattern2[] = "/tmp/systemd-test.compressed.XXXXXX";
         int r;
         _cleanup_free_ char *cmd = NULL, *cmd2 = NULL;
         struct stat st = {};
@@ -208,9 +193,6 @@ static void test_compress_stream(int compression,
         assert_se(lseek(dst2, 0, SEEK_SET) == 0);
         r = decompress(dst, dst2, st.st_size - 1);
         assert_se(r == -EFBIG);
-
-        assert_se(unlink(pattern) == 0);
-        assert_se(unlink(pattern2) == 0);
 }
 #endif
 
@@ -272,7 +254,7 @@ int main(int argc, char *argv[]) {
         memcpy(huge, "HUGE=", 5);
         char_array_0(huge);
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         random_bytes(data + 7, sizeof(data) - 7);
 
@@ -324,6 +306,7 @@ int main(int argc, char *argv[]) {
 
         return 0;
 #else
+        log_info("/* XZ and LZ4 tests skipped */");
         return EXIT_TEST_SKIP;
 #endif
 }

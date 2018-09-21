@@ -4,39 +4,13 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_id128_get_machine">
+<refentry id="sd_id128_get_machine" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_id128_get_machine</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -129,20 +103,14 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>The two calls return 0 on success (in which case
-    <parameter>ret</parameter> is filled in), or a negative
-    errno-style error code.</para>
+    <para>Those calls return 0 on success (in which case <parameter>ret</parameter> is filled in),
+    or a negative errno-style error code. In particular, <function>sd_id128_get_machine()</function>
+    and <function>sd_id128_get_machine_app_specific()</function> return <constant>-ENOENT</constant>
+    if <filename>/etc/machine-id</filename> is missing, and <constant>-ENOMEDIUM</constant> if is
+    empty or all zeros.</para>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_id128_get_machine()</function>, <function>sd_id128_get_machine_app_specific()</function>
-    <function>sd_id128_get_boot()</function> and <function>sd_id128_get_invocation()</function> interfaces are
-    available as a shared library, which can be compiled and linked to with the
-    <literal>libsystemd</literal> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>Examples</title>
@@ -152,17 +120,7 @@
 
       <para>Here's a simple example for an application specific machine ID:</para>
 
-      <programlisting>#include &lt;systemd/sd-id128.h&gt;
-#include &lt;stdio.h&gt;
-
-#define OUR_APPLICATION_ID SD_ID128_MAKE(c2,73,27,73,23,db,45,4e,a6,3b,b9,6e,79,b5,3e,97)
-
-int main(int argc, char *argv[]) {
-        sd_id128_t id;
-        sd_id128_get_machine_app_specific(OUR_APPLICATION_ID, &amp;id);
-        printf("Our application ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
-        return 0;
-}</programlisting>
+      <programlisting><xi:include href="id128-app-specific.c" parse="text" /></programlisting>
     </example>
   </refsect1>
 

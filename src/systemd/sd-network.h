@@ -3,11 +3,6 @@
 #define foosdnetworkhfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-  Copyright 2014 Tom Gundersen
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -128,6 +123,14 @@ int sd_network_link_get_llmnr(int ifindex, char **llmnr);
  *   -ENODATA: networkd is not aware of the link
  */
 int sd_network_link_get_mdns(int ifindex, char **mdns);
+
+/* Indicates whether or not DNS-over-TLS should be enabled for the
+ * link.
+ * Possible levels of support: strict, no, opportunistic
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ */
+int sd_network_link_get_dns_over_tls(int ifindex, char **dns_over_tls);
 
 /* Indicates whether or not DNSSEC should be enabled for the link
  * Possible levels of support: yes, no, allow-downgrade

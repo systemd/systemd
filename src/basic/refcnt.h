@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 /* A type-safe atomic refcounter.
  *
  * DO NOT USE THIS UNLESS YOU ACTUALLY CARE ABOUT THREAD SAFETY! */
@@ -33,3 +14,41 @@ typedef struct {
 #define REFCNT_DEC(r) (__sync_sub_and_fetch(&(r)._value, 1))
 
 #define REFCNT_INIT ((RefCount) { ._value = 1 })
+
+#define _DEFINE_ATOMIC_REF_FUNC(type, name, scope)                    \
+        scope type *name##_ref(type *p) {                               \
+                if (!p)                                                 \
+                        return NULL;                                    \
+                                                                        \
+                assert_se(REFCNT_INC(p->n_ref) >= 2);                   \
+                return p;                                               \
+        }
+
+#define _DEFINE_ATOMIC_UNREF_FUNC(type, name, free_func, scope)       \
+        scope type *name##_unref(type *p) {                             \
+                if (!p)                                                 \
+                        return NULL;                                    \
+                                                                        \
+                if (REFCNT_DEC(p->n_ref) > 0)                           \
+                        return NULL;                                    \
+                                                                        \
+                return free_func(p);                                    \
+        }
+
+#define DEFINE_ATOMIC_REF_FUNC(type, name)    \
+        _DEFINE_ATOMIC_REF_FUNC(type, name,)
+#define DEFINE_PUBLIC_ATOMIC_REF_FUNC(type, name)     \
+        _DEFINE_ATOMIC_REF_FUNC(type, name, _public_)
+
+#define DEFINE_ATOMIC_UNREF_FUNC(type, name, free_func)       \
+        _DEFINE_ATOMIC_UNREF_FUNC(type, name, free_func,)
+#define DEFINE_PUBLIC_ATOMIC_UNREF_FUNC(type, name, free_func)        \
+        _DEFINE_ATOMIC_UNREF_FUNC(type, name, free_func, _public_)
+
+#define DEFINE_ATOMIC_REF_UNREF_FUNC(type, name, free_func)   \
+        DEFINE_ATOMIC_REF_FUNC(type, name);                   \
+        DEFINE_ATOMIC_UNREF_FUNC(type, name, free_func);
+
+#define DEFINE_PUBLIC_ATOMIC_REF_UNREF_FUNC(type, name, free_func)   \
+        DEFINE_PUBLIC_ATOMIC_REF_FUNC(type, name);                   \
+        DEFINE_PUBLIC_ATOMIC_UNREF_FUNC(type, name, free_func);

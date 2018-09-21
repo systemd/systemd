@@ -1,28 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Kay Sievers <kay@vrfy.org>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
+
+#include "macro.h"
 
 struct strbuf {
         char *buf;
@@ -53,3 +36,4 @@ struct strbuf *strbuf_new(void);
 ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len);
 void strbuf_complete(struct strbuf *str);
 void strbuf_cleanup(struct strbuf *str);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct strbuf*, strbuf_cleanup);

@@ -1,25 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
+#include "conf-parser.h"
 #include "unit.h"
 
 /* Read service data from .desktop file style configuration fragments */
@@ -28,109 +10,101 @@ int unit_load_fragment(Unit *u);
 
 void unit_dump_config_items(FILE *f);
 
-int config_parse_warn_compat(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_deps(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_obsolete_unit_deps(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_string_printf(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_strv_printf(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_path_printf(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_path_strv_printf(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_documentation(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_socket_listen(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_socket_protocol(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_socket_bind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_nice(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_oom_score_adjust(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_service_timeout(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_service_type(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_service_restart(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_socket_bindtodevice(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_output(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_input(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_input_text(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_input_data(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_io_class(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_io_priority(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_cpu_sched_policy(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_cpu_sched_prio(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_cpu_affinity(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_secure_bits(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_capability_set(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_limit(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_sysv_priority(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_kill_signal(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_mount_flags(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_timer(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_trigger_unit(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_path_spec(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_socket_service(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_service_sockets(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_env_file(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_ip_tos(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_condition_path(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_condition_string(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_condition_null(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_kill_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_notify_access(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_emergency_action(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_requires_mounts_for(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_syscall_filter(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_syscall_archs(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_syscall_errno(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_environ(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_pass_environ(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unset_environ(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unit_slice(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_cpu_weight(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_cpu_shares(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_memory_limit(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_tasks_max(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_delegate(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_device_policy(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_device_allow(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_io_weight(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_io_device_weight(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_io_limit(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_blockio_weight(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_blockio_device_weight(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_blockio_bandwidth(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_netclass(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_job_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_job_mode_isolate(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_selinux_context(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_apparmor_profile(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_smack_process_label(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_address_families(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_runtime_preserve_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_directories(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_set_status(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_namespace_path_strv(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_no_new_privileges(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_cpu_quota(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_protect_home(const char* unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_protect_system(const char* unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bus_name(const char* unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_utmp_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_working_directory(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_fdname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_sec_fix_0(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_user_group(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_user_group_strv(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_restrict_namespaces(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bind_paths(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_exec_keyring_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_job_timeout_sec(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_job_running_timeout_sec(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_log_extra_fields(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_collect_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_deps);
+CONFIG_PARSER_PROTOTYPE(config_parse_obsolete_unit_deps);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_string_printf);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_strv_printf);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_path_printf);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_path_strv_printf);
+CONFIG_PARSER_PROTOTYPE(config_parse_documentation);
+CONFIG_PARSER_PROTOTYPE(config_parse_socket_listen);
+CONFIG_PARSER_PROTOTYPE(config_parse_socket_protocol);
+CONFIG_PARSER_PROTOTYPE(config_parse_socket_bind);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_nice);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_oom_score_adjust);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec);
+CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout);
+CONFIG_PARSER_PROTOTYPE(config_parse_service_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_service_restart);
+CONFIG_PARSER_PROTOTYPE(config_parse_socket_bindtodevice);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_output);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_input);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_input_text);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_input_data);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_io_class);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_io_priority);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_sched_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_sched_prio);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_affinity);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_secure_bits);
+CONFIG_PARSER_PROTOTYPE(config_parse_capability_set);
+CONFIG_PARSER_PROTOTYPE(config_parse_kill_signal);
+CONFIG_PARSER_PROTOTYPE(config_parse_final_kill_signal);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_mount_flags);
+CONFIG_PARSER_PROTOTYPE(config_parse_timer);
+CONFIG_PARSER_PROTOTYPE(config_parse_trigger_unit);
+CONFIG_PARSER_PROTOTYPE(config_parse_path_spec);
+CONFIG_PARSER_PROTOTYPE(config_parse_socket_service);
+CONFIG_PARSER_PROTOTYPE(config_parse_service_sockets);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_env_file);
+CONFIG_PARSER_PROTOTYPE(config_parse_ip_tos);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_condition_path);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_condition_string);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_condition_null);
+CONFIG_PARSER_PROTOTYPE(config_parse_kill_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_notify_access);
+CONFIG_PARSER_PROTOTYPE(config_parse_emergency_action);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_requires_mounts_for);
+CONFIG_PARSER_PROTOTYPE(config_parse_syscall_filter);
+CONFIG_PARSER_PROTOTYPE(config_parse_syscall_archs);
+CONFIG_PARSER_PROTOTYPE(config_parse_syscall_errno);
+CONFIG_PARSER_PROTOTYPE(config_parse_environ);
+CONFIG_PARSER_PROTOTYPE(config_parse_pass_environ);
+CONFIG_PARSER_PROTOTYPE(config_parse_unset_environ);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_slice);
+CONFIG_PARSER_PROTOTYPE(config_parse_cg_weight);
+CONFIG_PARSER_PROTOTYPE(config_parse_cpu_shares);
+CONFIG_PARSER_PROTOTYPE(config_parse_memory_limit);
+CONFIG_PARSER_PROTOTYPE(config_parse_tasks_max);
+CONFIG_PARSER_PROTOTYPE(config_parse_delegate);
+CONFIG_PARSER_PROTOTYPE(config_parse_device_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_device_allow);
+CONFIG_PARSER_PROTOTYPE(config_parse_io_device_latency);
+CONFIG_PARSER_PROTOTYPE(config_parse_io_device_weight);
+CONFIG_PARSER_PROTOTYPE(config_parse_io_limit);
+CONFIG_PARSER_PROTOTYPE(config_parse_blockio_weight);
+CONFIG_PARSER_PROTOTYPE(config_parse_blockio_device_weight);
+CONFIG_PARSER_PROTOTYPE(config_parse_blockio_bandwidth);
+CONFIG_PARSER_PROTOTYPE(config_parse_netclass);
+CONFIG_PARSER_PROTOTYPE(config_parse_job_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_job_mode_isolate);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_selinux_context);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_apparmor_profile);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_smack_process_label);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_families);
+CONFIG_PARSER_PROTOTYPE(config_parse_runtime_preserve_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_directories);
+CONFIG_PARSER_PROTOTYPE(config_parse_set_status);
+CONFIG_PARSER_PROTOTYPE(config_parse_namespace_path_strv);
+CONFIG_PARSER_PROTOTYPE(config_parse_temporary_filesystems);
+CONFIG_PARSER_PROTOTYPE(config_parse_cpu_quota);
+CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);
+CONFIG_PARSER_PROTOTYPE(config_parse_protect_system);
+CONFIG_PARSER_PROTOTYPE(config_parse_bus_name);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_utmp_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_working_directory);
+CONFIG_PARSER_PROTOTYPE(config_parse_fdname);
+CONFIG_PARSER_PROTOTYPE(config_parse_sec_fix_0);
+CONFIG_PARSER_PROTOTYPE(config_parse_user_group);
+CONFIG_PARSER_PROTOTYPE(config_parse_user_group_strv);
+CONFIG_PARSER_PROTOTYPE(config_parse_restrict_namespaces);
+CONFIG_PARSER_PROTOTYPE(config_parse_bind_paths);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_keyring_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_job_timeout_sec);
+CONFIG_PARSER_PROTOTYPE(config_parse_job_running_timeout_sec);
+CONFIG_PARSER_PROTOTYPE(config_parse_log_extra_fields);
+CONFIG_PARSER_PROTOTYPE(config_parse_collect_mode);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 extern const char load_fragment_gperf_nulstr[];
-
-typedef enum Disabled {
-        DISABLED_CONFIGURATION,
-        DISABLED_LEGACY,
-        DISABLED_EXPERIMENTAL,
-} Disabled;

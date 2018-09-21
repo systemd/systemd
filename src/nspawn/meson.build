@@ -1,21 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-systemd_nspawn_sources = files('''
+libnspawn_core_sources = files('''
         nspawn-cgroup.c
         nspawn-cgroup.h
         nspawn-def.h
@@ -37,7 +22,6 @@ systemd_nspawn_sources = files('''
         nspawn-setuid.h
         nspawn-stub-pid1.c
         nspawn-stub-pid1.h
-        nspawn.c
 '''.split())
 
 nspawn_gperf_c = custom_target(
@@ -46,13 +30,27 @@ nspawn_gperf_c = custom_target(
         output : 'nspawn-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_nspawn_sources += [nspawn_gperf_c]
+libnspawn_core_sources += [nspawn_gperf_c]
+
+libnspawn_core = static_library(
+        'nspawn-core',
+        libnspawn_core_sources,
+        include_directories : includes,
+        dependencies : [libacl,
+                        libseccomp,
+                        libselinux])
+
+systemd_nspawn_sources = files('nspawn.c')
 
 tests += [
-        [['src/nspawn/test-patch-uid.c',
-          'src/nspawn/nspawn-patch-uid.c',
-          'src/nspawn/nspawn-patch-uid.h'],
-         [libshared],
+        [['src/nspawn/test-nspawn-tables.c'],
+         [libnspawn_core,
+          libshared],
+         []],
+
+        [['src/nspawn/test-patch-uid.c'],
+         [libnspawn_core,
+          libshared],
          [libacl],
          '', 'manual'],
 ]

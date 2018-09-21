@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="pam_systemd" conditional='HAVE_PAM'>
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>pam_systemd</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -110,40 +84,43 @@
       <varlistentry>
         <term><option>class=</option></term>
 
-        <listitem><para>Takes a string argument which sets the session
-        class. The XDG_SESSION_CLASS environmental variable takes
-        precedence. One of
-        <literal>user</literal>,
-        <literal>greeter</literal>,
-        <literal>lock-screen</literal> or
-        <literal>background</literal>. See
-        <citerefentry><refentrytitle>sd_session_get_class</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for details about the session class.</para></listitem>
+        <listitem><para>Takes a string argument which sets the session class. The <varname>XDG_SESSION_CLASS</varname>
+        environment variable (see below) takes precedence. One of <literal>user</literal>, <literal>greeter</literal>,
+        <literal>lock-screen</literal> or <literal>background</literal>. See
+        <citerefentry><refentrytitle>sd_session_get_class</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details about the session class.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>type=</option></term>
 
-        <listitem><para>Takes a string argument which sets the session
-        type. The XDG_SESSION_TYPE environmental variable takes
-        precedence. One of
-        <literal>unspecified</literal>,
-        <literal>tty</literal>,
-        <literal>x11</literal>,
-        <literal>wayland</literal> or
-        <literal>mir</literal>. See
-        <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for details about the session type.</para></listitem>
+        <listitem><para>Takes a string argument which sets the session type. The <varname>XDG_SESSION_TYPE</varname>
+        environment variable (see below) takes precedence. One of <literal>unspecified</literal>,
+        <literal>tty</literal>, <literal>x11</literal>, <literal>wayland</literal> or <literal>mir</literal>. See
+        <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details about the session type.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>desktop=</option></term>
+
+        <listitem><para>Takes a single, short identifier string for the desktop environment. The
+        <varname>XDG_SESSION_DESKTOP</varname> environment variable (see below) takes precedence. This may be used to
+        indicate the session desktop used, where this applies and if this information is available. For example:
+        <literal>GNOME</literal>, or <literal>KDE</literal>. It is recommended to use the same identifiers and
+        capitalization as for <varname>$XDG_CURRENT_DESKTOP</varname>, as defined by the <ulink
+        url="http://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop Entry
+        Specification</ulink>. (However, note that the option only takes a single item, and not a colon-separated list
+        like <varname>$XDG_CURRENT_DESKTOP</varname>.) See
+        <citerefentry><refentrytitle>sd_session_get_desktop</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        further details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>debug<optional>=</optional></option></term>
 
-        <listitem><para>Takes an optional
-        boolean argument. If yes or without
-        the argument, the module will log
-        debugging information as it
-        operates.</para></listitem>
+        <listitem><para>Takes an optional boolean argument. If yes or without the argument, the module will log
+        debugging information as it operates.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -157,20 +134,20 @@
   <refsect1>
     <title>Environment</title>
 
-    <para>The following environment variables are set for the
-    processes of the user's session:</para>
+    <para>The following environment variables are initialized by the module and available to the processes of the
+    user's session:</para>
 
     <variablelist class='environment-variables'>
       <varlistentry>
         <term><varname>$XDG_SESSION_ID</varname></term>
 
-        <listitem><para>A session identifier, suitable to be used in
-        filenames. The string itself should be considered opaque,
-        although often it is just the audit session ID as reported by
-        <filename>/proc/self/sessionid</filename>. Each ID will be
-        assigned only once during machine uptime. It may hence be used
-        to uniquely label files or other resources of this
-        session.</para></listitem>
+        <listitem><para>A short session identifier, suitable to be used in filenames. The string itself should be
+        considered opaque, although often it is just the audit session ID as reported by
+        <filename>/proc/self/sessionid</filename>. Each ID will be assigned only once during machine uptime. It may
+        hence be used to uniquely label files or other resources of this session. Combine this ID with the boot
+        identifier, as returned by
+        <citerefentry><refentrytitle>sd_id128_get_boot</refentrytitle><manvolnum>3</manvolnum></citerefentry>, for a
+        globally unique identifier for the current session.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -200,45 +177,31 @@
 
     </variablelist>
 
-    <para>The following environment variables are read by the module
-    and may be used by the PAM service to pass metadata to the
-    module:</para>
+    <para>The following environment variables are read by the module and may be used by the PAM service to pass
+    metadata to the module. If these variables are not set when the PAM module is invoked but can be determined
+    otherwise they are set by the module, so that these variables are initialized for the session and applications if
+    known at all.</para>
 
     <variablelist class='environment-variables'>
       <varlistentry>
         <term><varname>$XDG_SESSION_TYPE</varname></term>
 
-        <listitem><para>The session type. This may be used instead of
-        <option>session=</option> on the module parameter line, and is
-        usually preferred.</para></listitem>
+        <listitem><para>The session type. This may be used instead of <option>session=</option> on the module parameter
+        line, and is usually preferred.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$XDG_SESSION_CLASS</varname></term>
 
-        <listitem><para>The session class. This may be used instead of
-        <option>class=</option> on the module parameter line, and is
-        usually preferred.</para></listitem>
+        <listitem><para>The session class. This may be used instead of <option>class=</option> on the module parameter
+        line, and is usually preferred.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$XDG_SESSION_DESKTOP</varname></term>
 
-        <listitem><para>A single, short identifier string for the
-        desktop environment. This may be used to indicate the session
-        desktop used, where this applies and if this information is
-        available. For example: <literal>GNOME</literal>, or
-        <literal>KDE</literal>. It is recommended to use the same
-        identifiers and capitalization as for
-        <varname>$XDG_CURRENT_DESKTOP</varname>, as defined by the
-        <ulink
-        url="http://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop
-        Entry Specification</ulink>. (However, note that
-        <varname>$XDG_SESSION_DESKTOP</varname> only takes a single
-        item, and not a colon-separated list like
-        <varname>$XDG_CURRENT_DESKTOP</varname>.) See
-        <citerefentry><refentrytitle>sd_session_get_desktop</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for more details.</para></listitem>
+        <listitem><para>The desktop identifier. This may be used instead of <option>desktop=</option> on the module
+        parameter line, and is usually preferred.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -255,8 +218,65 @@
         for, if any. (Only applies to seats with a VT available, such
         as <literal>seat0</literal>)</para></listitem>
       </varlistentry>
-
     </variablelist>
+
+    <para>If not set, <command>pam_systemd</command> will initialize
+    <varname>$XDG_SEAT</varname> and <varname>$XDG_VTNR</varname>
+    based on the <varname>$DISPLAY</varname> variable (if the latter is set).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Session limits</title>
+
+    <para>PAM modules earlier in the stack, that is those that come before <command>pam_systemd.so</command>,
+    can set session scope limits using the PAM context objects. The data for these objects is provided as NUL-terminated C strings
+    and maps directly to the respective unit resource control directives. Note that these limits apply to individual sessions of the user,
+    they do not apply to all user processes as a combined whole. In particular, the per-user <command>user@.service</command> unit instance,
+    which runs the <command>systemd --user</command> manager process and its children, and is tracked outside of any session, being shared
+    by all the user's sessions, is not covered by these limits.
+    </para>
+
+    <para> See
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information about the resources.
+    Also, see <citerefentry><refentrytitle>pam_set_data</refentrytitle><manvolnum>3</manvolnum></citerefentry> for additional information about how to set
+    the context objects.
+    </para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>systemd.memory_max</varname></term>
+
+        <listitem><para>Sets unit <varname>MemoryMax=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.tasks_max</varname></term>
+
+        <listitem><para>Sets unit <varname>TasksMax=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.cpu_weight</varname></term>
+
+        <listitem><para>Sets unit <varname>CPUWeight=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.io_weight</varname></term>
+
+        <listitem><para>Sets unit <varname>IOWeight=</varname>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Example data as can be provided from an another PAM module:
+      <programlisting>
+pam_set_data(handle, "systemd.memory_max", (void *)"200M", cleanup);
+pam_set_data(handle, "systemd.tasks_max",  (void *)"50",   cleanup);
+pam_set_data(handle, "systemd.cpu_weight", (void *)"100",  cleanup);
+pam_set_data(handle, "systemd.io_weight",  (void *)"340",  cleanup);
+      </programlisting>
+    </para>
+
   </refsect1>
 
   <refsect1>

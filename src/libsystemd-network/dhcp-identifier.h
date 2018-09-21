@@ -1,29 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright (C) 2015 Tom Gundersen <teg@jklmen>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include "sd-id128.h"
 
 #include "macro.h"
 #include "sparse-endian.h"
+#include "time-util.h"
 #include "unaligned.h"
 
 typedef enum DUIDType {
@@ -46,18 +28,18 @@ struct duid {
         union {
                 struct {
                         /* DUID_TYPE_LLT */
-                        uint16_t htype;
-                        uint32_t time;
+                        be16_t htype;
+                        be32_t time;
                         uint8_t haddr[0];
                 } _packed_ llt;
                 struct {
                         /* DUID_TYPE_EN */
-                        uint32_t pen;
+                        be32_t pen;
                         uint8_t id[8];
                 } _packed_ en;
                 struct {
                         /* DUID_TYPE_LL */
-                        int16_t htype;
+                        be16_t htype;
                         uint8_t haddr[0];
                 } _packed_ ll;
                 struct {
@@ -71,5 +53,8 @@ struct duid {
 } _packed_;
 
 int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len);
+int dhcp_identifier_set_duid_llt(struct duid *duid, usec_t t, const uint8_t *addr, size_t addr_len, uint16_t arp_type, size_t *len);
+int dhcp_identifier_set_duid_ll(struct duid *duid, const uint8_t *addr, size_t addr_len, uint16_t arp_type, size_t *len);
 int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len);
+int dhcp_identifier_set_duid_uuid(struct duid *duid, size_t *len);
 int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_id);

@@ -4,39 +4,12 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.offline-updates">
   <refentryinfo>
     <title>systemd.offline-updates</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -82,7 +55,7 @@
         <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         checks whether <filename>/system-update</filename> exists. If so, it (temporarily and for
         this boot only) redirects (i.e. symlinks) <filename>default.target</filename> to
-        <filename>system-update.target</filename>, a special target that is pulls in the base system
+        <filename>system-update.target</filename>, a special target that pulls in the base system
         (i.e. <filename>sysinit.target</filename>, so that all file systems are mounted but little
         else) and the system update units.</para>
       </listitem>
@@ -163,7 +136,19 @@
       <listitem>
         <para>The update service should declare <varname>DefaultDependencies=false</varname>,
         <varname>Requires=sysinit.target</varname>, <varname>After=sysinit.target</varname>,
+        <varname>After=system-update-pre.target</varname>
         and explicitly pull in any other services it requires.</para>
+      </listitem>
+
+      <listitem>
+        <para>It may be desirable to always run an auxiliary unit when booting
+        into offline-updates mode, which itself does not install updates. To
+        do this create a .service file with
+        <varname>Wants=system-update-pre.target</varname> and
+        <varname>Before=system-update-pre.target</varname> and add a symlink
+        to that file under
+        <filename noindex='true'>/usr/lib/systemd/system-update.target.wants</filename>
+        .</para>
       </listitem>
     </orderedlist>
   </refsect1>

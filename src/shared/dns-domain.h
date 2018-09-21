@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
- ***/
-
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -38,7 +19,7 @@
 #define DNS_HOSTNAME_MAX 253
 
 /* Maximum length of a full hostname, on the wire, including the final NUL byte */
-#define DNS_WIRE_FOMAT_HOSTNAME_MAX 255
+#define DNS_WIRE_FORMAT_HOSTNAME_MAX 255
 
 /* Maximum number of labels per valid hostname */
 #define DNS_N_LABELS_MAX 127
@@ -96,6 +77,7 @@ bool dns_name_is_single_label(const char *name);
 int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, bool canonical);
 
 bool dns_srv_type_is_valid(const char *name);
+bool dnssd_srv_type_is_valid(const char *name);
 bool dns_service_name_is_valid(const char *name);
 
 int dns_service_join(const char *name, const char *type, const char *domain, char **ret);

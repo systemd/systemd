@@ -1,19 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 sources = files('''
         netdev/bond.c
@@ -46,6 +31,12 @@ sources = files('''
         netdev/geneve.h
         netdev/vxcan.c
         netdev/vxcan.h
+        netdev/wireguard.c
+        netdev/wireguard.h
+        netdev/netdevsim.c
+        netdev/netdevsim.h
+        netdev/fou-tunnel.c
+        netdev/fou-tunnel.h
         networkd-address-label.c
         networkd-address-label.h
         networkd-address-pool.c
@@ -142,6 +133,9 @@ if conf.get('ENABLE_NETWORKD') == 1
                              install_dir : polkitpkladir)
         endif
 
+        install_data('networkd.conf',
+                     install_dir : pkgsysconfdir)
+
         tests += [
     [['src/network/test-networkd-conf.c'],
      [libnetworkd_core,
@@ -151,7 +145,7 @@ if conf.get('ENABLE_NETWORKD') == 1
 
     [['src/network/test-network.c'],
      [libnetworkd_core,
-      libudev_internal,
+      libudev_static,
       libsystemd_network,
       libshared],
      [threads]],
@@ -166,7 +160,7 @@ if conf.get('ENABLE_NETWORKD') == 1
       'src/network/test-network-tables.c',
       test_tables_h],
      [libnetworkd_core,
-      libudev_internal,
+      libudev_static,
       libudev_core,
       libsystemd_network,
       libshared],

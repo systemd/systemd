@@ -3,8 +3,7 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2010 Ran Benita
-# Copyright 2013 Harald Hoyer
+# Copyright © 2010 Ran Benita
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -36,19 +35,28 @@ _systemd_analyze() {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
 
         local -A OPTS=(
-               [STANDALONE]='--help --version --system --user --order --require --no-pager --man'
-                      [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern '
+               [STANDALONE]='-h --help --version --system --user --global --order --require --no-pager
+                             --man=no --generators=yes'
+                      [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root'
         )
 
         local -A VERBS=(
-                [STANDALONE]='time blame plot dump get-log-level get-log-target'
+                [STANDALONE]='time blame plot dump unit-paths calendar'
                 [CRITICAL_CHAIN]='critical-chain'
                 [DOT]='dot'
-                [LOG_LEVEL]='set-log-level'
-                [LOG_TARGET]='set-log-target'
+                [LOG_LEVEL]='log-level'
+                [LOG_TARGET]='log-target'
                 [VERIFY]='verify'
                 [SECCOMP_FILTER]='syscall-filter'
+                [SERVICE_WATCHDOGS]='service-watchdogs'
+                [CAT_CONFIG]='cat-config'
         )
+
+        local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
+                       systemd/journal-remote.conf systemd/journal-upload.conf systemd/logind.conf
+                       systemd/resolved.conf systemd/networkd.conf systemd/resolved.conf
+                       systemd/sleep.conf systemd/system.conf systemd/timedated.conf
+                       systemd/timesyncd.conf systemd/user.conf udev/udev.conf'
 
         _init_completion || return
 
@@ -83,17 +91,17 @@ _systemd_analyze() {
 
         elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user'
+                        comps='--help --version --system --user --global --no-pager'
                 fi
 
         elif __contains_word "$verb" ${VERBS[CRITICAL_CHAIN]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --fuzz'
+                        comps='--help --version --system --user --fuzz --no-pager'
                 fi
 
         elif __contains_word "$verb" ${VERBS[DOT]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --from-pattern --to-pattern --order --require'
+                        comps='--help --version --system --user --global --from-pattern --to-pattern --order --require'
                 fi
 
         elif __contains_word "$verb" ${VERBS[LOG_LEVEL]}; then
@@ -112,17 +120,34 @@ _systemd_analyze() {
 
         elif __contains_word "$verb" ${VERBS[SECCOMP_FILTER]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version'
+                        comps='--help --version --no-pager'
                 fi
 
         elif __contains_word "$verb" ${VERBS[VERIFY]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --man'
+                        comps='--help --version --system --user --global --man=no --generators=yes'
                 else
                         comps=$( compgen -A file -- "$cur" )
                         compopt -o filenames
                 fi
 
+        elif __contains_word "$verb" ${VERBS[SERVICE_WATCHDOGS]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --version --system --user'
+                else
+                        comps='on off'
+                fi
+
+        elif __contains_word "$verb" ${VERBS[CAT_CONFIG]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --version --root --no-pager'
+                elif [[ -z $cur ]]; then
+                        comps="$CONFIGS"
+                        compopt -o filenames
+                else
+                        comps="$CONFIGS $( compgen -A file -- "$cur" )"
+                        compopt -o filenames
+                fi
         fi
 
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

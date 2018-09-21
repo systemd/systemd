@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <sys/sendfile.h>
 
@@ -34,9 +16,11 @@
 #include "export-raw.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "import-common.h"
 #include "missing.h"
 #include "ratelimit.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -121,8 +105,7 @@ int raw_export_new(
                         return r;
         }
 
-        *ret = e;
-        e = NULL;
+        *ret = TAKE_PTR(e);
 
         return 0;
 }
@@ -139,7 +122,7 @@ static void raw_export_report_progress(RawExport *e) {
         if (percent == e->last_percent)
                 return;
 
-        if (!ratelimit_test(&e->progress_rate_limit))
+        if (!ratelimit_below(&e->progress_rate_limit))
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
@@ -262,13 +245,9 @@ static int raw_export_on_defer(sd_event_source *s, void *userdata) {
 }
 
 static int reflink_snapshot(int fd, const char *path) {
-        char *p, *d;
         int new_fd, r;
 
-        p = strdupa(path);
-        d = dirname(p);
-
-        new_fd = open(d, O_TMPFILE|O_CLOEXEC|O_NOCTTY|O_RDWR, 0600);
+        new_fd = open_parent(path, O_TMPFILE|O_CLOEXEC|O_RDWR, 0600);
         if (new_fd < 0) {
                 _cleanup_free_ char *t = NULL;
 
@@ -319,18 +298,16 @@ int raw_export_start(RawExport *e, const char *path, int fd, ImportCompressType 
 
         if (fstat(sfd, &e->st) < 0)
                 return -errno;
-        if (!S_ISREG(e->st.st_mode))
-                return -ENOTTY;
+        r = stat_verify_regular(&e->st);
+        if (r < 0)
+                return r;
 
         /* Try to take a reflink snapshot of the file, if we can t make the export atomic */
         tfd = reflink_snapshot(sfd, path);
-        if (tfd >= 0) {
-                e->input_fd = tfd;
-                tfd = -1;
-        } else {
-                e->input_fd = sfd;
-                sfd = -1;
-        }
+        if (tfd >= 0)
+                e->input_fd = TAKE_FD(tfd);
+        else
+                e->input_fd = TAKE_FD(sfd);
 
         r = import_compress_init(&e->compress, compress);
         if (r < 0)

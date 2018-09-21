@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="bootup">
@@ -28,15 +11,6 @@
   <refentryinfo>
     <title>bootup</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -112,6 +86,8 @@
     other units. Units near the top are started before units nearer to
     the bottom of the chart.</para>
 
+    <!-- note: do not use unicode ellipsis here, because docbook will replace that
+         with three dots anyway, messing up alignment -->
 <programlisting>local-fs-pre.target
          |
          v
@@ -296,8 +272,18 @@ systemd-reboot.service   systemd-poweroff.service   systemd-halt.service   syste
            v                         v                        v                      v
     <emphasis>reboot.target</emphasis>             <emphasis>poweroff.target</emphasis>            <emphasis>halt.target</emphasis>           <emphasis>kexec.target</emphasis></programlisting>
 
-    <para>Commonly used system shutdown targets are
-    <emphasis>emphasized</emphasis>.</para>
+    <para>Commonly used system shutdown targets are <emphasis>emphasized</emphasis>.</para>
+
+    <para>Note that
+    <citerefentry><refentrytitle>systemd-halt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    <filename>systemd-reboot.service</filename>, <filename>systemd-poweroff.service</filename> and
+    <filename>systemd-kexec.service</filename> will transition the system and server manager (PID 1) into the second
+    phase of system shutdown (implemented in the <filename>systemd-shutdown</filename> binary), which will unmount any
+    remaining file systems, kill any remaining processes and release any other remaining resources, in a simple and
+    robust fashion, without taking any service or unit concept into account anymore. At that point, regular
+    applications and resources are generally terminated and released already, the second phase hence operates only as
+    safety net for everything that couldn't be stopped or released for some reason during the primary, unit-based
+    shutdown phase described above.</para>
   </refsect1>
 
   <refsect1>
@@ -307,6 +293,7 @@ systemd-reboot.service   systemd-poweroff.service   systemd-halt.service   syste
       <citerefentry project='man-pages'><refentrytitle>boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-halt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>dracut</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>

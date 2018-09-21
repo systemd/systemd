@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -27,17 +9,26 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "util.h"
+#include "terminal-util.h"
 
 static const char *arg_identifier = NULL;
 static int arg_priority = LOG_INFO;
 static bool arg_level_prefix = true;
 
-static void help(void) {
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-cat", "1", &link);
+        if (r < 0)
+                return log_oom();
+
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Execute process with stdout/stderr connected to the journal.\n\n"
                "  -h --help               Show this help\n"
@@ -45,7 +36,12 @@ static void help(void) {
                "  -t --identifier=STRING  Set syslog identifier\n"
                "  -p --priority=PRIORITY  Set priority value (0..7)\n"
                "     --level-prefix=BOOL  Control whether level prefix shall be parsed\n"
-               , program_invocation_short_name);
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -135,15 +131,12 @@ int main(int argc, char *argv[]) {
 
         saved_stderr = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 
-        if (dup3(fd, STDOUT_FILENO, 0) < 0 ||
-            dup3(fd, STDERR_FILENO, 0) < 0) {
-                r = log_error_errno(errno, "Failed to duplicate fd: %m");
+        r = rearrange_stdio(STDIN_FILENO, fd, fd); /* Invalidates fd on succcess + error! */
+        fd = -1;
+        if (r < 0) {
+                log_error_errno(r, "Failed to rearrange stdout/stderr: %m");
                 goto finish;
         }
-
-        if (fd >= 3)
-                safe_close(fd);
-        fd = -1;
 
         if (argc <= optind)
                 (void) execl("/bin/cat", "/bin/cat", NULL);

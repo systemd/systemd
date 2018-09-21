@@ -1,19 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 basic_dns_sources = files('''
         resolved-dns-dnssec.c
@@ -31,10 +16,14 @@ basic_dns_sources = files('''
 
 dns_type_h = files('dns-type.h')[0]
 
-systemd_resolved_only_sources = files('''
+systemd_resolved_sources = files('''
         resolved.c
         resolved-manager.c
         resolved-manager.h
+        resolved-dnssd.c
+        resolved-dnssd.h
+        resolved-dnssd-bus.c
+        resolved-dnssd-bus.h
         resolved-conf.c
         resolved-conf.h
         resolved-resolv-conf.c
@@ -74,9 +63,15 @@ systemd_resolved_only_sources = files('''
         resolved-dns-stub.c
         resolved-etc-hosts.h
         resolved-etc-hosts.c
+        resolved-dnstls.h
 '''.split())
 
-systemd_resolve_only_sources = files('resolve-tool.c')
+resolvectl_sources = files('''
+         resolvconf-compat.c
+         resolvconf-compat.h
+         resolvectl.c
+         resolvectl.h
+'''.split())
 
 ############################################################
 
@@ -131,20 +126,42 @@ resolved_gperf_c = custom_target(
         output : 'resolved-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_resolved_sources = (basic_dns_sources +
-                            [resolved_gperf_c] +
-                            systemd_resolved_only_sources +
-                            dns_type_headers)
+resolved_dnssd_gperf_c = custom_target(
+        'resolved_dnssd_gperf.c',
+        input : 'resolved-dnssd-gperf.gperf',
+        output : 'resolved-dnssd-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_resolve_sources = (basic_dns_sources +
-                           systemd_resolve_only_sources +
-                           dns_type_headers)
+libsystemd_resolve_core = static_library(
+        'systemd-resolve-core',
+        basic_dns_sources,
+        dns_type_headers,
+        include_directories : includes)
+
+systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
+
+systemd_resolved_dependencies = [threads, libgpg_error, libm, libidn]
+if conf.get('ENABLE_DNS_OVER_TLS') == 1
+        if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
+                systemd_resolved_sources += files('resolved-dnstls-gnutls.c',
+                                                  'resolved-dnstls-gnutls.h')
+                systemd_resolved_dependencies += libgnutls
+        elif conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1
+                systemd_resolved_sources += files('resolved-dnstls-openssl.c',
+                                                  'resolved-dnstls-openssl.h')
+                systemd_resolved_dependencies += libopenssl
+        else
+                error('unknown dependency for supporting DNS-over-TLS')
+        endif
+endif
 
 if conf.get('ENABLE_RESOLVE') == 1
         install_data('org.freedesktop.resolve1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.resolve1.service',
                      install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.resolve1.policy',
+                     install_dir : polkitpolicydir)
 
         resolved_conf = configure_file(
                 input : 'resolved.conf.in',
@@ -159,37 +176,47 @@ endif
 
 tests += [
         [['src/resolve/test-resolve-tables.c',
-          basic_dns_sources,
           dns_type_headers,
           'src/shared/test-tables.h'],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],
          'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dns-packet.c',
-          basic_dns_sources,
           dns_type_headers],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
+         [libgcrypt,
+          libgpg_error,
+          libm],
+         'ENABLE_RESOLVE'],
+
+        [['src/resolve/test-resolved-etc-hosts.c',
+          'src/resolve/resolved-etc-hosts.c',
+          'src/resolve/resolved-etc-hosts.h'],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],
          'ENABLE_RESOLVE'],
 
         [['src/resolve/test-resolved-packet.c',
-          basic_dns_sources,
           dns_type_headers],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],
          'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dnssec.c',
-          basic_dns_sources,
           dns_type_headers],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],

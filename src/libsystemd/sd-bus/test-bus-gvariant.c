@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #if HAVE_GLIB
 #include <glib.h>
@@ -31,6 +13,7 @@
 #include "bus-message.h"
 #include "bus-util.h"
 #include "macro.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_bus_gvariant_is_fixed_size(void) {
@@ -131,16 +114,16 @@ static void test_bus_gvariant_get_alignment(void) {
         assert_se(bus_gvariant_get_alignment("((t)(t))") == 8);
 }
 
-static void test_marshal(void) {
+static int test_marshal(void) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *n = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ void *blob;
+        _cleanup_free_ void *blob = NULL;
         size_t sz;
         int r;
 
         r = sd_bus_open_user(&bus);
         if (r < 0)
-                exit(EXIT_TEST_SKIP);
+                return log_tests_skipped_errno(r, "Failed to connect to bus");
 
         bus->message_version = 2; /* dirty hack to enable gvariant */
 
@@ -212,14 +195,16 @@ static void test_marshal(void) {
 
         assert_se(sd_bus_message_seal(m, 4712, 0) >= 0);
         assert_se(bus_message_dump(m, NULL, BUS_MESSAGE_DUMP_WITH_HEADER) >= 0);
+
+        return EXIT_SUCCESS;
 }
 
 int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_INFO);
 
         test_bus_gvariant_is_fixed_size();
         test_bus_gvariant_get_size();
         test_bus_gvariant_get_alignment();
-        test_marshal();
 
-        return 0;
+        return test_marshal();
 }

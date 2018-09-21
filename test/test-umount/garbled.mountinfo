@@ -1,0 +1,5 @@
+18 63 1000999:110999 / /sys rw,nosuid,nodev,noexec,relatime shared:2 - sysfs sysfs rw
+44 44
+asdfasdf asdfasdf asdf asdfasdfasdf
+asdfsadfasd
+95 63 8:1 / /one-good-entry rw,relatime shared:34 - ext4 /dev/sda1 rw,data=ordered

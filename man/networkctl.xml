@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2015 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="networkctl" conditional='ENABLE_NETWORKD'
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>networkctl</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Documentation</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -118,6 +92,88 @@
   4 virbr0-nic   ether    off         unmanaged
 
 4 links listed.</programlisting></para>
+
+        <para>The operational status is one of the following:
+            <variablelist>
+              <varlistentry>
+                <term>off</term>
+                <listitem>
+                  <para>the device is powered down</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>no-carrier</term>
+                <listitem>
+                  <para>the device is powered up, but it does not yet have a carrier</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>dormant</term>
+                <listitem>
+                  <para>the device has a carrier, but is not yet ready for normal traffic</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>carrier</term>
+                <listitem>
+                  <para>the link has a carrier</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>degraded</term>
+                <listitem>
+                  <para>the link has carrier and addresses valid on the local link configured</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>routable</term>
+                <listitem>
+                  <para>the link has carrier and routable address configured</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+        </para>
+
+        <para>The setup status is one of the following:
+            <variablelist>
+              <varlistentry>
+                <term>pending</term>
+                <listitem>
+                  <para>udev is still processing the link, we don't yet know if we will manage it</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>failed</term>
+                <listitem>
+                  <para>networkd failed to manage the link</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>configuring</term>
+                <listitem>
+                  <para>in the process of retrieving configuration or configuring the link</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>configured</term>
+                <listitem>
+                  <para>link configured successfully</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>unmanaged</term>
+                <listitem>
+                  <para>networkd is not handling the link</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>linger</term>
+                <listitem>
+                  <para>the link is gone, but has not yet been dropped by networkd</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+        </para>
         </listitem>
       </varlistentry>
 
@@ -158,7 +214,7 @@
         <listitem>
           <para>Show discovered LLDP (Link Layer Discovery Protocol) neighbors. If one or more link names are specified
           only neighbors on those interfaces are shown. Otherwise shows discovered neighbors on all interfaces. Note
-          that for this feature to work, <varname>LLDP=</varname> must be turned on on the specific interface, see
+          that for this feature to work, <varname>LLDP=</varname> must be turned on for the specific interface, see
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
           details.</para>
 

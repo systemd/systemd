@@ -236,10 +236,12 @@
 
                 function entriesLoad(range) {
 
-                        if (range == null)
-                                range = localStorage["cursor"] + ":0";
-                        if (range == null)
-                                range = "";
+                        if (range == null) {
+                                if (localStorage["cursor"] != null && localStorage["cursor"] != "")
+                                        range = localStorage["cursor"] + ":0";
+                                else
+                                        range = "";
+                        }
 
                         var url = "/entries";
 
@@ -304,7 +306,6 @@
                         var buf = '';
 
                         for (i in l) {
-
                                 if (l[i] == '')
                                         continue;
 
@@ -322,6 +323,7 @@
                                 else
                                         priority = 6;
 
+                                var clazz;
                                 if (priority <= 3)
                                         clazz = "message-error";
                                 else if (priority <= 5)
@@ -388,7 +390,7 @@
                         var d = JSON.parse(event.currentTarget.responseText);
 
                         document.getElementById("diventry").style.display = "block";
-                        entry = document.getElementById("tableentry");
+                        var entry = document.getElementById("tableentry");
 
                         var buf = "";
                         for (var key in d) {
@@ -455,7 +457,7 @@
                                 (event.currentTarget.status != 200 && event.currentTarget.status != 0))
                                 return;
 
-                        f = document.getElementById("filter");
+                        var f = document.getElementById("filter");
 
                         var l = event.currentTarget.responseText.split('\n');
                         var buf = '<option>No filter</option>';
@@ -511,11 +513,12 @@
                 }
 
                 function initFilter() {
-                        f = document.getElementById("filter");
+                        var f = document.getElementById("filter");
 
                         var buf = '<option>No filter</option>';
 
                         var filter = localStorage["filter"];
+                        var j;
                         if (filter != null && filter != "") {
                                 buf += '<option value="' + escape(filter) + '">' + escapeHTML(filter) + '</option>';
                                 j = 1;
@@ -529,7 +532,7 @@
                 function installHandlers() {
                         document.onkeyup = onKeyUp;
 
-                        logs = document.getElementById("divlogs");
+                        var logs = document.getElementById("divlogs");
                         logs.addEventListener("mousewheel", onMouseWheel, false);
                         logs.addEventListener("DOMMouseScroll", onMouseWheel, false);
                 }

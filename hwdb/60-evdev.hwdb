@@ -47,6 +47,7 @@
 evdev:input:b0003v05ACp021B*
 # Macbook4,1
 evdev:input:b0003v05ACp0229*
+evdev:input:b0003v05ACp022A*
  EVDEV_ABS_00=256:1471:12
  EVDEV_ABS_01=256:831:12
 
@@ -94,6 +95,11 @@ evdev:input:b0003v05ACp025B*
 # ASUS
 #########################################
 
+# Asus F3Sg
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnASUSTeKComputerInc.:pnF3Sg:*
+ EVDEV_ABS_00=0:6143:136
+ EVDEV_ABS_01=1103:5856:61
+
 # Asus VivoBook E402SA
 evdev:name:Elan Touchpad:dmi:*svnASUSTeKCOMPUTERINC.:pnE402SA*
  EVDEV_ABS_00=::29
@@ -108,8 +114,10 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:bvn*:bvr*:bd*:svnASUSTeKComputerInc.:pnK
  EVDEV_ABS_35=::18
  EVDEV_ABS_36=::16
 
-# Asus X550CC and S550CB
-evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pn?550C?:*
+# Asus X550CC, S550CB and N550JV
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnX550CC:*
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnS550CB:*
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnN550JV:*
  EVDEV_ABS_00=::31
  EVDEV_ABS_01=::30
  EVDEV_ABS_35=::31
@@ -138,12 +146,31 @@ evdev:name:AlpsPS/2 ALPS GlidePoint*:dmi:bvn*:bvr*:bd*:svnDellInc.:pnVostro1510*
  EVDEV_ABS_00=::14
  EVDEV_ABS_01=::18
 
+# Dell Inspiron 3537 - PS/2
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnDellInc.:pnInspiron3537*
+ EVDEV_ABS_00=1268:5675:41
+ EVDEV_ABS_01=1101:4792:61
+ EVDEV_ABS_35=1268:5675:41
+ EVDEV_ABS_36=1101:4792:61
+
+# Dell Inspiron 3537 - RMI4
+evdev:name:Synaptics TM2382-001:dmi:*svnDellInc.:pnInspiron3537*
+ EVDEV_ABS_00=::24
+ EVDEV_ABS_01=::34
+ EVDEV_ABS_35=::24
+ EVDEV_ABS_36=::34
+
 # Dell Inspiron N5040
 evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnInspironN5040*
  EVDEV_ABS_00=25:2000:22
  EVDEV_ABS_01=0:1351:28
  EVDEV_ABS_35=25:2000:22
  EVDEV_ABS_36=0:1351:28
+
+# Dell Inspiron MM061
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*bvn*:bvr*:bd*:svnDellInc.:pnMM061:*
+ EVDEV_ABS_00=1008:5793:66
+ EVDEV_ABS_01=687:5176:107
 
 # Dell Latitude E6220
 evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnLatitudeE6220*
@@ -216,12 +243,26 @@ evdev:name:Atmel maXTouch Touch*:dmi:bvn*:bvr*:bd*:svnGOOGLE:pnSamus*
 # HP
 #########################################
 
+# HP Chromebook 14 (Falco)
+evdev:name:Cypress APA Trackpad ?cyapa?:dmi:*:svnHewlett-Packard*:pnFalco*:
+ EVDEV_ABS_00=:::8
+ EVDEV_ABS_01=:::8
+ EVDEV_ABS_35=:::8
+ EVDEV_ABS_36=:::8
+
 # HP Pavilion dm4
 evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondm4*
  EVDEV_ABS_00=1360:5563:47
  EVDEV_ABS_01=1269:4618:61
  EVDEV_ABS_35=1360:5563:47
  EVDEV_ABS_36=1269:4618:61
+
+# HP Pavilion g6 
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHewlett-Packard:pnHPPaviliong6*
+ EVDEV_ABS_00=1284:5696:88
+ EVDEV_ABS_01=1287:4838:39
+ EVDEV_ABS_35=1284:5696:88
+ EVDEV_ABS_36=1287:4838:39
 
 # HP Pavilion dv7
 evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondv7*
@@ -230,8 +271,15 @@ evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondv7*
  EVDEV_ABS_35=1068:5805:44
  EVDEV_ABS_36=1197:4890:57
 
+# HP Pavilion 15
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHP:pnHPLaptop15-bs0xx:*
+ EVDEV_ABS_00=1272:5689:38
+ EVDEV_ABS_01=1029:4916:78
+ EVDEV_ABS_35=1272:5689:38
+ EVDEV_ABS_36=1029:4916:78
+
 # HP Spectre
-evdev:name:SynPS/2 Synaptics TouchPad:dmi:i*svnHP:pnHPSpectreNotebook*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHP:pnHPSpectreNotebook*
  EVDEV_ABS_00=1205:5691:47
  EVDEV_ABS_01=1083:4808:65
  EVDEV_ABS_35=1205:5691:47
@@ -276,6 +324,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPad??40?:*
  EVDEV_ABS_01=::37
  EVDEV_ABS_35=::41
  EVDEV_ABS_36=::37
+
+# Lenovo ThinkPad X140e
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadX140e*
+ EVDEV_ABS_00=1176:5767:62
+ EVDEV_ABS_01=416:5534:160
+ EVDEV_ABS_35=1176:5767:62
+ EVDEV_ABS_36=416:5534:160
 
 # Lenovo ThinkPad T430
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadT430*
@@ -371,6 +426,31 @@ evdev:name:AlpsPS/2 ALPS GlidePoint*:dmi:bvn*:bvr*:bd*:svnLENOVO*:pvrFlex3-15*
  EVDEV_ABS_35=::38
  EVDEV_ABS_36=::28
 
+# Lenovo ThinkPad Edge 13 (02173BG)
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*02173BG*:*pvrThinkPadEdge*
+ EVDEV_ABS_00=916:6077:55
+ EVDEV_ABS_01=653:5395:116
+ EVDEV_ABS_35=916:6077:55
+ EVDEV_ABS_36=653:5395:116
+
+#########################################
+# Razer
+#########################################
+
+# Razer Blade Stealth
+evdev:name:1A58675*:00 06CB:8323 Touchpad:dmi:*svnRazer:pnBladeStealth:*
+ EVDEV_ABS_00=::12:8
+ EVDEV_ABS_01=::11:8
+ EVDEV_ABS_35=::12:8
+ EVDEV_ABS_36=::11:8
+
+# Razer Blade Stealth (2016)
+evdev:name:Synaptics TM2438-005:dmi:*svnRazer:pnBladeStealth*
+ EVDEV_ABS_00=0:4064:29
+ EVDEV_ABS_01=0:2405:37
+ EVDEV_ABS_35=0:4064:29
+ EVDEV_ABS_36=0:2405:37
+
 #########################################
 # Samsung
 #########################################
@@ -409,16 +489,21 @@ evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:*svnTOSHIBA:pnTECRAM11*
  EVDEV_ABS_00=90:962:11
  EVDEV_ABS_01=51:681:14
 
+# Toshiba Satellite R830
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnTOSHIBA:pnSATELLITER830*
+ EVDEV_ABS_00=1238:5785:53
+ EVDEV_ABS_01=1045:4826:76
+ EVDEV_ABS_35=1238:5785:53
+ EVDEV_ABS_36=1045:4826:76
+
 #########################################
-# Razer
+# UGTablet
 #########################################
 
-# Razer Blade Stealth (2016)
-evdev:name:Synaptics TM2438-005:dmi:*svnRazer:pnBladeStealth*
- EVDEV_ABS_00=0:4064:29
- EVDEV_ABS_01=0:2405:37
- EVDEV_ABS_35=0:4064:29
- EVDEV_ABS_36=0:2405:37
+# Trust Flex Graphics Tablet
+evdev:input:b0003v2179p0004*
+ EVDEV_ABS_00=::234
+ EVDEV_ABS_01=::328
 
 #########################################
 # Waltop
@@ -428,3 +513,8 @@ evdev:name:Synaptics TM2438-005:dmi:*svnRazer:pnBladeStealth*
 evdev:input:b0003v172Fp0031*
  EVDEV_ABS_00=0:10000:400
  EVDEV_ABS_01=0:6250:400
+
+#WALTOP International Corp. Graphics Tablet
+evdev:input:b0003v172Fp0047*
+ EVDEV_ABS_00=0:20000:80
+ EVDEV_ABS_01=0:12500:80

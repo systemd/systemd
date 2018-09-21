@@ -4,9 +4,9 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
-LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || "$ID_LIKE" = "debian" ]] && echo yes || true)
-LOOKS_LIKE_ARCH=$(source /etc/os-release && [[ "$ID" = "arch" ]] && echo yes || true)
-LOOKS_LIKE_SUSE=$(source /etc/os-release && [[ "$ID_LIKE" = "suse" ]] && echo yes || true)
+LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && echo yes || true)
+LOOKS_LIKE_ARCH=$(source /etc/os-release && [[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && echo yes || true)
+LOOKS_LIKE_SUSE=$(source /etc/os-release && [[ " $ID_LIKE " = *" suse "* ]] && echo yes || true)
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
@@ -21,17 +21,45 @@ if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     ROOTLIBDIR=/usr/lib/systemd
 fi
 
-BASICTOOLS="test sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false"
+PATH_TO_INIT=$ROOTLIBDIR/systemd
+
+BASICTOOLS="test sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false chmod chown ln xargs"
 DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find"
 
 STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
 STATEFILE="$STATEDIR/.testdir"
 TESTLOG="$STATEDIR/test.log"
 
+is_built_with_asan() {
+    if ! type -P objdump >/dev/null; then
+        ddebug "Failed to find objdump. Assuming systemd hasn't been built with ASAN."
+        return 1
+    fi
+
+    # Borrowed from https://github.com/google/oss-fuzz/blob/cd9acd02f9d3f6e80011cc1e9549be526ce5f270/infra/base-images/base-runner/bad_build_check#L182
+    local _asan_calls=$(objdump -dC $BUILD_DIR/systemd | egrep "callq\s+[0-9a-f]+\s+<__asan" -c)
+    if (( $_asan_calls < 1000 )); then
+        return 1
+    else
+        return 0
+    fi
+}
+
+IS_BUILT_WITH_ASAN=$(is_built_with_asan && echo yes || echo no)
+
+if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+    STRIP_BINARIES=no
+    SKIP_INITRD=yes
+    PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
+fi
+
 function find_qemu_bin() {
-    # SUSE and Red Hat call the binary qemu-kvm
-    # Debian and Gentoo call it kvm
-    [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a kvm qemu-kvm 2>/dev/null | grep '^/' -m1)
+    # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
+    # Either way, only use this version if we aren't running in KVM, because
+    # nested KVM is flaky still.
+    if [ `systemd-detect-virt -v` != kvm ] ; then
+        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a kvm qemu-kvm 2>/dev/null | grep '^/' -m1)
+    fi
 
     [ "$ARCH" ] || ARCH=$(uname -m)
     case $ARCH in
@@ -118,9 +146,10 @@ KERNEL_APPEND="$PARAMS \
 root=/dev/sda1 \
 raid=noautodetect \
 loglevel=2 \
-init=$ROOTLIBDIR/systemd \
+init=$PATH_TO_INIT \
 console=ttyS0 \
 selinux=0 \
+printk.devkmsg=on \
 $_cgroup_args \
 $KERNEL_APPEND \
 "
@@ -137,7 +166,8 @@ $KERNEL_APPEND \
         QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
     fi
 
-    if [ -c /dev/kvm ]; then
+    # Let's use KVM if it is available, but let's avoid using nested KVM as that is still flaky
+    if [ -c /dev/kvm -a `systemd-detect-virt -v` != kvm ]; then
         QEMU_OPTIONS="$QEMU_OPTIONS -machine accel=kvm -enable-kvm -cpu host"
     fi
 
@@ -160,7 +190,7 @@ $KERNEL_APPEND \
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
 
-    local _nspawn_cmd="$BUILD_DIR/systemd-nspawn --register=no --kill-signal=SIGKILL --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND"
+    local _nspawn_cmd="$BUILD_DIR/systemd-nspawn $NSPAWN_ARGUMENTS --register=no --kill-signal=SIGKILL --directory=$TESTDIR/$1 $PATH_TO_INIT $KERNEL_APPEND"
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
         _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
     fi
@@ -212,6 +242,9 @@ setup_basic_environment() {
     strip_binaries
     install_depmod_files
     generate_module_dependencies
+    if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+         create_asan_wrapper
+    fi
 }
 
 setup_selinux() {
@@ -288,6 +321,46 @@ EOF
     chmod 0755 $_valgrind_wrapper
 }
 
+create_asan_wrapper() {
+    local _asan_wrapper=$initdir/$ROOTLIBDIR/systemd-under-asan
+    ddebug "Create $_asan_wrapper"
+    cat >$_asan_wrapper <<EOF
+#!/bin/bash
+
+set -x
+
+DEFAULT_ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
+DEFAULT_UBSAN_OPTIONS=print_stacktrace=1:print_summary=1
+DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS"
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -o remount,rw /
+
+PATH_TO_ASAN=\$(find / -name '*libasan*' | sed 1q)
+if [[ "\$PATH_TO_ASAN" ]]; then
+  # A lot of services (most notably dbus) won't start without preloading libasan
+  # See https://github.com/systemd/systemd/issues/5004
+  DEFAULT_ENVIRONMENT="\$DEFAULT_ENVIRONMENT LD_PRELOAD=\$PATH_TO_ASAN"
+fi
+echo DefaultEnvironment=\$DEFAULT_ENVIRONMENT >>/etc/systemd/system.conf
+
+# ASAN and syscall filters aren't compatible with each other.
+find / -name '*.service' -type f | xargs sed -i 's/^\\(MemoryDeny\\|SystemCall\\)/#\\1/'
+
+# The redirection of ASAN reports to a file prevents them from ending up in /dev/null.
+# But, apparently, sometimes it doesn't work: https://github.com/google/sanitizers/issues/886.
+JOURNALD_CONF_DIR=/etc/systemd/system/systemd-journald.service.d
+mkdir -p "\$JOURNALD_CONF_DIR"
+printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd-journald.asan.log\n" >"\$JOURNALD_CONF_DIR/env.conf"
+
+export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
+exec  $ROOTLIBDIR/systemd "\$@"
+EOF
+
+    chmod 0755 $_asan_wrapper
+}
+
 create_strace_wrapper() {
     local _strace_wrapper=$initdir/$ROOTLIBDIR/systemd-under-strace
     ddebug "Create $_strace_wrapper"
@@ -313,8 +386,9 @@ install_dmevent() {
     inst_libdir_file "libdevmapper-event.so*"
     if [[ "$LOOKS_LIKE_DEBIAN" ]]; then
         # dmsetup installs 55-dm and 60-persistent-storage-dm on Debian/Ubuntu
-        # see https://anonscm.debian.org/cgit/pkg-lvm/lvm2.git/tree/debian/patches/0007-udev.patch
-        inst_rules 55-dm.rules 60-persistent-storage-dm.rules
+        # and since buster/bionic 95-dm-notify.rules
+        # see https://gitlab.com/debian-lvm/lvm2/blob/master/debian/patches/udev.patch
+        inst_rules 55-dm.rules 60-persistent-storage-dm.rules 95-dm-notify.rules
     else
         inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
     fi
@@ -353,16 +427,22 @@ install_missing_libraries() {
 }
 
 create_empty_image() {
+    local _size=500
+    if [[ "$STRIP_BINARIES" = "no" ]]; then
+        _size=$((2*_size))
+    fi
     rm -f "$TESTDIR/rootdisk.img"
     # Create the blank file to use as a root filesystem
-    dd if=/dev/null of="$TESTDIR/rootdisk.img" bs=1M seek=400
+    dd if=/dev/null of="$TESTDIR/rootdisk.img" bs=1M seek="$_size"
     LOOPDEV=$(losetup --show -P -f $TESTDIR/rootdisk.img)
     [ -b "$LOOPDEV" ] || return 1
     echo "LOOPDEV=$LOOPDEV" >> $STATEFILE
     sfdisk "$LOOPDEV" <<EOF
-,390M
+,$((_size-10))M
 ,
 EOF
+
+    udevadm settle
 
     local _label="-L systemd"
     # mkfs.reiserfs doesn't know -L. so, use --label instead
@@ -375,9 +455,9 @@ EOF
 
 check_result_nspawn() {
     ret=1
-    [[ -e $TESTDIR/nspawn-root/testok ]] && ret=0
-    [[ -f $TESTDIR/nspawn-root/failed ]] && cp -a $TESTDIR/nspawn-root/failed $TESTDIR
-    cp -a $TESTDIR/nspawn-root/var/log/journal $TESTDIR
+    [[ -e $TESTDIR/$1/testok ]] && ret=0
+    [[ -f $TESTDIR/$1/failed ]] && cp -a $TESTDIR/$1/failed $TESTDIR
+    cp -a $TESTDIR/$1/var/log/journal $TESTDIR
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
@@ -587,6 +667,9 @@ setup_nspawn_root() {
     cp -ar $initdir $TESTDIR/nspawn-root
     # we don't mount in the nspawn root
     rm -f $TESTDIR/nspawn-root/etc/fstab
+    if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
+        cp -ar $TESTDIR/nspawn-root $TESTDIR/unprivileged-nspawn-root
+    fi
 }
 
 setup_basic_dirs() {
@@ -1057,6 +1140,7 @@ inst_rules() {
             fi
         done
         [[ $_found ]] || dinfo "Skipping udev rule: $_rule"
+        _found=
     done
 }
 
@@ -1381,8 +1465,8 @@ inst_libdir_file() {
 }
 
 setup_suse() {
-    ln -s ../usr/bin/systemctl $initdir/bin/systemctl
-    ln -s ../usr/lib/systemd $initdir/lib/systemd
+    ln -fs ../usr/bin/systemctl $initdir/bin/
+    ln -fs ../usr/lib/systemd $initdir/lib/
     inst_simple "/usr/lib/systemd/system/haveged.service"
 }
 
@@ -1402,11 +1486,19 @@ test_run() {
         fi
     fi
     if [ -z "$TEST_NO_NSPAWN" ]; then
-        if run_nspawn; then
-            check_result_nspawn || return 1
+        if run_nspawn "nspawn-root"; then
+            check_result_nspawn "nspawn-root" || return 1
         else
             dwarn "can't run systemd-nspawn, skipping"
         fi
+
+        if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
+            if NSPAWN_ARGUMENTS="-U --private-network $NSPAWN_ARGUMENTS" run_nspawn "unprivileged-nspawn-root"; then
+                check_result_nspawn "unprivileged-nspawn-root" || return 1
+            else
+                dwarn "can't run systemd-nspawn, skipping"
+            fi
+	fi
     fi
     return 0
 }

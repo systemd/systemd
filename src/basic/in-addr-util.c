@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <arpa/inet.h>
 #include <endian.h>
@@ -589,3 +571,26 @@ int in_addr_prefix_from_string_auto(
         return 0;
 
 }
+
+void in_addr_data_hash_func(const void *p, struct siphash *state) {
+        const struct in_addr_data *a = p;
+
+        siphash24_compress(&a->family, sizeof(a->family), state);
+        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
+}
+
+int in_addr_data_compare_func(const void *a, const void *b) {
+        const struct in_addr_data *x = a, *y = b;
+        int r;
+
+        r = CMP(x->family, y->family);
+        if (r != 0)
+                return r;
+
+        return memcmp(&x->address, &y->address, FAMILY_ADDRESS_SIZE(x->family));
+}
+
+const struct hash_ops in_addr_data_hash_ops = {
+        .hash = in_addr_data_hash_func,
+        .compare = in_addr_data_compare_func,
+};

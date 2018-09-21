@@ -281,6 +281,14 @@ mouse:usb:v04b3p3107:name:*
  MOUSE_DPI=800@125
 
 ##########################################
+# Kensington
+##########################################
+
+# Kensington Expert Mouse trackball
+mouse:usb:v047dp1020:*Kensington Expert Mouse*
+ ID_INPUT_TRACKBALL=1
+
+##########################################
 # Lenovo
 ##########################################
 
@@ -315,6 +323,11 @@ mouse:usb:v17efp6045:name:Lenovo USB Laser Mouse:
 # one for pre 3.19 with the wireless PID in the name, one for 3.19 with the
 # model name. The usb vid/pid is the same for all those devices.
 # Until 3.19 is available, this list just has the Wireless PID entry.
+
+# Logitech Anywhere MX
+mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:1017:
+mouse:usb:v046dp1017:name:Logitech Anywhere MX:
+ MOUSE_WHEEL_CLICK_ANGLE=20
 
 # Logitech M-BJ58 Optical Mouse
 mouse:usb:v046dpc00e:name:Logitech USB-PS/2 Optical Mouse:
@@ -377,7 +390,7 @@ mouse:usb:v046dp1025:name:Logitech M510:
 # Logitech M705 (marathon mouse)
 mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
- MOUSE_DPI=800@166
+ MOUSE_DPI=1000@125
 
 # Logitech MX Revolution
 mouse:usb:v046dpc51a:name:Logitech USB Receiver:
@@ -438,6 +451,10 @@ mouse:usb:v046dp402d:name:Logitech M560:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:402d:
  MOUSE_DPI=1000@125
 
+# Logitech M305 Wireless Optical Mouse
+mouse:usb:v046dpc52f:name:Logitech USB Receiver:
+ MOUSE_DPI=1000@170
+
 # Logitech Performance MX
 mouse:usb:v046dp101a:name:Logitech Performance MX:
  MOUSE_DPI=1000@166
@@ -473,6 +490,12 @@ mouse:usb:v046dpc06b:name:Logitech G700 Laser Mouse:
 # Logitech G700 Laser Mouse (Wireless)
 mouse:usb:v046dpc531:name:Logitech USB Receiver:
  MOUSE_DPI=*1000@500 3800@500 500@1000 1500@1000 2000@1000
+
+# Logitech G703 (Wired)
+mouse:usb:v046dpc087:name:Logitech G703 Wired/Wireless Gaming Mouse:
+# Logitech G703 (Wireless)
+mouse:usb:v046dpc539:name:Logitech USB Receiver Mouse:
+ MOUSE_DPI=400@1000 800@1000 *1600@1000 3200@1000
 
 # Logitech Wireless Mouse M310
 mouse:usb:v046dp1024:name:Logitech M310:
@@ -547,6 +570,10 @@ mouse:usb:v045ep07b1:name:Microsoft Microsoft® Nano Transceiver v1.0:
 # Microsoft  Wireless Laser Mouse 8000
 mouse:bluetooth:v045ep0702:name:Microsoft  Wireless Laser Mouse 8000:
  MOUSE_DPI=1000@1000
+
+# Microsoft Sculpt Comfort Mouse
+mouse:bluetooth:v045ep07a2:name:Microsoft Sculpt Comfort Mouse:
+ MOUSE_DPI=1000@2000
 
 # Microsoft Arc Touch Mouse SE:
 mouse:bluetooth:v045ep07f3:name:Arc Touch Mouse SE:

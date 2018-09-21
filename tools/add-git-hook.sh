@@ -1,4 +1,5 @@
-#!/bin/sh -eu
+#!/bin/sh
+set -eu
 
 cd "$MESON_SOURCE_ROOT"
 

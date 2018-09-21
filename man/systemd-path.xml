@@ -4,23 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-path"
@@ -29,15 +12,6 @@
   <refentryinfo>
     <title>systemd-path</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -52,7 +26,9 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>systemd-path <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
+      <command>systemd-path</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat">NAME</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -81,8 +57,7 @@
       <varlistentry>
         <term><option>--suffix=</option></term>
 
-        <listitem><para>The printed paths are suffixed by the
-        specified string.</para></listitem>
+        <listitem><para>Printed paths are suffixed by the specified string.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #if HAVE_PAM
 #define _PAM_FEATURE_ "+PAM"
 #else
@@ -140,6 +121,12 @@
 #define _IDN_FEATURE_ "-IDN"
 #endif
 
+#if HAVE_PCRE2
+#define _PCRE2_FEATURE_ "+PCRE2"
+#else
+#define _PCRE2_FEATURE_ "-PCRE2"
+#endif
+
 #define _CGROUP_HIEARCHY_ "default-hierarchy=" DEFAULT_HIERARCHY_NAME
 
 #define SYSTEMD_FEATURES                                                \
@@ -163,4 +150,5 @@
         _KMOD_FEATURE_ " "                                              \
         _IDN2_FEATURE_ " "                                              \
         _IDN_FEATURE_ " "                                               \
+        _PCRE2_FEATURE_ " "                                             \
         _CGROUP_HIEARCHY_

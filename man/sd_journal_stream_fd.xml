@@ -4,39 +4,13 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_journal_stream_fd">
+<refentry id="sd_journal_stream_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_stream_fd</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -75,7 +49,7 @@
 
     <para><function>sd_journal_stream_fd()</function> takes a short
     program identifier string as first argument, which will be written
-    to the journal as _SYSLOG_IDENTIFIER= field for each log entry
+    to the journal as SYSLOG_IDENTIFIER= field for each log entry
     (see
     <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for more information). The second argument shall be the default
@@ -94,6 +68,10 @@
 
     <para>It is recommended that applications log UTF-8 messages only
     with this API, but this is not enforced.</para>
+
+    <para>Each invocation of <function>sd_journal_stream_fd()</function> allocates a new log stream file descriptor,
+    that is not shared with prior or later invocations. The file descriptor is write-only (its reading direction is
+    shut down), and <constant>O_NONBLOCK</constant> is turned off initially.</para>
   </refsect1>
 
   <refsect1>
@@ -104,17 +82,19 @@
   </refsect1>
 
   <refsect1>
+    <title>Signal safety</title>
+
+    <para><function>sd_journal_stream_fd()</function> is "async signal safe" in the meaning of <citerefentry
+    project='man-pages'><refentrytitle>signal-safety</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
     <title>Notes</title>
 
-    <para>Function <function>sd_journal_stream_fd()</function> is thread-safe and may be called
-    from multiple threads. All calls will return the same file descriptor, although temporarily
-    multiple file descriptors may be open.</para>
+    <xi:include href="threads-aware.xml" xpointer="safe"/>
 
-    <para>The <function>sd_journal_stream_fd()</function> interface is
-    available as a shared library, which can be compiled and linked to
-    with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>

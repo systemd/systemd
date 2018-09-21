@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <stdlib.h>
@@ -71,7 +53,7 @@ struct MMapFileDescriptor {
 };
 
 struct MMapCache {
-        int n_ref;
+        unsigned n_ref;
         unsigned n_windows;
 
         unsigned n_hit, n_missed;
@@ -100,14 +82,6 @@ MMapCache* mmap_cache_new(void) {
                 return NULL;
 
         m->n_ref = 1;
-        return m;
-}
-
-MMapCache* mmap_cache_ref(MMapCache *m) {
-        assert(m);
-        assert(m->n_ref > 0);
-
-        m->n_ref++;
         return m;
 }
 
@@ -220,8 +194,7 @@ static void context_detach_window(Context *c) {
         if (!c->window)
                 return;
 
-        w = c->window;
-        c->window = NULL;
+        w = TAKE_PTR(c->window);
         LIST_REMOVE(by_window, w->contexts, c);
 
         if (!w->contexts && !w->keep_always) {
@@ -297,7 +270,7 @@ static void context_free(Context *c) {
         free(c);
 }
 
-static void mmap_cache_free(MMapCache *m) {
+static MMapCache *mmap_cache_free(MMapCache *m) {
         int i;
 
         assert(m);
@@ -311,22 +284,10 @@ static void mmap_cache_free(MMapCache *m) {
         while (m->unused)
                 window_free(m->unused);
 
-        free(m);
+        return mfree(m);
 }
 
-MMapCache* mmap_cache_unref(MMapCache *m) {
-
-        if (!m)
-                return NULL;
-
-        assert(m->n_ref > 0);
-
-        m->n_ref--;
-        if (m->n_ref == 0)
-                mmap_cache_free(m);
-
-        return NULL;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(MMapCache, mmap_cache, mmap_cache_free);
 
 static int make_room(MMapCache *m) {
         assert(m);

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <ctype.h>
 #include <net/if.h>
@@ -54,7 +36,7 @@ static int network_config_compare_func(const void *a, const void *b) {
         if (r != 0)
                 return r;
 
-        return y->line - x->line;
+        return CMP(x->line, y->line);
 }
 
 const struct hash_ops network_config_hash_ops = {
@@ -72,8 +54,7 @@ int network_config_section_new(const char *filename, unsigned line, NetworkConfi
         strcpy(cs->filename, filename);
         cs->line = line;
 
-        *s = cs;
-        cs = NULL;
+        *s = TAKE_PTR(cs);
 
         return 0;
 }
@@ -123,7 +104,7 @@ void network_apply_anonymize_if_set(Network *network) {
 }
 
 static int network_load_one(Manager *manager, const char *filename) {
-        _cleanup_network_free_ Network *network = NULL;
+        _cleanup_(network_freep) Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         char *d;
         const char *dropin_dirname;
@@ -228,6 +209,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_use_mtu = false;
         /* NOTE: from man: UseTimezone=... Defaults to "no".*/
         network->dhcp_use_timezone = false;
+        network->rapid_commit = true;
 
         network->dhcp_server_emit_dns = true;
         network->dhcp_server_emit_ntp = true;
@@ -237,9 +219,11 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->router_emit_dns = true;
         network->router_emit_domains = true;
 
-        network->use_bpdu = true;
-        network->allow_port_to_be_root = true;
-        network->unicast_flood = true;
+        network->use_bpdu = -1;
+        network->hairpin = -1;
+        network->fast_leave = -1;
+        network->allow_port_to_be_root = -1;
+        network->unicast_flood = -1;
         network->priority = LINK_BRIDGE_PORT_PRIORITY_INVALID;
 
         network->lldp_mode = LLDP_MODE_ROUTERS_ONLY;
@@ -247,6 +231,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->llmnr = RESOLVE_SUPPORT_YES;
         network->mdns = RESOLVE_SUPPORT_NO;
         network->dnssec_mode = _DNSSEC_MODE_INVALID;
+        network->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
 
         network->link_local = ADDRESS_FAMILY_IPV6;
 
@@ -258,8 +243,11 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->duid.type = _DUID_TYPE_INVALID;
         network->proxy_arp = -1;
         network->arp = -1;
+        network->multicast = -1;
+        network->allmulticast = -1;
         network->ipv6_accept_ra_use_dns = true;
         network->ipv6_accept_ra_route_table = RT_TABLE_MAIN;
+        network->ipv6_mtu = 0;
 
         dropin_dirname = strjoina(network->name, ".network.d");
 
@@ -280,7 +268,8 @@ static int network_load_one(Manager *manager, const char *filename) {
                               "BridgeFDB\0"
                               "BridgeVLAN\0"
                               "IPv6PrefixDelegation\0"
-                              "IPv6Prefix\0",
+                              "IPv6Prefix\0"
+                              "CAN\0",
                               config_item_perf_lookup, network_network_gperf_lookup,
                               CONFIG_PARSE_WARN, network);
         if (r < 0)
@@ -302,6 +291,12 @@ static int network_load_one(Manager *manager, const char *filename) {
                         log_warning("Will not ignore carrier gain or loss when no static address is configured.");
                         network->ignore_carrier_gainloss = false;
                 }
+        }
+
+        if (network->mtu > 0 && network->dhcp_use_mtu) {
+                log_warning("MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set in %s. "
+                            "Disabling UseMTU=.", filename);
+                network->dhcp_use_mtu = false;
         }
 
         LIST_PREPEND(networks, manager->networks, network);
@@ -375,7 +370,7 @@ void network_free(Network *network) {
 
         free(network->filename);
 
-        free(network->match_mac);
+        set_free_free(network->match_mac);
         strv_free(network->match_path);
         strv_free(network->match_driver);
         strv_free(network->match_type);
@@ -383,6 +378,7 @@ void network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
+        strv_free(network->dhcp_user_class);
         free(network->dhcp_hostname);
 
         free(network->mac);
@@ -437,13 +433,17 @@ void network_free(Network *network) {
 
                 if (network->manager->networks_by_name)
                         hashmap_remove(network->manager->networks_by_name, network->name);
+
+                if (network->manager->duids_requesting_uuid)
+                        set_remove(network->manager->duids_requesting_uuid, &network->duid);
         }
 
         free(network->name);
 
         condition_free_list(network->match_host);
         condition_free_list(network->match_virt);
-        condition_free_list(network->match_kernel);
+        condition_free_list(network->match_kernel_cmdline);
+        condition_free_list(network->match_kernel_version);
         condition_free_list(network->match_arch);
 
         free(network->dhcp_server_timezone);
@@ -471,42 +471,40 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret) {
         return 0;
 }
 
-int network_get(Manager *manager, struct udev_device *device,
+int network_get(Manager *manager, sd_device *device,
                 const char *ifname, const struct ether_addr *address,
                 Network **ret) {
-        Network *network;
-        struct udev_device *parent;
         const char *path = NULL, *parent_driver = NULL, *driver = NULL, *devtype = NULL;
+        sd_device *parent;
+        Network *network;
 
         assert(manager);
         assert(ret);
 
         if (device) {
-                path = udev_device_get_property_value(device, "ID_PATH");
+                (void) sd_device_get_property_value(device, "ID_PATH", &path);
 
-                parent = udev_device_get_parent(device);
-                if (parent)
-                        parent_driver = udev_device_get_driver(parent);
+                if (sd_device_get_parent(device, &parent) >= 0)
+                        (void) sd_device_get_driver(parent, &parent_driver);
 
-                driver = udev_device_get_property_value(device, "ID_NET_DRIVER");
+                (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &driver);
 
-                devtype = udev_device_get_devtype(device);
+                (void) sd_device_get_devtype(device, &devtype);
         }
 
         LIST_FOREACH(networks, network, manager->networks) {
                 if (net_match_config(network->match_mac, network->match_path,
                                      network->match_driver, network->match_type,
                                      network->match_name, network->match_host,
-                                     network->match_virt, network->match_kernel,
-                                     network->match_arch,
+                                     network->match_virt, network->match_kernel_cmdline,
+                                     network->match_kernel_version, network->match_arch,
                                      address, path, parent_driver, driver,
                                      devtype, ifname)) {
                         if (network->match_name && device) {
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;
 
-                                attr = udev_device_get_sysattr_value(device, "name_assign_type");
-                                if (attr)
+                                if (sd_device_get_sysattr_value(device, "name_assign_type", &attr) >= 0)
                                         (void) safe_atou8(attr, &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM)
@@ -645,13 +643,13 @@ int config_parse_netdev(const char *unit,
         case NETDEV_KIND_VCAN:
                 r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Can not add NetDev '%s' to network: %m", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Cannot add NetDev '%s' to network: %m", rvalue);
                         return 0;
                 }
 
                 break;
         default:
-                assert_not_reached("Can not parse NetDev");
+                assert_not_reached("Cannot parse NetDev");
         }
 
         netdev_ref(netdev);
@@ -869,7 +867,8 @@ int config_parse_dhcp(
 
 static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
         [DHCP_CLIENT_ID_MAC] = "mac",
-        [DHCP_CLIENT_ID_DUID] = "duid"
+        [DHCP_CLIENT_ID_DUID] = "duid",
+        [DHCP_CLIENT_ID_DUID_ONLY] = "duid-only",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_client_identifier, DHCPClientIdentifier);
@@ -904,12 +903,12 @@ int config_parse_ipv6token(
 
         r = in_addr_is_null(AF_INET6, &buffer);
         if (r != 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "IPv6 token can not be the ANY address, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "IPv6 token cannot be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
 
         if ((buffer.in6.s6_addr32[0] | buffer.in6.s6_addr32[1]) != 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "IPv6 token can not be longer than 64 bits, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "IPv6 token cannot be longer than 64 bits, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -986,7 +985,8 @@ int config_parse_hostname(
                 void *data,
                 void *userdata) {
 
-        char **hostname = data, *hn = NULL;
+        _cleanup_free_ char *hn = NULL;
+        char **hostname = data;
         int r;
 
         assert(filename);
@@ -999,13 +999,20 @@ int config_parse_hostname(
 
         if (!hostname_is_valid(hn, false)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Hostname is not valid, ignoring assignment: %s", rvalue);
-                free(hn);
                 return 0;
         }
 
-        free(*hostname);
-        *hostname = hostname_cleanup(hn);
-        return 0;
+        r = dns_name_is_valid(hn);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to check validity of hostname '%s', ignoring assignment: %m", rvalue);
+                return 0;
+        }
+        if (r == 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Hostname is not a valid DNS domain name, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        return free_and_replace(*hostname, hn);
 }
 
 int config_parse_timezone(
@@ -1020,7 +1027,8 @@ int config_parse_timezone(
                 void *data,
                 void *userdata) {
 
-        char **datap = data, *tz = NULL;
+        _cleanup_free_ char *tz = NULL;
+        char **datap = data;
         int r;
 
         assert(filename);
@@ -1031,16 +1039,12 @@ int config_parse_timezone(
         if (r < 0)
                 return r;
 
-        if (!timezone_is_valid(tz)) {
+        if (!timezone_is_valid(tz, LOG_ERR)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Timezone is not valid, ignoring assignment: %s", rvalue);
-                free(tz);
                 return 0;
         }
 
-        free(*datap);
-        *datap = tz;
-
-        return 0;
+        return free_and_replace(*datap, tz);
 }
 
 int config_parse_dhcp_server_dns(
@@ -1082,7 +1086,7 @@ int config_parse_dhcp_server_dns(
                         continue;
                 }
 
-                m = realloc(n->dhcp_server_dns, (n->n_dhcp_server_dns + 1) * sizeof(struct in_addr));
+                m = reallocarray(n->dhcp_server_dns, n->n_dhcp_server_dns + 1, sizeof(struct in_addr));
                 if (!m)
                         return log_oom();
 
@@ -1130,7 +1134,7 @@ int config_parse_radv_dns(
                 if (in_addr_from_string(AF_INET6, w, &a) >= 0) {
                         struct in6_addr *m;
 
-                        m = realloc(n->router_dns, (n->n_router_dns + 1) * sizeof(struct in6_addr));
+                        m = reallocarray(n->router_dns, n->n_router_dns + 1, sizeof(struct in6_addr));
                         if (!m)
                                 return log_oom();
 
@@ -1233,7 +1237,7 @@ int config_parse_dhcp_server_ntp(
                         continue;
                 }
 
-                m = realloc(n->dhcp_server_ntp, (n->n_dhcp_server_ntp + 1) * sizeof(struct in_addr));
+                m = reallocarray(n->dhcp_server_ntp, n->n_dhcp_server_ntp + 1, sizeof(struct in_addr));
                 if (!m)
                         return log_oom();
 
@@ -1283,7 +1287,7 @@ int config_parse_dns(
                         continue;
                 }
 
-                m = realloc(n->dns, (n->n_dns + 1) * sizeof(struct in_addr_data));
+                m = reallocarray(n->dns, n->n_dns + 1, sizeof(struct in_addr_data));
                 if (!m)
                         return log_oom();
 
@@ -1394,6 +1398,58 @@ int config_parse_ntp(
                 r = dns_name_is_valid_or_address(w);
                 if (r <= 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "%s is not a valid domain name or IP address, ignoring.", w);
+                        continue;
+                }
+
+                r = strv_push(l, w);
+                if (r < 0)
+                        return log_oom();
+
+                w = NULL;
+        }
+
+        return 0;
+}
+
+int config_parse_dhcp_user_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***l = data;
+        int r;
+
+        assert(l);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&rvalue, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to split user classes option, ignoring: %s", rvalue);
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                if (strlen(w) > 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "%s length is not in the range 1-255, ignoring.", w);
                         continue;
                 }
 

@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010-2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <limits.h>
@@ -171,6 +153,30 @@ static bool ignore_vhangup(PTYForward *f) {
         return false;
 }
 
+static bool drained(PTYForward *f) {
+        int q = 0;
+
+        assert(f);
+
+        if (f->out_buffer_full > 0)
+                return false;
+
+        if (f->master_readable)
+                return false;
+
+        if (ioctl(f->master, TIOCINQ, &q) < 0)
+                log_debug_errno(errno, "TIOCINQ failed on master: %m");
+        else if (q > 0)
+                return false;
+
+        if (ioctl(f->master, TIOCOUTQ, &q) < 0)
+                log_debug_errno(errno, "TIOCOUTQ failed on master: %m");
+        else if (q > 0)
+                return false;
+
+        return true;
+}
+
 static int shovel(PTYForward *f) {
         ssize_t k;
 
@@ -306,7 +312,7 @@ static int shovel(PTYForward *f) {
 
         /* If we were asked to drain, and there's nothing more to handle from the master, then call the callback
          * too. */
-        if (f->drain && f->out_buffer_full == 0 && !f->master_readable)
+        if (f->drain && drained(f))
                 return pty_forward_done(f, 0);
 
         return 0;
@@ -471,8 +477,7 @@ int pty_forward_new(
 
         (void) sd_event_source_set_description(f->sigwinch_event_source, "ptyfwd-sigwinch");
 
-        *ret = f;
-        f = NULL;
+        *ret = TAKE_PTR(f);
 
         return 0;
 }
@@ -547,6 +552,28 @@ bool pty_forward_drain(PTYForward *f) {
          */
 
         f->drain = true;
+        return drained(f);
+}
 
-        return f->out_buffer_full == 0 && !f->master_readable;
+int pty_forward_set_priority(PTYForward *f, int64_t priority) {
+        int r;
+        assert(f);
+
+        r = sd_event_source_set_priority(f->stdin_event_source, priority);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(f->stdout_event_source, priority);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(f->master_event_source, priority);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(f->sigwinch_event_source, priority);
+        if (r < 0)
+                return r;
+
+        return 0;
 }

@@ -1,0 +1,4 @@
+@@
+@@
+- O_NDELAY
++ O_NONBLOCK

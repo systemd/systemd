@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -27,9 +9,6 @@
 #include "resolved-dns-synthesize.h"
 #include "resolved-etc-hosts.h"
 #include "string-util.h"
-
-/* How long to wait for the query in total */
-#define QUERY_TIMEOUT_USEC (60 * USEC_PER_SEC)
 
 #define CNAME_MAX 8
 #define QUERIES_MAX 2048
@@ -575,17 +554,13 @@ static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
                 return r;
 
         /* If this a single-label domain on DNS, we might append a suitable search domain first. */
-        if ((q->flags & SD_RESOLVED_NO_SEARCH) == 0)  {
-                r = dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question_idna));
-                if (r < 0)
-                        goto fail;
-                if (r > 0) {
-                        /* OK, we need a search domain now. Let's find one for this scope */
+        if ((q->flags & SD_RESOLVED_NO_SEARCH) == 0 &&
+            dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question_idna))) {
+                /* OK, we need a search domain now. Let's find one for this scope */
 
-                        r = dns_query_candidate_next_search_domain(c);
-                        if (r <= 0) /* if there's no search domain, then we won't add any transaction. */
-                                goto fail;
-                }
+                r = dns_query_candidate_next_search_domain(c);
+                if (r <= 0) /* if there's no search domain, then we won't add any transaction. */
+                        goto fail;
         }
 
         r = dns_query_candidate_setup_transactions(c);
@@ -641,8 +616,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
 
         dns_query_reset_answer(q);
 
-        q->answer = answer;
-        answer = NULL;
+        q->answer = TAKE_PTR(answer);
         q->answer_rcode = DNS_RCODE_SUCCESS;
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
@@ -671,8 +645,7 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
 
         dns_query_reset_answer(q);
 
-        q->answer = answer;
-        answer = NULL;
+        q->answer = TAKE_PTR(answer);
         q->answer_rcode = DNS_RCODE_SUCCESS;
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
@@ -769,8 +742,8 @@ int dns_query_go(DnsQuery *q) {
                         q->manager->event,
                         &q->timeout_event_source,
                         clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + QUERY_TIMEOUT_USEC, 0,
-                        on_query_timeout, q);
+                        now(clock_boottime_or_monotonic()) + SD_RESOLVED_QUERY_TIMEOUT_USEC,
+                        0, on_query_timeout, q);
         if (r < 0)
                 goto fail;
 
@@ -997,12 +970,10 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         q->flags |= SD_RESOLVED_NO_SEARCH;
 
         dns_question_unref(q->question_idna);
-        q->question_idna = nq_idna;
-        nq_idna = NULL;
+        q->question_idna = TAKE_PTR(nq_idna);
 
         dns_question_unref(q->question_utf8);
-        q->question_utf8 = nq_utf8;
-        nq_utf8 = NULL;
+        q->question_utf8 = TAKE_PTR(nq_utf8);
 
         dns_query_free_candidates(q);
         dns_query_reset_answer(q);

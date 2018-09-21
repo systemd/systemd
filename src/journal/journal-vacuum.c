@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -27,6 +9,7 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
@@ -46,30 +29,21 @@ struct vacuum_info {
         bool have_seqnum;
 };
 
-static int vacuum_compare(const void *_a, const void *_b) {
-        const struct vacuum_info *a, *b;
-
-        a = _a;
-        b = _b;
+static int vacuum_compare(const struct vacuum_info *a, const struct vacuum_info *b) {
+        int r;
 
         if (a->have_seqnum && b->have_seqnum &&
-            sd_id128_equal(a->seqnum_id, b->seqnum_id)) {
-                if (a->seqnum < b->seqnum)
-                        return -1;
-                else if (a->seqnum > b->seqnum)
-                        return 1;
-                else
-                        return 0;
-        }
+            sd_id128_equal(a->seqnum_id, b->seqnum_id))
+                return CMP(a->seqnum, b->seqnum);
 
-        if (a->realtime < b->realtime)
-                return -1;
-        else if (a->realtime > b->realtime)
-                return 1;
-        else if (a->have_seqnum && b->have_seqnum)
+        r = CMP(a->realtime, b->realtime);
+        if (r != 0)
+                return r;
+
+        if (a->have_seqnum && b->have_seqnum)
                 return memcmp(&a->seqnum_id, &b->seqnum_id, 16);
-        else
-                return strcmp(a->filename, b->filename);
+
+        return strcmp(a->filename, b->filename);
 }
 
 static void patch_realtime(
@@ -278,14 +252,15 @@ int journal_directory_vacuum(
                 if (r > 0) {
                         /* Always vacuum empty non-online files. */
 
-                        if (unlinkat(dirfd(d), p, 0) >= 0) {
+                        r = unlinkat_deallocate(dirfd(d), p, 0);
+                        if (r >= 0) {
 
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
                                          "Deleted empty archived journal %s/%s (%s).", directory, p, format_bytes(sbytes, sizeof(sbytes), size));
 
                                 freed += size;
-                        } else if (errno != ENOENT)
-                                log_warning_errno(errno, "Failed to delete empty archived journal %s/%s: %m", directory, p);
+                        } else if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to delete empty archived journal %s/%s: %m", directory, p);
 
                         continue;
                 }
@@ -297,7 +272,7 @@ int journal_directory_vacuum(
                         goto finish;
                 }
 
-                list[n_list].filename = p;
+                list[n_list].filename = TAKE_PTR(p);
                 list[n_list].usage = size;
                 list[n_list].seqnum = seqnum;
                 list[n_list].realtime = realtime;
@@ -305,11 +280,10 @@ int journal_directory_vacuum(
                 list[n_list].have_seqnum = have_seqnum;
                 n_list++;
 
-                p = NULL;
                 sum += size;
         }
 
-        qsort_safe(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
+        typesafe_qsort(list, n_list, vacuum_compare);
 
         for (i = 0; i < n_list; i++) {
                 unsigned left;
@@ -321,7 +295,8 @@ int journal_directory_vacuum(
                     (n_max_files <= 0 || left <= n_max_files))
                         break;
 
-                if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
+                r = unlinkat_deallocate(dirfd(d), list[i].filename, 0);
+                if (r >= 0) {
                         log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).", directory, list[i].filename, format_bytes(sbytes, sizeof(sbytes), list[i].usage));
                         freed += list[i].usage;
 
@@ -330,8 +305,8 @@ int journal_directory_vacuum(
                         else
                                 sum = 0;
 
-                } else if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
+                } else if (r != -ENOENT)
+                        log_warning_errno(r, "Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
         }
 
         if (oldest_usec && i < n_list && (*oldest_usec == 0 || list[i].realtime < *oldest_usec))

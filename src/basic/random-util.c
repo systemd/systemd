@@ -1,31 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
+#ifdef __x86_64__
+#include <cpuid.h>
+#endif
 
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <sys/time.h>
 #include <linux/random.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 #if HAVE_SYS_AUXV_H
 #  include <sys/auxv.h>
@@ -43,11 +30,46 @@
 #include "random-util.h"
 #include "time-util.h"
 
+
+int rdrand64(uint64_t *ret) {
+
+#ifdef __x86_64__
+        static int have_rdrand = -1;
+        unsigned char err;
+
+        if (have_rdrand < 0) {
+                uint32_t eax, ebx, ecx, edx;
+
+                /* Check if RDRAND is supported by the CPU */
+                if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0) {
+                        have_rdrand = false;
+                        return -EOPNOTSUPP;
+                }
+
+                have_rdrand = !!(ecx & (1U << 30));
+        }
+
+        if (have_rdrand == 0)
+                return -EOPNOTSUPP;
+
+        asm volatile("rdrand %0;"
+                     "setc %1"
+                     : "=r" (*ret),
+                       "=qm" (err));
+        if (!err)
+                return -EAGAIN;
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
 int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
         static int have_syscall = -1;
 
         _cleanup_close_ int fd = -1;
-        unsigned already_done = 0;
+        size_t already_done = 0;
         int r;
 
         /* Gathers some randomness from the kernel. This call will never block. If
@@ -58,7 +80,7 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
          * for us. */
 
         /* Use the getrandom() syscall unless we know we don't have it. */
-        if (have_syscall != 0) {
+        if (have_syscall != 0 && !HAS_FEATURE_MEMORY_SANITIZER) {
                 r = getrandom(p, n, GRND_NONBLOCK);
                 if (r > 0) {
                         have_syscall = true;
@@ -85,8 +107,26 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
                          * a best-effort basis. */
                         have_syscall = true;
 
-                        if (!high_quality_required)
-                                return -ENODATA;
+                        if (!high_quality_required) {
+                                uint64_t u;
+                                size_t k;
+
+                                /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality
+                                 * randomness is not required, as we don't trust it (who does?). Note that we only do a
+                                 * single iteration of RDRAND here, even though the Intel docs suggest calling this in
+                                 * a tight loop of 10 invocatins or so. That's because we don't really care about the
+                                 * quality here. */
+
+                                if (rdrand64(&u) < 0)
+                                        return -ENODATA;
+
+                                k = MIN(n, sizeof(u));
+                                memcpy(p, &u, k);
+
+                                /* We only get 64bit out of RDRAND, the rest let's fill up with pseudo-random crap. */
+                                pseudorandom_bytes((uint8_t*) p + k, n - k);
+                                return 0;
+                        }
                 } else
                         return -errno;
         }
@@ -120,7 +160,6 @@ void initialize_srand(void) {
         } else
 #endif
                 x = 0;
-
 
         x ^= (unsigned) now(CLOCK_REALTIME);
         x ^= (unsigned) gettid();

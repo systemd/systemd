@@ -1,26 +1,9 @@
-<?xml version="1.0"?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version="1.0"?>
 <!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
           "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <variablelist>
@@ -61,6 +44,15 @@
     <listitem>
       <para>Do not print the legend, i.e. column headers and the
       footer with hints.</para>
+    </listitem>
+  </varlistentry>
+
+  <varlistentry id='cat-config'>
+    <term><option>--cat-config</option></term>
+
+    <listitem>
+      <para>Copy the contents of config files to standard output.
+      Before each file, the filename is printed as a comment.</para>
     </listitem>
   </varlistentry>
 </variablelist>

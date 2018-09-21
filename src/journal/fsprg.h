@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-
-#ifndef __fsprgh__
-#define __fsprgh__
+#pragma once
 
 /*
  * fsprg v0.1  -  (seekable) forward-secure pseudorandom generator
- * Copyright (C) 2012 B. Poettering
+ * Copyright © 2012 B. Poettering
  * Contact: fsprg@point-at-infinity.org
  *
  * This library is free software; you can redistribute it and/or
@@ -22,7 +20,6 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301  USA
- *
  */
 
 #include <inttypes.h>
@@ -62,6 +59,4 @@ void FSPRG_GetKey(const void *state, void *key, size_t keylen, uint32_t idx);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

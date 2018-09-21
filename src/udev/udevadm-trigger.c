@@ -1,20 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/*
- * Copyright (C) 2008-2009 Kay Sievers <kay@vrfy.org>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -24,34 +8,48 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "fd-util.h"
+#include "set.h"
 #include "string-util.h"
-#include "udev-util.h"
 #include "udev.h"
+#include "udevadm.h"
 #include "udevadm-util.h"
 #include "util.h"
 
 static int verbose;
 static int dry_run;
 
-static void exec_list(struct udev_enumerate *udev_enumerate, const char *action) {
+static int exec_list(struct udev_enumerate *udev_enumerate, const char *action, Set *settle_set) {
         struct udev_list_entry *entry;
+        int r;
 
         udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(udev_enumerate)) {
                 char filename[UTIL_PATH_SIZE];
-                int fd;
+                const char *syspath;
+                _cleanup_close_ int fd = -1;
 
+                syspath = udev_list_entry_get_name(entry);
                 if (verbose)
-                        printf("%s\n", udev_list_entry_get_name(entry));
+                        printf("%s\n", syspath);
                 if (dry_run)
                         continue;
-                strscpyl(filename, sizeof(filename), udev_list_entry_get_name(entry), "/uevent", NULL);
+
+                strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
                 fd = open(filename, O_WRONLY|O_CLOEXEC);
                 if (fd < 0)
                         continue;
+
+                if (settle_set) {
+                        r = set_put_strdup(settle_set, syspath);
+                        if (r < 0)
+                                return log_oom();
+                }
+
                 if (write(fd, action, strlen(action)) < 0)
                         log_debug_errno(errno, "error writing '%s' to '%s': %m", action, filename);
-                close(fd);
         }
+
+        return 0;
 }
 
 static const char *keyval(const char *str, const char **val, char *buf, size_t size) {
@@ -67,11 +65,11 @@ static const char *keyval(const char *str, const char **val, char *buf, size_t s
         return buf;
 }
 
-static void help(void) {
-        printf("%s trigger OPTIONS\n\n"
+static int help(void) {
+        printf("%s trigger [OPTIONS] DEVPATH\n\n"
                "Request events from the kernel.\n\n"
                "  -h --help                         Show this help\n"
-               "     --version                      Show package version\n"
+               "  -V --version                      Show package version\n"
                "  -v --verbose                      Print the list of devices while running\n"
                "  -n --dry-run                      Do not actually trigger the events\n"
                "  -t --type=                        Type of events to trigger\n"
@@ -87,10 +85,13 @@ static void help(void) {
                "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
                "     --name-match=NAME              Trigger devices with this /dev name\n"
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
+               "  -w --settle                       Wait for the triggered events to complete\n"
                , program_invocation_short_name);
+
+        return 0;
 }
 
-static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
+int trigger_main(int argc, char *argv[], void *userdata) {
         enum {
                 ARG_NAME = 0x100,
         };
@@ -109,6 +110,8 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                 { "sysname-match",     required_argument, NULL, 'y'      },
                 { "name-match",        required_argument, NULL, ARG_NAME },
                 { "parent-match",      required_argument, NULL, 'b'      },
+                { "settle",            no_argument,       NULL, 'w'      },
+                { "version",           no_argument,       NULL, 'V'      },
                 { "help",              no_argument,       NULL, 'h'      },
                 {}
         };
@@ -117,14 +120,20 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                 TYPE_SUBSYSTEMS,
         } device_type = TYPE_DEVICES;
         const char *action = "change";
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *udev_enumerate = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *udev_enumerate = NULL;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor = NULL;
+        _cleanup_close_ int fd_ep = -1;
+        int fd_udev = -1;
+        struct epoll_event ep_udev;
+        bool settle = false;
+        _cleanup_set_free_free_ Set *settle_set = NULL;
         int c, r;
 
-        udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
-                return 1;
+        udev_enumerate = udev_enumerate_new(NULL);
+        if (!udev_enumerate)
+                return -errno;
 
-        while ((c = getopt_long(argc, argv, "vno:t:c:s:S:a:A:p:g:y:b:h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "vnt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
                 const char *key;
                 const char *val;
                 char buf[UTIL_PATH_SIZE];
@@ -143,145 +152,177 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                                 device_type = TYPE_SUBSYSTEMS;
                         else {
                                 log_error("unknown type --type=%s", optarg);
-                                return 2;
+                                return -EINVAL;
                         }
                         break;
                 case 'c':
-                        if (!STR_IN_SET(optarg, "add", "remove", "change")) {
-                                log_error("unknown action '%s'", optarg);
-                                return 2;
-                        } else
+                        if (STR_IN_SET(optarg, "add", "remove", "change"))
                                 action = optarg;
+                        else {
+                                log_error("unknown action '%s'", optarg);
+                                return -EINVAL;
+                        }
 
                         break;
                 case 's':
                         r = udev_enumerate_add_match_subsystem(udev_enumerate, optarg);
-                        if (r < 0) {
-                                log_error_errno(r, "could not add subsystem match '%s': %m", optarg);
-                                return 2;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "could not add subsystem match '%s': %m", optarg);
                         break;
                 case 'S':
                         r = udev_enumerate_add_nomatch_subsystem(udev_enumerate, optarg);
-                        if (r < 0) {
-                                log_error_errno(r, "could not add negative subsystem match '%s': %m", optarg);
-                                return 2;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "could not add negative subsystem match '%s': %m", optarg);
                         break;
                 case 'a':
                         key = keyval(optarg, &val, buf, sizeof(buf));
                         r = udev_enumerate_add_match_sysattr(udev_enumerate, key, val);
-                        if (r < 0) {
-                                log_error_errno(r, "could not add sysattr match '%s=%s': %m", key, val);
-                                return 2;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "could not add sysattr match '%s=%s': %m", key, val);
                         break;
                 case 'A':
                         key = keyval(optarg, &val, buf, sizeof(buf));
                         r = udev_enumerate_add_nomatch_sysattr(udev_enumerate, key, val);
-                        if (r < 0) {
-                                log_error_errno(r, "could not add negative sysattr match '%s=%s': %m", key, val);
-                                return 2;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "could not add negative sysattr match '%s=%s': %m", key, val);
                         break;
                 case 'p':
                         key = keyval(optarg, &val, buf, sizeof(buf));
                         r = udev_enumerate_add_match_property(udev_enumerate, key, val);
-                        if (r < 0) {
-                                log_error_errno(r, "could not add property match '%s=%s': %m", key, val);
-                                return 2;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "could not add property match '%s=%s': %m", key, val);
                         break;
                 case 'g':
                         r = udev_enumerate_add_match_tag(udev_enumerate, optarg);
-                        if (r < 0) {
-                                log_error_errno(r, "could not add tag match '%s': %m", optarg);
-                                return 2;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "could not add tag match '%s': %m", optarg);
                         break;
                 case 'y':
                         r = udev_enumerate_add_match_sysname(udev_enumerate, optarg);
-                        if (r < 0) {
-                                log_error_errno(r, "could not add sysname match '%s': %m", optarg);
-                                return 2;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "could not add sysname match '%s': %m", optarg);
                         break;
                 case 'b': {
-                        _cleanup_udev_device_unref_ struct udev_device *dev;
+                        _cleanup_(udev_device_unrefp) struct udev_device *dev;
 
-                        dev = find_device(udev, optarg, "/sys");
-                        if (dev == NULL) {
-                                log_error("unable to open the device '%s'", optarg);
-                                return 2;
-                        }
+                        dev = find_device(optarg, "/sys");
+                        if (!dev)
+                                return log_error_errno(errno, "unable to open the device '%s'", optarg);
 
                         r = udev_enumerate_add_match_parent(udev_enumerate, dev);
-                        if (r < 0) {
-                                log_error_errno(r, "could not add parent match '%s': %m", optarg);
-                                return 2;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "could not add parent match '%s': %m", optarg);
                         break;
                 }
+                case 'w':
+                        settle = true;
+                        break;
 
                 case ARG_NAME: {
-                        _cleanup_udev_device_unref_ struct udev_device *dev;
+                        _cleanup_(udev_device_unrefp) struct udev_device *dev;
 
-                        dev = find_device(udev, optarg, "/dev/");
-                        if (dev == NULL) {
-                                log_error("unable to open the device '%s'", optarg);
-                                return 2;
-                        }
+                        dev = find_device(optarg, "/dev/");
+                        if (!dev)
+                                return log_error_errno(errno, "unable to open the device '%s'", optarg);
 
                         r = udev_enumerate_add_match_parent(udev_enumerate, dev);
-                        if (r < 0) {
-                                log_error_errno(r, "could not add parent match '%s': %m", optarg);
-                                return 2;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "could not add parent match '%s': %m", optarg);
                         break;
                 }
 
+                case 'V':
+                        return print_version();
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
                 case '?':
-                        return 1;
+                        return -EINVAL;
                 default:
                         assert_not_reached("Unknown option");
                 }
         }
 
         for (; optind < argc; optind++) {
-                _cleanup_udev_device_unref_ struct udev_device *dev;
+                _cleanup_(udev_device_unrefp) struct udev_device *dev;
 
-                dev = find_device(udev, argv[optind], NULL);
-                if (dev == NULL) {
+                dev = find_device(argv[optind], NULL);
+                if (!dev) {
                         log_error("unable to open the device '%s'", argv[optind]);
-                        return 2;
+                        return -EINVAL;
                 }
 
                 r = udev_enumerate_add_match_parent(udev_enumerate, dev);
-                if (r < 0) {
-                        log_error_errno(r, "could not add tag match '%s': %m", optarg);
-                        return 2;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "could not add tag match '%s': %m", optarg);
+        }
+
+        if (settle) {
+                fd_ep = epoll_create1(EPOLL_CLOEXEC);
+                if (fd_ep < 0)
+                        return log_error_errno(errno, "error creating epoll fd: %m");
+
+                udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
+                if (!udev_monitor)
+                        return log_error_errno(errno, "error: unable to create netlink socket: %m");
+
+                fd_udev = udev_monitor_get_fd(udev_monitor);
+
+                r = udev_monitor_enable_receiving(udev_monitor);
+                if (r < 0)
+                        return log_error_errno(r, "error: unable to subscribe to udev events: %m");
+
+                ep_udev = (struct epoll_event) { .events = EPOLLIN, .data.fd = fd_udev };
+                if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_udev, &ep_udev) < 0)
+                        return log_error_errno(errno, "fail to add fd to epoll: %m");
+
+                settle_set = set_new(&string_hash_ops);
+                if (!settle_set)
+                        return log_oom();
         }
 
         switch (device_type) {
         case TYPE_SUBSYSTEMS:
                 udev_enumerate_scan_subsystems(udev_enumerate);
-                exec_list(udev_enumerate, action);
-                return 0;
+                break;
         case TYPE_DEVICES:
                 udev_enumerate_scan_devices(udev_enumerate);
-                exec_list(udev_enumerate, action);
-                return 0;
+                break;
         default:
                 assert_not_reached("device_type");
         }
-}
+        r = exec_list(udev_enumerate, action, settle_set);
+        if (r < 0)
+                return r;
 
-const struct udevadm_cmd udevadm_trigger = {
-        .name = "trigger",
-        .cmd = adm_trigger,
-        .help = "Request events from the kernel",
-};
+        while (!set_isempty(settle_set)) {
+                int fdcount;
+                struct epoll_event ev[4];
+                int i;
+
+                fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), -1);
+                if (fdcount < 0) {
+                        if (errno != EINTR)
+                                log_error_errno(errno, "error receiving uevent message: %m");
+                        continue;
+                }
+
+                for (i = 0; i < fdcount; i++) {
+                        if (ev[i].data.fd == fd_udev && ev[i].events & EPOLLIN) {
+                                _cleanup_(udev_device_unrefp) struct udev_device *device;
+                                const char *syspath = NULL;
+
+                                device = udev_monitor_receive_device(udev_monitor);
+                                if (!device)
+                                        continue;
+
+                                syspath = udev_device_get_syspath(device);
+                                if (verbose)
+                                        printf("settle %s\n", syspath);
+                                if (!set_remove(settle_set, syspath))
+                                        log_debug("Got epoll event on syspath %s not present in syspath set", syspath);
+                        }
+                }
+        }
+
+        return 0;
+}

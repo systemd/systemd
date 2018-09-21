@@ -3,10 +3,8 @@
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/2467"
-TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
-SKIP_INITRD=yes
 
 test_setup() {
     create_empty_image
@@ -19,7 +17,7 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
-        dracut_install nc true rm
+        dracut_install true rm
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<'EOF'
@@ -29,13 +27,15 @@ After=multi-user.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -e -x -c 'rm -f /tmp/nonexistent; systemctl start test.socket; echo a | nc -U /run/test.ctl; >/testok'
+StandardOutput=tty
+StandardError=tty
+ExecStart=/bin/sh -e -x -c 'rm -f /tmp/nonexistent; systemctl start test.socket; echo > /run/test.ctl; >/testok'
 TimeoutStartSec=10s
 EOF
 
 	cat  >$initdir/etc/systemd/system/test.socket <<'EOF'
 [Socket]
-ListenStream=/run/test.ctl
+ListenFIFO=/run/test.ctl
 EOF
 
 	cat > $initdir/etc/systemd/system/test.service <<'EOF'
@@ -49,6 +49,7 @@ EOF
 
         setup_testsuite
     ) || return 1
+    setup_nspawn_root
 
     # mask some services that we do not want to run in these tests
     ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service

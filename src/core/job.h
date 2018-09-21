@@ -1,25 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
-
 #include <stdbool.h>
 
 #include "sd-event.h"
@@ -109,6 +90,7 @@ enum JobResult {
         JOB_ASSERT,              /* Couldn't start a unit, because an assert didn't hold */
         JOB_UNSUPPORTED,         /* Couldn't start a unit, because the unit type is not supported on the system */
         JOB_COLLECTED,           /* Job was garbage collected, since nothing needed it anymore */
+        JOB_ONCE,                /* Unit was started before, and hence can't be started again */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -1
 };
@@ -174,10 +156,12 @@ struct Job {
         bool irreversible:1;
         bool in_gc_queue:1;
         bool ref_by_private_bus:1;
+        bool reloaded:1;
 };
 
 Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
+void job_unlink(Job *job);
 void job_free(Job *job);
 Job* job_install(Job *j);
 int job_install_deserialized(Job *j);
@@ -233,7 +217,7 @@ void job_shutdown_magic(Job *j);
 
 int job_get_timeout(Job *j, usec_t *timeout) _pure_;
 
-bool job_check_gc(Job *j);
+bool job_may_gc(Job *j);
 void job_add_to_gc_queue(Job *j);
 
 int job_get_before(Job *j, Job*** ret);

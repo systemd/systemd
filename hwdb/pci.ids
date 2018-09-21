@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2017.09.26
-#	Date:    2017-09-26 03:15:02
+#	Version: 2018.06.11
+#	Date:    2018-06-11 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at http://pci-ids.ucw.cz/.
@@ -25,6 +25,24 @@
 0010  Allied Telesis, Inc (Wrong ID)
 # This is a relabelled RTL-8139
 	8139  AT-2500TX V3 Ethernet
+0014  Loongson Technology LLC
+	7a00  Hyper Transport Bridge Controller
+	7a02  APB (Advanced Peripheral Bus) Controller
+	7a03  Gigabit Ethernet Controller
+	7a04  OTG USB Controller
+	7a05  Vivante GPU (Graphics Processing Unit)
+	7a06  DC (Display Controller)
+	7a07  HDA (High Definition Audio) Controller
+	7a08  SATA AHCI Controller
+	7a09  PCI-to-PCI Bridge
+	7a0b  SPI Controller
+	7a0c  LPC Controller
+	7a0f  DMA (Direct Memory Access) Controller
+	7a14  EHCI USB Controller
+	7a15  Vivante GPU (Graphics Processing Unit)
+	7a19  PCI-to-PCI Bridge
+	7a24  OHCI USB Controller
+	7a29  PCI-to-PCI Bridge
 001c  PEAK-System Technik GmbH
 	0001  PCAN-PCI CAN-Bus controller
 		001c 0004  2 Channel CAN Bus SJC1000
@@ -42,6 +60,7 @@
 # nee nCipher
 0100  Thales e-Security
 0123  General Dynamics
+0128  Dell (wrong ID)
 # 018a is not LevelOne but there is a board misprogrammed
 018a  LevelOne
 	0106  FPC-0106TX misprogrammed [RTL81xx]
@@ -61,6 +80,7 @@
 	000a  TTP-Monitoring Card V2.0
 0432  SCM Microsystems, Inc.
 	0001  Pluto2 DVB-T Receiver for PCMCIA [EasyWatch MobilSet]
+0497  Dell Inc. (wrong ID)
 0675  Dynalink
 	1700  IS64PH ISDN Adapter
 	1702  IS64PH ISDN Adapter
@@ -77,18 +97,18 @@
 0b0b  Rhino Equipment Corp.
 	0105  R1T1
 	0205  R4FXO
-	0206  RCB4FXO 4-channel FXO analog telphony card
+	0206  RCB4FXO 4-channel FXO analog telephony card
 	0305  R4T1
 	0405  R8FXX
-	0406  RCB8FXX 8-channel modular analog telphony card
+	0406  RCB8FXX 8-channel modular analog telephony card
 	0505  R24FXX
-	0506  RCB24FXS 24-Channel FXS analog telphony card
+	0506  RCB24FXS 24-Channel FXS analog telephony card
 	0605  R2T1
 	0705  R24FXS
-	0706  RCB24FXO 24-Channel FXO analog telphony card
+	0706  RCB24FXO 24-Channel FXO analog telephony card
 	0905  R1T3 Single T3 Digital Telephony Card
-	0906  RCB24FXX 24-channel modular analog telphony card
-	0a06  RCB672FXX 672-channel modular analog telphony card
+	0906  RCB24FXX 24-channel modular analog telephony card
+	0a06  RCB672FXX 672-channel modular analog telephony card
 0e11  Compaq Computer Corporation
 	0001  PCI to EISA Bridge
 	0002  PCI to ISA Bridge
@@ -249,6 +269,10 @@
 		1028 1fd4  PERC H745P MX
 		1d49 0602  ThinkSystem RAID 930-16i 4GB Flash PCIe 12Gb Adapter
 		1d49 0604  ThinkSystem RAID 930-8e 4GB Flash PCIe 12Gb Adapter
+		1d49 0607  ThinkSystem RAID 930-16i 8GB Flash PCIe 12Gb Adapter
+		8086 352d  Integrated RAID Module RMSP3AD160F
+		8086 9460  RAID Controller RSP3TD160F
+		8086 9480  RAID Controller RSP3MD088F
 	0015  MegaRAID Tri-Mode SAS3416
 	0016  MegaRAID Tri-Mode SAS3508
 		1028 1fc9  PERC H840 Adapter
@@ -258,9 +282,15 @@
 		1d49 0601  ThinkSystem RAID 930-8i 2GB Flash PCIe 12Gb Adapter
 		1d49 0603  ThinkSystem RAID 930-24i 4GB Flash PCIe 12Gb Adapter
 		1d49 0604  ThinkSystem RAID 930-8e 4GB Flash PCIe 12Gb Adapter
+		8086 352e  Integrated RAID Module RMSP3CD080F
+		8086 352f  Integrated RAID Module RMSP3HD080E
+		8086 9461  RAID Controller RSP3DD080F
 	0017  MegaRAID Tri-Mode SAS3408
 		1d49 0500  ThinkSystem RAID 530-8i PCIe 12Gb Adapter
 		1d49 0502  ThinkSystem RAID 530-8i Dense Adapter
+		8086 3528  Integrated RAID RMSP3LD060
+		8086 3529  Integrated RAID RMSP3LD060
+		8086 9441  RAID Controller RSP3WD080E
 	001b  MegaRAID Tri-Mode SAS3504
 		1d49 0605  ThinkSystem RAID 930-4i 2GB Flash Flex Adapter
 	001c  MegaRAID Tri-Mode SAS3404
@@ -398,6 +428,7 @@
 		17aa 1052  ThinkServer RAID 720i
 		17aa 1053  ThinkServer RAID 720ix
 		1d49 0600  ThinkSystem RAID 730-8i 1GB Cache PCIe 12Gb Adapter
+		1d49 0609  ThinkSystem RAID 730-8i 4GB Flash PCIe 12Gb Adapter
 		8086 351e  RMS3CC080 RAID Controller
 		8086 351f  RMS3CC040 RAID Controller
 		8086 9360  RS3DC080 RAID Controller
@@ -575,6 +606,7 @@
 	0096  SAS3004 PCI-Express Fusion-MPT SAS-3
 	0097  SAS3008 PCI-Express Fusion-MPT SAS-3
 		1000 3090  SAS9311-8i
+		1000 30a0  SAS9300-8e
 		1000 30e0  SAS9300-8i
 		1000 3130  SAS 9300-16i
 		1028 1f45  HBA330 Adapter
@@ -584,9 +616,12 @@
 		1028 1fd3  HBA330 MMZ
 		1bd4 0011  Inspur 12Gb 8i-3008 IT SAS HBA
 	00ab  SAS3516 Fusion-MPT Tri-Mode RAID On Chip (ROC)
+		8086 3530  Integrated RAID Module RMSP3JD160J
 	00ac  SAS3416 Fusion-MPT Tri-Mode I/O Controller Chip (IOC)
 		1d49 0201  ThinkSystem 430-16i SAS/SATA 12Gb HBA
 		1d49 0203  ThinkSystem 430-16e SAS/SATA 12Gb HBA
+		8086 3000  RAID Controller RSP3QD160J
+		8086 3020  RAID Controller RSP3GD016J
 	00ae  SAS3508 Fusion-MPT Tri-Mode RAID On Chip (ROC)
 	00af  SAS3408 Fusion-MPT Tri-Mode I/O Controller Chip (IOC)
 		1d49 0200  ThinkSystem 430-8i SAS/SATA 12Gb HBA
@@ -737,6 +772,10 @@
 	131b  Kaveri [Radeon R4 Graphics]
 	131c  Kaveri [Radeon R7 Graphics]
 	131d  Kaveri [Radeon R6 Graphics]
+	15dd  Raven Ridge [Radeon Vega Series / Radeon Vega Mobile Series]
+		103c 83c6  Radeon Vega 8 Mobile
+		1458 d000  Radeon RX Vega 11
+	15ff  Vega 11 [Radeon Vega 28 Mobile]
 	1714  BeaverCreek HDMI Audio [Radeon HD 6500D and 6400G-6600G series]
 		103c 168b  ProBook 4535s
 	3150  RV380/M24 [Mobility Radeon X600]
@@ -768,7 +807,7 @@
 		18bc 0101  GC-R9600PRO (Primary)
 	4151  RV350 [Radeon 9600 Series]
 		1043 c004  A9600SE
-		174b 7c37  Radeon 9600 SE
+		174b 7c37  Radeon 9600SE 128M DDR V/D/VO
 	4152  RV360 [Radeon 9600/X1050 Series]
 		1002 0002  Radeon 9600XT
 		1002 4772  All-in-Wonder 9600 XT
@@ -798,7 +837,7 @@
 		18bc 0100  GC-R9600PRO (Secondary)
 	4171  RV350 [Radeon 9600] (Secondary)
 		1043 c005  A9600SE (Secondary)
-		174b 7c36  Radeon 9600 SE (secondary)
+		174b 7c36  Radeon 9600SE 128M DDR V/D/VO (secondary)
 	4172  RV350 [Radeon 9600/X1050 Series] (Secondary)
 		1002 0003  Radeon 9600XT (Secondary)
 		1002 4773  All-in-Wonder 9600 XT (Secondary)
@@ -827,7 +866,7 @@
 	434d  IXP AC'97 Modem
 	4353  SMBus
 	4354  215CT [Mach64 CT PCI]
-	4358  210888CX [Mach64 CX]
+	4358  Mach64 CX [Graphics Xpression]
 	4361  IXP SB300 AC'97 Audio Controller
 	4363  SMBus
 	436e  436E Serial ATA Controller
@@ -905,6 +944,8 @@
 		1043 836c  M4A785TD Motherboard
 		1043 8410  M4A89GTD PRO/USB3 Motherboard
 		1043 841b  M5A88-V EVO
+		1043 8445  M5A78L LE
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 		1179 ff50  Satellite P305D-S8995E
 		1458 a022  GA-MA770-DS3rev2.0 Motherboard
 		17f2 5000  KI690-AM2 Motherboard
@@ -915,6 +956,7 @@
 		103c 280a  DC5750 Microtower
 		1043 82ef  M3A78-EH Motherboard
 		1043 8389  M4A785TD Motherboard
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 		1179 ff50  Satellite P305D-S8995E
 		1458 4385  GA-MA770-DS3rev2.0 Motherboard
 		1462 7368  K9AG Neo2
@@ -966,14 +1008,17 @@
 	4390  SB7x0/SB8x0/SB9x0 SATA Controller [IDE mode]
 		1043 82ef  M3A78-EH Motherboard
 		1043 8389  M4A785TD Motherboard
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 		1458 b002  GA-MA770-DS3rev2.0 Motherboard
 		1849 4390  Motherboard (one of many)
 	4391  SB7x0/SB8x0/SB9x0 SATA Controller [AHCI mode]
 		103c 1611  Pavilion DM1Z-3000
 		1043 82ef  M3A78-EH Motherboard
 		1043 8443  M5A88-V EVO
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 		174b 1001  PURE Fusion Mini
 	4392  SB7x0/SB8x0/SB9x0 SATA Controller [Non-RAID5 mode]
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 	4393  SB7x0/SB8x0/SB9x0 SATA Controller [RAID5 mode]
 	4394  SB7x0/SB8x0/SB9x0 SATA Controller [AHCI mode]
 	4395  SB8x0/SB9x0 SATA Controller [Storage mode]
@@ -982,6 +1027,7 @@
 		103c 1611  Pavilion DM1Z-3000
 		1043 82ef  M3A78-EH Motherboard
 		1043 8443  M5A88-V EVO
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 		15d9 a811  H8DGU
 		174b 1001  PURE Fusion Mini
 	4397  SB7x0/SB8x0/SB9x0 USB OHCI0 Controller
@@ -989,25 +1035,30 @@
 		103c 1611  Pavilion DM1Z-3000
 		1043 82ef  M3A78-EH Motherboard
 		1043 8443  M5A88-V EVO
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 		15d9 a811  H8DGU
 		174b 1001  PURE Fusion Mini
 	4398  SB7x0 USB OHCI1 Controller
 		1019 2120  A785GM-M
 		1043 82ef  M3A78-EH Motherboard
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 		15d9 a811  H8DGU
 	4399  SB7x0/SB8x0/SB9x0 USB OHCI2 Controller
 		1019 2120  A785GM-M
 		1043 82ef  M3A78-EH Motherboard
 		1043 8443  M5A88-V EVO
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 		174b 1001  PURE Fusion Mini
 	439c  SB7x0/SB8x0/SB9x0 IDE Controller
 		1019 2120  A785GM-M
 		1043 82ef  M3A78-EH Motherboard
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 	439d  SB7x0/SB8x0/SB9x0 LPC host controller
 		1019 2120  A785GM-M
 		103c 1611  Pavilion DM1Z-3000
 		1043 82ef  M3A78-EH Motherboard
 		1043 8443  M5A88-V EVO
+		105b 0e13  N15235/A74MX mainboard / AMD SB700
 		174b 1001  PURE Fusion Mini
 	43a0  SB700/SB800/SB900 PCI to PCI bridge (PCIE port 0)
 	43a1  SB700/SB800/SB900 PCI to PCI bridge (PCIE port 1)
@@ -1016,7 +1067,7 @@
 	4437  RS250 [Mobility Radeon 7000 IGP]
 	4554  210888ET [Mach64 ET]
 	4654  Mach64 VT
-	4742  3D Rage PRO AGP 2X
+	4742  Rage 3 [3D Rage PRO AGP 2X]
 		1002 0040  Rage Pro Turbo AGP 2X
 		1002 0044  Rage Pro Turbo AGP 2X
 		1002 0061  Rage Pro AIW AGP 2X
@@ -1032,7 +1083,7 @@
 		1028 c082  Rage Pro Turbo AGP 2X
 		8086 4152  Xpert 98D AGP 2X
 		8086 464a  Rage Pro Turbo AGP 2X
-	4744  3D Rage PRO AGP 1X
+	4744  Rage 3 [3D Rage PRO AGP 1X]
 		1002 4744  Rage Pro Turbo AGP
 		8086 4d55  Rage 3D Pro AGP 1X [Intel MU440EX]
 	4749  3D Rage PRO PCI
@@ -1056,7 +1107,7 @@
 		1002 0080  Rage Pro Turbo
 		1002 0084  Rage Pro Turbo
 		1002 4750  Rage Pro Turbo
-	4752  Rage XL PCI
+	4752  Rage 3 [Rage XL PCI]
 		0e11 001e  Proliant Rage XL
 		1002 0008  Rage XL
 		1002 4752  Proliant Rage XL
@@ -1078,19 +1129,19 @@
 		8086 5744  S845WD1-E mainboard
 	4753  Rage XC
 		1002 4753  Rage XC
-	4754  3D Rage II/II+ PCI [Mach64 GT]
-	4755  Mach64 GTB [3D Rage II+ DVD]
-	4756  3D Rage IIC PCI [Mach64 GT IIC]
+	4754  Mach64 GT/GT-B [3D Rage I/II]
+	4755  Mach64 GT-B [3D Rage II+ DVD]
+	4756  Rage 2 [3D Rage IIC PCI]
 		1002 4756  Rage IIC
-	4757  3D Rage IIC AGP
+	4757  Rage 2 [3D Rage IIC AGP]
 		1002 4757  Rage IIC AGP
 		1028 0089  Rage 3D IIC
 		1028 008e  PowerEdge 1300 onboard video
 		1028 4082  Rage 3D IIC
 		1028 8082  Rage 3D IIC
 		1028 c082  Rage 3D IIC
-	4758  210888GX [Mach64 GX PCI]
-	4759  3D Rage IIC PCI
+	4758  Mach64 GX [WinTurbo]
+	4759  Rage 3 [3D Rage IIC PCI]
 	475a  3D Rage IIC AGP
 		1002 0084  Rage 3D Pro AGP 2x XPERT 98
 		1002 0087  Rage 3D IIC
@@ -1126,7 +1177,7 @@
 	4b69  R481 [Radeon X850 XT AGP] (Secondary)
 	4b6b  R481 [Radeon X850 PRO AGP] (Secondary)
 	4b6c  R481 [Radeon X850 XT Platinum Edition AGP] (Secondary)
-	4c42  3D Rage LT PRO AGP 2X
+	4c42  Mach64 LT [3D Rage LT PRO AGP]
 		0e11 b0e7  Rage LT Pro (Compaq Presario 5240)
 		0e11 b0e8  Rage 3D LT Pro
 		0e11 b10e  3D Rage LT Pro (Compaq Armada 1750)
@@ -1154,9 +1205,9 @@
 		1028 00bb  Latitude CPx
 		1179 ff00  Satellite 1715XCDS laptop
 		13bd 1019  PC-AR10
-	4c50  3D Rage LT PRO PCI
+	4c50  Rage 3 LT [3D Rage LT PRO PCI]
 		1002 4c50  Rage LT Pro
-	4c52  Rage Mobility-M1 PCI
+	4c52  M1 [Rage Mobility-M1 PCI]
 		1033 8112  Versa Note VXi
 	4c54  264LT [Mach64 LT]
 	4c57  RV200/M7 [Mobility Radeon 7500]
@@ -1224,7 +1275,7 @@
 	5044  All-In-Wonder 128 PCI
 		1002 0028  Rage 128 AIW
 		1002 0029  Rage 128 AIW
-	5046  Rage 128 PRO AGP 4x TMDS
+	5046  Rage 4 [Rage 128 PRO AGP 4X TMDS]
 		1002 0004  Rage Fury Pro
 		1002 0008  Rage Fury Pro/Xpert 2000 Pro
 		1002 0014  Rage Fury Pro
@@ -1324,7 +1375,7 @@
 		1002 0028  Rage 128 AIW
 		1002 0029  Rage 128 AIW
 		1002 0068  Rage 128 AIW
-	5246  Rage Fury/Xpert 128/Xpert 2000 AGP 2x
+	5246  Rage 4 [Rage Fury/Xpert 128/Xpert 2000 AGP]
 		1002 0004  Magnum/Xpert 128/Xpert 99
 		1002 0008  Magnum/Xpert128/X99/Xpert2000
 		1002 0028  Rage 128 AIW AGP
@@ -1382,10 +1433,10 @@
 	5653  RV410/M26 [Mobility Radeon X700]
 		1025 0080  Aspire 5024WLMi
 		103c 0940  Compaq NW8240 Mobile Workstation
-	5654  264VT [Mach64 VT]
+	5654  Mach64 VT [Video Xpression]
 		1002 5654  Mach64VT Reference
 	5655  264VT3 [Mach64 VT3]
-	5656  264VT4 [Mach64 VT4]
+	5656  Mach64 VT4 [Video Xpression+]
 	5657  RV410 [Radeon X550 XTX / X700]
 	5830  RS300 Host Bridge
 	5831  RS300 Host Bridge
@@ -1571,14 +1622,19 @@
 		103c 2100  FirePro M4100
 	6602  Mars
 	6603  Mars
-	6604  Opal XT [Radeon R7 M265]
+	6604  Opal XT [Radeon R7 M265/M365X/M465]
+		1025 0776  Aspire V5 Radeon R7 M265
 		103c 8006  FirePro M4170
+		103c 814f  Litho XT [Radeon R7 M365X]
+		103c 82aa  Litho XT [Radeon R7 M465]
 		17aa 3643  Radeon R7 A360
-	6605  Opal PRO [Radeon R7 M260]
+	6605  Opal PRO [Radeon R7 M260X]
+		103c 2259  FirePro M4150
 	6606  Mars XTX [Radeon HD 8790M]
 		1028 0684  FirePro W4170M
 	6607  Mars LE [Radeon HD 8530M / R5 M240]
 	6608  Oland GL [FirePro W2100]
+		13cc 3d28  MXRT-2600
 	6610  Oland XT [Radeon HD 8670 / R7 250/350]
 		1019 0030  Radeon HD 8670
 		1028 2120  Radeon R7 250
@@ -1603,6 +1659,7 @@
 	6623  Mars
 	6631  Oland
 	6640  Saturn XT [FirePro M6100]
+		106b 014b  Tropo XT [Radeon R9 M380 Mac Edition]
 	6641  Saturn PRO [Radeon HD 8930M]
 	6646  Bonaire XT [Radeon R9 M280X]
 	6647  Bonaire PRO [Radeon R9 M270X]
@@ -1610,6 +1667,7 @@
 		1002 0b0c  FirePro W4300
 		103c 0b0c  Bonaire [FirePro W4300]
 		103c 230c  FirePro W5100
+		13cc 3d2a  MXRT-5600
 	6650  Bonaire
 	6651  Bonaire
 	6658  Bonaire XTX [Radeon R7 260X/360]
@@ -1645,6 +1703,7 @@
 		103c 80be  Radeon R5 M330
 		103c 8136  Radeon R5 M330
 		103c 8329  Radeon R7 M520
+		17aa 3633  Radeon R5 A330
 		17aa 3804  Radeon R5 M330
 		17aa 3809  Radeon R5 M330
 		17aa 381a  Radeon R5 M430
@@ -1657,6 +1716,12 @@
 		17aa 368f  Radeon R5 A230
 	6667  Jet ULT [Radeon R5 M230]
 	666f  Sun LE [Radeon HD 8550M / R5 M230]
+	66a0  Vega 20 [Radeon Instinct]
+	66a1  Vega 20
+	66a2  Vega 20
+	66a3  Vega 20
+	66a7  Vega 20
+	66af  Vega 20
 	6704  Cayman PRO GL [FirePro V7900]
 	6707  Cayman LE GL [FirePro V5900]
 	6718  Cayman XT [Radeon HD 6970]
@@ -1848,7 +1913,10 @@
 		8086 2111  Radeon HD 6625M
 	6743  Whistler [Radeon E6760]
 	6749  Turks GL [FirePro V4900]
+		15c3 2b06  MED-X4900
 	674a  Turks GL [FirePro V3900]
+		13cc 3d22  MXRT-2500
+		15c3 0106  MED-X3900
 	6750  Onega [Radeon HD 6650A/7650A]
 		1462 2670  Radeon HD 6670A
 		17aa 3079  Radeon HD 7650A
@@ -2161,11 +2229,13 @@
 		1043 3001  Tahiti XTL [ROG Matrix R9 280X]
 		1043 3006  Tahiti XTL [Radeon R9 280X DirectCU II TOP]
 		1043 9999  ARES II
+		106b 0127  FirePro D700
+		106b 0128  FirePro D700
 		1092 3000  Tahiti XT2 [Radeon HD 7970 GHz Edition]
 		1458 2261  Tahiti XT2 [Radeon HD 7970 GHz Edition OC]
 # GV-R928XOC-3GD
 		1458 3001  Tahiti XTL [Radeon R9 280X OC]
-		1462 2774  MSI R7970 TF 3GD5/OC BE
+		1462 2774  HD 7970 TwinFrozr III Boost Edition OC
 		1682 3001  Tahiti XTL [Radeon R9 280X]
 		1682 3211  Double D HD 7970 Black Edition
 # FX-797A-TNBC
@@ -2186,6 +2256,8 @@
 		1462 8036  Radeon HD 8990 OEM
 		148c 8990  Radeon HD 8990 OEM
 	679e  Tahiti LE [Radeon HD 7870 XT]
+		106b 0125  FirePro D500
+		106b 0126  FirePro D500
 		1787 2328  Radeon HD 7870 Black Edition 2 GB GDDR5 [2GBD5-2DHV3E]
 	679f  Tahiti
 	67a0  Hawaii XT GL [FirePro W9100]
@@ -2240,7 +2312,8 @@
 		174b e324  Sapphire Nitro R9 390
 	67b9  Vesuvius [Radeon R9 295X2]
 	67be  Hawaii LE
-	67c0  Ellesmere [Radeon Pro WX 7100]
+	67c0  Ellesmere [Radeon Pro WX 7100 Mobile]
+	67c2  Ellesmere [Radeon Pro V7300X / V7350x2]
 	67c4  Ellesmere [Radeon Pro WX 7100]
 		1002 0336  Radeon Pro Duo
 		1002 1336  Radeon Pro Duo
@@ -2248,15 +2321,24 @@
 	67ca  Ellesmere [Polaris10]
 	67cc  Ellesmere [Polaris10]
 	67cf  Ellesmere [Polaris10]
-	67df  Ellesmere [Radeon RX 470/480/570/580]
+	67d0  Ellesmere [Radeon Pro V7300X / V7350x2]
+	67df  Ellesmere [Radeon RX 470/480/570/570X/580/580X]
 		1002 0b37  Radeon RX 480
+		1028 1722  Radeon RX 570X
+		1028 1723  Radeon RX 580X
 		1043 04a8  Radeon RX 480
 		1043 04b0  Radeon RX 470
 		1043 04fb  Radeon RX 480
 		1043 04fd  Radeon RX 480 8GB
+		106b 0161  Radeon Pro 580
+		106b 0162  Radeon Pro 575
+		106b 0163  Radeon Pro 570
 		1458 22f0  Radeon RX 570
+		1458 22f7  Radeon RX 570 Gaming 4G
 		1462 3411  Radeon RX 470
 		1462 3413  Radeon RX 480
+		1462 3416  Radeon RX 570
+		1462 3418  Radeon RX 580 Armor 4G OC
 		148c 2372  Radeon RX 480
 		148c 2373  Radeon RX 470
 		1682 9470  Radeon RX 470
@@ -2266,22 +2348,44 @@
 		174b e349  Radeon RX 470
 		1787 a470  Radeon RX 470
 		1787 a480  Radeon RX 480
+		1849 5001  Phantom Gaming X RX 580 OC
 		1da2 e353  Sapphire Radeon RX 580 Pulse 8GB
-		1da2 e366  Radeon RX 570
-	67e0  Baffin [Polaris11]
+		1da2 e366  Nitro+ Radeon RX 580 4GB
+	67e0  Baffin [Radeon Pro WX 4170]
+		103c 8270  Radeon Pro WX 4170
+		103c 8272  Radeon Pro WX 4170
 	67e1  Baffin [Polaris11]
 	67e3  Baffin [Radeon Pro WX 4100]
-	67e8  Baffin [Polaris11]
+	67e8  Baffin [Radeon Pro WX 4130/4150]
+		1028 075d  Radeon Pro WX 4150
+		1028 07b0  Radeon Pro WX 4130/4150
+		1028 07b1  Radeon Pro WX 4130
+		1028 175d  Radeon Pro WX 4150
+		1028 17b0  Radeon Pro WX 4130/4150
+		1028 17b1  Radeon Pro WX 4130
+		103c 8275  Radeon Pro WX 4150
+		103c 8277  Radeon Pro WX 4150
 	67e9  Baffin [Polaris11]
-	67eb  Baffin [Polaris11]
-	67ef  Baffin [Radeon RX 460/560D / Pro 450/455/460/560]
+	67eb  Baffin [Radeon Pro V5300X]
+	67ef  Baffin [Radeon RX 460/560D / Pro 450/455/460/555/560]
 		106b 0160  Radeon Pro 460
 		106b 0166  Radeon Pro 455
 		106b 0167  Radeon Pro 450
 		106b 0179  Radeon Pro 560
+		106b 017a  Radeon Pro 555
 		1642 1727  Polaris 21 XL [Radeon RX 560D]
 		1682 956d  Polaris 21 XL [Radeon RX 560D]
-	67ff  Baffin [Radeon RX 560]
+	67ff  Baffin [Radeon RX 550 640SP / RX 560/560X]
+		1002 0b04  Radeon RX 560
+		1028 1721  Radeon RX 560X
+		1028 1726  Radeon RX 560DX
+		103c 8479  Radeon RX 560X Mobile
+		1043 04bc  Radeon RX 560
+		1458 22ed  Radeon RX 560
+		148c 2381  Radeon RX 560
+		1682 9560  Radeon RX 560
+		1da2 e348  Radeon RX 560
+		1da2 e367  Radeon RX 550 640SP
 	6800  Wimbledon XT [Radeon HD 7970M]
 		1002 0124  Radeon HD 7970M
 		8086 2110  Radeon HD 7970M
@@ -2296,8 +2400,16 @@
 	6808  Pitcairn XT GL [FirePro W7000]
 		1002 0310  FirePro S7000
 		1002 0420  Radeon Sky 500
+		103c 030c  MED-X7000
+		13cc 3d25  MXRT-7500
+		15c3 030c  MED-X7000
 	6809  Pitcairn LE GL [FirePro W5000]
+		13cc 3d23  MXRT-5500
+		13cc 3d24  MXRT-5550
+		15c3 0b06  MED-X5000
 	6810  Curacao XT / Trinidad XT [Radeon R7 370 / R9 270X/370X]
+		106b 012a  FirePro D300
+		106b 012b  FirePro D300
 		148c 0908  Radeon R9 370 OEM
 		1682 7370  Radeon R7 370
 	6811  Curacao PRO [Radeon R7 370 / R9 270/370 OEM]
@@ -2317,6 +2429,7 @@
 		1002 0b05  Radeon HD 8870 OEM
 		174b 8b04  Radeon HD 8860
 	6819  Pitcairn PRO [Radeon HD 7850 / R7 265 / R9 270 1024SP]
+		1043 042c  Radeon HD 7850
 		1682 7269  Radeon R9 270 1024SP
 		1682 9278  Radeon R9 270 1024SP
 		174b a008  Radeon R9 270 1024SP
@@ -2342,15 +2455,15 @@
 	6826  Chelsea LP [Radeon HD 7700M Series]
 	6827  Heathrow PRO [Radeon HD 7850M/8850M]
 	6828  Cape Verde PRO [FirePro W600]
+		15c3 2b1e  MED-X6000
 	6829  Cape Verde
 	682a  Venus PRO
-	682b  Venus LE [Radeon HD 8830M]
+	682b  Venus LE / Tropo PRO-L [Radeon HD 8830M / R7 M465X]
+		0128 079c  Radeon R7 465X
 	682c  Cape Verde GL [FirePro W4100]
 	682d  Chelsea XT GL [FirePro M4000]
 	682f  Chelsea LP [Radeon HD 7730M]
 		103c 1851  Radeon HD 7750M
-	6830  Cape Verde [Radeon HD 7800M Series]
-	6831  Cape Verde [AMD Radeon HD 7700M Series]
 	6835  Cape Verde PRX [Radeon R9 255 OEM]
 	6837  Cape Verde LE [Radeon HD 7730/8730]
 		1462 2796  Radeon HD 8730
@@ -2478,11 +2591,20 @@
 		144d c0c7  Radeon HD 7550M
 	6842  Thames LE [Radeon HD 7000M Series]
 	6843  Thames [Radeon HD 7670M]
+	6860  Vega 10 [Radeon Instinct MI25]
+		106b 017c  Radeon Pro Vega 64
+	6861  Vega 10 XT [Radeon PRO WX 9100]
+	6862  Vega 10 XT [Radeon PRO SSG]
 	6863  Vega 10 XTX [Radeon Vega Frontier Edition]
+	6864  Vega
+	6867  Vega 10 XL [Radeon Pro Vega 56]
+	6868  Vega
+	686c  Vega 10 [Radeon Instinct MI25 MxGPU]
 	687f  Vega 10 XT [Radeon RX Vega 64]
 	6888  Cypress XT [FirePro V8800]
 	6889  Cypress PRO [FirePro V7800]
 		1002 0301  FirePro V7800P
+		13cc 3d1f  MXRT-7400
 	688a  Cypress XT [FirePro V9800]
 		1002 030c  FirePro V9800P
 	688c  Cypress XT GL [FireStream 9370]
@@ -2530,6 +2652,8 @@
 		103c 159b  Radeon HD 6850M
 		144d c0ad  Radeon HD 6850M
 	68a9  Juniper XT [FirePro V5800]
+		13cc 3d1e  MXRT-5400
+		13cc 3d20  MXRT-5450
 	68b8  Juniper XT [Radeon HD 5770]
 		106b 00cf  MacPro5,1 [Mac Pro 2.8GHz DDR3]
 	68b9  Juniper LE [Radeon HD 5670 640SP Edition]
@@ -2683,7 +2807,7 @@
 		17aa 3928  Mobility Radeon HD 5650
 		17aa 3951  Mobility Radeon HD 5650
 		17aa 3977  Radeon HD 6550M
-	68c7  Madison [Mobility Radeon HD 5570/6550A]
+	68c7  Pinewood [Mobility Radeon HD 5570/6550A]
 		1462 2241  Mobility Radeon HD 5570
 		1462 2243  Mobility Radeon HD 5570
 		1462 2244  Mobility Radeon HD 5570
@@ -2691,6 +2815,7 @@
 		1462 2246  Radeon HD 6550A
 	68c8  Redwood XT GL [FirePro V4800]
 	68c9  Redwood PRO GL [FirePro V3800]
+		13cc 3d1d  MXRT-2400
 	68d8  Redwood XT [Radeon HD 5670/5690/5730]
 		1028 68e0  Radeon HD 5670
 		174b 5690  Radeon HD 5690
@@ -2952,6 +3077,7 @@
 		103c 2269  Radeon R7 M260
 		103c 22c6  Radeon R7 M260
 		103c 22c8  Radeon R7 M260
+		103c 2b45  Radeon R7 A360
 		103c 808c  Radeon R7 M260
 		103c 8099  Radeon R7 M360
 		103c 80b5  Radeon R7 M360
@@ -2973,6 +3099,7 @@
 	6921  Amethyst XT [Radeon R9 M295X]
 	6929  Tonga XT GL [FirePro S7150]
 	692b  Tonga PRO GL [FirePro W7100]
+		13cc 3d2b  MXRT-7600
 	692f  Tonga XTV GL [FirePro S7150V]
 	6938  Tonga XT / Amethyst XT [Radeon R9 380X / R9 M295X]
 		1043 04f5  Radeon R9 380X
@@ -2987,32 +3114,50 @@
 		148c 9380  Radeon R9 380
 # Make naming scheme consistent
 		174b e308  Radeon R9 380 Nitro 4G D5
+	694c  Polaris 22 [Radeon RX Vega M GH]
+	694e  Polaris 22 [Radeon RX Vega M GL]
 	6980  Polaris12
 	6981  Polaris12
 	6985  Lexa XT [Radeon PRO WX 3100]
 	6986  Polaris12
-	6987  Polaris12
+	6987  Lexa [Radeon E9171 MCM]
 	6995  Lexa XT [Radeon PRO WX 2100]
-	699f  Lexa PRO [Radeon RX 550]
+	699f  Lexa PRO [Radeon RX 550/550X]
+		1028 1720  Radeon RX 550X
 		148c 2380  Lexa XL [Radeon RX 550]
 		1da2 e367  Lexa PRO [Radeon RX 550]
+	69a0  Vega 12
+	69a1  Vega 12
+	69a2  Vega 12
+	69a3  Vega 12
+	69af  Vega 12
 	700f  RS100 AGP Bridge
 	7010  RS200/RS250 AGP Bridge
 	7100  R520 [Radeon X1800 XT]
 	7101  R520/M58 [Mobility Radeon X1800 XT]
 	7102  R520/M58 [Mobility Radeon X1800]
 	7104  R520 GL [FireGL V7200]
+		13cc 3d0a  MXRT-5100
 	7109  R520 [Radeon X1800 XL]
 		1002 0322  All-in-Wonder X1800XL
 		1002 0d02  Radeon X1800 CrossFire Edition
 	710a  R520 [Radeon X1800 GTO]
 		1002 0b12  Radeon X1800 GTO²
 	710b  R520 [Radeon X1800 GTO]
+	710e  R520 GL [FireGL V7300]
+		13cc 3d0c  MXRT-5150
+	710f  R520 GL [FireGL V7350]
+		13cc 3d0e  MXRT-7100
 	7120  R520 [Radeon X1800] (Secondary)
 	7124  R520 GL [FireGL V7200] (Secondary)
+		13cc 3d0b  MXRT-5100 (Secondary)
 	7129  R520 [Radeon X1800] (Secondary)
 		1002 0323  All-In-Wonder X1800 XL (Secondary)
 		1002 0d03  Radeon X1800 CrossFire Edition (Secondary)
+	712e  R520 GL [FireGL V7300] (Secondary)
+		13cc 3d0d  MXRT-5150 (Secondary)
+	712f  R520 GL [FireGL V7350] (Secondary)
+		13cc 3d0f  MXRT-7100 (Secondary)
 	7140  RV515 [Radeon X1300/X1550/X1600 Series]
 	7142  RV515 PRO [Radeon X1300/X1550 Series]
 		1002 0322  All-in-Wonder 2006 PCI-E Edition
@@ -3052,12 +3197,16 @@
 	7193  RV516 [Radeon X1550 Series]
 	7196  RV516/M62-S [Mobility Radeon X1350]
 	719b  RV516 GL [FireMV 2250]
+		13cc 3d12  MXRT-1150
+		13cc 3d14  MXRT-2150
 	719f  RV516 [Radeon X1550 Series]
 	71a0  RV516 [Radeon X1300/X1550 Series] (Secondary)
 	71a1  RV516 [Radeon X1600/X1650 Series] (Secondary)
 	71a3  RV516 [Radeon X1300/X1550 Series] (Secondary)
 	71a7  RV516 [Radeon X1300/X1550 Series] (Secondary)
 	71bb  RV516 GL [FireMV 2250] (Secondary)
+		13cc 3d13  MXRT-1150 (Secondary)
+		13cc 3d15  MXRT-2150 (Secondary)
 	71c0  RV530 [Radeon X1600 XT/X1650 GTO]
 		1002 e160  Radeon X1650 GTO
 		174b e160  Radeon X1650 GTO
@@ -3076,6 +3225,7 @@
 		1787 3000  PowerColor X1650 PRO AGP
 	71ce  RV530 [Radeon X1300 XT/X1600 PRO]
 	71d2  RV530 GL [FireGL V3400]
+		13cc 3d08  MXRT-2100
 	71d4  RV530/M66 GL [Mobility FireGL V5250]
 	71d5  RV530/M66-P [Mobility Radeon X1700]
 	71d6  RV530/M66-XT [Mobility Radeon X1700]
@@ -3089,6 +3239,7 @@
 	71e7  RV535 [Radeon X1650 PRO] (Secondary)
 		1787 3001  Radeon X1650 PRO AGP
 	71f2  RV530 GL [FireGL V3400] (Secondary)
+		13cc 3d09  MXRT-2100 (Secondary)
 	7210  RV550/M71 [Mobility Radeon HD 2300]
 	7211  RV550/M71 [Mobility Radeon X2300 HD]
 	7240  R580+ [Radeon X1950 XTX]
@@ -3129,8 +3280,9 @@
 	7910  RS690 Host Bridge
 		1179 ff50  Satellite P305D-S8995E
 		17f2 5000  KI690-AM2 Motherboard
-	7911  RS690 Host Bridge
-	7912  RS690 PCI to PCI Bridge (Internal gfx)
+	7911  RS690/RS740 Host Bridge
+		1002 7910  RS690/RS740 Host Bridge
+	7912  RS690/RS740 PCI to PCI Bridge (Internal gfx)
 	7913  RS690 PCI to PCI Bridge (PCI Express Graphics Port 0)
 	7915  RS690 PCI to PCI Bridge (PCI Express Port 1)
 	7916  RS690 PCI to PCI Bridge (PCI Express Port 2)
@@ -3155,6 +3307,7 @@
 	7941  RS600 [Radeon Xpress 1250]
 	7942  RS600M [Radeon Xpress 1250]
 	796e  RS740 [Radeon 2100]
+		105b 0e13  N15235/A74MX mainboard
 	9400  R600 [Radeon HD 2900 PRO/XT]
 		1002 2552  Radeon HD 2900 XT
 		1002 3000  Radeon HD 2900 PRO
@@ -3163,6 +3316,7 @@
 	9403  R600 [Radeon HD 2900 PRO]
 	9405  R600 [Radeon HD 2900 GT]
 	940a  R600 GL [FireGL V8650]
+		13cc 3d16  MXRT-7200
 	940b  R600 GL [FireGL V8600]
 	940f  R600 GL [FireGL V7600]
 	9440  RV770 [Radeon HD 4870]
@@ -3200,6 +3354,7 @@
 		174b 0028  Radeon HD 4650 AGP DDR2
 	9498  RV730 PRO [Radeon HD 4650]
 	949c  RV730 GL [FirePro V7750]
+		13cc 3d1b  MXRT-7300
 	949e  RV730 GL [FirePro V5700]
 	949f  RV730 GL [FirePro V3750]
 	94a0  RV740/M97 [Mobility Radeon HD 4830]
@@ -3255,11 +3410,13 @@
 	9553  RV710/M92 [Mobility Radeon HD 4530/4570/545v]
 		1025 015e  Mobility Radeon HD 4570
 		1025 017d  Mobility Radeon HD 4570
-		1025 0205  Mobility Radeon HD 4570
+		1025 0205  Mobility Radeon HD 4570 / 545v
 		1025 0206  Mobility Radeon HD 4570
 		1025 0237  Mobility Radeon HD 4570
-		1028 02be  Mobility Radeon HD 4570
+		1028 02be  Mobility Radeon HD 4570 / 545v
 		1028 02e8  Mobility Radeon HD 4530
+		103c 143c  Mobility Radeon HD 545v
+		103c 1446  Mobility Radeon HD 545v
 		103c 3624  Mobility Radeon HD 4530
 		103c 3628  Mobility Radeon HD 4530
 		103c 3636  Mobility Radeon HD 4530
@@ -3267,6 +3424,12 @@
 		1043 1b42  Mobility Radeon HD 4570
 		104d 9056  Mobility Radeon HD 4570
 		1179 ff82  Satellite L505-13T GPU (Mobility Radeon HD 5145)
+		144d c07f  Mobility Radeon HD 545v
+		144d c571  Mobility Radeon HD 545v
+		1462 1006  Mobility Radeon HD 545v
+		17aa 2129  Mobility Radeon HD 545v
+		17aa 215b  Mobility Radeon HD 545v
+		17aa 21bb  Mobility Radeon HD 545v
 	9555  RV710/M92 [Mobility Radeon HD 4350/4550]
 		103c 1411  ProBook 4720s GPU (Mobility Radeon HD 4350)
 	9557  RV711 GL [FirePro RG220]
@@ -3286,6 +3449,7 @@
 	958a  RV630 [Radeon HD 2600 X2]
 	958b  RV630/M76 [Mobility Radeon HD 2600 XT]
 	958c  RV630 GL [FireGL V5600]
+		13cc 3d18  MXRT-5200
 	958d  RV630 GL [FireGL V3600]
 	9591  RV635/M86 [Mobility Radeon HD 3650]
 		1002 9591  Mobility Radeon HD 3650
@@ -3300,6 +3464,7 @@
 		1043 3001  Radeon HD 4570
 		174b 3001  Radeon HD 3750
 		174b 4580  RV635 PRO [Radeon HD 4580]
+		17af 3011  RV635 PRO [Radeon HD 4580]
 	9599  RV635 PRO [Radeon HD 3650 AGP]
 	95c0  RV620 PRO [Radeon HD 3470]
 		1002 95c0  Mobility Radeon HD 3470
@@ -3311,7 +3476,7 @@
 	95c6  RV620 LE [Radeon HD 3450 AGP]
 	95c9  RV620 LE [Radeon HD 3450 PCI]
 	95cc  RV620 GL [FirePro V3700]
-	95cd  RV620 [FirePro 2450]
+	95cd  RV620 GL [FirePro 2450]
 	95cf  RV620 GL [FirePro 2260]
 	960f  RS780 HDMI Audio [Radeon 3000/3100 / HD 3200/3300]
 	9610  RS780 [Radeon HD 3200]
@@ -3372,6 +3537,7 @@
 	9840  Kabini HDMI/DP Audio
 	9850  Mullins [Radeon R3 Graphics]
 	9851  Mullins [Radeon R4/R5 Graphics]
+		1179 f928  Beema [Radeon R5 Graphics]
 	9852  Mullins [Radeon R2 Graphics]
 	9853  Mullins [Radeon R2 Graphics]
 	9854  Mullins [Radeon R3E Graphics]
@@ -3386,7 +3552,20 @@
 	985d  Mullins
 	985e  Mullins
 	985f  Mullins
-	9874  Carrizo
+	9874  Wani [Radeon R5/R6/R7 Graphics]
+		1002 1871  Radeon R5 Graphics
+		1002 1e20  Radeon R7 Graphics
+		1028 06bd  Radeon R6 Graphics
+		103c 2b44  Radeon R6 Graphics
+		103c 8221  Radeon R5 Graphics
+		103c 8223  Radeon R5 Graphics
+		103c 8238  Radeon R7 Graphics
+		103c 8353  Radeon R7 Graphics
+		1458 d000  Radeon R7 Graphics
+		17aa 5113  Radeon R6 Graphics
+		17aa 5116  Radeon R6 Graphics
+		17aa 5118  Radeon R5 Graphics
+	98e4  Stoney [Radeon R2/R3/R4/R5 Graphics]
 	9900  Trinity [Radeon HD 7660G]
 		103c 1985  Pavilion 17-e163sg Notebook PC
 # AMD A10-5800K CPU
@@ -3398,8 +3577,8 @@
 		103c 194e  ProBook 455 G1 Notebook
 		103c 1952  ProBook 455 G1 Notebook
 	9904  Trinity [Radeon HD 7560D]
-	9905  Trinity [FirePro A300 Series Graphics]
-	9906  Trinity [FirePro A300 Series Graphics]
+	9905  Trinity GL [FirePro A300]
+	9906  Trinity GL [FirePro A320]
 	9907  Trinity [Radeon HD 7620G]
 	9908  Trinity [Radeon HD 7600G]
 	9909  Trinity [Radeon HD 7500G]
@@ -4008,16 +4187,26 @@
 	141f  Family 15h (Models 30h-3fh) Processor Function 5
 	1422  Family 15h (Models 30h-3fh) Processor Root Complex
 	1423  Family 15h (Models 30h-3fh) I/O Memory Management Unit
+	1424  Family 15h (Models 30h-3fh) Processor Root Port
 	1426  Family 15h (Models 30h-3fh) Processor Root Port
+	142e  Liverpool Processor Function 0
+	142f  Liverpool Processor Function 1
+	1430  Liverpool Processor Function 2
+	1431  Liverpool Processor Function 3
+	1432  Liverpool Processor Function 4
 	1436  Liverpool Processor Root Complex
 	1437  Liverpool I/O Memory Management Unit
 	1438  Liverpool Processor Root Port
 	1439  Family 16h Processor Functions 5:1
 	1450  Family 17h (Models 00h-0fh) Root Complex
+	1451  Family 17h (Models 00h-0fh) I/O Memory Management Unit
 	1452  Family 17h (Models 00h-0fh) PCIe Dummy Host Bridge
+	1453  Family 17h (Models 00h-0fh) PCIe GPP Bridge
 	1454  Family 17h (Models 00h-0fh) Internal PCIe GPP Bridge 0 to Bus B
+	1456  Family 17h (Models 00h-0fh) Platform Security Processor
+	1457  Family 17h (Models 00h-0fh) HD Audio Controller
 	145b  Zeppelin Non-Transparent Bridge
-	145c  USB3 Host Controller
+	145c  Family 17h (Models 00h-0fh) USB 3.0 Host Controller
 	145f  USB 3.0 Host controller
 	1460  Family 17h (Models 00h-0fh) Data Fabric: Device 18h; Function 0
 	1461  Family 17h (Models 00h-0fh) Data Fabric: Device 18h; Function 1
@@ -4025,7 +4214,7 @@
 	1463  Family 17h (Models 00h-0fh) Data Fabric: Device 18h; Function 3
 	1464  Family 17h (Models 00h-0fh) Data Fabric: Device 18h; Function 4
 	1465  Family 17h (Models 00h-0fh) Data Fabric: Device 18h; Function 5
-	1466  Family 17h (Models 00h-0fh) Data Fabric Device 18h Function 6
+	1466  Family 17h (Models 00h-0fh) Data Fabric: Device 18h; Function 6
 	1467  Family 17h (Models 00h-0fh) Data Fabric: Device 18h; Function 7
 	1510  Family 14h Processor Root Complex
 		174b 1001  PURE Fusion Mini
@@ -4042,6 +4231,17 @@
 	1535  Family 16h Processor Function 5
 	1536  Family 16h Processor Root Complex
 	1538  Family 16h Processor Function 0
+	1570  Family 15h (Models 60h-6fh) Processor Function 0
+	1571  Family 15h (Models 60h-6fh) Processor Function 1
+	1572  Family 15h (Models 60h-6fh) Processor Function 2
+	1573  Family 15h (Models 60h-6fh) Processor Function 3
+	1574  Family 15h (Models 60h-6fh) Processor Function 4
+	1575  Family 15h (Models 60h-6fh) Processor Function 5
+	1576  Family 15h (Models 60h-6fh) Processor Root Complex
+	1577  Family 15h (Models 60h-6fh) I/O Memory Management Unit
+	157a  Family 15h (Models 60h-6fh) Audio Controller
+	157b  Family 15h (Models 60h-6fh) Host Bridge
+	157c  Family 15h (Models 60h-6fh) Processor Root Port
 	1600  Family 15h Processor Function 0
 	1601  Family 15h Processor Function 1
 	1602  Family 15h Processor Function 2
@@ -4111,7 +4311,12 @@
 	43a1  Hudson PCI to PCI bridge (PCIE port 1)
 	43a2  Hudson PCI to PCI bridge (PCIE port 2)
 	43a3  Hudson PCI to PCI bridge (PCIE port 3)
-	43bb  USB 3.1 XHCI Controller
+	43b1  X399 Series Chipset PCIe Bridge
+	43b4  300 Series Chipset PCIe Port
+	43b6  X399 Series Chipset SATA Controller
+	43b7  300 Series Chipset SATA Controller
+	43ba  X399 Series Chipset USB 3.1 xHCI Controller
+	43bb  300 Series Chipset USB 3.1 xHCI Controller
 	7006  AMD-751 [Irongate] System Controller
 	7007  AMD-751 [Irongate] AGP Bridge
 	700a  AMD-IGR4 AGP Host to PCI Bridge
@@ -4567,7 +4772,7 @@
 		103c 3381  iLO4
 	0534  G200eR2
 	0536  Integrated Matrox G200eW3 Graphics Controller
-	0538  G200eH
+	0538  MGA G200eH3
 		1590 00e4  iLO5 VGA
 	0540  M91XX
 		102b 2080  M9140 LP PCIe x16
@@ -4606,8 +4811,9 @@
 		102b 0f83  Millennium G550
 		102b 0f84  Millennium G550 Dual Head DDR 32Mb
 		102b 1e41  Millennium G550
+		102b 22c0  G550 PCIe
 		102b 2300  Millennium G550 LP PCIE
-	2537  Millenium P650/P750
+	2537  Millennium P650/P750
 		102b 1820  Millennium P750 64MB
 		102b 1830  Millennium P650 64MB
 		102b 1850  RAD2mp
@@ -4615,7 +4821,7 @@
 		102b 1880  Sono S10
 		102b 1c10  QID 128MB
 		102b 2811  Millennium P650 Low-profile PCI 64MB
-		102b 2821  Millenium P650 Low-profile PCI
+		102b 2821  Millennium P650 Low-profile PCI
 		102b 2841  RAD PCI
 		102b 2851  Spectrum PCI
 		102b 2871  EpicA TC2
@@ -4629,7 +4835,7 @@
 		102b 3051  RG-400SL
 		102b 3061  Extio F1420
 		102b 3081  Extio F1240
-	2538  Millenium P650 PCIe
+	2538  Millennium P650 PCIe
 		102b 0847  RAD PCIe
 		102b 08c7  Millennium P650 PCIe 128MB
 		102b 0907  Millennium P650 PCIe 64MB
@@ -4637,23 +4843,23 @@
 		102b 0987  ATC PCIe 4MP
 		102b 1047  Millennium P650 LP PCIe 128MB
 		102b 1087  Millennium P650 LP PCIe 64MB
-		102b 1801  Millenium P650 PCIe x1
+		102b 1801  Millennium P650 PCIe x1
 		102b 2538  Parhelia APVe
 		102b 3007  QID Low-profile PCIe
 		102b 3087  Aurora VX3mp
 		102b 30c7  QID LP PCIe
 	2539  Millennium P690
-		102b 0040  Millenium P690 PCIe x16
+		102b 0040  Millennium P690 PCIe x16
 		102b 0042  ONYX
 		102b 0043  SPECTRA
-		102b 0080  Millenium P690 Plus LP PCIe x16
-		102b 0081  Millenium P690 LP PCIe x16
+		102b 0080  Millennium P690 Plus LP PCIe x16
+		102b 0081  Millennium P690 LP PCIe x16
 		102b 0082  RAD LPX PCIe x16
-		102b 00c0  Millenium P690 Plus LP PCI
-		102b 00c2  Millenium P690 LP PCI
+		102b 00c0  Millennium P690 Plus LP PCI
+		102b 00c2  Millennium P690 LP PCI
 		102b 00c3  RAD LPX PCI
-		102b 0101  Millenium P690 PCI
-		102b 0140  Millenium P690 LP PCIe x1
+		102b 0101  Millennium P690 PCI
+		102b 0140  Millennium P690 LP PCIe x1
 		102b 0180  Display Wall IP Decode 128 MB
 	4164  Morphis QxT frame grabber
 	43b4  Morphis Qxt encoding engine
@@ -5168,11 +5374,10 @@
 	3308  Integrated Lights-Out Standard MS Watchdog Timer
 		103c 330e  iLO3
 		103c 3381  iLO4
-	402f  PCIe Root Port
 	4030  zx2 System Bus Adapter
 	4031  zx2 I/O Controller
 	4037  PCIe Local Bus Adapter
-	403b  PCIe Root Port
+	9602  AMD RS780/RS880 PCI to PCI bridge (int gfx)
 103e  Solliday Engineering
 103f  Synopsys/Logic Modeling Group
 1040  Accelgraphics Inc.
@@ -5185,11 +5390,11 @@
 	3020  Samurai_IDE
 1043  ASUSTeK Computer Inc.
 	0464  Radeon R9 270x GPU
+	0521  RX580 [RX 580 Dual O8G]
 	0675  ISDNLink P-IN100-ST-D
 		0675 1704  ISDN Adapter (PCI Bus, D, C)
 		0675 1707  ISDN Adapter (PCI Bus, DV, W)
 		10cf 105e  ISDN Adapter (PCI Bus, DV, W)
-	13a0  Transformer Book T101HA-GR030R
 # Should be 1022:9602
 	9602  AMD RS780/RS880 PCI to PCI bridge (int gfx)
 		1043 83a2  M4A785TD Motherboard
@@ -5255,7 +5460,7 @@
 	c824  82C824
 	c825  82C825 [Firebridge 2]
 	c832  82C832
-	c861  82C861
+	c861  82C861 OHCI USB Host
 	c881  82C881 [FireLink] 1394 OHCI Link Controller
 	c895  82C895
 	c935  EV1935 ECTIVA MachOne PCIAudio
@@ -5403,10 +5608,11 @@
 		1028 014e  PCI7410,7510,7610 OHCI-Lynx Controller (Latitude D800)
 	802e  PCI7x20 1394a-2000 OHCI Two-Port PHY/Link-Layer Controller
 		1028 018d  Inspiron 700m/710m
-	8031  PCIxx21/x515 Cardbus Controller
+	8031  PCIxx21/PCIxx11/PCIx515 PC Card Controller
 		1025 0064  Extensa 3000 series laptop
 		1025 0080  Aspire 5024WLMi
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		103c 308b  MX6125
 	8032  OHCI Compliant IEEE 1394 Host Controller
@@ -5415,19 +5621,22 @@
 		103c 0934  Compaq nw8240/nx8220
 		103c 099c  NX6110/NC6120
 		103c 308b  MX6125
-	8033  PCIxx21 Integrated FlashMedia Controller
+	8033  PCIxx21/PCIxx11 Flash Media Controller
 		1025 0064  Extensa 3000 series laptop
 		1025 0080  Aspire 5024WLMi
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		103c 308b  MX6125
-	8034  PCI6411/6421/6611/6621/7411/7421/7611/7621 Secure Digital Controller
+	8034  PCIxx21/PCIxx11 SD Host Controller
 		1025 0080  Aspire 5024WLMi
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		103c 308b  MX6125
-	8035  PCI6411/6421/6611/6621/7411/7421/7611/7621 Smart Card Controller
+	8035  PCIxx21/PCIxx11 Smart Card Controller
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 	8036  PCI6515 Cardbus Controller
 	8038  PCI6515 SmartCard Controller
@@ -5441,7 +5650,7 @@
 		103c 30a1  NC2400
 		103c 30a3  Compaq nw8440
 		104d 902d  VAIO VGN-NR120E
-	803b  5-in-1 Multimedia Card Reader (SD/MMC/MS/MS PRO/xD)
+	803b  PCIxx12 Flash Media Controller
 		103c 309f  nx9420
 		103c 30a3  Compaq nw8440
 		104d 8212  VAIO VGN-N21E
@@ -5614,6 +5823,22 @@
 	90a3  Aeolia Memory (DDR3/SPM)
 	90a4  Aeolia USB 3.0 xHCI Host Controller
 	90bc  SxS Pro+ memory card
+	90c8  Belize ACPI
+	90c9  Belize Ethernet Controller
+	90ca  Belize SATA AHCI Controller
+	90cb  Belize SD/MMC Host Controller
+	90cc  Belize PCI Express Glue and Miscellaneous Devices
+	90cd  Belize DMA Controller
+	90ce  Belize Memory (DDR3/SPM)
+	90cf  Belize USB 3.0 xHCI Host Controller
+	90d7  Baikal ACPI
+	90d8  Baikal Ethernet Controller
+	90d9  Baikal SATA AHCI Controller
+	90da  Baikal SD/MMC Host Controller
+	90db  Baikal PCI Express Glue and Miscellaneous Devices
+	90dc  Baikal DMA Controller
+	90dd  Baikal Memory (DDR3/SPM)
+	90de  Baikal USB 3.0 xHCI Host Controller
 104e  Oak Technology, Inc
 	0017  OTI-64017
 	0107  OTI-107 [Spitfire]
@@ -5662,7 +5887,7 @@
 	3070  Hitachi FIVE-FX Fibre Channel to PCIe HBA
 	3505  SH7751 PCI Controller (PCIC)
 	350e  SH7751R PCI Controller (PCIC)
-1055  Efar Microsystems
+1055  Microchip Technology / SMSC
 	9130  SLC90E66 [Victory66] IDE
 	9460  SLC90E66 [Victory66] ISA
 	9462  SLC90E66 [Victory66] USB
@@ -6088,15 +6313,19 @@
 	1644  FastLinQ QL45000 Series 100GbE Controller
 		1077 e4f8  FastLinQ QL45611H 100GbE Adapter
 	1654  FastLinQ QL45000 Series 50GbE Controller
+		1077 0032  QL45212 Flex 50Gb 2-port Ethernet Adapter
 		1590 0223  Synergy 6810C 25/50Gb Ethernet Adapter
 	1656  FastLinQ QL45000 Series 25GbE Controller
+		1077 0033  QL45214 Flex 25Gb 4-port Ethernet Adapter
 		1077 02a7  QL45212-DE 25GbE Adapter
 		1077 e4f6  FastLinQ QL45211H 25GbE Adapter
 		1077 e4f7  FastLinQ QL45212H 25GbE Adapter
 	165c  FastLinQ QL45000 Series 10/25/40/50GbE Controller (FCoE)
+		1077 0034  QL45262 Flex 50Gb 2-port Ethernet Adapter w/ iSCSI/FCoE
 		1077 e4f1  FastLinQ QL45462H 40GbE FCoE Adapter
 		1077 e4f2  FastLinQ QL45461H 40GbE FCoE Adapter
 	165e  FastLinQ QL45000 Series 10/25/40/50GbE Controller (iSCSI)
+		1077 0034  QL45262 Flex 50Gb 2-port Ethernet Adapter w/ iSCSI/FCoE
 		1077 e4f1  FastLinQ QL45462H 40GbE iSCSI Adapter
 		1077 e4f2  FastLinQ QL45461H 40GbE iSCSI Adapter
 	1664  FastLinQ QL45000 Series Gigabit Ethernet Controller (SR-IOV VF)
@@ -6145,6 +6374,7 @@
 		103c 12dd  4Gb Fibre Channel [AB429A]
 	2432  ISP2432-based 4Gb Fibre Channel to PCI Express HBA
 		103c 7040  FC1142SR 4Gb 1-port PCIe Fibre Channel Host Bus Adapter [HPAE311A]
+		1077 0137  QLE2460 4 GB PCI-X Host-Bus-Adapter
 	2532  ISP2532-based 8Gb Fibre Channel to PCI Express HBA
 		1014 041e  FC EN0Y/EN12 PCIe2 LP 8 Gb 4-port Fibre Channel Adapter for POWER
 		103c 3262  StorageWorks 81Q
@@ -6154,6 +6384,7 @@
 		1077 015e  QLE2564 PCI Express to 8Gb FC Quad Channel
 		1077 0167  QME2572 Dual Port FC8 HBA Mezzanine
 		1590 00fc  StoreFabric 84Q 8Gb Quad Port Fibre Channel Host Bus Adapter
+	2971  ISP2684
 	3022  ISP4022-based Ethernet NIC
 	3032  ISP4032-based Ethernet IPv6 NIC
 	4010  ISP4010-based iSCSI TOE HBA
@@ -6192,29 +6423,62 @@
 	8070  FastLinQ QL41000 Series 10/25/40/50GbE Controller
 		1077 0001  10GE 2P QL41162HxRJ-DE Adapter
 		1077 0002  10GE 2P QL41112HxCU-DE Adapter
+		1077 0004  4x10GE QL41164HFCU CNA
+		1077 0005  QLogic 4x10GE QL41164HMRJ CNA
+		1077 0006  QLogic 4x10GE QL41164HMCU CNA
+		1077 0007  QLogic 2x1GE+2x10GE QL41264HMCU CNA
+		1077 0009  QLogic 2x1GE+2x10GE QL41162HMRJ CNA
 		1077 000b  25GE 2P QL41262HxCU-DE Adapter
-		1077 0011  FastLinQ QL41212H 25GbE Adapter
+		1077 0011  FastLinQ QL41212HLCU 25GbE Adapter
 		1077 0012  FastLinQ QL41112H 10GbE Adapter
+		1077 0019  QL41232HOCU - Dual Port 25/10GbE SFP28 OCP Adapter
+		1077 0039  QLogic QL41262 PCIe 25Gb 2-Port SFP28 Ethernet Adapter
+		1590 021d  10/25GbE 2P QL41222HLCU-HP Adapter
+		1590 021e  10/25GbE 2P QL41162HMRJ-HP Adapter
+		1590 021f  10/25GbE 2P QL41262HMCU-HP Adapter
+		1590 0220  10/25GbE 2P QL41122HLRJ-HP Adapter
 	8080  FastLinQ QL41000 Series 10/25/40/50GbE Controller (FCoE)
 		1077 0001  10GE 2P QL41162HxRJ-DE Adapter
 		1077 0002  10GE 2P QL41112HxCU-DE Adapter
+		1077 0004  4x10GE QL41164HFCU CNA
+		1077 0005  QLogic 4x10GE QL41164HMRJ CNA
+		1077 0006  QLogic 4x10GE QL41164HMCU CNA
+		1077 0007  QLogic 2x1GE+2x10GE QL41264HMCU CNA
+		1077 0009  QLogic 2x1GE+2x10GE QL41162HMRJ CNA
 		1077 000b  25GE 2P QL41262HxCU-DE Adapter
+		1077 000c  QLogic 2x25GE QL41262HMCU CNA
 		1077 000d  FastLinQ QL41262H 25GbE FCoE Adapter
 		1077 000e  FastLinQ QL41162H 10GbE FCoE Adapter
 	8084  FastLinQ QL41000 Series 10/25/40/50GbE Controller (iSCSI)
 		1077 0001  10GE 2P QL41162HxRJ-DE Adapter
 		1077 0002  10GE 2P QL41112HxCU-DE Adapter
+		1077 0003  4x10GE QL41164HxRJ CNA
+		1077 0004  4x10GE QL41164HFCU CNA
+		1077 0005  QLogic 4x10GE QL41164HMRJ CNA
+		1077 0006  QLogic 4x10GE QL41164HMCU CNA
+		1077 0007  QLogic 2x25GE QL41262HMCU CNA
+		1077 0009  QLogic 2x1GE+2x10GE QL41162HMRJ CNA
 		1077 000b  25GE 2P QL41262HxCU-DE Adapter
+		1077 000c  QLogic 2x25GE QL41262HMCU CNA
 		1077 000d  FastLinQ QL41262H 25GbE iSCSI Adapter
 		1077 000e  FastLinQ QL41162H 10GbE iSCSI Adapter
 	8090  FastLinQ QL41000 Series Gigabit Ethernet Controller (SR-IOV VF)
 		1077 0001  25GE 2P QL41262HxCU-DE Adapter
 		1077 0002  10GE 2P QL41112HxCU-DE Adapter
+		1077 0003  4x10GE QL41164HxRJ CNA
+		1077 0004  4x10GE QL41164HFCU CNA
+		1077 0005  QLogic 4x10GE QL41164HMRJ CNA
+		1077 0006  QLogic 4x10GE QL41164HMCU CNA
+		1077 0007  QLogic 2x1GE+2x10GE QL41264HMCU CNA
+		1077 0009  QLogic 2x1GE+2x10GE QL41162HMRJ CNA
 		1077 000b  25GE 2P QL41262HxCU-DE Adapter
+		1077 000c  QLogic 2x25GE QL41262HMCU CNA
 		1077 000d  FastLinQ QL41262H 25GbE FCoE Adapter (SR-IOV VF)
 		1077 000e  FastLinQ QL41162H 10GbE iSCSI Adapter (SR-IOV VF)
 		1077 0011  FastLinQ QL41212H 25GbE Adapter (SR-IOV VF)
 		1077 0012  FastLinQ QL41112H 10GbE Adapter (SR-IOV VF)
+		1590 021e  10/25GbE 2P QL41162HMRJ-HP Adapter
+		1590 021f  10/25GbE 2P QL41262HMCU-HP Adapter
 	8430  ISP8324 1/10GbE Converged Network Controller (NIC VF)
 	8431  8300 Series 10GbE Converged Network Adapter (FCoE VF)
 	8432  ISP2432M-based 10GbE Converged Network Adapter (CNA)
@@ -8115,8 +8379,10 @@
 	0100  Lightning 1200
 		10dd 0023  Lightning 1200 15+16M
 10de  NVIDIA Corporation
-	0008  NV1 [EDGE 3D]
-	0009  NV1 [EDGE 3D]
+	0008  NV1 [STG2000X-B Series]
+	0009  NV1 [NV1 Series]
+	0018  NV3 [Riva 128]
+	0019  NV3 [Riva 128ZX]
 	0020  NV4 [Riva TNT]
 		1043 0200  V3400 TNT
 		1048 0c18  Erazor II SGRAM
@@ -8387,7 +8653,7 @@
 	0098  G70M [GeForce Go 7800]
 	0099  G70M [GeForce Go 7800 GTX]
 	009d  G70GL [Quadro FX 4500]
-	00a0  NV5 [Aladdin TNT2]
+	00a0  NV0A [Aladdin TNT2 IGP]
 		14af 5810  Maxi Gamer Xentor
 	00c0  NV41 [GeForce 6800 GS]
 	00c1  NV41 [GeForce 6800]
@@ -8483,16 +8749,16 @@
 	00f5  G71 [GeForce 7800 GS]
 	00f6  NV43 [GeForce 6800 GS/XT]
 		1682 217e  XFX GeForce 6800 XTreme 256MB DDR3 AGP
-	00f8  NV40GL [Quadro FX 3400/4400]
+	00f8  NV45GL [Quadro FX 3400/4400]
 	00f9  NV40 [GeForce 6800 GT/GTO/Ultra]
 		10de 00f9  NV40 [GeForce 6800 GT]
 		1682 2120  GEFORCE 6800 GT PCI-E
-	00fa  NV36 [GeForce PCX 5750]
-	00fb  NV38 [GeForce PCX 5900]
+	00fa  NV39 [GeForce PCX 5750]
+	00fb  NV35 [GeForce PCX 5900]
 	00fc  NV37GL [Quadro FX 330/GeForce PCX 5300]
 	00fd  NV37GL [Quadro PCI-E Series]
 	00fe  NV38GL [Quadro FX 1300]
-	00ff  NV18 [GeForce PCX 4300]
+	00ff  NV19 [GeForce PCX 4300]
 	0100  NV10 [GeForce 256 SDR]
 		1043 0200  AGP-V6600 SGRAM
 		1043 0201  AGP-V6600 SDRAM
@@ -9192,6 +9458,7 @@
 	0424  G86 [GeForce 8400 GS]
 	0425  G86M [GeForce 8600M GS]
 		1025 0121  Aspire 5920G
+		1043 1514  F3SV
 	0426  G86M [GeForce 8400M GT]
 	0427  G86M [GeForce 8400M GS]
 		103c 30cc  Pavilion dv6700
@@ -9256,19 +9523,19 @@
 	0533  C67 [GeForce 7000M / nForce 610M]
 	053a  C68 [GeForce 7050 PV / nForce 630a]
 	053b  C68 [GeForce 7050 PV / nForce 630a]
-		1043 8308  M2N68-AM Motherbord
+		1043 8308  M2N68-AM Motherboard
 	053e  C68 [GeForce 7025 / nForce 630a]
 	0541  MCP67 Memory Controller
 	0542  MCP67 SMBus
-		1043 8308  M2N68-AM Motherbord
+		1043 8308  M2N68-AM Motherboard
 	0543  MCP67 Co-processor
 	0547  MCP67 Memory Controller
-		1043 8308  M2N68-AM Motherbord
+		1043 8308  M2N68-AM Motherboard
 		1849 0547  ALiveNF7G-HDready
 	0548  MCP67 ISA Bridge
 		1043 8308  M2N68-AM Motherboard
 	054c  MCP67 Ethernet
-		1043 8308  M2N68-AM Motherbord
+		1043 8308  M2N68-AM Motherboard
 		1849 054c  ALiveNF7G-HDready, MCP67 Gigabit Ethernet
 	054d  MCP67 Ethernet
 	054e  MCP67 Ethernet
@@ -9363,6 +9630,7 @@
 		1682 2385  GeForce 9600 GSO 768mb
 	0611  G92 [GeForce 8800 GT]
 		107d 2ab0  Winfast PX8800 GT PCI-E
+		1462 1170  NX8800GT series model V117 2xDVI+TV
 		19da 1040  ZT-88TES2P-FSP
 	0612  G92 [GeForce 9800 GTX / 9800 GTX+]
 	0613  G92 [GeForce 9800 GTX+]
@@ -9699,7 +9967,7 @@
 	0863  C79 [GeForce 9400M]
 		106b 00aa  MacBook5,1
 	0864  C79 [GeForce 9300]
-	0865  C79 [GeForce 9300/ION]
+	0865  C79 [GeForce 9300 / ION]
 	0866  C79 [GeForce 9400M G]
 		106b 00b1  GeForce 9400M
 	0867  C79 [GeForce 9400]
@@ -9723,12 +9991,12 @@
 		1043 1c12  GeForce G102M
 		1043 1c52  GeForce G205M
 	0874  C79 [ION]
-	0876  ION VGA [GeForce 9400M]
+	0876  C79 [GeForce 9400M / ION]
 	087a  C79 [GeForce 9400]
-	087d  ION VGA
+	087d  C79 [ION]
 		19da a123  IONITX-F-E
-	087e  ION LE VGA
-	087f  ION LE VGA
+	087e  C79 [ION LE]
+	087f  C79 [ION LE]
 	08a0  MCP89 [GeForce 320M]
 	08a2  MCP89 [GeForce 320M]
 	08a3  MCP89 [GeForce 320M]
@@ -9759,6 +10027,7 @@
 	0a64  GT218 [ION]
 	0a65  GT218 [GeForce 210]
 		1043 8334  EN210 SILENT
+		1458 36a9  GV-N210D3-1GI (rev. 6.0/6.1)
 		1462 8094  N210 [Geforce 210] PCIe graphics adapter
 	0a66  GT218 [GeForce 310]
 	0a67  GT218 [GeForce 315]
@@ -9769,7 +10038,7 @@
 		1028 040b  Latitude E6510
 		17aa 2142  ThinkPad T410
 	0a6e  GT218M [GeForce 305M]
-	0a6f  GT218 [ION]
+	0a6f  GT218M [ION]
 	0a70  GT218M [GeForce 310M]
 	0a71  GT218M [GeForce 305M]
 	0a72  GT218M [GeForce 310M]
@@ -9777,7 +10046,7 @@
 	0a74  GT218M [GeForce G210M]
 		1b0a 903a  GeForce G210
 	0a75  GT218M [GeForce 310M]
-	0a76  GT218 [ION 2]
+	0a76  GT218M [ION 2]
 	0a78  GT218GL [Quadro FX 380 LP]
 	0a7a  GT218M [GeForce 315M]
 		104d 907e  GeForce 315M
@@ -10049,6 +10318,7 @@
 	0fc0  GK107 [GeForce GT 640 OEM]
 	0fc1  GK107 [GeForce GT 640]
 	0fc2  GK107 [GeForce GT 630 OEM]
+	0fc5  GK107
 	0fc6  GK107 [GeForce GTX 650]
 		1043 8428  GTX650-DC-1GD5
 	0fc8  GK107 [GeForce GT 740]
@@ -10147,11 +10417,14 @@
 	102a  GK110BGL [Tesla K40t]
 	102d  GK210GL [Tesla K80]
 	102e  GK110BGL [Tesla K40d]
+	102f  GK110BGL [Tesla Stella Solo]
 	103a  GK110GL [Quadro K6000]
 	103c  GK110GL [Quadro K5200]
+	103f  GK110BGL [Tesla Stella SXM]
 	1040  GF119 [GeForce GT 520]
 		1043 83a0  ENGT520 SILENT
 	1042  GF119 [GeForce 510]
+	1045  GF119
 	1048  GF119 [GeForce 605]
 	1049  GF119 [GeForce GT 620 OEM]
 	104a  GF119 [GeForce GT 610]
@@ -10602,6 +10875,7 @@
 	11a3  GK104M [GeForce GTX 680MX]
 		106b 010d  iMac 13,2
 	11a7  GK104M [GeForce GTX 675MX]
+	11af  GK104GLM [GRID IceCube]
 # GRID K2 Quadro USM
 	11b0  GK104GL [GRID K240Q\K260Q vGPU]
 		10de 101a  GRID K240Q
@@ -10611,6 +10885,7 @@
 	11b6  GK104GLM [Quadro K3100M]
 	11b7  GK104GLM [Quadro K4100M]
 	11b8  GK104GLM [Quadro K5100M]
+	11b9  GK104GLM
 	11ba  GK104GL [Quadro K5000]
 	11bb  GK104GL [Quadro 4100]
 	11bc  GK104GLM [Quadro K5000M]
@@ -10690,10 +10965,11 @@
 	1282  GK208 [GeForce GT 640 Rev. 2]
 	1284  GK208 [GeForce GT 630 Rev. 2]
 	1286  GK208 [GeForce GT 720]
-	1287  GK208 [GeForce GT 730]
-	1288  GK208 [GeForce GT 720]
+	1287  GK208B [GeForce GT 730]
+	1288  GK208B [GeForce GT 720]
 	1289  GK208 [GeForce GT 710]
-	128b  GK208 [GeForce GT 710B]
+	128b  GK208B [GeForce GT 710]
+		1043 85f7  GT710-SL-1GD5
 	1290  GK208M [GeForce GT 730M]
 		103c 2afa  GeForce GT 730A
 		103c 2b04  GeForce GT 730A
@@ -10717,11 +10993,12 @@
 		17aa 367c  GeForce 710A
 	1296  GK208M [GeForce 825M]
 	1298  GK208M [GeForce GT 720M]
-	1299  GK208M [GeForce 920M]
+	1299  GK208BM [GeForce 920M]
 		17aa 30bb  GeForce 920A
+		17aa 30df  GeForce 920A
 		17aa 36a7  GeForce 920A
 		17aa 36af  GeForce 920M
-	129a  GK208M [GeForce 910M]
+	129a  GK208BM [GeForce 910M]
 	12a0  GK208
 	12b9  GK208GLM [Quadro K610M]
 	12ba  GK208GLM [Quadro K510M]
@@ -10780,6 +11057,7 @@
 	13bd  GM107GL [Tesla M10]
 		10de 110a  GRID M40
 		10de 1160  Tesla M10
+		10de 11d2  GRID M10-8Q
 	13c0  GM204 [GeForce GTX 980]
 		1043 8504  GTX980-4GD5
 	13c1  GM204
@@ -10789,11 +11067,16 @@
 	13d8  GM204M [GeForce GTX 970M]
 	13d9  GM204M [GeForce GTX 965M]
 	13da  GM204M [GeForce GTX 980 Mobile]
-	13e7  GM204 [GeForce GTX 980 Engineering Sample]
+	13e7  GM204GL [GeForce GTX 980 Engineering Sample]
 	13f0  GM204GL [Quadro M5000]
 	13f1  GM204GL [Quadro M4000]
 	13f2  GM204GL [Tesla M60]
+		10de 114d  GRID M60-1Q
+		10de 114e  GRID M60-2Q
+		10de 1150  GRID M60-8Q
+		10de 11b0  GRID M60-4A
 	13f3  GM204GL [Tesla M6]
+		10de 1184  GRID M6-8Q
 	13f8  GM204GLM [Quadro M5000M / M5000 SE]
 	13f9  GM204GLM [Quadro M4000M]
 	13fa  GM204GLM [Quadro M3000M]
@@ -10801,7 +11084,7 @@
 	13fb  GM204GLM [Quadro M5500]
 	1401  GM206 [GeForce GTX 960]
 	1402  GM206 [GeForce GTX 950]
-	1406  GM206 [GeForce GTX 960]
+	1406  GM206 [GeForce GTX 960 OEM]
 	1407  GM206 [GeForce GTX 750 v2]
 	1427  GM206M [GeForce GTX 965M]
 	1430  GM206GL [Quadro M2000]
@@ -10811,7 +11094,7 @@
 	15f1  GP100GL
 	15f7  GP100GL [Tesla P100 PCIe 12GB]
 	15f8  GP100GL [Tesla P100 PCIe 16GB]
-	15f9  GP100GL [Tesla P100 SMX2 16GB]
+	15f9  GP100GL [Tesla P100 SXM2 16GB]
 	1617  GM204M [GeForce GTX 980M]
 	1618  GM204M [GeForce GTX 970M]
 	1619  GM204M [GeForce GTX 965M]
@@ -10820,6 +11103,9 @@
 	1725  GP100
 	172e  GP100
 	172f  GP100
+	174d  GM108M [GeForce MX130]
+	174e  GM108M [GeForce MX110]
+	1789  GM107GL [GRID M3-3020]
 	17c2  GM200 [GeForce GTX TITAN X]
 	17c8  GM200 [GeForce GTX 980 Ti]
 	17f0  GM200GL [Quadro M6000]
@@ -10829,14 +11115,15 @@
 	1b01  GP102
 	1b02  GP102 [TITAN Xp]
 	1b06  GP102 [GeForce GTX 1080 Ti]
+	1b07  GP102 [P102-100]
 	1b30  GP102GL [Quadro P6000]
 	1b38  GP102GL [Tesla P40]
 	1b70  GP102GL
 	1b78  GP102GL
 	1b80  GP104 [GeForce GTX 1080]
 	1b81  GP104 [GeForce GTX 1070]
-	1b82  GP104
-	1b83  GP104
+	1b82  GP104 [GeForce GTX 1070 Ti]
+	1b83  GP104 [GeForce GTX 1060 6GB]
 	1b84  GP104 [GeForce GTX 1060 3GB]
 	1b87  GP104 [P104-100]
 	1ba0  GP104M [GeForce GTX 1080 Mobile]
@@ -10845,14 +11132,19 @@
 		1462 11e8  GeForce GTX 1070 Max-Q
 		1462 11e9  GeForce GTX 1070 Max-Q
 		1558 9501  GeForce GTX 1070 Max-Q
+	1bad  GP104 [GeForce GTX 1070 Engineering Sample]
 	1bb0  GP104GL [Quadro P5000]
 	1bb1  GP104GL [Quadro P4000]
 	1bb3  GP104GL [Tesla P4]
-	1bb4  GP104GL
+	1bb4  GP104GL [Tesla P6]
+	1bb5  GP104GLM [Quadro P5200 Mobile]
 	1bb6  GP104GLM [Quadro P5000 Mobile]
 	1bb7  GP104GLM [Quadro P4000 Mobile]
 		1462 11e9  Quadro P4000 Max-Q
 	1bb8  GP104GLM [Quadro P3000 Mobile]
+	1bb9  GP104GLM [Quadro P4200 Mobile]
+	1bbb  GP104GLM [Quadro P3200 Mobile]
+	1bc7  GP104 [P104-101]
 	1be0  GP104M [GeForce GTX 1080 Mobile]
 		1028 07c0  GeForce GTX 1080 Max-Q
 		1458 355b  GeForce GTX 1080 Max-Q
@@ -10861,9 +11153,11 @@
 	1c01  GP106
 	1c02  GP106 [GeForce GTX 1060 3GB]
 	1c03  GP106 [GeForce GTX 1060 6GB]
+	1c04  GP106 [GeForce GTX 1060 5GB]
+	1c06  GP106 [GeForce GTX 1060 6GB Rev. 2]
 	1c07  GP106 [P106-100]
 	1c09  GP106 [P106-090]
-	1c20  GP106M [GeForce GTX 1060 Mobile 3GB]
+	1c20  GP106M [GeForce GTX 1060 Mobile]
 		17aa 39b9  GeForce GTX 1060 Max-Q 3GB
 	1c21  GP106M [GeForce GTX 1050 Ti Mobile]
 	1c22  GP106M [GeForce GTX 1050 Mobile]
@@ -10874,7 +11168,7 @@
 	1c61  GP106M [GeForce GTX 1050 Ti Mobile]
 	1c62  GP106M [GeForce GTX 1050 Mobile]
 	1c70  GP106GL
-	1c80  GP107
+	1c80  GP107 [GeForce GTX 1050 3GB]
 	1c81  GP107 [GeForce GTX 1050]
 	1c82  GP107 [GeForce GTX 1050 Ti]
 	1c8c  GP107M [GeForce GTX 1050 Ti Mobile]
@@ -10886,9 +11180,23 @@
 	1cb1  GP107GL [Quadro P1000]
 	1cb2  GP107GL [Quadro P600]
 	1cb3  GP107GL [Quadro P400]
+	1cb6  GP107GL [Quadro P620]
+	1cba  GP107GLM [Quadro P2000 Mobile]
+	1cbb  GP107GLM [Quadro P1000 Mobile]
+	1cbc  GP107GLM [Quadro P600 Mobile]
 	1d01  GP108 [GeForce GT 1030]
 	1d10  GP108M [GeForce MX150]
-	1d81  GV100
+	1d12  GP108M [GeForce MX150]
+		1d72 1701  Mi Notebook Pro [GeForce MX150]
+	1d33  GP108GLM [Quadro P500 Mobile]
+	1d81  GV100 [TITAN V]
+	1db1  GV100GL [Tesla V100 SXM2 16GB]
+	1db3  GV100GL [Tesla V100 FHHL 16GB]
+	1db4  GV100GL [Tesla V100 PCIe 16GB]
+	1db5  GV100GL [Tesla V100 SXM2 32GB]
+	1db6  GV100GL [Tesla V100 PCIe 32GB]
+	1db7  GV100GL [Tesla V100 DGXS 32GB]
+	1dba  GV100GL [Quadro GV100]
 10df  Emulex Corporation
 	0720  OneConnect NIC (Skyhawk)
 		103c 1934  FlexFabric 20Gb 2-port 650M Adapter
@@ -10896,6 +11204,7 @@
 		103c 21d4  StoreFabric CN1200E 10Gb Converged Network Adapter
 		103c 220a  FlexFabric 10Gb 2-port 556FLR-SFP+ Adapter
 		103c 803f  Ethernet 10Gb 2-port 557SFP+ Adapter
+		103c 8144  FlexFabric 10GB 2-port 556FLR-T Adapter
 		17aa 1056  ThinkServer OCm14102-UX-L AnyFabric
 		17aa 1057  ThinkServer OCm14104-UX-L AnyFabric
 		17aa 1059  ThinkServer OCm14104-UT-L AnyFabric
@@ -10913,6 +11222,7 @@
 	e180  Proteus-X: LightPulse IOV Fibre Channel Host Adapter
 	e200  LightPulse LPe16002
 		1014 03f1  PCIe2 16 Gb 2-port Fibre Channel Adapter (FC EL5B; CCIN 577F)
+		10df e282  Flex System FC5054 4-port 16Gb FC Adapter
 	e208  LightPulse 16Gb Fibre Channel Host Adapter (Lancer-VF)
 	e220  OneConnect NIC (Lancer)
 		17aa 1054  ThinkServer LPm16002B-M6-L AnyFabric
@@ -10946,6 +11256,9 @@
 	f111  Saturn-X LightPulse Fibre Channel Host Adapter
 	f112  Saturn-X LightPulse Fibre Channel Host Adapter
 	f180  LPSe12002 EmulexSecure Fibre Channel Adapter
+	f400  LPe36000 Fibre Channel Host Adapter [Prism]
+		10df f401  LPe35000 Fibre Channel Host Adapter [Prism]
+		10df f402  LPe35000 Fibre Channel Host Adapter [Prism]
 	f700  LP7000 Fibre Channel Host Adapter
 	f701  LP7000 Fibre Channel Host Adapter Alternate ID (JX1:2-3, JX2:1-2)
 	f800  LP8000 Fibre Channel Host Adapter
@@ -11084,13 +11397,14 @@
 	8129  RTL-8129
 		10ec 8129  RT8129 Fast Ethernet Adapter
 		11ec 8129  RTL8111/8168 PCIe Gigabit Ethernet (misconfigured)
-	8136  RTL8101/2/6E PCI Express Fast/Gigabit Ethernet controller
-		103c 1985  Pavilion 17-e163sg Notebook PC
+	8136  RTL810xE PCI Express Fast Ethernet controller
+		103c 1985  RTL8106E on Pavilion 17-e163sg Notebook PC
 		103c 2a8c  Compaq 500B Microtower
 		103c 2ab1  Pavilion p6774
 		103c 30cc  Pavilion dv6700
 		1179 ff64  RTL8102E PCI-E Fast Ethernet NIC
 		17c0 1053  RTL8101e Medion WIM 2210 Notebook PC [MD96850]
+	8137  RTL8104E PCIe Fast Ethernet Controller
 	8138  RT8139 (B/C) Cardbus Fast Ethernet Adapter
 		10ec 8138  RT8139 (B/C) Fast Ethernet Adapter
 	8139  RTL-8100/8101L/8139 PCI Fast Ethernet Adapter
@@ -11145,6 +11459,7 @@
 		8e2e 7100  KF-230TX/2
 		a0a0 0007  ALN-325C
 	8167  RTL-8110SC/8169SC Gigabit Ethernet
+		105b 0e10  RTL-8110SC-GR on a N15235/A74MX mainboard
 		1458 e000  GA-MA69G-S3H Motherboard
 		1462 235c  P965 Neo MS-7235 mainboard
 		1462 236c  945P Neo3-F motherboard
@@ -11160,7 +11475,7 @@
 		1043 16d5  U6V/U31J laptop
 		1043 81aa  P5B
 		1043 82c6  M3A78 Series Motherboard
-		1043 83a3  M4A785TD Motherboard
+		1043 83a3  M4A785/P7P55 Motherboard
 		1043 8432  P8P67 and other motherboards
 		1043 8505  P8 series motherboard
 		105b 0d7c  D270S/D250S Motherboard
@@ -11168,6 +11483,7 @@
 		144d c652  RTL8168 on a NP300E5C series laptop
 		1458 e000  Onboard Ethernet
 		1462 238c  Onboard RTL8111b on MSI P965 Platinum Mainboard
+		1462 345c  RTL8111B on MS-7345 Motherboard
 		1462 368c  K9AG Neo2
 		1462 4180  Wind PC MS-7418
 		1462 7522  X58 Pro-E
@@ -11222,6 +11538,8 @@
 	8821  RTL8821AE 802.11ac PCIe Wireless Network Adapter
 	b723  RTL8723BE PCIe Wireless Network Adapter
 		10ec 8739  Dell Wireless 1801
+	b822  RTL8822BE 802.11a/b/g/n/ac WiFi adapter
+	c821  RTL8821CE 802.11ac PCIe Wireless Network Adapter
 10ed  Ascii Corporation
 	7310  V7310
 10ee  Xilinx Corporation
@@ -12261,12 +12579,13 @@
 111b  Teledyne Electronic Systems
 111c  Tricord Systems Inc.
 	0001  Powerbis Bridge
-111d  Integrated Device Technology, Inc. [IDT]
+# now owned by Microchip Technology
+111d  Microsemi / PMC / IDT
 	0001  IDT77201/77211 155Mbps ATM SAR Controller [NICStAR]
 	0003  IDT77222/77252 155Mbps ATM MICRO ABR SAR Controller
 	0004  IDT77V252 155Mbps ATM MICRO ABR SAR Controller
 	0005  IDT77V222 155Mbps ATM MICRO ABR SAR Controller
-	8018  PES12N3A PCI Express Switch
+	8018  PES12N3A 12-lane 3-Port PCI Express Switch
 	801c  PES24N3A PCI Express Switch
 	8028  PES4T4 PCI Express Switch
 	802b  PES8T5A PCI Express Switch
@@ -12315,9 +12634,14 @@
 		1093 75ff  PXIe-8383mc DMA
 		1093 7600  PXIe-8383mc DMA
 		1093 7602  PXIe-8384
+# 32-lanes 24-ports Gen.2
+	808a  89HPES32NT24BG2 PCI Express Switch
+# 32-lanes 24-ports Gen.2
+	808c  89HPES32NT24AG2 PCI Express Switch
 	808e  PES24NT24G2 PCI Express Switch
-# 32 port / 8 lane PCIe Gen 2 packet switch
-	808f  PES32NT8AG2
+	808f  89HPES32NT8AG2 32-Lane 8-Port PCIe Gen2 System Interconnect Switch with Non-Transparent Bridging
+	8090  89HPES16NT16G2 16-Lane 16-Port PCIe Gen2 System Interconnect Switch
+	8092  89HPES12NT12G2 12-Lane 12-Port PCIe Gen2 System Interconnect Switch
 	80cf  F32P08xG3 [PCIe boot mode]
 	80d2  F32P08xG3 NVMe controller
 111e  Eldec
@@ -12524,6 +12848,8 @@
 		1131 4f61  Activy DVB-S Budget Rev GR
 		1131 5f61  Activy DVB-T Budget
 		114b 2003  DVRaptor Video Edit/Capture Card
+		1159 0040  MuTech M-Vision 500 (MV-500 rev. E)
+		1159 0050  MuTech M-Vision 500 (MV-500 rev. F)
 		11bd 0006  DV500 Overlay
 		11bd 000a  DV500 Overlay
 		11bd 000f  DV500 Overlay
@@ -12980,7 +13306,7 @@
 	3011  Tokenet/vg 1001/10m anylan
 	9050  Lanfleet/Truevalue
 	9051  Lanfleet/Truevalue
-1159  Mutech Corp
+1159  MuTech Corporation
 	0001  MV-1000
 	0002  MV-1500
 115a  Harlequin Ltd
@@ -13138,6 +13464,8 @@
 1170  Inventec Corporation
 1171  Loughborough Sound Images Plc
 1172  Altera Corporation
+	00a7  Stratix V
+	0530  Stratix IV
 1173  Adobe Systems, Inc
 1174  Bridgeport Machines
 1175  Mitron Computer Inc.
@@ -13149,6 +13477,7 @@
 	0102  Extended IDE Controller
 	0103  EX-IDE Type-B
 	010f  NVMe Controller
+	0115  XG4 NVMe SSD Controller
 	0404  DVD Decoder card
 	0406  Tecra Video Capture device
 	0407  DVD Decoder card (Version 2)
@@ -13181,9 +13510,47 @@
 		117c 802f  ExpressPCI UL5D Low Profile
 	0033  SAS Adapter
 	0041  ExpressSAS R30F
+	0042  ExpressSAS 6Gb/s SAS/SATA HBA
+		117c 0042  ExpressSAS H680
+		117c 0043  ExpressSAS H608
+		117c 0044  ExpressSAS H60F
+		117c 0045  ExpressSAS H6F0
+		117c 0046  ExpressSAS H644
+		117c 004f  ExpressSAS M608
+		117c 0057  ExpressSAS M680
+		117c 0058  ExpressSAS M644
+		117c 0059  ExpressSAS W608
+		117c 005a  ExpressSAS W680
+		117c 005b  ExpressSAS W644
+	0049  ExpressSAS 6Gb SAS/SATA RAID Adapter
+		117c 0049  ExpressSAS R680
+		117c 004a  ExpressSAS R608
+		117c 004b  ExpressSAS R60F
+		117c 004c  ExpressSAS R6F0
+		117c 004d  ExpressSAS R644
+		117c 004e  ExpressSAS R648
+	0064  Celerity FC 16Gb/s Gen 5 Fibre Channel HBA
+		117c 0063  Celerity FC-161E
+		117c 0064  Celerity FC-162E
+		117c 0065  Celerity FC-164E
+	0094  Celerity FC 16/32Gb/s Gen 6 Fibre Channel HBA
+		117c 0094  Celerity FC-162P
+		117c 00a0  Celerity FC-161P
+		117c 00a1  Celerity FC-164P
+		117c 00a2  Celerity FC-321E
+		117c 00a3  Celerity FC-322E
+		117c 00ac  Celerity FC-324E
 	8013  ExpressPCI UL4D
 	8014  ExpressPCI UL4S
 	8027  ExpressPCI UL5D
+	8070  ExpressSAS 12Gb/s SAS/SATA HBA
+		117c 0070  ExpressSAS H1280
+		117c 0071  ExpressSAS H1208
+		117c 0080  ExpressSAS H1244
+	8072  ExpressSAS 12Gb/s SAS/SATA HBA
+		117c 0072  ExpressSAS H12F0
+		117c 0073  ExpressSAS H120F
+		117c 0082  ExpressSAS H1288
 117d  Becton & Dickinson
 117e  T/R Systems
 117f  Integrated Circuit Systems
@@ -13238,6 +13605,8 @@
 		1025 0121  Aspire 5920G
 		1028 01d7  XPS M1210
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
+		103c 1521  HP EliteBook 8540w
 		103c 30b5  Presario V3242AU
 		103c 30b7  Presario V6133CL
 		103c 30cc  Pavilion dv6700
@@ -13255,6 +13624,7 @@
 		1028 01a2  Inspiron 9200
 		1028 01d7  XPS M1210
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 03b5  Presario V3242AU
 		103c 30b7  Presario V6133CL
 		103c 30c1  Compaq 6910p
@@ -13271,6 +13641,7 @@
 		1025 0121  Aspire 5920G
 		1028 01d7  XPS M1210
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		1028 024d  Latitude E4300
 		103c 30b5  Presario V3242AU
 		103c 30b7  Presario V6133CL
@@ -13287,12 +13658,14 @@
 		1028 01f5  Inspiron 1501
 		1028 024f  Latitude e6500
 		103c 03b5  Presario V3242AU
+		103c 1521  HP EliteBook 8540w
 		103c 30b7  Presario V6133CL
 		103c 30cf  Pavilion dv9500/9600/9700 series
 		1183 0843  Alienware Aurora m9700
 	0852  xD-Picture Card Controller
 		1025 0121  Aspire 5920G
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30b5  Presario V3242AU
 		103c 30b7  Presario V6133CL
 		103c 30cc  Pavilion dv6700
@@ -13544,6 +13917,7 @@
 	4353  88E8039 PCI-E Fast Ethernet Controller
 		104d 902d  VAIO VGN-NR120E
 	4354  88E8040 PCI-E Fast Ethernet Controller
+		1028 022f  Inspiron 1525
 		144d c06a  R730 Laptop
 		144d c072  Notebook N150P
 	4355  88E8040T PCI-E Fast Ethernet Controller
@@ -13639,8 +14013,9 @@
 	6081  MV88SX6081 8-port SATA II PCI-X Controller
 	6101  88SE6101/6102 single-port PATA133 interface
 		1043 82e0  P5K PRO Motherboard
-	6111  88SE6111 1-port PATA133(IDE) and 1-port SATA II Controllers
-	6121  88SE6121 SATA II / PATA Controller
+	6121  88SE6111/6121 SATA II / PATA Controller
+# 6111: 1 SATA port; 6121: 2 SATA ports
+		11ab 6121  88SE6111/6121 1/2 port SATA II + 1 port PATA Controller
 	6141  88SE614x SATA II PCI-E controller
 	6145  88SE6145 SATA II PCI-E controller
 	6180  88F6180 [Kirkwood] ARM SoC
@@ -13965,9 +14340,11 @@
 	7384  PM7384 [FREEDM - 84P672 Frm Engine & Datalink Mgr]
 	8000  PM8000  [SPC - SAS Protocol Controller]
 	8009  PM8009 SPCve 8x6G
-	8032  ATTO Celerity FC8xEN
+	8032  PM8032 Tachyon QE8
+		117c 003a  Celerity FC-81EN Fibre Channel Adapter
 		117c 003b  Celerity FC-82EN Fibre Channel Adapter
 		117c 003c  Celerity FC-84EN Fibre Channel Adapter
+		117c 403b  ThunderLink FC 1082 Fibre Channel Adapter
 	8053  PM8053 SXP 12G 24-port SAS/SATA expander
 	8054  PM8054 SXP 12G 36-port SAS/SATA expander
 	8055  PM8055 SXP 12G 48-port SAS/SATA expander
@@ -13986,41 +14363,70 @@
 11fc  Silicon Magic
 11fd  High Street Consultants
 11fe  Comtrol Corporation
-	0001  RocketPort 32 port w/external I/F
-	0002  RocketPort 8 port w/external I/F
-	0003  RocketPort 16 port w/external I/F
-	0004  RocketPort 4 port w/quad cable
-	0005  RocketPort 8 port w/octa cable
-	0006  RocketPort 8 port w/RJ11 connectors
-	0007  RocketPort 4 port w/RJ11 connectors
-	0008  RocketPort 8 port w/ DB78 SNI (Siemens) connector
-	0009  RocketPort 16 port w/ DB78 SNI (Siemens) connector
-	000a  RocketPort Plus 4 port
-	000b  RocketPort Plus 8 port
-	000c  RocketModem 6 port
+	0001  RocketPort PCI 32-port w/external I/F
+	0002  RocketPort PCI 8-port w/external I/F
+	0003  RocketPort PCI 16-port w/external I/F
+	0004  RocketPort PCI 4-port w/Quad Cable
+	0005  RocketPort PCI 8-port w/Octa Cable
+	0006  RocketPort PCI 8-port w/RJ11 connectors
+	0007  RocketPort PCI 4-port w/RJ45 connectors
+	0008  RocketPort PCI 8-port w/DB78 SNI connector (Siemens)
+	0009  RocketPort PCI 16-port w/DB78 SNI connector (Siemens)
+	000a  RocketPort PCI Plus 4-port w/Quad Cable
+	000b  RocketPort PCI Plus 8-port w/Octa Cable
+	000c  RocketModem II 6-port
 	000d  RocketModem 4-port
-	000e  RocketPort Plus 2 port RS232
-	000f  RocketPort Plus 2 port RS422
-	0040  RocketPort Infinity Octa, 8port, RJ45
-	0041  RocketPort Infinity 32port, External Interface
-	0042  RocketPort Infinity 8port, External Interface
-	0043  RocketPort Infinity 16port, External Interface
-	0044  RocketPort Infinity Quad, 4port, DB
-	0045  RocketPort Infinity Octa, 8port, DB
-	0047  RocketPort Infinity 4port, RJ45
-	004f  RocketPort Infinity 2port, SMPTE
-	0052  RocketPort Infinity Octa, 8port, SMPTE
-	0801  RocketPort UPCI 32 port w/external I/F
-	0802  RocketPort UPCI 8 port w/external I/F
-	0803  RocketPort UPCI 16 port w/external I/F
-	0805  RocketPort UPCI 8 port w/octa cable
-	080c  RocketModem III 8 port
-	080d  RocketModem III 4 port
-	0810  RocketPort UPCI Plus 4 port RS232
-	0811  RocketPort UPCI Plus 8 port RS232
-	0812  RocketPort UPCI Plus 8 port RS422
+	000e  RocketPort PCI Plus 2-port RS-232 w/DB9 connectors
+	000f  RocketPort PCI Plus 2-port SMPTE w/DB9 connectors
+	0040  RocketPort INFINITY 8-port w/Octa Cable RJ45
+	0041  RocketPort INFINITY 32-port w/external I/F
+	0042  RocketPort INFINITY 8-port w/external I/F
+	0043  RocketPort INFINITY 16-port w/external I/F
+	0044  RocketPort INFINITY 4-port w/Quad Cable DB
+	0045  RocketPort INFINITY 8-port w/Octa Cable DB
+	0046  RocketPort INFINITY 4-port w/external I/F
+	0047  RocketPort INFINITY 4J (4-port) w/RJ45 connectors
+	0048  RocketPort INFINITY 4J (4-port) w/RJ45 connectors
+	004a  RocketPort INFINITY Plus 4-port
+	004b  RocketPort INFINITY Plus 8-port
+	004c  RocketModem INFINITY III 8-port
+	004d  RocketModem INFINITY III 4-port
+	004e  RocketPort INFINITY Plus 2-port
+	004f  RocketPort INFINITY 2-port SMPTE w/DB9 connectors
+	0050  RocketPort INFINITY Plus 4-port RJ45
+	0051  RocketPort INFINITY Plus 8-port RJ11
+	0052  RocketPort INFINITY 8-port SMPTE w/DB9 Connectors
+	0060  RocketPort EXPRESS 8-port w/Octa Cable
+	0061  RocketPort EXPRESS 32-port w/external I/F
+	0062  RocketPort EXPRESS 8-Port w/external I/F
+	0063  RocketPort EXPRESS 16-port w/external I/F
+	0064  RocketPort EXPRESS 4-port w/Quad Cable
+	0065  RocketPort EXPRESS 8-port w/Octa Cable
+	0066  RocketPort EXPRESS 4-port w/external I/F
+	0067  RocketPort EXPRESS 4J (4-port) w/RJ45 connectors
+	0068  RocketPort EXPRESS 8J (8-port) w/RJ11 connectors
+	006f  RocketPort EXPRESS SMPTE 2-port
+	0072  RocketPort EXPRESS SMPTE 8-port w/external I/F
+	0801  RocketPort uPCI 32-port w/external I/F
+	0802  RocketPort uPCI 8-port w/external I/F
+	0803  RocketPort uPCI 16-port w/external I/F
+	0805  RocketPort uPCI 8-port w/Octa Cable
+	080b  RocketPort Plus uPCI 8-port w/Octa Cable
+	080c  RocketModem III 8-port
+	080d  RocketModem III 4-port
+	080e  RocketPort uPCI 2-port RS232 w/DB9 connectors
+	080f  RocketPort uPCI SMPTE 2-port
+	0810  RocketPort Plus uPCI 4J (4-port) w/RJ45 connectors
+	0811  RocketPort Plus uPCI 8J (8-port) w/RJ11 connectors
+	0812  RocketPort Plus uPCI 422 8-port
+	0813  RocketModem IV uPCI 8-port
+	0814  RocketModem IV uPCI 4-port
 	0903  RocketPort Compact PCI 16 port w/external I/F
-	8015  RocketPort 4-port UART 16954
+# 16954 UART
+	8015  RocketPort 550 4-port
+	8805  RocketPort uPCI 4-port w/Quad Cable
+	880b  RocketPort Plus uPCI 4-port w/Quad Cable
+	8812  RocketPort Plus uPCI 4-port RS422 w/Quad Cable
 11ff  Scion Corporation
 	0003  AG-5
 1200  CSS Corporation
@@ -14063,7 +14469,6 @@
 	0001  Roadrunner serial HIPPI
 1210  Hyperparallel Technologies
 1211  Braintech Inc
-1212  Kingston Technology Corp.
 1213  Applied Intelligent Systems, Inc.
 1214  Performance Technologies, Inc.
 1215  Interware Co., Ltd
@@ -14231,7 +14636,8 @@
 	0d13  Desktop PCI L1/L3 Telephony
 1232  GPT Limited
 1233  Bus-Tech, Inc.
-1235  Risq Modular Systems, Inc.
+# nee Risq Modular Systems, Inc.
+1235  SMART Modular Technologies
 1236  Sigma Designs Corporation
 	0000  RealMagic64/GX
 	6401  REALmagic 64/GX (SD 6425)
@@ -14700,6 +15106,7 @@
 	8872  IT887xF PCI to ISA I/O chip with SMB, GPIO, Serial or Parallel Port
 	8888  IT8888F/G PCI to ISA Bridge with SMB [Golden Gate]
 	8889  IT8889F PCI to ISA Bridge
+	8892  IT8892E PCIe to PCI Bridge
 	8893  IT8893E PCIe to PCI Bridge
 	e886  IT8330G
 1284  Sahara Networks, Inc.
@@ -14753,7 +15160,7 @@
 12a2  Newgen Systems Corporation
 12a3  Lucent Technologies
 	8105  T8105 H100 Digital Switch
-12a4  NTT Electronics Technology Company
+12a4  NTT Electronics Corporation
 12a5  Vision Dynamics Ltd.
 12a6  Scalable Networks, Inc.
 12a7  AMO GmbH
@@ -14922,6 +15329,7 @@
 12d7  Biotronic SRL
 12d8  Pericom Semiconductor
 	01a7  7C21P100 2-port PCI-X to PCI-X Bridge
+	2608  PI7C9X2G608GP PCIe2 6-Port/8-Lane Packet Switch
 	400a  PI7C9X442SL PCI Express Bridge Port
 	400e  PI7C9X442SL USB OHCI Controller
 	400f  PI7C9X442SL USB EHCI Controller
@@ -15231,6 +15639,9 @@
 	5163  RealSSD P425m
 	5180  9100 PRO NVMe SSD
 	5181  9100 MAX NVMe SSD
+	5190  9200 ECO NVMe SSD
+	5191  9200 PRO NVMe SSD
+	5192  9200 MAX NVMe SSD
 1345  Arescom Inc
 1347  Odetics
 1349  Sumitomo Electric Industries, Ltd.
@@ -15276,7 +15687,7 @@
 	0040  QSC-200/300
 	0050  ESC-100D
 	0060  ESC-100M
-	00f0  MPAC-100 Syncronous Serial Card (Zilog 85230)
+	00f0  MPAC-100 Synchronous Serial Card (Zilog 85230)
 	0170  QSCLP-100
 	0180  DSCLP-100
 	0190  SSCLP-100
@@ -15438,9 +15849,9 @@
 1392  Medialight Inc
 1393  Moxa Technologies Co Ltd
 	0001  UC7000 Serial
-	1020  CP102 (2-port RS-232 PCI)
-	1021  CP102UL (2-port RS-232 Universal PCI)
-	1022  CP102U (2-port RS-232 Universal PCI)
+	1020  CP-102 (2-port RS-232 PCI)
+	1021  CP-102UL (2-port RS-232 Universal PCI)
+	1022  CP-102U (2-port RS-232 Universal PCI)
 	1023  CP-102UF
 	1024  CP-102E (2-port RS-232 Smart PCI Express Serial Board)
 	1025  CP-102EL (2-port RS-232 Smart PCI Express Serial Board)
@@ -15467,7 +15878,7 @@
 	1380  CP138U (8-port RS-232/422/485 Smart Universal PCI)
 	1680  Smartio C168H/PCI
 	1681  CP-168U V2 Smart Serial Board (8-port RS-232)
-	1682  CP168EL (8-port RS-232 Smart PCI Express)
+	1682  CP-168EL (8-port RS-232 Smart PCI Express)
 	1683  CP-168EL-A (8-port RS-232 PCI Express Serial Board)
 	2040  Intellio CP-204J
 	2180  Intellio C218 Turbo PCI
@@ -15582,6 +15993,7 @@
 	0252  XR17V252 Dual UART PCI controller
 	0254  XR17V254 Quad UART PCI controller
 	0258  XR17V258 Octal UART PCI controller
+	0352  XR17V3521 Dual PCIe UART
 13a9  Siemens Medical Systems, Ultrasound Group
 13aa  Broadband Networks Inc
 13ab  Arcom Control Systems Ltd
@@ -15745,6 +16157,7 @@
 		1043 838e  Virtuoso 66 (Xonar DS)
 		1043 8428  Virtuoso 100 (Xonar Xense)
 		1043 8467  CMI8786 (Xonar DG)
+		1043 8521  CMI8786 (Xonar DGX)
 		1043 85f4  Virtuoso 100 (Xonar Essence STX II)
 		13f6 8782  PCI 2.0 HD Audio
 		13f6 ffff  CMI8787-HG2PCI
@@ -16180,6 +16593,7 @@
 	4887  T440T-4087 Unified Wire Ethernet Controller [VF]
 	4888  T440-4088 Unified Wire Ethernet Controller [VF]
 	5001  T520-CR Unified Wire Ethernet Controller
+		193d 1001  510F-B
 	5002  T522-CR Unified Wire Ethernet Controller
 	5003  T540-CR Unified Wire Ethernet Controller
 	5004  T520-BCH Unified Wire Ethernet Controller
@@ -16203,6 +16617,9 @@
 	5016  T580-OCP-SO Unified Wire Ethernet Controller
 	5017  T520-OCP-SO Unified Wire Ethernet Controller
 	5018  T540-BT Unified Wire Ethernet Controller
+	5019  T540-LP-BT Unified Wire Ethernet Controller
+	501a  T540-SO-BT Unified Wire Ethernet Controller
+	501b  T540-SO-CR Unified Wire Ethernet Controller
 	5080  T540-5080 Unified Wire Ethernet Controller
 	5081  T540-5081 Unified Wire Ethernet Controller
 	5082  T504-5082 Unified Wire Ethernet Controller
@@ -16239,6 +16656,10 @@
 	50a7  T580-50A7 Unified Wire Ethernet Controller
 	50a8  T580-50A8 Unified Wire Ethernet Controller
 	50a9  T580-50A9 Unified Wire Ethernet Controller
+	50aa  T580-50AA Unified Wire Ethernet Controller
+	50ab  T520-50AB Unified Wire Ethernet Controller
+	50ac  T540-50AC Unified Wire Ethernet Controller
+	50ad  T520-50AD Unified Wire Ethernet Controller
 	5401  T520-CR Unified Wire Ethernet Controller
 	5402  T522-CR Unified Wire Ethernet Controller
 	5403  T540-CR Unified Wire Ethernet Controller
@@ -16263,6 +16684,9 @@
 	5416  T580-OCP-SO Unified Wire Ethernet Controller
 	5417  T520-OCP-SO Unified Wire Ethernet Controller
 	5418  T540-BT Unified Wire Ethernet Controller
+	5419  T540-LP-BT Unified Wire Ethernet Controller
+	541a  T540-SO-BT Unified Wire Ethernet Controller
+	541b  T540-SO-CR Unified Wire Ethernet Controller
 	5480  T540-5080 Unified Wire Ethernet Controller
 	5481  T540-5081 Unified Wire Ethernet Controller
 	5482  T504-5082 Unified Wire Ethernet Controller
@@ -16299,6 +16723,10 @@
 	54a7  T580-50A7 Unified Wire Ethernet Controller
 	54a8  T580-50A8 Unified Wire Ethernet Controller
 	54a9  T580-50A9 Unified Wire Ethernet Controller
+	54aa  T580-50AA Unified Wire Ethernet Controller
+	54ab  T520-50AB Unified Wire Ethernet Controller
+	54ac  T540-50AC Unified Wire Ethernet Controller
+	54ad  T520-50AD Unified Wire Ethernet Controller
 	5501  T520-CR Unified Wire Storage Controller
 	5502  T522-CR Unified Wire Storage Controller
 	5503  T540-CR Unified Wire Storage Controller
@@ -16323,6 +16751,9 @@
 	5516  T580-OCP-SO Unified Wire Storage Controller
 	5517  T520-OCP-SO Unified Wire Storage Controller
 	5518  T540-BT Unified Wire Storage Controller
+	5519  T540-LP-BT Unified Wire Storage Controller
+	551a  T540-SO-BT Unified Wire Storage Controller
+	551b  T540-SO-CR Unified Wire Storage Controller
 	5580  T540-5080 Unified Wire Storage Controller
 	5581  T540-5081 Unified Wire Storage Controller
 	5582  T504-5082 Unified Wire Storage Controller
@@ -16359,6 +16790,10 @@
 	55a7  T580-50A7 Unified Wire Storage Controller
 	55a8  T580-50A8 Unified Wire Storage Controller
 	55a9  T580-50A9 Unified Wire Storage Controller
+	55aa  T580-50AA Unified Wire Storage Controller
+	55ab  T520-50AB Unified Wire Storage Controller
+	55ac  T540-50AC Unified Wire Storage Controller
+	55ad  T520-50AD Unified Wire Storage Controller
 	5601  T520-CR Unified Wire Storage Controller
 	5602  T522-CR Unified Wire Storage Controller
 	5603  T540-CR Unified Wire Storage Controller
@@ -16383,6 +16818,9 @@
 	5616  T580-OCP-SO Unified Wire Storage Controller
 	5617  T520-OCP-SO Unified Wire Storage Controller
 	5618  T540-BT Unified Wire Storage Controller
+	5619  T540-LP-BT Unified Wire Storage Controller
+	561a  T540-SO-BT Unified Wire Storage Controller
+	561b  T540-SO-CR Unified Wire Storage Controller
 	5680  T540-5080 Unified Wire Storage Controller
 	5681  T540-5081 Unified Wire Storage Controller
 	5682  T504-5082 Unified Wire Storage Controller
@@ -16419,6 +16857,10 @@
 	56a7  T580-50A7 Unified Wire Storage Controller
 	56a8  T580-50A8 Unified Wire Storage Controller
 	56a9  T580-50A9 Unified Wire Storage Controller
+	56aa  T580-50AA Unified Wire Storage Controller
+	56ab  T520-50AB Unified Wire Storage Controller
+	56ac  T540-50AC Unified Wire Storage Controller
+	56ad  T520-50AD Unified Wire Storage Controller
 	5701  T520-CR Unified Wire Ethernet Controller
 	5702  T522-CR Unified Wire Ethernet Controller
 	5703  T540-CR Unified Wire Ethernet Controller
@@ -16482,6 +16924,9 @@
 	5816  T580-OCP-SO Unified Wire Ethernet Controller [VF]
 	5817  T520-OCP-SO Unified Wire Ethernet Controller [VF]
 	5818  T540-BT Unified Wire Ethernet Controller [VF]
+	5819  T540-LP-BT Unified Wire Ethernet Controller [VF]
+	581a  T540-SO-BT Unified Wire Ethernet Controller [VF]
+	581b  T540-SO-CR Unified Wire Ethernet Controller [VF]
 	5880  T540-5080 Unified Wire Ethernet Controller [VF]
 	5881  T540-5081 Unified Wire Ethernet Controller [VF]
 	5882  T504-5082 Unified Wire Ethernet Controller [VF]
@@ -16518,6 +16963,10 @@
 	58a7  T580-50A7 Unified Wire Ethernet Controller [VF]
 	58a8  T580-50A8 Unified Wire Ethernet Controller [VF]
 	58a9  T580-50A9 Unified Wire Ethernet Controller [VF]
+	58aa  T580-50AA Unified Wire Ethernet Controller [VF]
+	58ab  T520-50AB Unified Wire Ethernet Controller [VF]
+	58ac  T540-50AC Unified Wire Ethernet Controller [VF]
+	58ad  T520-50AD Unified Wire Ethernet Controller [VF]
 	6001  T6225-CR Unified Wire Ethernet Controller
 	6002  T6225-SO-CR Unified Wire Ethernet Controller
 	6003  T6425-CR Unified Wire Ethernet Controller
@@ -16536,6 +16985,11 @@
 	6082  T6225-6082 Unified Wire Ethernet Controller
 	6083  T62100-6083 Unified Wire Ethernet Controller
 	6084  T64100-6084 Unified Wire Ethernet Controller
+	6085  T6240-6085 Unified Wire Ethernet Controller
+	6086  T6225-6086 Unified Wire Ethernet Controller
+	6087  T6225-6087 Unified Wire Ethernet Controller
+	6088  T62100-6088 Unified Wire Ethernet Controller
+	6089  T62100-6089 Unified Wire Ethernet Controller
 	6401  T6225-CR Unified Wire Ethernet Controller
 	6402  T6225-SO-CR Unified Wire Ethernet Controller
 	6403  T6425-CR Unified Wire Ethernet Controller
@@ -16554,6 +17008,11 @@
 	6482  T6225-6082 Unified Wire Ethernet Controller
 	6483  T62100-6083 Unified Wire Ethernet Controller
 	6484  T64100-6084 Unified Wire Ethernet Controller
+	6485  T6240-6085 Unified Wire Ethernet Controller
+	6486  T6225-6086 Unified Wire Ethernet Controller
+	6487  T6225-6087 Unified Wire Ethernet Controller
+	6488  T62100-6088 Unified Wire Ethernet Controller
+	6489  T62100-6089 Unified Wire Ethernet Controller
 	6501  T6225-CR Unified Wire Storage Controller
 	6502  T6225-SO-CR Unified Wire Storage Controller
 	6503  T6425-CR Unified Wire Storage Controller
@@ -16572,6 +17031,11 @@
 	6582  T6225-6082 Unified Wire Storage Controller
 	6583  T62100-6083 Unified Wire Storage Controller
 	6584  T64100-6084 Unified Wire Storage Controller
+	6585  T6240-6085 Unified Wire Storage Controller
+	6586  T6225-6086 Unified Wire Storage Controller
+	6587  T6225-6087 Unified Wire Storage Controller
+	6588  T62100-6088 Unified Wire Storage Controller
+	6589  T62100-6089 Unified Wire Storage Controller
 	6601  T6225-CR Unified Wire Storage Controller
 	6602  T6225-SO-CR Unified Wire Storage Controller
 	6603  T6425-CR Unified Wire Storage Controller
@@ -16590,6 +17054,11 @@
 	6682  T6225-6082 Unified Wire Storage Controller
 	6683  T62100-6083 Unified Wire Storage Controller
 	6684  T64100-6084 Unified Wire Storage Controller
+	6685  T6240-6085 Unified Wire Storage Controller
+	6686  T6225-6086 Unified Wire Storage Controller
+	6687  T6225-6087 Unified Wire Storage Controller
+	6688  T62100-6088 Unified Wire Storage Controller
+	6689  T62100-6089 Unified Wire Storage Controller
 	6801  T6225-CR Unified Wire Ethernet Controller [VF]
 	6802  T6225-SO-CR Unified Wire Ethernet Controller [VF]
 	6803  T6425-CR Unified Wire Ethernet Controller [VF]
@@ -16608,6 +17077,11 @@
 	6882  T6225-6082 Unified Wire Ethernet Controller [VF]
 	6883  T62100-6083 Unified Wire Ethernet Controller [VF]
 	6884  T64100-6084 Unified Wire Ethernet Controller [VF]
+	6885  T6240-6085 Unified Wire Ethernet Controller [VF]
+	6886  T6225-6086 Unified Wire Ethernet Controller [VF]
+	6887  T6225-6087 Unified Wire Ethernet Controller [VF]
+	6888  T62100-6088 Unified Wire Ethernet Controller [VF]
+	6889  T62100-6089 Unified Wire Ethernet Controller [VF]
 	a000  PE10K Unified Wire Ethernet Controller
 1426  Storage Technology Corp.
 1427  Better On-Line Solutions
@@ -16681,6 +17155,7 @@
 	a800  XP941 PCIe SSD
 	a802  NVMe SSD Controller SM951/PM951
 	a804  NVMe SSD Controller SM961/PM961
+	a808  NVMe SSD Controller SM981/PM981
 	a820  NVMe SSD Controller 171X
 		1028 1f95  Express Flash NVMe XS1715 SSD 400GB
 		1028 1f96  Express Flash NVMe XS1715 SSD 800GB
@@ -16697,7 +17172,7 @@
 		1028 1fc1  Express Flash NVMe PM1725 800GB SFF
 		1028 1fc2  Express Flash NVMe PM1725 1.6TB SFF
 		1028 1fc4  Express Flash NVMe PM1725 1.6TB AIC
-	a822  NVMe SSD Controller 172Xa
+	a822  NVMe SSD Controller 172Xa/172Xb
 		1014 0621  PCIe3 1.6TB NVMe Flash Adapter II x8
 		1014 0622  PCIe3 3.2TB NVMe Flash Adapter II x8
 		1014 0629  PCIe3 6.4TB NVMe Flash Adapter II x8
@@ -16708,6 +17183,14 @@
 		1028 1fdd  Express Flash PM1725a 1.6TB AIC
 		1028 1fde  Express Flash PM1725a 3.2TB AIC
 		1028 1fdf  Express Flash PM1725a 6.4TB AIC
+		1028 1ff3  Express Flash PM1725b 1.6TB SFF
+		1028 1ff4  Express Flash PM1725b 3.2TB SFF
+		1028 1ff5  Express Flash PM1725b 6.4TB SFF
+		1028 1ff6  Express Flash PM1725b 12.8TB SFF
+		1028 1ff7  Express Flash PM1725b 1.6TB AIC
+		1028 1ff8  Express Flash PM1725b 3.2TB AIC
+		1028 1ff9  Express Flash PM1725b 6.4TB AIC
+		1028 1ffa  Express Flash PM1725b 12.8TB AIC
 144e  OLITEC
 144f  Askey Computer Corp.
 1450  Octave Communications Ind.
@@ -16873,6 +17356,7 @@
 14be  L3 Communications
 14bf  SPIDER Communications Inc.
 14c0  COMPAL Electronics Inc
+	1201  X550 10Gb 2P RJ45 OCP Mezz
 # now owned by CSP, Inc.
 14c1  MYRICOM Inc.
 	0008  Myri-10G Dual-Protocol NIC
@@ -16981,7 +17465,12 @@
 		107b 5048  E4500 Onboard
 		1259 2705  AT-2711FX
 	1601  NetXtreme BCM5752M Gigabit Ethernet PCI Express
+	1604  BCM5745X NetXtreme-E Ethernet Partition
+	1605  BCM5745X NetXtreme-E RDMA Partition
+	1606  BCM5745X NetXtreme-E RDMA Virtual Function
+	1609  BCM5745X NetXtreme-E Ethernet Virtual Function
 	1612  BCM70012 Video Decoder [Crystal HD]
+	1614  BCM57454 NetXtreme-E 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet
 	1615  BCM70015 Video Decoder [Crystal HD]
 	1639  NetXtreme II BCM5709 Gigabit Ethernet
 		1028 0235  PowerEdge R710 BCM5709 Gigabit Ethernet
@@ -17119,6 +17608,7 @@
 		103c 169d  Ethernet 1Gb 4-port 331FLR Adapter
 		103c 22be  Ethernet 1Gb 4-port 331i Adapter
 		103c 3383  Ethernet 1Gb 4-port 331T Adapter
+		14e4 1904  4-port 1Gb Ethernet Adapter
 	1659  NetXtreme BCM5721 Gigabit Ethernet PCI Express
 		1014 02c6  eServer xSeries server mainboard
 		1028 01e6  PowerEdge 860
@@ -17190,12 +17680,14 @@
 		1014 0577  ThinkPad X41 / Z60t
 		103c 0934  nx8220
 		103c 0940  Compaq nw8240 Mobile Workstation
+		103c 0944  Compaq nc6220 Notebook PC
 		17aa 2081  ThinkPad R60e
 	167e  NetXtreme BCM5751F Fast Ethernet PCI Express
 	167f  NetLink BCM5787F Fast Ethernet PCI Express
 	1680  NetXtreme BCM5761e Gigabit Ethernet PCIe
 	1681  NetXtreme BCM5761 Gigabit Ethernet PCIe
 	1682  NetXtreme BCM57762 Gigabit Ethernet PCIe
+		106b 00f6  Thunderbolt to Gigabit Ethernet Adapter
 	1683  NetXtreme BCM57767 Gigabit Ethernet PCIe
 	1684  NetXtreme BCM5764M Gigabit Ethernet PCIe
 	1685  NetXtreme II BCM57500S Gigabit Ethernet
@@ -17222,6 +17714,8 @@
 		103c 193a  FlexFabric 10Gb 2-port 533FLR-T Adapter
 		103c 3382  Ethernet 10Gb 2-port 530FLR-SFP+ Adapter
 		103c 339d  Ethernet 10Gb 2-port 530SFP+ Adapter
+		193d 1003  530F-B
+		193d 1006  530F-L
 	1690  NetXtreme BCM57760 Gigabit Ethernet PCIe
 	1691  NetLink BCM57788 Gigabit Ethernet PCIe
 		1028 04aa  XPS 8300
@@ -17247,6 +17741,7 @@
 	169d  NetLink BCM5789 Gigabit Ethernet PCI Express
 	16a0  NetLink BCM5785 Fast Ethernet
 	16a1  BCM57840 NetXtreme II 10 Gigabit Ethernet
+		1043 866e  PEB-10G/57840-2T 10GBase-T Network Adapter
 	16a2  BCM57840 NetXtreme II 10/20-Gigabit Ethernet
 		103c 1916  FlexFabric 20Gb 2-port 630FLB Adapter
 		103c 1917  FlexFabric 20Gb 2-port 630M Adapter
@@ -17367,11 +17862,13 @@
 	16d5  BCM57407 NetXtreme-E 10GBase-T Ethernet Controller
 	16d6  BCM57412 NetXtreme-E 10Gb RDMA Ethernet Controller
 	16d7  BCM57414 NetXtreme-E 10Gb/25Gb RDMA Ethernet Controller
-		14e4 1202  BCM957412M4122 OCP 1x25G Type1 wRoCE
-		14e4 1404  BCM957414M4142 OCP 2x25G Type1 wRoCE
+		14e4 1202  BCM957412M4122C OCP 1x25G Type1 wRoCE
+		14e4 1402  BCM957414A4142CC 10Gb/25Gb Ethernet PCIe
+		14e4 1404  BCM957414M4142C OCP 2x25G Type1 wRoCE
 		1590 020e  Ethernet 25Gb 2-port 631SFP28 Adapter
 		1590 0211  Ethernet 25Gb 2-port 631FLR-SFP28 Adapter
-	16d8  BCM57416 NetXtreme-E 10GBase-T RDMA Ethernet Controller
+	16d8  BCM57416 NetXtreme-E Dual-Media 10G RDMA Ethernet Controller
+		1028 1feb  NetXtreme-E 10Gb SFP+ Adapter
 		1590 020c  Ethernet 10Gb 2-port 535T Adapter
 		1590 0212  Ethernet 10Gb 2-port 535FLR-T Adapter
 	16d9  BCM57417 NetXtreme-E 10GBASE-T RDMA Ethernet Controller
@@ -17392,6 +17889,7 @@
 	16ed  BCM57414 NetXtreme-E RDMA Partition
 	16ee  BCM57416 NetXtreme-E Ethernet Partition
 	16ef  BCM57416 NetXtreme-E RDMA Partition
+	16f1  BCM57452 NetXtreme-E 10Gb/25Gb/40Gb/50Gb Ethernet
 	16f3  NetXtreme BCM5727 Gigabit Ethernet PCIe
 	16f7  NetXtreme BCM5753 Gigabit Ethernet PCI Express
 	16fd  NetXtreme BCM5753M Gigabit Ethernet PCI Express
@@ -17668,6 +18166,13 @@
 	aa52  BCM43602 802.11ac Wireless LAN SoC
 	b302  BCM56302 StrataXGS 24x1GE 2x10GE Switch Controller
 	b334  BCM56334 StrataXGS 24x1GE 4x10GE Switch Controller
+	b370  BCM56370 Switch ASIC
+	b371  BCM56371 Switch ASIC
+	b372  BCM56372 Switch ASIC
+	b375  BCM56375 Switch ASIC
+	b376  BCM56376 Switch ASIC
+	b377  BCM56377 Switch ASIC
+	b379  Broadcom BCM56379 Switch ASIC
 	b800  BCM56800 StrataXGS 10GE Switch Controller
 	b842  BCM56842 Trident 10GE Switch Controller
 # Trident2
@@ -18172,6 +18677,8 @@
 1556  PLDA
 	1100  PCI Express Core Reference Design
 	110f  PCI Express Core Reference Design Virtual Function
+	1110  XpressRich Reference Design
+	1113  XpressSwitch
 1557  MEDIASTAR Co Ltd
 1558  CLEVO/KAPOK Computer
 1559  SI LOGIC Ltd
@@ -18327,16 +18834,17 @@
 	020b  MT27710 Family [ConnectX-4 Lx Flash Recovery]
 	020d  MT28800 Family [ConnectX-5 Flash Recovery]
 	020f  MT28908A0 Family [ConnectX-6 Flash Recovery]
+	0210  MT28908A0 Family [ConnectX-6 Secure Flash Recovery]
 	0211  MT416842 Family [BlueField SoC Flash Recovery]
-# reserved for RM#105916
 	024e  MT53100 [Spectrum-2, Flash recovery mode]
-# Actual value to be used
-	024f  MT53100 [Spectrum-2, Flash recovery mode]
+	024f  MT53100 [Spectrum-2, Secure Flash recovery mode]
 	0262  MT27710 [ConnectX-4 Lx Programmable] EN
 	0263  MT27710 [ConnectX-4 Lx Programmable Virtual Function] EN
+	0264  Innova-2 Flex Burn image
 	0281  NPS-600 Flash Recovery
 	1002  MT25400 Family [ConnectX-2 Virtual Function]
 	1003  MT27500 Family [ConnectX-3]
+		1014 04b5  PCIe3 40GbE RoCE Converged Host Bus Adapter for Power
 		103c 1777  InfiniBand FDR/EN 10/40Gb Dual Port 544FLR-QSFP Adapter (Rev Cx)
 		103c 17c9  Infiniband QDR/Ethernet 10Gb 2-port 544i Adapter
 		103c 18ce  InfiniBand QDR/EN 10Gb Dual Port 544M Adapter
@@ -18346,6 +18854,7 @@
 		15b3 0026  ConnectX-3 IB FDR Dual Port Mezzanine Card
 		15b3 0028  ConnectX-3 VPI Dual QSFP+ Port QDR Infiniband 40Gb/s or 10Gb Ethernet
 		15b3 0059  ConnectX-3 VPI IB FDR/40 GbE Single Port QSFP+ Mezzanine Card
+		15b3 0064  ConnectX-3 EN 10/40 GbE Single Port QSFP+ Adapter (MCX313A-BCBT)
 		15b3 0065  ConnectX-3 VPI IB FDR/40 GbE Dual Port QSFP+ Adapter
 		15b3 0066  ConnectX-3 IB FDR10 Dual Port Mezzanine Card
 		15b3 0067  ConnectX-3 VPI IB FDR/40 GbE Single Port QSFP+ Adapter
@@ -18371,6 +18880,7 @@
 		15b3 0078  ConnectX-3 Pro 10 GbE Dual Port KR Mezzanine Card
 		15b3 0079  ConnectX-3 Pro 40 GbE Dual Port QSFP+ Adapter
 		15b3 0080  ConnectX-3 Pro 10 GbE Dual Port SFP+ Adapter
+		193d 1002  520F-B
 	1009  MT27530 Family
 	100a  MT27531 Family
 	100b  MT27540 Family
@@ -18382,6 +18892,7 @@
 	1011  MT27600 [Connect-IB]
 	1012  MT27600 Family [Connect-IB Virtual Function]
 	1013  MT27700 Family [ConnectX-4]
+		1014 04f7  PCIe3 2-port 100 GbE (NIC and RoCE) QSFP28 Adapter for Power
 		15b3 0003  Mellanox Technologies ConnectX-4 Stand-up single-port 40GbE MCX413A-BCAT
 		15b3 0005  Mellanox Technologies ConnectX-4 Stand-up single-port 40GbE MCX415A-BCAT
 		15b3 0006  MCX416A-BCAT, ConnectX-4 EN, 40/56GbE 2P, PCIe3.0 x16
@@ -18391,11 +18902,14 @@
 		15b3 0050  ConnectX-4 100 GbE Dual Port QSFP28 Adapter
 	1014  MT27700 Family [ConnectX-4 Virtual Function]
 	1015  MT27710 Family [ConnectX-4 Lx]
+		15b3 0001  ConnectX-4 Lx EN network interface card, 25GbE single-port SFP28, PCIe3.0 x8, tall bracket, ROHS R6
+		15b3 0003  Stand-up ConnectX-4 Lx EN, 25GbE dual-port SFP28, PCIe3.0 x8, MCX4121A-ACAT
+		15b3 0004  ConnectX-4 Lx Stand-up dual-port 10GbE MCX4121A-XCAT
 		15b3 0005  Mellanox Technologies ConnectX-4 Lx Stand-up single-port 40GbE MCX4131A-BCAT
-		15b3 0016  ConnectX-4 Lx 25 GbE Dual Port SFP28 Adapter
 		15b3 0020  MCX4411A-ACQN, ConnectX-4 Lx EN OCP, 1x25Gb
 		15b3 0021  MCX4421A-ACQN ConnectX-4 Lx EN OCP,2x25G
 		15b3 0025  ConnectX-4 Lx 25 GbE Dual Port SFP28 rNDC
+		193d 100a  620F-B
 	1016  MT27710 Family [ConnectX-4 Lx Virtual Function]
 	1017  MT27800 Family [ConnectX-5]
 	1018  MT27800 Family [ConnectX-5 Virtual Function]
@@ -18420,12 +18934,14 @@
 	6278  MT25208 InfiniHost III Ex (Tavor compatibility mode)
 	6279  MT25208 [InfiniHost III Ex HCA Flash Recovery]
 	6282  MT25208 [InfiniHost III Ex]
-	6340  MT25408 [ConnectX VPI - IB SDR / 10GigE]
-	634a  MT25418 [ConnectX VPI PCIe 2.0 2.5GT/s - IB DDR / 10GigE]
+	6340  MT25408A0-FCC-SI ConnectX, Dual Port 10Gb/s InfiniBand / 10GigE Adapter IC with PCIe 2.0 x8 2.5GT/s Interface
+	634a  MT25408A0-FCC-DI ConnectX, Dual Port 20Gb/s InfiniBand / 10GigE Adapter IC with PCIe 2.0 x8 2.5GT/s Interface
+		1014 1014  4X InfiniBand DDR Expansion Card (CFFh) for IBM BladeCenter
 	6368  MT25448 [ConnectX EN 10GigE, PCIe 2.0 2.5GT/s]
-	6372  MT25408 [ConnectX EN 10GigE 10GBaseT, PCIe 2.0 2.5GT/s]
-	6732  MT26418 [ConnectX VPI PCIe 2.0 5GT/s - IB DDR / 10GigE]
-	673c  MT26428 [ConnectX VPI PCIe 2.0 5GT/s - IB QDR / 10GigE]
+	6372  MT25458 ConnectX EN 10GBASE-T PCIe 2.5 GT/s
+	6732  MT25408A0-FCC-GI ConnectX, Dual Port 20Gb/s InfiniBand / 10GigE Adapter IC with PCIe 2.0 x8 5.0GT/s Interface
+	673c  MT25408A0-FCC-QI ConnectX, Dual Port 40Gb/s InfiniBand / 10GigE Adapter IC with PCIe 2.0 x8 5.0GT/s Interface
+		1014 0415  PCIe2 2-port 4X InfiniBand QDR Adapter for Power
 		1014 0487  GX++ 1-port 4X IB QDR Adapter for Power 795
 		103c 1782  4X QDR InfiniBand Mezzanine HCA for c-Class BladeSystem
 		15b3 0021  HP InfiniBand 4X QDR CX-2 PCI-e G2 Dual Port HCA
@@ -18433,11 +18949,12 @@
 		103c 1781  NC543i 1-port 4x QDR IB/Flex-10 10Gb Adapter
 		103c 3349  NC543i 2-port 4xQDR IB/10Gb Adapter
 	6750  MT26448 [ConnectX EN 10GigE, PCIe 2.0 5GT/s]
-		1014 0461  2-Port 10 GbE RoCE SR LP PCIe2 (rev b0)
+		1014 0416  PCIe2 2-Port 10GbE RoCE SFP+ Adapter
+		1014 0461  PCIe2 2-Port 10GbE RoCE SR Adapter
 		15b3 0018  HP 10 GbE PCI-e G2 Dual-Port NIC (rev C1)
 # FC EC26
 		15b3 6572  IBM Flex System EN4132 2-port 10Gb RoCE Adapter
-	675a  MT25408 [ConnectX EN 10GigE 10GBaseT, PCIe Gen2 5GT/s]
+	675a  MT26458 ConnectX EN 10GBASE-T PCIe Gen2 5.0 GT/s
 	6764  MT26468 [ConnectX EN 10GigE, PCIe 2.0 5GT/s Virtualization+]
 		103c 3313  NC542m Dual Port Flex-10 10GbE BLc Adapter
 	676e  MT26478 [ConnectX EN 40GigE, PCIe 2.0 5GT/s]
@@ -18448,6 +18965,7 @@
 	7121  NPS-600 configuration and management interface
 	7122  NPS-600 network interface PF
 	7123  NPS-600 network interface VF
+	8200  Innova-2 Flex Shell Logic
 	a2d0  MT416842 BlueField SoC Crypto enabled
 	a2d1  MT416842 BlueField SoC Crypto disabled
 	a2d2  MT416842 BlueField integrated ConnectX-5 network controller
@@ -18461,7 +18979,7 @@
 # Spectrum, 100GbE Switch
 	cb84  MT52100
 	cf08  MT53236
-	cf6c  MT53100 [Spectrum-2, 64 x 100GbE switch]
+	cf6c  MT53100 [Spectrum-2]
 	d2f0  Switch-IB 3 HDR (200Gbps) switch
 15b4  CCI/TRIAD
 15b5  Cimetrics Inc
@@ -18484,6 +19002,7 @@
 	0015  ZBox
 15b7  Sandisk Corp
 	2001  Skyhawk Series NVME SSD
+	5001  WD Black NVMe SSD
 15b8  ADDI-DATA GmbH
 	1001  APCI1516 SP controller (16 digi outputs)
 	1003  APCI1032 SP controller (32 digi inputs w/ opto coupler)
@@ -18625,6 +19144,14 @@
 	5641  FarSync T4Ee PCI Express (4 port X.21/V.35/V.24)
 	6620  FarSync T2U-PMC PCI Express (2 port X.21/V.35/V.24)
 161f  Rioworks
+1621  Lynx Studio Technology, Inc.
+	0020  LynxTWO-A
+	0021  LynxTWO-B
+	0022  LynxTWO-C
+	0023  Lynx L22
+	0024  Lynx AES16
+	0025  Lynx AES16-SRC
+	0028  Lynx AES16e
 1626  TDK Semiconductor Corp.
 	8410  RTL81xx Fast Ethernet
 1629  Kongsberg Spacetec AS
@@ -18632,6 +19159,11 @@
 	1006  Format synchronizer, model 10500
 	1007  Format synchronizer, model 21000
 	2002  Fast Universal Data Output
+	3100  IO31000 Frame Synchronizer and I/O
+	3200  IO32000 Frame Synchronizer and I/O
+	4002  High Rate Demodulator
+	5001  High Rate FEC
+	6001  High Rate Demodulator and FEC
 1631  Packard Bell B.V.
 1638  Standard Microsystems Corp [SMC]
 	1100  SMC2602W EZConnect / Addtron AWA-100 / Eumitcom PCI WL11000
@@ -18640,7 +19172,8 @@
 	5449  SmartPCI561 Modem
 1641  MKNet Corp.
 1642  Bitland(ShenZhen) Information Technology Co., Ltd.
-1657  Brocade Communications Systems, Inc.
+# nee Brocade Communications Systems, Inc.
+1657  Cavium QLogic
 	0013  425/825/42B/82B 4Gbps/8Gbps PCIe dual port FC HBA
 		103c 1742  82B 8Gbps dual port FC HBA
 		103c 1744  42B 4Gbps dual port FC HBA
@@ -18653,8 +19186,7 @@
 		103c 1743  81B 8Gbps single port FC HBA
 		1657 0014  415/815 4Gbps/8Gbps single port PCIe FC HBA
 	0021  804 8Gbps FC HBA for HP Bladesystem c-class
-# AnyIO Adapter
-	0022  1860 16Gbps/10Gbps Fabric Adapter
+	0022  BR-1860 Fabric Adapter
 		1657 0022  10Gbps CNA - FCOE
 		1657 0023  10Gbps CNA - LL
 		1657 0024  16Gbps FC HBA
@@ -18938,6 +19470,7 @@
 		0777 4005  SR71-15 802.11an Mini PCI Adapter
 		1186 3a7a  DWA-552 802.11n Xtreme N Desktop Adapter (rev A2)
 		1186 3a7d  DWA-552 802.11n Xtreme N Desktop Adapter (rev A3)
+		168c 0029  AR922X Wireless Network Adapter
 		168c 2096  Compex WLM200NX / Wistron DNMA-92
 	002a  AR928X Wireless Network Adapter (PCI-Express)
 		0777 4f05  SR71-X 802.11abgn Wireless ExpressCard Adapter [AR9280]
@@ -19000,6 +19533,7 @@
 	0040  QCA9980/9990 802.11ac Wireless Network Adapter
 	0041  QCA6164 802.11ac Wireless Network Adapter
 	0042  QCA9377 802.11ac Wireless Network Adapter
+	0046  QCA9984 802.11ac Wave 2 Wireless Network Adapter
 	0050  QCA9887 802.11ac Wireless Network Adapter
 	0207  AR5210 Wireless Network Adapter [AR5000 802.11a]
 	1014  AR5212 802.11abg NIC
@@ -19034,6 +19568,7 @@
 16b8  Sonnet Technologies, Inc.
 16be  Creatix Polymedia GmbH
 16c3  Synopsys, Inc.
+	edda  EPMockUp
 16c6  Micrel-Kendin
 	8695  Centaur KS8695 ARM processor
 	8842  KSZ8842-PMQL 2-Port Ethernet Switch
@@ -19122,15 +19657,26 @@
 	7012  AP440-2: 32-Channel Isolated Digital Input Module
 	7013  AP440-3: 32-Channel Isolated Digital Input Module
 	7014  AP445: 32-Channel Isolated Digital Output Module
+	7015  AP471 48-Channel TTL Level Digital Input/Output Module
 	7016  AP470 48-Channel TTL Level Digital Input/Output Module
 	7017  AP323 16-bit, 20 or 40 Channel Analog Input Module
 	7018  AP408: 32-Channel Digital I/O Module
+	7019  AP341 14-bit, 16-Channel Simultaneous Conversion Analog Input Module
 	701a  AP220-16 12-Bit, 16-Channel Analog Output Module
 	701b  AP231-16 16-Bit, 16-Channel Analog Output Module
+	701c  AP225 12-Bit, 16-Channel Analog Output Module with Waveform Memory
+	701d  AP235 16-Bit, 16-Channel Analog Output Module with Waveform Memory
 	7021  APA7-201 Reconfigurable Artix-7 FPGA module 48 TTL channels
 	7022  APA7-202 Reconfigurable Artix-7 FPGA module 24 RS485 channels
 	7023  APA7-203 Reconfigurable Artix-7 FPGA module 24 TTL & 12 RS485 channels
 	7024  APA7-204 Reconfigurable Artix-7 FPGA module 24 LVDS channels
+	7027  AP418 16-Channel High Voltage Digital Input/Output Module
+	7029  AP342 14-bit, 12-Channel Isolated Simultaneous Conversion Analog Input Module
+	702a  AP226 12-Bit, 8-Channel Isolated Analog Output Module
+	702b  AP236 16-Bit, 8-Channel Isolated Analog Output Module
+	7031  AP441-1: 32-Channel Isolated Digital Input Module
+	7032  AP441-2: 32-Channel Isolated Digital Input Module
+	7033  AP441-3: 32-Channel Isolated Digital Input Module
 	7042  AP482 Counter Timer Module with TTL Level Input/Output
 	7043  AP483 Counter Timer Module with TTL Level and RS422 Input/Output
 	7044  AP484 Counter Timer Module with RS422 Input/Output
@@ -19203,6 +19749,7 @@
 	0101  PCD-7004 Digital Bi-Directional Ports PCI Card
 	0102  PCD-7104 Digital Input & Output PCI Card
 	0303  PCD-7006C Digital Input & Output PCI Card
+1761  Pickering Interfaces Ltd
 1771  InnoVISION Multimedia Ltd.
 # nee SBS Technologies
 1775  GE Intelligent Platforms
@@ -19490,6 +20037,7 @@
 	1914  VirtexUS ASIC Emulation Board [DNVUF2A]
 	1915  Arria10 PCIe MainRef Design [DNPCIe_80G_A10_LL]
 	1916  VirtexUS PCIe Accelerator Board [DNVUF2_HPC_PCIe]
+	1917  UltrascalePlus PCIe Accelerator Board [DNPCIe_400G_VU_LL]
 	1a00  Virtex6 PCIe DMA Netlist Design
 	1a01  Virtex6 PCIe Darklite Design [DNPCIe_HXT_10G_LL]
 	1a02  Virtex7 PCIe DMA Netlist Design
@@ -19500,6 +20048,8 @@
 	1a08  KintexUS PCIe Darklite Design [DNPCIe_40G_KU_LL_QSFP]
 	1a09  Arria10 PCIe Darklite Design [DNPCIe_80G_A10_LL]
 	1a0a  VirtexUS PCIe Darklite Design [DNVUF2_HPC_PCIe]
+	1a0b  UltrascalePlus PCIe Darklite Design [DNPCIe_400G_VU_LL]
+	1a0c  KintexUS PCIe DRAM Packet Capture Design [DNPCIe_40G_KU_LL]
 17e4  Sectra AB
 	0001  KK671 Cardbus encryption board
 	0002  KK672 Cardbus encryption board
@@ -19539,6 +20089,7 @@
 1803  ProdaSafe GmbH
 1805  Euresys S.A.
 1809  Lumanate, Inc.
+180c  IEI Integration Corp
 1813  Ambient Technologies Inc
 	4000  HaM controllerless modem
 		16be 0001  V9x HAM Data Fax Modem
@@ -19985,11 +20536,17 @@
 		1924 8018  SFN8042-R2 8000 Series 10/40G Adapter
 		1924 8019  SFN8542-R2 8000 Series 10/40G Adapter
 		1924 801a  SFN8722-R1 8000 Series OCP 10G Adapter
+		1924 801b  SFN8522-R3 8000 Series 10G Adapter
+	0b03  SFC9250 10/25/40/50/100G Ethernet Controller
+		1924 801d  x2522-R1 2000 Series 10/25G Adapter
+		1924 801e  x2542-R1 2000 Series 40/100G Adapter
+		1924 8022  x2522-R2 2000 Series 10/25G Adapter
 	1803  SFC9020 10G Ethernet Controller (Virtual Function)
 	1813  SFL9021 10GBASE-T Ethernet Controller (Virtual Function)
 	1903  SFC9120 10G Ethernet Controller (Virtual Function)
 	1923  SFC9140 10/40G Ethernet Controller (Virtual Function)
 	1a03  SFC9220 10/40G Ethernet Controller (Virtual Function)
+	1b03  SFC9250 10/25/40/50/100G Ethernet Controller (Virtual Function)
 	6703  SFC4000 rev A iSCSI/Onload [Solarstorm]
 		10b8 0102  SMC10GPCIe-10BT (A2) [TigerCard]
 		10b8 0103  SMC10GPCIe-10BT (A3) [TigerCard]
@@ -20010,6 +20567,7 @@
 	000c  Qualcomm MSM6275 UMTS chip
 1932  DiBcom
 193c  MAXIM Integrated Products
+193d  Hangzhou H3C Technologies Co., Ltd.
 193f  AHA Products Group
 	0001  AHA36x-PCIX
 	0360  AHA360-PCIe
@@ -20170,6 +20728,7 @@
 # E2200, E2201, E2205
 	e091  Killer E220x Gigabit Ethernet Controller
 	e0a1  Killer E2400 Gigabit Ethernet Controller
+	e0b1  Killer E2500 Gigabit Ethernet Controller
 196a  Sensory Networks Inc.
 	0101  NodalCore C-1000 Content Classification Accelerator
 	0102  NodalCore C-2000 Content Classification Accelerator
@@ -20286,7 +20845,51 @@
 	5808  DDRdrive X8
 	dd52  DDRdrive X1-30
 19e5  Huawei Technologies Co., Ltd.
+# subvendor
+	0123  ES3000 V3 NVMe PCIe SSD
+		19e5 3022  NVMe SSD ES3600P V3 800GB 2.5" U.2
+		19e5 3023  NVMe SSD ES3600P V3 1200GB 2.5" U.2
+		19e5 3024  NVMe SSD ES3600P V3 1600GB 2.5" U.2
+		19e5 3025  NVMe SSD ES3600P V3 2000GB 2.5" U.2
+		19e5 3026  NVMe SSD ES3600P V3 3200GB 2.5" U.2
+		19e5 3033  NVMe SSD ES3600C V3 1200GB HHHL AIC
+		19e5 3034  NVMe SSD ES3600C V3 1600GB HHHL AIC
+		19e5 3036  NVMe SSD ES3600C V3 3200GB HHHL AIC
+	0200  Hi1822 Family (2*25GE)
+	0201  Hi1822 Family (2*100GE)
+	1710  iBMA Virtual Network Adapter
 	1711  Hi1710 [iBMC Intelligent Management system chip w/VGA support]
+	1822  Hi1822 Family (4*25GE)
+	371e  Hi1822 Family Virtual Bridge
+	a120  HiSilicon PCIe Root Port with Gen4
+	a121  HiSilicon PCI-PCI Bridge
+	a122  HiSilicon Embedded DMA Engine
+	a124  HiSilicon Internal SDI Function Engine
+	a125  HiSilicon SDI Network Controller
+	a126  HiSilicon SDI NVMe Storage Controller
+	a127  HiSilicon SDI Accelerator
+	a12a  HiSilicon Add-on PCI-PCI Bridge
+	a220  HNS GE Network Controller
+	a221  HNS GE/10GE/25GE Network Controller
+	a222  HNS GE/10GE/25GE RDMA Network Controller
+	a224  HNS GE/10GE/25GE/50GE RDMA Network Controller
+	a226  HNS GE/10GE/25GE/50GE/100GE RDMA Network Controller
+	a22a  HiSilicon Network For SDI
+	a22e  HNS Network Controller (Virtual Function)
+	a22f  HNS RDMA Network Controller (Virtual Function)
+	a230  HiSilicon SAS 3.0 HBA
+	a235  HiSilicon AHCI HBA
+	a238  HiSilicon USB 3.0 Host Controller
+	a239  HiSilicon USB 2.0 2-port Host Controller
+	a23a  HiSilicon USB 2.0 Host Controller
+	a250  HiSilicon ZIP Engine
+	a251  HiSilicon ZIP Engine(Virtual Function)
+	a255  HiSilicon SEC Engine
+	a256  HiSilicon SEC Engine(Virtual Function)
+	a258  HiSilicon HPRE Engine
+	a259  HiSilicon HPRE Engine(Virtual Function)
+	a25a  HiSilicon RDE Engine
+	a25b  HiSilicon RDE Engine(Virtual Function)
 19e7  NET (Network Equipment Technologies)
 	1001  STIX DSP Card
 	1002  STIX - 1 Port T1/E1 Card
@@ -20338,12 +20941,16 @@
 	0200  TILE-Gx processor
 	0201  TILE-Gx Processor Virtual Function
 	2000  TILE-Gx PCI Express Root Port
-1a4a  SLAC National Accelerator Lab PPA-REG
+1a4a  SLAC National Accelerator Lab TID-AIR
 	1000  MCOR Power Supply Controller
 	1010  AMC EVR - Stockholm Timing Board
+	1020  Cluster On Board (COB) Ethernet Switch
 	2000  PGPCard - 4 Lane
 	2001  PGPCard - 8 Lane Plus EVR
 	2010  PCI-Express EVR
+# PC-260-101-03
+	2020  PGP-GEN3 PCIe
+	2030  AXI Stream DAQ PCIe card
 1a51  Hectronic AB
 1a55  Rohde & Schwarz DVS GmbH
 	0010  SDStationOEM
@@ -20397,6 +21004,7 @@
 	0009  RAIDCore Controller
 	000a  RAIDCore Controller
 1aae  Global Velocity, Inc.
+1ab4  FFEI Ltd
 1ab6  CalDigit, Inc.
 	6201  RAID Card
 # Parallels VM virtual devices
@@ -20502,6 +21110,7 @@
 		1849 1080  Motherboard
 	1142  ASM1042A USB 3.0 Host Controller
 	1242  ASM1142 USB 3.1 Host Controller
+	1343  ASM1143 USB 3.1 Host Controller
 1b2c  Opal-RT Technologies Inc.
 1b36  Red Hat, Inc.
 	0001  QEMU PCI-PCI bridge
@@ -20571,6 +21180,9 @@
 	91a4  88SE912x IDE Controller
 	9220  88SE9220 PCIe 2.0 x2 2-port SATA 6 Gb/s RAID Controller
 	9230  88SE9230 PCIe SATA 6Gb/s Controller
+		1028 1fd6  BOSS-S1 Adapter
+		1028 1fdf  BOSS-S1 Modular
+		1028 1fe2  BOSS-S1 Adapter
 		1d49 0300  ThinkSystem M.2 with Mirroring Enablement Kit
 	9235  88SE9235 PCIe 2.0 x2 4-port SATA 6 Gb/s Controller
 	9445  88SE9445 PCIe 2.0 x4 4-Port SAS/SATA 6 Gbps RAID Controller
@@ -20584,8 +21196,8 @@
 # 2xHDMI and 2xHD-SDI inputs
 	e5f4  MPEG2 and H264 Encoder-Transcoder
 	f1c4  Dual ASI-RX/TX-CI card
-1b66  Deltacast
-	0007  Delta-3G-elp-11 SDI I/O Board
+1b66  DELTACAST
+	0007  DELTA-3G-elp-d
 1b6f  Etron Technology, Inc.
 	7023  EJ168 USB 3.0 Host Controller
 	7052  EJ188/EJ198 USB 3.0 Host Controller
@@ -20651,6 +21263,8 @@
 1bbf  Maxeler Technologies Ltd.
 	0003  MAX3
 	0004  MAX4
+1bcf  NEC Corporation
+	001c  Vector Engine 1.0
 1bd0  Astronics Corporation
 	1001  Mx5 PMC/XMC Databus Interface Card
 	1002  PM1553-5 (PC/104+ MIL-STD-1553 Interface Card)
@@ -20699,6 +21313,9 @@
 # Used on V120 VME Crate Controller
 1c32  Highland Technology, Inc.
 1c33  Daktronics, Inc
+1c36  Annapurna Labs Ltd.
+	0001  Gigabit Ethernet Adapter
+	0002  SFP+ 10G Ethernet Adapter
 1c3b  Accensus, LLC
 	0200  Telas2
 # http://www.accensusllc.com/accensustelas2.html
@@ -20711,6 +21328,8 @@
 		1014 04f5  PCIe3 1.6TB NVMe Flash Adapter
 		1014 04f6  PCIe3 3.2TB NVMe Flash Adapter
 	0023  Ultrastar SN200 Series NVMe SSD
+1c5c  SK hynix
+	1283  PC300 NVMe Solid State Drive
 1c5f  Beijing Memblaze Technology Co. Ltd.
 	0540  PBlaze4 NVMe SSD
 # http://www.nicevt.ru/ (in Russian)
@@ -20723,6 +21342,7 @@
 	5100  EB5100
 1c8a  TSF5 Corporation
 	0001  Hunter PCI Express
+1c8c  Mobiveil, Inc.
 1cb1  Collion UG & Co.KG
 1cb8  Dawning Information Industry Co., Ltd.
 1cc5  Embedded Intelligence, Inc.
@@ -20730,6 +21350,8 @@
 1cc7  Radian Memory Systems Inc.
 	0200  RMS-200
 	0250  RMS-250
+1ccf  Zoom Corporation
+	0001  TAC-2 Thunderbolt Audio Converter
 1cd2  SesKion GmbH
 	0301  Simulyzer-RT CompactPCI Serial DIO-1 card
 	0302  Simulyzer-RT CompactPCI Serial PSI5-ECU-1 card
@@ -20832,7 +21454,15 @@
 1d65  Imagine Communications Corp.
 	04de  Taurus/McKinley
 1d6a  Aquantia Corp.
+	0001  AQC107 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
+	07b1  AQC107 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
+	08b1  AQC108 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
+	11b1  AQC111 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
+	12b1  AQC112 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
+	87b1  AQC107 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
 	d107  AQC107 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
+		1043 8741  XG-C100C
+	d108  AQC108 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
 1d6c  Atomic Rules LLC
 	1001  A5PL-E1
 	1002  A5PL-E7
@@ -20851,18 +21481,68 @@
 	100e  AR-ARKA-FX1 [Arkville 64B DPDK Data Mover]
 		1d6c 2001  DPDK-Aware Virtual Function [Arkville VF]
 	4200  A5PL-E1-10GETI [10 GbE Ethernet Traffic Instrument]
+1d72  Xiaomi
 1d78  DERA
 1d7c  Aerotech, Inc.
 1d87  Fuzhou Rockchip Electronics Co., Ltd
 1d8f  Enyx
+1d94  Chengdu Higon IC Design Co.Ltd
+	1450  Root Complex
+	1451  I/O Memory Management Unit
+	1452  PCIe Dummy Host Bridge
+	1453  PCIE GPP Bridge
+	1454  Internal PCIe GPP Bridge 0 to Bus B
+	1455  PCIe Dummy Function
+	1456  PSPCCP Command DMA Processor
+	1458  10 Gb Ethernet Controller Port 0/Port1
+	1459  10 Gb Ethernet Controller Port 2/Port3
+	145a  PCIe Dummy Function
+	145b  PCIE Non-Transparent Bridge
+	145c  USB3 XHCI
+	145d  Switch upstream in PCIe
+	145e  Switch downstream in PCIe
+	145f  USB 3.0 Host controller
+	1460  Data Fabric: Device 18h; Function 0
+	1461  Data Fabric: Device 18h; Function 1
+	1462  Data Fabric: Device 18h; Function 2
+	1463  Data Fabric: Device 18h; Function 3
+	1464  Data Fabric: Device 18h; Function 4
+	1465  Data Fabric: Device 18h; Function 5
+	1466  Data Fabric: Device 18h; Function 6
+	1467  Data Fabric: Device 18h; Function 7
+	1468  NTBCCP
+	7901  FCH SATA Controller [AHCI mode]
+	7904  FCH SATA Controller [AHCI mode]
+	7906  FCH SD Flash Controller
+	790b  FCH SMBus Controller
+	790e  FCH LPC Bridge
 1d95  Graphcore Ltd
 1da1  Teko Telecom S.r.l.
 1da2  Sapphire Technology Limited
+1dbb  NGD Systems, Inc.
 1de1  Tekram Technology Co.,Ltd.
 	0391  TRM-S1040 [DC-315 / DC-395 series]
 	2020  DC-390
 	690c  690c
 	dc29  DC290
+1de5  Eideticom, Inc
+	1000  IO Memory Controller
+	2000  NoLoad Hardware Development Kit
+1def  Ampere Computing, LLC
+	e005  Skylark PCI Express Root Port 0 [X-Gene 3]
+	e006  Skylark PCI Express Root Port 1 [X-Gene 3]
+	e007  Skylark PCI Express Root Port 2 [X-Gene 3]
+	e008  Skylark PCI Express Root Port 3 [X-Gene 3]
+	e009  Skylark PCI Express Root Port 4 [X-Gene 3]
+	e00a  Skylark PCI Express Root Port 5 [X-Gene 3]
+	e00b  Skylark PCI Express Root Port 6 [X-Gene 3]
+	e00c  Skylark PCI Express Root Port 7 [X-Gene 3]
+1df7  opencpi.org
+	0001  ml605
+	0002  alst4
+	0003  alst4x
+1dfc  JSC NT-COM
+	1181  TDM 8 Port E1/T1/J1 Adapter
 # nee Tumsan Oy
 1fc0  Ascom (Finland) Oy
 	0300  E2200 Dual E1/Rawpipe Card
@@ -20897,6 +21577,7 @@
 		0000 3014  10-Giga TOE Dual Port CX4 Low Profile SmartNIC
 	4010  TN4010 Clean SROM
 	4020  TN9030 10GbE CX4 Ethernet Adapter
+		180c 2040  Mustang-200 10GbE Ethernet Adapter
 	4022  TN9310 10GbE SFP+ Ethernet Adapter
 		1043 8709  XG-C100F 10GbE SFP+ Ethernet Adapter
 		1186 4d00  DXE-810S 10GbE SFP+ Ethernet Adapter
@@ -20912,6 +21593,7 @@
 	4027  TN9710P 10GBase-T/NBASE-T Ethernet Adapter
 		1154 0368  LGY-PCIE-MG
 		1432 8104  10 Gigabit Ethernet PCI Express Adapter
+		1546 4027  GE10-PCIE4XG202P 10Gbase-T/NBASE-T Ethernet Adapter
 		1fc9 3015  Ethernet Adapter
 	4527  TN9710Q 5GBase-T/NBASE-T Ethernet Adapter
 1fcc  StreamLabs
@@ -20931,10 +21613,11 @@
 20f4  TRENDnet
 2116  ZyDAS Technology Corp.
 21c3  21st Century Computer Corp.
+22db  Missing Link Electronics, Inc.
 2304  Colorgraphic Communications Corp.
 2348  Racore
 	2010  8142 100VG/AnyLAN
-2646  Kingston Technologies
+2646  Kingston Technology Company, Inc.
 270b  Xantel Corporation
 270f  Chaintech Computer Co. Ltd
 2711  AVID Technology Inc.
@@ -21576,6 +22259,8 @@
 	3000  HD-3000
 	5500  HD5500 HDTV
 7284  HT OMEGA Inc.
+7357  IOxOS Technologies SA
+	7910  7910 [Althea]
 7401  EndRun Technologies
 	e100  PTP3100 PCIe PTP Slave Clock
 7470  TP-LINK Technologies Co., Ltd.
@@ -21705,6 +22390,7 @@
 		17aa 21cf  ThinkPad T520
 	0150  Xeon E3-1200 v2/3rd Gen Core processor DRAM Controller
 		1043 84ca  P8 series motherboard
+		1458 d000  Ivy Bridge GT1 [HD Graphics]
 		15d9 0624  X9SCM-F Motherboard
 		1849 0150  Motherboard
 	0151  Xeon E3-1200 v2/3rd Gen Core processor PCI Express Root Port
@@ -21916,6 +22602,7 @@
 	0897  Centrino Wireless-N 130
 		8086 5015  Centrino Wireless-N 130 BGN
 		8086 5017  Centrino Wireless-N 130 BG
+	08a7  Quark SoC X1000 SDIO / eMMC Controller
 	08ae  Centrino Wireless-N 100
 		8086 1005  Centrino Wireless-N 100 BGN
 		8086 1007  Centrino Wireless-N 100 BG
@@ -22114,6 +22801,12 @@
 		8086 8370  Dual Band Wireless AC 3160
 # PowerVR SGX 545
 	08cf  Atom Processor Z2760 Integrated Graphics Controller
+	0934  Quark SoC X1000 I2C Controller and GPIO Controller
+	0935  Quark SoC X1000 SPI Controller
+	0936  Quark SoC X1000 HS-UART
+	0937  Quark SoC X1000 10/100 Ethernet MAC
+	0939  Quark SoC X1000 USB EHCI Host Controller / USB 2.0 Device
+	093a  Quark SoC X1000 USB OHCI Host Controller
 	0953  PCIe Data Center SSD
 		8086 3702  DC P3700 SSD
 		8086 3703  DC P3700 SSD [2.5" SFF]
@@ -22123,6 +22816,7 @@
 		8086 370a  DC P3600 SSD [2.5" SFF]
 		8086 370d  SSD 750 Series [Add-in Card]
 		8086 370e  SSD 750 Series [2.5" SFF]
+	0958  Quark SoC X1000 Host Bridge
 	095a  Wireless 7265
 # Stone Peak 2 AC
 		8086 1010  Dual Band Wireless-AC 7265
@@ -22209,9 +22903,11 @@
 		8086 5310  Dual Band Wireless-AC 7265
 # Stone Peak 2 AGN
 		8086 9200  Dual Band Wireless-AC 7265
+	095e  Quark SoC X1000 Legacy Bridge
 	0960  80960RP (i960RP) Microprocessor/Bridge
 	0962  80960RM (i960RM) Bridge
 	0964  80960RP (i960RP) Microprocessor/Bridge
+	0a03  Haswell-ULT Thermal Subsystem
 	0a04  Haswell-ULT DRAM Controller
 		17aa 2214  ThinkPad X240
 	0a06  Haswell-ULT Integrated Graphics Controller
@@ -22224,8 +22920,17 @@
 	0a2a  Haswell-ULT Integrated Graphics Controller
 	0a2e  Haswell-ULT Integrated Graphics Controller
 	0a53  DC P3520 SSD
-	0a54  Express Flash NVMe P4500
+	0a54  Express Flash NVMe P4500/P4600
+		1028 1fe1  Express Flash NVMe 1TB 2.5" U.2 (P4500)
+		1028 1fe2  Express Flash NVMe 2TB 2.5" U.2 (P4500)
+		1028 1fe3  Express Flash NVMe 4TB 2.5" U.2 (P4500)
+		1028 1fe4  Express Flash NVMe 4TB HHHL AIC (P4500)
 	0a55  Express Flash NVMe P4600
+		1028 1fe5  Express Flash NVMe 1.6TB 2.5" U.2 (P4600)
+		1028 1fe6  Express Flash NVMe 2TB 2.5" U.2 (P4600)
+		1028 1fe7  Express Flash NVMe 3.2TB 2.5" U.2 (P4600)
+		1028 1fe8  Express Flash NVMe 2.0TB HHHL AIC (P4600)
+		1028 1fe9  Express Flash NVMe 4.0TB HHHL AIC (P4600)
 	0be0  Atom Processor D2xxx/N2xxx Integrated Graphics Controller
 	0be1  Atom Processor D2xxx/N2xxx Integrated Graphics Controller
 		105b 0d7c  D270S/D250S Motherboard
@@ -22674,7 +23379,7 @@
 	1057  PRO/100 VE Network Connection
 	1059  82551QM Ethernet Controller
 	105b  82546GB Gigabit Ethernet Controller (Copper)
-	105e  82571EB Gigabit Ethernet Controller
+	105e  82571EB/82571GB Gigabit Ethernet Controller D0/D1 (copper applications)
 		103c 7044  NC360T PCI Express Dual Port Gigabit Server Adapter
 		103c 704e  Dual Port 1000Base-T (PCIe) [AD337A]
 		1775 1100  CR11/VR11 Single Board Computer
@@ -22824,12 +23529,13 @@
 		8086 1093  PRO/1000 PT Desktop Adapter
 	10ba  80003ES2LAN Gigabit Ethernet Controller (Copper)
 	10bb  80003ES2LAN Gigabit Ethernet Controller (Serdes)
-	10bc  82571EB Gigabit Ethernet Controller (Copper)
+	10bc  82571EB/82571GB Gigabit Ethernet Controller (Copper)
 		1014 0368  4-Port 10/100/1000 Base-TX PCI Express Adapter for POWER
 		103c 704b  NC364T PCI Express Quad Port Gigabit Server Adapter
-		108e 11bc  x4 PCI-Express Quad Gigabit Ethernet UTP Low Profile Adapter
+# 375-3481-01 REV:50
+		108e 11bc  Quad Port Adapter
 		8086 10bc  PRO/1000 PT Quad Port LP Server Adapter
-		8086 11bc  PRO/1000 PT Quad Port LP Server Adapter
+		8086 11bc  PRO/1000 PT Quad Port LP Server Adapter (Kirkwood Low Profile)
 	10bd  82566DM-2 Gigabit Network Connection
 		1028 0211  OptiPlex 755
 	10bf  82567LF Gigabit Network Connection
@@ -22955,6 +23661,7 @@
 		17aa 402b  82599ES 10Gb 2-port Server Adapter X520-DA2
 		17aa 402f  FPGA Card XC7VX690T-3FFG1157E
 		18d4 0c09  82599ES 10Gb 2-port SFP+ OCP Mezz Card MOP81-I-10GS2
+		193d 1004  560F-B
 		1bd4 001b  10G SFP+ DP ER102Fi4 Rack Adapter
 		1bd4 002f  10G SFP+ DP EP102Fi4A Adapter
 		1bd4 0032  10G SFP+ DP EP102Fi4 Adapter
@@ -22999,6 +23706,8 @@
 	11a1  Merrifield Power Management Unit
 	11a2  Merrifield Serial IO DMA Controller
 	11a5  Merrifield Serial IO PWM Controller
+	11c3  Quark SoC X1000 PCIe Root Port 0
+	11c4  Quark SoC X1000 PCIe Root Port 1
 	1200  IXP1200 Network Processor
 		172a 0000  AEP SSL Accelerator
 	1209  8255xER/82551IT Fast Ethernet Controller
@@ -23271,6 +23980,8 @@
 		17aa 1074  ThinkServer I350-T4 AnyFabric
 		17aa 4005  I350 Gigabit Network Connection
 		18d4 0c07  I350 1Gb 2-port RJ45 OCP Mezz Card MOP41-I-1GT2
+		193d 1005  360T-B
+		193d 1007  360T-L
 		1bd4 001d  1G base-T QP EP014Ti1 Adapter
 		1bd4 0035  1G base-T QP EP014Ti1 Adapter
 		8086 0001  Ethernet Server Adapter I350-T4
@@ -23314,6 +24025,7 @@
 		108e 7b14  Sun Dual Port 10 GbE PCIe 2.0 ExpressModule, Base-T
 		108e 7b15  Sun Dual Port 10 GbE PCIe 2.0 Low Profile Adapter, Base-T
 		1137 00bf  Ethernet Converged Network Adapter X540-T2
+		1170 0052  Ethernet Controller 10-Gigabit X540-AT2
 		17aa 1073  ThinkServer X540-T2 AnyFabric
 		17aa 4006  Ethernet Controller 10-Gigabit X540-AT2
 		1bd4 001a  10G base-T DP ER102Ti3 Rack Adapter
@@ -23383,9 +24095,14 @@
 	1563  Ethernet Controller 10G X550T
 		1028 1fa8  Ethernet 10G 4P X550/I350 rNDC
 		1028 1fa9  Ethernet 10G 4P X550 rNDC
+		1170 0001  Intel Ethernet Controller X550-T2 OCP card
+		14c0 1201  X550 10Gb 2P RJ45 OCP Mezz
 		1590 00d1  Ethernet 10Gb 2-port 562T Adapter
 		1590 00d2  Ethernet 10Gb 2-port 562FLR-T Adapter
+		16b8 7217  Twin10G Thunderbolt 3 Edition
 		18d4 0c08  X550 10Gb 2-port RJ45 OCP Mezz Card MOP81-I-10GT2
+		193d 1008  560T-B
+		193d 1009  560T-L
 		8086 0001  Ethernet Converged Network Adapter X550-T2
 		8086 001a  Ethernet Converged Network Adapter X550-T2
 		8086 001b  Ethernet Server Adapter X550-T2 for OCP
@@ -23434,6 +24151,7 @@
 		8086 000b  Ethernet Server Adapter X710-DA2 for OCP
 		8086 000d  Ethernet Controller X710 for 10GbE SFP+
 		8086 000e  Ethernet Server Adapter OCP X710-2
+		8086 000f  Ethernet Server Adapter OCP X710-2
 		8086 0010  Ethernet Converged Network Adapter X710
 		8086 4005  Ethernet Controller X710 for 10GbE SFP+
 		8086 4006  Ethernet Controller X710 for 10GbE SFP+
@@ -23520,6 +24238,7 @@
 		1059 0150  RD-01068 10GbE interface
 	15ab  Ethernet Connection X552 10 GbE Backplane
 	15ac  Ethernet Connection X552 10 GbE SFP+
+		1059 0160  RD-01167 10GbE interface
 	15ad  Ethernet Connection X552/X557-AT 10GBASE-T
 	15ae  Ethernet Connection X552 1000BASE-T
 	15b0  Ethernet Connection X552 Backplane
@@ -23543,7 +24262,9 @@
 	15c7  Ethernet Connection X553 1GbE
 	15c8  Ethernet Connection X553/X557-AT 10GBASE-T
 	15ce  Ethernet Connection X553 10 GbE SFP+
-	15d0  Ethernet SDI Adapter FM10420-100GbE-QDA2
+	15d0  Ethernet SDI Adapter
+		8086 0001  Ethernet SDI Adapter FM10420-100GbE-QDA2
+		8086 0002  Ethernet SDI Adapter FM10840-MTP2
 	15d1  Ethernet Controller 10G X550T
 		8086 0002  Ethernet Converged Network Adapter X550-T1
 		8086 001b  Ethernet Server Adapter X550-T1 for OCP
@@ -23568,6 +24289,14 @@
 	15e3  Ethernet Connection (5) I219-LM
 	15e4  Ethernet Connection X553 1GbE
 	15e5  Ethernet Connection X553 1GbE
+	15e7  JHL7540 Thunderbolt 3 Bridge [Titan Ridge 2C 2018]
+	15e8  JHL7540 Thunderbolt 3 NHI [Titan Ridge 2C 2018]
+	15e9  JHL7540 Thunderbolt 3 USB Controller [Titan Ridge 2C 2018]
+	15ea  JHL7540 Thunderbolt 3 Bridge [Titan Ridge 4C 2018]
+	15eb  JHL7540 Thunderbolt 3 NHI [Titan Ridge 4C 2018]
+	15ec  JHL7540 Thunderbolt 3 USB Controller [Titan Ridge 4C 2018]
+	15ef  JHL7540 Thunderbolt 3 Bridge [Titan Ridge DD 2018]
+	15f0  JHL7540 Thunderbolt 3 USB Controller [Titan Ridge DD 2018]
 	1600  Broadwell-U Host Bridge -OPI
 	1601  Broadwell-U PCI Express x16 Controller
 	1602  Broadwell-U Integrated Graphics
@@ -23626,7 +24355,7 @@
 		17aa 2247  ThinkPad T570
 		17aa 224f  ThinkPad X1 Carbon 5th Gen
 	1912  HD Graphics 530
-	1916  HD Graphics 520
+	1916  Skylake GT2 [HD Graphics 520]
 		1028 06f3  Latitude 3570
 	1918  Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor Host Bridge/DRAM Registers
 	1919  Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor Imaging Unit
@@ -23670,30 +24399,32 @@
 		e4bf 3100  CX1-BAND
 	1962  80960RM (i960RM) Microprocessor
 		105a 0000  SuperTrak SX6000 I2O CPU
-	19ac  DNV SMBus Contoller - Host
-	19b0  DNV SATA Controller 0
-	19b1  DNV SATA Controller 0
-	19b2  DNV SATA Controller 0
-	19b3  DNV SATA Controller 0
-	19b4  DNV SATA Controller 0
-	19b5  DNV SATA Controller 0
-	19b6  DNV SATA Controller 0
-	19b7  DNV SATA Controller 0
-	19be  DNV SATA Controller 0
-	19bf  DNV SATA Controller 0
-	19c0  DNV SATA Controller 1
-	19c1  DNV SATA Controller 1
-	19c2  DNV SATA Controller 1
-	19c3  DNV SATA Controller 1
-	19c4  DNV SATA Controller 1
-	19c5  DNV SATA Controller 1
-	19c6  DNV SATA Controller 1
-	19c7  DNV SATA Controller 1
-	19ce  DNV SATA Controller 1
-	19cf  DNV SATA Controller 1
-	19dc  DNV LPC or eSPI
-	19df  DNV SMBus controller
-	19e0  DNV SPI Controller
+	19ac  Atom Processor C3000 Series SMBus Contoller - Host
+	19b0  Atom Processor C3000 Series SATA Controller 0
+	19b1  Atom Processor C3000 Series SATA Controller 0
+	19b2  Atom Processor C3000 Series SATA Controller 0
+	19b3  Atom Processor C3000 Series SATA Controller 0
+	19b4  Atom Processor C3000 Series SATA Controller 0
+	19b5  Atom Processor C3000 Series SATA Controller 0
+	19b6  Atom Processor C3000 Series SATA Controller 0
+	19b7  Atom Processor C3000 Series SATA Controller 0
+	19be  Atom Processor C3000 Series SATA Controller 0
+	19bf  Atom Processor C3000 Series SATA Controller 0
+	19c0  Atom Processor C3000 Series SATA Controller 1
+	19c1  Atom Processor C3000 Series SATA Controller 1
+	19c2  Atom Processor C3000 Series SATA Controller 1
+	19c3  Atom Processor C3000 Series SATA Controller 1
+	19c4  Atom Processor C3000 Series SATA Controller 1
+	19c5  Atom Processor C3000 Series SATA Controller 1
+	19c6  Atom Processor C3000 Series SATA Controller 1
+	19c7  Atom Processor C3000 Series SATA Controller 1
+	19ce  Atom Processor C3000 Series SATA Controller 1
+	19cf  Atom Processor C3000 Series SATA Controller 1
+	19d0  Atom Processor C3000 Series USB 3.0 xHCI Controller
+	19dc  Atom Processor C3000 Series LPC or eSPI
+	19df  Atom Processor C3000 Series SMBus controller
+	19e0  Atom Processor C3000 Series SPI Controller
+	19e2  Atom Processor C3000 Series QuickAssist Technology
 	1a21  82840 840 [Carmel] Chipset Host Bridge (Hub A)
 	1a23  82840 840 [Carmel] Chipset AGP Bridge
 	1a24  82840 840 [Carmel] Chipset PCI Bridge (Hub B)
@@ -23907,6 +24638,7 @@
 	1d69  C604/X79 series chipset 4-Port SATA/SAS Storage Control Unit
 	1d6a  C600/X79 series chipset Dual 4-Port SATA Storage Control Unit
 	1d6b  C602 chipset 4-Port SATA Storage Control Unit
+		0497 1028  Dell Precision T3600
 	1d6c  C600/X79 series chipset Dual 4-Port SATA/SAS Storage Control Unit
 	1d6d  C600/X79 series chipset 4-Port SATA/SAS Storage Control Unit
 	1d6e  C600/X79 series chipset Dual 4-Port SATA Storage Control Unit
@@ -23994,6 +24726,7 @@
 		144d c652  NP300E5C series laptop
 		1849 1e2d  Motherboard
 	1e31  7 Series/C210 Series Chipset Family USB xHCI Host Controller
+		103c 179b  Elitebook 8470p
 		103c 17ab  ProBook 6570b
 		1043 108d  VivoBook X202EV
 		1043 1477  N56VZ
@@ -24303,6 +25036,7 @@
 		1028 040a  Latitude E6410
 		1028 040b  Latitude E6510
 		103c 0934  Compaq nw8240 Mobile Workstation
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		103c 309f  Compaq nx9420 Notebook
 		103c 30a3  Compaq nw8440
@@ -24383,6 +25117,7 @@
 		1043 8277  P5K PRO Motherboard
 		1043 844d  P8 series motherboard
 		1458 5000  Motherboard
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7418  Wind PC MS-7418
 		15d9 060d  C7SIM-Q Motherboard
 		15d9 9680  X7DBN Motherboard
@@ -24758,7 +25493,7 @@
 		8086 a000  D865PERL mainboard
 		8086 e000  D865PERL mainboard
 		8086 e001  Desktop Board D865GBF
-		8086 e002  SoundMax Intergrated Digital Audio
+		8086 e002  SoundMax Integrated Digital Audio
 	24d6  82801EB/ER (ICH5/ICH5R) AC'97 Modem Controller
 		103c 006a  NX9500
 	24d7  82801EB/ER (ICH5/ICH5R) USB UHCI Controller #3
@@ -24871,6 +25606,7 @@
 	24f4  Wireless 8260
 # Snow Field Peak AC
 		8086 0030  Dual Band Wireless-AC 8260
+	24fb  Dual Band Wireless-AC 3168NGW [Stone Peak]
 	24fd  Wireless 8265 / 8275
 # Windstorm Peak
 		8086 0010  Dual Band Wireless-AC 8265
@@ -24884,6 +25620,7 @@
 	250f  82820 820 (Camino) Chipset AGP Bridge
 	2520  82805AA MTH Memory Translator Hub
 	2521  82804AA MRH-S Memory Repeater Hub for SDRAM
+	2526  Wireless-AC 9260
 	2530  82850 850 (Tehama) Chipset Host Bridge (MCH)
 		1028 00c7  Dimension 8100
 		147b 0507  TH7II-RAID
@@ -24970,6 +25707,7 @@
 		1014 0575  ThinkPad X41 / Z60t
 		1028 0182  Latitude C610
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		104d 81b7  Vaio VGN-S3XP
 		a304 81b7  Vaio VGN-S3XP
@@ -25154,6 +25892,7 @@
 	2641  82801FBM (ICH6M) LPC Interface Bridge
 		1014 0568  ThinkPad X41
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 	2642  82801FW/FRW (ICH6W/ICH6RW) LPC Interface Bridge
 	2651  82801FB/FW (ICH6/ICH6W) SATA Controller
@@ -25174,6 +25913,7 @@
 		1028 0177  Dimension 8400
 		1028 0179  Optiplex GX280
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		1043 80a6  P5GD1-VW Mainboard
 		1458 2558  GA-8I915ME-G Mainboard
@@ -25187,6 +25927,7 @@
 		1028 0177  Dimension 8400
 		1028 0179  Optiplex GX280
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		1043 80a6  P5GD1-VW Mainboard
 		1458 2659  GA-8I915ME-G Mainboard
@@ -25200,6 +25941,7 @@
 		1028 0177  Dimension 8400
 		1028 0179  Optiplex GX280
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		1043 80a6  P5GD1-VW Mainboard
 		1458 265a  GA-8I915ME-G Mainboard
@@ -25225,6 +25967,7 @@
 		1028 0177  Dimension 8400
 		1028 0179  Optiplex GX280
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		1043 80a6  P5GD1-VW Mainboard
 		1458 5006  GA-8I915ME-G Mainboard
@@ -25236,12 +25979,14 @@
 		e4bf 58b1  XB1
 	2660  82801FB/FBM/FR/FW/FRW (ICH6 Family) PCI Express Port 1
 		103c 0934  Compaq nw8240 Mobile Workstation
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		e4bf 0ccd  CCD-CALYPSO
 		e4bf 0cd3  CD3-JIVE
 		e4bf 58b1  XB1
 	2662  82801FB/FBM/FR/FW/FRW (ICH6 Family) PCI Express Port 2
 		103c 0934  Compaq nw8240 Mobile Workstation
+		103c 0944  Compaq nc6220 Notebook PC
 		e4bf 0ccd  CCD-CALYPSO
 		e4bf 0cd3  CD3-JIVE
 		e4bf 58b1  XB1
@@ -25295,6 +26040,7 @@
 	266f  82801FB/FBM/FR/FW/FRW (ICH6 Family) IDE Controller
 		1028 0177  Dimension 8400
 		103c 0934  Compaq nw8240/nx8220
+		103c 0944  Compaq nc6220 Notebook PC
 		103c 099c  NX6110/NC6120
 		1043 80a6  P5GD1-VW Mainboard
 		1458 266f  GA-8I915ME-G Mainboard
@@ -25367,6 +26113,12 @@
 		103c 31fe  ProLiant DL140 G3
 		15d9 8680  X7DVL-E-O motherboard
 		15d9 9680  X7DBN Motherboard
+	2700  Optane SSD 900P Series
+		8086 3900  900P Series [Add-in Card]
+		8086 3901  900P Series [2.5" SFF]
+	2701  Optane DC P4800X Series SSD
+		8086 3904  DC P4800X Series [Add-in Card]
+		8086 3905  DC P4800X Series [2.5" SFF]
 	2770  82945G/GZ/P/PL Memory Controller Hub
 		1028 01ad  OptiPlex GX620
 		103c 2a3b  Pavilion A1512X
@@ -25397,6 +26149,7 @@
 	2792  Mobile 915GM/GMS/910GML Express Graphics Controller
 		1014 0582  ThinkPad X41
 		103c 099c  NX6110/NC6120
+		103c 308a  Compaq nc6220 Notebook PC
 		1043 1881  GMA 900 915GM Integrated Graphics
 		e4bf 0ccd  CCD-CALYPSO
 		e4bf 0cd3  CD3-JIVE
@@ -25741,6 +26494,7 @@
 	2815  82801HM (ICH8M) LPC Interface Controller
 		1025 0121  Aspire 5920G
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30cc  Pavilion dv6700
 		103c 30d9  Presario C700
@@ -25755,7 +26509,8 @@
 	2822  SATA Controller [RAID mode]
 		1028 020d  Inspiron 530
 		103c 2a6f  Asus IPIBL-LB Motherboard
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 	2823  C610/X99 series chipset sSATA Controller [RAID mode]
 	2824  82801HB (ICH8) 4 port SATA Controller [AHCI mode]
 		1043 81ec  P5B
@@ -25777,6 +26532,7 @@
 		e4bf cc47  CCG-RUMBA
 	2829  82801HM/HEM (ICH8M/ICH8M-E) SATA Controller [AHCI mode]
 		1025 0121  Aspire 5920G
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30c1  Compaq 6910p
 		103c 30cc  Pavilion dv6700
@@ -25793,6 +26549,7 @@
 		1025 0121  Aspire 5920G
 		1028 01da  OptiPlex 745
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30c1  Compaq 6910p
 		103c 30cc  Pavilion dv6700
@@ -25808,6 +26565,7 @@
 		1025 0121  Aspire 5920G
 		1028 01da  OptiPlex 745
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30c1  Compaq 6910p
 		103c 30cc  Pavilion dv6700
@@ -25823,6 +26581,7 @@
 		1025 0121  Aspire 5920G
 		1028 01da  OptiPlex 745
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30c1  Compaq 6910p
 		103c 30cc  Pavilion dv6700
@@ -25839,6 +26598,7 @@
 		1025 0121  Aspire 5920G
 		1028 01da  OptiPlex 745
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30c1  Compaq 6910p
 		103c 30cc  Pavilion dv6700
@@ -25853,6 +26613,7 @@
 		1025 0121  Aspire 5920G
 		1028 01da  OptiPlex 745
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30c1  Compaq 6910p
 		103c 30cc  Pavilion dv6700
@@ -25866,6 +26627,7 @@
 		1025 0121  Aspire 5920G
 		1028 01da  OptiPlex 745
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30c1  Compaq 6910p
 		103c 30cc  Pavilion dv6700
@@ -25881,6 +26643,7 @@
 		1025 0121  Aspire 5920G
 		1028 01da  OptiPlex 745
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30c1  Compaq 6910p
 		103c 30cc  Pavilion dv6700
@@ -25894,6 +26657,7 @@
 		1025 0121  Aspire 5920G
 		1028 01da  OptiPlex 745
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30d9  Presario C700
 		1043 81ec  P5B
 		104d 9005  Vaio VGN-FZ260E
@@ -25930,11 +26694,12 @@
 	284b  82801H (ICH8 Family) HD Audio Controller
 		1025 011f  Realtek ALC268 audio codec
 		1025 0121  Aspire 5920G
-		1025 0145  Realtek ALC889 (Aspire 8920G w. Dolby Theather)
+		1025 0145  Realtek ALC889 (Aspire 8920G w. Dolby Theater)
 		1028 01da  OptiPlex 745
 		1028 01f3  Inspiron 1420
 		1028 01f9  Latitude D630
 		1028 01ff  Precision M4300
+		1028 022f  Inspiron 1525
 		1028 0256  Studio 1735
 		103c 2802  Compaq dc7700p
 		103c 30c0  Compaq 6710b
@@ -25955,6 +26720,7 @@
 	2850  82801HM/HEM (ICH8M/ICH8M-E) IDE Controller
 		1025 0121  Aspire 5920G
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30c1  Compaq 6910p
 		103c 30cc  Pavilion dv6700
@@ -25971,6 +26737,7 @@
 		1028 020d  Inspiron 530
 		103c 2a6f  Asus IPIBL-LB Motherboard
 		1043 8277  P5K PRO Motherboard
+		1462 7345  MS-7345 Motherboard
 		8086 5044  Desktop Board DP35DP
 	2917  ICH9M-E LPC Interface Controller
 		e4bf cc4d  CCM-BOOGIE
@@ -25985,14 +26752,16 @@
 		1028 0210  PowerEdge T300 onboard SATA Controller
 		1028 0211  Optiplex 755
 		1028 023c  PowerEdge R200 onboard SATA Controller
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801IR [ICH9R]
 	2921  82801IB (ICH9) 2 port SATA Controller [IDE mode]
 		1028 0235  PowerEdge R710 SATA IDE Controller
 		1028 0236  PowerEdge R610 SATA IDE Controller
 		1028 0237  PowerEdge T610 SATA IDE Controller
 		1462 7360  G33/P35 Neo
 	2922  82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller [AHCI mode]
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801IR [ICH9R]
 		1af4 1100  QEMU Virtual Machine
 		8086 5044  Desktop Board DP35DP
 	2923  82801IB (ICH9) 4 port SATA Controller [AHCI mode]
@@ -26004,7 +26773,8 @@
 		1028 020f  PowerEdge R300 onboard SATA Controller
 		1028 0210  PowerEdge T300 onboard SATA Controller
 		1028 0211  Optiplex 755
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801IR [ICH9R]
 		1462 7360  G33/P35 Neo
 	2928  82801IBM/IEM (ICH9M/ICH9M-E) 2 port SATA Controller [IDE mode]
 	2929  82801IBM/IEM (ICH9M/ICH9M-E) 4 port SATA Controller [AHCI mode]
@@ -26018,7 +26788,8 @@
 		1028 0211  Optiplex 755
 		103c 2a6f  Asus IPIBL-LB Motherboard
 		103c 3628  dv6-1190en
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 5044  Desktop Board DP35DP
@@ -26038,7 +26809,8 @@
 		1028 029c  PowerEdge M710 USB UHCI Controller
 		1028 2011  Optiplex 755
 		103c 2a6f  Asus IPIBL-LB Motherboard
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 5044  Desktop Board DP35DP
@@ -26055,7 +26827,8 @@
 		1028 0287  PowerEdge M610 onboard UHCI
 		1028 029c  PowerEdge M710 USB UHCI Controller
 		103c 2a6f  Asus IPIBL-LB Motherboard
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 5044  Desktop Board DP35DP
@@ -26070,7 +26843,8 @@
 		1028 0287  PowerEdge M610 onboard UHCI
 		1028 029c  PowerEdge M710 USB UHCI Controller
 		103c 2a6f  Asus IPIBL-LB Motherboard
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 5044  Desktop Board DP35DP
@@ -26085,7 +26859,8 @@
 		1028 029c  PowerEdge M710 USB UHCI Controller
 		1028 2011  Optiplex 755
 		103c 2a6f  Asus IPIBL-LB Motherboard
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 2937  Optiplex 755
@@ -26101,7 +26876,8 @@
 		1028 0287  PowerEdge M610 onboard UHCI
 		1028 029c  PowerEdge M710 USB UHCI Controller
 		103c 2a6f  Asus IPIBL-LB Motherboard
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 2938  Optiplex 755
@@ -26112,7 +26888,8 @@
 		1028 0210  PowerEdge T300 onboard UHCI
 		1028 0237  PowerEdge T610 USB UHCI Controller
 		103c 2a6f  Asus IPIBL-LB Motherboard
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 5044  Desktop Board DP35DP
@@ -26129,7 +26906,8 @@
 		1028 0287  PowerEdge M610 onboard EHCI
 		1028 029c  PowerEdge M710 USB EHCI Controller
 		103c 2a6f  Asus IPIBL-LB Motherboard
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 5044  Desktop Board DP35DP
@@ -26143,7 +26921,8 @@
 		1028 0287  PowerEdge M610 onboard EHCI
 		1028 029c  PowerEdge M710 USB EHCI Controller
 		103c 2a6f  Asus IPIBL-LB Motherboard
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 293c  Optiplex 755
@@ -26154,7 +26933,8 @@
 		1028 0211  Optiplex 755
 		103c 2a6f  Asus IPIBL-LB Motherboard
 		103c 3628  dv6-1190en
-		1043 829f  P5K PRO Motherboard
+		1043 829f  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 735a  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 293e  Optiplex 755
@@ -26164,8 +26944,8 @@
 		1028 020d  Inspiron 530
 		1028 0211  Optiplex 755
 		103c 2a6f  Asus IPIBL-LB Motherboard
-# same ID possibly also on other ASUS boards
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 		8086 2940  Optiplex 755
 	2942  82801I (ICH9 Family) PCI Express Port 2
 		1028 020d  Inspiron 530
@@ -26176,12 +26956,12 @@
 		1028 020d  Inspiron 530
 	2948  82801I (ICH9 Family) PCI Express Port 5
 		1028 020d  Inspiron 530
-# same ID possibly also on other ASUS boards
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 	294a  82801I (ICH9 Family) PCI Express Port 6
 		1028 020d  Inspiron 530
-# same ID possibly also on other ASUS boards
-		1043 8277  P5K PRO Motherboard
+		1043 8277  P5K PRO Motherboard: 82801IR [ICH9R]
+		1462 7345  MS-7345 Motherboard: Intel 82801I/IR [ICH9/ICH9R]
 	294c  82566DC-2 Gigabit Network Connection
 		17aa 302e  82566DM-2 Gigabit Network Connection
 	2970  82946GZ/PL/GL Memory Controller Hub
@@ -26235,16 +27015,15 @@
 	29c0  82G33/G31/P35/P31 Express DRAM Controller
 		1028 020d  Inspiron 530
 		103c 2a6f  Asus IPIBL-LB Motherboard
-# same ID possibly also on other ASUS boards
-		1043 8276  P5K PRO Motherboard
+		1043 8276  P5K PRO Motherboard: Intel 82P35 Northbridge
 		1043 82b0  P5KPL-VM Motherboard
+		1462 7345  MS-7345 Motherboard: Intel 82G33/P35 Northbridge
 		1462 7360  G33/P35 Neo
 		1af4 1100  QEMU Virtual Machine
 		8086 5044  Desktop Board DP35DP
 	29c1  82G33/G31/P35/P31 Express PCI Express Root Port
 		1028 020d  Inspiron 530
-# same ID possibly also on other ASUS boards
-		1043 8276  P5K PRO Motherboard
+		1043 8276  P5K PRO Motherboard: Intel 82P35 Northbridge
 	29c2  82G33/G31 Express Integrated Graphics Controller
 		1028 020d  Inspiron 530
 		1043 82b0  P5KPL-VM Motherboard
@@ -26282,6 +27061,7 @@
 	2a00  Mobile PM965/GM965/GL960 Memory Controller Hub
 		1025 0121  Aspire 5920G
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30c1  Compaq 6910p
 		103c 30cc  Pavilion dv6700
@@ -26296,6 +27076,7 @@
 	2a02  Mobile GM965/GL960 Integrated Graphics Controller (primary)
 		1028 01f3  Inspiron 1420
 		1028 01f9  Latitude D630
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30d9  Presario C700
 		104d 902d  VAIO VGN-NR120E
@@ -26304,6 +27085,7 @@
 		e4bf cc47  CCG-RUMBA
 	2a03  Mobile GM965/GL960 Integrated Graphics Controller (secondary)
 		1028 01f3  Inspiron 1420
+		1028 022f  Inspiron 1525
 		103c 30c0  Compaq 6710b
 		103c 30d9  Presario C700
 		104d 902d  VAIO VGN-NR120E
@@ -27010,6 +27792,7 @@
 	372b  Xeon C5500/C3500 Core
 	372c  Xeon C5500/C3500 Reserved
 	373f  Xeon C5500/C3500 IOxAPIC
+	37c8  C62x Chipset QuickAssist Technology
 	37cd  Ethernet Virtual Function 700 Series
 	37ce  Ethernet Connection X722 for 10GbE backplane
 		1590 0215  Ethernet 10Gb 2-port 568i Adapter
@@ -27019,6 +27802,10 @@
 		17aa 4020  Intel Ethernet Connection X722 for 10G SFP+
 		17aa 4021  Intel Ethernet Connection X722 for 10G SFP+
 		17aa 4022  Ethernet Connection X722 for 10GbE SFP+
+		8086 0001  Ethernet Network Adapter X722-2
+		8086 0002  Ethernet Network Adapter X722-2
+		8086 0003  Ethernet Network Adapter X722-4
+		8086 0004  Ethernet Network Adapter X722-4
 	37d1  Ethernet Connection X722 for 1GbE
 		14cd 0010  88E1514 Ethernet OCP 2x1G RJ45 Phy Card [USI-1514-1GbaseT]
 		1590 0216  Ethernet 1Gb 2-port 368i Adapter
@@ -27028,6 +27815,7 @@
 		17aa 4021  Ethernet Connection X722 for 1GbE
 		17aa 4022  Ethernet Connection X722 for 1GbE
 	37d2  Ethernet Connection X722 for 10GBASE-T
+		1170 37d2  Ethernet Connection X722 for 10GBASE-T
 		14cd 0030  Ethernet OCP 2x10G RJ45 Phy Card [USI-X557-10GbaseT]
 		1590 0218  Ethernet 10Gb 2-port 568FLR-MMT Adapter
 		17aa 4020  Ethernet Connection X722 for 10GBASE-T
@@ -27237,6 +28025,8 @@
 		1028 02da  OptiPlex 980
 		1028 040a  Latitude E6410
 		1028 040b  Latitude E6510
+		1043 3838  P7P55-M Motherboard
+		1043 8383  P7P55-M Motherboard
 		144d c06a  R730 Laptop
 		15d9 060d  C7SIM-Q Motherboard
 		17c0 10d2  Medion Akoya E7214 Notebook PC [MD98410]
@@ -27397,6 +28187,17 @@
 	3cf4  Xeon E5/Core i7 Integrated Memory Controller System Address Decoder 0
 	3cf5  Xeon E5/Core i7 Integrated Memory Controller System Address Decoder 1
 	3cf6  Xeon E5/Core i7 System Address Decoder
+	3e18  8th Gen Core Processor Host Bridge/DRAM Registers
+	3e1f  8th Gen Core Processor Host Bridge/DRAM Registers
+	3e81  8th Gen Core Processor PCIe Controller (x16)
+	3e85  8th Gen Core Processor PCIe Controller (x8)
+	3e89  8th Gen Core Processor PCIe Controller (x4)
+	3e91  8th Gen Core Processor Gaussian Mixture Model
+	3ec2  8th Gen Core Processor Host Bridge/DRAM Registers
+	3ec4  8th Gen Core Processor Host Bridge/DRAM Registers
+	3ec6  8th Gen Core Processor Host Bridge/DRAM Registers
+	3eca  8th Gen Core Processor Host Bridge/DRAM Registers
+	3ed0  8th Gen Core Processor Host Bridge/DRAM Registers
 	4000  5400 Chipset Memory Controller Hub
 	4001  5400 Chipset Memory Controller Hub
 	4003  5400 Chipset Memory Controller Hub
@@ -27432,7 +28233,7 @@
 	4117  Atom Processor E6xx PCI Host Bridge #4
 	4220  PRO/Wireless 2200BG [Calexico2] Network Connection
 		103c 0934  Compaq nw8240/nx8220
-		103c 12f6  nc6120/nx8220/nw8240
+		103c 12f6  nc6120/nc6220/nw8240/nx8220
 		8086 2701  WM3B2200BG Mini-PCI Card
 		8086 2712  IBM ThinkPad R50e
 		8086 2721  Dell B130 laptop integrated WLAN
@@ -27580,9 +28381,11 @@
 	590f  Xeon E3-1200 v6/7th Gen Core Processor Host Bridge/DRAM Registers
 	5910  Xeon E3-1200 v6/7th Gen Core Processor Host Bridge/DRAM Registers
 	5912  HD Graphics 630
+	5914  Xeon E3-1200 v6/7th Gen Core Processor Host Bridge/DRAM Registers
 	5916  HD Graphics 620
 		17aa 2248  ThinkPad T570
 		17aa 224f  ThinkPad X1 Carbon 5th Gen
+	5917  UHD Graphics 620
 	591d  HD Graphics P630
 	591f  Intel Kaby Lake Host Bridge
 	5a84  Celeron N3350/Pentium N4200/Atom E3900 Series Integrated Graphics Controller
@@ -27701,6 +28504,7 @@
 	6f51  Xeon Processor D Family QuickData Technology Register DMA Channel 1
 	6f52  Xeon Processor D Family QuickData Technology Register DMA Channel 2
 	6f53  Xeon Processor D Family QuickData Technology Register DMA Channel 3
+	6f54  Xeon Processor D Family QuickAssist Technology
 	6f60  Xeon E7 v4/Xeon E5 v4/Xeon E3 v4/Xeon D Home Agent 1
 	6f68  Xeon E7 v4/Xeon E5 v4/Xeon E3 v4/Xeon D Target Address/Thermal/RAS
 	6f6a  Xeon E7 v4/Xeon E5 v4/Xeon E3 v4/Xeon D Channel Target Address Decoder
@@ -27999,6 +28803,8 @@
 	8c26  8 Series/C220 Series Chipset Family USB EHCI #1
 		103c 1909  ZBook 15
 		17aa 220e  ThinkPad T440p
+		17aa 2210  ThinkPad T540p
+		2210 17aa  ThinkPad T540p
 	8c2d  8 Series/C220 Series Chipset Family USB EHCI #2
 		103c 1909  ZBook 15
 		17aa 220e  ThinkPad T440p
@@ -28305,6 +29111,7 @@
 		17aa 382a  B51-80 Laptop
 	9d48  Sunrise Point-LP LPC Controller
 		1028 06f3  Latitude 3570
+	9d4e  Intel(R) 100 Series Chipset Family LPC Controller/eSPI Controller - 9D4E
 	9d56  Sunrise Point-LP LPC Controller
 	9d58  Sunrise Point-LP LPC Controller
 		17aa 2247  ThinkPad T570
@@ -28527,6 +29334,20 @@
 	a2ed  200 Series PCH PCI Express Root Port #23
 	a2ee  200 Series PCH PCI Express Root Port #24
 	a2f0  200 Series PCH HD Audio
+	a304  H370 Chipset LPC/eSPI Controller
+	a323  Cannon Lake PCH SMBus Controller
+	a324  Cannon Lake PCH SPI Controller
+	a32c  Cannon Lake PCH PCI Express Root Port 21
+	a330  Cannon Lake PCH PCI Express Root Port 9
+	a342  Cannon Lake PCH PCI Express Root Port 19
+	a343  Cannon Lake PCH PCI Express Root Port 20
+	a348  Cannon Lake PCH cAVS
+	a352  Cannon Lake PCH SATA AHCI Controller
+	a360  Cannon Lake PCH HECI Controller
+	a36d  Cannon Lake PCH USB 3.1 xHCI Host Controller
+	a36f  Cannon Lake PCH Shared SRAM
+	a370  Wireless-AC 9560 [Jefferson Peak]
+	a379  Cannon Lake PCH Thermal Controller
 	a620  6400/6402 Advanced Memory Buffer (AMB)
 	abc0  Omni-Path Fabric Switch Silicon 100 Series
 	b152  21152 PCI-to-PCI Bridge
@@ -28564,6 +29385,7 @@
 	d156  Core Processor Semaphore and Scratchpad Registers
 	d157  Core Processor System Control and Status Registers
 	d158  Core Processor Miscellaneous Registers
+	f1a6  SSD Pro 7600p/760p/E 6100p Series
 80ee  InnoTek Systemberatung GmbH
 	beef  VirtualBox Graphics Adapter
 	cafe  VirtualBox Guest Service
@@ -28906,6 +29728,39 @@
 		103c 0701  Smart Array P204i-b SR Gen10
 		103c 1100  Smart Array P816i-a SR Gen10
 		103c 1101  Smart Array P416ie-m SR G10
+		152d 8a22  QS-8204-8i
+		152d 8a23  QS-8238-16i
+		152d 8a24  QS-8236-16i
+		152d 8a36  QS-8240-24i
+		152d 8a37  QS-8242-24i
+		9005 0800  SmartRAID 3154-8i
+		9005 0801  SmartRAID 3152-8i
+		9005 0802  SmartRAID 3151-4i
+		9005 0803  SmartRAID 3101-4i
+		9005 0804  SmartRAID 3154-8e
+		9005 0805  SmartRAID 3102-8i
+		9005 0806  SmartRAID 3100
+		9005 0807  SmartRAID 3162-8i
+		9005 0900  SmartHBA 2100-8i
+		9005 0901  SmartHBA 2100-4i
+		9005 0902  HBA 1100-8i
+		9005 0903  HBA 1100-4i
+		9005 0904  SmartHBA 2100-8e
+		9005 0905  HBA 1100-8e
+		9005 0906  SmartHBA 2100-4i4e
+		9005 0907  HBA 1100
+		9005 0908  SmartHBA 2100
+		9005 090a  SmartHBA 2100A-8i
+		9005 1200  SmartRAID 3154-24i
+		9005 1201  SmartRAID 3154-8i16e
+		9005 1202  SmartRAID 3154-8i8e
+		9005 1280  HBA 1100-16i
+		9005 1281  HBA 1100-16e
+		9005 1300  HBA 1100-8i8e
+		9005 1301  HBA 1100-24i
+		9005 1302  SmartHBA 2100-8i8e
+		9005 1303  SmartHBA 2100-24i
+		9005 1380  SmartRAID 3154-16i
 	0410  AIC-9410W SAS (Razor HBA RAID)
 		9005 0410  ASC-48300(Spirit RAID)
 		9005 0411  ASC-58300 (Oakmont RAID)
@@ -29007,6 +29862,7 @@
 # Parallel ports at BAR0,BAR2. Serial ports at BAR4-5
 		1000 0022  2P2S (2 Parallel / 2 16550A Serial Port Adapter)
 	9865  PCI 9865 Multi-I/O Controller
+	9900  MCS9900 Multi-I/O Controller
 	9901  PCIe 9901 Multi-I/O Controller
 	9904  4-Port PCIe Serial Adapter
 # 2-port Serial 1-port Parallel Adaptor
@@ -29080,8 +29936,8 @@ bdbd  Blackmagic Design
 	a124  Intensity Extreme
 	a126  Intensity Shuttle
 	a127  UltraStudio Express
-	a129  UltraStudio Mini Monitor
-	a12a  UltraStudio Mini Recorder
+	a129  UltraStudio Mini Recorder
+	a12a  UltraStudio Mini Monitor
 	a12d  UltraStudio 4K
 	a12e  DeckLink 4K Extreme
 	a12f  DeckLink Mini Monitor
@@ -29096,6 +29952,11 @@ bdbd  Blackmagic Design
 	a13e  UltraStudio 4K Extreme
 	a13f  DeckLink Quad 2
 	a140  DeckLink Duo 2
+	a141  UltraStudio 4K Extreme 3
+	a142  UltraStudio HD Mini
+	a143  DeckLink Mini Recorder 4K
+	a144  DeckLink Mini Monitor 4K
+	a14b  DeckLink 8K Pro
 c001  TSI Telsys
 c0a9  Micron/Crucial Technology
 c0de  Motorola
@@ -29181,6 +30042,8 @@ dcba  Dynamic Engineering
 	004e  PC104p-Biserial-III-NVY5
 	004f  PC104p-Biserial-III-NVY6
 	0052  PCIeBiSerialDb37 BA22 LVDS IO
+# 8 port 16550 compatible UART, PMC format, RS-232 IO, RTS, CTS, DTR, DSR supported
+	0066  PMC-OctalUART-232
 dd01  Digital Devices GmbH
 	0003  Octopus DVB Adapter
 		dd01 0001  Octopus DVB adapter
@@ -29207,9 +30070,8 @@ deaf  Middle Digital Inc.
 	9052  PC Weasel Watchdog Timer
 # formerly SoftHard Technology Ltd.
 deda  XIMEA
-	4001  Camera CB
-# Thunderbolt based camera MT family
-	4021  Camera MT
+	4001  CB or MX camera
+	4021  MT camera
 e000  Winbond
 	e000  W89C940
 e159  Tiger Jet Network Inc.
@@ -29300,9 +30162,13 @@ eace  Endace Measurement Systems, Ltd
 	8500  DAG 8.5I Infiniband x4 DDR
 	9200  DAG 9.2SX2 10G Ethernet
 	920e  DAG 9.2X2 10G Ethernet
+	9540  DAG 9.5G4 Gig Ethernet
+	954f  DAG 9.5G4F Gig Ethernet
 	a120  DAG 10X2-P 10G Ethernet
 	a12e  DAG 10X2-S 10G Ethernet
-	a140  DAG 10X4-P 10G Ethernet
+	a140  DAG 10X4-P 10/40G Ethernet
+	a14e  DAG 10X4-S 10/40G Ethernet
+	eace  vDAG virtual device
 ec80  Belkin Corporation
 	ec00  F5D6000
 ecc0  Echo Digital Audio Corporation
@@ -29361,6 +30227,14 @@ C 00  Unclassified device
 C 01  Mass storage controller
 	00  SCSI storage controller
 	01  IDE interface
+		00  ISA Compatibility mode-only controller
+		05  PCI native mode-only controller
+		0a  ISA Compatibility mode controller, supports both channels switched to PCI native mode
+		0f  PCI native mode controller, supports both channels switched to ISA compatibility mode
+		80  ISA Compatibility mode-only controller, supports bus mastering
+		85  PCI native mode-only controller, supports bus mastering
+		8a  ISA Compatibility mode controller, supports both channels switched to PCI native mode, supports bus mastering
+		8f  PCI native mode controller, supports both channels switched to ISA compatibility mode, supports bus mastering
 	02  Floppy disk controller
 	03  IPI bus controller
 	04  RAID bus controller
@@ -29508,7 +30382,10 @@ C 0c  Serial bus controller
 	04  Fibre Channel
 	05  SMBus
 	06  InfiniBand
-	07  IPMI SMIC interface
+	07  IPMI Interface
+		00  SMIC
+		01  KCS
+		02  BT (Block Transfer)
 	08  SERCOS interface
 	09  CANBUS
 C 0d  Wireless controller

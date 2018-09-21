@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include "alloc-util.h"
 #include "hostname-util.h"
@@ -423,11 +405,11 @@ int dns_synthesize_answer(
 
                         v = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);
                         if (v < 0)
-                                return log_error_errno(r, "Failed to synthesize system hostname PTR RR: %m");
+                                return log_error_errno(v, "Failed to synthesize system hostname PTR RR: %m");
 
                         w = synthesize_gateway_ptr(m, af, &address, ifindex, &answer);
                         if (w < 0)
-                                return log_error_errno(r, "Failed to synthesize gateway hostname PTR RR: %m");
+                                return log_error_errno(w, "Failed to synthesize gateway hostname PTR RR: %m");
 
                         if (v == 0 && w == 0) /* This IP address is neither a local one nor a gateway */
                                 continue;
@@ -440,10 +422,8 @@ int dns_synthesize_answer(
 
         if (found) {
 
-                if (ret) {
-                        *ret = answer;
-                        answer = NULL;
-                }
+                if (ret)
+                        *ret = TAKE_PTR(answer);
 
                 return 1;
         } else if (nxdomain)

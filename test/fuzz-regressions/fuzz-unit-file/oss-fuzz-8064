@@ -1,0 +1,3 @@
+service
+[Service]
+RestartForceExitStatus=RTMIN+2147483644

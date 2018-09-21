@@ -1,32 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <curl/curl.h>
 #include <stdbool.h>
 
+#include "sd-daemon.h"
+
 #include "alloc-util.h"
 #include "journal-upload.h"
 #include "log.h"
+#include "string-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "sd-daemon.h"
 
 /**
  * Write up to size bytes to buf. Return negative on error, and number of
@@ -152,8 +136,12 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                 continue;
                         }
 
-                        if (!utf8_is_printable_newline(u->field_data,
-                                                       u->field_length, false)) {
+                        /* We already printed the boot id from the data in
+                         * the header, hence let's suppress it here */
+                        if (memory_startswith(u->field_data, u->field_length, "_BOOT_ID="))
+                                continue;
+
+                        if (!utf8_is_printable_newline(u->field_data, u->field_length, false)) {
                                 u->entry_state = ENTRY_BINARY_FIELD_START;
                                 continue;
                         }

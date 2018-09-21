@@ -1,26 +1,9 @@
-<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2010-2013 Kay Sievers
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-udevd.service"
@@ -29,14 +12,6 @@
   <refentryinfo>
     <title>systemd-udevd.service</title>
     <productname>systemd</productname>
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Kay</firstname>
-        <surname>Sievers</surname>
-        <email>kay@vrfy.org</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -89,6 +64,7 @@
   <refsect1><title>Options</title>
     <variablelist>
       <varlistentry>
+        <term><option>-d</option></term>
         <term><option>--daemon</option></term>
         <listitem>
           <para>Detach and run in the background.</para>
@@ -96,6 +72,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-D</option></term>
         <term><option>--debug</option></term>
         <listitem>
           <para>Print debug messages to standard error.</para>
@@ -103,6 +80,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-c=</option></term>
         <term><option>--children-max=</option></term>
         <listitem>
           <para>Limit the number of events executed in parallel.</para>
@@ -110,6 +88,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-e=</option></term>
         <term><option>--exec-delay=</option></term>
         <listitem>
           <para>Delay the execution of <varname>RUN</varname>
@@ -121,6 +100,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-t=</option></term>
         <term><option>--event-timeout=</option></term>
         <listitem>
           <para>Set the number of seconds to wait for events to finish. After
@@ -129,6 +109,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-N=</option></term>
         <term><option>--resolve-names=</option></term>
         <listitem>
           <para>Specify when systemd-udevd should resolve names of users and groups.
@@ -140,11 +121,7 @@
         </listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>--help</option></term>
-
-        <xi:include href="standard-options.xml" xpointer="help-text" />
-      </varlistentry>
+      <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
   </refsect1>

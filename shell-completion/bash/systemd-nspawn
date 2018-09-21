@@ -3,7 +3,6 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2014 Thomas H.P. Andersen
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -57,12 +56,13 @@ _systemd_nspawn() {
         local i verb comps
 
         local -A OPTS=(
-               [STANDALONE]='-h --help --version --private-network -b --boot --read-only -q --quiet --share-system --keep-unit --network-veth -j'
-                      [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro -M --machine
-                             -S --slice --setenv -Z --selinux-context -L --selinux-apifs-context --register --network-interface --network-bridge
-                             --personality -i --image --tmpfs --volatile
-                             --network-macvlan --kill-signal --template
-                             --notify-ready'
+                [STANDALONE]='-h --help --version --private-network -b --boot --read-only -q --quiet --share-system --keep-unit -n --network-veth
+                              -j -x --ephemeral -a --as-pid2 --private-users-chown -U'
+                       [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro -M --machine
+                              -S --slice -E --setenv -Z --selinux-context -L --selinux-apifs-context --register --network-interface --network-bridge
+                              --personality -i --image --tmpfs --volatile --network-macvlan --kill-signal --template --notify-ready --root-hash
+                              --chdir --pivot-root --property --private-users --network-namespace-path --network-ipvlan --network-veth-extra
+                              --network-zone -p --port --system-call-filter --overlay --overlay-ro --settings'
         )
 
         _init_completion || return
@@ -76,7 +76,7 @@ _systemd_nspawn() {
                         --user|-u)
                                 comps=$( __get_users )
                         ;;
-                        --uuid)
+                        --uuid|--root-hash)
                                 comps=''
                         ;;
                         --capability)
@@ -106,7 +106,7 @@ _systemd_nspawn() {
                         --slice|-S)
                                 comps=$( __get_slices )
                         ;;
-                        --setenv)
+                        --setenv|-E)
                                 comps=$( __get_env )
                         ;;
                         --selinux-context|-Z)
@@ -143,7 +143,15 @@ _systemd_nspawn() {
                         ;;
                         --notify-ready)
                                 comps='yes no'
-                                return
+                        ;;
+                        --private-users)
+                                comps='yes no pick'
+                        ;;
+                        --network-namespace-path)
+                                comps=$( compgen -A file -- "$cur" )
+                        ;;
+                        --settings)
+                                comps='yes no override trusted'
                         ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

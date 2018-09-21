@@ -1,28 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <stddef.h>
 #include <unistd.h>
 
 #include "format-util.h"
 #include "log.h"
+#include "process-util.h"
 #include "util.h"
 
 assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_FTP | LOG_DEBUG))
@@ -34,30 +17,52 @@ assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_LOCAL3 | LOG_DEBUG) & LOG
 assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_USER | LOG_INFO) & LOG_PRIMASK)
           == LOG_INFO);
 
-int main(int argc, char* argv[]) {
+#define X10(x) x x x x x x x x x x
+#define X100(x) X10(X10(x))
+#define X1000(x) X100(X10(x))
 
-        log_set_target(LOG_TARGET_CONSOLE);
-        log_open();
-
+static void test_log_console(void) {
         log_struct(LOG_INFO,
                    "MESSAGE=Waldo PID="PID_FMT, getpid_cached(),
-                   "SERVICE=piepapo",
-                   NULL);
+                   "SERVICE=piepapo");
+}
 
-        log_set_target(LOG_TARGET_JOURNAL);
-        log_open();
-
+static void test_log_journal(void) {
         log_struct(LOG_INFO,
                    "MESSAGE=Foobar PID="PID_FMT, getpid_cached(),
-                   "SERVICE=foobar",
-                   NULL);
+                   "SERVICE=foobar");
 
         log_struct(LOG_INFO,
                    "MESSAGE=Foobar PID="PID_FMT, getpid_cached(),
                    "FORMAT_STR_TEST=1=%i A=%c 2=%hi 3=%li 4=%lli 1=%p foo=%s 2.5=%g 3.5=%g 4.5=%Lg",
                    (int) 1, 'A', (short) 2, (long int) 3, (long long int) 4, (void*) 1, "foo", (float) 2.5f, (double) 3.5, (long double) 4.5,
-                   "SUFFIX=GOT IT",
-                   NULL);
+                   "SUFFIX=GOT IT");
+}
+
+static void test_long_lines(void) {
+        log_object_internal(LOG_NOTICE,
+                            EUCLEAN,
+                            X1000("abcd_") ".txt",
+                            1000000,
+                            X1000("fff") "unc",
+                            "OBJECT=",
+                            X1000("obj_") "ect",
+                            "EXTRA=",
+                            X1000("ext_") "tra",
+                            "asdfasdf %s asdfasdfa", "foobar");
+}
+
+int main(int argc, char* argv[]) {
+        int target;
+
+        for (target = 0; target <  _LOG_TARGET_MAX; target++) {
+                log_set_target(target);
+                log_open();
+
+                test_log_console();
+                test_log_journal();
+                test_long_lines();
+        }
 
         return 0;
 }

@@ -2,8 +2,6 @@
  *
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008 Kay Sievers <kay@vrfy.org>
- *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -51,14 +49,13 @@ struct udev_ctrl_msg_wire {
 };
 
 struct udev_ctrl_msg {
-        int refcount;
+        unsigned n_ref;
         struct udev_ctrl_connection *conn;
         struct udev_ctrl_msg_wire ctrl_msg_wire;
 };
 
 struct udev_ctrl {
-        int refcount;
-        struct udev *udev;
+        unsigned n_ref;
         int sock;
         union sockaddr_union saddr;
         socklen_t addrlen;
@@ -68,12 +65,12 @@ struct udev_ctrl {
 };
 
 struct udev_ctrl_connection {
-        int refcount;
+        unsigned n_ref;
         struct udev_ctrl *uctrl;
         int sock;
 };
 
-struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd) {
+struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
         struct udev_ctrl *uctrl;
         const int on = 1;
         int r;
@@ -81,8 +78,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd) {
         uctrl = new0(struct udev_ctrl, 1);
         if (uctrl == NULL)
                 return NULL;
-        uctrl->refcount = 1;
-        uctrl->udev = udev;
+        uctrl->n_ref = 1;
 
         if (fd < 0) {
                 uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
@@ -110,8 +106,8 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd) {
         return uctrl;
 }
 
-struct udev_ctrl *udev_ctrl_new(struct udev *udev) {
-        return udev_ctrl_new_from_fd(udev, -1);
+struct udev_ctrl *udev_ctrl_new(void) {
+        return udev_ctrl_new_from_fd(-1);
 }
 
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl) {
@@ -137,26 +133,15 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl) {
         return 0;
 }
 
-struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl) {
-        return uctrl->udev;
+static struct udev_ctrl *udev_ctrl_free(struct udev_ctrl *uctrl) {
+        assert(uctrl);
+
+        safe_close(uctrl->sock);
+        return mfree(uctrl);
 }
 
-static struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl) {
-        if (uctrl)
-                uctrl->refcount++;
-
-        return uctrl;
-}
-
-struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl) {
-        if (uctrl && -- uctrl->refcount == 0) {
-                if (uctrl->sock >= 0)
-                        close(uctrl->sock);
-                free(uctrl);
-        }
-
-        return NULL;
-}
+DEFINE_PRIVATE_TRIVIAL_REF_FUNC(struct udev_ctrl, udev_ctrl);
+DEFINE_TRIVIAL_UNREF_FUNC(struct udev_ctrl, udev_ctrl, udev_ctrl_free);
 
 int udev_ctrl_cleanup(struct udev_ctrl *uctrl) {
         if (uctrl == NULL)
@@ -181,7 +166,7 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
         conn = new(struct udev_ctrl_connection, 1);
         if (conn == NULL)
                 return NULL;
-        conn->refcount = 1;
+        conn->n_ref = 1;
         conn->uctrl = uctrl;
 
         conn->sock = accept4(uctrl->sock, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
@@ -215,25 +200,15 @@ err:
         return mfree(conn);
 }
 
-struct udev_ctrl_connection *udev_ctrl_connection_ref(struct udev_ctrl_connection *conn) {
-        if (conn == NULL)
-                return NULL;
-        conn->refcount++;
-        return conn;
+static struct udev_ctrl_connection *udev_ctrl_connection_free(struct udev_ctrl_connection *conn) {
+        assert(conn);
+
+        safe_close(conn->sock);
+        udev_ctrl_unref(conn->uctrl);
+        return mfree(conn);
 }
 
-struct udev_ctrl_connection *udev_ctrl_connection_unref(struct udev_ctrl_connection *conn) {
-        if (conn && -- conn->refcount == 0) {
-                if (conn->sock >= 0)
-                        close(conn->sock);
-
-                udev_ctrl_unref(conn->uctrl);
-
-                free(conn);
-        }
-
-        return NULL;
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(struct udev_ctrl_connection, udev_ctrl_connection, udev_ctrl_connection_free);
 
 static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf, int timeout) {
         struct udev_ctrl_msg_wire ctrl_msg_wire;
@@ -338,7 +313,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
         uctrl_msg = new0(struct udev_ctrl_msg, 1);
         if (uctrl_msg == NULL)
                 return NULL;
-        uctrl_msg->refcount = 1;
+        uctrl_msg->n_ref = 1;
         uctrl_msg->conn = conn;
         udev_ctrl_connection_ref(conn);
 
@@ -404,14 +379,14 @@ err:
         return NULL;
 }
 
-struct udev_ctrl_msg *udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg) {
-        if (ctrl_msg && -- ctrl_msg->refcount == 0) {
-                udev_ctrl_connection_unref(ctrl_msg->conn);
-                free(ctrl_msg);
-        }
+static struct udev_ctrl_msg *udev_ctrl_msg_free(struct udev_ctrl_msg *ctrl_msg) {
+        assert(ctrl_msg);
 
-        return NULL;
+        udev_ctrl_connection_unref(ctrl_msg->conn);
+        return mfree(ctrl_msg);
 }
+
+DEFINE_TRIVIAL_UNREF_FUNC(struct udev_ctrl_msg, udev_ctrl_msg, udev_ctrl_msg_free);
 
 int udev_ctrl_get_set_log_level(struct udev_ctrl_msg *ctrl_msg) {
         if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_SET_LOG_LEVEL)

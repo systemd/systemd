@@ -1,22 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -201,7 +183,29 @@ static void backspace_chars(int ttyfd, size_t p) {
         }
 }
 
+static void backspace_string(int ttyfd, const char *str) {
+        size_t m;
+
+        assert(str);
+
+        if (ttyfd < 0)
+                return;
+
+        /* Backspaces through enough characters to entirely undo printing of the specified string. */
+
+        m = utf8_n_codepoints(str);
+        if (m == (size_t) -1)
+                m = strlen(str); /* Not a valid UTF-8 string? If so, let's backspace the number of bytes output. Most
+                                  * likely this happened because we are not in an UTF-8 locale, and in that case that
+                                  * is the correct thing to do. And even if it's not, terminals tend to stop
+                                  * backspacing at the leftmost column, hence backspacing too much should be mostly
+                                  * OK. */
+
+        backspace_chars(ttyfd, m);
+}
+
 int ask_password_tty(
+                int ttyfd,
                 const char *message,
                 const char *keyname,
                 usec_t until,
@@ -209,18 +213,19 @@ int ask_password_tty(
                 const char *flag_file,
                 char **ret) {
 
-        struct termios old_termios, new_termios;
-        char passphrase[LINE_MAX + 1] = {}, *x;
-        size_t p = 0, codepoint = 0;
-        int r;
-        _cleanup_close_ int ttyfd = -1, notify = -1;
-        struct pollfd pollfd[2];
-        bool reset_tty = false;
-        bool dirty = false;
         enum {
                 POLL_TTY,
-                POLL_INOTIFY
+                POLL_INOTIFY,
+                _POLL_MAX,
         };
+
+        bool reset_tty = false, dirty = false, use_color = false;
+        _cleanup_close_ int cttyfd = -1, notify = -1;
+        struct termios old_termios, new_termios;
+        char passphrase[LINE_MAX + 1] = {}, *x;
+        struct pollfd pollfd[_POLL_MAX];
+        size_t p = 0, codepoint = 0;
+        int r;
 
         assert(ret);
 
@@ -232,31 +237,34 @@ int ask_password_tty(
 
         if (flag_file) {
                 notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
-                if (notify < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (notify < 0)
+                        return -errno;
 
-                if (inotify_add_watch(notify, flag_file, IN_ATTRIB /* for the link count */) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (inotify_add_watch(notify, flag_file, IN_ATTRIB /* for the link count */) < 0)
+                        return -errno;
         }
 
-        ttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        /* If the caller didn't specify a TTY, then use the controlling tty, if we can. */
+        if (ttyfd < 0)
+                ttyfd = cttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC);
+
         if (ttyfd >= 0) {
+                if (tcgetattr(ttyfd, &old_termios) < 0)
+                        return -errno;
 
-                if (tcgetattr(ttyfd, &old_termios) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (flags & ASK_PASSWORD_CONSOLE_COLOR)
+                        use_color = dev_console_colors_enabled();
+                else
+                        use_color = colors_enabled();
 
-                if (colors_enabled())
-                        loop_write(ttyfd, ANSI_HIGHLIGHT, strlen(ANSI_HIGHLIGHT), false);
-                loop_write(ttyfd, message, strlen(message), false);
-                loop_write(ttyfd, " ", 1, false);
-                if (colors_enabled())
-                        loop_write(ttyfd, ANSI_NORMAL, strlen(ANSI_NORMAL), false);
+                if (use_color)
+                        (void) loop_write(ttyfd, ANSI_HIGHLIGHT, STRLEN(ANSI_HIGHLIGHT), false);
+
+                (void) loop_write(ttyfd, message, strlen(message), false);
+                (void) loop_write(ttyfd, " ", 1, false);
+
+                if (use_color)
+                        (void) loop_write(ttyfd, ANSI_NORMAL, STRLEN(ANSI_NORMAL), false);
 
                 new_termios = old_termios;
                 new_termios.c_lflag &= ~(ICANON|ECHO);
@@ -271,16 +279,19 @@ int ask_password_tty(
                 reset_tty = true;
         }
 
-        zero(pollfd);
-        pollfd[POLL_TTY].fd = ttyfd >= 0 ? ttyfd : STDIN_FILENO;
-        pollfd[POLL_TTY].events = POLLIN;
-        pollfd[POLL_INOTIFY].fd = notify;
-        pollfd[POLL_INOTIFY].events = POLLIN;
+        pollfd[POLL_TTY] = (struct pollfd) {
+                .fd = ttyfd >= 0 ? ttyfd : STDIN_FILENO,
+                .events = POLLIN,
+        };
+        pollfd[POLL_INOTIFY] = (struct pollfd) {
+                .fd = notify,
+                .events = POLLIN,
+        };
 
         for (;;) {
-                char c;
                 int sleep_for = -1, k;
                 ssize_t n;
+                char c;
 
                 if (until > 0) {
                         usec_t y;
@@ -292,7 +303,7 @@ int ask_password_tty(
                                 goto finish;
                         }
 
-                        sleep_for = (int) ((until - y) / USEC_PER_MSEC);
+                        sleep_for = (int) DIV_ROUND_UP(until - y, USEC_PER_MSEC);
                 }
 
                 if (flag_file)
@@ -314,7 +325,7 @@ int ask_password_tty(
                 }
 
                 if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
-                        flush_fd(notify);
+                        (void) flush_fd(notify);
 
                 if (pollfd[POLL_TTY].revents == 0)
                         continue;
@@ -327,72 +338,99 @@ int ask_password_tty(
                         r = -errno;
                         goto finish;
 
-                } else if (n == 0)
+                }
+
+                /* We treat EOF, newline and NUL byte all as valid end markers */
+                if (n == 0 || c == '\n' || c == 0)
                         break;
 
-                if (c == '\n')
-                        break;
-                else if (c == 21) { /* C-u */
+                if (c == 21) { /* C-u */
 
                         if (!(flags & ASK_PASSWORD_SILENT))
-                                backspace_chars(ttyfd, p);
-                        p = 0;
+                                backspace_string(ttyfd, passphrase);
+
+                        explicit_bzero(passphrase, sizeof(passphrase));
+                        p = codepoint = 0;
 
                 } else if (IN_SET(c, '\b', 127)) {
 
                         if (p > 0) {
+                                size_t q;
 
                                 if (!(flags & ASK_PASSWORD_SILENT))
                                         backspace_chars(ttyfd, 1);
 
-                                p--;
+                                /* Remove a full UTF-8 codepoint from the end. For that, figure out where the last one
+                                 * begins */
+                                q = 0;
+                                for (;;) {
+                                        size_t z;
+
+                                        z = utf8_encoded_valid_unichar(passphrase + q);
+                                        if (z == 0) {
+                                                q = (size_t) -1; /* Invalid UTF8! */
+                                                break;
+                                        }
+
+                                        if (q + z >= p) /* This one brings us over the edge */
+                                                break;
+
+                                        q += z;
+                                }
+
+                                p = codepoint = q == (size_t) -1 ? p - 1 : q;
+                                explicit_bzero(passphrase + p, sizeof(passphrase) - p);
+
                         } else if (!dirty && !(flags & ASK_PASSWORD_SILENT)) {
 
                                 flags |= ASK_PASSWORD_SILENT;
 
-                                /* There are two ways to enter silent
-                                 * mode. Either by pressing backspace
-                                 * as first key (and only as first
-                                 * key), or ... */
+                                /* There are two ways to enter silent mode. Either by pressing backspace as first key
+                                 * (and only as first key), or ... */
+
                                 if (ttyfd >= 0)
-                                        loop_write(ttyfd, "(no echo) ", 10, false);
+                                        (void) loop_write(ttyfd, "(no echo) ", 10, false);
 
                         } else if (ttyfd >= 0)
-                                loop_write(ttyfd, "\a", 1, false);
+                                (void) loop_write(ttyfd, "\a", 1, false);
 
                 } else if (c == '\t' && !(flags & ASK_PASSWORD_SILENT)) {
 
-                        backspace_chars(ttyfd, p);
+                        backspace_string(ttyfd, passphrase);
                         flags |= ASK_PASSWORD_SILENT;
 
                         /* ... or by pressing TAB at any time. */
 
                         if (ttyfd >= 0)
-                                loop_write(ttyfd, "(no echo) ", 10, false);
-                } else {
-                        if (p >= sizeof(passphrase)-1) {
-                                loop_write(ttyfd, "\a", 1, false);
-                                continue;
-                        }
+                                (void) loop_write(ttyfd, "(no echo) ", 10, false);
 
+                } else if (p >= sizeof(passphrase)-1) {
+
+                        /* Reached the size limit */
+                        if (ttyfd >= 0)
+                                (void) loop_write(ttyfd, "\a", 1, false);
+
+                } else {
                         passphrase[p++] = c;
 
                         if (!(flags & ASK_PASSWORD_SILENT) && ttyfd >= 0) {
+                                /* Check if we got a complete UTF-8 character now. If so, let's output one '*'. */
                                 n = utf8_encoded_valid_unichar(passphrase + codepoint);
                                 if (n >= 0) {
                                         codepoint = p;
-                                        loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
+                                        (void) loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
                                 }
                         }
 
                         dirty = true;
                 }
 
+                /* Let's forget this char, just to not keep needlessly copies of key material around */
                 c = 'x';
         }
 
         x = strndup(passphrase, p);
-        explicit_bzero(passphrase, p);
+        explicit_bzero(passphrase, sizeof(passphrase));
         if (!x) {
                 r = -ENOMEM;
                 goto finish;
@@ -406,8 +444,8 @@ int ask_password_tty(
 
 finish:
         if (ttyfd >= 0 && reset_tty) {
-                loop_write(ttyfd, "\n", 1, false);
-                tcsetattr(ttyfd, TCSADRAIN, &old_termios);
+                (void) loop_write(ttyfd, "\n", 1, false);
+                (void) tcsetattr(ttyfd, TCSADRAIN, &old_termios);
         }
 
         return r;
@@ -654,7 +692,7 @@ int ask_password_agent(
                                 goto finish;
                         }
 
-                        if (strv_length(l) <= 0) {
+                        if (strv_isempty(l)) {
                                 l = strv_free(l);
                                 log_debug("Invalid packet");
                                 continue;
@@ -674,8 +712,7 @@ int ask_password_agent(
         if (keyname)
                 (void) add_to_keyring_and_log(keyname, flags, l);
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
         r = 0;
 
 finish:
@@ -713,7 +750,7 @@ int ask_password_auto(
         if (!(flags & ASK_PASSWORD_NO_TTY) && isatty(STDIN_FILENO)) {
                 char *s = NULL, **l = NULL;
 
-                r = ask_password_tty(message, keyname, until, flags, NULL, &s);
+                r = ask_password_tty(-1, message, keyname, until, flags, NULL, &s);
                 if (r < 0)
                         return r;
 

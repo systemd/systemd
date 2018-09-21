@@ -1,22 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  This file is part of systemd.
 
-  Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
+#include <stdio_ext.h>
 
 #include "alloc-util.h"
 #include "bus-internal.h"
@@ -776,15 +760,8 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
         return -EINVAL;
 }
 
-static int match_component_compare(const void *a, const void *b) {
-        const struct bus_match_component *x = a, *y = b;
-
-        if (x->type < y->type)
-                return -1;
-        if (x->type > y->type)
-                return 1;
-
-        return 0;
+static int match_component_compare(const struct bus_match_component *a, const struct bus_match_component *b) {
+        return CMP(a->type, b->type);
 }
 
 void bus_match_parse_free(struct bus_match_component *components, unsigned n_components) {
@@ -901,11 +878,9 @@ int bus_match_parse(
                 }
 
                 components[n_components].type = t;
-                components[n_components].value_str = value;
+                components[n_components].value_str = TAKE_PTR(value);
                 components[n_components].value_u8 = u;
                 n_components++;
-
-                value = NULL;
 
                 if (q[quoted] == 0)
                         break;
@@ -919,7 +894,7 @@ int bus_match_parse(
         }
 
         /* Order the whole thing, so that we always generate the same tree */
-        qsort_safe(components, n_components, sizeof(struct bus_match_component), match_component_compare);
+        typesafe_qsort(components, n_components, match_component_compare);
 
         /* Check for duplicates */
         for (i = 0; i+1 < n_components; i++)
@@ -954,22 +929,24 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
         if (!f)
                 return NULL;
 
+        __fsetlocking(f, FSETLOCKING_BYCALLER);
+
         for (i = 0; i < n_components; i++) {
                 char buf[32];
 
                 if (i != 0)
-                        fputc_unlocked(',', f);
+                        fputc(',', f);
 
-                fputs_unlocked(bus_match_node_type_to_string(components[i].type, buf, sizeof(buf)), f);
-                fputc_unlocked('=', f);
-                fputc_unlocked('\'', f);
+                fputs(bus_match_node_type_to_string(components[i].type, buf, sizeof(buf)), f);
+                fputc('=', f);
+                fputc('\'', f);
 
                 if (components[i].type == BUS_MATCH_MESSAGE_TYPE)
-                        fputs_unlocked(bus_message_type_to_string(components[i].value_u8), f);
+                        fputs(bus_message_type_to_string(components[i].value_u8), f);
                 else
-                        fputs_unlocked(components[i].value_str, f);
+                        fputs(components[i].value_str, f);
 
-                fputc_unlocked('\'', f);
+                fputc('\'', f);
         }
 
         r = fflush_and_check(f);

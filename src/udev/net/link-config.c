@@ -1,25 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
- This file is part of systemd.
-
- Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
-***/
 
 #include <netinet/ether.h>
 
+#include "sd-device.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
@@ -27,7 +10,6 @@
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
-#include "libudev-private.h"
 #include "link-config.h"
 #include "log.h"
 #include "missing.h"
@@ -70,14 +52,15 @@ static void link_config_free(link_config *link) {
 
         free(link->filename);
 
-        free(link->match_mac);
+        set_free_free(link->match_mac);
         strv_free(link->match_path);
         strv_free(link->match_driver);
         strv_free(link->match_type);
         free(link->match_name);
         free(link->match_host);
         free(link->match_virt);
-        free(link->match_kernel);
+        free(link->match_kernel_cmdline);
+        free(link->match_kernel_version);
         free(link->match_arch);
 
         free(link->description);
@@ -134,8 +117,7 @@ int link_config_ctx_new(link_config_ctx **ret) {
 
         ctx->enable_name_policy = true;
 
-        *ret = ctx;
-        ctx = NULL;
+        *ret = TAKE_PTR(ctx);
 
         return 0;
 }
@@ -143,6 +125,7 @@ int link_config_ctx_new(link_config_ctx **ret) {
 static int load_link(link_config_ctx *ctx, const char *filename) {
         _cleanup_(link_config_freep) link_config *link = NULL;
         _cleanup_fclose_ FILE *file = NULL;
+        int i;
         int r;
 
         assert(ctx);
@@ -171,7 +154,8 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         link->port = _NET_DEV_PORT_INVALID;
         link->autonegotiation = -1;
 
-        memset(&link->features, -1, sizeof(link->features));
+        for (i = 0; i < (int)ELEMENTSOF(link->features); i++)
+                link->features[i] = -1;
 
         r = config_parse(NULL, filename, file,
                          "Match\0Link\0Ethernet\0",
@@ -182,10 +166,12 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         else
                 log_debug("Parsed configuration file %s", filename);
 
-        if (link->mtu > UINT_MAX || link->speed > UINT_MAX)
+        if (link->speed > UINT_MAX)
                 return -ERANGE;
 
         link->filename = strdup(filename);
+        if (!link->filename)
+                return log_oom();
 
         LIST_PREPEND(links, ctx->links, link);
         link = NULL;
@@ -231,8 +217,7 @@ bool link_config_should_reload(link_config_ctx *ctx) {
         return paths_check_timestamp(link_dirs, &ctx->link_dirs_ts_usec, false);
 }
 
-int link_config_get(link_config_ctx *ctx, struct udev_device *device,
-                    link_config **ret) {
+int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) {
         link_config *link;
 
         assert(ctx);
@@ -240,42 +225,50 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
         assert(ret);
 
         LIST_FOREACH(links, link, ctx->links) {
-                const char* attr_value;
+                const char *address = NULL, *id_path = NULL, *parent_driver = NULL, *id_net_driver = NULL, *devtype = NULL, *sysname = NULL;
+                sd_device *parent;
 
-                attr_value = udev_device_get_sysattr_value(device, "address");
+                (void) sd_device_get_sysattr_value(device, "address", &address);
+                (void) sd_device_get_property_value(device, "ID_PATH", &id_path);
+                if (sd_device_get_parent(device, &parent) >= 0)
+                        (void) sd_device_get_driver(parent, &parent_driver);
+                (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &id_net_driver);
+                (void) sd_device_get_devtype(device, &devtype);
+                (void) sd_device_get_sysname(device, &sysname);
 
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
                                      link->match_type, link->match_name, link->match_host,
-                                     link->match_virt, link->match_kernel, link->match_arch,
-                                     attr_value ? ether_aton(attr_value) : NULL,
-                                     udev_device_get_property_value(device, "ID_PATH"),
-                                     udev_device_get_driver(udev_device_get_parent(device)),
-                                     udev_device_get_property_value(device, "ID_NET_DRIVER"),
-                                     udev_device_get_devtype(device),
-                                     udev_device_get_sysname(device))) {
+                                     link->match_virt, link->match_kernel_cmdline,
+                                     link->match_kernel_version, link->match_arch,
+                                     address ? ether_aton(address) : NULL,
+                                     id_path,
+                                     parent_driver,
+                                     id_net_driver,
+                                     devtype,
+                                     sysname)) {
                         if (link->match_name) {
                                 unsigned char name_assign_type = NET_NAME_UNKNOWN;
+                                const char *attr_value;
 
-                                attr_value = udev_device_get_sysattr_value(device, "name_assign_type");
-                                if (attr_value)
+                                if (sd_device_get_sysattr_value(device, "name_assign_type", &attr_value) >= 0)
                                         (void) safe_atou8(attr_value, &name_assign_type);
 
                                 if (name_assign_type == NET_NAME_ENUM) {
                                         log_warning("Config file %s applies to device based on potentially unpredictable interface name '%s'",
-                                                  link->filename, udev_device_get_sysname(device));
+                                                  link->filename, sysname);
                                         *ret = link;
 
                                         return 0;
                                 } else if (name_assign_type == NET_NAME_RENAMED) {
                                         log_warning("Config file %s matches device based on renamed interface name '%s', ignoring",
-                                                  link->filename, udev_device_get_sysname(device));
+                                                  link->filename, sysname);
 
                                         continue;
                                 }
                         }
 
                         log_debug("Config file %s applies to device %s",
-                                  link->filename,  udev_device_get_sysname(device));
+                                  link->filename, sysname);
 
                         *ret = link;
 
@@ -288,14 +281,13 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
         return -ENOENT;
 }
 
-static bool mac_is_random(struct udev_device *device) {
+static bool mac_is_random(sd_device *device) {
         const char *s;
         unsigned type;
         int r;
 
         /* if we can't get the assign type, assume it is not random */
-        s = udev_device_get_sysattr_value(device, "addr_assign_type");
-        if (!s)
+        if (sd_device_get_sysattr_value(device, "addr_assign_type", &s) < 0)
                 return false;
 
         r = safe_atou(s, &type);
@@ -305,14 +297,13 @@ static bool mac_is_random(struct udev_device *device) {
         return type == NET_ADDR_RANDOM;
 }
 
-static bool should_rename(struct udev_device *device, bool respect_predictable) {
+static bool should_rename(sd_device *device, bool respect_predictable) {
         const char *s;
         unsigned type;
         int r;
 
         /* if we can't get the assgin type, assume we should rename */
-        s = udev_device_get_sysattr_value(device, "name_assign_type");
-        if (!s)
+        if (sd_device_get_sysattr_value(device, "name_assign_type", &s) < 0)
                 return true;
 
         r = safe_atou(s, &type);
@@ -336,7 +327,7 @@ static bool should_rename(struct udev_device *device, bool respect_predictable) 
         }
 }
 
-static int get_mac(struct udev_device *device, bool want_random,
+static int get_mac(sd_device *device, bool want_random,
                    struct ether_addr *mac) {
         int r;
 
@@ -361,7 +352,7 @@ static int get_mac(struct udev_device *device, bool want_random,
 }
 
 int link_config_apply(link_config_ctx *ctx, link_config *config,
-                      struct udev_device *device, const char **name) {
+                      sd_device *device, const char **name) {
         bool respect_predictable = false;
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
@@ -375,9 +366,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         assert(device);
         assert(name);
 
-        old_name = udev_device_get_sysname(device);
-        if (!old_name)
-                return -EINVAL;
+        r = sd_device_get_sysname(device, &old_name);
+        if (r < 0)
+                return r;
 
         r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name, config);
         if (r < 0) {
@@ -403,11 +394,17 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (r < 0)
                 log_warning_errno(r, "Could not set offload features of %s: %m", old_name);
 
-        ifindex = udev_device_get_ifindex(device);
-        if (ifindex <= 0) {
-                log_warning("Could not find ifindex");
-                return -ENODEV;
+        if (config->channels.rx_count_set || config->channels.tx_count_set || config->channels.other_count_set || config->channels.combined_count_set) {
+                r = ethtool_set_channels(&ctx->ethtool_fd, old_name, &config->channels);
+                if (r < 0)
+                        log_warning_errno(r, "Could not set channels of %s: %m", old_name);
         }
+
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0)
+                return log_warning_errno(r, "Could not find ifindex: %m");
+        if (ifindex <= 0)
+                return log_warning_errno(EINVAL, "Invalid ifindex '%d'", ifindex);
 
         if (ctx->enable_name_policy && config->name_policy) {
                 NamePolicy *policy;
@@ -419,19 +416,19 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                                         respect_predictable = true;
                                         break;
                                 case NAMEPOLICY_DATABASE:
-                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE");
+                                        (void) sd_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE", &new_name);
                                         break;
                                 case NAMEPOLICY_ONBOARD:
-                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD");
+                                        (void) sd_device_get_property_value(device, "ID_NET_NAME_ONBOARD", &new_name);
                                         break;
                                 case NAMEPOLICY_SLOT:
-                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_SLOT");
+                                        (void) sd_device_get_property_value(device, "ID_NET_NAME_SLOT", &new_name);
                                         break;
                                 case NAMEPOLICY_PATH:
-                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_PATH");
+                                        (void) sd_device_get_property_value(device, "ID_NET_NAME_PATH", &new_name);
                                         break;
                                 case NAMEPOLICY_MAC:
-                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_MAC");
+                                        (void) sd_device_get_property_value(device, "ID_NET_NAME_MAC", &new_name);
                                         break;
                                 default:
                                         break;
@@ -476,21 +473,21 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
         r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac, config->mtu);
         if (r < 0)
-                return log_warning_errno(r, "Could not set Alias, MACAddress or MTU on %s: %m", old_name);
+                return log_warning_errno(r, "Could not set Alias=, MACAddress= or MTU= on %s: %m", old_name);
 
         *name = new_name;
 
         return 0;
 }
 
-int link_get_driver(link_config_ctx *ctx, struct udev_device *device, char **ret) {
+int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret) {
         const char *name;
         char *driver = NULL;
         int r;
 
-        name = udev_device_get_sysname(device);
-        if (!name)
-                return -EINVAL;
+        r = sd_device_get_sysname(device, &name);
+        if (r < 0)
+                return r;
 
         r = ethtool_get_driver(&ctx->ethtool_fd, name, &driver);
         if (r < 0)
