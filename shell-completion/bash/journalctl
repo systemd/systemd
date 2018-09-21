@@ -45,8 +45,8 @@ _journalctl() {
                               --utc -x --catalog --no-full --force --dump-catalog
                               --flush --rotate --sync --no-hostname -N --fields'
                        [ARG]='-b --boot -D --directory --file -F --field -t --identifier
-                              -M --machine -o --output -u --unit --user-unit -p --priority
-                              --root --case-sensitive'
+                              -M --machine -o --output -u --unit --user-unit --unit-dbus
+                              -p --priority --root --case-sensitive'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
                               --after-cursor --verify-key -g --grep
                               --vacuum-size --vacuum-time --vacuum-files --output-fields'
@@ -82,6 +82,9 @@ _journalctl() {
                         ;;
                         --user-unit)
                                 comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
+                        ;;
+                        --unit-dbus)
+                                comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
                         ;;
                         --identifier|-t)
                                 comps=$(journalctl -F 'SYSLOG_IDENTIFIER' 2>/dev/null)
