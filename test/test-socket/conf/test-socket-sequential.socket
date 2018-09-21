@@ -1,0 +1,8 @@
+[Unit]
+Description=Test Socket ListenSequentialPacket
+
+[Socket]
+ListenSequentialPacket=/var/run/test-sequential-packet.socket
+
+[Install]
+WantedBy=sockets.target

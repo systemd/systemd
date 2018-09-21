@@ -1,0 +1,9 @@
+[Unit]
+Description=Test Socket ListenStream BindIPv6Only
+
+[Socket]
+ListenStream=9990
+BindIPv6Only=both
+
+[Install]
+WantedBy=sockets.target

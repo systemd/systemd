@@ -1,0 +1,8 @@
+[Unit]
+Description=Test Socket ListenDatagram
+
+[Socket]
+ListenDatagram=9999
+
+[Install]
+WantedBy=sockets.target

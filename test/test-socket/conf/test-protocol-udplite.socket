@@ -1,0 +1,9 @@
+[Unit]
+Description=Test Socket ListenStream SocketProtocol udplite
+
+[Socket]
+ListenDatagram=9998
+SocketProtocol=udplite
+
+[Install]
+WantedBy=sockets.target

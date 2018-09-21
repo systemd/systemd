@@ -1,0 +1,12 @@
+[Unit]
+Description=Test socket Service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/true
+StandardInput=socket
+StandardError=journal
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

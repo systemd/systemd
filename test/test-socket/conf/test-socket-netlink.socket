@@ -1,0 +1,8 @@
+[Unit]
+Description=Test Socket ListenNetlink
+
+[Socket]
+ListenNetlink=route 1361
+
+[Install]
+WantedBy=sockets.target

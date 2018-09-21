@@ -1,0 +1,8 @@
+[Unit]
+Description=Test Socket ListenStream=vsock:2:1234
+
+[Socket]
+ListenStream=vsock:2:1234
+
+[Install]
+WantedBy=sockets.target

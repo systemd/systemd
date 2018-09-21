@@ -1,0 +1,13 @@
+[Unit]
+Description=Test Socket ListenFIFO
+
+[Socket]
+ListenFIFO=/var/run/test-fifo
+FileDescriptorName=sockio-stdin
+RemoveOnStop=true
+SocketUser=nobody
+SocketGroup=nobody
+SocketMode=0666
+
+[Install]
+WantedBy=sockets.target

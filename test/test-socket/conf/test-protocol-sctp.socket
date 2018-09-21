@@ -1,0 +1,9 @@
+[Unit]
+Description=Test Socket ListenStream SocketProtocol sctp
+
+[Socket]
+ListenStream=9998
+SocketProtocol=sctp
+
+[Install]
+WantedBy=sockets.target
