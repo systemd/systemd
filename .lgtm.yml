@@ -8,3 +8,6 @@ extraction:
     after_prepare:
       - pip3 install meson
       - export PATH="$HOME/.local/bin/:$PATH"
+path_classifiers:
+  test:
+    - exclude: /
