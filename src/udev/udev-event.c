@@ -19,6 +19,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "netlink-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -737,47 +738,44 @@ int udev_event_spawn(struct udev_event *event,
                      bool accept_failure,
                      const char *cmd,
                      char *result, size_t ressize) {
-        int outpipe[2] = {-1, -1};
-        int errpipe[2] = {-1, -1};
+        _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
+        _cleanup_strv_free_ char **argv = NULL;
         pid_t pid;
-        int err = 0;
+        int r;
 
         /* pipes from child to parent */
-        if (result != NULL || log_get_max_level() >= LOG_INFO) {
-                if (pipe2(outpipe, O_NONBLOCK) != 0) {
-                        err = log_error_errno(errno, "pipe failed: %m");
-                        goto out;
-                }
-        }
-        if (log_get_max_level() >= LOG_INFO) {
-                if (pipe2(errpipe, O_NONBLOCK) != 0) {
-                        err = log_error_errno(errno, "pipe failed: %m");
-                        goto out;
-                }
+        if (!result || log_get_max_level() >= LOG_INFO)
+                if (pipe2(outpipe, O_NONBLOCK) != 0)
+                        return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
+
+        if (log_get_max_level() >= LOG_INFO)
+                if (pipe2(errpipe, O_NONBLOCK) != 0)
+                        return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
+
+        argv = strv_split_full(cmd, NULL, SPLIT_QUOTES|SPLIT_RELAX);
+        if (!argv)
+                return log_oom();
+
+        /* allow programs in /usr/lib/udev/ to be called without the path */
+        if (!path_is_absolute(argv[0])) {
+                char *program;
+
+                program = path_join(NULL, UDEVLIBEXECDIR, argv[0]);
+                if (!program)
+                        return log_oom();
+
+                free_and_replace(argv[0], program);
         }
 
-        err = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
-        if (err < 0)
-                goto out;
-        if (err == 0) {
-                char arg[UTIL_PATH_SIZE];
-                char *argv[128];
-                char program[UTIL_PATH_SIZE];
-
+        r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork() to execute command '%s': %m", cmd);
+        if (r == 0) {
                 /* child closes parent's ends of pipes */
                 outpipe[READ_END] = safe_close(outpipe[READ_END]);
                 errpipe[READ_END] = safe_close(errpipe[READ_END]);
 
-                strscpy(arg, sizeof(arg), cmd);
-                udev_build_argv(arg, NULL, argv);
-
-                /* allow programs in /usr/lib/udev/ to be called without the path */
-                if (argv[0][0] != '/') {
-                        strscpyl(program, sizeof(program), UDEVLIBEXECDIR "/", argv[0], NULL);
-                        argv[0] = program;
-                }
-
-                log_debug("starting '%s'", cmd);
+                log_debug("Starting '%s'", cmd);
 
                 spawn_exec(event, cmd, argv, udev_device_get_properties_envp(event->dev),
                            outpipe[WRITE_END], errpipe[WRITE_END]);
@@ -795,18 +793,11 @@ int udev_event_spawn(struct udev_event *event,
                    outpipe[READ_END], errpipe[READ_END],
                    result, ressize);
 
-        err = spawn_wait(event, timeout_usec, timeout_warn_usec, cmd, pid, accept_failure);
+        r = spawn_wait(event, timeout_usec, timeout_warn_usec, cmd, pid, accept_failure);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait spawned command '%s': %m", cmd);
 
-out:
-        if (outpipe[READ_END] >= 0)
-                close(outpipe[READ_END]);
-        if (outpipe[WRITE_END] >= 0)
-                close(outpipe[WRITE_END]);
-        if (errpipe[READ_END] >= 0)
-                close(errpipe[READ_END]);
-        if (errpipe[WRITE_END] >= 0)
-                close(errpipe[WRITE_END]);
-        return err;
+        return r;
 }
 
 static int rename_netif(struct udev_event *event) {
