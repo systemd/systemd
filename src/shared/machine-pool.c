@@ -379,13 +379,18 @@ int grow_machine_directory(void) {
 
         r = btrfs_resize_loopback("/var/lib/machines", new_size, true);
         if (r <= 0)
-                return r;
+                return log_error_errno(r, "cannot resize loopback: %m");
 
         /* Also bump the quota, of both the subvolume leaf qgroup, as
          * well as of any subtree quota group by the same id but a
          * higher level, if it exists. */
-        (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, new_size);
-        (void) btrfs_subvol_set_subtree_quota_limit("/var/lib/machines", 0, new_size);
+        r = btrfs_qgroup_set_limit("/var/lib/machines", 0, new_size);
+        if (r < 0)
+                log_info_errno(r, "cannot set limit: %m");
+
+        r = btrfs_subvol_set_subtree_quota_limit("/var/lib/machines", 0, new_size);
+        if (r < 0)
+                log_info_errno(r, "cannot set subtree quota limit: %m");
 
         log_info("Grew /var/lib/machines btrfs loopback file system to %s.", format_bytes(buf, sizeof(buf), new_size));
         return 1;
