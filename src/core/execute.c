@@ -2027,7 +2027,7 @@ static int setup_exec_directory(
 
                 if (context->dynamic_user &&
                     !IN_SET(type, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION)) {
-                        _cleanup_free_ char *private_root = NULL, *relative = NULL, *parent = NULL;
+                        _cleanup_free_ char *private_root = NULL;
 
                         /* So, here's one extra complication when dealing with DynamicUser=1 units. In that case we
                          * want to avoid leaving a directory around fully accessible that is owned by a dynamic user
@@ -2092,18 +2092,8 @@ static int setup_exec_directory(
                                         goto fail;
                         }
 
-                        parent = dirname_malloc(p);
-                        if (!parent) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        r = path_make_relative(parent, pp, &relative);
-                        if (r < 0)
-                                goto fail;
-
                         /* And link it up from the original place */
-                        r = symlink_idempotent(relative, p);
+                        r = symlink_idempotent(pp, p, true);
                         if (r < 0)
                                 goto fail;
 
