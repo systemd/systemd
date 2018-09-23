@@ -1313,7 +1313,7 @@ static int socket_symlink(Socket *s) {
         STRV_FOREACH(i, s->symlinks) {
                 (void) mkdir_parents_label(*i, s->directory_mode);
 
-                r = symlink_idempotent(p, *i);
+                r = symlink_idempotent(p, *i, false);
 
                 if (r == -EEXIST && s->remove_on_stop) {
                         /* If there's already something where we want to create the symlink, and the destructive
@@ -1321,7 +1321,7 @@ static int socket_symlink(Socket *s) {
                          * again. */
 
                         if (unlink(*i) >= 0)
-                                r = symlink_idempotent(p, *i);
+                                r = symlink_idempotent(p, *i, false);
                 }
 
                 if (r < 0)

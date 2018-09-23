@@ -373,7 +373,7 @@ static int mount_legacy_cgns_supported(
                         if (!target)
                                 return log_oom();
 
-                        r = symlink_idempotent(controller, target);
+                        r = symlink_idempotent(controller, target, false);
                         if (r == -EINVAL)
                                 return log_error_errno(r, "Invalid existing symlink for combined hierarchy: %m");
                         if (r < 0)
@@ -482,7 +482,7 @@ static int mount_legacy_cgns_unsupported(
                         if (r < 0)
                                 return r;
 
-                        r = symlink_idempotent(combined, target);
+                        r = symlink_idempotent(combined, target, false);
                         if (r == -EINVAL)
                                 return log_error_errno(r, "Invalid existing symlink for combined hierarchy: %m");
                         if (r < 0)
