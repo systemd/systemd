@@ -11,6 +11,7 @@
  *
  * Two character prefixes based on the type of interface:
  *   en — Ethernet
+ *   ib — InfiniBand
  *   sl — serial line IP (slip)
  *   wl — wlan
  *   ww — wwan
@@ -66,6 +67,12 @@
  *   /sys/devices/pci0000:00/0000:00:1c.1/0000:03:00.0/net/wlp3s0
  *   ID_NET_NAME_MAC=wlx0024d7e31130
  *   ID_NET_NAME_PATH=wlp3s0
+ *
+ * PCI IB host adapter with 2 ports:
+ *   /sys/devices/pci0000:00/0000:00:03.0/0000:15:00.0/net/ibp21s0f0
+ *   ID_NET_NAME_PATH=ibp21s0f0
+ *   /sys/devices/pci0000:00/0000:00:03.0/0000:15:00.1/net/ibp21s0f1
+ *   ID_NET_NAME_PATH=ibp21s0f1
  *
  * USB built-in 3G modem:
  *   /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1.4/2-1.4:1.6/net/wwp0s29u1u4i6
@@ -239,7 +246,7 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
         /* kernel provided port index for multiple ports on a single PCI function */
         attr = udev_device_get_sysattr_value(dev, "dev_port");
         if (attr)
-                dev_port = strtol(attr, NULL, 10);
+                dev_port = strtoul(attr, NULL, 10);
 
         /* kernel provided front panel port name for multiple port PCI device */
         port_name = udev_device_get_sysattr_value(dev, "phys_port_name");
@@ -284,7 +291,7 @@ static bool is_pci_ari_enabled(struct udev_device *dev) {
 }
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
-        unsigned domain, bus, slot, func, dev_port = 0, hotplug_slot = 0;
+        unsigned type, domain, bus, slot, func, dev_port = 0, hotplug_slot = 0;
         size_t l;
         char *s;
         const char *attr, *port_name;
@@ -304,8 +311,22 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
 
         /* kernel provided port index for multiple ports on a single PCI function */
         attr = udev_device_get_sysattr_value(dev, "dev_port");
-        if (attr)
-                dev_port = strtol(attr, NULL, 10);
+        if (attr) {
+                dev_port = strtoul(attr, NULL, 10);
+                /* With older kernels IP-over-InfiniBand network interfaces sometimes erroneously
+                 * provide the port number in the 'dev_id' sysfs attribute instead of 'dev_port',
+                 * which thus stays initialized as 0. */
+                if (dev_port == 0) {
+                        attr = udev_device_get_sysattr_value(dev, "type");
+                        /* The 'type' attribute always exists. */
+                        type = strtoul(attr, NULL, 10);
+                        if (type == ARPHRD_INFINIBAND) {
+                                attr = udev_device_get_sysattr_value(dev, "dev_id");
+                                if (attr)
+                                        dev_port = strtoul(attr, NULL, 16);
+                        }
+                }
+        }
 
         /* kernel provided front panel port name for multiple port PCI device */
         port_name = udev_device_get_sysattr_value(dev, "phys_port_name");
@@ -651,6 +672,23 @@ static int names_mac(struct udev_device *dev, struct netnames *names) {
         unsigned int i;
         unsigned int a1, a2, a3, a4, a5, a6;
 
+        /* Some kinds of devices tend to have hardware addresses
+         * that are impossible to use in an iface name.
+         */
+        s = udev_device_get_sysattr_value(dev, "type");
+        if (!s)
+                return EXIT_FAILURE;
+        i = strtoul(s, NULL, 0);
+        switch (i) {
+        /* The persistent part of a hardware address of an InfiniBand NIC
+         * is 8 bytes long. We cannot fit this much in an iface name.
+         */
+        case ARPHRD_INFINIBAND:
+                return -EINVAL;
+        default:
+                break;
+        }
+
         /* check for NET_ADDR_PERM, skip random MAC addresses */
         s = udev_device_get_sysattr_value(dev, "addr_assign_type");
         if (!s)
@@ -704,7 +742,9 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         struct netnames names = {};
         int err;
 
-        /* handle only ARPHRD_ETHER and ARPHRD_SLIP devices */
+        /* handle only ARPHRD_ETHER, ARPHRD_SLIP
+         * and ARPHRD_INFINIBAND devices
+         */
         s = udev_device_get_sysattr_value(dev, "type");
         if (!s)
                 return EXIT_FAILURE;
@@ -712,6 +752,9 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         switch (i) {
         case ARPHRD_ETHER:
                 prefix = "en";
+                break;
+        case ARPHRD_INFINIBAND:
+                prefix = "ib";
                 break;
         case ARPHRD_SLIP:
                 prefix = "sl";
