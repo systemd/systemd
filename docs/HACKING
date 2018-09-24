@@ -109,7 +109,7 @@ commands like this:
         python infra/helper.py run_fuzzer systemd fuzz-foo
 
 If you find a bug that impacts the security of systemd, please follow the
-guidance in .github/CONTRIBUTING.md on how to report a security vulnerability.
+guidance in CONTRIBUTING.md on how to report a security vulnerability.
 
 For more details on building fuzzers and integrating with OSS-Fuzz, visit:
 
