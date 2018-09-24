@@ -66,7 +66,7 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
 
                 _cleanup_free_ char *comm = NULL;
 
-                get_process_comm(pid, &comm);
+                (void) get_process_comm(pid, &comm);
 
                 log_notice("Process " PID_FMT " (%s) has been marked to be excluded from killing. It is "
                            "running from the root file system, and thus likely to block re-mounting of the "
