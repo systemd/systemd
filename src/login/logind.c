@@ -580,7 +580,7 @@ static int manager_dispatch_vcsa_udev(sd_event_source *s, int fd, uint32_t reven
         if (sd_device_get_sysname(d, &name) >= 0 &&
             startswith(name, "vcsa") &&
             sd_device_get_property_value(d, "ACTION", &action) >= 0 &&
-            streq_ptr(action, "remove"))
+            streq(action, "remove"))
                 seat_preallocate_vts(m->seat0);
 
         return 0;

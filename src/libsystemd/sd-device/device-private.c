@@ -277,6 +277,9 @@ int device_get_devnode_mode(sd_device *device, mode_t *mode) {
         if (r < 0)
                 return r;
 
+        if (device->devmode == (mode_t) -1)
+                return -ENOENT;
+
         *mode = device->devmode;
 
         return 0;
@@ -291,6 +294,9 @@ int device_get_devnode_uid(sd_device *device, uid_t *uid) {
         r = device_read_db(device);
         if (r < 0)
                 return r;
+
+        if (device->devuid == (uid_t) -1)
+                return -ENOENT;
 
         *uid = device->devuid;
 
@@ -326,6 +332,9 @@ int device_get_devnode_gid(sd_device *device, gid_t *gid) {
         r = device_read_db(device);
         if (r < 0)
                 return r;
+
+        if (device->devgid == (gid_t) -1)
+                return -ENOENT;
 
         *gid = device->devgid;
 
@@ -722,6 +731,9 @@ int device_get_watch_handle(sd_device *device, int *handle) {
         r = device_read_db(device);
         if (r < 0)
                 return r;
+
+        if (device->watch_handle < 0)
+                return -ENOENT;
 
         *handle = device->watch_handle;
 

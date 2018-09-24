@@ -255,10 +255,10 @@ static DeviceType detect_device_type(sd_device *dev) {
             sd_device_get_subsystem(dev, &subsystem) < 0)
                 return type;
 
-        if (streq_ptr(subsystem, "drm")) {
+        if (streq(subsystem, "drm")) {
                 if (startswith(sysname, "card"))
                         type = DEVICE_TYPE_DRM;
-        } else if (streq_ptr(subsystem, "input")) {
+        } else if (streq(subsystem, "input")) {
                 if (startswith(sysname, "event"))
                         type = DEVICE_TYPE_EVDEV;
         }
@@ -268,17 +268,18 @@ static DeviceType detect_device_type(sd_device *dev) {
 
 static int session_device_verify(SessionDevice *sd) {
         _cleanup_(sd_device_unrefp) sd_device *p = NULL;
+        const char *sp, *node;
         sd_device *dev;
-        const char *sp = NULL, *node;
         int r;
 
-        if (sd_device_new_from_devnum(&p, 'c', sd->dev) < 0)
-                return -ENODEV;
+        r = sd_device_new_from_devnum(&p, 'c', sd->dev);
+        if (r < 0)
+                return r;
 
         dev = p;
 
-        (void) sd_device_get_syspath(dev, &sp);
-        if (sd_device_get_devname(dev, &node) < 0)
+        if (sd_device_get_syspath(dev, &sp) < 0 ||
+            sd_device_get_devname(dev, &node) < 0)
                 return -EINVAL;
 
         /* detect device type so we can find the correct sysfs parent */

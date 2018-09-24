@@ -206,12 +206,8 @@ int devnode_acl_all(const char *seat,
                 if (sd_device_get_devname(d, &node) < 0)
                         continue;
 
-                n = strdup(node);
-                if (!n)
-                        return -ENOMEM;
-
-                log_debug("Found udev node %s for seat %s", n, seat);
-                r = set_consume(nodes, n);
+                log_debug("Found udev node %s for seat %s", node, seat);
+                r = set_put_strdup(nodes, node);
                 if (r < 0)
                         return r;
         }

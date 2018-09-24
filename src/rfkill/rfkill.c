@@ -149,7 +149,7 @@ static int wait_for_initialized(
                 if (r < 0)
                         continue;
 
-                if (sd_device_get_sysname(t, &name) >= 0 && streq_ptr(name, sysname)) {
+                if (sd_device_get_sysname(t, &name) >= 0 && streq(name, sysname)) {
                         *ret = TAKE_PTR(t);
                         return 0;
                 }

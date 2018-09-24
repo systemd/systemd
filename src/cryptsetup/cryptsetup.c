@@ -271,7 +271,6 @@ static int parse_options(const char *options) {
 }
 
 static char* disk_description(const char *path) {
-
         static const char name_fields[] =
                 "ID_PART_ENTRY_NAME\0"
                 "DM_NAME\0"
@@ -279,9 +278,8 @@ static char* disk_description(const char *path) {
                 "ID_MODEL\0";
 
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        const char *i, *name;
         struct stat st;
-        const char *i;
-        int r;
 
         assert(path);
 
@@ -291,17 +289,13 @@ static char* disk_description(const char *path) {
         if (!S_ISBLK(st.st_mode))
                 return NULL;
 
-        r = sd_device_new_from_devnum(&device, 'b', st.st_rdev);
-        if (r < 0)
+        if (sd_device_new_from_devnum(&device, 'b', st.st_rdev) < 0)
                 return NULL;
 
-        NULSTR_FOREACH(i, name_fields) {
-                const char *name;
-
-                r = sd_device_get_property_value(device, i, &name);
-                if (r >= 0 && !isempty(name))
+        NULSTR_FOREACH(i, name_fields)
+                if (sd_device_get_property_value(device, i, &name) >= 0 &&
+                    !isempty(name))
                         return strdup(name);
-        }
 
         return NULL;
 }

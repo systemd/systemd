@@ -85,7 +85,8 @@ _public_ dev_t udev_device_get_devnum(struct udev_device *udev_device) {
 
         r = sd_device_get_devnum(udev_device->device, &devnum);
         if (r < 0) {
-                errno = -r;
+                if (r != -ENOENT)
+                        errno = -r;
                 return makedev(0, 0);
         }
 
@@ -131,7 +132,8 @@ _public_ const char *udev_device_get_devtype(struct udev_device *udev_device) {
 
         r = sd_device_get_devtype(udev_device->device, &devtype);
         if (r < 0) {
-                errno = -r;
+                if (r != -ENOENT)
+                        errno = -r;
                 return NULL;
         }
 
@@ -582,7 +584,8 @@ _public_ const char *udev_device_get_sysnum(struct udev_device *udev_device) {
 
         r = sd_device_get_sysnum(udev_device->device, &sysnum);
         if (r < 0) {
-                errno = -r;
+                if (r != -ENOENT)
+                        errno = -r;
                 return NULL;
         }
 

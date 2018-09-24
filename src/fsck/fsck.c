@@ -357,8 +357,7 @@ int main(int argc, char *argv[]) {
                 root_directory = true;
         }
 
-        r = sd_device_get_property_value(dev, "ID_FS_TYPE", &type);
-        if (r >= 0) {
+        if (sd_device_get_property_value(dev, "ID_FS_TYPE", &type) >= 0) {
                 r = fsck_exists(type);
                 if (r < 0)
                         log_warning_errno(r, "Couldn't detect if fsck.%s may be used for %s, proceeding: %m", type, device);

@@ -88,7 +88,7 @@ static int same_device(sd_device *a, sd_device *b) {
         if (r < 0)
                 return r;
 
-        if (!streq_ptr(a_val, b_val))
+        if (!streq(a_val, b_val))
                 return false;
 
         r = sd_device_get_sysname(a, &a_val);
@@ -99,7 +99,7 @@ static int same_device(sd_device *a, sd_device *b) {
         if (r < 0)
                 return r;
 
-        return streq_ptr(a_val, b_val);
+        return streq(a_val, b_val);
 }
 
 static int validate_device(sd_device *device) {
