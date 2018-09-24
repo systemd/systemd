@@ -14,11 +14,13 @@ void import_compress_free(ImportCompress *c) {
                         deflateEnd(&c->gzip);
                 else
                         inflateEnd(&c->gzip);
+#if HAVE_BZIP2
         } else if (c->type == IMPORT_COMPRESS_BZIP2) {
                 if (c->encoding)
                         BZ2_bzCompressEnd(&c->bzip2);
                 else
                         BZ2_bzDecompressEnd(&c->bzip2);
+#endif
         }
 
         c->type = IMPORT_COMPRESS_UNKNOWN;
@@ -65,12 +67,14 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
 
                 c->type = IMPORT_COMPRESS_GZIP;
 
+#if HAVE_BZIP2
         } else if (memcmp(data, bzip2_signature, sizeof(bzip2_signature)) == 0) {
                 r = BZ2_bzDecompressInit(&c->bzip2, 0, 0);
                 if (r != BZ_OK)
                         return -EIO;
 
                 c->type = IMPORT_COMPRESS_BZIP2;
+#endif
         } else
                 c->type = IMPORT_COMPRESS_UNCOMPRESSED;
 
@@ -149,6 +153,7 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
 
                 break;
 
+#if HAVE_BZIP2
         case IMPORT_COMPRESS_BZIP2:
                 c->bzip2.next_in = (void*) data;
                 c->bzip2.avail_in = size;
@@ -169,6 +174,7 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
                 }
 
                 break;
+#endif
 
         default:
                 assert_not_reached("Unknown compression");
@@ -203,6 +209,7 @@ int import_compress_init(ImportCompress *c, ImportCompressType t) {
                 c->type = IMPORT_COMPRESS_GZIP;
                 break;
 
+#if HAVE_BZIP2
         case IMPORT_COMPRESS_BZIP2:
                 r = BZ2_bzCompressInit(&c->bzip2, 9, 0, 0);
                 if (r != BZ_OK)
@@ -210,6 +217,7 @@ int import_compress_init(ImportCompress *c, ImportCompressType t) {
 
                 c->type = IMPORT_COMPRESS_BZIP2;
                 break;
+#endif
 
         case IMPORT_COMPRESS_UNCOMPRESSED:
                 c->type = IMPORT_COMPRESS_UNCOMPRESSED;
@@ -307,6 +315,7 @@ int import_compress(ImportCompress *c, const void *data, size_t size, void **buf
 
                 break;
 
+#if HAVE_BZIP2
         case IMPORT_COMPRESS_BZIP2:
 
                 c->bzip2.next_in = (void*) data;
@@ -328,6 +337,7 @@ int import_compress(ImportCompress *c, const void *data, size_t size, void **buf
                 }
 
                 break;
+#endif
 
         case IMPORT_COMPRESS_UNCOMPRESSED:
 
@@ -411,6 +421,7 @@ int import_compress_finish(ImportCompress *c, void **buffer, size_t *buffer_size
 
                 break;
 
+#if HAVE_BZIP2
         case IMPORT_COMPRESS_BZIP2:
                 c->bzip2.avail_in = 0;
 
@@ -430,6 +441,7 @@ int import_compress_finish(ImportCompress *c, void **buffer, size_t *buffer_size
                 } while (r != BZ_STREAM_END);
 
                 break;
+#endif
 
         case IMPORT_COMPRESS_UNCOMPRESSED:
                 break;
@@ -446,7 +458,9 @@ static const char* const import_compress_type_table[_IMPORT_COMPRESS_TYPE_MAX] =
         [IMPORT_COMPRESS_UNCOMPRESSED] = "uncompressed",
         [IMPORT_COMPRESS_XZ] = "xz",
         [IMPORT_COMPRESS_GZIP] = "gzip",
+#if HAVE_BZIP2
         [IMPORT_COMPRESS_BZIP2] = "bzip2",
+#endif
 };
 
 DEFINE_STRING_TABLE_LOOKUP(import_compress_type, ImportCompressType);

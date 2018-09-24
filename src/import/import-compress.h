@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#if HAVE_BZIP2
 #include <bzlib.h>
+#endif
 #include <lzma.h>
 #include <sys/types.h>
 #include <zlib.h>
@@ -24,7 +26,9 @@ typedef struct ImportCompress {
         union {
                 lzma_stream xz;
                 z_stream gzip;
+#if HAVE_BZIP2
                 bz_stream bzip2;
+#endif
         };
 } ImportCompress;
 
