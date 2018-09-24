@@ -91,10 +91,14 @@ hierarchy for managing purposes as `/sys/fs/cgroup/systemd/`.
 
 3. **Hybrid** — this is a hybrid between the unified and legacy mode. It's set
 up mostly like legacy, except that there's also an additional hierarchy
-`/sys/fs/cgroup/unified/` that contains the cgroupsv2 hierarchy. In this mode
-compatibility with cgroupsv1 is retained while some cgroupsv2 features are
-available too. This mode is a stopgap. Don't bother with this too much unless
-you have too much free time.
+`/sys/fs/cgroup/unified/` that contains the cgroupsv2 hierarchy. (Note that in
+this mode the unified hierarchy won't have controllers attached, the
+controllers are all mounted as separate hierarchies as in legacy mode,
+i.e. `/sys/fs/cgroup/unified/` is purely and exclusively about core cgroupsv2
+functionality and not about resource management.) In this mode compatibility
+with cgroupsv1 is retained while some cgroupsv2 features are available
+too. This mode is a stopgap. Don't bother with this too much unless you have
+too much free time.
 
 To say this clearly, legacy and hybrid modes have no future. If you develop
 software today and don't focus on the unified mode, then you are writing
