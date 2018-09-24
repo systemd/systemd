@@ -117,11 +117,11 @@ static void test_filter_sets(void) {
                 if (pid == 0) { /* Child? */
                         int fd;
 
-                        /* if we look at the default set (or one that includes it), whitelist instead of blacklist */
+                        /* If we look at the default set (or one that includes it), whitelist instead of blacklist */
                         if (IN_SET(i, SYSCALL_FILTER_SET_DEFAULT, SYSCALL_FILTER_SET_SYSTEM_SERVICE))
-                                r = seccomp_load_syscall_filter_set(SCMP_ACT_ERRNO(EUCLEAN), syscall_filter_sets + i, SCMP_ACT_ALLOW);
+                                r = seccomp_load_syscall_filter_set(SCMP_ACT_ERRNO(EUCLEAN), syscall_filter_sets + i, SCMP_ACT_ALLOW, true);
                         else
-                                r = seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + i, SCMP_ACT_ERRNO(EUCLEAN));
+                                r = seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + i, SCMP_ACT_ERRNO(EUCLEAN), true);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 
@@ -614,7 +614,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, SCMP_ACT_KILL) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, SCMP_ACT_KILL, true) >= 0);
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
@@ -625,7 +625,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(-1)) >= 0);
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN)) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EUCLEAN);
@@ -641,7 +641,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN)) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EILSEQ);
@@ -657,7 +657,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(-1)) >= 0);
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH)) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EILSEQ);
@@ -674,7 +674,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH)) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EILSEQ);

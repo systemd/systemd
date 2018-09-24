@@ -1432,7 +1432,7 @@ static int apply_syscall_filter(const Unit* u, const ExecContext *c, bool needs_
                         return r;
         }
 
-        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action);
+        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action, false);
 }
 
 static int apply_syscall_archs(const Unit *u, const ExecContext *c) {
@@ -1515,7 +1515,7 @@ static int apply_protect_kernel_modules(const Unit *u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "ProtectKernelModules="))
                 return 0;
 
-        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM));
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM), false);
 }
 
 static int apply_private_devices(const Unit *u, const ExecContext *c) {
@@ -1530,7 +1530,7 @@ static int apply_private_devices(const Unit *u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "PrivateDevices="))
                 return 0;
 
-        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM));
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM), false);
 }
 
 static int apply_restrict_namespaces(const Unit *u, const ExecContext *c) {
