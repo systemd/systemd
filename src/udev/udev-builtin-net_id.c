@@ -218,11 +218,10 @@ out_unref:
 
 /* retrieve on-board index number and label from firmware */
 static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
-        unsigned dev_port = 0;
+        unsigned long idx, dev_port = 0;
+        const char *attr, *port_name;
         size_t l;
         char *s;
-        const char *attr, *port_name;
-        int idx;
 
         /* ACPI _DSM  — device specific method for naming a PCI or PCI Express device */
         attr = udev_device_get_sysattr_value(names->pcidev, "acpi_index");
@@ -253,11 +252,11 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
 
         s = names->pci_onboard;
         l = sizeof(names->pci_onboard);
-        l = strpcpyf(&s, l, "o%d", idx);
+        l = strpcpyf(&s, l, "o%lu", idx);
         if (port_name)
                 l = strpcpyf(&s, l, "n%s", port_name);
         else if (dev_port > 0)
-                l = strpcpyf(&s, l, "d%d", dev_port);
+                l = strpcpyf(&s, l, "d%lu", dev_port);
         if (l == 0)
                 names->pci_onboard[0] = '\0';
 
@@ -291,7 +290,8 @@ static bool is_pci_ari_enabled(struct udev_device *dev) {
 }
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
-        unsigned type, domain, bus, slot, func, dev_port = 0, hotplug_slot = 0;
+        unsigned long dev_port = 0;
+        unsigned domain, bus, slot, func, hotplug_slot = 0;
         size_t l;
         char *s;
         const char *attr, *port_name;
@@ -317,6 +317,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                  * provide the port number in the 'dev_id' sysfs attribute instead of 'dev_port',
                  * which thus stays initialized as 0. */
                 if (dev_port == 0) {
+                        unsigned long type;
+
                         attr = udev_device_get_sysattr_value(dev, "type");
                         /* The 'type' attribute always exists. */
                         type = strtoul(attr, NULL, 10);
@@ -342,7 +344,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         if (port_name)
                 l = strpcpyf(&s, l, "n%s", port_name);
         else if (dev_port > 0)
-                l = strpcpyf(&s, l, "d%u", dev_port);
+                l = strpcpyf(&s, l, "d%lu", dev_port);
         if (l == 0)
                 names->pci_path[0] = '\0';
 
@@ -398,7 +400,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 if (port_name)
                         l = strpcpyf(&s, l, "n%s", port_name);
                 else if (dev_port > 0)
-                        l = strpcpyf(&s, l, "d%d", dev_port);
+                        l = strpcpyf(&s, l, "d%lu", dev_port);
                 if (l == 0)
                         names->pci_slot[0] = '\0';
         }
@@ -669,7 +671,7 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
 
 static int names_mac(struct udev_device *dev, struct netnames *names) {
         const char *s;
-        unsigned int i;
+        unsigned long i;
         unsigned int a1, a2, a3, a4, a5, a6;
 
         /* Some kinds of devices tend to have hardware addresses
@@ -736,7 +738,7 @@ static int ieee_oui(struct udev_device *dev, struct netnames *names, bool test) 
 static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool test) {
         const char *s;
         const char *p;
-        unsigned int i;
+        unsigned long i;
         const char *devtype;
         const char *prefix = "en";
         struct netnames names = {};
