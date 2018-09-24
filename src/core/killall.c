@@ -29,7 +29,7 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         int r;
 
         /* We are PID 1, let's not commit suicide */
-        if (pid == 1)
+        if (pid <= 1)
                 return true;
 
         /* Ignore kernel threads */
