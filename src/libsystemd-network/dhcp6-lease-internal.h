@@ -37,7 +37,6 @@ struct sd_dhcp6_lease {
         size_t ntp_fqdn_count;
 };
 
-int dhcp6_lease_clear_timers(DHCP6IA *ia);
 int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire);
 DHCP6IA *dhcp6_lease_free_ia(DHCP6IA *ia);
 
@@ -50,6 +49,7 @@ int dhcp6_lease_set_rapid_commit(sd_dhcp6_lease *lease);
 int dhcp6_lease_get_rapid_commit(sd_dhcp6_lease *lease, bool *rapid_commit);
 
 int dhcp6_lease_get_iaid(sd_dhcp6_lease *lease, be32_t *iaid);
+int dhcp6_lease_get_pd_iaid(sd_dhcp6_lease *lease, be32_t *iaid);
 
 int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen);
 int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, uint8_t *optval,

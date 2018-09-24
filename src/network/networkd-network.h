@@ -171,6 +171,9 @@ struct Network {
         struct in6_addr *router_dns;
         unsigned n_router_dns;
         char **router_search_domains;
+        bool dhcp6_force_pd_other_information; /* Start DHCPv6 PD also when 'O'
+                                                  RA flag is set, see RFC 7084,
+                                                  WPD-4 */
 
         /* Bridge Support */
         int use_bpdu;

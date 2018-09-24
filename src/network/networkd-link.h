@@ -165,6 +165,7 @@ int dhcp4_set_client_identifier(Link *link);
 int dhcp4_set_promote_secondaries(Link *link);
 int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link, int ir);
+int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
