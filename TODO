@@ -17,6 +17,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* chown() tty a service is attached to after the service goes down
+
 * optionally, if a per-partition GPT flag is set for the root/home/… partitions
   format the partition on next boot and unset the flag, in order to implement
   factory reset. also, add a second flag that simply indicates whether such a
@@ -110,7 +112,7 @@ Features:
   zero and is not open anymore, while the latter happens when a file is
   unlinked from any dir.
 
-* port systemctl, systemd-inhibit, busctl, … over to format-table.[ch]'s table formatters
+* port systemctl, busctl, … over to format-table.[ch]'s table formatters
 
 * pid1: lock image configured with RootDirectory=/RootImage= using the usual nspawn semantics while the unit is up
 
