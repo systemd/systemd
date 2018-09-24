@@ -877,7 +877,7 @@ int btrfs_subvol_set_subtree_quota_limit(const char *path, uint64_t subvol_id, u
 
 int btrfs_resize_loopback_fd(int fd, uint64_t new_size, bool grow_only) {
         struct btrfs_ioctl_vol_args args = {};
-        char p[SYS_BLOCK_PATH_MAX("/loop/backing_file")];
+        char p[SYS_BLOCK_PATH_MAX("/loop/backing_file")], q[DEV_NUM_PATH_MAX];
         _cleanup_free_ char *backing = NULL;
         _cleanup_close_ int loop_fd = -1, backing_fd = -1;
         struct stat st;
@@ -922,8 +922,8 @@ int btrfs_resize_loopback_fd(int fd, uint64_t new_size, bool grow_only) {
         if (grow_only && new_size < (uint64_t) st.st_size)
                 return -EINVAL;
 
-        xsprintf_sys_block_path(p, NULL, dev);
-        loop_fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        xsprintf_dev_num_path(q, "block", dev);
+        loop_fd = open(q, O_RDWR|O_CLOEXEC|O_NOCTTY);
         if (loop_fd < 0)
                 return -errno;
 
