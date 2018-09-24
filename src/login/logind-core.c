@@ -588,12 +588,10 @@ static int manager_count_external_displays(Manager *m) {
                 if (sd_device_get_sysname(d, &nn) < 0)
                         continue;
 
-                /* Ignore internal displays: the type is encoded in
-                 * the sysfs name, as the second dash separated item
-                 * (the first is the card name, the last the connector
-                 * number). We implement a whitelist of external
-                 * displays here, rather than a whitelist, to ensure
-                 * we don't block suspends too eagerly. */
+                /* Ignore internal displays: the type is encoded in the sysfs name, as the second dash separated item
+                 * (the first is the card name, the last the connector number). We implement a blacklist of external
+                 * displays here, rather than a whitelist of internal ones, to ensure we don't block suspends too
+                 * eagerly. */
                 dash = strchr(nn, '-');
                 if (!dash)
                         continue;
