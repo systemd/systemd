@@ -68,8 +68,8 @@
     or it must be a template unit named the same way. Example: a
     socket file <filename>foo.socket</filename> needs a matching
     service <filename>foo.service</filename> if
-    <option>Accept=false</option> is set. If
-    <option>Accept=true</option> is set, a service template file
+    <option>Accept=no</option> is set. If
+    <option>Accept=yes</option> is set, a service template file
     <filename>foo@.service</filename> must exist from which services
     are instantiated for each incoming connection.</para>
 
@@ -395,17 +395,17 @@
         incoming traffic. Defaults to <option>false</option>. For
         performance reasons, it is recommended to write new daemons
         only in a way that is suitable for
-        <option>Accept=false</option>. A daemon listening on an
+        <option>Accept=no</option>. A daemon listening on an
         <constant>AF_UNIX</constant> socket may, but does not need to,
         call
         <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         on the received socket before exiting. However, it must not
         unlink the socket from a file system. It should not invoke
         <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        on sockets it got with <varname>Accept=false</varname>, but it
+        on sockets it got with <varname>Accept=no</varname>, but it
         may do so for sockets it got with
-        <varname>Accept=true</varname> set. Setting
-        <varname>Accept=true</varname> is mostly useful to allow
+        <varname>Accept=yes</varname> set. Setting
+        <varname>Accept=yes</varname> is mostly useful to allow
         daemons designed for usage with
         <citerefentry project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         to work unmodified with systemd socket
@@ -429,11 +429,11 @@
         <term><varname>MaxConnections=</varname></term>
         <listitem><para>The maximum number of connections to
         simultaneously run services instances for, when
-        <option>Accept=true</option> is set. If more concurrent
+        <option>Accept=yes</option> is set. If more concurrent
         connections are coming in, they will be refused until at least
         one existing connection is terminated. This setting has no
         effect on sockets configured with
-        <option>Accept=false</option> or datagram sockets. Defaults to
+        <option>Accept=no</option> or datagram sockets. Defaults to
         64.</para></listitem>
       </varlistentry>
 

@@ -666,7 +666,7 @@
           <listitem><para>An IPv6 address, for which Neighbour Advertisement messages will be
           proxied. This option may be specified more than once. systemd-networkd will add the
           <option>IPv6ProxyNDPAddress=</option> entries to the kernel's IPv6 neighbor proxy table.
-          This option implies <option>IPv6ProxyNDP=true</option> but has no effect if
+          This option implies <option>IPv6ProxyNDP=yes</option> but has no effect if
           <option>IPv6ProxyNDP</option> has been set to false. Defaults to unset.
         </para></listitem>
         </varlistentry>
