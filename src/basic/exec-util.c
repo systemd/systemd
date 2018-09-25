@@ -102,7 +102,8 @@ static int do_execute(
                 alarm(DIV_ROUND_UP(timeout, USEC_PER_SEC));
 
         STRV_FOREACH(e, envp)
-                putenv(*e);
+                if (putenv(*e) < 0)
+                        return log_error_errno(errno, "Failed to set environment variable: %m");
 
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
