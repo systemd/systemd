@@ -1093,7 +1093,7 @@ _public_ int sd_event_add_io(
                 sd_event_io_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1116,13 +1116,12 @@ _public_ int sd_event_add_io(
         s->enabled = SD_EVENT_ON;
 
         r = source_io_register(s, s->enabled, events);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1197,7 +1196,7 @@ _public_ int sd_event_add_time(
                 void *userdata) {
 
         EventSourceType type;
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         struct clock_data *d;
         int r;
 
@@ -1249,20 +1248,17 @@ _public_ int sd_event_add_time(
 
         r = prioq_put(d->earliest, s, &s->time.earliest_index);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = prioq_put(d->latest, s, &s->time.latest_index);
         if (r < 0)
-                goto fail;
+                return r;
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
-
-fail:
-        source_free(s);
-        return r;
 }
 
 static int signal_exit_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
@@ -1278,7 +1274,7 @@ _public_ int sd_event_add_signal(
                 sd_event_signal_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         struct signal_data *d;
         sigset_t ss;
         int r;
@@ -1318,16 +1314,15 @@ _public_ int sd_event_add_signal(
         e->signal_sources[sig] = s;
 
         r = event_make_signal_data(e, sig, &d);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         /* Use the signal name as description for the event source by default */
         (void) sd_event_source_set_description(s, signal_to_string(sig));
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1340,7 +1335,7 @@ _public_ int sd_event_add_child(
                 sd_event_child_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1370,17 +1365,14 @@ _public_ int sd_event_add_child(
         s->enabled = SD_EVENT_ONESHOT;
 
         r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         e->n_enabled_child_sources++;
 
         r = event_make_signal_data(e, SIGCHLD, NULL);
         if (r < 0) {
                 e->n_enabled_child_sources--;
-                source_free(s);
                 return r;
         }
 
@@ -1388,6 +1380,7 @@ _public_ int sd_event_add_child(
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1398,7 +1391,7 @@ _public_ int sd_event_add_defer(
                 sd_event_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1416,13 +1409,12 @@ _public_ int sd_event_add_defer(
         s->enabled = SD_EVENT_ONESHOT;
 
         r = source_set_pending(s, true);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1433,7 +1425,7 @@ _public_ int sd_event_add_post(
                 sd_event_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1455,13 +1447,12 @@ _public_ int sd_event_add_post(
         s->enabled = SD_EVENT_ON;
 
         r = set_put(e->post_sources, s);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1472,7 +1463,7 @@ _public_ int sd_event_add_exit(
                 sd_event_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1495,13 +1486,12 @@ _public_ int sd_event_add_exit(
         s->enabled = SD_EVENT_ONESHOT;
 
         r = prioq_put(s->event->exit, s, &s->exit.prioq_index);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
