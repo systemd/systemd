@@ -317,15 +317,14 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                  * provide the port number in the 'dev_id' sysfs attribute instead of 'dev_port',
                  * which thus stays initialized as 0. */
                 if (dev_port == 0) {
-                        unsigned long type;
-
                         attr = udev_device_get_sysattr_value(dev, "type");
-                        /* The 'type' attribute always exists. */
-                        type = strtoul(attr, NULL, 10);
-                        if (type == ARPHRD_INFINIBAND) {
-                                attr = udev_device_get_sysattr_value(dev, "dev_id");
-                                if (attr)
-                                        dev_port = strtoul(attr, NULL, 16);
+                        if (attr) {
+                                unsigned long type = strtoul(attr, NULL, 10);
+                                if (type == ARPHRD_INFINIBAND) {
+                                        attr = udev_device_get_sysattr_value(dev, "dev_id");
+                                        if (attr)
+                                                dev_port = strtoul(attr, NULL, 16);
+                                }
                         }
                 }
         }
