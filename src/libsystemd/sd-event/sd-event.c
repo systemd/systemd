@@ -999,6 +999,7 @@ static void source_free(sd_event_source *s) {
         free(s->description);
         free(s);
 }
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_event_source*, source_free);
 
 static int source_set_pending(sd_event_source *s, bool b) {
         int r;
@@ -1817,11 +1818,10 @@ _public_ int sd_event_add_inotify(
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
 
-        bool rm_inotify = false, rm_inode = false;
         struct inotify_data *inotify_data = NULL;
         struct inode_data *inode_data = NULL;
         _cleanup_close_ int fd = -1;
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         struct stat st;
         int r;
 
@@ -1859,13 +1859,13 @@ _public_ int sd_event_add_inotify(
         /* Allocate an inotify object for this priority, and an inode object within it */
         r = event_make_inotify_data(e, SD_EVENT_PRIORITY_NORMAL, &inotify_data);
         if (r < 0)
-                goto fail;
-        rm_inotify = r > 0;
+                return r;
 
         r = event_make_inode_data(e, inotify_data, st.st_dev, st.st_ino, &inode_data);
-        if (r < 0)
-                goto fail;
-        rm_inode = r > 0;
+        if (r < 0) {
+                event_free_inotify_data(e, inotify_data);
+                return r;
+        }
 
         /* Keep the O_PATH fd around until the first iteration of the loop, so that we can still change the priority of
          * the event source, until then, for which we need the original inode. */
@@ -1878,30 +1878,18 @@ _public_ int sd_event_add_inotify(
         LIST_PREPEND(inotify.by_inode_data, inode_data->event_sources, s);
         s->inotify.inode_data = inode_data;
 
-        rm_inode = rm_inotify = false;
-
         /* Actually realize the watch now */
         r = inode_data_realize_watch(e, inode_data);
         if (r < 0)
-                goto fail;
+                return r;
 
         (void) sd_event_source_set_description(s, path);
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
-
-fail:
-        source_free(s);
-
-        if (rm_inode)
-                event_free_inode_data(e, inode_data);
-
-        if (rm_inotify)
-                event_free_inotify_data(e, inotify_data);
-
-        return r;
 }
 
 static sd_event_source* event_source_free(sd_event_source *s) {
