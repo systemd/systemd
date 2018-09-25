@@ -1940,8 +1940,56 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure
-    code otherwise.</para>
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+
+    <para><command>systemctl</command> uses the return codes defined by LSB, as defined in
+    <ulink url="http://refspecs.linuxbase.org/LSB_3.0.0/LSB-PDA/LSB-PDA/iniscrptact.html">LSB 3.0.0</ulink>.
+    </para>
+
+    <table>
+      <title>LSB return codes</title>
+
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Value</entry>
+            <entry>Description in LSB</entry>
+            <entry>Use in systemd</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><constant>0</constant></entry>
+            <entry>"program is running or service is OK"</entry>
+            <entry>unit is active</entry>
+          </row>
+          <row>
+            <entry><constant>1</constant></entry>
+            <entry>"program is dead and <filename>/var/run</filename> pid file exists"</entry>
+            <entry>unit <emphasis>not</emphasis> failed (used by <command>is-failed</command>)</entry>
+          </row>
+          <row>
+            <entry><constant>2</constant></entry>
+            <entry>"program is dead and <filename>/var/lock</filename> lock file exists"</entry>
+            <entry>unused</entry>
+          </row>
+          <row>
+            <entry><constant>3</constant></entry>
+            <entry>"program is not running"</entry>
+            <entry>unit is not active</entry>
+          </row>
+          <row>
+            <entry><constant>4</constant></entry>
+            <entry>"program or service status is unknown"</entry>
+            <entry>no such unit</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>The mapping of LSB service states to systemd unit states is imperfect, so it is better to
+    not rely on those return values but to look for specific unit states and substates instead.
+    </para>
   </refsect1>
 
   <refsect1>
