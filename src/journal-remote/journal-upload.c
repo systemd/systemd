@@ -284,7 +284,7 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
         ssize_t r;
 
         assert(u);
-        assert(nmemb <= SSIZE_MAX / size);
+        assert(nmemb < SSIZE_MAX / size);
 
         if (u->input < 0)
                 return 0;
