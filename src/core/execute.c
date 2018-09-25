@@ -1602,6 +1602,8 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
         idle_pipe[3] = safe_close(idle_pipe[3]);
 }
 
+static const char *exec_directory_env_name_to_string(ExecDirectoryType t);
+
 static int build_environment(
                 const Unit *u,
                 const ExecContext *c,
@@ -1615,14 +1617,16 @@ static int build_environment(
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
+        ExecDirectoryType t;
         size_t n_env = 0;
         char *x;
 
         assert(u);
         assert(c);
+        assert(p);
         assert(ret);
 
-        our_env = new0(char*, 14);
+        our_env = new0(char*, 14 + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1727,8 +1731,37 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
+        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                _cleanup_free_ char *pre = NULL, *joined = NULL;
+                const char *n;
+
+                if (!p->prefix[t])
+                        continue;
+
+                if (strv_isempty(c->directories[t].paths))
+                        continue;
+
+                n = exec_directory_env_name_to_string(t);
+                if (!n)
+                        continue;
+
+                pre = strjoin(p->prefix[t], "/");
+                if (!pre)
+                        return -ENOMEM;
+
+                joined = strv_join_prefix(c->directories[t].paths, ":", pre);
+                if (!joined)
+                        return -ENOMEM;
+
+                x = strjoin(n, "=", joined);
+                if (!x)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+        }
+
         our_env[n_env++] = NULL;
-        assert(n_env <= 12);
+        assert(n_env <= 14 + _EXEC_DIRECTORY_TYPE_MAX);
 
         *ret = TAKE_PTR(our_env);
 
@@ -5120,6 +5153,16 @@ static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
+
+static const char* const exec_directory_env_name_table[_EXEC_DIRECTORY_TYPE_MAX] = {
+        [EXEC_DIRECTORY_RUNTIME] = "RUNTIME_DIRECTORY",
+        [EXEC_DIRECTORY_STATE] = "STATE_DIRECTORY",
+        [EXEC_DIRECTORY_CACHE] = "CACHE_DIRECTORY",
+        [EXEC_DIRECTORY_LOGS] = "LOGS_DIRECTORY",
+        [EXEC_DIRECTORY_CONFIGURATION] = "CONFIGURATION_DIRECTORY",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(exec_directory_env_name, ExecDirectoryType);
 
 static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
         [EXEC_KEYRING_INHERIT] = "inherit",

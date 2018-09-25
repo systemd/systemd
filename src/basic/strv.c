@@ -339,21 +339,22 @@ int strv_split_extract(char ***t, const char *s, const char *separators, Extract
         return (int) n;
 }
 
-char *strv_join(char **l, const char *separator) {
+char *strv_join_prefix(char **l, const char *separator, const char *prefix) {
         char *r, *e;
         char **s;
-        size_t n, k;
+        size_t n, k, m;
 
         if (!separator)
                 separator = " ";
 
         k = strlen(separator);
+        m = strlen_ptr(prefix);
 
         n = 0;
         STRV_FOREACH(s, l) {
                 if (s != l)
                         n += k;
-                n += strlen(*s);
+                n += m + strlen(*s);
         }
 
         r = new(char, n+1);
@@ -364,6 +365,9 @@ char *strv_join(char **l, const char *separator) {
         STRV_FOREACH(s, l) {
                 if (s != l)
                         e = stpcpy(e, separator);
+
+                if (prefix)
+                        e = stpcpy(e, prefix);
 
                 e = stpcpy(e, *s);
         }
