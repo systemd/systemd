@@ -43,6 +43,16 @@ CHANGES WITH 243 in spe:
         * Memory protection directives can now take a value of zero, allowing
           explicit opting out of a default value propagated by an ancestor.
 
+        * systemd now defaults to the "unified" cgroup hierarchy setup during
+          build-time, i.e. -Ddefault-hierarchy=unified is now the build-time
+          default. Previously, -Ddefault-hierarchy=hybrid was the default. This
+          change reflects the fact that cgroupsv2 support has matured
+          substantially in both systemd and in the kernel, and is clearly the
+          way forward. Downstream production distributions might want to
+          continue to use -Ddefault-hierarchy=hybrid (or even =legacy) for
+          their builds as unfortunately the popular container managers have not
+          caught up with the kernel API changes.
+
           …
 
 CHANGES WITH 242:
