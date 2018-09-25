@@ -87,7 +87,7 @@ static int do_execute(
 
         r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char* const*) directories);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to enumerate executables: %m");
 
         if (!callbacks) {
                 pids = hashmap_new(NULL);
@@ -102,7 +102,8 @@ static int do_execute(
                 alarm(DIV_ROUND_UP(timeout, USEC_PER_SEC));
 
         STRV_FOREACH(e, envp)
-                putenv(*e);
+                if (putenv(*e) < 0)
+                        return log_error_errno(errno, "Failed to set environment variable: %m");
 
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
