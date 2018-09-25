@@ -435,7 +435,7 @@ int main(int argc, char *argv[]) {
         arguments[0] = NULL;
         arguments[1] = arg_verb;
         arguments[2] = NULL;
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments);
+        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL);
 
         if (can_initrd) {
                 r = switch_root_initramfs();

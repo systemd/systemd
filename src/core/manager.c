@@ -3788,7 +3788,7 @@ static int manager_run_environment_generators(Manager *m) {
         if (!generator_path_any(paths))
                 return 0;
 
-        return execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL);
+        return execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, m->environment);
 }
 
 static int manager_run_generators(Manager *m) {
@@ -3820,7 +3820,7 @@ static int manager_run_generators(Manager *m) {
 
         RUN_WITH_UMASK(0022)
                 execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC,
-                                    NULL, NULL, (char**) argv);
+                                    NULL, NULL, (char**) argv, m->environment);
 
 finish:
         lookup_paths_trim_generator(&m->lookup_paths);
