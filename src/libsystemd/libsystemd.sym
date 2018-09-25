@@ -572,6 +572,7 @@ global:
 } LIBSYSTEMD_238;
 
 LIBSYSTEMD_240 {
+global:
         sd_bus_message_readv;
         sd_bus_set_method_call_timeout;
         sd_bus_get_method_call_timeout;
