@@ -33,8 +33,16 @@ stub_sources = '''
 '''.split()
 
 if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
-        efi_cc = get_option('efi-cc')
-        efi_ld = get_option('efi-ld')
+        if get_option('efi-cc') == '$cc'
+                efi_cc = ' '.join(cc.cmd_array())
+        else
+                efi_cc = get_option('efi-cc')
+        endif
+        if get_option('efi-ld') == '$ld'
+                efi_ld = find_program('ld', required: true)
+        else
+                efi_ld = get_option('efi-ld')
+        endif
         efi_incdir = get_option('efi-includedir')
 
         gnu_efi_path_arch = ''
