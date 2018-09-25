@@ -12,6 +12,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "pager.h"
 #include "process-util.h"
@@ -26,6 +27,7 @@ static const char* arg_who = NULL;
 static const char* arg_why = "Unknown reason";
 static const char* arg_mode = NULL;
 static bool arg_no_pager = false;
+static bool arg_legend = true;
 
 static enum {
         ACTION_INHIBIT,
@@ -60,11 +62,10 @@ static int inhibit(sd_bus *bus, sd_bus_error *error) {
         return r;
 }
 
-static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
+static int print_inhibitors(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *what, *who, *why, *mode;
-        unsigned int uid, pid;
-        unsigned n = 0;
+        _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
         (void) pager_open(arg_no_pager, false);
@@ -75,44 +76,76 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "ListInhibitors",
-                        error,
+                        &error,
                         &reply,
                         "");
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Could not get active inhibitors: %s", bus_error_message(&error, r));
+
+        table = table_new("WHO", "UID", "USER", "PID", "COMM", "WHAT", "WHY", "MODE");
+        if (!table)
+                return log_oom();
+
+        /* If there's not enough space, shorten the "WHY" column, as it's little more than an explaining comment. */
+        (void) table_set_weight(table, TABLE_HEADER_CELL(6), 20);
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
+        for (;;) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
+                const char *what, *who, *why, *mode;
+                uint32_t uid, pid;
+
+                r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
 
                 if (arg_mode && !streq(mode, arg_mode))
                         continue;
 
-                get_process_comm(pid, &comm);
+                (void) get_process_comm(pid, &comm);
                 u = uid_to_name(uid);
 
-                printf("     Who: %s (UID "UID_FMT"/%s, PID "PID_FMT"/%s)\n"
-                       "    What: %s\n"
-                       "     Why: %s\n"
-                       "    Mode: %s\n\n",
-                       who, uid, strna(u), pid, strna(comm),
-                       what,
-                       why,
-                       mode);
-
-                n++;
+                r = table_add_many(table,
+                                   TABLE_STRING, who,
+                                   TABLE_UINT32, uid,
+                                   TABLE_STRING, strna(u),
+                                   TABLE_UINT32, pid,
+                                   TABLE_STRING, strna(comm),
+                                   TABLE_STRING, what,
+                                   TABLE_STRING, why,
+                                   TABLE_STRING, mode);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add table row: %m");
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("%u inhibitors listed.\n", n);
+        if (table_get_rows(table) > 1) {
+                r = table_set_sort(table, (size_t) 1, (size_t) 0, (size_t) 5, (size_t) 6, (size_t) -1);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to sort table: %m");
+
+                table_set_header(table, arg_legend);
+
+                r = table_print(table, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to show table: %m");
+        }
+
+        if (arg_legend) {
+                if (table_get_rows(table) > 1)
+                        printf("\n%zu inhibitors listed.\n", table_get_rows(table) - 1);
+                else
+                        printf("No inhibitors.\n");
+        }
+
         return 0;
 }
 
@@ -129,6 +162,7 @@ static int help(void) {
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "     --no-pager           Do not pipe output into a pager\n"
+               "     --no-legend          Do not show the headers and footers\n"
                "     --what=WHAT          Operations to inhibit, colon separated list of:\n"
                "                          shutdown, sleep, idle, handle-power-key,\n"
                "                          handle-suspend-key, handle-hibernate-key,\n"
@@ -155,6 +189,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MODE,
                 ARG_LIST,
                 ARG_NO_PAGER,
+                ARG_NO_LEGEND,
         };
 
         static const struct option options[] = {
@@ -166,6 +201,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "mode",         required_argument, NULL, ARG_MODE         },
                 { "list",         no_argument,       NULL, ARG_LIST         },
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND       },
                 {}
         };
 
@@ -208,6 +244,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_no_pager = true;
                         break;
 
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -227,7 +267,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -248,14 +287,13 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_LIST) {
 
-                r = print_inhibitors(bus, &error);
+                r = print_inhibitors(bus);
                 pager_close();
-                if (r < 0) {
-                        log_error("Failed to list inhibitors: %s", bus_error_message(&error, -r));
+                if (r < 0)
                         return EXIT_FAILURE;
-                }
 
         } else {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_close_ int fd = -1;
                 _cleanup_free_ char *w = NULL;
                 pid_t pid;
