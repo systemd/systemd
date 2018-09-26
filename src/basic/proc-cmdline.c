@@ -39,16 +39,11 @@ int proc_cmdline(char **ret) {
                 return read_one_line_file("/proc/cmdline", ret);
 }
 
-int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, unsigned flags) {
-        _cleanup_free_ char *line = NULL;
+int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, unsigned flags) {
         const char *p;
         int r;
 
         assert(parse_item);
-
-        r = proc_cmdline(&line);
-        if (r < 0)
-                return r;
 
         p = line;
         for (;;) {
@@ -83,6 +78,19 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, unsigned fla
         }
 
         return 0;
+}
+
+int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, unsigned flags) {
+        _cleanup_free_ char *line = NULL;
+        int r;
+
+        assert(parse_item);
+
+        r = proc_cmdline(&line);
+        if (r < 0)
+                return r;
+
+        return proc_cmdline_parse_given(line, parse_item, data, flags);
 }
 
 static bool relaxed_equal_char(char a, char b) {
