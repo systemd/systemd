@@ -17,12 +17,14 @@
 int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
-        rule = new0(RoutingPolicyRule, 1);
+        rule = new(RoutingPolicyRule, 1);
         if (!rule)
                 return -ENOMEM;
 
-        rule->family = AF_INET;
-        rule->table = RT_TABLE_MAIN;
+        *rule = (RoutingPolicyRule) {
+                .family = AF_INET,
+                .table = RT_TABLE_MAIN,
+        };
 
         *ret = rule;
         return 0;
