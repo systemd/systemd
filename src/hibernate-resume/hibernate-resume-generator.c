@@ -60,6 +60,13 @@ static int process_resume(void) {
 int main(int argc, char *argv[]) {
         int r = 0;
 
+        log_set_prohibit_ipc(true);
+        log_set_target(LOG_TARGET_AUTO);
+        log_parse_environment();
+        log_open();
+
+        umask(0022);
+
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
                 return EXIT_FAILURE;
@@ -68,16 +75,11 @@ int main(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[1];
 
-        log_set_prohibit_ipc(true);
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
-
-        umask(0022);
-
         /* Don't even consider resuming outside of initramfs. */
-        if (!in_initrd())
+        if (!in_initrd()) {
+                log_debug("Not running in an initrd, quitting.");
                 return EXIT_SUCCESS;
+        }
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
