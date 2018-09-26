@@ -253,6 +253,9 @@ char **strv_split_full(const char *s, const char *separator, bool quoted) {
 
         assert(s);
 
+        if (!separator)
+                separator = WHITESPACE;
+
         s += strspn(s, separator);
         if (isempty(s))
                 return new0(char*, 1);
