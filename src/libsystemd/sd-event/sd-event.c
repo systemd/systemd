@@ -999,6 +999,7 @@ static void source_free(sd_event_source *s) {
         free(s->description);
         free(s);
 }
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_event_source*, source_free);
 
 static int source_set_pending(sd_event_source *s, bool b) {
         int r;
@@ -1092,7 +1093,7 @@ _public_ int sd_event_add_io(
                 sd_event_io_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1115,13 +1116,12 @@ _public_ int sd_event_add_io(
         s->enabled = SD_EVENT_ON;
 
         r = source_io_register(s, s->enabled, events);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1196,7 +1196,7 @@ _public_ int sd_event_add_time(
                 void *userdata) {
 
         EventSourceType type;
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         struct clock_data *d;
         int r;
 
@@ -1248,20 +1248,17 @@ _public_ int sd_event_add_time(
 
         r = prioq_put(d->earliest, s, &s->time.earliest_index);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = prioq_put(d->latest, s, &s->time.latest_index);
         if (r < 0)
-                goto fail;
+                return r;
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
-
-fail:
-        source_free(s);
-        return r;
 }
 
 static int signal_exit_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
@@ -1277,7 +1274,7 @@ _public_ int sd_event_add_signal(
                 sd_event_signal_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         struct signal_data *d;
         sigset_t ss;
         int r;
@@ -1317,16 +1314,15 @@ _public_ int sd_event_add_signal(
         e->signal_sources[sig] = s;
 
         r = event_make_signal_data(e, sig, &d);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         /* Use the signal name as description for the event source by default */
         (void) sd_event_source_set_description(s, signal_to_string(sig));
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1339,7 +1335,7 @@ _public_ int sd_event_add_child(
                 sd_event_child_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1369,17 +1365,14 @@ _public_ int sd_event_add_child(
         s->enabled = SD_EVENT_ONESHOT;
 
         r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         e->n_enabled_child_sources++;
 
         r = event_make_signal_data(e, SIGCHLD, NULL);
         if (r < 0) {
                 e->n_enabled_child_sources--;
-                source_free(s);
                 return r;
         }
 
@@ -1387,6 +1380,7 @@ _public_ int sd_event_add_child(
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1397,7 +1391,7 @@ _public_ int sd_event_add_defer(
                 sd_event_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1415,13 +1409,12 @@ _public_ int sd_event_add_defer(
         s->enabled = SD_EVENT_ONESHOT;
 
         r = source_set_pending(s, true);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1432,7 +1425,7 @@ _public_ int sd_event_add_post(
                 sd_event_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1454,13 +1447,12 @@ _public_ int sd_event_add_post(
         s->enabled = SD_EVENT_ON;
 
         r = set_put(e->post_sources, s);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1471,7 +1463,7 @@ _public_ int sd_event_add_exit(
                 sd_event_handler_t callback,
                 void *userdata) {
 
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1494,13 +1486,12 @@ _public_ int sd_event_add_exit(
         s->enabled = SD_EVENT_ONESHOT;
 
         r = prioq_put(s->event->exit, s, &s->exit.prioq_index);
-        if (r < 0) {
-                source_free(s);
+        if (r < 0)
                 return r;
-        }
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
 }
@@ -1817,11 +1808,10 @@ _public_ int sd_event_add_inotify(
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
 
-        bool rm_inotify = false, rm_inode = false;
         struct inotify_data *inotify_data = NULL;
         struct inode_data *inode_data = NULL;
         _cleanup_close_ int fd = -1;
-        sd_event_source *s;
+        _cleanup_(source_freep) sd_event_source *s = NULL;
         struct stat st;
         int r;
 
@@ -1859,13 +1849,13 @@ _public_ int sd_event_add_inotify(
         /* Allocate an inotify object for this priority, and an inode object within it */
         r = event_make_inotify_data(e, SD_EVENT_PRIORITY_NORMAL, &inotify_data);
         if (r < 0)
-                goto fail;
-        rm_inotify = r > 0;
+                return r;
 
         r = event_make_inode_data(e, inotify_data, st.st_dev, st.st_ino, &inode_data);
-        if (r < 0)
-                goto fail;
-        rm_inode = r > 0;
+        if (r < 0) {
+                event_free_inotify_data(e, inotify_data);
+                return r;
+        }
 
         /* Keep the O_PATH fd around until the first iteration of the loop, so that we can still change the priority of
          * the event source, until then, for which we need the original inode. */
@@ -1878,30 +1868,18 @@ _public_ int sd_event_add_inotify(
         LIST_PREPEND(inotify.by_inode_data, inode_data->event_sources, s);
         s->inotify.inode_data = inode_data;
 
-        rm_inode = rm_inotify = false;
-
         /* Actually realize the watch now */
         r = inode_data_realize_watch(e, inode_data);
         if (r < 0)
-                goto fail;
+                return r;
 
         (void) sd_event_source_set_description(s, path);
 
         if (ret)
                 *ret = s;
+        TAKE_PTR(s);
 
         return 0;
-
-fail:
-        source_free(s);
-
-        if (rm_inode)
-                event_free_inode_data(e, inode_data);
-
-        if (rm_inotify)
-                event_free_inotify_data(e, inotify_data);
-
-        return r;
 }
 
 static sd_event_source* event_source_free(sd_event_source *s) {

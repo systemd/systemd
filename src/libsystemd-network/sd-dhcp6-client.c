@@ -49,7 +49,7 @@ struct sd_dhcp6_client {
         DHCP6IA ia_pd;
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
-        int request;
+        unsigned request;
         be32_t transaction_id;
         usec_t transaction_start;
         struct sd_dhcp6_lease *lease;

@@ -22,7 +22,7 @@ static void test_syslog_parse_identifier(const char *str,
 
 static void test_syslog_parse_priority(const char *str, int priority, int ret) {
         const char *buf = str;
-        int priority2, ret2;
+        int priority2 = 0, ret2;
 
         ret2 = syslog_parse_priority(&buf, &priority2, false);
 
