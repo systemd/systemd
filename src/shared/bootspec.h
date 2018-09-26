@@ -9,7 +9,8 @@
 #include "sd-id128.h"
 
 typedef struct BootEntry {
-        char *id;
+        char *id;       /* This is the file basename without extension */
+        char *path;     /* This is the full path to the file */
         char *title;
         char *show_title;
         char *version;

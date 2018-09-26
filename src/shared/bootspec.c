@@ -24,6 +24,7 @@ void boot_entry_free(BootEntry *entry) {
         assert(entry);
 
         free(entry->id);
+        free(entry->path);
         free(entry->title);
         free(entry->show_title);
         free(entry->version);
@@ -55,6 +56,10 @@ int boot_entry_load(const char *path, BootEntry *entry) {
         b = basename(path);
         tmp.id = strndup(b, c - b);
         if (!tmp.id)
+                return log_oom();
+
+        tmp.path = strdup(path);
+        if (!tmp.path)
                 return log_oom();
 
         f = fopen(path, "re");
@@ -625,6 +630,7 @@ int find_default_boot_entry(
         }
 
         *e = &config->entries[config->default_entry];
+        log_debug("Found default boot entry in file \"%s\"", (*e)->path);
 
         if (esp_where)
                 *esp_where = TAKE_PTR(where);
