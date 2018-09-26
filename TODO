@@ -87,8 +87,7 @@ Features:
   1. add resume_offset support to the resume code (i.e. support swap files
      properly)
   2. check if swap is on weird storage and refuse if so
-  3. figure out what to do with swap-on-luks
-  4. add autodetection of hibernation images
+  3. add autodetection of hibernation images
 
 * portables: introduce a new unit file directory /etc/systemd/system.attached/
   or so, where we attach portable services to
