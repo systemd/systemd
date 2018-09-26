@@ -598,3 +598,36 @@ found:
 
         return 0;
 }
+
+int find_default_boot_entry(
+                const char *esp_path,
+                char **esp_where,
+                BootConfig *config,
+                const BootEntry **e) {
+
+        _cleanup_free_ char *where = NULL;
+        int r;
+
+        assert(config);
+        assert(e);
+
+        r = find_esp_and_warn(esp_path, false, &where, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = boot_entries_load_config(where, config);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m", where);
+
+        if (config->default_entry < 0) {
+                log_error("No entry suitable as default, refusing to guess.");
+                return -ENOENT;
+        }
+
+        *e = &config->entries[config->default_entry];
+
+        if (esp_where)
+                *esp_where = TAKE_PTR(where);
+
+        return 0;
+}

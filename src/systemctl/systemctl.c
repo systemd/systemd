@@ -3455,21 +3455,12 @@ static int load_kexec_kernel(void) {
         if (access(KEXEC, X_OK) < 0)
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
-        r = find_esp_and_warn(arg_esp_path, false, &where, NULL, NULL, NULL, NULL);
-        if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn about this case */
+        r = find_default_boot_entry(arg_esp_path, &where, &config, &e);
+        if (r == -ENOKEY) /* find_default_boot_entry() doesn't warn about this case */
                 return log_error_errno(r, "Cannot find the ESP partition mount point.");
-        if (r < 0) /* But it logs about all these cases, hence don't log here again */
-                return r;
-
-        r = boot_entries_load_config(where, &config);
         if (r < 0)
-                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m", where);
-
-        if (config.default_entry < 0) {
-                log_error("No entry suitable as default, refusing to guess.");
-                return -ENOENT;
-        }
-        e = &config.entries[config.default_entry];
+                /* But it logs about all these cases, hence don't log here again */
+                return r;
 
         if (strv_length(e->initrd) > 1) {
                 log_error("Boot entry specifies multiple initrds, which is not supported currently.");
