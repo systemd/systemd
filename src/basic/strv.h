@@ -66,7 +66,10 @@ static inline bool strv_isempty(char * const *l) {
         return !l || !*l;
 }
 
-char **strv_split(const char *s, const char *separator);
+char **strv_split_full(const char *s, const char *separator, bool quoted);
+static inline char **strv_split(const char *s, const char *separator) {
+        return strv_split_full(s, separator, false);
+}
 char **strv_split_newlines(const char *s);
 
 int strv_split_extract(char ***t, const char *s, const char *separators, ExtractFlags flags);
