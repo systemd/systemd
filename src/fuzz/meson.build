@@ -14,6 +14,16 @@ fuzzers += [
           libshared],
          []],
 
+        [['src/fuzz/fuzz-ndisc-rs.c',
+          'src/libsystemd-network/dhcp-identifier.h',
+          'src/libsystemd-network/dhcp-identifier.c',
+          'src/libsystemd-network/icmp6-util.h',
+          'src/systemd/sd-dhcp6-client.h',
+          'src/systemd/sd-ndisc.h'],
+         [libshared,
+          libsystemd_network],
+         []],
+
         [['src/fuzz/fuzz-unit-file.c'],
          [libcore,
           libshared],
