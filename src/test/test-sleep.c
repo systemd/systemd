@@ -14,6 +14,8 @@
 static void test_parse_sleep_config(void) {
         const char *verb;
 
+        log_info("/* %s */", __func__);
+
         FOREACH_STRING(verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate")
                 assert_se(parse_sleep_config(verb, NULL, NULL, NULL) == 0);
 }
@@ -22,6 +24,8 @@ static int test_fiemap(const char *path) {
         _cleanup_free_ struct fiemap *fiemap = NULL;
         _cleanup_close_ int fd = -1;
         int r;
+
+        log_info("/* %s */", __func__);
 
         fd = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
         if (fd < 0)
@@ -56,7 +60,9 @@ static void test_sleep(void) {
                 **freez = strv_new("freeze", NULL);
         int r;
 
-        log_info("/* configuration */");
+        log_info("/* %s */", __func__);
+
+        log_info("/= configuration =/");
         log_info("Standby configured: %s", yes_no(can_sleep_state(standby) > 0));
         log_info("Suspend configured: %s", yes_no(can_sleep_state(mem) > 0));
         log_info("Hibernate configured: %s", yes_no(can_sleep_state(disk) > 0));
@@ -66,7 +72,7 @@ static void test_sleep(void) {
         log_info("Hibernate+Shutdown configured: %s", yes_no(can_sleep_disk(shutdown) > 0));
         log_info("Freeze configured: %s", yes_no(can_sleep_state(freez) > 0));
 
-        log_info("/* running system */");
+        log_info("/= running system =/");
         r = can_sleep("suspend");
         log_info("Suspend configured and possible: %s", r >= 0 ? yes_no(r) : strerror(-r));
         r = can_sleep("hibernate");
