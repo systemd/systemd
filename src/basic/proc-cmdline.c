@@ -40,7 +40,6 @@ int proc_cmdline(char **ret) {
 }
 
 int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, unsigned flags) {
-
         _cleanup_free_ char *line = NULL;
         const char *p;
         int r;
@@ -87,14 +86,12 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, unsigned fla
 }
 
 static bool relaxed_equal_char(char a, char b) {
-
         return a == b ||
                 (a == '_' && b == '-') ||
                 (a == '-' && b == '_');
 }
 
 char *proc_cmdline_key_startswith(const char *s, const char *prefix) {
-
         assert(s);
         assert(prefix);
 
