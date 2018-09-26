@@ -245,7 +245,7 @@ int strv_extend_strv_concat(char ***a, char **b, const char *suffix) {
         return 0;
 }
 
-char **strv_split_full(const char *s, const char *separator, bool quoted) {
+char **strv_split_full(const char *s, const char *separator, SplitFlags flags) {
         const char *word, *state;
         size_t l;
         size_t n, i;
@@ -261,7 +261,7 @@ char **strv_split_full(const char *s, const char *separator, bool quoted) {
                 return new0(char*, 1);
 
         n = 0;
-        _FOREACH_WORD(word, l, s, separator, quoted, state)
+        _FOREACH_WORD(word, l, s, separator, flags, state)
                 n++;
 
         r = new(char*, n+1);
@@ -269,7 +269,7 @@ char **strv_split_full(const char *s, const char *separator, bool quoted) {
                 return NULL;
 
         i = 0;
-        _FOREACH_WORD(word, l, s, separator, quoted, state) {
+        _FOREACH_WORD(word, l, s, separator, flags, state) {
                 r[i] = strndup(word, l);
                 if (!r[i]) {
                         strv_free(r);

@@ -81,16 +81,21 @@ char *endswith_no_case(const char *s, const char *postfix) _pure_;
 
 char *first_word(const char *s, const char *word) _pure_;
 
-const char* split(const char **state, size_t *l, const char *separator, bool quoted);
+typedef enum SplitFlags {
+        SPLIT_QUOTES                     = 0x01 << 0,
+        SPLIT_RELAX                      = 0x01 << 1,
+} SplitFlags;
+
+const char* split(const char **state, size_t *l, const char *separator, SplitFlags flags);
 
 #define FOREACH_WORD(word, length, s, state)                            \
-        _FOREACH_WORD(word, length, s, WHITESPACE, false, state)
+        _FOREACH_WORD(word, length, s, WHITESPACE, 0, state)
 
 #define FOREACH_WORD_SEPARATOR(word, length, s, separator, state)       \
-        _FOREACH_WORD(word, length, s, separator, false, state)
+        _FOREACH_WORD(word, length, s, separator, 0, state)
 
-#define _FOREACH_WORD(word, length, s, separator, quoted, state)        \
-        for ((state) = (s), (word) = split(&(state), &(length), (separator), (quoted)); (word); (word) = split(&(state), &(length), (separator), (quoted)))
+#define _FOREACH_WORD(word, length, s, separator, flags, state)         \
+        for ((state) = (s), (word) = split(&(state), &(length), (separator), (flags)); (word); (word) = split(&(state), &(length), (separator), (flags)))
 
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);

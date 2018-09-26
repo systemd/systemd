@@ -128,7 +128,7 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
 }
 
 /* Split a string into words. */
-const char* split(const char **state, size_t *l, const char *separator, bool quoted) {
+const char* split(const char **state, size_t *l, const char *separator, SplitFlags flags) {
         const char *current;
 
         current = *state;
@@ -144,20 +144,24 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
                 return NULL;
         }
 
-        if (quoted && strchr("\'\"", *current)) {
+        if (flags & SPLIT_QUOTES && strchr("\'\"", *current)) {
                 char quotechars[2] = {*current, '\0'};
 
                 *l = strcspn_escaped(current + 1, quotechars);
                 if (current[*l + 1] == '\0' || current[*l + 1] != quotechars[0] ||
                     (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
                         /* right quote missing or garbage at the end */
+                        if (flags & SPLIT_RELAX) {
+                                *state = current + *l + 1 + (current[*l + 1] != '\0');
+                                return current + 1;
+                        }
                         *state = current;
                         return NULL;
                 }
                 *state = current++ + *l + 2;
-        } else if (quoted) {
+        } else if (flags & SPLIT_QUOTES) {
                 *l = strcspn_escaped(current, separator);
-                if (current[*l] && !strchr(separator, current[*l])) {
+                if (current[*l] && !strchr(separator, current[*l]) && !(flags & SPLIT_RELAX)) {
                         /* unfinished escape */
                         *state = current;
                         return NULL;
