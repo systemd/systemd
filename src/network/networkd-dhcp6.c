@@ -134,7 +134,7 @@ int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
                                      &lifetime_preferred,
                                      &lifetime_valid) >= 0) {
                 _cleanup_free_ char *buf = NULL;
-                _cleanup_free_ Route *route;
+                _cleanup_free_ Route *route = NULL;
 
                 if (pd_prefix_len > 64)
                         continue;
@@ -163,7 +163,7 @@ int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
                                 log_link_warning_errno(link, r, "Cannot delete unreachable route for DHCPv6 delegated subnet %s/%u: %m",
                                                        strnull(buf),
                                                        pd_prefix_len);
-                                route_free(route);
+
                                 continue;
                         }
                         link = link_ref(link);
