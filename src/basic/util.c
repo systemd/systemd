@@ -23,6 +23,7 @@
 #include "def.h"
 #include "device-nodes.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -106,6 +107,7 @@ int prot_from_flags(int flags) {
 
 bool in_initrd(void) {
         struct statfs s;
+        int r;
 
         if (saved_in_initrd >= 0)
                 return saved_in_initrd;
@@ -120,9 +122,16 @@ bool in_initrd(void) {
          * emptying when transititioning to the main systemd.
          */
 
-        saved_in_initrd = access("/etc/initrd-release", F_OK) >= 0 &&
-                          statfs("/", &s) >= 0 &&
-                          is_temporary_fs(&s);
+        r = getenv_bool_secure("SYSTEMD_IN_INITRD");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_IN_INITRD, ignoring: %m");
+
+        if (r >= 0)
+                saved_in_initrd = r > 0;
+        else
+                saved_in_initrd = access("/etc/initrd-release", F_OK) >= 0 &&
+                                  statfs("/", &s) >= 0 &&
+                                  is_temporary_fs(&s);
 
         return saved_in_initrd;
 }
