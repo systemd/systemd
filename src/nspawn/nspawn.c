@@ -2934,8 +2934,8 @@ static int outer_child(
                         }
                 }
 
-                if (!arg_quiet)
-                        log_info("Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
+                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                         "Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
         }
 
         if (dissected_image) {
@@ -4351,16 +4351,15 @@ int main(int argc, char *argv[]) {
                                                           BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
                                                           BTRFS_SNAPSHOT_RECURSIVE |
                                                           BTRFS_SNAPSHOT_QUOTA);
-                                if (r == -EEXIST) {
-                                        if (!arg_quiet)
-                                                log_info("Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
-                                } else if (r < 0) {
+                                if (r == -EEXIST)
+                                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                                 "Directory %s already exists, not populating from template %s.", arg_directory, arg_template);
+                                else if (r < 0) {
                                         log_error_errno(r, "Couldn't create snapshot %s from %s: %m", arg_directory, arg_template);
                                         goto finish;
-                                } else {
-                                        if (!arg_quiet)
-                                                log_info("Populated %s from template %s.", arg_directory, arg_template);
-                                }
+                                } else
+                                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                                 "Populated %s from template %s.", arg_directory, arg_template);
                         }
                 }
 
