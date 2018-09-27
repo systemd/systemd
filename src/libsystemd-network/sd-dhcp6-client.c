@@ -844,8 +844,8 @@ static int client_parse_message(
                 uint8_t *optval;
                 be32_t iaid_lease;
 
-                if (len < offsetof(DHCP6Option, data) ||
-                    len < offsetof(DHCP6Option, data) + be16toh(option->len))
+                if (len < pos + offsetof(DHCP6Option, data) ||
+                    len < pos + offsetof(DHCP6Option, data) + be16toh(option->len))
                         return -ENOBUFS;
 
                 optcode = be16toh(option->code);
