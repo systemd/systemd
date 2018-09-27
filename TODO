@@ -17,6 +17,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* set memory.oom.group in cgroupsv2 for all leaf cgroups
+
+* whenever oom_kill memory.event event is triggered print a nice log message
+
+* Move RestrictAddressFamily= to the new cgroup create socket
+
+* support the bind/connect/sendmsg cgroup stuff for sandboxing, and possibly
+  patching around
+
 * chown() tty a service is attached to after the service goes down
 
 * optionally, if a per-partition GPT flag is set for the root/home/… partitions
