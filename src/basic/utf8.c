@@ -61,12 +61,12 @@ static bool unichar_is_control(char32_t ch) {
 }
 
 /* count of characters used to encode one unicode char */
-static int utf8_encoded_expected_len(const char *str) {
-        unsigned char c;
+static size_t utf8_encoded_expected_len(const char *str) {
+        uint8_t c;
 
         assert(str);
 
-        c = (unsigned char) str[0];
+        c = (uint8_t) str[0];
         if (c < 0x80)
                 return 1;
         if ((c & 0xe0) == 0xc0)
@@ -86,7 +86,7 @@ static int utf8_encoded_expected_len(const char *str) {
 /* decode one unicode char */
 int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         char32_t unichar;
-        int len, i;
+        size_t len, i;
 
         assert(str);
 
@@ -118,6 +118,7 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         for (i = 1; i < len; i++) {
                 if (((char32_t)str[i] & 0xc0) != 0x80)
                         return -EINVAL;
+
                 unichar <<= 6;
                 unichar |= (char32_t)str[i] & 0x3f;
         }
@@ -154,22 +155,23 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
         return true;
 }
 
-const char *utf8_is_valid(const char *str) {
-        const uint8_t *p;
+char *utf8_is_valid(const char *str) {
+        const char *p;
 
         assert(str);
 
-        for (p = (const uint8_t*) str; *p; ) {
+        p = str;
+        while (*p) {
                 int len;
 
-                len = utf8_encoded_valid_unichar((const char *)p);
+                len = utf8_encoded_valid_unichar(p);
                 if (len < 0)
                         return NULL;
 
                 p += len;
         }
 
-        return str;
+        return (char*) str;
 }
 
 char *utf8_escape_invalid(const char *str) {
@@ -312,18 +314,25 @@ size_t utf8_encode_unichar(char *out_utf8, char32_t g) {
         return 0;
 }
 
-char *utf16_to_utf8(const void *s, size_t length) {
+char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
         const uint8_t *f;
         char *r, *t;
 
-        r = new(char, (length * 4 + 1) / 2 + 1);
+        assert(s);
+
+        /* Input length is in bytes, i.e. the shortest possible character takes 2 bytes. Each unicode character may
+         * take up to 4 bytes in UTF-8. Let's also account for a trailing NUL byte. */
+        if (length * 2 < length)
+                return NULL; /* overflow */
+
+        r = new(char, length * 2 + 1);
         if (!r)
                 return NULL;
 
-        f = s;
+        f = (const uint8_t*) s;
         t = r;
 
-        while (f < (const uint8_t*) s + length) {
+        while (f + 1 < (const uint8_t*) s + length) {
                 char16_t w1, w2;
 
                 /* see RFC 2781 section 2.2 */
@@ -333,13 +342,13 @@ char *utf16_to_utf8(const void *s, size_t length) {
 
                 if (!utf16_is_surrogate(w1)) {
                         t += utf8_encode_unichar(t, w1);
-
                         continue;
                 }
 
                 if (utf16_is_trailing_surrogate(w1))
-                        continue;
-                else if (f >= (const uint8_t*) s + length)
+                        continue; /* spurious trailing surrogate, ignore */
+
+                if (f + 1 >= (const uint8_t*) s + length)
                         break;
 
                 w2 = f[1] << 8 | f[0];
@@ -347,7 +356,7 @@ char *utf16_to_utf8(const void *s, size_t length) {
 
                 if (!utf16_is_trailing_surrogate(w2)) {
                         f -= 2;
-                        continue;
+                        continue; /* surrogate missing its trailing surrogate, ignore */
                 }
 
                 t += utf8_encode_unichar(t, utf16_surrogate_pair_to_unichar(w1, w2));
@@ -355,6 +364,79 @@ char *utf16_to_utf8(const void *s, size_t length) {
 
         *t = 0;
         return r;
+}
+
+size_t utf16_encode_unichar(char16_t *out, char32_t c) {
+
+        /* Note that this encodes as little-endian. */
+
+        switch (c) {
+
+        case 0 ... 0xd7ffU:
+        case 0xe000U ... 0xffffU:
+                out[0] = htole16(c);
+                return 1;
+
+        case 0x10000U ... 0x10ffffU:
+                c -= 0x10000U;
+                out[0] = htole16((c >> 10) + 0xd800U);
+                out[1] = htole16((c & 0x3ffU) + 0xdc00U);
+                return 2;
+
+        default: /* A surrogate (invalid) */
+                return 0;
+        }
+}
+
+char16_t *utf8_to_utf16(const char *s, size_t length) {
+        char16_t *n, *p;
+        size_t i;
+        int r;
+
+        assert(s);
+
+        n = new(char16_t, length + 1);
+        if (!n)
+                return NULL;
+
+        p = n;
+
+        for (i = 0; i < length;) {
+                char32_t unichar;
+                size_t e;
+
+                e = utf8_encoded_expected_len(s + i);
+                if (e <= 1) /* Invalid and single byte characters are copied as they are */
+                        goto copy;
+
+                if (i + e > length) /* sequence longer than input buffer, then copy as-is */
+                        goto copy;
+
+                r = utf8_encoded_to_unichar(s + i, &unichar);
+                if (r < 0) /* sequence invalid, then copy as-is */
+                        goto copy;
+
+                p += utf16_encode_unichar(p, unichar);
+                i += e;
+                continue;
+
+        copy:
+                *(p++) = htole16(s[i++]);
+        }
+
+        *p = 0;
+        return n;
+}
+
+size_t char16_strlen(const char16_t *s) {
+        size_t n = 0;
+
+        assert(s);
+
+        while (*s != 0)
+                n++, s++;
+
+        return n;
 }
 
 /* expected size used to encode one unicode char */
@@ -376,8 +458,9 @@ static int utf8_unichar_to_encoded_len(char32_t unichar) {
 
 /* validate one encoded unicode char and return its length */
 int utf8_encoded_valid_unichar(const char *str) {
-        int len, i, r;
         char32_t unichar;
+        size_t len, i;
+        int r;
 
         assert(str);
 
@@ -399,14 +482,14 @@ int utf8_encoded_valid_unichar(const char *str) {
                 return r;
 
         /* check if encoded length matches encoded value */
-        if (utf8_unichar_to_encoded_len(unichar) != len)
+        if (utf8_unichar_to_encoded_len(unichar) != (int) len)
                 return -EINVAL;
 
         /* check if value has valid range */
         if (!unichar_is_valid(unichar))
                 return -EINVAL;
 
-        return len;
+        return (int) len;
 }
 
 size_t utf8_n_codepoints(const char *str) {

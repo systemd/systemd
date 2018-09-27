@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 #include "util.h"
 
@@ -87,15 +88,25 @@ static void test_utf8_escaping_printable(void) {
 }
 
 static void test_utf16_to_utf8(void) {
-        char *a = NULL;
-        const uint16_t utf16[] = { htole16('a'), htole16(0xd800), htole16('b'), htole16(0xdc00), htole16('c'), htole16(0xd801), htole16(0xdc37) };
-        const char utf8[] = { 'a', 'b', 'c', 0xf0, 0x90, 0x90, 0xb7, 0 };
+        const char16_t utf16[] = { htole16('a'), htole16(0xd800), htole16('b'), htole16(0xdc00), htole16('c'), htole16(0xd801), htole16(0xdc37) };
+        static const char utf8[] = { 'a', 'b', 'c', 0xf0, 0x90, 0x90, 0xb7 };
+        _cleanup_free_ char16_t *b = NULL;
+        _cleanup_free_ char *a = NULL;
 
-        a = utf16_to_utf8(utf16, 14);
+        /* Convert UTF-16 to UTF-8, filtering embedded bad chars */
+        a = utf16_to_utf8(utf16, sizeof(utf16));
         assert_se(a);
-        assert_se(streq(a, utf8));
+        assert_se(memcmp(a, utf8, sizeof(utf8)) == 0);
+
+        /* Convert UTF-8 to UTF-16, and back */
+        b = utf8_to_utf16(utf8, sizeof(utf8));
+        assert_se(b);
 
         free(a);
+        a = utf16_to_utf8(b, char16_strlen(b) * 2);
+        assert_se(a);
+        assert_se(strlen(a) == sizeof(utf8));
+        assert_se(memcmp(a, utf8, sizeof(utf8)) == 0);
 }
 
 static void test_utf8_n_codepoints(void) {
@@ -116,6 +127,28 @@ static void test_utf8_console_width(void) {
         assert_se(utf8_console_width("\xF1") == (size_t) -1);
 }
 
+static void test_utf8_to_utf16(void) {
+        const char *p;
+
+        FOREACH_STRING(p,
+                       "abc",
+                       "zażółcić gęślą jaźń",
+                       "串",
+                       "",
+                       "…👊🔪💐…") {
+
+                _cleanup_free_ char16_t *a = NULL;
+                _cleanup_free_ char *b = NULL;
+
+                a = utf8_to_utf16(p, strlen(p));
+                assert_se(a);
+
+                b = utf16_to_utf8(a, char16_strlen(a) * 2);
+                assert_se(b);
+                assert_se(streq(p, b));
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
@@ -127,6 +160,7 @@ int main(int argc, char *argv[]) {
         test_utf16_to_utf8();
         test_utf8_n_codepoints();
         test_utf8_console_width();
+        test_utf8_to_utf16();
 
         return 0;
 }

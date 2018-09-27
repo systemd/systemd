@@ -14,7 +14,7 @@
 
 bool unichar_is_valid(char32_t c);
 
-const char *utf8_is_valid(const char *s) _pure_;
+char *utf8_is_valid(const char *s) _pure_;
 char *ascii_is_valid(const char *s) _pure_;
 char *ascii_is_valid_n(const char *str, size_t len);
 
@@ -25,21 +25,26 @@ char *utf8_escape_invalid(const char *s);
 char *utf8_escape_non_printable(const char *str);
 
 size_t utf8_encode_unichar(char *out_utf8, char32_t g);
-char *utf16_to_utf8(const void *s, size_t length);
+size_t utf16_encode_unichar(char16_t *out, char32_t c);
+
+char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */);
+char16_t *utf8_to_utf16(const char *s, size_t length);
+
+size_t char16_strlen(const char16_t *s);
 
 int utf8_encoded_valid_unichar(const char *str);
 int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar);
 
 static inline bool utf16_is_surrogate(char16_t c) {
-        return (0xd800 <= c && c <= 0xdfff);
+        return c >= 0xd800U && c <= 0xdfffU;
 }
 
 static inline bool utf16_is_trailing_surrogate(char16_t c) {
-        return (0xdc00 <= c && c <= 0xdfff);
+        return c >= 0xdc00U && c <= 0xdfffU;
 }
 
 static inline char32_t utf16_surrogate_pair_to_unichar(char16_t lead, char16_t trail) {
-                return ((lead - 0xd800) << 10) + (trail - 0xdc00) + 0x10000;
+        return ((((char32_t) lead - 0xd800U) << 10) + ((char32_t) trail - 0xdc00U) + 0x10000U);
 }
 
 size_t utf8_n_codepoints(const char *str);
