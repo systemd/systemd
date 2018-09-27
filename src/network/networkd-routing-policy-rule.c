@@ -394,9 +394,8 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         if (r < 0)
                 return r;
 
-        rule->section = n;
+        rule->section = TAKE_PTR(n);
         rule->network = network;
-        n = NULL;
 
         r = hashmap_put(network->rules_by_section, rule->section, rule);
         if (r < 0)
