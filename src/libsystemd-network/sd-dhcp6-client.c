@@ -1001,7 +1001,7 @@ static int client_parse_message(
                         break;
                 }
 
-                pos += sizeof(*option) + optlen;
+                pos += offsetof(DHCP6Option, data) + optlen;
         }
 
         if (!clientid) {
