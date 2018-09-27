@@ -387,17 +387,10 @@ static void client_notify(sd_dhcp6_client *client, int event) {
                 client->callback(client, event, client->userdata);
 }
 
-static void client_set_lease(sd_dhcp6_client *client, sd_dhcp6_lease *lease) {
-        assert(client);
-
-        (void) sd_dhcp6_lease_unref(client->lease);
-        client->lease = sd_dhcp6_lease_ref(lease);
-}
-
 static int client_reset(sd_dhcp6_client *client) {
         assert(client);
 
-        client_set_lease(client, NULL);
+        client->lease = sd_dhcp6_lease_unref(client->lease);
 
         client->receive_message =
                 sd_event_source_unref(client->receive_message);
@@ -1061,8 +1054,8 @@ static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, si
                         return 0;
         }
 
-        client_set_lease(client, lease);
-        lease = NULL;
+        sd_dhcp6_lease_unref(client->lease);
+        client->lease = TAKE_PTR(lease);
 
         return DHCP6_STATE_BOUND;
 }
@@ -1090,8 +1083,8 @@ static int client_receive_advertise(sd_dhcp6_client *client, DHCP6Message *adver
         r = dhcp6_lease_get_preference(client->lease, &pref_lease);
 
         if (r < 0 || pref_advertise > pref_lease) {
-                client_set_lease(client, lease);
-                lease = NULL;
+                sd_dhcp6_lease_unref(client->lease);
+                client->lease = TAKE_PTR(lease);
                 r = 0;
         }
 
