@@ -80,6 +80,7 @@ Network.ProxyARP,                       config_parse_tristate,                  
 Network.IPv6ProxyNDPAddress,            config_parse_ipv6_proxy_ndp_address,            0,                             0
 Network.BindCarrier,                    config_parse_strv,                              0,                             offsetof(Network, bind_carrier)
 Network.ConfigureWithoutCarrier,        config_parse_bool,                              0,                             offsetof(Network, configure_without_carrier)
+Network.IgnoreCarrierGainLoss,          config_parse_bool,                              0,                             offsetof(Network, ignore_carrier_gainloss)
 Address.Address,                        config_parse_address,                           0,                             0
 Address.Peer,                           config_parse_address,                           0,                             0
 Address.Broadcast,                      config_parse_broadcast,                         0,                             0

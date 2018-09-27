@@ -789,6 +789,17 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>IgnoreCarrierGainLoss=</varname></term>
+         <listitem>
+          <para>A boolean. Informs networkd to ignore carrier gain or loss and not to drop configuration
+          even when link carrier is lost. This setting works only if static address is configured.
+          You may also want to set <literal>ConfigureWithoutCarrier=</literal> so that link is configured
+          at start even if it has no carrier.
+          Defaults to false.
+          </para>
+        </listitem>
+      </varlistentry>
       </variablelist>
 
   </refsect1>
