@@ -80,8 +80,7 @@ void network_apply_anonymize_if_set(Network *network) {
         network->dhcp_client_identifier = DHCP_CLIENT_ID_MAC;
         /* RFC 7844 3.10:
          SHOULD NOT use the Vendor Class Identifier option */
-        /* NOTE: it was not initiallized to any value in network_load_one. */
-        network->dhcp_vendor_class_identifier = false;
+        network->dhcp_vendor_class_identifier = mfree(network->dhcp_vendor_class_identifier);
         /* RFC7844 section 3.6.:
          The client intending to protect its privacy SHOULD only request a
          minimal number of options in the PRL and SHOULD also randomly shuffle
@@ -201,10 +200,6 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
         network->dhcp_route_table = RT_TABLE_MAIN;
         network->dhcp_route_table_set = false;
-        /* NOTE: the following vars were not set to any default,
-         * even if they are commented in the man?
-         * These vars might be overwriten by network_apply_anonymize_if_set */
-        network->dhcp_vendor_class_identifier = false;
         /* NOTE: from man: UseMTU=... Defaults to false*/
         network->dhcp_use_mtu = false;
         /* NOTE: from man: UseTimezone=... Defaults to "no".*/
