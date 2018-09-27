@@ -258,6 +258,8 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
                 free(option);
         }
 
+        free(lease->root_path);
+        free(lease->timezone);
         free(lease->hostname);
         free(lease->domainname);
         free(lease->dns);
