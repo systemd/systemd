@@ -177,22 +177,18 @@ int routing_policy_rule_get(Manager *m,
                 .oif = (char*) oif
         };
 
-        if (m->rules) {
-                existing = set_get(m->rules, &rule);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 1;
-                }
+        existing = set_get(m->rules, &rule);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 1;
         }
 
-        if (m->rules_foreign) {
-                existing = set_get(m->rules_foreign, &rule);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 1;
-                }
+        existing = set_get(m->rules_foreign, &rule);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 1;
         }
 
         return -ENOENT;
