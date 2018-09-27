@@ -330,8 +330,7 @@ static int lease_parse_string(const uint8_t *option, size_t len, char **ret) {
                 if (!string)
                         return -ENOMEM;
 
-                free(*ret);
-                *ret = string;
+                free_and_replace(*ret, string);
         }
 
         return 0;
