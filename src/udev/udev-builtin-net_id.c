@@ -222,6 +222,7 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
         const char *attr, *port_name;
         size_t l;
         char *s;
+        int r;
 
         /* ACPI _DSM  — device specific method for naming a PCI or PCI Express device */
         attr = udev_device_get_sysattr_value(names->pcidev, "acpi_index");
@@ -231,9 +232,9 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
         if (!attr)
                 return -ENOENT;
 
-        idx = strtoul(attr, NULL, 0);
-        if (idx <= 0)
-                return -EINVAL;
+        r = safe_atolu(attr, &idx);
+        if (r < 0)
+                return r;
 
         /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to report for
          * example). Let's define a cut-off where we don't consider the index reliable anymore. We pick some arbitrary
