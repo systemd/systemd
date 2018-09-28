@@ -22,6 +22,8 @@ fuzz_regression_tests = '''
         fuzz-journald-syslog/github-9820
         fuzz-journald-syslog/github-9827
         fuzz-journald-syslog/github-9829
+        fuzz-ndisc-rs/timeout-2815b773c712fa33bea62f541dfa3017c64ea2f1
+        fuzz-ndisc-rs/timeout-61fff7fd1e5dcc07e1b656baab29065ce634ad5b
         fuzz-unit-file/oss-fuzz-6884
         fuzz-unit-file/oss-fuzz-6885
         fuzz-unit-file/oss-fuzz-6886
