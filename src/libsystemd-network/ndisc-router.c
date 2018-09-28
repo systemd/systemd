@@ -189,7 +189,7 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
 
                         if (has_mtu) {
                                 log_ndisc("MTU option specified twice, ignoring.");
-                                continue;
+                                break;
                         }
 
                         if (length != 8) {
@@ -230,7 +230,7 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
 
                         if (has_flag_extension) {
                                 log_ndisc("Flags extension option specified twice, ignoring.");
-                                continue;
+                                break;
                         }
 
                         if (length < 1*8) {
