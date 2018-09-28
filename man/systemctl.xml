@@ -330,8 +330,8 @@
         <listitem>
           <para>Just print what would be done. Currently supported by verbs
           <command>halt</command>, <command>poweroff</command>, <command>reboot</command>,
-          <command>kexec</command>, <command>suspend</command>,
-          <command>hibernate</command>, <command>hybrid-sleep</command>,
+          <command>kexec</command>, <command>suspend</command>, <command>hibernate</command>,
+          <command>hybrid-sleep</command>, <command>suspend-then-hibernate</command>,
           <command>default</command>, <command>rescue</command>,
           <command>emergency</command>, and <command>exit</command>.</para>
         </listitem>
@@ -1882,6 +1882,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Hibernate and suspend the system. This will trigger activation of the special target unit
             <filename>hybrid-sleep.target</filename>. This command is asynchronous, and will return after the hybrid
             sleep operation is successfully enqueued. It will not wait for the sleep/wake-up cycle to complete.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>suspend-then-hibernate</command></term>
+
+          <listitem>
+            <para>Suspend the system and hibernate it after the delay specified in <filename>systemd-sleep.conf</filename>.
+            This will trigger activation of the special target unit <filename>suspend-then-hibernate.target</filename>.
+            This command is asynchronous, and will return after the hybrid sleep operation is successfully enqueued.
+            It will not wait for the sleep/wake-up or hibernate/thaw cycle to complete.</para>
           </listitem>
         </varlistentry>
       </variablelist>
