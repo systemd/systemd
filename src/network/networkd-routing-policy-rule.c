@@ -17,12 +17,14 @@
 int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
-        rule = new0(RoutingPolicyRule, 1);
+        rule = new(RoutingPolicyRule, 1);
         if (!rule)
                 return -ENOMEM;
 
-        rule->family = AF_INET;
-        rule->table = RT_TABLE_MAIN;
+        *rule = (RoutingPolicyRule) {
+                .family = AF_INET,
+                .table = RT_TABLE_MAIN,
+        };
 
         *ret = rule;
         return 0;
@@ -154,8 +156,8 @@ int routing_policy_rule_get(Manager *m,
                             uint8_t tos,
                             uint32_t fwmark,
                             uint32_t table,
-                            char *iif,
-                            char *oif,
+                            const char *iif,
+                            const char *oif,
                             RoutingPolicyRule **ret) {
 
         RoutingPolicyRule rule, *existing;
@@ -171,26 +173,22 @@ int routing_policy_rule_get(Manager *m,
                 .tos = tos,
                 .fwmark = fwmark,
                 .table = table,
-                .iif = iif,
-                .oif = oif
+                .iif = (char*) iif,
+                .oif = (char*) oif
         };
 
-        if (m->rules) {
-                existing = set_get(m->rules, &rule);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 1;
-                }
+        existing = set_get(m->rules, &rule);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 1;
         }
 
-        if (m->rules_foreign) {
-                existing = set_get(m->rules_foreign, &rule);
-                if (existing) {
-                        if (ret)
-                                *ret = existing;
-                        return 1;
-                }
+        existing = set_get(m->rules_foreign, &rule);
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 1;
         }
 
         return -ENOENT;
@@ -224,14 +222,27 @@ static int routing_policy_rule_add_internal(Manager *m,
                                             uint8_t tos,
                                             uint32_t fwmark,
                                             uint32_t table,
-                                            char *iif,
-                                            char *oif,
+                                            const char *_iif,
+                                            const char *_oif,
                                             RoutingPolicyRule **ret) {
 
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
+        _cleanup_free_ char *iif = NULL, *oif = NULL;
         int r;
 
         assert_return(rules, -EINVAL);
+
+        if (_iif) {
+                iif = strdup(_iif);
+                if (!iif)
+                        return -ENOMEM;
+        }
+
+        if (_oif) {
+                oif = strdup(_oif);
+                if (!oif)
+                        return -ENOMEM;
+        }
 
         r = routing_policy_rule_new(&rule);
         if (r < 0)
@@ -246,8 +257,8 @@ static int routing_policy_rule_add_internal(Manager *m,
         rule->tos = tos;
         rule->fwmark = fwmark;
         rule->table = table;
-        rule->iif = iif;
-        rule->oif = oif;
+        rule->iif = TAKE_PTR(iif);
+        rule->oif = TAKE_PTR(oif);
 
         r = set_ensure_allocated(rules, &routing_policy_rule_hash_ops);
         if (r < 0)
@@ -274,8 +285,8 @@ int routing_policy_rule_add(Manager *m,
                             uint8_t tos,
                             uint32_t fwmark,
                             uint32_t table,
-                            char *iif,
-                            char *oif,
+                            const char *iif,
+                            const char *oif,
                             RoutingPolicyRule **ret) {
 
         return routing_policy_rule_add_internal(m, &m->rules, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, ret);
@@ -290,8 +301,8 @@ int routing_policy_rule_add_foreign(Manager *m,
                                     uint8_t tos,
                                     uint32_t fwmark,
                                     uint32_t table,
-                                    char *iif,
-                                    char *oif,
+                                    const char *iif,
+                                    const char *oif,
                                     RoutingPolicyRule **ret) {
         return routing_policy_rule_add_internal(m, &m->rules_foreign, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, ret);
 }
@@ -392,9 +403,8 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         if (r < 0)
                 return r;
 
-        rule->section = n;
+        rule->section = TAKE_PTR(n);
         rule->network = network;
-        n = NULL;
 
         r = hashmap_put(network->rules_by_section, rule->section, rule);
         if (r < 0)

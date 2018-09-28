@@ -718,7 +718,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         union in_addr_union to = {}, from = {};
         RoutingPolicyRule *rule = NULL;
         uint32_t fwmark = 0, table = 0;
-        char *iif = NULL, *oif = NULL;
+        const char *iif = NULL, *oif = NULL;
         Manager *m = userdata;
         uint16_t type;
         int family;
@@ -834,13 +834,13 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 return 0;
         }
 
-        r = sd_netlink_message_read_string(message, FRA_IIFNAME, (const char **) &iif);
+        r = sd_netlink_message_read_string(message, FRA_IIFNAME, &iif);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_IIFNAME attribute, ignoring: %m");
                 return 0;
         }
 
-        r = sd_netlink_message_read_string(message, FRA_OIFNAME, (const char **) &oif);
+        r = sd_netlink_message_read_string(message, FRA_OIFNAME, &oif);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_OIFNAME attribute, ignoring: %m");
                 return 0;
@@ -1470,9 +1470,8 @@ void manager_free(Manager *m) {
         while ((pool = m->address_pools))
                 address_pool_free(pool);
 
-        set_free(m->rules);
-        set_free(m->rules_foreign);
-
+        set_free_with_destructor(m->rules, routing_policy_rule_free);
+        set_free_with_destructor(m->rules_foreign, routing_policy_rule_free);
         set_free_with_destructor(m->rules_saved, routing_policy_rule_free);
 
         sd_netlink_unref(m->rtnl);
