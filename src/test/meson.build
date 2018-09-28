@@ -876,6 +876,10 @@ tests += [
         [['src/libsystemd/sd-login/test-login.c'],
          [],
          []],
+
+        [['src/libsystemd/sd-device/test-sd-device.c'],
+         [],
+         []],
 ]
 
 if cxx.found()
