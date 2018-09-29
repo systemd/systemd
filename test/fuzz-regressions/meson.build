@@ -12,6 +12,7 @@ sanitize_address = custom_target(
 sanitizers = [['address', sanitize_address]]
 
 fuzz_regression_tests = '''
+        fuzz-dhcp6-client/crash-4003c06fce43a11fbd22f02584df2807ac333eae
         fuzz-dns-packet/issue-7888
         fuzz-dns-packet/oss-fuzz-5465
         fuzz-journal-remote/crash-5a8f03d4c3a46fcded39527084f437e8e4b54b76
