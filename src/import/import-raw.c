@@ -307,7 +307,7 @@ static int raw_import_write(const void *p, size_t sz, void *userdata) {
 
         n = sparse_write(i->output_fd, p, sz, 64);
         if (n < 0)
-                return -errno;
+                return (int) n;
         if ((size_t) n < sz)
                 return -EIO;
 

@@ -233,10 +233,13 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
 
                 if (j->allow_sparse)
                         n = sparse_write(j->disk_fd, p, sz, 64);
-                else
+                else {
                         n = write(j->disk_fd, p, sz);
+                        if (n < 0)
+                                n = -errno;
+                }
                 if (n < 0)
-                        return log_error_errno(errno, "Failed to write file: %m");
+                        return log_error_errno((int) n, "Failed to write file: %m");
                 if ((size_t) n < sz) {
                         log_error("Short write");
                         return -EIO;
