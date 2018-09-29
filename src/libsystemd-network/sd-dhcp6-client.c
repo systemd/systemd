@@ -368,6 +368,14 @@ int sd_dhcp6_client_set_address_request(sd_dhcp6_client *client, int request) {
         return 0;
 }
 
+int sd_dhcp6_client_set_transaction_id(sd_dhcp6_client *client, be32_t transaction_id) {
+        assert_return(client, -EINVAL);
+
+        client->transaction_id = transaction_id;
+
+        return 0;
+}
+
 int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
         assert_return(client, -EINVAL);
 

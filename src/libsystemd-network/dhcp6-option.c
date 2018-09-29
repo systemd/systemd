@@ -563,7 +563,7 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
                                 /* Literal label */
                                 label = (const char *)&optval[pos];
                                 pos += c;
-                                if (pos > optlen)
+                                if (pos >= optlen)
                                         return -EMSGSIZE;
 
                                 if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX)) {

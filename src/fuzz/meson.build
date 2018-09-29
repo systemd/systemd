@@ -9,6 +9,15 @@ fuzzers += [
           libgpg_error,
           libm]],
 
+        [['src/fuzz/fuzz-dhcp6-client.c',
+          'src/libsystemd-network/dhcp-identifier.h',
+          'src/libsystemd-network/dhcp-identifier.c',
+          'src/libsystemd-network/dhcp6-internal.h',
+          'src/systemd/sd-dhcp6-client.h'],
+         [libshared,
+          libsystemd_network],
+         []],
+
         [['src/fuzz/fuzz-dhcp-server.c'],
          [libsystemd_network,
           libshared],
