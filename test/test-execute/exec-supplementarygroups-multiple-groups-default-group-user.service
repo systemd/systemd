@@ -2,6 +2,10 @@
 Description=Test for Supplementary Group with multiple groups without Group and User
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$(id -G)" = "0 1 2 3" && test "$$(id -g)" = "0" && test "$$(id -u)" = "0"'
+ExecStart=/bin/sh -x -c 'HAVE=; for g in $$(id -G); do test "$$g" = "0" && HAVE=1; done; test "$$HAVE" -eq 1'
+ExecStart=/bin/sh -x -c 'HAVE=; for g in $$(id -G); do test "$$g" = "1" && HAVE=1; done; test "$$HAVE" -eq 1'
+ExecStart=/bin/sh -x -c 'HAVE=; for g in $$(id -G); do test "$$g" = "2" && HAVE=1; done; test "$$HAVE" -eq 1'
+ExecStart=/bin/sh -x -c 'HAVE=; for g in $$(id -G); do test "$$g" = "3" && HAVE=1; done; test "$$HAVE" -eq 1'
+ExecStart=/bin/sh -x -c 'test "$$(id -g)" = "0" && test "$$(id -u)" = "0"'
 Type=oneshot
 SupplementaryGroups=1 2 3
