@@ -1,0 +1,7 @@
+[Match]
+Name=dummy98
+
+[Network]
+Address=192.168.42.100
+DNS=192.168.42.1
+Domains= one two three four five six seven eight nine ten
