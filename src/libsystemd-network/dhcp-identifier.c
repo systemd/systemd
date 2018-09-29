@@ -108,8 +108,13 @@ int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
         assert(len);
 
         r = sd_id128_get_machine(&machine_id);
-        if (r < 0)
+        if (r < 0) {
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+                machine_id = SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10);
+#else
                 return r;
+#endif
+        }
 
         unaligned_write_be16(&duid->type, DUID_TYPE_EN);
         unaligned_write_be32(&duid->en.pen, SYSTEMD_PEN);
