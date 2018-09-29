@@ -412,6 +412,9 @@ static int client_reset(sd_dhcp6_client *client) {
         client->timeout_resend_expire =
                 sd_event_source_unref(client->timeout_resend_expire);
 
+        client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
+        client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
+
         client->state = DHCP6_STATE_STOPPED;
 
         return 0;
