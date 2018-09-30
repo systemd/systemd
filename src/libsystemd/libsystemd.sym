@@ -636,4 +636,16 @@ global:
 
         sd_device_unrefp;
         sd_device_enumerator_unrefp;
+
+        sd_hwdb_ref;
+        sd_hwdb_unref;
+
+        sd_hwdb_new;
+
+        sd_hwdb_get;
+
+        sd_hwdb_seek;
+        sd_hwdb_enumerate;
+
+        sd_hwdb_unrefp;
 } LIBSYSTEMD_239;
