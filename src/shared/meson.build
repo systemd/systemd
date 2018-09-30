@@ -87,8 +87,6 @@ shared_sources = files('''
         switch-root.h
         sysctl-util.c
         sysctl-util.h
-        tests.c
-        tests.h
         tomoyo-util.c
         tomoyo-util.h
         udev-util.h
@@ -104,6 +102,10 @@ shared_sources = files('''
         watchdog.h
         wireguard-netlink.h
 '''.split())
+
+if get_option('tests') != 'false'
+        shared_sources += files('tests.c', 'tests.h')
+endif
 
 test_tables_h = files('test-tables.h')
 shared_sources += test_tables_h
