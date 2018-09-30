@@ -123,6 +123,8 @@ static int test_marshal(void) {
 
         r = sd_bus_open_user(&bus);
         if (r < 0)
+                r = sd_bus_open_system(&bus);
+        if (r < 0)
                 return log_tests_skipped_errno(r, "Failed to connect to bus");
 
         bus->message_version = 2; /* dirty hack to enable gvariant */

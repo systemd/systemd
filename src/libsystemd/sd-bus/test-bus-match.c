@@ -82,6 +82,8 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_open_user(&bus);
         if (r < 0)
+                r = sd_bus_open_system(&bus);
+        if (r < 0)
                 return log_tests_skipped("Failed to connect to bus");
 
         assert_se(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1) >= 0);

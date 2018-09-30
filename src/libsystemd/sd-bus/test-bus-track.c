@@ -45,6 +45,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *x = NULL, *y = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *a = NULL, *b = NULL;
+        bool use_system_bus = false;
         const char *unique;
         int r;
 
@@ -54,14 +55,21 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         r = sd_bus_open_user(&a);
-        if (IN_SET(r, -ECONNREFUSED, -ENOENT))
-                return log_tests_skipped("Failed to connect to bus");
+        if (IN_SET(r, -ECONNREFUSED, -ENOENT)) {
+                r = sd_bus_open_system(&a);
+                if (IN_SET(r, -ECONNREFUSED, -ENOENT))
+                        return log_tests_skipped("Failed to connect to bus");
+                use_system_bus = true;
+        }
         assert_se(r >= 0);
 
         r = sd_bus_attach_event(a, event, SD_EVENT_PRIORITY_NORMAL);
         assert_se(r >= 0);
 
-        r = sd_bus_open_user(&b);
+        if (use_system_bus)
+                r = sd_bus_open_system(&b);
+        else
+                r = sd_bus_open_user(&b);
         assert_se(r >= 0);
 
         r = sd_bus_attach_event(b, event, SD_EVENT_PRIORITY_NORMAL);
