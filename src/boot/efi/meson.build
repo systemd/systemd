@@ -57,10 +57,13 @@ if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
 
         efi_libdir = get_option('efi-libdir')
         if efi_libdir == ''
-                cmd = 'cd /usr/lib/$(@0@ -print-multi-os-directory) && pwd'.format(' '.join(efi_cc))
-                ret = run_command('sh', '-c', cmd)
+                ret = run_command(efi_cc + ['-print-multi-os-directory'])
                 if ret.returncode() == 0
-                        efi_libdir = ret.stdout().strip()
+                        path = join_paths('/usr/lib', ret.stdout().strip())
+                        ret = run_command('realpath', '-e', path)
+                        if ret.returncode() == 0
+                                efi_libdir = ret.stdout().strip()
+                        endif
                 endif
         endif
 
