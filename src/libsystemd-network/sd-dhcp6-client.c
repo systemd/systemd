@@ -900,7 +900,7 @@ static int client_parse_message(
                         break;
 
                 case SD_DHCP6_OPTION_STATUS_CODE:
-                        status = dhcp6_option_parse_status(option);
+                        status = dhcp6_option_parse_status(option, optlen);
                         if (status) {
                                 log_dhcp6_client(client, "%s Status %s",
                                                  dhcp6_message_type_to_string(message->type),
