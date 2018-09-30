@@ -30,6 +30,15 @@ __get_machines() {
         machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
+__get_syscall_sets() {
+        local line
+        systemd-analyze syscall-filter --no-pager | while IFS= read -r line; do
+                if [[ $line == @* ]]; then
+                        printf '%s\n' "$line"
+                fi
+        done
+}
+
 _systemd_analyze() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -121,6 +130,8 @@ _systemd_analyze() {
         elif __contains_word "$verb" ${VERBS[SECCOMP_FILTER]}; then
                 if [[ $cur = -* ]]; then
                         comps='--help --version --no-pager'
+                else
+                        comps=$( __get_syscall_sets )
                 fi
 
         elif __contains_word "$verb" ${VERBS[VERIFY]}; then
