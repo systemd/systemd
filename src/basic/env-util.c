@@ -114,7 +114,7 @@ bool strv_env_is_valid(char **e) {
                 if (!env_assignment_is_valid(*p))
                         return false;
 
-                /* Check if there are duplicate assginments */
+                /* Check if there are duplicate assignments */
                 k = strcspn(*p, "=");
                 STRV_FOREACH(q, p + 1)
                         if (strneq(*p, *q, k) && (*q)[k] == '=')
@@ -388,7 +388,7 @@ int strv_env_replace(char ***l, char *p) {
         assert(p);
 
         /* Replace first occurrence of the env var or add a new one in the
-         * string list. Drop other occurences. Edits in-place. Does not copy p.
+         * string list. Drop other occurrences. Edits in-place. Does not copy p.
          * p must be a valid key=value assignment.
          */
 

@@ -119,7 +119,7 @@ static int lldp_add_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
                 }
 
                 if (lldp_neighbor_equal(n, old)) {
-                        /* Is this equal, then restart the TTL counter, but don't do anyting else. */
+                        /* Is this equal, then restart the TTL counter, but don't do anything else. */
                         old->timestamp = n->timestamp;
                         lldp_start_timer(lldp, old);
                         lldp_callback(lldp, SD_LLDP_EVENT_REFRESHED, old);

@@ -425,7 +425,7 @@ int path_compare(const char *a, const char *b) {
         assert(a);
         assert(b);
 
-        /* A relative path and an abolute path must not compare as equal.
+        /* A relative path and an absolute path must not compare as equal.
          * Which one is sorted before the other does not really matter.
          * Here a relative path is ordered before an absolute path. */
         d = (a[0] == '/') - (b[0] == '/');

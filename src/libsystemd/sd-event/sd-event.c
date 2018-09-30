@@ -950,7 +950,7 @@ static void source_disconnect(sd_event_source *s) {
                          * continued to being watched. That's because inotify doesn't really have an API for that: we
                          * can only change watch masks with access to the original inode either by fd or by path. But
                          * paths aren't stable, and keeping an O_PATH fd open all the time would mean wasting an fd
-                         * continously and keeping the mount busy which we can't really do. We could reconstruct the
+                         * continuously and keeping the mount busy which we can't really do. We could reconstruct the
                          * original inode from /proc/self/fdinfo/$INOTIFY_FD (as all watch descriptors are listed
                          * there), but given the need for open_by_handle_at() which is privileged and not universally
                          * available this would be quite an incomplete solution. Hence we go the other way, leave the
@@ -1130,7 +1130,7 @@ static void initialize_perturb(sd_event *e) {
         sd_id128_t bootid = {};
 
         /* When we sleep for longer, we try to realign the wakeup to
-           the same time wihtin each minute/second/250ms, so that
+           the same time within each minute/second/250ms, so that
            events all across the system can be coalesced into a single
            CPU wakeup. However, let's take some system-specific
            randomness for this value, so that in a network of systems
@@ -1746,7 +1746,7 @@ static uint32_t inode_data_determine_mask(struct inode_data *d) {
          *
          * Note that we add all sources to the mask here, regardless whether enabled, disabled or oneshot. That's
          * because we cannot change the mask anymore after the event source was created once, since the kernel has no
-         * API for that. Hence we need to subscribe to the maximum mask we ever might be interested in, and supress
+         * API for that. Hence we need to subscribe to the maximum mask we ever might be interested in, and suppress
          * events we don't care for client-side. */
 
         LIST_FOREACH(inotify.by_inode_data, s, d->event_sources) {
