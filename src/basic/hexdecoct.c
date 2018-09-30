@@ -79,7 +79,7 @@ static int unhex_next(const char **p, size_t *l) {
         assert(l);
 
         /* Find the next non-whitespace character, and decode it. We
-         * greedily skip all preceeding and all following whitespace. */
+         * greedily skip all preceding and all following whitespace. */
 
         for (;;) {
                 if (*l == 0)
@@ -647,7 +647,7 @@ static int unbase64_next(const char **p, size_t *l) {
         assert(l);
 
         /* Find the next non-whitespace character, and decode it. If we find padding, we return it as INT_MAX. We
-         * greedily skip all preceeding and all following whitespace. */
+         * greedily skip all preceding and all following whitespace. */
 
         for (;;) {
                 if (*l == 0)

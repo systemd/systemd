@@ -425,7 +425,7 @@ int is_kernel_thread(pid_t pid) {
                 q += l;
         }
 
-        /* Skip preceeding whitespace */
+        /* Skip preceding whitespace */
         l = strspn(q, WHITESPACE);
         if (l < 1)
                 return -EINVAL;

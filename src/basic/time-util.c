@@ -905,7 +905,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
                  * Otherwise just cut it off. */
                 with_tz = !STR_IN_SET(tz, tzname[0], tzname[1]);
 
-                /* Cut off the timezone if we dont need it. */
+                /* Cut off the timezone if we don't need it. */
                 if (with_tz)
                         t = strndupa(t, last_space - t);
 

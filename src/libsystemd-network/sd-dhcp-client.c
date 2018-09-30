@@ -698,7 +698,7 @@ static int client_message_init(
            let the server know how large the server may make its DHCP messages.
 
            Note (from ConnMan): Some DHCP servers will send bigger DHCP packets
-           than the defined default size unless the Maximum Messge Size option
+           than the defined default size unless the Maximum Message Size option
            is explicitly set
 
            RFC3442 "Requirements to Avoid Sizing Constraints":
