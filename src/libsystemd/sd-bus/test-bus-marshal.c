@@ -125,6 +125,8 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_default_user(&bus);
         if (r < 0)
+                r = sd_bus_default_system(&bus);
+        if (r < 0)
                 return log_tests_skipped("Failed to connect to bus");
 
         r = sd_bus_message_new_method_call(bus, &m, "foobar.waldo", "/", "foobar.waldo", "Piep");
