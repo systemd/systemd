@@ -576,4 +576,64 @@ global:
         sd_bus_message_readv;
         sd_bus_set_method_call_timeout;
         sd_bus_get_method_call_timeout;
+
+        sd_device_ref;
+        sd_device_unref;
+
+        sd_device_new_from_syspath;
+        sd_device_new_from_devnum;
+        sd_device_new_from_subsystem_sysname;
+        sd_device_new_from_device_id;
+
+        sd_device_get_parent;
+        sd_device_get_parent_with_subsystem_devtype;
+
+        sd_device_get_syspath;
+        sd_device_get_subsystem;
+        sd_device_get_devtype;
+        sd_device_get_devnum;
+        sd_device_get_ifindex;
+        sd_device_get_driver;
+        sd_device_get_devpath;
+        sd_device_get_devname;
+        sd_device_get_sysname;
+        sd_device_get_sysnum;
+
+        sd_device_get_is_initialized;
+        sd_device_get_usec_since_initialized;
+
+        sd_device_get_tag_first;
+        sd_device_get_tag_next;
+        sd_device_get_devlink_first;
+        sd_device_get_devlink_next;
+        sd_device_get_property_first;
+        sd_device_get_property_next;
+        sd_device_get_sysattr_first;
+        sd_device_get_sysattr_next;
+
+        sd_device_has_tag;
+        sd_device_get_property_value;
+        sd_device_get_sysattr_value;
+
+        sd_device_set_sysattr_value;
+
+        sd_device_enumerator_new;
+        sd_device_enumerator_ref;
+        sd_device_enumerator_unref;
+
+        sd_device_enumerator_get_device_first;
+        sd_device_enumerator_get_device_next;
+        sd_device_enumerator_get_subsystem_first;
+        sd_device_enumerator_get_subsystem_next;
+
+        sd_device_enumerator_add_match_subsystem;
+        sd_device_enumerator_add_match_sysattr;
+        sd_device_enumerator_add_match_property;
+        sd_device_enumerator_add_match_sysname;
+        sd_device_enumerator_add_match_tag;
+        sd_device_enumerator_add_match_parent;
+        sd_device_enumerator_allow_uninitialized;
+
+        sd_device_unrefp;
+        sd_device_enumerator_unrefp;
 } LIBSYSTEMD_239;
