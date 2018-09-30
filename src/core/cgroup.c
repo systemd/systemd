@@ -770,7 +770,6 @@ static void cgroup_apply_firewall(Unit *u) {
 static void cgroup_context_apply(
                 Unit *u,
                 CGroupMask apply_mask,
-                bool apply_bpf,
                 ManagerState state) {
 
         const char *path;
@@ -781,7 +780,7 @@ static void cgroup_context_apply(
         assert(u);
 
         /* Nothing to do? Exit early! */
-        if (apply_mask == 0 && !apply_bpf)
+        if (apply_mask == 0)
                 return;
 
         /* Some cgroup attributes are not supported on the root cgroup, hence silently ignore */
@@ -1127,7 +1126,7 @@ static void cgroup_context_apply(
                 }
         }
 
-        if (apply_bpf)
+        if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
 }
 
@@ -1161,6 +1160,15 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
         return mask;
 }
 
+CGroupMask unit_get_bpf_mask(Unit *u) {
+        CGroupMask mask = 0;
+
+        if (unit_get_needs_bpf_firewall(u))
+                mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        return mask;
+}
+
 CGroupMask unit_get_own_mask(Unit *u) {
         CGroupContext *c;
 
@@ -1170,7 +1178,7 @@ CGroupMask unit_get_own_mask(Unit *u) {
         if (!c)
                 return 0;
 
-        return cgroup_context_get_mask(c) | unit_get_delegate_mask(u);
+        return cgroup_context_get_mask(c) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u);
 }
 
 CGroupMask unit_get_delegate_mask(Unit *u) {
@@ -1278,7 +1286,7 @@ CGroupMask unit_get_enable_mask(Unit *u) {
         return mask;
 }
 
-bool unit_get_needs_bpf(Unit *u) {
+bool unit_get_needs_bpf_firewall(Unit *u) {
         CGroupContext *c;
         Unit *p;
         assert(u);
@@ -1508,8 +1516,7 @@ int unit_pick_cgroup_path(Unit *u) {
 static int unit_create_cgroup(
                 Unit *u,
                 CGroupMask target_mask,
-                CGroupMask enable_mask,
-                bool needs_bpf) {
+                CGroupMask enable_mask) {
 
         CGroupContext *c;
         int r;
@@ -1549,7 +1556,6 @@ static int unit_create_cgroup(
         u->cgroup_realized = true;
         u->cgroup_realized_mask = target_mask;
         u->cgroup_enabled_mask = enable_mask;
-        u->cgroup_bpf_state = needs_bpf ? UNIT_CGROUP_BPF_ON : UNIT_CGROUP_BPF_OFF;
 
         if (u->type != UNIT_SLICE && !unit_cgroup_delegate(u)) {
 
@@ -1725,16 +1731,14 @@ static void cgroup_xattr_apply(Unit *u) {
 static bool unit_has_mask_realized(
                 Unit *u,
                 CGroupMask target_mask,
-                CGroupMask enable_mask,
-                bool needs_bpf) {
+                CGroupMask enable_mask) {
 
         assert(u);
 
         return u->cgroup_realized &&
                 u->cgroup_realized_mask == target_mask &&
                 u->cgroup_enabled_mask == enable_mask &&
-                ((needs_bpf && u->cgroup_bpf_state == UNIT_CGROUP_BPF_ON) ||
-                 (!needs_bpf && u->cgroup_bpf_state == UNIT_CGROUP_BPF_OFF));
+                u->cgroup_invalidated_mask == 0;
 }
 
 static void unit_add_to_cgroup_realize_queue(Unit *u) {
@@ -1765,7 +1769,6 @@ static void unit_remove_from_cgroup_realize_queue(Unit *u) {
  * Returns 0 on success and < 0 on failure. */
 static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         CGroupMask target_mask, enable_mask;
-        bool needs_bpf, apply_bpf;
         int r;
 
         assert(u);
@@ -1774,15 +1777,9 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
 
         target_mask = unit_get_target_mask(u);
         enable_mask = unit_get_enable_mask(u);
-        needs_bpf = unit_get_needs_bpf(u);
 
-        if (unit_has_mask_realized(u, target_mask, enable_mask, needs_bpf))
+        if (unit_has_mask_realized(u, target_mask, enable_mask))
                 return 0;
-
-        /* Make sure we apply the BPF filters either when one is configured, or if none is configured but previously
-         * the state was anything but off. This way, if a unit with a BPF filter applied is reconfigured to lose it
-         * this will trickle down properly to cgroupfs. */
-        apply_bpf = needs_bpf || u->cgroup_bpf_state != UNIT_CGROUP_BPF_OFF;
 
         /* First, realize parents */
         if (UNIT_ISSET(u->slice)) {
@@ -1792,12 +1789,12 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         }
 
         /* And then do the real work */
-        r = unit_create_cgroup(u, target_mask, enable_mask, needs_bpf);
+        r = unit_create_cgroup(u, target_mask, enable_mask);
         if (r < 0)
                 return r;
 
         /* Finally, apply the necessary attributes. */
-        cgroup_context_apply(u, target_mask, apply_bpf, state);
+        cgroup_context_apply(u, target_mask, state);
         cgroup_xattr_apply(u);
 
         return 0;
@@ -1863,8 +1860,7 @@ static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
                          * any changes. */
                         if (unit_has_mask_realized(m,
                                                    unit_get_target_mask(m),
-                                                   unit_get_enable_mask(m),
-                                                   unit_get_needs_bpf(m)))
+                                                   unit_get_enable_mask(m)))
                                 continue;
 
                         unit_add_to_cgroup_realize_queue(m);
@@ -2207,11 +2203,25 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
         }
 }
 
+static int cg_bpf_mask_supported(CGroupMask *ret) {
+        CGroupMask mask = 0;
+        int r;
+
+        /* BPF-based firewall */
+        r = bpf_firewall_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        *ret = mask;
+        return 0;
+}
+
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *path = NULL;
         const char *scope_path;
         CGroupController c;
         int r, all_unified;
+        CGroupMask mask;
         char *e;
 
         assert(m);
@@ -2341,10 +2351,18 @@ int manager_setup_cgroup(Manager *m) {
         if (!all_unified && m->test_run_flags == 0)
                 (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
 
-        /* 8. Figure out which controllers are supported, and log about it */
+        /* 8. Figure out which controllers are supported */
         r = cg_mask_supported(&m->cgroup_supported);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
+
+        /* 9. Figure out which bpf-based pseudo-controllers are supported */
+        r = cg_bpf_mask_supported(&mask);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine supported bpf-based pseudo-controllers: %m");
+        m->cgroup_supported |= mask;
+
+        /* 10. Log which controllers are supported */
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
                 log_debug("Controller '%s' supported: %s", cgroup_controller_to_string(c), yes_no(m->cgroup_supported & CGROUP_CONTROLLER_TO_MASK(c)));
 
@@ -2718,10 +2736,10 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return;
 
-        if (u->cgroup_bpf_state == UNIT_CGROUP_BPF_INVALIDATED) /* NOP? */
+        if (u->cgroup_invalidated_mask & CGROUP_MASK_BPF_FIREWALL) /* NOP? */
                 return;
 
-        u->cgroup_bpf_state = UNIT_CGROUP_BPF_INVALIDATED;
+        u->cgroup_invalidated_mask |= CGROUP_MASK_BPF_FIREWALL;
         unit_add_to_cgroup_realize_queue(u);
 
         /* If we are a slice unit, we also need to put compile a new BPF program for all our children, as the IP access
