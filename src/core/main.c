@@ -1213,11 +1213,10 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
         int r;
 
         assert(saved_rlimit);
-        assert(getuid() == 0);
 
-        /* BPF_MAP_TYPE_LPM_TRIE bpf maps are charged against RLIMIT_MEMLOCK, even though we have CAP_IPC_LOCK which
-         * should normally disable such checks. We need them to implement IPAccessAllow= and IPAccessDeny=, hence let's
-         * bump the value high enough for the root user. */
+        /* BPF_MAP_TYPE_LPM_TRIE bpf maps are charged against RLIMIT_MEMLOCK, even if we have CAP_IPC_LOCK which should
+         * normally disable such checks. We need them to implement IPAccessAllow= and IPAccessDeny=, hence let's bump
+         * the value high enough for our user. */
 
         if (getrlimit(RLIMIT_MEMLOCK, saved_rlimit) < 0)
                 return log_warning_errno(errno, "Reading RLIMIT_MEMLOCK failed, ignoring: %m");
@@ -1936,11 +1935,9 @@ static int initialize_runtime(
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
                         log_warning_errno(errno, "Failed to make us a subreaper: %m");
 
-        if (arg_system) {
-                /* Bump up RLIMIT_NOFILE for systemd itself */
-                (void) bump_rlimit_nofile(saved_rlimit_nofile);
-                (void) bump_rlimit_memlock(saved_rlimit_memlock);
-        }
+        /* Bump up RLIMIT_NOFILE for systemd itself */
+        (void) bump_rlimit_nofile(saved_rlimit_nofile);
+        (void) bump_rlimit_memlock(saved_rlimit_memlock);
 
         return 0;
 }
