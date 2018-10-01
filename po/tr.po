@@ -10,8 +10,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2018-03-27 03:26+0000\n"
-"PO-Revision-Date: 2018-04-22 21:20+0300\n"
+"POT-Creation-Date: 2018-08-23 15:26+0000\n"
+"PO-Revision-Date: 2018-10-01 20:20+0300\n"
 "Last-Translator: Muhammet Kara <muhammetk@gnome.org>\n"
 "Language-Team: Turkish <gnome-turk@gnome.org>\n"
 "Language: tr_TR\n"
@@ -50,11 +50,11 @@ msgstr ""
 "Sistem servislerini veya birim dosyalarını yönetmek kimlik doğrulaması "
 "gerektiriyor."
 
-#: src/core/org.freedesktop.systemd1.policy.in:53
+#: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr "Sistem ve servis yöneticisi ortam değişkenlerini ayarla ya da kaldır"
 
-#: src/core/org.freedesktop.systemd1.policy.in:54
+#: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
@@ -62,27 +62,27 @@ msgstr ""
 "Sistem ve servis yöneticisi ortam değişkenlerini ayarlamak ya da kaldırmak "
 "kimlik doğrulaması gerektiriyor."
 
-#: src/core/org.freedesktop.systemd1.policy.in:63
+#: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
 msgstr "systemd durumunu yeniden yükle"
 
-#: src/core/org.freedesktop.systemd1.policy.in:64
+#: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "systemd durumunu yeniden yüklemek kimlik doğrulaması gerektiriyor."
 
-#: src/hostname/org.freedesktop.hostname1.policy:22
+#: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
 msgstr "Makine adını ayarla"
 
-#: src/hostname/org.freedesktop.hostname1.policy:23
+#: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local host name."
 msgstr "Yerel makine adını ayarlamak kimlik doğrulaması gerektiriyor."
 
-#: src/hostname/org.freedesktop.hostname1.policy:32
+#: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static host name"
 msgstr "Statik makine adı ayarla"
 
-#: src/hostname/org.freedesktop.hostname1.policy:33
+#: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local host name, "
 "as well as the pretty host name."
@@ -90,13 +90,22 @@ msgstr ""
 "Statik olarak yapılandırılmış konak makine adını ve yerel makine adını "
 "ayarlamak kimlik doğrulaması gerektiriyor."
 
-#: src/hostname/org.freedesktop.hostname1.policy:43
+#: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
 msgstr "Makine bilgisini ayarla"
 
-#: src/hostname/org.freedesktop.hostname1.policy:44
+#: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
 msgstr "Yerel makine bilgisini ayarlamak kimlik doğrulaması gerektiriyor."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "Ürün UUID'ini al"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+#| msgid "Authentication is required to reload '$(unit)'."
+msgid "Authentication is required to get product UUID."
+msgstr "Ürün UUID'ini almak için kimlik doğrulaması gereklidir."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -569,12 +578,45 @@ msgstr ""
 "Yerel sanal makineler ve kapsayıcı kalıplarını yönetmek için kimlik "
 "doğrulaması gereklidir."
 
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "Bir taşınabilir hizmet kalıbını incele"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+#| msgid "Authentication is required to import a VM or container image"
+msgid "Authentication is required to inspect a portable service image."
+msgstr ""
+"Bir taşınabilir hizmet kalıbını incelemek için kimlik doğrulaması gereklidir."
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "Bir taşınabilir hizmet kalıbını tuttur ya da ayır"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+#| msgid "Authentication is required for attaching a device to a seat."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"Bir taşınabilir hizmet kalıbını tutturmak ya da ayırmak için kimlik "
+"doğrulaması gereklidir."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "Taşınabilir hizmet kalıbını sil ya da değiştir"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+#| msgid "Authentication is required to download a VM or container image"
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr ""
+"Taşınabilir hizmet kalıbını silmek ya da değiştirmek için kimlik doğrulaması "
+"gereklidir."
+
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
 msgstr "Bir DNS-SD hizmeti kaydet"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to register a DNS-SD service"
 msgstr "Bir DNS-SD hizmeti kaydetmek için kimlik doğrulaması gereklidir"
 
@@ -583,7 +625,6 @@ msgid "Unregister a DNS-SD service"
 msgstr "Bir DNS-SD hizmetinin kaydını sil"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to unregister a DNS-SD service"
 msgstr ""
 "Bir DNS-SD hizmetinin kaydını silmek için kimlik doğrulaması gereklidir"
@@ -616,44 +657,44 @@ msgstr ""
 "Gerçek zamanlı saat olarak yerel zaman dilimini veya UTC'yi ayarlamak kimlik "
 "doğrulaması gerektiriyor."
 
-#: src/timedate/org.freedesktop.timedate1.policy:54
+#: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "Ağ zaman eş zamanlamasını aç veya kapat"
 
-#: src/timedate/org.freedesktop.timedate1.policy:55
+#: src/timedate/org.freedesktop.timedate1.policy:54
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr ""
 "Ağ zaman eş zamanlamasını kontrol etmek kimlik doğrulaması gerektiriyor."
 
-#: src/core/dbus-unit.c:496
+#: src/core/dbus-unit.c:326
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)' başlatmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:497
+#: src/core/dbus-unit.c:327
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)' durdurmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:498
+#: src/core/dbus-unit.c:328
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)' yeniden yüklemek için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:499 src/core/dbus-unit.c:500
+#: src/core/dbus-unit.c:329 src/core/dbus-unit.c:330
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' yeniden başlatmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:437
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "'$(unit)' sonlandırmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:638
+#: src/core/dbus-unit.c:468
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "'$(unit)'in \"failed\" (başarısız) durumunu sıfırlamak için kimlik "
 "doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:671
+#: src/core/dbus-unit.c:501
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "'$(unit)' üzerindeki özellikleri ayarlamak için kimlik doğrulaması "
