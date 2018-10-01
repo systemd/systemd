@@ -32,5 +32,9 @@ SystemCallArchitectures=native
 LockPersonality=yes
 LogsDirectory=journal/remote
 
+# If there are many split up journal files we need a lot of fds to access them
+# all in parallel.
+LimitNOFILE=262144
+
 [Install]
 Also=systemd-journal-remote.socket
