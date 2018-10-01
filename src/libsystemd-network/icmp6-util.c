@@ -174,12 +174,8 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
         iov.iov_len = size;
 
         len = recvmsg(fd, &msg, MSG_DONTWAIT);
-        if (len < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
-                        return 0;
-
+        if (len < 0)
                 return -errno;
-        }
 
         if ((size_t) len != size)
                 return -EINVAL;
