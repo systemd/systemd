@@ -15,6 +15,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "compress.h"
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -26,6 +27,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -1066,6 +1068,9 @@ int main(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
+
+        /* The journal merging logic potentially needs a lot of fds. */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
 
         r = parse_argv(argc, argv);
         if (r <= 0)

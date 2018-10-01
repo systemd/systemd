@@ -31,6 +31,7 @@
 #include "bus-util.h"
 #include "catalog.h"
 #include "chattr-util.h"
+#include "def.h"
 #include "device-private.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -2049,17 +2050,16 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        /* Increase max number of open files if we can, we might needs this when browsing journal files, which might be
+         * split up into many files. */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
 
         signal(SIGWINCH, columns_lines_cache_reset);
         sigbus_install();
-
-        /* Increase max number of open files to 16K if we can, we
-         * might needs this when browsing journal files, which might
-         * be split up into many files. */
-        setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
 
         switch (arg_action) {
 

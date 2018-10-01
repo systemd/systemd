@@ -5264,12 +5264,6 @@ static int show(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_no_pager, false);
 
-        if (show_mode == SYSTEMCTL_SHOW_STATUS)
-                /* Increase max number of open files to 16K if we can, we
-                 * might needs this when browsing journal files, which might
-                 * be split up into many files. */
-                setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
-
         /* If no argument is specified inspect the manager itself */
         if (show_mode == SYSTEMCTL_SHOW_PROPERTIES && argc <= 1)
                 return show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
@@ -8661,6 +8655,10 @@ int main(int argc, char*argv[]) {
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
+
+        /* The journal merging logic potentially needs a lot of fds. */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
+
         sigbus_install();
 
         /* Explicitly not on_tty() to avoid setting cached value.

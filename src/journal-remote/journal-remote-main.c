@@ -12,6 +12,7 @@
 #include "journal-remote-write.h"
 #include "journal-remote.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -1095,6 +1096,9 @@ int main(int argc, char **argv) {
 
         log_show_color(true);
         log_parse_environment();
+
+        /* The journal merging logic potentially needs a lot of fds. */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
 
         r = parse_config();
         if (r < 0)
