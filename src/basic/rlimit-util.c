@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "macro.h"
 #include "missing.h"
@@ -359,4 +360,25 @@ void rlimit_free_all(struct rlimit **rl) {
 
         for (i = 0; i < _RLIMIT_MAX; i++)
                 rl[i] = mfree(rl[i]);
+}
+
+int rlimit_nofile_bump(int limit) {
+        int r;
+
+        /* Bumps the (soft) RLIMIT_NOFILE resource limit as close as possible to the specified limit. If a negative
+         * limit is specified, bumps it to the maximum the kernel and the hard resource limit allows. This call should
+         * be used by all our programs that might need a lot of fds, and that know how to deal with high fd numbers
+         * (i.e. do not use select() — which chokes on fds >= 1024) */
+
+        if (limit < 0)
+                limit = read_nr_open();
+
+        if (limit < 3)
+                limit = 3;
+
+        r = setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(limit));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set RLIMIT_NOFILE: %m");
+
+        return 0;
 }
