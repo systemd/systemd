@@ -634,9 +634,6 @@ global:
         sd_device_enumerator_add_match_parent;
         sd_device_enumerator_allow_uninitialized;
 
-        sd_device_unrefp;
-        sd_device_enumerator_unrefp;
-
         sd_hwdb_ref;
         sd_hwdb_unref;
 
@@ -646,8 +643,6 @@ global:
 
         sd_hwdb_seek;
         sd_hwdb_enumerate;
-
-        sd_hwdb_unrefp;
 
         sd_id128_get_boot_app_specific;
 } LIBSYSTEMD_239;
