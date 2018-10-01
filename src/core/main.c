@@ -1167,13 +1167,15 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
 
         assert(saved_rlimit);
 
-        /* Save the original RLIMIT_NOFILE so that we can reset it
-         * later when transitioning from the initrd to the main
+        /* Save the original RLIMIT_NOFILE so that we can reset it later when transitioning from the initrd to the main
          * systemd or suchlike. */
         if (getrlimit(RLIMIT_NOFILE, saved_rlimit) < 0)
                 return log_warning_errno(errno, "Reading RLIMIT_NOFILE failed, ignoring: %m");
 
-        /* Make sure forked processes get the default kernel setting */
+        /* Get the underlying absolute limit the kernel enforces */
+        nr = read_nr_open();
+
+        /* Make sure forked processes get limits based on the original kernel setting */
         if (!arg_default_rlimit[RLIMIT_NOFILE]) {
                 struct rlimit *rl;
 
@@ -1181,11 +1183,25 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
                 if (!rl)
                         return log_oom();
 
+                /* Bump the hard limit for system services to a substantially higher value. The default hard limit
+                 * current kernels set is pretty low (4K), mostly for historical reasons. According to kernel
+                 * developers, the fd handling in recent kernels has been optimized substantially enough, so that we
+                 * can bump the limit now, without paying too high a price in memory or performance. Note however that
+                 * we only bump the hard limit, not the soft limit. That's because select() works the way it works, and
+                 * chokes on fds >= 1024. If we'd bump the soft limit globally, it might accidentally happen to
+                 * unexpecting programs that they get fds higher than what they can process using select(). By only
+                 * bumping the hard limit but leaving the low limit as it is we avoid this pitfall: programs that are
+                 * written by folks aware of the select() problem in mind (and thus use poll()/epoll instead of
+                 * select(), the way everybody should) can explicitly opt into high fds by bumping their soft limit
+                 * beyond 1024, to the hard limit we pass. */
+                if (arg_system)
+                        rl->rlim_max = MIN((rlim_t) nr, MAX(rl->rlim_max, (rlim_t) HIGH_RLIMIT_NOFILE));
+
                 arg_default_rlimit[RLIMIT_NOFILE] = rl;
         }
 
-        /* Bump up the resource limit for ourselves substantially, all the way to the maximum the kernel allows */
-        nr = read_nr_open();
+        /* Bump up the resource limit for ourselves substantially, all the way to the maximum the kernel allows, for
+         * both hard and soft. */
         r = setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(nr));
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_NOFILE failed, ignoring: %m");
