@@ -75,3 +75,5 @@
                 _CONF_PATHS_SPLIT_USR(n))
 
 #define LONG_LINE_MAX (1U*1024U*1024U)
+
+#define HIGH_RLIMIT_NOFILE (256*1024)
