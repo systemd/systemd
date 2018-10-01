@@ -34,8 +34,8 @@ stub_sources = '''
 
 if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
         efi_cc = get_option('efi-cc')
-        if efi_cc == ''
-                efi_cc = ' '.join(cc.cmd_array())
+        if efi_cc.length() == 0
+                efi_cc = cc.cmd_array()
         endif
         efi_ld = get_option('efi-ld')
         if efi_ld == ''
@@ -57,10 +57,13 @@ if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
 
         efi_libdir = get_option('efi-libdir')
         if efi_libdir == ''
-                cmd = 'cd /usr/lib/$(@0@ -print-multi-os-directory) && pwd'.format(efi_cc)
-                ret = run_command('sh', '-c', cmd)
+                ret = run_command(efi_cc + ['-print-multi-os-directory'])
                 if ret.returncode() == 0
-                        efi_libdir = ret.stdout().strip()
+                        path = join_paths('/usr/lib', ret.stdout().strip())
+                        ret = run_command('realpath', '-e', path)
+                        if ret.returncode() == 0
+                                efi_libdir = ret.stdout().strip()
+                        endif
                 endif
         endif
 
@@ -149,7 +152,7 @@ if have_gnu_efi
                 o_file = custom_target(file + '.o',
                                        input : file,
                                        output : file + '.o',
-                                       command : [efi_cc, '-c', '@INPUT@', '-o', '@OUTPUT@']
+                                       command : efi_cc + ['-c', '@INPUT@', '-o', '@OUTPUT@']
                                                  + compile_args,
                                        depend_files : efi_headers)
                 if (common_sources + systemd_boot_sources).contains(file)
@@ -160,7 +163,7 @@ if have_gnu_efi
                 endif
         endforeach
 
-        libgcc_file_name = run_command(efi_cc, '-print-libgcc-file-name').stdout().strip()
+        libgcc_file_name = run_command(efi_cc + ['-print-libgcc-file-name']).stdout().strip()
         systemd_boot_efi_name = 'systemd-boot@0@.efi'.format(EFI_MACHINE_TYPE_NAME)
         stub_efi_name = 'linux@0@.efi.stub'.format(EFI_MACHINE_TYPE_NAME)
         no_undefined_symbols = find_program('no-undefined-symbols.sh')

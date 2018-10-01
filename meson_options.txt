@@ -278,7 +278,7 @@ option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
 
 option('gnu-efi', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gnu-efi support for sd-boot')
-option('efi-cc', type : 'string',
+option('efi-cc', type : 'array',
        description : 'the compiler to use for EFI modules')
 option('efi-ld', type : 'string',
        description : 'the linker to use for EFI modules')
