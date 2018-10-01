@@ -17,6 +17,7 @@
 #include "strv.h"
 #include "user-util.h"
 #include "util.h"
+#include "virt.h"
 
 static void test_chase_symlinks(void) {
         _cleanup_free_ char *result = NULL;
@@ -493,6 +494,7 @@ static void test_touch_file(void) {
         struct stat st;
         const char *a;
         usec_t test_mtime;
+        int r;
 
         test_uid = geteuid() == 0 ? 65534 : getuid();
         test_gid = geteuid() == 0 ? 65534 : getgid();
@@ -542,7 +544,12 @@ static void test_touch_file(void) {
 
         if (geteuid() == 0) {
                 a = strjoina(p, "/cdev");
-                assert_se(mknod(a, 0775 | S_IFCHR, makedev(0, 0)) >= 0);
+                r = mknod(a, 0775 | S_IFCHR, makedev(0, 0));
+                if (r < 0 && errno == EPERM && detect_container() > 0) {
+                        log_notice("Running in unprivileged container? Skipping remaining tests in %s", __func__);
+                        return;
+                }
+                assert_se(r >= 0);
                 assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
                 assert_se(lstat(a, &st) >= 0);
                 assert_se(st.st_uid == test_uid);
