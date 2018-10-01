@@ -4,19 +4,25 @@
 #include "errno.h"
 #include "tests.h"
 
-static void test_failed_enumerate(void) {
+static int test_failed_enumerate(void) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb;
         const char *key, *value;
+        int r;
 
         log_info("/* %s */", __func__);
 
-        assert_se(sd_hwdb_new(&hwdb) == 0);
+        r = sd_hwdb_new(&hwdb);
+        if (r == -ENOENT)
+                return r;
+        assert_se(r == 0);
 
         assert_se(sd_hwdb_seek(hwdb, "no-such-modalias-should-exist") == 0);
 
         assert_se(sd_hwdb_enumerate(hwdb, &key, &value) == 0);
         assert_se(sd_hwdb_enumerate(hwdb, &key, NULL) == -EINVAL);
         assert_se(sd_hwdb_enumerate(hwdb, NULL, &value) == -EINVAL);
+
+        return 0;
 }
 
 #define DELL_MODALIAS \
@@ -54,9 +60,14 @@ static void test_basic_enumerate(void) {
 }
 
 int main(int argc, char *argv[]) {
+        int r;
+
         test_setup_logging(LOG_DEBUG);
 
-        test_failed_enumerate();
+        r = test_failed_enumerate();
+        if (r < 0)
+                return log_tests_skipped_errno(r, "cannot open hwdb");
+
         test_basic_enumerate();
 
         return 0;
