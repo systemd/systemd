@@ -592,8 +592,7 @@ static int base64_append_width(
 
         _cleanup_free_ char *x = NULL;
         char *t, *s;
-        ssize_t slen, len, avail;
-        int line, lines;
+        ssize_t len, slen, avail, line, lines;
 
         len = base64mem(p, l, &x);
         if (len <= 0)
@@ -602,6 +601,9 @@ static int base64_append_width(
         lines = DIV_ROUND_UP(len, width);
 
         slen = strlen_ptr(sep);
+        if (lines > (SSIZE_MAX - plen - 1 - slen) / (indent + width + 1))
+                return -ENOMEM;
+
         t = realloc(*prefix, plen + 1 + slen + (indent + width + 1) * lines);
         if (!t)
                 return -ENOMEM;

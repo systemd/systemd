@@ -3459,9 +3459,7 @@ int manager_reload(Manager *m) {
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
 
-        q = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
-        if (q < 0 && r >= 0)
-                r = q;
+        r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
 
         q = manager_run_environment_generators(m);
         if (q < 0 && r >= 0)
