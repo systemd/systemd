@@ -1004,7 +1004,7 @@ int free_and_strdup(char **p, const char *s) {
 
         assert(p);
 
-        /* Replaces a string pointer with an strdup()ed new string,
+        /* Replaces a string pointer with a strdup()ed new string,
          * possibly freeing the old one. */
 
         if (streq_ptr(*p, s))
@@ -1020,6 +1020,32 @@ int free_and_strdup(char **p, const char *s) {
         free(*p);
         *p = t;
 
+        return 1;
+}
+
+int free_and_strndup(char **p, const char *s, size_t l) {
+        char *t;
+
+        assert(p);
+        assert(s || l == 0);
+
+        /* Replaces a string pointer with a strndup()ed new string,
+         * freeing the old one. */
+
+        if (!*p && !s)
+                return 0;
+
+        if (*p && s && strneq(*p, s, l) && (l > strlen(*p) || (*p)[l] == '\0'))
+                return 0;
+
+        if (s) {
+                t = strndup(s, l);
+                if (!t)
+                        return -ENOMEM;
+        } else
+                t = NULL;
+
+        free_and_replace(*p, t);
         return 1;
 }
 

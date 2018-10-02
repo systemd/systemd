@@ -5,6 +5,7 @@
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "utf8.h"
 
 static void test_string_erase(void) {
@@ -28,6 +29,64 @@ static void test_string_erase(void) {
         assert_se(x[7] == '\0');
         assert_se(x[8] == '\0');
         assert_se(x[9] == '\0');
+}
+
+static void test_free_and_strndup_one(char **t, const char *src, size_t l, const char *expected, bool change) {
+        int r;
+
+        log_debug("%s: \"%s\", \"%s\", %zd (expect \"%s\", %s)",
+                  __func__, strnull(*t), strnull(src), l, strnull(expected), yes_no(change));
+
+        r = free_and_strndup(t, src, l);
+        assert_se(streq_ptr(*t, expected));
+        assert_se(r == change); /* check that change occurs only when necessary */
+}
+
+static void test_free_and_strndup(void) {
+        static const struct test_case {
+                const char *src;
+                size_t len;
+                const char *expected;
+        } cases[] = {
+                     {"abc", 0, ""},
+                     {"abc", 0, ""},
+                     {"abc", 1, "a"},
+                     {"abc", 2, "ab"},
+                     {"abc", 3, "abc"},
+                     {"abc", 4, "abc"},
+                     {"abc", 5, "abc"},
+                     {"abc", 5, "abc"},
+                     {"abc", 4, "abc"},
+                     {"abc", 3, "abc"},
+                     {"abc", 2, "ab"},
+                     {"abc", 1, "a"},
+                     {"abc", 0, ""},
+
+                     {"", 0, ""},
+                     {"", 1, ""},
+                     {"", 2, ""},
+                     {"", 0, ""},
+                     {"", 1, ""},
+                     {"", 2, ""},
+                     {"", 2, ""},
+                     {"", 1, ""},
+                     {"", 0, ""},
+
+                     {NULL, 0, NULL},
+
+                     {"foo", 3, "foo"},
+                     {"foobar", 6, "foobar"},
+        };
+
+        _cleanup_free_ char *t = NULL;
+        const char *prev_expected = t;
+
+        for (unsigned i = 0; i < ELEMENTSOF(cases); i++) {
+                test_free_and_strndup_one(&t,
+                                          cases[i].src, cases[i].len, cases[i].expected,
+                                          !streq_ptr(cases[i].expected, prev_expected));
+                prev_expected = t;
+        }
 }
 
 static void test_ascii_strcasecmp_n(void) {
@@ -520,7 +579,10 @@ static void test_memory_startswith_no_case(void) {
 }
 
 int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
+
         test_string_erase();
+        test_free_and_strndup();
         test_ascii_strcasecmp_n();
         test_ascii_strcasecmp_nn();
         test_cellescape();

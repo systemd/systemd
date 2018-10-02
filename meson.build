@@ -781,6 +781,7 @@ conf.set10('ENABLE_DEBUG_HASHMAP', enable_debug_hashmap)
 conf.set10('ENABLE_DEBUG_MMAP_CACHE', enable_debug_mmap_cache)
 
 conf.set10('VALGRIND', get_option('valgrind'))
+conf.set10('LOG_TRACE', get_option('log-trace'))
 
 #####################################################################
 
@@ -1476,7 +1477,7 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                 module = tuple[0]
 
                 sym = 'src/nss-@0@/nss-@0@.sym'.format(module)
-                version_script_arg = join_paths(meson.current_source_dir(), sym)
+                version_script_arg = join_paths(meson.source_root(), sym)
 
                 nss = shared_library(
                         'nss_' + module,
@@ -1731,7 +1732,7 @@ if conf.get('ENABLE_LOGIND') == 1
         public_programs += exe
 
         if conf.get('HAVE_PAM') == 1
-                version_script_arg = join_paths(meson.current_source_dir(), pam_systemd_sym)
+                version_script_arg = join_paths(meson.source_root(), pam_systemd_sym)
                 pam_systemd = shared_library(
                         'pam_systemd',
                         pam_systemd_c,
@@ -2847,9 +2848,7 @@ foreach tuple : sanitizers
                                 test('@0@:@1@:@2@'.format(b, c, sanitizer),
                                      env,
                                      args : [exe.full_path(),
-                                             join_paths(meson.source_root(),
-                                                        'test/fuzz-regressions',
-                                                        p)])
+                                             join_paths(meson.source_root(), p)])
                         endif
                 endforeach
         endif
@@ -2861,7 +2860,7 @@ endforeach
 if git.found()
         all_files = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(meson.current_source_dir()),
+                ['--git-dir=@0@/.git'.format(meson.source_root()),
                  'ls-files',
                  ':/*.[ch]'])
         all_files = files(all_files.stdout().split())
@@ -2869,10 +2868,10 @@ if git.found()
         custom_target(
                 'tags',
                 output : 'tags',
-                command : [env, 'etags', '-o', '@0@/TAGS'.format(meson.current_source_dir())] + all_files)
+                command : [env, 'etags', '-o', '@0@/TAGS'.format(meson.source_root())] + all_files)
         run_target(
                 'ctags',
-                command : [env, 'ctags', '-o', '@0@/tags'.format(meson.current_source_dir())] + all_files)
+                command : [env, 'ctags', '-o', '@0@/tags'.format(meson.source_root())] + all_files)
 endif
 
 if git.found()
@@ -2885,17 +2884,17 @@ endif
 if git.found()
         git_head = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(meson.current_source_dir()),
+                ['--git-dir=@0@/.git'.format(meson.source_root()),
                  'rev-parse', 'HEAD']).stdout().strip()
         git_head_short = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(meson.current_source_dir()),
+                ['--git-dir=@0@/.git'.format(meson.source_root()),
                  'rev-parse', '--short=7', 'HEAD']).stdout().strip()
 
         run_target(
                 'git-snapshot',
                 command : ['git', 'archive',
-                           '-o', '@0@/systemd-@1@.tar.gz'.format(meson.current_source_dir(),
+                           '-o', '@0@/systemd-@1@.tar.gz'.format(meson.source_root(),
                                                                  git_head_short),
                            '--prefix', 'systemd-@0@/'.format(git_head),
                            'HEAD'])
@@ -3053,10 +3052,10 @@ foreach tuple : [
         ['blkid'],
         ['dbus'],
         ['glib'],
-        ['nss-myhostname',   conf.get('ENABLE_NSS_MYHOSTNAME') == 1],
-        ['nss-mymachines',   conf.get('ENABLE_NSS_MYMACHINES') == 1],
-        ['nss-resolve',      conf.get('ENABLE_NSS_RESOLVE') == 1],
-        ['nss-systemd',      conf.get('ENABLE_NSS_SYSTEMD') == 1],
+        ['nss-myhostname'],
+        ['nss-mymachines'],
+        ['nss-resolve'],
+        ['nss-systemd'],
         ['hwdb'],
         ['tpm'],
         ['man pages',        want_man],
@@ -3072,6 +3071,7 @@ foreach tuple : [
         ['debug hashmap'],
         ['debug mmap cache'],
         ['valgrind',         conf.get('VALGRIND') == 1],
+        ['trace logging',    conf.get('LOG_TRACE') == 1],
 ]
 
         if tuple.length() >= 2

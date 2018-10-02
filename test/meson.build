@@ -256,4 +256,4 @@ if conf.get('ENABLE_HWDB') == 1
         endif
 endif
 
-subdir('fuzz-regressions')
+subdir('fuzz')

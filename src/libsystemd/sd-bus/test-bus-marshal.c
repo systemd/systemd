@@ -18,8 +18,8 @@
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "escape.h"
 #include "fd-util.h"
-#include "hexdecoct.h"
 #include "log.h"
 #include "tests.h"
 #include "util.h"
@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
         uint8_t u, v;
         void *buffer = NULL;
         size_t sz;
-        char *h;
+        _cleanup_free_ char *h = NULL;
         const int32_t integer_array[] = { -1, -2, 0, 1, 2 }, *return_array;
         char *s;
         _cleanup_free_ char *first = NULL, *second = NULL, *third = NULL;
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         r = sd_bus_message_append(m, "()");
-        assert_se(r >= 0);
+        assert_se(r == -EINVAL);
 
         r = sd_bus_message_append(m, "ba(ss)", 255, 3, "aaa", "1", "bbb", "2", "ccc", "3");
         assert_se(r >= 0);
@@ -197,11 +197,9 @@ int main(int argc, char *argv[]) {
         r = bus_message_get_blob(m, &buffer, &sz);
         assert_se(r >= 0);
 
-        h = hexmem(buffer, sz);
+        h = cescape_length(buffer, sz);
         assert_se(h);
-
         log_info("message size = %zu, contents =\n%s", sz, h);
-        free(h);
 
 #if HAVE_GLIB
 #ifndef __SANITIZE_ADDRESS__
@@ -298,7 +296,7 @@ int main(int argc, char *argv[]) {
         assert_se(v == 10);
 
         r = sd_bus_message_read(m, "()");
-        assert_se(r > 0);
+        assert_se(r < 0);
 
         r = sd_bus_message_read(m, "ba(ss)", &boolean, 3, &x, &y, &a, &b, &c, &d);
         assert_se(r > 0);
@@ -379,7 +377,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_bus_message_verify_type(m, 'a', "{yv}") > 0);
 
-        r = sd_bus_message_skip(m, "a{yv}y(ty)y(yt)y()");
+        r = sd_bus_message_skip(m, "a{yv}y(ty)y(yt)y");
         assert_se(r >= 0);
 
         assert_se(sd_bus_message_verify_type(m, 'b', NULL) > 0);
