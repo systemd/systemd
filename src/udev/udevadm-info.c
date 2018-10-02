@@ -12,12 +12,12 @@
 
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "device-enumerator-private.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
-#include "libudev-private.h"
 #include "string-util.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
@@ -252,10 +252,9 @@ static int help(void) {
 
 int info_main(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        bool root = 0;
-        bool export = 0;
+        bool root = false, export = false;
+        _cleanup_free_ char *name = NULL;
         const char *export_prefix = NULL;
-        char name[UTIL_PATH_SIZE];
         int c, r;
 
         static const struct option options[] = {
@@ -332,7 +331,9 @@ int info_main(int argc, char *argv[], void *userdata) {
                         break;
                 case 'd':
                         action = ACTION_DEVICE_ID_FILE;
-                        strscpy(name, sizeof(name), optarg);
+                        name = strdup(optarg);
+                        if (!name)
+                                return log_oom();
                         break;
                 case 'a':
                         action = ACTION_ATTRIBUTE_WALK;
