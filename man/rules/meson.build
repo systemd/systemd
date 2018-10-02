@@ -438,6 +438,7 @@ manpages = [
  ['sd_id128_get_machine',
   '3',
   ['sd_id128_get_boot',
+   'sd_id128_get_boot_app_specific',
    'sd_id128_get_invocation',
    'sd_id128_get_machine_app_specific'],
   ''],

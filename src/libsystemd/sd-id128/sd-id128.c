@@ -284,19 +284,15 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
         return 0;
 }
 
-_public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
+static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret) {
         _cleanup_(khash_unrefp) khash *h = NULL;
-        sd_id128_t m, result;
+        sd_id128_t result;
         const void *p;
         int r;
 
-        assert_return(ret, -EINVAL);
+        assert(ret);
 
-        r = sd_id128_get_machine(&m);
-        if (r < 0)
-                return r;
-
-        r = khash_new_with_key(&h, "hmac(sha256)", &m, sizeof(m));
+        r = khash_new_with_key(&h, "hmac(sha256)", &base, sizeof(base));
         if (r < 0)
                 return r;
 
@@ -313,4 +309,30 @@ _public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *re
 
         *ret = make_v4_uuid(result);
         return 0;
+}
+
+_public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
+        sd_id128_t id;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = sd_id128_get_machine(&id);
+        if (r < 0)
+                return r;
+
+        return get_app_specific(id, app_id, ret);
+}
+
+_public_ int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
+        sd_id128_t id;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        r = sd_id128_get_boot(&id);
+        if (r < 0)
+                return r;
+
+        return get_app_specific(id, app_id, ret);
 }
