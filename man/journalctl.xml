@@ -706,18 +706,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--new-id128</option></term>
-
-        <listitem><para>Instead of showing journal contents, generate
-        a new 128-bit ID suitable for identifying messages. This is
-        intended for usage by developers who need a new identifier for
-        a new message they introduce and want to make
-        recognizable. This will print the new ID in four different
-        formats which can be copied into source code or similar.
-        </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--header</option></term>
 
         <listitem><para>Instead of showing journal contents, show

@@ -56,14 +56,10 @@
       <varlistentry>
         <term><varname>MESSAGE_ID=</varname></term>
         <listitem>
-          <para>A 128-bit message identifier ID for recognizing
-          certain message types, if this is desirable. This should
-          contain a 128-bit ID formatted as a lower-case hexadecimal
-          string, without any separating dashes or suchlike. This is
-          recommended to be a UUID-compatible ID, but this is not
-          enforced, and formatted differently. Developers can generate
-          a new ID for this purpose with <command>journalctl
-          <option>--new-id128</option></command>.
+          <para>A 128-bit message identifier ID for recognizing certain message types, if this is desirable. This
+          should contain a 128-bit ID formatted as a lower-case hexadecimal string, without any separating dashes or
+          suchlike. This is recommended to be a UUID-compatible ID, but this is not enforced, and formatted
+          differently. Developers can generate a new ID for this purpose with <command>systemd-id128 new</command>.
           </para>
         </listitem>
       </varlistentry>

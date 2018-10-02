@@ -363,7 +363,6 @@ static int help(void) {
                "     --list-catalog          Show all message IDs in the catalog\n"
                "     --dump-catalog          Show entries in the message catalog\n"
                "     --update-catalog        Update the message catalog database\n"
-               "     --new-id128             Generate a new 128-bit ID\n"
                "     --setup-keys            Generate a new FSS key pair\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
@@ -425,7 +424,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-full",        no_argument,       NULL, ARG_NO_FULL        },
                 { "lines",          optional_argument, NULL, 'n'                },
                 { "no-tail",        no_argument,       NULL, ARG_NO_TAIL        },
-                { "new-id128",      no_argument,       NULL, ARG_NEW_ID128      },
+                { "new-id128",      no_argument,       NULL, ARG_NEW_ID128      }, /* deprecated */
                 { "quiet",          no_argument,       NULL, 'q'                },
                 { "merge",          no_argument,       NULL, 'm'                },
                 { "this-boot",      no_argument,       NULL, ARG_THIS_BOOT      }, /* deprecated */
