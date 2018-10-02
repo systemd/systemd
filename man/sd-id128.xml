@@ -141,8 +141,8 @@ int main(int argc, char **argv) {
 }</programlisting>
 
     <para>Note that new, randomized IDs may be generated with
-    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-    <option>--new-id128</option> option.</para>
+    <citerefentry><refentrytitle>systemd-id128</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <command>new</command> command.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
