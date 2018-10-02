@@ -163,6 +163,7 @@ int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
 int dhcp4_set_client_identifier(Link *link);
 int dhcp4_set_promote_secondaries(Link *link);
+int dhcp6_request_prefix_delegation(Link *link);
 int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link, int ir);
 int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link);

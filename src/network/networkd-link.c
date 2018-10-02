@@ -1662,6 +1662,8 @@ static int link_acquire_ipv6_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Advertisement: %m");
         }
 
+        (void) dhcp6_request_prefix_delegation(link);
+
         return 0;
 }
 
