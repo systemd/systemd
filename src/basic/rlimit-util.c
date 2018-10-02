@@ -34,8 +34,15 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
         if (highest.rlim_max == RLIM_INFINITY)
                 return -EPERM;
 
-        fixed.rlim_cur = MIN(rlim->rlim_cur, highest.rlim_max);
-        fixed.rlim_max = MIN(rlim->rlim_max, highest.rlim_max);
+        fixed = (struct rlimit) {
+                .rlim_cur = MIN(rlim->rlim_cur, highest.rlim_max),
+                .rlim_max = MIN(rlim->rlim_max, highest.rlim_max),
+        };
+
+        /* Shortcut things if we wouldn't change anything. */
+        if (fixed.rlim_cur == highest.rlim_cur &&
+            fixed.rlim_max == highest.rlim_max)
+                return 0;
 
         if (setrlimit(resource, &fixed) < 0)
                 return -errno;
