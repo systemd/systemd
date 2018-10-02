@@ -249,8 +249,11 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         log_radv("Received invalid source address from ICMPv6 socket. Ignoring.");
                         break;
 
+                case -EAGAIN: /* ignore spurious wakeups */
+                        break;
+
                 default:
-                        log_radv_errno(r, "Error receiving from ICMPv6 socket: %m");
+                        log_radv_errno(r, "Unexpected error receiving from ICMPv6 socket: %m");
                         break;
                 }
 
