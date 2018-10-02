@@ -17,6 +17,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* consider splitting out all temporary file creation APIs (we have so many in
+  fileio.h and elsewhere!) into a new util file of its own.
+
 * set memory.oom.group in cgroupsv2 for all leaf cgroups
 
 * whenever oom_kill memory.event event is triggered print a nice log message
