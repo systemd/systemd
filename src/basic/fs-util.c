@@ -89,41 +89,44 @@ int rmdir_parents(const char *path, const char *stop) {
 }
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) {
-        struct stat buf;
-        int ret;
+        int r;
 
-        ret = renameat2(olddirfd, oldpath, newdirfd, newpath, RENAME_NOREPLACE);
-        if (ret >= 0)
+        /* Try the ideal approach first */
+        if (renameat2(olddirfd, oldpath, newdirfd, newpath, RENAME_NOREPLACE) >= 0)
                 return 0;
 
-        /* renameat2() exists since Linux 3.15, btrfs added support for it later.
-         * If it is not implemented, fallback to another method. */
-        if (!IN_SET(errno, EINVAL, ENOSYS))
+        /* renameat2() exists since Linux 3.15, btrfs and FAT added support for it later. If it is not implemented,
+         * fall back to a different method. */
+        if (!IN_SET(errno, EINVAL, ENOSYS, ENOTTY))
                 return -errno;
 
-        /* The link()/unlink() fallback does not work on directories. But
-         * renameat() without RENAME_NOREPLACE gives the same semantics on
-         * directories, except when newpath is an *empty* directory. This is
-         * good enough. */
-        ret = fstatat(olddirfd, oldpath, &buf, AT_SYMLINK_NOFOLLOW);
-        if (ret >= 0 && S_ISDIR(buf.st_mode)) {
-                ret = renameat(olddirfd, oldpath, newdirfd, newpath);
-                return ret >= 0 ? 0 : -errno;
+        /* Let's try to use linkat()+unlinkat() as fallback. This doesn't work on directories and on some file systems
+         * that do not support hard links (such as FAT, most prominently), but for files it's pretty close to what we
+         * want — though not atomic (i.e. for a short period both the new and the old filename will exist). */
+        if (linkat(olddirfd, oldpath, newdirfd, newpath, 0) >= 0) {
+
+                if (unlinkat(olddirfd, oldpath, 0) < 0) {
+                        r = -errno; /* Backup errno before the following unlinkat() alters it */
+                        (void) unlinkat(newdirfd, newpath, 0);
+                        return r;
+                }
+
+                return 0;
         }
 
-        /* If it is not a directory, use the link()/unlink() fallback. */
-        ret = linkat(olddirfd, oldpath, newdirfd, newpath, 0);
-        if (ret < 0)
+        if (!IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM)) /* FAT returns EPERM on link()… */
                 return -errno;
 
-        ret = unlinkat(olddirfd, oldpath, 0);
-        if (ret < 0) {
-                /* backup errno before the following unlinkat() alters it */
-                ret = errno;
-                (void) unlinkat(newdirfd, newpath, 0);
-                errno = ret;
+        /* OK, neither RENAME_NOREPLACE nor linkat()+unlinkat() worked. Let's then fallback to the racy TOCTOU
+         * vulnerable accessat(F_OK) check followed by classic, replacing renameat(), we have nothing better. */
+
+        if (faccessat(newdirfd, newpath, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                return -EEXIST;
+        if (errno != ENOENT)
                 return -errno;
-        }
+
+        if (renameat(olddirfd, oldpath, newdirfd, newpath) < 0)
+                return -errno;
 
         return 0;
 }
