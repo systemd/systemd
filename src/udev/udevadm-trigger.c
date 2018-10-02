@@ -12,7 +12,7 @@
 #include "device-enumerator-private.h"
 #include "device-monitor-private.h"
 #include "fd-util.h"
-#include "libudev-private.h"
+#include "path-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
@@ -27,9 +27,9 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
         int r;
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
-                char filename[UTIL_PATH_SIZE];
-                const char *syspath;
+                _cleanup_free_ char *filename = NULL;
                 _cleanup_close_ int fd = -1;
+                const char *syspath;
 
                 if (sd_device_get_syspath(d, &syspath) < 0)
                         continue;
@@ -39,7 +39,10 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
                 if (arg_dry_run)
                         continue;
 
-                strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
+                filename = path_join(NULL, syspath, "uevent");
+                if (!filename)
+                        return log_oom();
+
                 fd = open(filename, O_WRONLY|O_CLOEXEC);
                 if (fd < 0)
                         continue;
@@ -51,22 +54,28 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
                 }
 
                 if (write(fd, action, strlen(action)) < 0)
-                        log_debug_errno(errno, "error writing '%s' to '%s': %m", action, filename);
+                        log_debug_errno(errno, "Failed to write '%s' to '%s', ignoring: %m", action, filename);
         }
 
         return 0;
 }
 
-static const char *keyval(const char *str, const char **val, char *buf, size_t size) {
-        char *pos;
+static char* keyval(const char *str, const char **key, const char **val) {
+        char *buf, *pos;
 
-        strscpy(buf, size,str);
+        buf = strdup(str);
+        if (!buf)
+                return NULL;
+
         pos = strchr(buf, '=');
-        if (pos != NULL) {
+        if (pos) {
                 pos[0] = 0;
                 pos++;
         }
+
+        *key = buf;
         *val = pos;
+
         return buf;
 }
 
@@ -142,9 +151,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 return r;
 
         while ((c = getopt_long(argc, argv, "vnt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
-                const char *key;
-                const char *val;
-                char buf[UTIL_PATH_SIZE];
+                _cleanup_free_ char *buf = NULL;
+                const char *key, *val;
 
                 switch (c) {
                 case 'v':
@@ -159,7 +167,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         else if (streq(optarg, "subsystems"))
                                 device_type = TYPE_SUBSYSTEMS;
                         else {
-                                log_error("unknown type --type=%s", optarg);
+                                log_error("Unknown type --type=%s", optarg);
                                 return -EINVAL;
                         }
                         break;
@@ -167,7 +175,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         if (STR_IN_SET(optarg, "add", "remove", "change"))
                                 action = optarg;
                         else {
-                                log_error("unknown action '%s'", optarg);
+                                log_error("Unknown action '%s'", optarg);
                                 return -EINVAL;
                         }
 
@@ -175,51 +183,57 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 case 's':
                         r = sd_device_enumerator_add_match_subsystem(e, optarg, true);
                         if (r < 0)
-                                return log_error_errno(r, "could not add subsystem match '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to add subsystem match '%s': %m", optarg);
                         break;
                 case 'S':
                         r = sd_device_enumerator_add_match_subsystem(e, optarg, false);
                         if (r < 0)
-                                return log_error_errno(r, "could not add negative subsystem match '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to add negative subsystem match '%s': %m", optarg);
                         break;
                 case 'a':
-                        key = keyval(optarg, &val, buf, sizeof(buf));
+                        buf = keyval(optarg, &key, &val);
+                        if (!buf)
+                                return log_oom();
                         r = sd_device_enumerator_add_match_sysattr(e, key, val, true);
                         if (r < 0)
-                                return log_error_errno(r, "could not add sysattr match '%s=%s': %m", key, val);
+                                return log_error_errno(r, "Failed to add sysattr match '%s=%s': %m", key, val);
                         break;
                 case 'A':
-                        key = keyval(optarg, &val, buf, sizeof(buf));
+                        buf = keyval(optarg, &key, &val);
+                        if (!buf)
+                                return log_oom();
                         r = sd_device_enumerator_add_match_sysattr(e, key, val, false);
                         if (r < 0)
-                                return log_error_errno(r, "could not add negative sysattr match '%s=%s': %m", key, val);
+                                return log_error_errno(r, "Failed to add negative sysattr match '%s=%s': %m", key, val);
                         break;
                 case 'p':
-                        key = keyval(optarg, &val, buf, sizeof(buf));
+                        buf = keyval(optarg, &key, &val);
+                        if (!buf)
+                                return log_oom();
                         r = sd_device_enumerator_add_match_property(e, key, val);
                         if (r < 0)
-                                return log_error_errno(r, "could not add property match '%s=%s': %m", key, val);
+                                return log_error_errno(r, "Failed to add property match '%s=%s': %m", key, val);
                         break;
                 case 'g':
                         r = sd_device_enumerator_add_match_tag(e, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "could not add tag match '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to add tag match '%s': %m", optarg);
                         break;
                 case 'y':
                         r = sd_device_enumerator_add_match_sysname(e, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "could not add sysname match '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to add sysname match '%s': %m", optarg);
                         break;
                 case 'b': {
                         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
                         r = find_device(optarg, "/sys", &dev);
                         if (r < 0)
-                                return log_error_errno(r, "unable to open the device '%s'", optarg);
+                                return log_error_errno(r, "Failed to open the device '%s': %m", optarg);
 
                         r = sd_device_enumerator_add_match_parent(e, dev);
                         if (r < 0)
-                                return log_error_errno(r, "could not add parent match '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
                         break;
                 }
                 case 'w':
@@ -231,11 +245,11 @@ int trigger_main(int argc, char *argv[], void *userdata) {
 
                         r = find_device(optarg, "/dev/", &dev);
                         if (r < 0)
-                                return log_error_errno(r, "unable to open the device '%s'", optarg);
+                                return log_error_errno(r, "Failed to open the device '%s': %m", optarg);
 
                         r = sd_device_enumerator_add_match_parent(e, dev);
                         if (r < 0)
-                                return log_error_errno(r, "could not add parent match '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
                         break;
                 }
 
@@ -255,17 +269,17 @@ int trigger_main(int argc, char *argv[], void *userdata) {
 
                 r = find_device(argv[optind], NULL, &dev);
                 if (r < 0)
-                        return log_error_errno(r, "unable to open the device '%s'", argv[optind]);
+                        return log_error_errno(r, "Failed to open the device '%s': %m", argv[optind]);
 
                 r = sd_device_enumerator_add_match_parent(e, dev);
                 if (r < 0)
-                        return log_error_errno(r, "could not add parent match '%s': %m", argv[optind]);
+                        return log_error_errno(r, "Failed to add parent match '%s': %m", argv[optind]);
         }
 
         if (settle) {
                 fd_ep = epoll_create1(EPOLL_CLOEXEC);
                 if (fd_ep < 0)
-                        return log_error_errno(errno, "error creating epoll fd: %m");
+                        return log_error_errno(errno, "Failed to create epoll fd: %m");
 
                 r = sd_device_monitor_new(&m);
                 if (r < 0)
@@ -303,7 +317,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to scan devices: %m");
                 break;
         default:
-                assert_not_reached("device_type");
+                assert_not_reached("Unknown device type");
         }
         r = exec_list(e, action, settle_set);
         if (r < 0)
@@ -317,13 +331,13 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), -1);
                 if (fdcount < 0) {
                         if (errno != EINTR)
-                                log_error_errno(errno, "error receiving uevent message: %m");
+                                log_error_errno(errno, "Failed to receive uevent message: %m");
                         continue;
                 }
 
                 for (i = 0; i < fdcount; i++) {
                         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                        const char *syspath = NULL;
+                        const char *syspath;
 
                         if (!(ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN))
                                 continue;
