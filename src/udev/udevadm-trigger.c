@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "device-enumerator-private.h"
+#include "device-monitor-private.h"
 #include "fd-util.h"
 #include "libudev-private.h"
 #include "set.h"
@@ -125,13 +126,12 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         } device_type = TYPE_DEVICES;
         const char *action = "change";
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor = NULL;
-        _cleanup_close_ int fd_ep = -1;
-        int fd_udev = -1;
-        struct epoll_event ep_udev;
-        bool settle = false;
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
         _cleanup_set_free_free_ Set *settle_set = NULL;
-        int c, r;
+        _cleanup_close_ int fd_ep = -1;
+        struct epoll_event ep_monitor;
+        int c, r, fd_monitor = -1;
+        bool settle = false;
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
@@ -267,24 +267,24 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 if (fd_ep < 0)
                         return log_error_errno(errno, "error creating epoll fd: %m");
 
-                udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
-                if (!udev_monitor)
-                        return log_error_errno(errno, "error: unable to create netlink socket: %m");
-
-                fd_udev = udev_monitor_get_fd(udev_monitor);
-                if (fd_udev < 0)
-                        return log_error_errno(fd_udev, "Failed to get udev_monitor fd: %m");
-
-                r = udev_monitor_enable_receiving(udev_monitor);
+                r = sd_device_monitor_new(&m);
                 if (r < 0)
-                        return log_error_errno(r, "error: unable to subscribe to udev events: %m");
+                        return log_error_errno(r, "Failed to create device monitor object: %m");
 
-                ep_udev = (struct epoll_event) {
+                fd_monitor = device_monitor_get_fd(m);
+                if (fd_monitor < 0)
+                        return log_error_errno(fd_monitor, "Failed to get monitor fd: %m");
+
+                r = device_monitor_enable_receiving(m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to subscribe udev events: %m");
+
+                ep_monitor = (struct epoll_event) {
                         .events = EPOLLIN,
-                        .data.fd = fd_udev,
+                        .data.fd = fd_monitor,
                 };
-                if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_udev, &ep_udev) < 0)
-                        return log_error_errno(errno, "fail to add fd to epoll: %m");
+                if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0)
+                        return log_error_errno(errno, "Failed to add fd to epoll: %m");
 
                 settle_set = set_new(&string_hash_ops);
                 if (!settle_set)
@@ -325,10 +325,10 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                         const char *syspath = NULL;
 
-                        if (!(ev[i].data.fd == fd_udev && ev[i].events & EPOLLIN))
+                        if (!(ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN))
                                 continue;
 
-                        if (udev_monitor_receive_sd_device(udev_monitor, &dev) < 0)
+                        if (device_monitor_receive_device(m, &dev) <= 0)
                                 continue;
 
                         if (sd_device_get_syspath(dev, &syspath) < 0)
