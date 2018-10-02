@@ -1896,10 +1896,10 @@ static int install_context_apply(
                 if (q < 0)
                         return q;
 
-                r = install_info_traverse(scope, c, paths, i, flags, NULL);
-                if (r < 0) {
+                q = install_info_traverse(scope, c, paths, i, flags, NULL);
+                if (q < 0) {
                         unit_file_changes_add(changes, n_changes, r, i->name, NULL);
-                        return r;
+                        return q;
                 }
 
                 /* We can attempt to process a masked unit when a different unit
