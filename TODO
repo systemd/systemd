@@ -15,6 +15,13 @@ Janitorial Clean-ups:
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
+Before v240:
+
+* move portablectl into /usr/bin
+
+* portables: introduce a new unit file directory /etc/systemd/system.attached/
+  or so, where we attach portable services to
+
 Features:
 
 * consider splitting out all temporary file creation APIs (we have so many in
@@ -94,9 +101,6 @@ Features:
   4. figure out what to do with swap-on-luks
   5. add autodetection of hibernation images, and add "noresume" to disable
      this
-
-* portables: introduce a new unit file directory /etc/systemd/system.attached/
-  or so, where we attach portable services to
 
 * cgroups: use inotify to get notified when somebody else modifies cgroups
   owned by us, then log a friendly warning.
