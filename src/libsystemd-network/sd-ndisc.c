@@ -221,7 +221,14 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
                         break;
 
                 case -EPFNOSUPPORT:
-                        log_ndisc("Received invalid source address from ICMPv6 socket.");
+                        log_ndisc("Received invalid source address from ICMPv6 socket. Ignoring.");
+                        break;
+
+                case -EAGAIN: /* ignore spurious wakeups */
+                        break;
+
+                default:
+                        log_ndisc_errno(r, "Unexpected error while reading from ICMPv6, ignoring: %m");
                         break;
                 }
 

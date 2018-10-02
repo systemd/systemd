@@ -85,5 +85,4 @@ struct sd_radv_prefix {
 
 #define log_radv_full(level, error, fmt, ...) log_internal(level, error, __FILE__, __LINE__, __func__, "RADV: " fmt, ##__VA_ARGS__)
 #define log_radv_errno(error, fmt, ...) log_radv_full(LOG_DEBUG, error, fmt, ##__VA_ARGS__)
-#define log_radv_warning_errno(error, fmt, ...) log_radv_full(LOG_WARNING, error, fmt, ##__VA_ARGS__)
 #define log_radv(fmt, ...) log_radv_errno(0, fmt, ##__VA_ARGS__)
