@@ -22,6 +22,7 @@
     <refname>sd_id128_get_machine</refname>
     <refname>sd_id128_get_machine_app_specific</refname>
     <refname>sd_id128_get_boot</refname>
+    <refname>sd_id128_get_boot_app_specific</refname>
     <refname>sd_id128_get_invocation</refname>
     <refpurpose>Retrieve 128-bit IDs</refpurpose>
   </refnamediv>
@@ -43,6 +44,12 @@
 
       <funcprototype>
         <funcdef>int <function>sd_id128_get_boot</function></funcdef>
+        <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_get_boot_app_specific</function></funcdef>
+        <paramdef>sd_id128_t <parameter>app_id</parameter></paramdef>
         <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
@@ -69,19 +76,25 @@
     <function>sd_id128_get_machine()</function>, but retrieves a machine ID that is specific to the application that is
     identified by the indicated application ID. It is recommended to use this function instead of
     <function>sd_id128_get_machine()</function> when passing an ID to untrusted environments, in order to make sure
-    that the original machine ID may not be determined externally. The application-specific ID should be generated via
-    a tool like <command>journalctl --new-id128</command>, and may be compiled into the application. This function will
-    return the same application-specific ID for each combination of machine ID and application ID. Internally, this
-    function calculates HMAC-SHA256 of the application ID, keyed by the machine ID.</para>
+    that the original machine ID may not be determined externally. This way, the ID used by the application remains
+    stable on a given machine, but cannot be easily correlated with IDs used in other applications on the same
+    machine. The application-specific ID should be generated via a tool like <command>systemd-id128 new</command>,
+    and may be compiled into the application. This function will return the same application-specific ID for each
+    combination of machine ID and application ID. Internally, this function calculates HMAC-SHA256 of the application
+    ID, keyed by the machine ID.</para>
 
-    <para><function>sd_id128_get_boot()</function> returns the boot ID
-    of the executing kernel. This reads and parses the
-    <filename>/proc/sys/kernel/random/boot_id</filename> file exposed
-    by the kernel. It is randomly generated early at boot and is
-    unique for every running kernel instance. See
-    <citerefentry project='man-pages'><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
-    for more information. This function also internally caches the
-    returned ID to make this call a cheap operation.</para>
+    <para><function>sd_id128_get_boot()</function> returns the boot ID of the executing kernel. This reads and parses
+    the <filename>/proc/sys/kernel/random/boot_id</filename> file exposed by the kernel. It is randomly generated early
+    at boot and is unique for every running kernel instance. See <citerefentry
+    project='man-pages'><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more
+    information. This function also internally caches the returned ID to make this call a cheap operation. It is
+    recommended to use this ID as-is only in trusted environments. In untrusted environments it is recommended to
+    derive an application specific ID using <function>sd_id128_get_machine_app_specific()</function>, see below.</para>
+
+    <para><function>sd_id128_get_boot_app_specific()</function> is analogous to
+    <function>sd_id128_get_machine_app_specific()</function> but returns an ID that changes between boots. Some
+    machines may be used for a long time without rebooting, hence the boot ID may remain constant for a long time, and
+    has properties similar to the machine ID during that time.</para>
 
     <para><function>sd_id128_get_invocation()</function> returns the invocation ID of the currently executed
     service. In its current implementation, this reads and parses the <varname>$INVOCATION_ID</varname> environment
@@ -89,10 +102,11 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details. The
     ID is cached internally. In future a different mechanism to determine the invocation ID may be added.</para>
 
-    <para>Note that <function>sd_id128_get_machine_app_specific()</function>, <function>sd_id128_get_boot()</function>
-    and <function>sd_id128_get_invocation()</function> always return UUID v4 compatible IDs.
-    <function>sd_id128_get_machine()</function> will also return a UUID v4-compatible ID on new installations but might
-    not on older.  It is possible to convert the machine ID into a UUID v4-compatible one. For more information, see
+    <para>Note that <function>sd_id128_get_machine_app_specific()</function>, <function>sd_id128_get_boot()</function>,
+    <function>sd_id128_get_boot_app_specific()</function>, and <function>sd_id128_get_invocation()</function> always
+    return UUID v4 compatible IDs.  <function>sd_id128_get_machine()</function> will also return a UUID v4-compatible
+    ID on new installations but might not on older. It is possible to convert the machine ID into a UUID v4-compatible
+    one. For more information, see
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>For more information about the <literal>sd_id128_t</literal>
@@ -104,10 +118,12 @@
     <title>Return Value</title>
 
     <para>Those calls return 0 on success (in which case <parameter>ret</parameter> is filled in),
-    or a negative errno-style error code. In particular, <function>sd_id128_get_machine()</function>
-    and <function>sd_id128_get_machine_app_specific()</function> return <constant>-ENOENT</constant>
-    if <filename>/etc/machine-id</filename> is missing, and <constant>-ENOMEDIUM</constant> if is
-    empty or all zeros.</para>
+    or a negative errno-style error code. In particular,
+    <function>sd_id128_get_machine()</function>,
+    <function>sd_id128_get_machine_app_specific()</function>, and
+    <function>sd_id128_get_boot_app_specific()</function> return <constant>-ENOENT</constant> if
+    <filename>/etc/machine-id</filename> is missing, and <constant>-ENOMEDIUM</constant> if is empty
+    or all zeros.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
@@ -118,7 +134,20 @@
     <example>
       <title>Application-specific machine ID</title>
 
-      <para>Here's a simple example for an application specific machine ID:</para>
+      <para>First, generate the application ID:</para>
+      <programlisting>$ systemd-id128 -p new
+As string:
+c273277323db454ea63bb96e79b53e97
+
+As UUID:
+c2732773-23db-454e-a63b-b96e79b53e97
+
+As man:sd-id128(3) macro:
+#define MESSAGE_XYZ SD_ID128_MAKE(c2,73,27,73,23,db,45,4e,a6,3b,b9,6e,79,b5,3e,97)
+...
+</programlisting>
+
+      <para>Then use the new identifier in an example application:</para>
 
       <programlisting><xi:include href="id128-app-specific.c" parse="text" /></programlisting>
     </example>
@@ -129,6 +158,7 @@
 
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-id128</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

@@ -2324,6 +2324,14 @@ executable('systemd-cgroups-agent',
            install : true,
            install_dir : rootlibexecdir)
 
+exe = executable('systemd-id128',
+                 'src/id128/id128.c',
+                 include_directories : includes,
+                 link_with : [libshared],
+                 install_rpath : rootlibexecdir,
+                 install : true)
+public_programs += exe
+
 exe = executable('systemd-path',
                  'src/path/path.c',
                  include_directories : includes,

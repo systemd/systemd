@@ -181,10 +181,6 @@ Features:
 * add bpf-based implementation of devices cgroup controller logic for compat
   with cgroupsv2 as supported by newest kernel
 
-* introduce sd_id128_get_boot_app_specific() which is like
-  sd_id128_get_machine_app_specific(). After all on long-running systems both
-  IDs have similar properties.
-
 * sd-bus: add vtable flag, that may be used to request client creds implicitly
   and asynchronously before dispatching the operation
 

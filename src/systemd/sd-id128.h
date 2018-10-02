@@ -42,6 +42,7 @@ int sd_id128_randomize(sd_id128_t *ret);
 
 int sd_id128_get_machine(sd_id128_t *ret);
 int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret);
+int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 int sd_id128_get_boot(sd_id128_t *ret);
 int sd_id128_get_invocation(sd_id128_t *ret);
 

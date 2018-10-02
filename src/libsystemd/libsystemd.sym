@@ -648,4 +648,6 @@ global:
         sd_hwdb_enumerate;
 
         sd_hwdb_unrefp;
+
+        sd_id128_get_boot_app_specific;
 } LIBSYSTEMD_239;

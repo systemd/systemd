@@ -1,0 +1,122 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="systemd-id128" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-id128</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-id128</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-id128</refname>
+    <refpurpose>Generate and print sd-128 identifiers</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">new</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">machine-id</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">boot-id</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">invocation-id</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>id128</command> may be used to conveniently print
+    <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    UUIDs. What identifier is printed depends on the specific verb.</para>
+
+    <para>With <command>new</command>, a new random identifier will be generated.</para>
+
+    <para>With <command>machine-id</command>, the identifier of the current machine will be
+    printed. See
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>With <command>boot-id</command>, the identifier of the current boot will be
+    printed.</para>
+
+    <para>Both <command>machine-id</command> and <command>boot-id</command> may be combined
+    with the <option>--app-specific=<replaceable>app-id</replaceable></option> switch to
+    generate application-specific IDs. See
+    <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for the discussion when this is useful.</para>
+
+    <para>With <command>invocation-id</command>, the identifier of the current service invocation
+    will be printed. This is available in systemd services. See
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--pretty</option></term>
+
+        <listitem><para>Generate output as programming language snippets.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a <replaceable>app-id</replaceable></option></term>
+        <term><option>--app-specific=<replaceable>app-id</replaceable></option></term>
+
+        <listitem><para>With this option, an identifier that is the result of hashing the
+        application identifier <replaceable>app-id</replaceable> and the machine identifier will be
+        printed. The <replaceable>app-id</replaceable> argument must be a valid sd-id128 string
+        identifying the application.</para>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
