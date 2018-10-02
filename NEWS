@@ -27,6 +27,31 @@ CHANGES WITH 240 in spe:
           non-transient services (i.e. those defined with unit files on disk)
           we will continue to default to Type=simple.
 
+        * The Linux kernel's current default RLIMIT_NOFILE resource limit for
+          userspace processes is set to 1024 (soft) and 4096
+          (hard). Previously, systemd passed this on unmodified to all
+          processes it forked off. With this systemd release the hard limit
+          systemd passes on is increased to 256K, overriding the kernel's
+          defaults and substantially increasing the number of simultaneous file
+          descriptors unprivileged userspace processes can allocate. Note that
+          the soft limit remains at 1024 for compatibility reasons: the
+          traditional UNIX select() call cannot deal with file descriptors >=
+          1024 and increasing the soft limit globally might thus result in
+          programs unexpectedly allocating a high file descriptor and thus
+          failing abnormally when attempting to use it with select() (of
+          course, programs shouldn't use select() anymore, and prefer
+          poll()/epoll, but the call unfortunately remains undeservedly popular
+          at this time). This change reflects the fact that file descriptor
+          handling in the Linux kernel has been optimized in more recent
+          kernels and allocating large numbers of them should be much cheaper
+          both in memory and in performance than it used to be. Programs that
+          want to take benefit of the increased limit have to "opt-in" into
+          high file descriptors explicitly by setting their soft limit to the
+          hard limit during initialization. Of course, when doing that they
+          must do this acknowledging the fact that they cannot use select()
+          anymore (and neither can any shared library they use — or any shared
+          library used by any shared library they use and so on).
+
 CHANGES WITH 239:
 
         * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
