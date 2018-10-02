@@ -4,11 +4,15 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "id128-print.h"
 #include "log.h"
+#include "terminal-util.h"
 
 int id128_pretty_print(sd_id128_t id, bool pretty) {
         unsigned i;
+        _cleanup_free_ char *man_link = NULL, *mod_link = NULL;
+        const char *on, *off;
 
         if (!pretty) {
                 printf(SD_ID128_FORMAT_STR "\n",
@@ -16,22 +20,34 @@ int id128_pretty_print(sd_id128_t id, bool pretty) {
                 return 0;
         }
 
+        on = ansi_highlight();
+        off = ansi_normal();
+
+        if (terminal_urlify("man:systemd-id128(1)", "systemd-id128(1)", &man_link) < 0)
+                return log_oom();
+
+        if (terminal_urlify("https://docs.python.org/3/library/uuid.html", "uuid", &mod_link) < 0)
+                return log_oom();
+
         printf("As string:\n"
-               SD_ID128_FORMAT_STR "\n\n"
+               "%s" SD_ID128_FORMAT_STR "%s\n\n"
                "As UUID:\n"
-               "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n\n"
-               "As man:sd-id128(3) macro:\n"
-               "#define MESSAGE_XYZ SD_ID128_MAKE(",
-               SD_ID128_FORMAT_VAL(id),
-               SD_ID128_FORMAT_VAL(id));
+               "%s%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x%s\n\n"
+               "As %s macro:\n"
+               "%s#define MESSAGE_XYZ SD_ID128_MAKE(",
+               on, SD_ID128_FORMAT_VAL(id), off,
+               on, SD_ID128_FORMAT_VAL(id), off,
+               man_link,
+               on);
         for (i = 0; i < 16; i++)
                 printf("%02x%s", id.bytes[i], i != 15 ? "," : "");
-        fputs(")\n\n", stdout);
+        printf(")%s\n\n", off);
 
         printf("As Python constant:\n"
-               ">>> import uuid\n"
-               ">>> MESSAGE_XYZ = uuid.UUID('" SD_ID128_FORMAT_STR "')\n",
-               SD_ID128_FORMAT_VAL(id));
+               ">>> import %s\n"
+               ">>> %sMESSAGE_XYZ = uuid.UUID('" SD_ID128_FORMAT_STR "')%s\n",
+               mod_link,
+               on, SD_ID128_FORMAT_VAL(id), off);
 
         return 0;
 }
