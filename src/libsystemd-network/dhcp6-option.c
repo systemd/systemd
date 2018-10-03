@@ -247,10 +247,11 @@ int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
         return 0;
 }
 
-int dhcp6_option_parse_status(DHCP6Option *option) {
+int dhcp6_option_parse_status(DHCP6Option *option, size_t len) {
         DHCP6StatusOption *statusopt = (DHCP6StatusOption *)option;
 
-        if (be16toh(option->len) + sizeof(DHCP6Option) < sizeof(*statusopt))
+        if (len < sizeof(DHCP6StatusOption) ||
+            be16toh(option->len) + sizeof(DHCP6Option) < sizeof(DHCP6StatusOption))
                 return -ENOBUFS;
 
         return be16toh(statusopt->status);
@@ -277,7 +278,7 @@ static int dhcp6_option_parse_address(DHCP6Option *option, DHCP6IA *ia,
         }
 
         if (be16toh(option->len) + sizeof(DHCP6Option) > sizeof(*addr_option)) {
-                r = dhcp6_option_parse_status((DHCP6Option *)addr_option->options);
+                r = dhcp6_option_parse_status((DHCP6Option *)addr_option->options, be16toh(option->len) + sizeof(DHCP6Option) - sizeof(*addr_option));
                 if (r != 0)
                         return r < 0 ? r: 0;
         }
@@ -317,7 +318,7 @@ static int dhcp6_option_parse_pdprefix(DHCP6Option *option, DHCP6IA *ia,
         }
 
         if (be16toh(option->len) + sizeof(DHCP6Option) > sizeof(*pdprefix_option)) {
-                r = dhcp6_option_parse_status((DHCP6Option *)pdprefix_option->options);
+                r = dhcp6_option_parse_status((DHCP6Option *)pdprefix_option->options, be16toh(option->len) + sizeof(DHCP6Option) - sizeof(*pdprefix_option));
                 if (r != 0)
                         return r < 0 ? r: 0;
         }
@@ -462,7 +463,7 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
 
                 case SD_DHCP6_OPTION_STATUS_CODE:
 
-                        status = dhcp6_option_parse_status(option);
+                        status = dhcp6_option_parse_status(option, optlen);
                         if (status) {
                                 log_dhcp6_client(client, "IA status %d",
                                                  status);
