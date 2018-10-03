@@ -615,8 +615,7 @@ static void test_fsync_directory_of_file(void) {
 }
 
 static void test_rename_noreplace(void) {
-
-        const char* const table[] = {
+        static const char* const table[] = {
                 "/reg",
                 "/dir",
                 "/fifo",
@@ -626,16 +625,13 @@ static void test_rename_noreplace(void) {
         };
 
         _cleanup_(rm_rf_physical_and_freep) char *z = NULL;
-        const char *e, *j;
+        const char *e, *j = NULL;
         char **a, **b;
 
         e = getenv("RENAME_NOREPLACE_DIR");
-        if (e) {
+        if (e)
                 j = strjoina(e, "/testXXXXXX");
-
-                assert_se(mkdtemp_malloc(j, &z) >= 0);
-        } else
-                assert_se(mkdtemp_malloc(NULL, &z) >= 0);
+        assert_se(mkdtemp_malloc(j, &z) >= 0);
 
         j = strjoina(z, table[0]);
         assert_se(touch(j) >= 0);
