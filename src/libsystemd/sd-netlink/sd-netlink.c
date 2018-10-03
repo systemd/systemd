@@ -542,7 +542,7 @@ int sd_netlink_call_async(sd_netlink *nl,
 
         if (c->timeout != 0) {
                 r = prioq_put(nl->reply_callbacks_prioq, c, &c->prioq_idx);
-                if (r > 0) {
+                if (r < 0) {
                         c->timeout = 0;
                         sd_netlink_call_async_cancel(nl, c->serial);
                         return r;
