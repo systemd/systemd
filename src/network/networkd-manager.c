@@ -1455,8 +1455,9 @@ void manager_free(Manager *m) {
 
                 link_unref(link);
         }
-        hashmap_free(m->links);
 
+        set_free_with_destructor(m->dirty_links, link_unref);
+        hashmap_free(m->links);
         set_free(m->links_requesting_uuid);
         set_free(m->duids_requesting_uuid);
 
