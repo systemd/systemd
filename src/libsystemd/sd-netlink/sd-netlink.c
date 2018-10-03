@@ -21,28 +21,29 @@ static int sd_netlink_new(sd_netlink **ret) {
 
         assert_return(ret, -EINVAL);
 
-        rtnl = new0(sd_netlink, 1);
+        rtnl = new(sd_netlink, 1);
         if (!rtnl)
                 return -ENOMEM;
 
-        rtnl->n_ref = REFCNT_INIT;
-        rtnl->fd = -1;
-        rtnl->sockaddr.nl.nl_family = AF_NETLINK;
-        rtnl->original_pid = getpid_cached();
-        rtnl->protocol = -1;
+        *rtnl = (sd_netlink) {
+                .n_ref = REFCNT_INIT,
+                .fd = -1,
+                .sockaddr.nl.nl_family = AF_NETLINK,
+                .original_pid = getpid_cached(),
+                .protocol = -1,
 
-        LIST_HEAD_INIT(rtnl->match_callbacks);
+                /* Change notification responses have sequence 0, so we must
+                 * start our request sequence numbers at 1, or we may confuse our
+                 * responses with notifications from the kernel */
+                .serial = 1,
+
+        };
 
         /* We guarantee that the read buffer has at least space for
          * a message header */
         if (!greedy_realloc((void**)&rtnl->rbuffer, &rtnl->rbuffer_allocated,
                             sizeof(struct nlmsghdr), sizeof(uint8_t)))
                 return -ENOMEM;
-
-        /* Change notification responses have sequence 0, so we must
-         * start our request sequence numbers at 1, or we may confuse our
-         * responses with notifications from the kernel */
-        rtnl->serial = 1;
 
         *ret = TAKE_PTR(rtnl);
 
@@ -827,13 +828,15 @@ int sd_netlink_add_match(sd_netlink *rtnl,
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
 
-        c = new0(struct match_callback, 1);
+        c = new(struct match_callback, 1);
         if (!c)
                 return -ENOMEM;
 
-        c->callback = callback;
-        c->type = type;
-        c->userdata = userdata;
+        *c = (struct match_callback) {
+                .callback = callback,
+                .type = type,
+                .userdata = userdata,
+        };
 
         switch (type) {
                 case RTM_NEWLINK:
