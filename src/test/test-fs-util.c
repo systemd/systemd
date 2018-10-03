@@ -614,6 +614,77 @@ static void test_fsync_directory_of_file(void) {
         assert_se(fsync_directory_of_file(fd) >= 0);
 }
 
+static void test_rename_noreplace(void) {
+
+        const char* const table[] = {
+                "/reg",
+                "/dir",
+                "/fifo",
+                "/socket",
+                "/symlink",
+                NULL
+        };
+
+        _cleanup_(rm_rf_physical_and_freep) char *z = NULL;
+        const char *e, *j;
+        char **a, **b;
+
+        e = getenv("RENAME_NOREPLACE_DIR");
+        if (e) {
+                j = strjoina(e, "/testXXXXXX");
+
+                assert_se(mkdtemp_malloc(j, &z) >= 0);
+        } else
+                assert_se(mkdtemp_malloc(NULL, &z) >= 0);
+
+        j = strjoina(z, table[0]);
+        assert_se(touch(j) >= 0);
+
+        j = strjoina(z, table[1]);
+        assert_se(mkdir(j, 0777) >= 0);
+
+        j = strjoina(z, table[2]);
+        (void) mkfifo(j, 0777);
+
+        j = strjoina(z, table[3]);
+        (void) mknod(j, S_IFSOCK | 0777, 0);
+
+        j = strjoina(z, table[4]);
+        (void) symlink("foobar", j);
+
+        STRV_FOREACH(a, (char**) table) {
+                _cleanup_free_ char *x = NULL, *y = NULL;
+
+                x = strjoin(z, *a);
+                assert_se(x);
+
+                if (access(x, F_OK) < 0) {
+                        assert_se(errno == ENOENT);
+                        continue;
+                }
+
+                STRV_FOREACH(b, (char**) table) {
+                        y = strjoin(z, *b);
+                        assert_se(y);
+
+                        if (access(y, F_OK) < 0) {
+                                assert_se(errno == ENOENT);
+                                continue;
+                        }
+
+                        assert_se(rename_noreplace(AT_FDCWD, x, AT_FDCWD, y) == -EEXIST);
+
+                        y = mfree(y);
+                }
+
+                y = strjoin(z, "/somethingelse");
+                assert_se(y);
+
+                assert_se(rename_noreplace(AT_FDCWD, x, AT_FDCWD, y) >= 0);
+                assert_se(rename_noreplace(AT_FDCWD, y, AT_FDCWD, x) >= 0);
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_unlink_noerrno();
         test_get_files_in_directory();
@@ -625,6 +696,7 @@ int main(int argc, char *argv[]) {
         test_touch_file();
         test_unlinkat_deallocate();
         test_fsync_directory_of_file();
+        test_rename_noreplace();
 
         return 0;
 }
