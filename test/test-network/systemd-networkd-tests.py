@@ -99,9 +99,7 @@ class Utilities():
             os.remove(dnsmasq_log_file)
 
     def start_networkd(self):
-        subprocess.check_call('systemctl stop systemd-networkd', shell=True)
-        time.sleep(1)
-        subprocess.check_call('systemctl start systemd-networkd', shell=True)
+        subprocess.check_call('systemctl restart systemd-networkd', shell=True)
         time.sleep(5)
 
 global ip
