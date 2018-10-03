@@ -28,7 +28,7 @@ def setUpModule():
     os.makedirs(networkd_ci_path, exist_ok=True)
 
     shutil.rmtree(networkd_ci_path)
-    copytree('conf', networkd_ci_path)
+    copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_path)
 
 def tearDownModule():
     shutil.rmtree(networkd_ci_path)
@@ -99,9 +99,7 @@ class Utilities():
             os.remove(dnsmasq_log_file)
 
     def start_networkd(self):
-        subprocess.check_call('systemctl stop systemd-networkd', shell=True)
-        time.sleep(1)
-        subprocess.check_call('systemctl start systemd-networkd', shell=True)
+        subprocess.check_call('systemctl restart systemd-networkd', shell=True)
         time.sleep(5)
 
 global ip
