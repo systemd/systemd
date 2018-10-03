@@ -15,24 +15,34 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "user-util.h"
 #include "util.h"
 #include "virt.h"
 
+static const char *arg_test_dir = NULL;
+
 static void test_chase_symlinks(void) {
         _cleanup_free_ char *result = NULL;
-        char temp[] = "/tmp/test-chase.XXXXXX";
+        char *temp;
         const char *top, *p, *pslash, *q, *qslash;
         struct stat st;
         int r, pfd;
 
+        log_info("/* %s */", __func__);
+
+        temp = strjoina(arg_test_dir ?: "/tmp", "/test-chase.XXXXXX");
         assert_se(mkdtemp(temp));
 
         top = strjoina(temp, "/top");
         assert_se(mkdir(top, 0700) >= 0);
 
         p = strjoina(top, "/dot");
-        assert_se(symlink(".", p) >= 0);
+        if (symlink(".", p) < 0) {
+                assert_se(IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM));
+                log_tests_skipped_errno(errno, "symlink() not possible");
+                goto cleanup;
+        };
 
         p = strjoina(top, "/dotdot");
         assert_se(symlink("..", p) >= 0);
@@ -335,13 +345,17 @@ static void test_chase_symlinks(void) {
         assert_se(streq("/usr", result));
         result = mfree(result);
 
+ cleanup:
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
 static void test_unlink_noerrno(void) {
-        char name[] = "/tmp/test-close_nointr.XXXXXX";
+        char *name;
         int fd;
 
+        log_info("/* %s */", __func__);
+
+        name = strjoina(arg_test_dir ?: "/tmp", "/test-close_nointr.XXXXXX");
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(close_nointr(fd) >= 0);
@@ -357,32 +371,37 @@ static void test_unlink_noerrno(void) {
 }
 
 static void test_readlink_and_make_absolute(void) {
-        char tempdir[] = "/tmp/test-readlink_and_make_absolute";
-        char name[] = "/tmp/test-readlink_and_make_absolute/original";
-        char name2[] = "test-readlink_and_make_absolute/original";
-        char name_alias[] = "/tmp/test-readlink_and_make_absolute-alias";
-        char *r = NULL;
-        _cleanup_free_ char *pwd = NULL;
+        const char *tempdir, *name, *name2, *name_alias;
+        _cleanup_free_ char *r1 = NULL, *r2 = NULL, *pwd = NULL;
+
+        log_info("/* %s */", __func__);
+
+        tempdir = strjoina(arg_test_dir ?: "/tmp", "/test-readlink_and_make_absolute");
+        name = strjoina(tempdir, "/original");
+        name2 = "test-readlink_and_make_absolute/original";
+        name_alias = strjoina(arg_test_dir ?: "/tmp", "/test-readlink_and_make_absolute-alias");
 
         assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid(), MKDIR_WARN_MODE) >= 0);
         assert_se(touch(name) >= 0);
 
-        assert_se(symlink(name, name_alias) >= 0);
-        assert_se(readlink_and_make_absolute(name_alias, &r) >= 0);
-        assert_se(streq(r, name));
-        free(r);
-        assert_se(unlink(name_alias) >= 0);
+        if (symlink(name, name_alias) < 0) {
+                assert_se(IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM));
+                log_tests_skipped_errno(errno, "symlink() not possible");
+        } else {
+                assert_se(readlink_and_make_absolute(name_alias, &r1) >= 0);
+                assert_se(streq(r1, name));
+                assert_se(unlink(name_alias) >= 0);
 
-        assert_se(safe_getcwd(&pwd) >= 0);
+                assert_se(safe_getcwd(&pwd) >= 0);
 
-        assert_se(chdir(tempdir) >= 0);
-        assert_se(symlink(name2, name_alias) >= 0);
-        assert_se(readlink_and_make_absolute(name_alias, &r) >= 0);
-        assert_se(streq(r, name));
-        free(r);
-        assert_se(unlink(name_alias) >= 0);
+                assert_se(chdir(tempdir) >= 0);
+                assert_se(symlink(name2, name_alias) >= 0);
+                assert_se(readlink_and_make_absolute(name_alias, &r2) >= 0);
+                assert_se(streq(r2, name));
+                assert_se(unlink(name_alias) >= 0);
 
-        assert_se(chdir(pwd) >= 0);
+                assert_se(chdir(pwd) >= 0);
+        }
 
         assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
@@ -390,7 +409,7 @@ static void test_readlink_and_make_absolute(void) {
 static void test_get_files_in_directory(void) {
         _cleanup_strv_free_ char **l = NULL, **t = NULL;
 
-        assert_se(get_files_in_directory("/tmp", &l) >= 0);
+        assert_se(get_files_in_directory(arg_test_dir ?: "/tmp", &l) >= 0);
         assert_se(get_files_in_directory(".", &t) >= 0);
         assert_se(get_files_in_directory(".", NULL) >= 0);
 }
@@ -398,6 +417,8 @@ static void test_get_files_in_directory(void) {
 static void test_var_tmp(void) {
         _cleanup_free_ char *tmpdir_backup = NULL, *temp_backup = NULL, *tmp_backup = NULL;
         const char *tmp_dir = NULL, *t;
+
+        log_info("/* %s */", __func__);
 
         t = getenv("TMPDIR");
         if (t) {
@@ -453,6 +474,8 @@ static void test_var_tmp(void) {
 }
 
 static void test_dot_or_dot_dot(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(!dot_or_dot_dot(NULL));
         assert_se(!dot_or_dot_dot(""));
         assert_se(!dot_or_dot_dot("xxx"));
@@ -465,8 +488,12 @@ static void test_dot_or_dot_dot(void) {
 static void test_access_fd(void) {
         _cleanup_(rmdir_and_freep) char *p = NULL;
         _cleanup_close_ int fd = -1;
+        const char *a;
 
-        assert_se(mkdtemp_malloc("/tmp/access-fd.XXXXXX", &p) >= 0);
+        log_info("/* %s */", __func__);
+
+        a = strjoina(arg_test_dir ?: "/tmp", "/access-fd.XXXXXX");
+        assert_se(mkdtemp_malloc(a, &p) >= 0);
 
         fd = open(p, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         assert_se(fd >= 0);
@@ -496,15 +523,24 @@ static void test_touch_file(void) {
         usec_t test_mtime;
         int r;
 
+        log_info("/* %s */", __func__);
+
         test_uid = geteuid() == 0 ? 65534 : getuid();
         test_gid = geteuid() == 0 ? 65534 : getgid();
 
         test_mtime = usec_sub_unsigned(now(CLOCK_REALTIME), USEC_PER_WEEK);
 
-        assert_se(mkdtemp_malloc("/dev/shm/touch-file-XXXXXX", &p) >= 0);
+        a = strjoina(arg_test_dir ?: "/dev/shm", "/touch-file-XXXXXX");
+        assert_se(mkdtemp_malloc(a, &p) >= 0);
 
         a = strjoina(p, "/regular");
-        assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
+        r = touch_file(a, false, test_mtime, test_uid, test_gid, 0640);
+        if (r < 0) {
+                assert_se(IN_SET(r, -EINVAL, -ENOSYS, -ENOTTY, -EPERM));
+                log_tests_skipped_errno(errno, "touch_file() not possible");
+                return;
+        }
+
         assert_se(lstat(a, &st) >= 0);
         assert_se(st.st_uid == test_uid);
         assert_se(st.st_gid == test_gid);
@@ -585,7 +621,9 @@ static void test_unlinkat_deallocate(void) {
         _cleanup_close_ int fd = -1;
         struct stat st;
 
-        assert_se(tempfn_random_child(NULL, "unlink-deallocation", &p) >= 0);
+        log_info("/* %s */", __func__);
+
+        assert_se(tempfn_random_child(arg_test_dir, "unlink-deallocation", &p) >= 0);
 
         fd = open(p, O_WRONLY|O_CLOEXEC|O_CREAT|O_EXCL, 0600);
         assert_se(fd >= 0);
@@ -600,7 +638,8 @@ static void test_unlinkat_deallocate(void) {
         assert_se(unlinkat_deallocate(AT_FDCWD, p, 0) >= 0);
 
         assert_se(fstat(fd, &st) >= 0);
-        assert_se(IN_SET(st.st_size, 0, 6)); /* depending on whether hole punching worked the size will be 6 (it worked) or 0 (we had to resort to truncation) */
+        assert_se(IN_SET(st.st_size, 0, 6)); /* depending on whether hole punching worked the size will be 6
+                                                (it worked) or 0 (we had to resort to truncation) */
         assert_se(st.st_blocks == 0);
         assert_se(st.st_nlink == 0);
 }
@@ -608,7 +647,9 @@ static void test_unlinkat_deallocate(void) {
 static void test_fsync_directory_of_file(void) {
         _cleanup_close_ int fd = -1;
 
-        fd = open_tmpfile_unlinkable(NULL, O_RDWR);
+        log_info("/* %s */", __func__);
+
+        fd = open_tmpfile_unlinkable(arg_test_dir, O_RDWR);
         assert_se(fd >= 0);
 
         assert_se(fsync_directory_of_file(fd) >= 0);
@@ -625,12 +666,13 @@ static void test_rename_noreplace(void) {
         };
 
         _cleanup_(rm_rf_physical_and_freep) char *z = NULL;
-        const char *e, *j = NULL;
+        const char *j = NULL;
         char **a, **b;
 
-        e = getenv("RENAME_NOREPLACE_DIR");
-        if (e)
-                j = strjoina(e, "/testXXXXXX");
+        log_info("/* %s */", __func__);
+
+        if (arg_test_dir)
+                j = strjoina(arg_test_dir, "/testXXXXXX");
         assert_se(mkdtemp_malloc(j, &z) >= 0);
 
         j = strjoina(z, table[0]);
@@ -682,6 +724,10 @@ static void test_rename_noreplace(void) {
 }
 
 int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_INFO);
+
+        arg_test_dir = argv[1];
+
         test_unlink_noerrno();
         test_get_files_in_directory();
         test_readlink_and_make_absolute();
