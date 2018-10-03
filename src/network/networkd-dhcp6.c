@@ -20,16 +20,13 @@
 
 static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
 
-static bool dhcp6_verify_link(Link *link) {
-        if (!link->network) {
-                log_link_info(link, "Link is not managed by us");
+static bool dhcp6_get_prefix_delegation(Link *link) {
+        if (!link->network)
                 return false;
-        }
 
         if (!IN_SET(link->network->router_prefix_delegation,
                             RADV_PREFIX_DELEGATION_DHCP6,
                             RADV_PREFIX_DELEGATION_BOTH)) {
-                log_link_debug(link, "Link does not request DHCPv6 prefix delegation");
                 return false;
         }
 
@@ -50,7 +47,7 @@ static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
                 if (l == dhcp6_link)
                         continue;
 
-                if (!dhcp6_verify_link(l))
+                if (!dhcp6_get_prefix_delegation(l))
                         continue;
 
                 return true;
@@ -217,7 +214,7 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
                 if (link == dhcp6_link)
                         continue;
 
-                if (!dhcp6_verify_link(link))
+                if (!dhcp6_get_prefix_delegation(link))
                         continue;
 
                 assigned_link = manager_dhcp6_prefix_get(manager, &prefix.in6);
@@ -344,6 +341,70 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
 
                 if (r >= 0)
                         i = ITERATOR_FIRST;
+        }
+
+        return 0;
+}
+
+int dhcp6_request_prefix_delegation(Link *link) {
+        Link *l;
+        Iterator i;
+
+        assert_return(link, -EINVAL);
+        assert_return(link->manager, -EOPNOTSUPP);
+
+        if (dhcp6_get_prefix_delegation(link) <= 0)
+                return 0;
+
+        log_link_debug(link, "Requesting DHCPv6 prefixes to be delegated for new link");
+
+        HASHMAP_FOREACH(l, link->manager->links, i) {
+                int r, enabled;
+
+                if (l == link)
+                        continue;
+
+                if (!l->dhcp6_client)
+                        continue;
+
+                r = sd_dhcp6_client_get_prefix_delegation(l->dhcp6_client, &enabled);
+                if (r < 0) {
+                        log_link_warning_errno(l, r, "Cannot get prefix delegation when adding new link");
+                        continue;
+                }
+
+                if (enabled == 0) {
+                        r = sd_dhcp6_client_set_prefix_delegation(l->dhcp6_client, 1);
+                        if (r < 0) {
+                                log_link_warning_errno(l, r, "Cannot enable prefix delegation when adding new link");
+                                continue;
+                        }
+                }
+
+                r = sd_dhcp6_client_is_running(l->dhcp6_client);
+                if (r <= 0)
+                        continue;
+
+                if (enabled != 0) {
+                        log_link_debug(l, "Requesting re-assignment of delegated prefixes after adding new link");
+                        (void) dhcp6_lease_pd_prefix_acquired(l->dhcp6_client, l);
+
+                        continue;
+                }
+
+                r = sd_dhcp6_client_stop(l->dhcp6_client);
+                if (r < 0) {
+                        log_link_warning_errno(l, r, "Cannot stop DHCPv6 prefix delegation client after adding new link");
+                        continue;
+                }
+
+                r = sd_dhcp6_client_start(l->dhcp6_client);
+                if (r < 0) {
+                        log_link_warning_errno(l, r, "Cannot restart DHCPv6 prefix delegation client after adding new link");
+                        continue;
+                }
+
+                log_link_debug(l, "Restarted DHCPv6 client to acquire prefix delegations after adding new link");
         }
 
         return 0;
