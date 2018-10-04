@@ -20,7 +20,7 @@ const struct hash_ops string_hash_ops = {
 
 void path_hash_func(const void *p, struct siphash *state) {
         const char *q = p;
-        size_t n;
+        size_t n; //size specified
 
         assert(q);
         assert(state);
