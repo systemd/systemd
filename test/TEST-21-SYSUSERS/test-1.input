@@ -1,5 +1,0 @@
-# Trivial smoke test that covers the most basic functionality
-#
-#Type Name ID  GECOS HOMEDIR
-u     u1   222 -     -
-g     g1   111 -     -

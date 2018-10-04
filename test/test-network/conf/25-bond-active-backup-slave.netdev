@@ -1,6 +1,0 @@
-[NetDev]
-Name=bond199
-Kind=bond
-
-[Bond]
-Mode=active-backup

@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for StandardInput=file:
-
-[Service]
-ExecStart=/usr/bin/cmp /usr/bin/cmp
-Type=oneshot
-StandardInput=file:/usr/bin/cmp

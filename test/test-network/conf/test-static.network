@@ -1,6 +1,0 @@
-[Match]
-Name=dummy98
-
-[Network]
-Address=192.168.0.15/24
-Gateway=192.168.0.1
