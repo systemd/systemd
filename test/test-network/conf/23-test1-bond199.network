@@ -1,6 +1,0 @@
-[Match]
-Name=test1
-
-[Network]
-Bond=bond199
-PrimarySlave=true
