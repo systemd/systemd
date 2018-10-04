@@ -702,17 +702,17 @@ static void test_rename_noreplace(void) {
                 }
 
                 STRV_FOREACH(b, (char**) table) {
-                        y = strjoin(z, *b);
-                        assert_se(y);
+                        _cleanup_free_ char *w = NULL;
 
-                        if (access(y, F_OK) < 0) {
+                        w = strjoin(w, *b);
+                        assert_se(w);
+
+                        if (access(w, F_OK) < 0) {
                                 assert_se(errno == ENOENT);
                                 continue;
                         }
 
-                        assert_se(rename_noreplace(AT_FDCWD, x, AT_FDCWD, y) == -EEXIST);
-
-                        y = mfree(y);
+                        assert_se(rename_noreplace(AT_FDCWD, w, AT_FDCWD, y) == -EEXIST);
                 }
 
                 y = strjoin(z, "/somethingelse");
