@@ -25,7 +25,6 @@
 
 #include "sd-dhcp6-lease.h"
 #include "sd-event.h"
-#include "sparse-endian.h"
 
 #include "_sd-common.h"
 
@@ -128,7 +127,7 @@ int sd_dhcp6_client_get_address_request(sd_dhcp6_client *client,
                                         int *request);
 int sd_dhcp6_client_set_address_request(sd_dhcp6_client *client,
                                         int request);
-int sd_dhcp6_client_set_transaction_id(sd_dhcp6_client *client, be32_t transaction_id);
+int sd_dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transaction_id);
 
 int sd_dhcp6_client_get_lease(
                 sd_dhcp6_client *client,
