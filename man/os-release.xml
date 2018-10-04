@@ -218,14 +218,18 @@
 
       <varlistentry>
         <term><varname>HOME_URL=</varname></term>
+        <term><varname>DOCUMENTATION_URL=</varname></term>
         <term><varname>SUPPORT_URL=</varname></term>
         <term><varname>BUG_REPORT_URL=</varname></term>
         <term><varname>PRIVACY_POLICY_URL=</varname></term>
 
         <listitem><para>Links to resources on the Internet related to 
-        the operating system. <varname>HOME_URL=</varname> should refer
-        to the homepage of the operating system, or alternatively some
-        homepage of the specific version of the operating system.
+        the operating system.
+        <varname>HOME_URL=</varname> should refer to the homepage of
+        the operating system, or alternatively some homepage of the
+        specific version of the operating system.
+        <varname>DOCUMENTATION_URL=</varname> should refer to the main
+        documentation page for this operating system.
         <varname>SUPPORT_URL=</varname> should refer to the main
         support page for the operating system, if there is any. This
         is primarily intended for operating systems which vendors
