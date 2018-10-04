@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for CapabilityBoundingSet
-
-[Service]
-ExecStart=/bin/sh -x -c '! capsh --print | grep "^Bounding set .*cap_chown"'
-Type=oneshot
-CapabilityBoundingSet=~CAP_CHOWN

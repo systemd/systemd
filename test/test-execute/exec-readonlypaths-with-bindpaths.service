@@ -1,9 +1,0 @@
-[Unit]
-Description=Test for ReadOnlyPaths=
-
-[Service]
-ReadOnlyPaths=/etc -/i-dont-exist /usr
-# From 6c47cd7d3bf35c8158a0737f34fe2c5dc95e72d6, RuntimeDirectory= implies BindPaths=.
-RuntimeDirectory=foo
-ExecStart=/bin/sh -x -c 'test ! -w /etc && test ! -w /usr && test ! -e /i-dont-exist && test -w /var'
-Type=oneshot
