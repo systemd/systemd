@@ -1,7 +1,0 @@
-[NetDev]
-Name=gretun99
-Kind=gre
-
-[Tunnel]
-Local=10.65.223.238
-Remote=10.65.223.239

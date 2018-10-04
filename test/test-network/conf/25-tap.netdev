@@ -1,7 +1,0 @@
-[NetDev]
-Name=tap99
-Kind=tap
-
-[Tap]
-MultiQueue=true
-PacketInfo=true

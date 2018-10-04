@@ -1,7 +1,0 @@
-[Unit]
-Description=Test RestrictNamespaces=yes
-
-[Service]
-RestrictNamespaces=yes
-ExecStart=unshare -m
-Type=oneshot

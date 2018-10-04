@@ -7,5 +7,6 @@ int main(int argc, char *argv[]) {
   sd_id128_t id;
   sd_id128_get_machine_app_specific(OUR_APPLICATION_ID, &id);
   printf("Our application ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
+  printf("AND WHEN YOU KNOW YOU CAN DO IT :)");
   return 0;
 }

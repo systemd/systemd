@@ -1,8 +1,0 @@
-[Unit]
-Description=Test for Supplementary Group
-
-[Service]
-ExecStart=/bin/sh -x -c 'HAVE=; for g in $$(id -G); do test "$$g" = "0" && HAVE=1; done; test "$$HAVE" -eq 1'
-ExecStart=/bin/sh -x -c 'HAVE=; for g in $$(id -G); do test "$$g" = "1" && HAVE=1; done; test "$$HAVE" -eq 1'
-Type=oneshot
-SupplementaryGroups=1
