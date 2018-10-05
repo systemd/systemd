@@ -14,7 +14,7 @@
 #include "selinux-access.h"
 #include "unit.h"
 
-static int bus_scope_abandon(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Scope *s = userdata;
         int r;
 
@@ -48,7 +48,7 @@ const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Scope, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Scope, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_SIGNAL("RequestStop", NULL, 0),
-        SD_BUS_METHOD("Abandon", NULL, NULL, bus_scope_abandon, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Abandon", NULL, NULL, bus_scope_method_abandon, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
