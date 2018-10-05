@@ -1796,33 +1796,66 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-static bool exec_needs_mount_namespace(
+typedef enum ExecNeedsMountNamespace {
+        EXEC_NEEDS_MOUNT_NAMESPACE_NO,
+        EXEC_NEEDS_MOUNT_NAMESPACE_YES,
+        EXEC_NEEDS_MOUNT_NAMESPACE_CRITICAL,
+} ExecNeedsMountNamespace;
+
+static ExecNeedsMountNamespace exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const ExecRuntime *runtime) {
+
+        ExecDirectoryType t;
 
         assert(context);
         assert(params);
 
         if (context->root_image)
-                return true;
+                return EXEC_NEEDS_MOUNT_NAMESPACE_CRITICAL;
+
+        if (context->n_bind_mounts > 0)
+                return EXEC_NEEDS_MOUNT_NAMESPACE_CRITICAL;
+
+        if (context->n_temporary_filesystems > 0)
+                return EXEC_NEEDS_MOUNT_NAMESPACE_CRITICAL;
+
+        if (context->root_directory) {
+                if (context->mount_apivfs)
+                        return EXEC_NEEDS_MOUNT_NAMESPACE_CRITICAL;
+
+                for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                        if (!params->prefix[t])
+                                continue;
+
+                        if (!strv_isempty(context->directories[t].paths))
+                                return EXEC_NEEDS_MOUNT_NAMESPACE_CRITICAL;
+                }
+        }
+
+        if (context->dynamic_user)
+                for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                        if (IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION))
+                                continue;
+
+                        if (!params->prefix[t])
+                                continue;
+
+                        if (!strv_isempty(context->directories[t].paths))
+                                return EXEC_NEEDS_MOUNT_NAMESPACE_CRITICAL;
+                }
 
         if (!strv_isempty(context->read_write_paths) ||
             !strv_isempty(context->read_only_paths) ||
             !strv_isempty(context->inaccessible_paths))
-                return true;
-
-        if (context->n_bind_mounts > 0)
-                return true;
-
-        if (context->n_temporary_filesystems > 0)
-                return true;
+                return EXEC_NEEDS_MOUNT_NAMESPACE_YES;
 
         if (context->mount_flags != 0)
-                return true;
+                return EXEC_NEEDS_MOUNT_NAMESPACE_YES;
 
         if (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir))
-                return true;
+                return EXEC_NEEDS_MOUNT_NAMESPACE_YES;
 
         if (context->private_devices ||
             context->private_mounts ||
@@ -1831,30 +1864,9 @@ static bool exec_needs_mount_namespace(
             context->protect_kernel_tunables ||
             context->protect_kernel_modules ||
             context->protect_control_groups)
-                return true;
+                return EXEC_NEEDS_MOUNT_NAMESPACE_YES;
 
-        if (context->root_directory) {
-                ExecDirectoryType t;
-
-                if (context->mount_apivfs)
-                        return true;
-
-                for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
-                        if (!params->prefix[t])
-                                continue;
-
-                        if (!strv_isempty(context->directories[t].paths))
-                                return true;
-                }
-        }
-
-        if (context->dynamic_user &&
-            (!strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
-             !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
-             !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
-                return true;
-
-        return false;
+        return EXEC_NEEDS_MOUNT_NAMESPACE_NO;
 }
 
 static int setup_private_users(uid_t uid, gid_t gid) {
@@ -2343,7 +2355,8 @@ static int apply_mount_namespace(
                 const ExecCommand *command,
                 const ExecContext *context,
                 const ExecParameters *params,
-                const ExecRuntime *runtime) {
+                const ExecRuntime *runtime,
+                bool critical) {
 
         _cleanup_strv_free_ char **empty_directories = NULL;
         char *tmp = NULL, *var = NULL;
@@ -2424,10 +2437,7 @@ static int apply_mount_namespace(
          * sandboxing options were used, i.e. nothing such as RootDirectory= or BindMount= that would result in a
          * completely different execution environment. */
         if (r == -ENOANO) {
-                if (n_bind_mounts == 0 &&
-                    context->n_temporary_filesystems == 0 &&
-                    !root_dir && !root_image &&
-                    !context->dynamic_user) {
+                if (!critical) {
                         log_unit_debug(u, "Failed to set up namespace, assuming containerized execution and ignoring.");
                         return 0;
                 }
@@ -2785,8 +2795,8 @@ static int exec_child(
         ino_t journal_stream_ino = 0;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
                 needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
-                needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
                 needs_ambient_hack;     /* Do we need to apply the ambient capabilities hack? */
+        ExecNeedsMountNamespace needs_mount_namespace;  /* Do we need to set up a mount namespace for this kernel? */
 #if HAVE_SELINUX
         _cleanup_free_ char *mac_selinux_context_net = NULL;
         bool use_selinux = false;
@@ -3185,8 +3195,8 @@ static int exec_child(
         }
 
         needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
-        if (needs_mount_namespace) {
-                r = apply_mount_namespace(unit, command, context, params, runtime);
+        if (needs_mount_namespace != EXEC_NEEDS_MOUNT_NAMESPACE_NO) {
+                r = apply_mount_namespace(unit, command, context, params, runtime, needs_mount_namespace == EXEC_NEEDS_MOUNT_NAMESPACE_CRITICAL);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to set up mount namespacing: %m");
