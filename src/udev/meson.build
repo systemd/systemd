@@ -107,7 +107,7 @@ libudev_basic = static_library(
         'udev-basic',
         libudev_sources,
         include_directories : includes,
-        c_args : ['-fvisibility=default'])
+        c_args : ['-fvisibility=default', '-DHASHMAP_USE_MEMPOOL=0'])
 
 libudev_static = static_library(
         'udev_static',
