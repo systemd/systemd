@@ -102,18 +102,18 @@ enum udev_builtin_cmd udev_builtin_lookup(const char *command) {
 }
 
 int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test) {
-        char arg[UTIL_PATH_SIZE];
-        int argc;
-        char *argv[128];
+        _cleanup_strv_free_ char **argv = NULL;
 
         if (!builtins[cmd])
                 return -EOPNOTSUPP;
 
+        argv = strv_split_full(command, NULL, SPLIT_QUOTES | SPLIT_RELAX);
+        if (!argv)
+                return -ENOMEM;
+
         /* we need '0' here to reset the internal state */
         optind = 0;
-        strscpy(arg, sizeof(arg), command);
-        udev_build_argv(arg, &argc, argv);
-        return builtins[cmd]->cmd(dev, argc, argv, test);
+        return builtins[cmd]->cmd(dev, strv_length(argv), argv, test);
 }
 
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val) {

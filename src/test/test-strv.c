@@ -63,6 +63,13 @@ static const char* const input_table_multiple[] = {
         NULL,
 };
 
+static const char* const input_table_quoted[] = {
+        "one",
+        "  two\t three ",
+        " four  five",
+        NULL,
+};
+
 static const char* const input_table_one[] = {
         "one",
         NULL,
@@ -206,23 +213,64 @@ static void test_invalid_unquote(const char *quoted) {
 }
 
 static void test_strv_split(void) {
-        char **s;
-        unsigned i = 0;
         _cleanup_strv_free_ char **l = NULL;
         const char str[] = "one,two,three";
 
         l = strv_split(str, ",");
         assert_se(l);
-        STRV_FOREACH(s, l)
-                assert_se(streq(*s, input_table_multiple[i++]));
+        assert_se(strv_equal(l, (char**) input_table_multiple));
 
-        i = 0;
         strv_free(l);
 
         l = strv_split("    one    two\t three", WHITESPACE);
         assert_se(l);
-        STRV_FOREACH(s, l)
-                assert_se(streq(*s, input_table_multiple[i++]));
+        assert_se(strv_equal(l, (char**) input_table_multiple));
+
+        strv_free(l);
+
+        /* Setting NULL for separator is equivalent to WHITESPACE */
+        l = strv_split("    one    two\t three", NULL);
+        assert_se(l);
+        assert_se(strv_equal(l, (char**) input_table_multiple));
+
+        strv_free(l);
+
+        l = strv_split_full("    one    two\t three", NULL, 0);
+        assert_se(l);
+        assert_se(strv_equal(l, (char**) input_table_multiple));
+
+        strv_free(l);
+
+        l = strv_split_full("    'one'  \"  two\t three \" ' four  five'", NULL, SPLIT_QUOTES);
+        assert_se(l);
+        assert_se(strv_equal(l, (char**) input_table_quoted));
+
+        strv_free(l);
+
+        /* missing last quote ignores the last element. */
+        l = strv_split_full("    'one'  \"  two\t three \" ' four  five'  ' ignored element ", NULL, SPLIT_QUOTES);
+        assert_se(l);
+        assert_se(strv_equal(l, (char**) input_table_quoted));
+
+        strv_free(l);
+
+        /* missing last quote, but the last element is _not_ ignored with SPLIT_RELAX. */
+        l = strv_split_full("    'one'  \"  two\t three \" ' four  five", NULL, SPLIT_QUOTES | SPLIT_RELAX);
+        assert_se(l);
+        assert_se(strv_equal(l, (char**) input_table_quoted));
+
+        strv_free(l);
+
+        /* missing separator between */
+        l = strv_split_full("    'one'  \"  two\t three \"' four  five'", NULL, SPLIT_QUOTES | SPLIT_RELAX);
+        assert_se(l);
+        assert_se(strv_equal(l, (char**) input_table_quoted));
+
+        strv_free(l);
+
+        l = strv_split_full("    'one'  \"  two\t three \"' four  five", NULL, SPLIT_QUOTES | SPLIT_RELAX);
+        assert_se(l);
+        assert_se(strv_equal(l, (char**) input_table_quoted));
 }
 
 static void test_strv_split_empty(void) {
@@ -233,10 +281,59 @@ static void test_strv_split_empty(void) {
         assert_se(strv_isempty(l));
 
         strv_free(l);
+        l = strv_split("", NULL);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
+        strv_free(l);
+        l = strv_split_full("", NULL, 0);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
+        strv_free(l);
+        l = strv_split_full("", NULL, SPLIT_QUOTES);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
+        strv_free(l);
+        l = strv_split_full("", WHITESPACE, SPLIT_QUOTES);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
+        strv_free(l);
+        l = strv_split_full("", WHITESPACE, SPLIT_QUOTES | SPLIT_RELAX);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
+        strv_free(l);
         l = strv_split("    ", WHITESPACE);
         assert_se(l);
         assert_se(strv_isempty(l));
 
+        strv_free(l);
+        l = strv_split("    ", NULL);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
+        strv_free(l);
+        l = strv_split_full("    ", NULL, 0);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
+        strv_free(l);
+        l = strv_split_full("    ", WHITESPACE, SPLIT_QUOTES);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
+        strv_free(l);
+        l = strv_split_full("    ", NULL, SPLIT_QUOTES);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
+        strv_free(l);
+        l = strv_split_full("    ", NULL, SPLIT_QUOTES | SPLIT_RELAX);
+        assert_se(l);
+        assert_se(strv_isempty(l));
 }
 
 static void test_strv_split_extract(void) {

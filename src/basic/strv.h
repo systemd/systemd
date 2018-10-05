@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "macro.h"
+#include "string-util.h"
 #include "util.h"
 
 char *strv_find(char **l, const char *name) _pure_;
@@ -66,7 +67,10 @@ static inline bool strv_isempty(char * const *l) {
         return !l || !*l;
 }
 
-char **strv_split(const char *s, const char *separator);
+char **strv_split_full(const char *s, const char *separator, SplitFlags flags);
+static inline char **strv_split(const char *s, const char *separator) {
+        return strv_split_full(s, separator, 0);
+}
 char **strv_split_newlines(const char *s);
 
 int strv_split_extract(char ***t, const char *s, const char *separators, ExtractFlags flags);
