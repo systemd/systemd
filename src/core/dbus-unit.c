@@ -1572,7 +1572,7 @@ static int bus_unit_set_transient_property(
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *label = NULL;
 
-                                r = unit_add_dependency_by_name(u, d, other, NULL, true, UNIT_DEPENDENCY_FILE);
+                                r = unit_add_dependency_by_name(u, d, other, true, UNIT_DEPENDENCY_FILE);
                                 if (r < 0)
                                         return r;
 

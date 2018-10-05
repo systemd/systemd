@@ -1009,7 +1009,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                                 return r;
                 }
 
-                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, NULL, true, UNIT_DEPENDENCY_FILE);
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
         }
@@ -1027,7 +1027,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         /* If syslog or kernel logging is requested, make sure our own
          * logging daemon is run first. */
 
-        r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, NULL, true, UNIT_DEPENDENCY_FILE);
+        r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, true, UNIT_DEPENDENCY_FILE);
         if (r < 0)
                 return r;
 
@@ -1398,7 +1398,7 @@ static int unit_add_slice_dependencies(Unit *u) {
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
 
-        return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_ROOT_SLICE, NULL, true, mask);
+        return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_ROOT_SLICE, true, mask);
 }
 
 static int unit_add_mount_dependencies(Unit *u) {
@@ -2894,16 +2894,13 @@ int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit 
         return unit_add_dependency(u, e, other, add_reference, mask);
 }
 
-static int resolve_template(Unit *u, const char *name, const char*path, char **buf, const char **ret) {
+static int resolve_template(Unit *u, const char *name, char **buf, const char **ret) {
         int r;
 
         assert(u);
-        assert(name || path);
+        assert(name);
         assert(buf);
         assert(ret);
-
-        if (!name)
-                name = basename(path);
 
         if (!unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
                 *buf = NULL;
@@ -2929,38 +2926,38 @@ static int resolve_template(Unit *u, const char *name, const char*path, char **b
         return 0;
 }
 
-int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference, UnitDependencyMask mask) {
+int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, bool add_reference, UnitDependencyMask mask) {
         _cleanup_free_ char *buf = NULL;
         Unit *other;
         int r;
 
         assert(u);
-        assert(name || path);
+        assert(name);
 
-        r = resolve_template(u, name, path, &buf, &name);
+        r = resolve_template(u, name, &buf, &name);
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(u->manager, name, path, NULL, &other);
+        r = manager_load_unit(u->manager, name, NULL, NULL, &other);
         if (r < 0)
                 return r;
 
         return unit_add_dependency(u, d, other, add_reference, mask);
 }
 
-int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference, UnitDependencyMask mask) {
+int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, bool add_reference, UnitDependencyMask mask) {
         _cleanup_free_ char *buf = NULL;
         Unit *other;
         int r;
 
         assert(u);
-        assert(name || path);
+        assert(name);
 
-        r = resolve_template(u, name, path, &buf, &name);
+        r = resolve_template(u, name, &buf, &name);
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(u->manager, name, path, NULL, &other);
+        r = manager_load_unit(u->manager, name, NULL, NULL, &other);
         if (r < 0)
                 return r;
 
