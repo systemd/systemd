@@ -286,8 +286,7 @@ static int network_load_one(Manager *manager, const char *filename) {
                 if (network->dhcp != ADDRESS_FAMILY_NO) {
                         log_warning("Will not ignore carrier gain or loss when DHCP is configured.");
                         network->ignore_carrier_gainloss = false;
-                }
-                else if (network->n_static_addresses < 1) {
+                } else if (network->n_static_addresses < 1) {
                         log_warning("Will not ignore carrier gain or loss when no static address is configured.");
                         network->ignore_carrier_gainloss = false;
                 }
