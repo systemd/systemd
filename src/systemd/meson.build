@@ -17,20 +17,25 @@ _systemd_headers = '''
 # https://github.com/mesonbuild/meson/issues/1633
 systemd_headers = files(_systemd_headers)
 
-#  sd-dhcp6-client.h
-#  sd-dhcp6-lease.h
-#  sd-dhcp-client.h
-#  sd-dhcp-lease.h
-#  sd-dhcp-server.h
-#  sd-ipv4acd.h
-#  sd-ipv4ll.h
-#  sd-lldp.h
-#  sd-ndisc.h
-#  sd-netlink.h
-#  sd-network.h
-#  sd-path.h
+_not_installed_headers = '''
+        sd-dhcp6-client.h
+        sd-dhcp6-lease.h
+        sd-dhcp-client.h
+        sd-dhcp-lease.h
+        sd-dhcp-server.h
+        sd-ipv4acd.h
+        sd-ipv4ll.h
+        sd-lldp.h
+        sd-ndisc.h
+        sd-netlink.h
+        sd-network.h
+        sd-path.h
+        sd-radv.h
+        sd-utf8.h
+'''.split()
+
+# The following headers do not pass tests.
 #  sd-resolve.h
-#  sd-utf8.h
 
 install_headers(
         systemd_headers,
@@ -62,7 +67,7 @@ if cxx.found()
         endif
 endif
 
-foreach header : _systemd_headers
+foreach header : _systemd_headers + _not_installed_headers
         foreach opt : opts
                 name = ''.join([header, ':'] + opt)
                 if want_tests != 'false'
