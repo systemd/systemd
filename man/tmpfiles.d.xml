@@ -493,16 +493,11 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
     <refsect2>
       <title>UID, GID</title>
 
-      <para>The user and group to use for this file or directory. This
-      may either be a numeric user/group ID or a user or group
-      name. If omitted or when set to <literal>-</literal>, the
-      default 0 (root) is used. For <varname>z</varname> and
-      <varname>Z</varname> lines, when omitted or when set to
-      <literal>-</literal>, the file ownership will not be
-      modified. These parameters are ignored for <varname>x</varname>,
-      <varname>r</varname>, <varname>R</varname>,
-      <varname>L</varname>, <varname>t</varname>, and
-      <varname>a</varname> lines.</para>
+      <para>The user and group to use for this file or directory. This may either be a numeric user/group ID or a user or group
+      name. If omitted or when set to <literal>-</literal>, the user/group ID of the user who invokes <command>systemd-tmpfiles</command> is used.
+      For <varname>z</varname> and <varname>Z</varname> lines, when omitted or when set to <literal>-</literal>, the file ownership will not be
+      modified. These parameters are ignored for <varname>x</varname>, <varname>r</varname>, <varname>R</varname>, <varname>L</varname>,
+      <varname>t</varname>, and <varname>a</varname> lines.</para>
     </refsect2>
 
     <refsect2>
