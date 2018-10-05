@@ -831,7 +831,8 @@ tests += [
 
         [['src/libsystemd/sd-bus/test-bus-error.c'],
          [libshared_static,
-          libsystemd_static],
+          libsystemd_static,
+          libhashmap],
          []],
 
         [['src/libsystemd/sd-bus/test-bus-track.c'],

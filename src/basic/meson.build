@@ -86,8 +86,6 @@ basic_sources = files('''
         gunicode.h
         hash-funcs.c
         hash-funcs.h
-        hashmap.c
-        hashmap.h
         hexdecoct.c
         hexdecoct.h
         hostname-util.c
@@ -115,8 +113,6 @@ basic_sources = files('''
         macro.h
         memfd-util.c
         memfd-util.h
-        mempool.c
-        mempool.h
         missing_syscall.h
         mkdir-label.c
         mkdir.c
@@ -221,6 +217,13 @@ basic_sources = files('''
         xml.h
 '''.split())
 
+hashmap_sources = files('''
+        hashmap.c
+        hashmap.h
+        mempool.c
+        mempool.h
+'''.split())
+
 missing_h = files('missing.h')
 
 generate_gperfs = find_program('generate-gperfs.py')
@@ -304,6 +307,22 @@ basic_sources += [missing_h] + generated_gperf_headers
 basic_gcrypt_sources = files(
         'gcrypt-util.c',
         'gcrypt-util.h')
+
+libhashmap = static_library(
+        'hashmap',
+        hashmap_sources,
+        include_directories : includes,
+        dependencies : [threads],
+        c_args : ['-fvisibility=default', '-DUSE_HASHMAP_MEMPOOL=1'],
+        install : false)
+
+libhashmap_nomempool = static_library(
+        'hashmap_nomempool',
+        hashmap_sources,
+        include_directories : includes,
+        dependencies : [threads],
+        c_args : ['-fvisibility=default', '-DUSE_HASHMAP_MEMPOOL=0'],
+        install : false)
 
 libbasic = static_library(
         'basic',

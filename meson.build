@@ -1386,7 +1386,8 @@ libsystemd = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic,
-                     libbasic_gcrypt],
+                     libbasic_gcrypt,
+                     libhashmap_nomempool],
         link_whole : [libsystemd_static,
                       libjournal_client],
         dependencies : [threads,
@@ -1463,7 +1464,8 @@ test_dlopen = executable(
         'test-dlopen',
         test_dlopen_c,
         include_directories : includes,
-        link_with : [libbasic],
+        link_with : [libbasic,
+                     libhashmap],
         dependencies : [libdl],
         build_by_default : want_tests != 'false')
 
@@ -1490,7 +1492,8 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                                      '-Wl,--version-script=' + version_script_arg,
                                      '-Wl,--undefined'],
                         link_with : [libsystemd_static,
-                                     libbasic],
+                                     libbasic,
+                                     libhashmap_nomempool],
                         dependencies : [threads,
                                         librt],
                         link_depends : sym,
@@ -1741,7 +1744,8 @@ if conf.get('ENABLE_LOGIND') == 1
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + version_script_arg],
                         link_with : [libsystemd_static,
-                                     libshared_static],
+                                     libshared_static,
+                                     libhashmap_nomempool],
                         dependencies : [threads,
                                         libpam,
                                         libpam_misc],
@@ -1802,7 +1806,8 @@ else
         systemctl_link_with = [libsystemd_static,
                                libshared_static,
                                libjournal_client,
-                               libbasic_gcrypt]
+                               libbasic_gcrypt,
+                               libhashmap]
 endif
 
 exe = executable('systemctl', 'src/systemctl/systemctl.c',

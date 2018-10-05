@@ -99,7 +99,8 @@ if get_option('link-udev-shared')
         udev_rpath = rootlibexecdir
 else
         udev_link_with = [libshared_static,
-                          libsystemd_static]
+                          libsystemd_static,
+                          libhashmap]
         udev_rpath = ''
 endif
 
@@ -140,7 +141,9 @@ libudev = shared_library(
         include_directories : includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
-        link_with : [libsystemd_static, libshared_static],
+        link_with : [libsystemd_static,
+                     libshared_static,
+                     libhashmap_nomempool],
         link_whole : libudev_basic,
         dependencies : [threads],
         link_depends : libudev_sym,
