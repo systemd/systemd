@@ -4130,7 +4130,7 @@ static int run(int master,
 
         /* Kill if it is not dead yet anyway */
         if (arg_register && !arg_keep_unit && bus)
-                terminate_machine(bus, *pid);
+                terminate_machine(bus, arg_machine);
 
         /* Normally redundant, but better safe than sorry */
         (void) kill(*pid, SIGKILL);

@@ -201,10 +201,11 @@ int register_machine(
         return 0;
 }
 
-int terminate_machine(sd_bus *bus, pid_t pid) {
+int terminate_machine(
+                sd_bus *bus,
+                const char *machine_name) {
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *path;
         int r;
 
         assert(bus);
@@ -214,32 +215,11 @@ int terminate_machine(sd_bus *bus, pid_t pid) {
                         "org.freedesktop.machine1",
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        "GetMachineByPID",
-                        &error,
-                        &reply,
-                        "u",
-                        (uint32_t) pid);
-        if (r < 0) {
-                /* Note that the machine might already have been
-                 * cleaned up automatically, hence don't consider it a
-                 * failure if we cannot get the machine object. */
-                log_debug("Failed to get machine: %s", bus_error_message(&error, r));
-                return 0;
-        }
-
-        r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.machine1",
-                        path,
-                        "org.freedesktop.machine1.Machine",
-                        "Terminate",
+                        "TerminateMachine",
                         &error,
                         NULL,
-                        NULL);
+                        "s",
+                        machine_name);
         if (r < 0)
                 log_debug("Failed to terminate machine: %s", bus_error_message(&error, r));
 
