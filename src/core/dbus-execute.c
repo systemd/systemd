@@ -1015,8 +1015,6 @@ static BUS_DEFINE_SET_TRANSIENT_IS_VALID(log_level, "i", int32_t, int, "%" PRIi3
 #if HAVE_SECCOMP
 static BUS_DEFINE_SET_TRANSIENT_IS_VALID(errno, "i", int32_t, int, "%" PRIi32, errno_is_valid);
 #endif
-static BUS_DEFINE_SET_TRANSIENT_IS_VALID(sched_priority, "i", int32_t, int, "%" PRIi32, sched_priority_is_valid);
-static BUS_DEFINE_SET_TRANSIENT_IS_VALID(nice, "i", int32_t, int, "%" PRIi32, nice_is_valid);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(std_input, ExecInput, exec_input_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(std_output, ExecOutput, exec_output_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(utmp_mode, ExecUtmpMode, exec_utmp_mode_from_string);
@@ -1027,7 +1025,6 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(preserve_mode, ExecPreserveMode, exec_pres
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(personality, unsigned long, parse_personality);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(secure_bits, "i", int32_t, int, "%" PRIi32, secure_bits_to_string_alloc_with_check);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(capability, "t", uint64_t, uint64_t, "%" PRIu64, capability_set_to_string_alloc);
-static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(sched_policy, "i", int32_t, int, "%" PRIi32, sched_policy_to_string_alloc_with_check);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(namespace_flag, "t", uint64_t, unsigned long, "%" PRIu64, namespace_flags_to_string);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(mount_flags, "t", uint64_t, unsigned long, "%" PRIu64, mount_propagation_flags_to_string_with_check);
 
@@ -1070,14 +1067,8 @@ int bus_exec_context_set_transient_property(
         if (streq(name, "LogLevelMax"))
                 return bus_set_transient_log_level(u, name, &c->log_level_max, message, flags, error);
 
-        if (streq(name, "CPUSchedulingPriority"))
-                return bus_set_transient_sched_priority(u, name, &c->cpu_sched_priority, message, flags, error);
-
         if (streq(name, "Personality"))
                 return bus_set_transient_personality(u, name, &c->personality, message, flags, error);
-
-        if (streq(name, "Nice"))
-                return bus_set_transient_nice(u, name, &c->nice, message, flags, error);
 
         if (streq(name, "StandardInput"))
                 return bus_set_transient_std_input(u, name, &c->std_input, message, flags, error);
@@ -1207,9 +1198,6 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "AmbientCapabilities"))
                 return bus_set_transient_capability(u, name, &c->capability_ambient_set, message, flags, error);
-
-        if (streq(name, "CPUSchedulingPolicy"))
-                return bus_set_transient_sched_policy(u, name, &c->cpu_sched_policy, message, flags, error);
 
         if (streq(name, "RestrictNamespaces"))
                 return bus_set_transient_namespace_flag(u, name, &c->restrict_namespaces, message, flags, error);
@@ -1605,6 +1593,72 @@ int bus_exec_context_set_transient_property(
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, str);
                         }
+                }
+
+                return 1;
+
+        } else if (streq(name, "Nice")) {
+                int32_t q;
+
+                r = sd_bus_message_read(message, "i", &q);
+                if (r < 0)
+                        return r;
+
+                if (!nice_is_valid(q))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid Nice value: %i", q);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->nice = q;
+                        c->nice_set = true;
+
+                        unit_write_settingf(u, flags, name, "Nice=%i", q);
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUSchedulingPolicy")) {
+                int32_t q;
+
+                r = sd_bus_message_read(message, "i", &q);
+                if (r < 0)
+                        return r;
+
+                if (!sched_policy_is_valid(q))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling policy: %i", q);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *s = NULL;
+
+                        r = sched_policy_to_string_alloc(q, &s);
+                        if (r < 0)
+                                return r;
+
+                        c->cpu_sched_policy = q;
+                        c->cpu_sched_priority = CLAMP(c->cpu_sched_priority, sched_get_priority_min(q), sched_get_priority_max(q));
+                        c->cpu_sched_set = true;
+
+                        unit_write_settingf(u, flags, name, "CPUSchedulingPolicy=%s", s);
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUSchedulingPriority")) {
+                int32_t p, min, max;
+
+                r = sd_bus_message_read(message, "i", &p);
+                if (r < 0)
+                        return r;
+
+                min = sched_get_priority_min(c->cpu_sched_policy);
+                max = sched_get_priority_max(c->cpu_sched_policy);
+                if (p < min || p > max)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling priority: %i", p);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->cpu_sched_priority = p;
+                        c->cpu_sched_set = true;
+
+                        unit_write_settingf(u, flags, name, "CPUSchedulingPriority=%i", p);
                 }
 
                 return 1;
