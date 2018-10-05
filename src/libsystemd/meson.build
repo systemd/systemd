@@ -81,7 +81,7 @@ libsystemd_sources = files('''
         sd-utf8/sd-utf8.c
 '''.split()) + id128_sources + sd_daemon_c + sd_event_c + sd_login_c
 
-libsystemd_c_args = ['-fvisibility=default']
+libsystemd_c_args = ['-fvisibility=default', '-DHASHMAP_USE_MEMPOOL=0']
 
 libsystemd_static = static_library(
         'systemd_static',
