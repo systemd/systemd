@@ -152,8 +152,10 @@ static int create_disk(
                         return log_oom();
         }
 
-        if (keydev && !password)
-                return log_error_errno(-EINVAL, "Keydev is specified, but path to the password file is missing: %m");
+        if (keydev && !password) {
+                log_error("Key device is specified, but path to the password file is missing.");
+                return -EINVAL;
+        }
 
         r = generator_open_unit_file(arg_dest, NULL, n, &f);
         if (r < 0)
