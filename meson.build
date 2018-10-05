@@ -392,7 +392,7 @@ if cc.compiles('''
         add_project_arguments('-Werror=shadow', language : 'c')
 endif
 
-cpp = ' '.join(cc.cmd_array()) + ' -E'
+cpp = ' '.join(cc.cmd_array() + get_option('c_args')) + ' -E'
 
 #####################################################################
 # compilation result tests
