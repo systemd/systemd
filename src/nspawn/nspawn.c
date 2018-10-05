@@ -4129,8 +4129,12 @@ static int run(int master,
                 putc('\n', stdout);
 
         /* Kill if it is not dead yet anyway */
-        if (arg_register && !arg_keep_unit && bus)
-                terminate_machine(bus, arg_machine);
+        if (bus) {
+                if (arg_register)
+                        terminate_machine(bus, arg_machine);
+                else if (!arg_keep_unit)
+                        terminate_scope(bus, arg_machine);
+        }
 
         /* Normally redundant, but better safe than sorry */
         (void) kill(*pid, SIGKILL);

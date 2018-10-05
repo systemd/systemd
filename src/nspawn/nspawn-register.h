@@ -11,3 +11,4 @@ int register_machine(sd_bus *bus, const char *machine_name, pid_t pid, const cha
 int terminate_machine(sd_bus *bus, const char *machine_name);
 
 int allocate_scope(sd_bus *bus, const char *machine_name, pid_t pid, const char *slice, CustomMount *mounts, unsigned n_mounts, int kill_signal, char **properties);
+int terminate_scope(sd_bus *bus, const char *machine_name);
