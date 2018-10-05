@@ -67,6 +67,7 @@ def setUpModule():
             tmpmounts.append(d)
     if os.path.isdir('/run/systemd/resolve'):
         os.chmod('/run/systemd/resolve', 0o755)
+        shutil.chown('/run/systemd/resolve', 'systemd-resolve', 'systemd-resolve')
 
     # Avoid "Failed to open /dev/tty" errors in containers.
     os.environ['SYSTEMD_LOG_TARGET'] = 'journal'

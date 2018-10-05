@@ -185,7 +185,7 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = bus_request_name_async_may_reload_dbus(m->bus, NULL, "org.freedesktop.timesync1", 0, NULL);
+        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.timesync1", 0, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
