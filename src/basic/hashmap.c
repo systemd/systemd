@@ -10,7 +10,6 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "macro.h"
-#include "mempool.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "set.h"
@@ -210,7 +209,6 @@ struct HashmapBase {
         bool has_indirect:1;         /* whether indirect storage is used */
         unsigned n_direct_entries:3; /* Number of entries in direct storage.
                                       * Only valid if !has_indirect. */
-        bool from_pool:1;            /* whether was allocated from mempool */
         bool dirty:1;                /* whether dirtied since last iterated_cache_get() */
         bool cached:1;               /* whether this hashmap is being cached */
         HASHMAP_DEBUG_FIELDS         /* optional hashmap_debug_info */
@@ -243,15 +241,9 @@ struct IteratedCache {
         CacheMem keys, values;
 };
 
-DEFINE_MEMPOOL(hashmap_pool,         Hashmap,        8);
-DEFINE_MEMPOOL(ordered_hashmap_pool, OrderedHashmap, 8);
-/* No need for a separate Set pool */
-assert_cc(sizeof(Hashmap) == sizeof(Set));
-
 struct hashmap_type_info {
         size_t head_size;
         size_t entry_size;
-        struct mempool *mempool;
         unsigned n_direct_buckets;
 };
 
@@ -259,44 +251,19 @@ static const struct hashmap_type_info hashmap_type_info[_HASHMAP_TYPE_MAX] = {
         [HASHMAP_TYPE_PLAIN] = {
                 .head_size        = sizeof(Hashmap),
                 .entry_size       = sizeof(struct plain_hashmap_entry),
-                .mempool          = &hashmap_pool,
                 .n_direct_buckets = DIRECT_BUCKETS(struct plain_hashmap_entry),
         },
         [HASHMAP_TYPE_ORDERED] = {
                 .head_size        = sizeof(OrderedHashmap),
                 .entry_size       = sizeof(struct ordered_hashmap_entry),
-                .mempool          = &ordered_hashmap_pool,
                 .n_direct_buckets = DIRECT_BUCKETS(struct ordered_hashmap_entry),
         },
         [HASHMAP_TYPE_SET] = {
                 .head_size        = sizeof(Set),
                 .entry_size       = sizeof(struct set_entry),
-                .mempool          = &hashmap_pool,
                 .n_direct_buckets = DIRECT_BUCKETS(struct set_entry),
         },
 };
-
-#if VALGRIND
-__attribute__((destructor)) static void cleanup_pools(void) {
-        _cleanup_free_ char *t = NULL;
-        int r;
-
-        /* Be nice to valgrind */
-
-        /* The pool is only allocated by the main thread, but the memory can
-         * be passed to other threads. Let's clean up if we are the main thread
-         * and no other threads are live. */
-        if (!is_main_thread())
-                return;
-
-        r = get_proc_field("/proc/self/status", "Threads", WHITESPACE, &t);
-        if (r < 0 || !streq(t, "1"))
-                return;
-
-        mempool_drop(&hashmap_pool);
-        mempool_drop(&ordered_hashmap_pool);
-}
-#endif
 
 static unsigned n_buckets(HashmapBase *h) {
         return h->has_indirect ? h->indirect.n_buckets
@@ -767,31 +734,15 @@ static void reset_direct_storage(HashmapBase *h) {
         memset(p, DIB_RAW_INIT, sizeof(dib_raw_t) * hi->n_direct_buckets);
 }
 
-static bool use_pool(void) {
-        static int b = -1;
-
-        if (!is_main_thread())
-                return false;
-
-        if (b < 0)
-                b = getenv_bool("SYSTEMD_MEMPOOL") != 0;
-
-        return b;
-}
-
 static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type HASHMAP_DEBUG_PARAMS) {
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
-        bool up;
 
-        up = use_pool();
-
-        h = up ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
+        h = malloc0(hi->head_size);
         if (!h)
                 return NULL;
 
         h->type = type;
-        h->from_pool = up;
         h->hash_ops = hash_ops ? hash_ops : &trivial_hash_ops;
 
         if (type == HASHMAP_TYPE_ORDERED) {
@@ -869,12 +820,7 @@ static void hashmap_free_no_clear(HashmapBase *h) {
         assert_se(pthread_mutex_unlock(&hashmap_debug_list_mutex) == 0);
 #endif
 
-        if (h->from_pool) {
-                /* Ensure that the object didn't get migrated between threads. */
-                assert_se(is_main_thread());
-                mempool_free_tile(hashmap_type_info[h->type].mempool, h);
-        } else
-                free(h);
+        free(h);
 }
 
 HashmapBase *internal_hashmap_free(HashmapBase *h) {

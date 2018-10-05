@@ -115,8 +115,6 @@ basic_sources = files('''
         macro.h
         memfd-util.c
         memfd-util.h
-        mempool.c
-        mempool.h
         missing_syscall.h
         mkdir-label.c
         mkdir.c
