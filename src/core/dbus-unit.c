@@ -1781,7 +1781,13 @@ static int bus_unit_track_handler(sd_bus_track *t, void *userdata) {
 
         u->bus_track = sd_bus_track_unref(u->bus_track); /* make sure we aren't called again */
 
+        /* If the client that tracks us disappeared, then there's reason to believe that the cgroup is empty now too,
+         * let's see */
+        unit_add_to_cgroup_empty_queue(u);
+
+        /* Also add the unit to the GC queue, after all if the client left it might be time to GC this unit */
         unit_add_to_gc_queue(u);
+
         return 0;
 }
 
