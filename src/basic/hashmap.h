@@ -9,6 +9,10 @@
 #include "macro.h"
 #include "util.h"
 
+#ifndef HASHMAP_USE_MEMPOOL
+#define HASHMAP_USE_MEMPOOL 1
+#endif
+
 /*
  * A hash table implementation. As a minor optimization a NULL hashmap object
  * will be treated as empty hashmap for all read operations. That way it is not
@@ -82,10 +86,10 @@ typedef struct {
 # define HASHMAP_DEBUG_PASS_ARGS
 #endif
 
-Hashmap *internal_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
-OrderedHashmap *internal_ordered_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
-#define hashmap_new(ops) internal_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
-#define ordered_hashmap_new(ops) internal_ordered_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
+Hashmap *internal_hashmap_new(const struct hash_ops *hash_ops, bool may_use_mempool  HASHMAP_DEBUG_PARAMS);
+OrderedHashmap *internal_ordered_hashmap_new(const struct hash_ops *hash_ops, bool may_use_mempool  HASHMAP_DEBUG_PARAMS);
+#define hashmap_new(ops) internal_hashmap_new(ops, HASHMAP_USE_MEMPOOL  HASHMAP_DEBUG_SRC_ARGS)
+#define ordered_hashmap_new(ops) internal_ordered_hashmap_new(ops, HASHMAP_USE_MEMPOOL  HASHMAP_DEBUG_SRC_ARGS)
 
 HashmapBase *internal_hashmap_free(HashmapBase *h);
 static inline Hashmap *hashmap_free(Hashmap *h) {
@@ -111,18 +115,18 @@ static inline OrderedHashmap *ordered_hashmap_free_free_free(OrderedHashmap *h) 
 IteratedCache *iterated_cache_free(IteratedCache *cache);
 int iterated_cache_get(IteratedCache *cache, const void ***res_keys, const void ***res_values, unsigned *res_n_entries);
 
-HashmapBase *internal_hashmap_copy(HashmapBase *h);
+HashmapBase *internal_hashmap_copy(HashmapBase *h, bool may_use_mempool);
 static inline Hashmap *hashmap_copy(Hashmap *h) {
-        return (Hashmap*) internal_hashmap_copy(HASHMAP_BASE(h));
+        return (Hashmap*) internal_hashmap_copy(HASHMAP_BASE(h), HASHMAP_USE_MEMPOOL);
 }
 static inline OrderedHashmap *ordered_hashmap_copy(OrderedHashmap *h) {
-        return (OrderedHashmap*) internal_hashmap_copy(HASHMAP_BASE(h));
+        return (OrderedHashmap*) internal_hashmap_copy(HASHMAP_BASE(h), HASHMAP_USE_MEMPOOL);
 }
 
-int internal_hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
-int internal_ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
-#define hashmap_ensure_allocated(h, ops) internal_hashmap_ensure_allocated(h, ops  HASHMAP_DEBUG_SRC_ARGS)
-#define ordered_hashmap_ensure_allocated(h, ops) internal_ordered_hashmap_ensure_allocated(h, ops  HASHMAP_DEBUG_SRC_ARGS)
+int internal_hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops, bool may_use_mempool  HASHMAP_DEBUG_PARAMS);
+int internal_ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops, bool may_use_mempool  HASHMAP_DEBUG_PARAMS);
+#define hashmap_ensure_allocated(h, ops) internal_hashmap_ensure_allocated(h, ops, HASHMAP_USE_MEMPOOL  HASHMAP_DEBUG_SRC_ARGS)
+#define ordered_hashmap_ensure_allocated(h, ops) internal_ordered_hashmap_ensure_allocated(h, ops, HASHMAP_USE_MEMPOOL  HASHMAP_DEBUG_SRC_ARGS)
 
 IteratedCache *internal_hashmap_iterated_cache_new(HashmapBase *h);
 static inline IteratedCache *hashmap_iterated_cache_new(Hashmap *h) {

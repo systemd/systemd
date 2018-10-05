@@ -779,12 +779,12 @@ static bool use_pool(void) {
         return b;
 }
 
-static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type HASHMAP_DEBUG_PARAMS) {
+static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, bool may_use_mempool, enum HashmapType type HASHMAP_DEBUG_PARAMS) {
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
         bool up;
 
-        up = use_pool();
+        up = may_use_mempool ? use_pool() : false;
 
         h = up ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
         if (!h)
@@ -818,19 +818,19 @@ static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enu
         return h;
 }
 
-Hashmap *internal_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (Hashmap*)        hashmap_base_new(hash_ops, HASHMAP_TYPE_PLAIN HASHMAP_DEBUG_PASS_ARGS);
+Hashmap *internal_hashmap_new(const struct hash_ops *hash_ops, bool may_use_mempool  HASHMAP_DEBUG_PARAMS) {
+        return (Hashmap*)        hashmap_base_new(hash_ops, may_use_mempool, HASHMAP_TYPE_PLAIN HASHMAP_DEBUG_PASS_ARGS);
 }
 
-OrderedHashmap *internal_ordered_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (OrderedHashmap*) hashmap_base_new(hash_ops, HASHMAP_TYPE_ORDERED HASHMAP_DEBUG_PASS_ARGS);
+OrderedHashmap *internal_ordered_hashmap_new(const struct hash_ops *hash_ops, bool may_use_mempool  HASHMAP_DEBUG_PARAMS) {
+        return (OrderedHashmap*) hashmap_base_new(hash_ops, may_use_mempool, HASHMAP_TYPE_ORDERED HASHMAP_DEBUG_PASS_ARGS);
 }
 
-Set *internal_set_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (Set*)            hashmap_base_new(hash_ops, HASHMAP_TYPE_SET HASHMAP_DEBUG_PASS_ARGS);
+Set *internal_set_new(const struct hash_ops *hash_ops, bool may_use_mempool  HASHMAP_DEBUG_PARAMS) {
+        return (Set*)            hashmap_base_new(hash_ops, may_use_mempool, HASHMAP_TYPE_SET HASHMAP_DEBUG_PASS_ARGS);
 }
 
-static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops *hash_ops,
+static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops *hash_ops, bool may_use_mempool,
                                          enum HashmapType type HASHMAP_DEBUG_PARAMS) {
         HashmapBase *q;
 
@@ -839,7 +839,7 @@ static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops 
         if (*h)
                 return 0;
 
-        q = hashmap_base_new(hash_ops, type HASHMAP_DEBUG_PASS_ARGS);
+        q = hashmap_base_new(hash_ops, may_use_mempool, type HASHMAP_DEBUG_PASS_ARGS);
         if (!q)
                 return -ENOMEM;
 
@@ -847,16 +847,16 @@ static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops 
         return 0;
 }
 
-int internal_hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_PLAIN HASHMAP_DEBUG_PASS_ARGS);
+int internal_hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops, bool may_use_mempool  HASHMAP_DEBUG_PARAMS) {
+        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, may_use_mempool, HASHMAP_TYPE_PLAIN HASHMAP_DEBUG_PASS_ARGS);
 }
 
-int internal_ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_ORDERED HASHMAP_DEBUG_PASS_ARGS);
+int internal_ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops, bool may_use_mempool  HASHMAP_DEBUG_PARAMS) {
+        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, may_use_mempool, HASHMAP_TYPE_ORDERED HASHMAP_DEBUG_PASS_ARGS);
 }
 
-int internal_set_ensure_allocated(Set **s, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, HASHMAP_TYPE_SET HASHMAP_DEBUG_PASS_ARGS);
+int internal_set_ensure_allocated(Set **s, const struct hash_ops *hash_ops, bool may_use_mempool  HASHMAP_DEBUG_PARAMS) {
+        return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, may_use_mempool, HASHMAP_TYPE_SET HASHMAP_DEBUG_PASS_ARGS);
 }
 
 static void hashmap_free_no_clear(HashmapBase *h) {
@@ -1762,13 +1762,13 @@ int internal_hashmap_move_one(HashmapBase *h, HashmapBase *other, const void *ke
         return 0;
 }
 
-HashmapBase *internal_hashmap_copy(HashmapBase *h) {
+HashmapBase *internal_hashmap_copy(HashmapBase *h, bool may_use_mempool) {
         HashmapBase *copy;
         int r;
 
         assert(h);
 
-        copy = hashmap_base_new(h->hash_ops, h->type  HASHMAP_DEBUG_SRC_ARGS);
+        copy = hashmap_base_new(h->hash_ops, may_use_mempool, h->type  HASHMAP_DEBUG_SRC_ARGS);
         if (!copy)
                 return NULL;
 

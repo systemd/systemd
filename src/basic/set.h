@@ -5,8 +5,8 @@
 #include "hashmap.h"
 #include "macro.h"
 
-Set *internal_set_new(const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
-#define set_new(ops) internal_set_new(ops HASHMAP_DEBUG_SRC_ARGS)
+Set *internal_set_new(const struct hash_ops *hash_ops, bool may_use_mempool HASHMAP_DEBUG_PARAMS);
+#define set_new(ops) internal_set_new(ops, HASHMAP_USE_MEMPOOL HASHMAP_DEBUG_SRC_ARGS)
 
 static inline Set *set_free(Set *s) {
         internal_hashmap_free(HASHMAP_BASE(s));
@@ -21,11 +21,11 @@ static inline Set *set_free_free(Set *s) {
 /* no set_free_free_free */
 
 static inline Set *set_copy(Set *s) {
-        return (Set*) internal_hashmap_copy(HASHMAP_BASE(s));
+        return (Set*) internal_hashmap_copy(HASHMAP_BASE(s), HASHMAP_USE_MEMPOOL);
 }
 
-int internal_set_ensure_allocated(Set **s, const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
-#define set_ensure_allocated(h, ops) internal_set_ensure_allocated(h, ops HASHMAP_DEBUG_SRC_ARGS)
+int internal_set_ensure_allocated(Set **s, const struct hash_ops *hash_ops, bool may_use_mempool HASHMAP_DEBUG_PARAMS);
+#define set_ensure_allocated(h, ops) internal_set_ensure_allocated(h, ops, HASHMAP_USE_MEMPOOL HASHMAP_DEBUG_SRC_ARGS)
 
 int set_put(Set *s, const void *key);
 /* no set_update */
