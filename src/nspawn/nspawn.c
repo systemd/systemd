@@ -189,7 +189,7 @@ static const char *arg_container_service_name = "systemd-nspawn";
 static bool arg_notify_ready = false;
 static bool arg_use_cgns = true;
 static unsigned long arg_clone_ns_flags = CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS;
-static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO;
+static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_TMPFS_TMP;
 static void *arg_root_hash = NULL;
 static size_t arg_root_hash_size = 0;
 static char **arg_syscall_whitelist = NULL;
@@ -402,8 +402,14 @@ static void parse_share_ns_env(const char *name, unsigned long ns_flag) {
 }
 
 static void parse_mount_settings_env(void) {
-        int r;
         const char *e;
+        int r;
+
+        r = getenv_bool("SYSTEMD_NSPAWN_TMPFS_TMP");
+        if (r >= 0)
+                SET_FLAG(arg_mount_settings, MOUNT_APPLY_TMPFS_TMP, r > 0);
+        else if (r != -ENXIO)
+                log_warning_errno(r, "Failed to parse $SYSTEMD_NSPAWN_TMPFS_TMP, ignoring: %m");
 
         e = getenv("SYSTEMD_NSPAWN_API_VFS_WRITABLE");
         if (!e)
