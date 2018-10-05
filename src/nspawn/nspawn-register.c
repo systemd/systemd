@@ -274,10 +274,12 @@ int allocate_scope(
 
         description = strjoina("Container ", machine_name);
 
-        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)",
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)(sv)",
                                   "PIDs", "au", 1, pid,
                                   "Description", "s", description,
                                   "Delegate", "b", 1,
+                                  "CollectMode", "s", "inactive-or-failed",
+                                  "AddRef", "b", 1,
                                   "Slice", "s", isempty(slice) ? SPECIAL_MACHINE_SLICE : slice);
         if (r < 0)
                 return bus_log_create_error(r);
@@ -321,6 +323,66 @@ int allocate_scope(
         r = bus_wait_for_jobs_one(w, object, false);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int terminate_scope(
+                sd_bus *bus,
+                const char *machine_name) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *scope = NULL;
+        int r;
+
+        r = unit_name_mangle_with_suffix(machine_name, 0, ".scope", &scope);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle scope name: %m");
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "AbandonScope",
+                        &error,
+                        NULL,
+                        "s",
+                        scope);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to abandon scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+        }
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "KillUnit",
+                        &error,
+                        NULL,
+                        "ssi",
+                        scope,
+                        "all",
+                        (int32_t) SIGKILL);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to SIGKILL scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+        }
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "UnrefUnit",
+                        &error,
+                        NULL,
+                        "s",
+                        scope);
+        if (r < 0)
+                log_debug_errno(r, "Failed to drop reference to scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
 
         return 0;
 }
