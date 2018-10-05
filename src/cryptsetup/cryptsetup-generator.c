@@ -192,7 +192,7 @@ static int create_disk(
                         netdev ? "remote-cryptsetup.target" : "cryptsetup.target");
 
         if (password) {
-                if (STR_IN_SET(password, "/dev/urandom", "/dev/random", "/dev/hw_random"))
+                if (PATH_IN_SET(password, "/dev/urandom", "/dev/random", "/dev/hw_random"))
                         fputs("After=systemd-random-seed.service\n", f);
                 else if (!STR_IN_SET(password, "-", "none")) {
                         _cleanup_free_ char *uu;
