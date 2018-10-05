@@ -19,6 +19,7 @@
 #include <linux/btrfs.h>
 #endif
 
+#include "missing.h"
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-ctree.h"
@@ -31,7 +32,6 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "macro.h"
-#include "missing.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "smack-util.h"
