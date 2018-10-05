@@ -230,6 +230,14 @@ endif
 
 ############################################################
 
+if install_tests
+        install_data('run-unit-tests.py',
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : testsdir)
+endif
+
+############################################################
+
 # prepare test/sys tree
 sys_script_py = find_program('sys-script.py')
 custom_target(
