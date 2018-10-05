@@ -81,10 +81,10 @@ static void test_path(void) {
         test_path_simplify("///.//", "/.", "/");
         test_path_simplify("///.//.///", "/./.", "/");
         test_path_simplify("////.././///../.", "/.././../.", "/../..");
-        test_path_simplify(".", ".", "");
-        test_path_simplify("./", ".", "");
-        test_path_simplify(".///.//./.", "./././.", "");
-        test_path_simplify(".///.//././/", "./././.", "");
+        test_path_simplify(".", ".", ".");
+        test_path_simplify("./", ".", ".");
+        test_path_simplify(".///.//./.", "./././.", ".");
+        test_path_simplify(".///.//././/", "./././.", ".");
         test_path_simplify("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.",
                            "/./aaa/././.bbb/../c./d.dd/..eeee/.",
                            "/aaa/.bbb/../c./d.dd/..eeee");
