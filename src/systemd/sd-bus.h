@@ -154,6 +154,8 @@ int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b);
 int sd_bus_get_allow_interactive_authorization(sd_bus *bus);
 int sd_bus_set_exit_on_disconnect(sd_bus *bus, int b);
 int sd_bus_get_exit_on_disconnect(sd_bus *bus);
+int sd_bus_set_close_on_exit(sd_bus *bus, int b);
+int sd_bus_get_close_on_exit(sd_bus *bus);
 int sd_bus_set_watch_bind(sd_bus *bus, int b);
 int sd_bus_get_watch_bind(sd_bus *bus);
 int sd_bus_set_connected_signal(sd_bus *bus, int b);

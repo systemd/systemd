@@ -579,6 +579,9 @@ global:
 
         sd_bus_error_move;
 
+        sd_bus_set_close_on_exit;
+        sd_bus_get_close_on_exit;
+
         sd_device_ref;
         sd_device_unref;
 

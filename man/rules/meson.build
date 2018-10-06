@@ -289,6 +289,7 @@ manpages = [
    'sd_bus_release_name_async',
    'sd_bus_request_name_async'],
   ''],
+ ['sd_bus_set_close_on_exit', '3', ['sd_bus_get_close_on_exit'], ''],
  ['sd_bus_set_connected_signal', '3', ['sd_bus_get_connected_signal'], ''],
  ['sd_bus_set_description',
   '3',
