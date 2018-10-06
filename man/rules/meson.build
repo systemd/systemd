@@ -114,6 +114,7 @@ manpages = [
    'sd_bus_match_signal',
    'sd_bus_match_signal_async'],
   ''],
+ ['sd_bus_attach_event', '3', ['sd_bus_detach_event', 'sd_bus_get_event'], ''],
  ['sd_bus_close', '3', ['sd_bus_flush'], ''],
  ['sd_bus_creds_get_pid',
   '3',
