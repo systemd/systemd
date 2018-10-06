@@ -25,7 +25,7 @@ _SD_BEGIN_DECLARATIONS;
 
 enum {
         /* Temporary files */
-        SD_PATH_TEMPORARY = 0x0ULL,
+        SD_PATH_TEMPORARY,
         SD_PATH_TEMPORARY_LARGE,
 
         /* Vendor supplied data */
