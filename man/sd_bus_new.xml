@@ -23,6 +23,8 @@
     <refname>sd_bus_ref</refname>
     <refname>sd_bus_unref</refname>
     <refname>sd_bus_unrefp</refname>
+    <refname>sd_bus_flush_close_unref</refname>
+    <refname>sd_bus_flush_close_unrefp</refname>
 
     <refpurpose>Create a new bus object and create or destroy references to it</refpurpose>
   </refnamediv>
@@ -48,6 +50,16 @@
 
       <funcprototype>
         <funcdef>void <function>sd_bus_unrefp</function></funcdef>
+        <paramdef>sd_bus **<parameter>busp</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus *<function>sd_bus_flush_close_unref</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_bus_flush_close_unrefp</function></funcdef>
         <paramdef>sd_bus **<parameter>busp</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
@@ -111,6 +123,18 @@
     dereference its argument, which must not be <constant>NULL</constant>, and will
     execute no operation if <emphasis>that</emphasis> is <constant>NULL</constant>.
     </para>
+
+    <para><function>sd_bus_flush_close_unref()</function> is similar to <function>sd_bus_unref()</function>, but first
+    executes <citerefentry><refentrytitle>sd_bus_flush</refentrytitle><manvolnum>3</manvolnum></citerefentry> as well
+    as <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>, ensuring that
+    any pending messages are properly flushed out before the reference to the connection is dropped and possibly the
+    object freed. This call is particularly useful immediately before exiting from a program as it ensures that any
+    pending outgoing messages are written out, and unprocessed but queued incoming messages released before the
+    connection is terminated and released.</para>
+
+    <para><function>sd_bus_flush_close_unrefp()</function> is similar to
+    <function>sd_bus_flush_close_unref()</function>, but may be used in GCC's and LLVM's Clean-up Variable Attribute,
+    see above.</para>
   </refsect1>
 
   <refsect1>
@@ -123,7 +147,7 @@
     <para><function>sd_bus_ref()</function> always returns the argument.
     </para>
 
-    <para><function>sd_bus_unref()</function> always returns
+    <para><function>sd_bus_unref()</function> and <function>sd_bus_flush_close_unref()</function> always return
     <constant>NULL</constant>.</para>
   </refsect1>
 
@@ -152,7 +176,8 @@
       <citerefentry><refentrytitle>sd_bus_default_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_default_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_open_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_open_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_open_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 
