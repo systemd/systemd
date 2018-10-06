@@ -104,6 +104,8 @@ void device_attach(Device *d, Seat *s) {
                 }
         }
 
-        if (!had_master && d->master)
+        if (!had_master && d->master && s->started) {
+                seat_save(s);
                 seat_send_changed(s, "CanGraphical", NULL);
+        }
 }
