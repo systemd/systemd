@@ -1,0 +1,101 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+
+<refentry id="sd_bus_close"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_close</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_close</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_close</refname>
+    <refname>sd_bus_flush</refname>
+
+    <refpurpose>Close and flush a bus connection</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>void <function>sd_bus_close</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_flush</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_close()</function> disconnects the specified bus connection. When this call is invoked and
+    the specified bus object refers to an active connection it is immediately terminated. No further messages may be
+    sent or receieved on it. Any messages queued in the bus object (both incoming and outgoing) are released. If
+    invoked on <constant>NULL</constant> bus object or when the bus connection is already closed this function executes
+    no operation. This call does not free or unreference the bus object itself. Use
+    <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry> for that.</para>
+
+    <para><function>sd_bus_flush()</function> synchronously writes out all outgoing queued message on a bus connection
+    if there are any. This function call may block if the peer is not processing bus messages quickly.</para>
+
+    <para>Before a program exits it is usually a good idea to flush any pending messages with
+    <function>sd_bus_flush()</function> and then close connections with <function>sd_bus_close()</function> to ensure
+    that no unwritten messages are lost, no further messages may be queued and all incoming but unprocessed messages
+    are released. After both operations have been done, it is a good idea to also drop any remaining references to the
+    bus object so that it may be freed. Since these three operations are frequently done together a helper call
+    <citerefentry><refentrytitle>sd_bus_flush_close_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry> is
+    provided that combines them into one.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_flush()</function> returns 0 or a positive integer. On failure, it returns a
+    negative errno-style error code.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>-ECHILD</constant></term>
+
+        <listitem><para>The bus connection has been created in a different process.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_set_close_on_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
