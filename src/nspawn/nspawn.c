@@ -3974,6 +3974,10 @@ static int run(int master,
                 r = sd_bus_default_system(&bus);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open system bus: %m");
+
+                r = sd_bus_set_close_on_exit(bus, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
         }
 
         if (!arg_keep_unit) {
