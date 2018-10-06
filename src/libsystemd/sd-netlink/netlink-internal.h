@@ -23,6 +23,7 @@ struct reply_callback {
         usec_t timeout;
         uint64_t serial;
         unsigned prioq_idx;
+        sd_netlink_destroy_t destroy_callback;
 };
 
 struct match_callback {

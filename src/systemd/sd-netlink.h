@@ -38,6 +38,7 @@ typedef enum {SD_GENL_ID_CTRL, SD_GENL_WIREGUARD, SD_GENL_FOU} sd_genl_family;
 /* callback */
 
 typedef int (*sd_netlink_message_handler_t)(sd_netlink *nl, sd_netlink_message *m, void *userdata);
+typedef void (*sd_netlink_destroy_t)(void *userdata);
 
 /* bus */
 int sd_netlink_new_from_netlink(sd_netlink **nl, int fd);
@@ -50,11 +51,12 @@ sd_netlink *sd_netlink_unref(sd_netlink *nl);
 
 int sd_netlink_send(sd_netlink *nl, sd_netlink_message *message, uint32_t *serial);
 int sd_netlink_call_async(sd_netlink *nl, sd_netlink_message *message,
-                       sd_netlink_message_handler_t callback,
-                       void *userdata, uint64_t usec, uint32_t *serial);
+                          sd_netlink_message_handler_t callback,
+                          sd_netlink_destroy_t destoy_callback,
+                          void *userdata, uint64_t usec, uint32_t *serial);
 int sd_netlink_call_async_cancel(sd_netlink *nl, uint32_t serial);
 int sd_netlink_call(sd_netlink *nl, sd_netlink_message *message, uint64_t timeout,
-                 sd_netlink_message **reply);
+                    sd_netlink_message **reply);
 
 int sd_netlink_get_events(sd_netlink *nl);
 int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout);

@@ -195,7 +195,7 @@ int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32
                 return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
         /* send message to the kernel */
-        r = sd_netlink_call_async(rtnl, req, set_brvlan_handler, link, 0, NULL);
+        r = sd_netlink_call_async(rtnl, req, set_brvlan_handler, NULL, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

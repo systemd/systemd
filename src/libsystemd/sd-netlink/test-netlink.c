@@ -199,7 +199,7 @@ static void test_event_loop(int ifindex) {
         assert_se(sd_netlink_open(&rtnl) >= 0);
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
-        assert_se(sd_netlink_call_async(rtnl, m, link_handler, ifname, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, m, link_handler, NULL, ifname, 0, NULL) >= 0);
 
         assert_se(sd_event_default(&event) >= 0);
 
@@ -240,7 +240,7 @@ static void test_async(int ifindex) {
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
-        assert_se(sd_netlink_call_async(rtnl, m, link_handler, ifname, 0, &serial) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, m, link_handler, NULL, ifname, 0, &serial) >= 0);
 
         assert_se(sd_netlink_wait(rtnl, 0) >= 0);
         assert_se(sd_netlink_process(rtnl, &r) >= 0);
@@ -259,10 +259,10 @@ static void test_pipe(int ifindex) {
         assert_se(sd_rtnl_message_new_link(rtnl, &m2, RTM_GETLINK, ifindex) >= 0);
 
         counter++;
-        assert_se(sd_netlink_call_async(rtnl, m1, pipe_handler, &counter, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, m1, pipe_handler, NULL, &counter, 0, NULL) >= 0);
 
         counter++;
-        assert_se(sd_netlink_call_async(rtnl, m2, pipe_handler, &counter, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, m2, pipe_handler, NULL, &counter, 0, NULL) >= 0);
 
         while (counter > 0) {
                 assert_se(sd_netlink_wait(rtnl, 0) >= 0);

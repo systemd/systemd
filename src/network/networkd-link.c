@@ -1327,7 +1327,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append MTU: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, set_mtu_handler, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, set_mtu_handler, NULL, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1398,7 +1398,7 @@ static int link_set_flags(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, set_flags_handler, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, set_flags_handler, NULL, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1473,7 +1473,7 @@ static int link_set_bridge(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, link_set_handler, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, link_set_handler, NULL, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1525,7 +1525,7 @@ static int link_bond_set(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, set_flags_handler, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, set_flags_handler, NULL, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r,  "Could not send rtnetlink message: %m");
 
@@ -1818,7 +1818,7 @@ int link_up(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, link_up_handler, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, link_up_handler, NULL, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1843,7 +1843,7 @@ static int link_up_can(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, link_up_handler, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, link_up_handler, NULL, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1932,7 +1932,7 @@ static int link_set_can(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to close netlink container: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, m, link_set_handler, link,  0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, m, link_set_handler, NULL, link,  0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1991,7 +1991,7 @@ int link_down(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, link_down_handler, link,  0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, req, link_down_handler, NULL, link,  0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -3103,7 +3103,8 @@ int link_initialized(Link *link, sd_device *device) {
                 return r;
 
         r = sd_netlink_call_async(link->manager->rtnl, req,
-                                  link_initialized_and_synced, link, 0, NULL);
+                                  link_initialized_and_synced,
+                                  NULL, link, 0, NULL);
         if (r < 0)
                 return r;
 

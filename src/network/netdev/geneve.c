@@ -135,7 +135,7 @@ static int netdev_geneve_create(NetDev *netdev) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-        r = sd_netlink_call_async(netdev->manager->rtnl, m, geneve_netdev_create_handler, netdev, 0, NULL);
+        r = sd_netlink_call_async(netdev->manager->rtnl, m, geneve_netdev_create_handler, NULL, netdev, 0, NULL);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 

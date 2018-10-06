@@ -370,7 +370,7 @@ int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *lin
                         return log_error_errno(r, "Could not set destination prefix length: %m");
         }
 
-        r = sd_netlink_call_async(link->manager->rtnl, m, callback, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, m, callback, NULL, link, 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -538,7 +538,7 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, sd_netlin
 
         rule->link = link;
 
-        r = sd_netlink_call_async(link->manager->rtnl, m, callback, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, m, callback, NULL, link, 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
