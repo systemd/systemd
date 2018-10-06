@@ -17,7 +17,7 @@
 #define NDISC_PREFIX_LFT_MIN 7200U
 
 static int ndisc_netlink_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_(link_unrefp) Link *link = userdata;
+        Link *link = userdata;
         int r;
 
         assert(link);

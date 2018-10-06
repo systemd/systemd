@@ -102,14 +102,14 @@ static int dhcp6_pd_prefix_assign(Link *link, struct in6_addr *prefix,
 
 static int dhcp6_route_remove_cb(sd_netlink *nl, sd_netlink_message *m,
                                  void *userdata) {
-        Link *l = userdata;
+        Link *link = userdata;
         int r;
+
+        assert(link);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_debug_errno(l, r, "Received error on unreachable route removal for DHCPv6 delegated subnetl: %m");
-
-        l = link_unref(l);
+                log_link_debug_errno(link, r, "Received error on unreachable route removal for DHCPv6 delegated subnetl: %m");
 
         return 0;
 }
@@ -163,7 +163,6 @@ int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
 
                                 continue;
                         }
-                        link = link_ref(link);
 
                         log_link_debug(link, "Removing unreachable route %s/%u",
                                        strnull(buf), pd_prefix_len);
@@ -251,14 +250,14 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
 
 static int dhcp6_route_add_cb(sd_netlink *nl, sd_netlink_message *m,
                               void *userdata) {
-        Link *l = userdata;
+        Link *link = userdata;
         int r;
+
+        assert(link);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r !=  -EEXIST)
-                log_link_debug_errno(l, r, "Received error when adding unreachable route for DHCPv6 delegated subnet: %m");
-
-        l = link_unref(l);
+                log_link_debug_errno(link, r, "Received error when adding unreachable route for DHCPv6 delegated subnet: %m");
 
         return 0;
 }
@@ -322,7 +321,6 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                                 route_free(route);
                                 continue;
                         }
-                        link = link_ref(link);
 
                         route_free(route);
 
@@ -412,7 +410,7 @@ int dhcp6_request_prefix_delegation(Link *link) {
 
 static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                  void *userdata) {
-        _cleanup_(link_unrefp) Link *link = userdata;
+        Link *link = userdata;
         int r;
 
         assert(link);
