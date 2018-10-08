@@ -140,7 +140,13 @@
         following units: <literal>s</literal>, <literal>min</literal>,
         <literal>h</literal>, <literal>ms</literal>,
         <literal>us</literal>. To turn off any kind of rate limiting,
-        set either value to 0.</para></listitem>
+        set either value to 0.</para>
+
+        <para>If a service provides rate limits for itself through
+        <varname>LogRateLimitIntervalSec=</varname> and/or <varname>LogRateLimitBurst=</varname>
+        in <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        those values will override the settings specified here.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
