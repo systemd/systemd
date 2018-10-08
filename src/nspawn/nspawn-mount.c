@@ -543,7 +543,7 @@ int mount_all(const char *dest,
 
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
                 { "tmpfs",           "/tmp",            "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-                  MOUNT_FATAL },
+                  MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP },
                 { "tmpfs",           "/sys",            "tmpfs", "mode=555",  MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS },
                 { "sysfs",           "/sys",            "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
@@ -570,6 +570,7 @@ int mount_all(const char *dest,
         bool netns = (mount_settings & MOUNT_APPLY_APIVFS_NETNS);
         bool ro = (mount_settings & MOUNT_APPLY_APIVFS_RO);
         bool in_userns = (mount_settings & MOUNT_IN_USERNS);
+        bool tmpfs_tmp = (mount_settings & MOUNT_APPLY_TMPFS_TMP);
         size_t k;
         int r;
 
@@ -585,6 +586,9 @@ int mount_all(const char *dest,
                         continue;
 
                 if (!ro && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_APIVFS_RO))
+                        continue;
+
+                if (!tmpfs_tmp && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_TMPFS_TMP))
                         continue;
 
                 r = chase_symlinks(mount_table[k].where, dest, CHASE_NONEXISTENT|CHASE_PREFIX_ROOT, &where);

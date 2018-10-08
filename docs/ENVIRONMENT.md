@@ -73,6 +73,9 @@ systemd-nspawn:
 
 * `$SYSTEMD_NSPAWN_LOCK=0` — if set, do not lock container images when running.
 
+* `$SYSTEMD_NSPAWN_TMPFS_TMP=0` — if set, do not overmount /tmp in the
+  container with a tmpfs, but leave the directory from the image in place.
+
 systemd-logind:
 
 * `$SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK=1` — if set, report that

@@ -14,6 +14,7 @@ typedef enum MountSettingsMask {
         MOUNT_APPLY_APIVFS_NETNS = 1 << 4, /* if set, /proc/sys/net will be mounted read-write.
                                                Works only if MOUNT_APPLY_APIVFS_RO is also set. */
         MOUNT_INACCESSIBLE_REG   = 1 << 5, /* if set, create an inaccessible regular file first and use as bind mount source */
+        MOUNT_APPLY_TMPFS_TMP    = 1 << 6, /* if set, /tmp will be mounted as tmpfs */
 } MountSettingsMask;
 
 typedef enum CustomMountType {
