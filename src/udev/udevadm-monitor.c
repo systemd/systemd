@@ -10,15 +10,14 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include "libudev.h"
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "device-monitor-private.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
-#include "libudev-private.h"
 #include "set.h"
 #include "string-util.h"
 #include "udevadm.h"
@@ -35,13 +34,13 @@ static void sig_handler(int signum) {
                 udev_exit = true;
 }
 
-static int receive_and_print_device(struct udev_monitor *monitor, const char *source) {
+static int receive_and_print_device(sd_device_monitor *monitor, const char *source) {
         const char *action = NULL, *devpath = NULL, *subsystem = NULL;
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         struct timespec ts;
         int r;
 
-        r = udev_monitor_receive_sd_device(monitor, &device);
+        r = device_monitor_receive_device(monitor, &device);
         if (r < 0)
                 return log_debug_errno(r, "Failed to receive device from %s, ignoring: %m", source);
 
@@ -68,41 +67,41 @@ static int receive_and_print_device(struct udev_monitor *monitor, const char *so
         return 0;
 }
 
-static int setup_monitor(const char *sender, int fd_epoll, struct udev_monitor **ret) {
-        _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
+static int setup_monitor(MonitorNetlinkGroup sender, int fd_epoll, sd_device_monitor **ret) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         const char *subsystem, *devtype, *tag;
         struct epoll_event ep = {};
         Iterator i;
         int fd, r;
 
-        monitor = udev_monitor_new_from_netlink(NULL, sender);
-        if (!monitor)
-                return log_error_errno(errno, "Failed to create netlink socket: %m");
+        r = device_monitor_new_full(&monitor, sender, -1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create netlink socket: %m");
 
-        r = udev_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
+        r = sd_device_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
         if (r < 0)
                 return log_error_errno(r, "Failed to set receive buffer size: %m");
 
-        fd = udev_monitor_get_fd(monitor);
+        fd = device_monitor_get_fd(monitor);
         if (fd < 0)
                 return log_error_errno(r, "Failed to get socket fd for monitoring: %m");
 
         HASHMAP_FOREACH_KEY(devtype, subsystem, arg_subsystem_filter, i) {
-                r = udev_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, devtype);
+                r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, devtype);
                 if (r < 0)
                         return log_error_errno(r, "Failed to apply subsystem filter '%s%s%s': %m",
                                                subsystem, devtype ? "/" : "", strempty(devtype));
         }
 
         SET_FOREACH(tag, arg_tag_filter, i) {
-                r = udev_monitor_filter_add_match_tag(monitor, tag);
+                r = sd_device_monitor_filter_add_match_tag(monitor, tag);
                 if (r < 0)
                         return log_error_errno(r, "Failed to apply tag filter '%s': %m", tag);
         }
 
-        r = udev_monitor_enable_receiving(monitor);
+        r = device_monitor_enable_receiving(monitor);
         if (r < 0)
-                return log_error_errno(r, "Failed to subscribe %s events: %m", sender);
+                return log_error_errno(r, "Failed to subscribe %s events: %m", sender == MONITOR_GROUP_UDEV ? "udev" : "kernel");
 
         ep = (struct epoll_event) {
                 .events = EPOLLIN,
@@ -223,7 +222,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int monitor_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(udev_monitor_unrefp) struct udev_monitor *kernel_monitor = NULL, *udev_monitor = NULL;
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *kernel_monitor = NULL, *udev_monitor = NULL;
         int fd_kernel = -1, fd_udev = -1;
         _cleanup_close_ int fd_ep = -1;
         struct sigaction act;
@@ -257,7 +256,7 @@ int monitor_main(int argc, char *argv[], void *userdata) {
 
         printf("monitor will print the received events for:\n");
         if (arg_print_udev) {
-                fd_udev = setup_monitor("udev", fd_ep, &udev_monitor);
+                fd_udev = setup_monitor(MONITOR_GROUP_UDEV, fd_ep, &udev_monitor);
                 if (fd_udev < 0) {
                         r = fd_udev;
                         goto finalize;
@@ -267,7 +266,7 @@ int monitor_main(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_print_kernel) {
-                fd_kernel = setup_monitor("kernel", fd_ep, &kernel_monitor);
+                fd_kernel = setup_monitor(MONITOR_GROUP_KERNEL, fd_ep, &kernel_monitor);
                 if (fd_kernel < 0) {
                         r = fd_kernel;
                         goto finalize;
