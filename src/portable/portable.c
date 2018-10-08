@@ -815,15 +815,15 @@ static int install_profile_dropin(
         return 0;
 }
 
-static const char *config_path(const LookupPaths *paths, PortableFlags flags) {
+static const char *attached_path(const LookupPaths *paths, PortableFlags flags) {
         const char *where;
 
         assert(paths);
 
         if (flags & PORTABLE_RUNTIME)
-                where = paths->runtime_config;
+                where = paths->runtime_attached;
         else
-                where = paths->persistent_config;
+                where = paths->persistent_attached;
 
         assert(where);
         return where;
@@ -849,7 +849,7 @@ static int attach_unit_file(
         assert(m);
         assert(PORTABLE_METADATA_IS_UNIT(m));
 
-        where = config_path(paths, flags);
+        where = attached_path(paths, flags);
         path = strjoina(where, "/", m->name);
 
         dropin_dir = strjoin(path, ".d");
@@ -1147,7 +1147,7 @@ int portable_detach(
         if (r < 0)
                 return r;
 
-        where = config_path(&paths, flags);
+        where = attached_path(&paths, flags);
 
         d = opendir(where);
         if (!d)
@@ -1314,7 +1314,7 @@ static int portable_get_state_internal(
         if (r < 0)
                 return r;
 
-        where = config_path(&paths, flags);
+        where = attached_path(&paths, flags);
 
         d = opendir(where);
         if (!d)
