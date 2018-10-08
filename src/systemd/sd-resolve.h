@@ -17,6 +17,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+/* 'struct addrinfo' needs _GNU_SOURCE */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+
 #include <inttypes.h>
 #include <netdb.h>
 #include <sys/socket.h>

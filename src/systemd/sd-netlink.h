@@ -18,10 +18,11 @@
 ***/
 
 #include <inttypes.h>
+#include <linux/neighbour.h>
+#include <linux/rtnetlink.h>
+#include <net/ethernet.h>
 #include <netinet/ether.h>
 #include <netinet/in.h>
-#include <linux/rtnetlink.h>
-#include <linux/neighbour.h>
 
 #include "sd-event.h"
 
