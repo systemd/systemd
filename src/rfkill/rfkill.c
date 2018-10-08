@@ -11,7 +11,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
-#include "libudev-private.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -82,14 +81,36 @@ static int find_device(
         return 0;
 }
 
+struct DeviceMonitorData {
+        const char *sysname;
+        sd_device *device;
+};
+
+static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+        struct DeviceMonitorData *data = userdata;
+        const char *sysname;
+
+        assert(device);
+        assert(data);
+        assert(data->sysname);
+
+        if (sd_device_get_sysname(device, &sysname) >= 0 && streq(sysname, data->sysname)) {
+                data->device = sd_device_ref(device);
+                return sd_event_exit(sd_device_monitor_get_event(monitor), 0);
+        }
+
+        return 0;
+}
+
 static int wait_for_initialized(
                 sd_device *device,
                 sd_device **ret) {
 
-        _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        int initialized, watch_fd, r;
-        const char *sysname;
+        struct DeviceMonitorData data = {};
+        int initialized, r;
 
         assert(device);
         assert(ret);
@@ -99,61 +120,48 @@ static int wait_for_initialized(
                 return 0;
         }
 
-        assert_se(sd_device_get_sysname(device, &sysname) >= 0);
+        assert_se(sd_device_get_sysname(device, &data.sysname) >= 0);
 
         /* Wait until the device is initialized, so that we can get
          * access to the ID_PATH property */
 
-        monitor = udev_monitor_new_from_netlink(NULL, "udev");
-        if (!monitor)
-                return log_error_errno(errno, "Failed to acquire monitor: %m");
-
-        r = udev_monitor_filter_add_match_subsystem_devtype(monitor, "rfkill", NULL);
+        r = sd_event_default(&event);
         if (r < 0)
-                return log_error_errno(r, "Failed to add rfkill udev match to monitor: %m");
+                return log_error_errno(r, "Failed to get default event: %m");
 
-        r = udev_monitor_enable_receiving(monitor);
+        r = sd_device_monitor_new(&monitor);
         if (r < 0)
-                return log_error_errno(r, "Failed to enable udev receiving: %m");
+                return log_error_errno(r, "Failed to acquire monitor: %m");
 
-        watch_fd = udev_monitor_get_fd(monitor);
-        if (watch_fd < 0)
-                return log_error_errno(watch_fd, "Failed to get watch fd: %m");
+        r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, "rfkill", NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add rfkill device match to monitor: %m");
+
+        r = sd_device_monitor_attach_event(monitor, event, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach event to device monitor: %m");
+
+        r = sd_device_monitor_start(monitor, device_monitor_handler, &data, "rfkill-device-monitor");
+        if (r < 0)
+                return log_error_errno(r, "Failed to start device monitor: %m");
 
         /* Check again, maybe things changed */
-        r = sd_device_new_from_subsystem_sysname(&d, "rfkill", sysname);
+        r = sd_device_new_from_subsystem_sysname(&d, "rfkill", data.sysname);
         if (r < 0)
                 return log_full_errno(IN_SET(r, -ENOENT, -ENXIO, -ENODEV) ? LOG_DEBUG : LOG_ERR, r,
-                                      "Failed to open device '%s': %m", sysname);
+                                      "Failed to open device '%s': %m", data.sysname);
 
         if (sd_device_get_is_initialized(d, &initialized) >= 0 && initialized) {
                 *ret = TAKE_PTR(d);
                 return 0;
         }
 
-        for (;;) {
-                _cleanup_(sd_device_unrefp) sd_device *t = NULL;
-                const char *name;
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Event loop failed: %m");
 
-                r = fd_wait_for_event(watch_fd, POLLIN, EXIT_USEC);
-                if (r == -EINTR)
-                        continue;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to watch udev monitor: %m");
-                if (r == 0) {
-                        log_error("Timed out waiting for udev monitor.");
-                        return -ETIMEDOUT;
-                }
-
-                r = udev_monitor_receive_sd_device(monitor, &t);
-                if (r < 0)
-                        continue;
-
-                if (sd_device_get_sysname(t, &name) >= 0 && streq(name, sysname)) {
-                        *ret = TAKE_PTR(t);
-                        return 0;
-                }
-        }
+        *ret = TAKE_PTR(data.device);
+        return 0;
 }
 
 static int determine_state_file(
