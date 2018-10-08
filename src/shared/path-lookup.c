@@ -142,9 +142,9 @@ int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
         if (!data_dirs)
                 return -ENOMEM;
 
-        *ret_config_dirs = config_dirs;
-        *ret_data_dirs = data_dirs;
-        config_dirs = data_dirs = NULL;
+        *ret_config_dirs = TAKE_PTR(config_dirs);
+        *ret_data_dirs = TAKE_PTR(data_dirs);
+
         return 0;
 }
 
