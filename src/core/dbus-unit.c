@@ -561,6 +561,44 @@ int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error 
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int property_get_refs(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = userdata;
+        const char *i;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        for (i = sd_bus_track_first(u->bus_track); i; i = sd_bus_track_next(u->bus_track)) {
+                int c, k;
+
+                c = sd_bus_track_count_name(u->bus_track, i);
+                if (c < 0)
+                        return c;
+
+                /* Add the item multiple times if the ref count for each is above 1 */
+                for (k = 0; k < c; k++) {
+                        r = sd_bus_message_append(reply, "s", i);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -637,6 +675,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Unit, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("InvocationID", "ay", bus_property_get_id128, offsetof(Unit, invocation_id), 0),
         SD_BUS_PROPERTY("CollectMode", "s", property_get_collect_mode, offsetof(Unit, collect_mode), 0),
+        SD_BUS_PROPERTY("Refs", "as", property_get_refs, 0, 0),
 
         SD_BUS_METHOD("Start", "s", "o", method_start, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Stop", "s", "o", method_stop, SD_BUS_VTABLE_UNPRIVILEGED),
