@@ -850,14 +850,24 @@ static int attach_unit_file(
         assert(PORTABLE_METADATA_IS_UNIT(m));
 
         where = attached_path(paths, flags);
-        path = strjoina(where, "/", m->name);
 
+        (void) mkdir_parents(where, 0755);
+        if (mkdir(where, 0755) < 0) {
+                if (errno != EEXIST)
+                        return -errno;
+        } else
+                (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, where, NULL);
+
+        path = strjoina(where, "/", m->name);
         dropin_dir = strjoin(path, ".d");
         if (!dropin_dir)
                 return -ENOMEM;
 
-        (void) mkdir_p(dropin_dir, 0755);
-        (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, dropin_dir, NULL);
+        if (mkdir(dropin_dir, 0755) < 0) {
+                if (errno != EEXIST)
+                        return -errno;
+        } else
+                (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, dropin_dir, NULL);
 
         /* We install the drop-ins first, and the actual unit file last to achieve somewhat atomic behaviour if PID 1
          * is reloaded while we are creating things here: as long as only the drop-ins exist the unit doesn't exist at
@@ -1290,6 +1300,10 @@ int portable_detach(
                 } else
                         portable_changes_add(changes, n_changes, PORTABLE_UNLINK, sl, NULL);
         }
+
+        /* Try to remove the unit file directory, if we can */
+        if (rmdir(where) >= 0)
+                portable_changes_add(changes, n_changes, PORTABLE_UNLINK, where, NULL);
 
         return ret;
 
