@@ -44,7 +44,9 @@
 <filename>/run/systemd/transient/*</filename>
 <filename>/run/systemd/generator.early/*</filename>
 <filename>/etc/systemd/system/*</filename>
+<filename>/etc/systemd/systemd.attached/*</filename>
 <filename>/run/systemd/system/*</filename>
+<filename>/run/systemd/systemd.attached/*</filename>
 <filename>/run/systemd/generator/*</filename>
 <filename>…</filename>
 <filename>/usr/lib/systemd/system/*</filename>

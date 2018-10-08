@@ -98,16 +98,17 @@ This command does the following:
    `foobar@.{service|socket|target|timer|path}` as well as
    `foobar.*.{service|socket|target|timer|path}` and
    `foobar.{service|socket|target|timer|path}` are copied out. These unit files
-   are placed in `/etc/systemd/system/` like regular unit files. Within the
-   images the unit files are looked for at the usual locations, i.e. in
-   `/usr/lib/systemd/system/` and `/etc/systemd/system/` and so on, relative to
-   the image's root.
+   are placed in `/etc/systemd/system.attached/` (which is part of the normal
+   unit file search path of PID 1, and thus loaded exactly like regular unit
+   files). Within the images the unit files are looked for at the usual
+   locations, i.e. in `/usr/lib/systemd/system/` and `/etc/systemd/system/` and
+   so on, relative to the image's root.
 
 3. For each such unit file a drop-in file is created. Let's say
    `foobar-waldo.service` was one of the unit files copied to
-   `/etc/systemd/system/`, then a drop-in file
-   `/etc/systemd/system/foobar-waldo.service.d/20-portable.conf` is created,
-   containing a few lines of additional configuration:
+   `/etc/systemd/system.attached/`, then a drop-in file
+   `/etc/systemd/system.attached/foobar-waldo.service.d/20-portable.conf` is
+   created, containing a few lines of additional configuration:
 
    ```
    [Service]
