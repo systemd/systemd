@@ -55,6 +55,7 @@
         <term><varname>systemd.unit=</varname></term>
         <term><varname>rd.systemd.unit=</varname></term>
         <term><varname>systemd.dump_core</varname></term>
+        <term><varname>systemd.early_core_pattern=</varname></term>
         <term><varname>systemd.crash_chvt</varname></term>
         <term><varname>systemd.crash_shell</varname></term>
         <term><varname>systemd.crash_reboot</varname></term>
@@ -87,6 +88,16 @@
           <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
           to mask or start specific units at boot, or invoke a debug
           shell on tty9.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.early_core_pattern=</varname></term>
+        <listitem>
+          <para>During early boot, the generation of core dump files is disabled until a core dump handler (if any)
+          takes over. This parameter allows to specifies an absolute path where core dump files should be stored until
+          a handler is installed. The path should be absolute and may contain specifiers, see
+          <citerefentry><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details.</para>
         </listitem>
       </varlistentry>
 
