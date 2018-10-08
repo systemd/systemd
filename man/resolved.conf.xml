@@ -239,9 +239,9 @@
       <varlistentry>
         <term><varname>DNSStubListener=</varname></term>
         <listitem><para>Takes a boolean argument or one of <literal>udp</literal> and <literal>tcp</literal>. If
-        <literal>udp</literal> (the default), a DNS stub resolver will listen for UDP requests on address 127.0.0.53
+        <literal>udp</literal>, a DNS stub resolver will listen for UDP requests on address 127.0.0.53
         port 53. If <literal>tcp</literal>, the stub will listen for TCP requests on the same address and port. If
-        <literal>yes</literal>, the stub listens for both UDP and TCP requests.  If <literal>no</literal>, the stub
+        <literal>yes</literal> (the default), the stub listens for both UDP and TCP requests.  If <literal>no</literal>, the stub
         listener is disabled.</para>
 
         <para>Note that the DNS stub listener is turned off implicitly when its listening address and port are already
