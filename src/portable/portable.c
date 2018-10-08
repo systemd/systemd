@@ -1150,8 +1150,12 @@ int portable_detach(
         where = attached_path(&paths, flags);
 
         d = opendir(where);
-        if (!d)
+        if (!d) {
+                if (errno == ENOENT)
+                        goto not_found;
+
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
+        }
 
         unit_files = set_new(&string_hash_ops);
         if (!unit_files)
@@ -1213,10 +1217,8 @@ int portable_detach(
                 }
         }
 
-        if (set_isempty(unit_files)) {
-                log_debug("No unit files associated with '%s' found. Image not attached?", name_or_path);
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "No unit files associated with '%s' found. Image not attached?", name_or_path);
-        }
+        if (set_isempty(unit_files))
+                goto not_found;
 
         SET_FOREACH(item, unit_files, iterator) {
                 _cleanup_free_ char *md = NULL;
@@ -1290,6 +1292,10 @@ int portable_detach(
         }
 
         return ret;
+
+not_found:
+        log_debug("No unit files associated with '%s' found. Image not attached?", name_or_path);
+        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "No unit files associated with '%s' found. Image not attached?", name_or_path);
 }
 
 static int portable_get_state_internal(
@@ -1317,8 +1323,15 @@ static int portable_get_state_internal(
         where = attached_path(&paths, flags);
 
         d = opendir(where);
-        if (!d)
+        if (!d) {
+                if (errno == ENOENT) {
+                        /* If the 'attached' directory doesn't exist at all, then we know for sure this image isn't attached. */
+                        *ret = PORTABLE_DETACHED;
+                        return 0;
+                }
+
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
+        }
 
         unit_files = set_new(&string_hash_ops);
         if (!unit_files)
