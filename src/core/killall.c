@@ -23,15 +23,19 @@
 
 static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         _cleanup_fclose_ FILE *f = NULL;
-        char c;
         const char *p;
-        size_t count;
+        char c = 0;
         uid_t uid;
         int r;
 
         /* We are PID 1, let's not commit suicide */
-        if (pid == 1)
+        if (pid <= 1)
                 return true;
+
+        /* Ignore kernel threads */
+        r = is_kernel_thread(pid);
+        if (r != 0)
+                return true; /* also ignore processes where we can't determine this */
 
         r = get_process_uid(pid, &uid);
         if (r < 0)
@@ -46,11 +50,10 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         if (!f)
                 return true; /* not really, but has the desired effect */
 
-        count = fread(&c, 1, 1, f);
-
-        /* Kernel threads have an empty cmdline */
-        if (count <= 0)
-                return true;
+        /* Try to read the first character of the command line. If the cmdline is empty (which might be the case for
+         * kernel threads but potentially also other stuff), this line won't do anything, but we don't care much, as
+         * actual kernel threads are already filtered out above. */
+        (void) fread(&c, 1, 1, f);
 
         /* Processes with argv[0][0] = '@' we ignore from the killing spree.
          *
@@ -63,7 +66,7 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
 
                 _cleanup_free_ char *comm = NULL;
 
-                get_process_comm(pid, &comm);
+                (void) get_process_comm(pid, &comm);
 
                 log_notice("Process " PID_FMT " (%s) has been marked to be excluded from killing. It is "
                            "running from the root file system, and thus likely to block re-mounting of the "
