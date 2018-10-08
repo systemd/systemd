@@ -524,8 +524,12 @@ static int watch_passwords(void) {
         if (notify < 0)
                 return log_error_errno(errno, "Failed to allocate directory watch: %m");
 
-        if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO) < 0)
-                return log_error_errno(errno, "Failed to add /run/systemd/ask-password to directory watch: %m");
+        if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO) < 0) {
+                if (errno == ENOSPC)
+                        return log_error_errno(errno, "Failed to add /run/systemd/ask-password to directory watch: inotify watch limit reached");
+                else
+                        return log_error_errno(errno, "Failed to add /run/systemd/ask-password to directory watch: %m");
+        }
 
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
