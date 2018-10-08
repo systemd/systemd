@@ -20,5 +20,5 @@
 #DNSSEC=@DEFAULT_DNSSEC_MODE@
 #DNSOverTLS=@DEFAULT_DNS_OVER_TLS_MODE@
 #Cache=yes
-#DNSStubListener=udp
+#DNSStubListener=yes
 #ReadEtcHosts=yes

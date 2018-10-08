@@ -582,7 +582,7 @@ int manager_new(Manager **ret) {
                 .dnssec_mode = DEFAULT_DNSSEC_MODE,
                 .dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE,
                 .enable_cache = true,
-                .dns_stub_listener_mode = DNS_STUB_LISTENER_UDP,
+                .dns_stub_listener_mode = DNS_STUB_LISTENER_YES,
                 .read_resolv_conf = true,
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
