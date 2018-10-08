@@ -647,4 +647,20 @@ global:
         sd_hwdb_enumerate;
 
         sd_id128_get_boot_app_specific;
+
+        sd_device_monitor_new;
+        sd_device_monitor_ref;
+        sd_device_monitor_unref;
+
+        sd_device_monitor_set_receive_buffer_size;
+        sd_device_monitor_attach_event;
+        sd_device_monitor_detach_event;
+        sd_device_monitor_get_event;
+        sd_device_monitor_start;
+        sd_device_monitor_stop;
+
+        sd_device_monitor_filter_add_match_subsystem_devtype;
+        sd_device_monitor_filter_add_match_tag;
+        sd_device_monitor_filter_update;
+        sd_device_monitor_filter_remove;
 } LIBSYSTEMD_239;

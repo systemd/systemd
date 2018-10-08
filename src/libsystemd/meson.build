@@ -53,6 +53,8 @@ libsystemd_sources = files('''
         sd-device/device-enumerator-private.h
         sd-device/device-enumerator.c
         sd-device/device-internal.h
+        sd-device/device-monitor-private.h
+        sd-device/device-monitor.c
         sd-device/device-private.c
         sd-device/device-private.h
         sd-device/device-util.h
