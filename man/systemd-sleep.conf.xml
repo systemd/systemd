@@ -114,6 +114,24 @@
 
     <variablelist class='systemd-directives'>
       <varlistentry>
+        <term><varname>AllowSuspend=</varname></term>
+        <term><varname>AllowHibernation=</varname></term>
+        <term><varname>AllowSuspendThenHibernate=</varname></term>
+        <term><varname>AllowHybridSleep=</varname></term>
+
+        <listitem><para>By default any power-saving mode is advertised if possible (i.e.
+        the kernel supports that mode, the necessary resources are available). Those
+        switches can be used to disable specific modes.</para>
+
+        <para>If <varname>AllowHibernation=no</varname> or <varname>AllowSuspend=no</varname> is
+        used, this implies <varname>AllowSuspendThenHibernate=no</varname> and
+        <varname>AllowHybridSleep=no</varname>, since those methods use both suspend and hibernation
+        internally. <varname>AllowSuspendThenHibernate=yes</varname> and
+        <varname>AllowHybridSleep=yes</varname> can be used to override and enable those specific
+        modes.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SuspendMode=</varname></term>
         <term><varname>HibernateMode=</varname></term>
         <term><varname>HybridSleepMode=</varname></term>

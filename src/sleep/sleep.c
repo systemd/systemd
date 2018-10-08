@@ -136,7 +136,6 @@ static int write_state(FILE **f, char **states) {
 }
 
 static int execute(char **modes, char **states) {
-
         char *arguments[] = {
                 NULL,
                 (char*) "pre",
@@ -221,13 +220,11 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
         char time_str[DECIMAL_STR_MAX(uint64_t)];
         int r;
 
-        r = parse_sleep_config("suspend", &suspend_modes, &suspend_states,
-                               NULL);
+        r = parse_sleep_config("suspend", NULL, &suspend_modes, &suspend_states, NULL);
         if (r < 0)
                 return r;
 
-        r = parse_sleep_config("hibernate", &hibernate_modes,
-                               &hibernate_states, NULL);
+        r = parse_sleep_config("hibernate", NULL, &hibernate_modes, &hibernate_states, NULL);
         if (r < 0)
                 return r;
 
@@ -340,6 +337,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        bool allow;
         _cleanup_strv_free_ char **modes = NULL, **states = NULL;
         usec_t delay = 0;
         int r;
@@ -352,9 +350,14 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = parse_sleep_config(arg_verb, &modes, &states, &delay);
+        r = parse_sleep_config(arg_verb, &allow, &modes, &states, &delay);
         if (r < 0)
                 goto finish;
+
+        if (!allow) {
+                log_error("Sleep mode \"%s\" is disabled by configuration, refusing.", arg_verb);
+                return EXIT_FAILURE;
+        }
 
         if (streq(arg_verb, "suspend-then-hibernate"))
                 r = execute_s2h(delay);

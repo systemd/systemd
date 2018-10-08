@@ -2,11 +2,15 @@
 
 #pragma once
 
-#include <stdlib.h>
+#include <inttypes.h>
+#include <stdbool.h>
+#include <sys/types.h>
+
+#include "sd-id128.h"
 
 typedef struct BootEntry {
-        char *filename;
-
+        char *id;       /* This is the file basename without extension */
+        char *path;     /* This is the full path to the file */
         char *title;
         char *show_title;
         char *version;
@@ -44,7 +48,9 @@ void boot_config_free(BootConfig *config);
 int boot_entries_load_config(const char *esp_path, BootConfig *config);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
-        return entry->show_title ?: entry->title ?: entry->filename;
+        return entry->show_title ?: entry->title ?: entry->id;
 }
 
 int find_esp_and_warn(const char *path, bool unprivileged_mode, char **ret_path, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid);
+
+int find_default_boot_entry(const char *esp_path, char **esp_where, BootConfig *config, const BootEntry **e);
