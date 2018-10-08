@@ -39,6 +39,10 @@ struct JournalRateLimitGroup {
         JournalRateLimit *parent;
 
         char *id;
+
+        /* Interval is stored to keep track of when the group expires */
+        usec_t interval;
+
         JournalRateLimitPool pools[POOLS_MAX];
         uint64_t hash;
 
@@ -47,8 +51,6 @@ struct JournalRateLimitGroup {
 };
 
 struct JournalRateLimit {
-        usec_t interval;
-        unsigned burst;
 
         JournalRateLimitGroup* buckets[BUCKETS_MAX];
         JournalRateLimitGroup *lru, *lru_tail;
@@ -58,17 +60,12 @@ struct JournalRateLimit {
         uint8_t hash_key[16];
 };
 
-JournalRateLimit *journal_rate_limit_new(usec_t interval, unsigned burst) {
+JournalRateLimit *journal_rate_limit_new(void) {
         JournalRateLimit *r;
-
-        assert(interval > 0 || burst == 0);
 
         r = new0(JournalRateLimit, 1);
         if (!r)
                 return NULL;
-
-        r->interval = interval;
-        r->burst = burst;
 
         random_bytes(r->hash_key, sizeof(r->hash_key));
 
@@ -109,7 +106,7 @@ _pure_ static bool journal_rate_limit_group_expired(JournalRateLimitGroup *g, us
         assert(g);
 
         for (i = 0; i < POOLS_MAX; i++)
-                if (g->pools[i].begin + g->parent->interval >= ts)
+                if (g->pools[i].begin + g->interval >= ts)
                         return false;
 
         return true;
@@ -126,7 +123,7 @@ static void journal_rate_limit_vacuum(JournalRateLimit *r, usec_t ts) {
                 journal_rate_limit_group_free(r->lru_tail);
 }
 
-static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, const char *id, usec_t ts) {
+static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, const char *id, usec_t interval, usec_t ts) {
         JournalRateLimitGroup *g;
 
         assert(r);
@@ -141,6 +138,8 @@ static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, 
                 goto fail;
 
         g->hash = siphash24_string(g->id, r->hash_key);
+
+        g->interval = interval;
 
         journal_rate_limit_vacuum(r, ts);
 
@@ -186,7 +185,7 @@ static unsigned burst_modulate(unsigned burst, uint64_t available) {
         return burst;
 }
 
-int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, uint64_t available) {
+int journal_rate_limit_test(JournalRateLimit *r, const char *id, usec_t rl_interval, unsigned rl_burst, int priority, uint64_t available) {
         uint64_t h;
         JournalRateLimitGroup *g;
         JournalRateLimitPool *p;
@@ -205,11 +204,6 @@ int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, u
         if (!r)
                 return 1;
 
-        if (r->interval == 0 || r->burst == 0)
-                return 1;
-
-        burst = burst_modulate(r->burst, available);
-
         ts = now(CLOCK_MONOTONIC);
 
         h = siphash24_string(id, r->hash_key);
@@ -220,10 +214,16 @@ int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, u
                         break;
 
         if (!g) {
-                g = journal_rate_limit_group_new(r, id, ts);
+                g = journal_rate_limit_group_new(r, id, rl_interval, ts);
                 if (!g)
                         return -ENOMEM;
-        }
+        } else
+                g->interval = rl_interval;
+
+        if (rl_interval == 0 || rl_burst == 0)
+                return 1;
+
+        burst = burst_modulate(rl_burst, available);
 
         p = &g->pools[priority_map[priority]];
 
@@ -234,7 +234,7 @@ int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, u
                 return 1;
         }
 
-        if (p->begin + r->interval < ts) {
+        if (p->begin + rl_interval < ts) {
                 unsigned s;
 
                 s = p->suppressed;

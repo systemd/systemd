@@ -3746,6 +3746,9 @@ void exec_context_done(ExecContext *c) {
 
         exec_context_free_log_extra_fields(c);
 
+        c->log_rate_limit_interval_usec = 0;
+        c->log_rate_limit_burst = 0;
+
         c->stdin_data = mfree(c->stdin_data);
         c->stdin_data_size = 0;
 }
@@ -4226,6 +4229,17 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
                 fprintf(f, "%sLogLevelMax: %s\n", prefix, strna(t));
         }
+
+        if (c->log_rate_limit_interval_usec > 0) {
+                char buf_timespan[FORMAT_TIMESPAN_MAX];
+
+                fprintf(f,
+                        "%sLogRateLimitIntervalSec: %s\n",
+                        prefix, format_timespan(buf_timespan, sizeof(buf_timespan), c->log_rate_limit_interval_usec, USEC_PER_SEC));
+        }
+
+        if (c->log_rate_limit_burst > 0)
+                fprintf(f, "%sLogRateLimitBurst: %u\n", prefix, c->log_rate_limit_burst);
 
         if (c->n_log_extra_fields > 0) {
                 size_t j;
