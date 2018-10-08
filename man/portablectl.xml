@@ -59,7 +59,7 @@
       <listitem><para>btrfs subvolumes containing OS trees, similar to normal directory trees.</para></listitem>
 
       <listitem><para>Binary "raw" disk images containing MBR or GPT partition tables and Linux file system
-      partitions.</para></listitem>
+      partitions. (These must be regular files, with the <filename>.raw</filename> suffix.)</para></listitem>
     </itemizedlist>
 
   </refsect1>

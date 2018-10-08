@@ -37,6 +37,7 @@
 #define BUS_ERROR_NO_SUCH_GROUP_MAPPING "org.freedesktop.machine1.NoSuchGroupMapping"
 
 #define BUS_ERROR_NO_SUCH_PORTABLE_IMAGE "org.freedesktop.portable1.NoSuchImage"
+#define BUS_ERROR_BAD_PORTABLE_IMAGE_TYPE "org.freedesktop.portable1.BadImageType"
 
 #define BUS_ERROR_NO_SUCH_SESSION "org.freedesktop.login1.NoSuchSession"
 #define BUS_ERROR_NO_SESSION_FOR_PID "org.freedesktop.login1.NoSessionForPID"

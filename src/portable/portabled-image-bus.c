@@ -636,6 +636,10 @@ int bus_image_acquire(
 
                 r = image_from_path(name_or_path, &loaded);
         }
+        if (r == -EMEDIUMTYPE) {
+                sd_bus_error_setf(error, BUS_ERROR_BAD_PORTABLE_IMAGE_TYPE, "Typ of image '%s' not recognized; supported image types are directories/btrfs subvolumes, block devices, and raw disk image files with suffix '.raw'.", name_or_path);
+                return r;
+        }
         if (r < 0)
                 return r;
 
