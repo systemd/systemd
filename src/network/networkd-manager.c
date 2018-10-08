@@ -15,7 +15,6 @@
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "libudev-private.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
@@ -184,7 +183,8 @@ int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-static int manager_udev_process_link(Manager *m, sd_device *device) {
+static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata) {
+        Manager *m = userdata;
         const char *action;
         Link *link = NULL;
         int r, ifindex;
@@ -203,29 +203,13 @@ static int manager_udev_process_link(Manager *m, sd_device *device) {
         }
 
         r = link_get(m, ifindex, &link);
-        if (r == -ENODEV)
+        if (r < 0) {
+                if (r != -ENODEV)
+                        log_debug_errno(r, "Failed to get link from ifindex %i, ignoring: %m", ifindex);
                 return 0;
-        else if (r < 0)
-                return r;
+        }
 
-        r = link_initialized(link, device);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int manager_dispatch_link_udev(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
-        struct udev_monitor *monitor = m->udev_monitor;
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        int r;
-
-        r = udev_monitor_receive_sd_device(monitor, &device);
-        if (r < 0)
-                return r;
-
-        (void) manager_udev_process_link(m, device);
+        (void) link_initialized(link, device);
 
         return 0;
 }
@@ -239,31 +223,21 @@ static int manager_connect_udev(Manager *m) {
         if (detect_container() > 0)
                 return 0;
 
-        m->udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
-        if (!m->udev_monitor)
-                return -ENOMEM;
-
-        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "net", NULL);
+        r = sd_device_monitor_new(&m->device_monitor);
         if (r < 0)
-                return log_error_errno(r, "Could not add udev monitor filter: %m");
+                return log_error_errno(r, "Failed to initialize device monitor: %m");
 
-        r = udev_monitor_enable_receiving(m->udev_monitor);
-        if (r < 0) {
-                log_error("Could not enable udev monitor");
-                return r;
-        }
-
-        r = sd_event_add_io(m->event,
-                        &m->udev_event_source,
-                        udev_monitor_get_fd(m->udev_monitor),
-                        EPOLLIN, manager_dispatch_link_udev,
-                        m);
+        r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "net", NULL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Could not add device monitor filter: %m");
 
-        r = sd_event_source_set_description(m->udev_event_source, "networkd-udev");
+        r = sd_device_monitor_attach_event(m->device_monitor, m->event, 0);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to attach event to device monitor: %m");
+
+        r = sd_device_monitor_start(m->device_monitor, manager_udev_process_link, m, "networkd-device-monitor");
+        if (r < 0)
+                return log_error_errno(r, "Failed to start device monitor: %m");
 
         return 0;
 }
@@ -1476,8 +1450,7 @@ void manager_free(Manager *m) {
 
         sd_resolve_unref(m->resolve);
 
-        sd_event_source_unref(m->udev_event_source);
-        udev_monitor_unref(m->udev_monitor);
+        sd_device_monitor_unref(m->device_monitor);
 
         sd_bus_unref(m->bus);
 
