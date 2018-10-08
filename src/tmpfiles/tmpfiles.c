@@ -1232,7 +1232,7 @@ static int fd_set_attribute(Item *item, int fd, const char *path, const struct s
         if (procfs_fd < 0)
                 return log_error_errno(procfs_fd, "Failed to re-open '%s': %m", path);
 
-        r = chattr_fd(procfs_fd, f, item->attribute_mask);
+        r = chattr_fd(procfs_fd, f, item->attribute_mask, NULL);
         if (r < 0)
                 log_full_errno(IN_SET(r, -ENOTTY, -EOPNOTSUPP) ? LOG_DEBUG : LOG_WARNING,
                                r,

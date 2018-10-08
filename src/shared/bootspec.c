@@ -12,6 +12,7 @@
 #include "def.h"
 #include "device-nodes.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "parse-util.h"
@@ -20,7 +21,7 @@
 #include "strv.h"
 #include "virt.h"
 
-void boot_entry_free(BootEntry *entry) {
+static void boot_entry_free(BootEntry *entry) {
         assert(entry);
 
         free(entry->id);
@@ -37,7 +38,7 @@ void boot_entry_free(BootEntry *entry) {
         free(entry->device_tree);
 }
 
-int boot_entry_load(const char *path, BootEntry *entry) {
+static int boot_entry_load(const char *path, BootEntry *entry) {
         _cleanup_(boot_entry_free) BootEntry tmp = {};
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
@@ -144,7 +145,7 @@ void boot_config_free(BootConfig *config) {
         free(config->entries);
 }
 
-int boot_loader_read_conf(const char *path, BootConfig *config) {
+static int boot_loader_read_conf(const char *path, BootConfig *config) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
         int r;
@@ -153,8 +154,12 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
         assert(config);
 
         f = fopen(path, "re");
-        if (!f)
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
                 return log_error_errno(errno, "Failed to open \"%s\": %m", path);
+        }
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
@@ -204,14 +209,14 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
                         return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
         }
 
-        return 0;
+        return 1;
 }
 
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         return str_verscmp(a->id, b->id);
 }
 
-int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_entries) {
+static int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_entries) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;
@@ -362,24 +367,26 @@ int boot_entries_load_config(const char *esp_path, BootConfig *config) {
         p = strjoina(esp_path, "/loader/loader.conf");
         r = boot_loader_read_conf(p, config);
         if (r < 0)
-                return log_error_errno(r, "Failed to read boot config from \"%s\": %m", p);
+                return r;
 
         p = strjoina(esp_path, "/loader/entries");
         r = boot_entries_find(p, &config->entries, &config->n_entries);
         if (r < 0)
-                return log_error_errno(r, "Failed to read boot entries from \"%s\": %m", p);
+                return r;
 
         r = boot_entries_uniquify(config->entries, config->n_entries);
         if (r < 0)
                 return log_error_errno(r, "Failed to uniquify boot entries: %m");
 
-        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &config->entry_oneshot);
-        if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to read EFI var \"LoaderEntryOneShot\": %m");
+        if (is_efi_boot()) {
+                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &config->entry_oneshot);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to read EFI var \"LoaderEntryOneShot\": %m");
 
-        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryDefault", &config->entry_default);
-        if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to read EFI var \"LoaderEntryDefault\": %m");
+                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryDefault", &config->entry_default);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to read EFI var \"LoaderEntryDefault\": %m");
+        }
 
         config->default_entry = boot_entries_select_default(config);
         return 0;
@@ -406,28 +413,33 @@ static int verify_esp(
         struct statfs sfs;
         sd_id128_t uuid = SD_ID128_NULL;
         uint32_t part = 0;
+        bool relax_checks;
         int r;
 
         assert(p);
 
+        relax_checks = getenv_bool("SYSTEMD_RELAX_ESP_CHECKS") > 0;
+
         /* Non-root user can only check the status, so if an error occured in the following, it does not cause any
          * issues. Let's also, silence the error messages. */
 
-        if (statfs(p, &sfs) < 0) {
-                /* If we are searching for the mount point, don't generate a log message if we can't find the path */
-                if (errno == ENOENT && searching)
-                        return -ENOENT;
+        if (!relax_checks) {
+                if (statfs(p, &sfs) < 0) {
+                        /* If we are searching for the mount point, don't generate a log message if we can't find the path */
+                        if (errno == ENOENT && searching)
+                                return -ENOENT;
 
-                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to check file system type of \"%s\": %m", p);
-        }
+                        return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                              "Failed to check file system type of \"%s\": %m", p);
+                }
 
-        if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC)) {
-                if (searching)
-                        return -EADDRNOTAVAIL;
+                if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC)) {
+                        if (searching)
+                                return -EADDRNOTAVAIL;
 
-                log_error("File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
-                return -ENODEV;
+                        log_error("File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
+                        return -ENODEV;
+                }
         }
 
         if (stat(p, &st) < 0)
@@ -452,7 +464,7 @@ static int verify_esp(
 
         /* In a container we don't have access to block devices, skip this part of the verification, we trust the
          * container manager set everything up correctly on its own. Also skip the following verification for non-root user. */
-        if (detect_container() > 0 || unprivileged_mode)
+        if (detect_container() > 0 || unprivileged_mode || relax_checks)
                 goto finish;
 
 #if HAVE_BLKID

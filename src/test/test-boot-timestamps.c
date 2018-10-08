@@ -8,19 +8,15 @@
 #include "util.h"
 
 static int test_acpi_fpdt(void) {
-        usec_t loader_start;
-        usec_t loader_exit;
-        char ts_start[FORMAT_TIMESPAN_MAX];
-        char ts_exit[FORMAT_TIMESPAN_MAX];
-        char ts_span[FORMAT_TIMESPAN_MAX];
+        char ts_start[FORMAT_TIMESPAN_MAX], ts_exit[FORMAT_TIMESPAN_MAX], ts_span[FORMAT_TIMESPAN_MAX];
+        usec_t loader_start, loader_exit;
         int r;
 
         r = acpi_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
                 bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -ENODATA;
 
-                log_full_errno(ok ? LOG_DEBUG : LOG_ERR,
-                               r, "Failed to read ACPI FPDT: %m");
+                log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read ACPI FPDT: %m");
                 return ok ? 0 : r;
         }
 
@@ -32,19 +28,15 @@ static int test_acpi_fpdt(void) {
 }
 
 static int test_efi_loader(void) {
-        usec_t loader_start;
-        usec_t loader_exit;
-        char ts_start[FORMAT_TIMESPAN_MAX];
-        char ts_exit[FORMAT_TIMESPAN_MAX];
-        char ts_span[FORMAT_TIMESPAN_MAX];
+        char ts_start[FORMAT_TIMESPAN_MAX], ts_exit[FORMAT_TIMESPAN_MAX], ts_span[FORMAT_TIMESPAN_MAX];
+        usec_t loader_start, loader_exit;
         int r;
 
         r = efi_loader_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
-                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES);
+                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -EOPNOTSUPP;
 
-                log_full_errno(ok ? LOG_DEBUG : LOG_ERR,
-                               r, "Failed to read EFI loader data: %m");
+                log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read EFI loader data: %m");
                 return ok ? 0 : r;
         }
 
@@ -57,17 +49,16 @@ static int test_efi_loader(void) {
 
 static int test_boot_timestamps(void) {
         char s[MAX(FORMAT_TIMESPAN_MAX, FORMAT_TIMESTAMP_MAX)];
-        int r;
         dual_timestamp fw, l, k;
+        int r;
 
         dual_timestamp_from_monotonic(&k, 0);
 
         r = boot_timestamps(NULL, &fw, &l);
         if (r < 0) {
-                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES);
+                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -EOPNOTSUPP;
 
-                log_full_errno(ok ? LOG_DEBUG : LOG_ERR,
-                               r, "Failed to read variables: %m");
+                log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read variables: %m");
                 return ok ? 0 : r;
         }
 

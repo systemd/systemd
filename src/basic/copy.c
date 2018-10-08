@@ -695,7 +695,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned
         }
 
         if (chattr_flags != 0)
-                (void) chattr_fd(fdt, chattr_flags, (unsigned) -1);
+                (void) chattr_fd(fdt, chattr_flags, (unsigned) -1, NULL);
 
         r = copy_file_fd(from, fdt, copy_flags);
         if (r < 0) {
@@ -743,7 +743,7 @@ int copy_file_atomic(const char *from, const char *to, mode_t mode, unsigned cha
         }
 
         if (chattr_flags != 0)
-                (void) chattr_fd(fdt, chattr_flags, (unsigned) -1);
+                (void) chattr_fd(fdt, chattr_flags, (unsigned) -1, NULL);
 
         r = copy_file_fd(from, fdt, copy_flags);
         if (r < 0)

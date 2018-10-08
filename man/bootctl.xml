@@ -34,10 +34,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>bootctl</command> can check the EFI boot loader status, list
-    available entries, and install, update, or remove the
-    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    boot loader on the current system.</para>
+    <para><command>bootctl</command> can check the EFI boot loader status, list available boot loaders and boot loader
+    entries, and install, update, or remove the
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> boot loader on the
+    current system.</para>
   </refsect1>
 
   <refsect1>
@@ -45,8 +45,6 @@
     <para>The following options are understood:</para>
 
     <variablelist>
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
       <varlistentry>
         <term><option>--path=</option></term>
         <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi</filename>,
@@ -64,8 +62,12 @@
 
       <varlistentry>
         <term><option>--no-variables</option></term>
-        <listitem><para>Do not touch the EFI boot variables.</para></listitem>
+        <listitem><para>Do not touch the firmware's boot loader list stored in EFI variables.</para></listitem>
       </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager"/>
+      <xi:include href="standard-options.xml" xpointer="help"/>
+      <xi:include href="standard-options.xml" xpointer="version"/>
     </variablelist>
   </refsect1>
 
@@ -76,42 +78,54 @@
       <varlistentry>
         <term><option>status</option></term>
 
-        <listitem><para>Shows the currently installed versions of the boot loader binaries and all current
-        EFI boot variables. If no command is specified, this is the implied default.</para></listitem>
+        <listitem><para>Shows brief information about the system firmware, the boot loader that was used to boot the
+        system, the boot loaders currently available in the ESP, the boot loaders listed in the firmware's list of boot
+        loaders and the current default boot loader entry. If no command is specified, this is the implied
+        default.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>list</option></term>
+        <term><option>install</option></term>
 
-        <listitem><para>Shows all configured boot loader entries.</para></listitem>
+        <listitem><para>Installs systemd-boot into the EFI system partition. A copy of <command>systemd-boot</command>
+        will be stored as the EFI default/fallback loader at
+        <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. The boot loader is then added to the
+        top of the firmware's boot loader list.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>update</option></term>
 
         <listitem><para>Updates all installed versions of
-        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-        if the current version is newer than the version installed in the EFI system
-        partition. This also includes the EFI default/fallback loader at
-        <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. A
-        systemd-boot entry in the EFI boot variables is created if there is no current
-        entry. The created entry will be added to the end of the boot order list.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>install</option></term>
-
-        <listitem><para>Installs systemd-boot into the EFI system partition. A copy of systemd-boot will
-        be stored as the EFI default/fallback loader at
-        <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. A systemd-boot entry in
-        the EFI boot variables is created and added to the top of the boot order list.</para></listitem>
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>, if the
+        available version is newer than the version installed in the EFI system partition. This also includes the EFI
+        default/fallback loader at <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. The boot
+        loader is then added to end of the firmware's boot loader list if missing.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>remove</option></term>
 
-        <listitem><para>Removes all installed versions of systemd-boot from the EFI system partition,
-        and removes systemd-boot from the EFI boot variables.</para></listitem>
+        <listitem><para>Removes all installed versions of <command>systemd-boot</command> from the EFI system partition
+        and the firmware's boot loader list.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>list</option></term>
+
+        <listitem><para>Shows all available boot loader entries implementing the <ulink
+        url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader
+        Specification</ulink>, as well as any other entries discovered or automatically generated by the boot
+        loader.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>set-default</option> <replaceable>ID</replaceable></term>
+        <term><option>set-oneshot</option> <replaceable>ID</replaceable></term>
+
+        <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string as argument. The
+        <option>set-oneshot</option> command will set the default entry only for the next boot, the
+        <option>set-default</option> will set it persistently for all future boots.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -120,6 +134,13 @@
   <refsect1>
     <title>Exit status</title>
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+    <para>If <varname>$SYSTEMD_RELAX_ESP_CHECKS=1</varname> is set the validation checks for the ESP are relaxed, and
+    the path specified with <option>--path=</option> may refer to any kind of file system on any kind of
+    partition.</para>
   </refsect1>
 
   <refsect1>

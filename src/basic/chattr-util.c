@@ -10,7 +10,7 @@
 #include "fd-util.h"
 #include "macro.h"
 
-int chattr_fd(int fd, unsigned value, unsigned mask) {
+int chattr_fd(int fd, unsigned value, unsigned mask, unsigned *previous) {
         unsigned old_attr, new_attr;
         struct stat st;
 
@@ -28,23 +28,29 @@ int chattr_fd(int fd, unsigned value, unsigned mask) {
         if (!S_ISDIR(st.st_mode) && !S_ISREG(st.st_mode))
                 return -ENOTTY;
 
-        if (mask == 0)
+        if (mask == 0 && !previous)
                 return 0;
 
         if (ioctl(fd, FS_IOC_GETFLAGS, &old_attr) < 0)
                 return -errno;
 
         new_attr = (old_attr & ~mask) | (value & mask);
-        if (new_attr == old_attr)
+        if (new_attr == old_attr) {
+                if (previous)
+                        *previous = old_attr;
                 return 0;
+        }
 
         if (ioctl(fd, FS_IOC_SETFLAGS, &new_attr) < 0)
                 return -errno;
 
+        if (previous)
+                *previous = old_attr;
+
         return 1;
 }
 
-int chattr_path(const char *p, unsigned value, unsigned mask) {
+int chattr_path(const char *p, unsigned value, unsigned mask, unsigned *previous) {
         _cleanup_close_ int fd = -1;
 
         assert(p);
@@ -56,7 +62,7 @@ int chattr_path(const char *p, unsigned value, unsigned mask) {
         if (fd < 0)
                 return -errno;
 
-        return chattr_fd(fd, value, mask);
+        return chattr_fd(fd, value, mask, previous);
 }
 
 int read_attr_fd(int fd, unsigned *ret) {
