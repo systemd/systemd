@@ -49,6 +49,9 @@ struct ClientContext {
         size_t extra_fields_n_iovec;
         void *extra_fields_data;
         nsec_t extra_fields_mtime;
+
+        usec_t log_rate_limit_interval;
+        unsigned log_rate_limit_burst;
 };
 
 int client_context_get(

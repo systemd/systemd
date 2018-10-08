@@ -57,6 +57,8 @@ $1.SyslogFacility,               config_parse_log_facility,          0,         
 $1.SyslogLevel,                  config_parse_log_level,             0,                             offsetof($1, exec_context.syslog_priority)
 $1.SyslogLevelPrefix,            config_parse_bool,                  0,                             offsetof($1, exec_context.syslog_level_prefix)
 $1.LogLevelMax,                  config_parse_log_level,             0,                             offsetof($1, exec_context.log_level_max)
+$1.LogRateLimitIntervalSec,      config_parse_sec,                   0,                             offsetof($1, exec_context.log_rate_limit_interval_usec)
+$1.LogRateLimitBurst,            config_parse_unsigned,              0,                             offsetof($1, exec_context.log_rate_limit_burst)
 $1.LogExtraFields,               config_parse_log_extra_fields,      0,                             offsetof($1, exec_context)
 $1.Capabilities,                 config_parse_warn_compat,           DISABLED_LEGACY,               offsetof($1, exec_context)
 $1.SecureBits,                   config_parse_exec_secure_bits,      0,                             offsetof($1, exec_context.secure_bits)

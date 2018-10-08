@@ -13,6 +13,7 @@
 #include "io-util.h"
 #include "journal-util.h"
 #include "journald-context.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
@@ -102,6 +103,8 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
         c->timestamp = USEC_INFINITY;
         c->extra_fields_mtime = NSEC_INFINITY;
         c->log_level_max = -1;
+        c->log_rate_limit_interval = s->rate_limit_interval;
+        c->log_rate_limit_burst = s->rate_limit_burst;
 
         r = hashmap_put(s->client_contexts, PID_TO_PTR(pid), c);
         if (r < 0) {
@@ -113,7 +116,8 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
         return 0;
 }
 
-static void client_context_reset(ClientContext *c) {
+static void client_context_reset(Server *s, ClientContext *c) {
+        assert(s);
         assert(c);
 
         c->timestamp = USEC_INFINITY;
@@ -148,6 +152,9 @@ static void client_context_reset(ClientContext *c) {
         c->extra_fields_mtime = NSEC_INFINITY;
 
         c->log_level_max = -1;
+
+        c->log_rate_limit_interval = s->rate_limit_interval;
+        c->log_rate_limit_burst = s->rate_limit_burst;
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -161,7 +168,7 @@ static ClientContext* client_context_free(Server *s, ClientContext *c) {
         if (c->in_lru)
                 assert_se(prioq_remove(s->client_contexts_lru, c, &c->lru_index) >= 0);
 
-        client_context_reset(c);
+        client_context_reset(s, c);
 
         return mfree(c);
 }
@@ -424,6 +431,42 @@ static int client_context_read_extra_fields(
         return 0;
 }
 
+static int client_context_read_log_rate_limit_interval(ClientContext *c) {
+        _cleanup_free_ char *value = NULL;
+        const char *p;
+        int r;
+
+        assert(c);
+
+        if (!c->unit)
+                return 0;
+
+        p = strjoina("/run/systemd/units/log-rate-limit-interval:", c->unit);
+        r = readlink_malloc(p, &value);
+        if (r < 0)
+                return r;
+
+        return safe_atou64(value, &c->log_rate_limit_interval);
+}
+
+static int client_context_read_log_rate_limit_burst(ClientContext *c) {
+        _cleanup_free_ char *value = NULL;
+        const char *p;
+        int r;
+
+        assert(c);
+
+        if (!c->unit)
+                return 0;
+
+        p = strjoina("/run/systemd/units/log-rate-limit-burst:", c->unit);
+        r = readlink_malloc(p, &value);
+        if (r < 0)
+                return r;
+
+        return safe_atou(value, &c->log_rate_limit_burst);
+}
+
 static void client_context_really_refresh(
                 Server *s,
                 ClientContext *c,
@@ -450,6 +493,8 @@ static void client_context_really_refresh(
         (void) client_context_read_invocation_id(s, c);
         (void) client_context_read_log_level_max(s, c);
         (void) client_context_read_extra_fields(s, c);
+        (void) client_context_read_log_rate_limit_interval(c);
+        (void) client_context_read_log_rate_limit_burst(c);
 
         c->timestamp = timestamp;
 
@@ -480,7 +525,7 @@ void client_context_maybe_refresh(
         /* If the data isn't pinned and if the cashed data is older than the upper limit, we flush it out
          * entirely. This follows the logic that as long as an entry is pinned the PID reuse is unlikely. */
         if (c->n_ref == 0 && c->timestamp + MAX_USEC < timestamp) {
-                client_context_reset(c);
+                client_context_reset(s, c);
                 goto refresh;
         }
 

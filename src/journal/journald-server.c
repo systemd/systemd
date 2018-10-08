@@ -937,7 +937,7 @@ void server_dispatch_message(
         if (c && c->unit) {
                 (void) determine_space(s, &available, NULL);
 
-                rl = journal_rate_limit_test(s->rate_limit, c->unit, priority & LOG_PRIMASK, available);
+                rl = journal_rate_limit_test(s->rate_limit, c->unit, c->log_rate_limit_interval, c->log_rate_limit_burst, priority & LOG_PRIMASK, available);
                 if (rl == 0)
                         return;
 
@@ -1833,7 +1833,7 @@ int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        s->rate_limit = journal_rate_limit_new(s->rate_limit_interval, s->rate_limit_burst);
+        s->rate_limit = journal_rate_limit_new();
         if (!s->rate_limit)
                 return -ENOMEM;
 

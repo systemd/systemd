@@ -225,6 +225,9 @@ struct ExecContext {
         struct iovec* log_extra_fields;
         size_t n_log_extra_fields;
 
+        usec_t log_rate_limit_interval_usec;
+        unsigned log_rate_limit_burst;
+
         bool cpu_sched_reset_on_fork;
         bool non_blocking;
         bool private_tmp;

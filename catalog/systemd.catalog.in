@@ -52,7 +52,8 @@ dropped, other services' messages are unaffected.
 
 The limits controlling when messages are dropped may be configured
 with RateLimitIntervalSec= and RateLimitBurst= in
-/etc/systemd/journald.conf. See journald.conf(5) for details.
+/etc/systemd/journald.conf or LogRateLimitIntervalSec= and LogRateLimitBurst=
+in the unit file. See journald.conf(5) and systemd.exec(5) for details.
 
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: Journal messages have been missed
