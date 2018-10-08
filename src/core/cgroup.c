@@ -7,6 +7,7 @@
 #include "blockdev-util.h"
 #include "bpf-firewall.h"
 #include "btrfs-util.h"
+#include "bpf-devices.h"
 #include "bus-error.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
@@ -386,8 +387,7 @@ static int lookup_block_device(const char *p, dev_t *ret) {
         return 0;
 }
 
-static int whitelist_device(const char *path, const char *node, const char *acc) {
-        char buf[2+DECIMAL_STR_MAX(dev_t)*2+2+4];
+static int whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc) {
         struct stat st;
         bool ignore_notfound;
         int r;
@@ -414,23 +414,34 @@ static int whitelist_device(const char *path, const char *node, const char *acc)
                 return -ENODEV;
         }
 
-        sprintf(buf,
-                "%c %u:%u %s",
-                S_ISCHR(st.st_mode) ? 'c' : 'b',
-                major(st.st_rdev), minor(st.st_rdev),
-                acc);
+        if (cg_all_unified() > 0) {
+                if (!prog)
+                        return 0;
 
-        r = cg_set_attribute("devices", path, "devices.allow", buf);
-        if (r < 0)
-                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to set devices.allow on %s: %m", path);
+                cgroup_bpf_whitelist_device(prog, S_ISCHR(st.st_mode) ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
+                                            major(st.st_rdev), minor(st.st_rdev), acc);
+        } else {
+                char buf[2+DECIMAL_STR_MAX(dev_t)*2+2+4];
+
+                sprintf(buf,
+                        "%c %u:%u %s",
+                        S_ISCHR(st.st_mode) ? 'c' : 'b',
+                        major(st.st_rdev), minor(st.st_rdev),
+                        acc);
+
+                r = cg_set_attribute("devices", path, "devices.allow", buf);
+                if (r < 0)
+                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING,
+                                       r, "Failed to set devices.allow on %s: %m", path);
+        }
 
         return r;
 }
 
-static int whitelist_major(const char *path, const char *name, char type, const char *acc) {
+static int whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
+        char *p, *w;
         bool good = false;
         int r;
 
@@ -443,7 +454,6 @@ static int whitelist_major(const char *path, const char *name, char type, const 
                 return log_warning_errno(errno, "Cannot open /proc/devices to resolve %s (%c): %m", name, type);
 
         FOREACH_LINE(line, f, goto fail) {
-                char buf[2+DECIMAL_STR_MAX(unsigned)+3+4], *p, *w;
                 unsigned maj;
 
                 truncate_nl(line);
@@ -485,16 +495,27 @@ static int whitelist_major(const char *path, const char *name, char type, const 
                 if (fnmatch(name, w, 0) != 0)
                         continue;
 
-                sprintf(buf,
-                        "%c %u:* %s",
-                        type,
-                        maj,
-                        acc);
+                if (cg_all_unified() > 0) {
+                        if (!prog)
+                                continue;
 
-                r = cg_set_attribute("devices", path, "devices.allow", buf);
-                if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                       "Failed to set devices.allow on %s: %m", path);
+                        cgroup_bpf_whitelist_major(prog,
+                                                   type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
+                                                   maj, acc);
+                } else {
+                        char buf[2+DECIMAL_STR_MAX(unsigned)+3+4];
+
+                        sprintf(buf,
+                                "%c %u:* %s",
+                                type,
+                                maj,
+                                acc);
+
+                        r = cg_set_attribute("devices", path, "devices.allow", buf);
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING,
+                                               r, "Failed to set devices.allow on %s: %m", path);
+                }
         }
 
         return 0;
@@ -1019,20 +1040,27 @@ static void cgroup_context_apply(
                 }
         }
 
-        if ((apply_mask & CGROUP_MASK_DEVICES) && !is_root) {
+        if ((apply_mask & (CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES)) && !is_root) {
+                _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
                 CGroupDeviceAllow *a;
 
-                /* Changing the devices list of a populated cgroup
-                 * might result in EINVAL, hence ignore EINVAL
-                 * here. */
+                if (cg_all_unified() > 0) {
+                        r = cgroup_init_device_bpf(&prog, c->device_policy, c->device_allow);
+                        if (r < 0)
+                                log_unit_warning_errno(u, r, "Failed to initialize device control bpf program: %m");
+                } else {
+                        /* Changing the devices list of a populated cgroup
+                         * might result in EINVAL, hence ignore EINVAL
+                         * here. */
 
-                if (c->device_allow || c->device_policy != CGROUP_AUTO)
-                        r = cg_set_attribute("devices", path, "devices.deny", "a");
-                else
-                        r = cg_set_attribute("devices", path, "devices.allow", "a");
-                if (r < 0)
-                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                      "Failed to reset devices.list: %m");
+                        if (c->device_allow || c->device_policy != CGROUP_AUTO)
+                                r = cg_set_attribute("devices", path, "devices.deny", "a");
+                        else
+                                r = cg_set_attribute("devices", path, "devices.allow", "a");
+                        if (r < 0)
+                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                              "Failed to reset devices.list: %m");
+                }
 
                 if (c->device_policy == CGROUP_CLOSED ||
                     (c->device_policy == CGROUP_AUTO && c->device_allow)) {
@@ -1051,10 +1079,10 @@ static void cgroup_context_apply(
                         const char *x, *y;
 
                         NULSTR_FOREACH_PAIR(x, y, auto_devices)
-                                whitelist_device(path, x, y);
+                                whitelist_device(prog, path, x, y);
 
                         /* PTS (/dev/pts) devices may not be duplicated, but accessed */
-                        whitelist_major(path, "pts", 'c', "rw");
+                        whitelist_major(prog, path, "pts", 'c', "rw");
                 }
 
                 LIST_FOREACH(device_allow, a, c->device_allow) {
@@ -1074,13 +1102,25 @@ static void cgroup_context_apply(
                         acc[k++] = 0;
 
                         if (path_startswith(a->path, "/dev/"))
-                                whitelist_device(path, a->path, acc);
+                                whitelist_device(prog, path, a->path, acc);
                         else if ((val = startswith(a->path, "block-")))
-                                whitelist_major(path, val, 'b', acc);
+                                whitelist_major(prog, path, val, 'b', acc);
                         else if ((val = startswith(a->path, "char-")))
-                                whitelist_major(path, val, 'c', acc);
+                                whitelist_major(prog, path, val, 'c', acc);
                         else
                                 log_unit_debug(u, "Ignoring device %s while writing cgroup attribute.", a->path);
+                }
+
+                r = cgroup_apply_device_bpf(u, prog, c->device_policy, c->device_allow);
+                if (r < 0) {
+                        static bool warned = false;
+
+                        log_full_errno(warned ? LOG_DEBUG : LOG_WARNING, r,
+                                 "Unit %s configures device ACL, but the local system doesn't seem to support the BPF-based device controller.\n"
+                                 "Proceeding WITHOUT applying ACL (all devices will be accessible)!\n"
+                                 "(This warning is only shown for the first loaded unit using device ACL.)", u->id);
+
+                        warned = true;
                 }
         }
 
@@ -1151,7 +1191,7 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
 
         if (c->device_allow ||
             c->device_policy != CGROUP_AUTO)
-                mask |= CGROUP_MASK_DEVICES;
+                mask |= CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES;
 
         if (c->tasks_accounting ||
             c->tasks_max != CGROUP_LIMIT_MAX)
@@ -1942,6 +1982,8 @@ void unit_prune_cgroup(Unit *u) {
         u->cgroup_realized = false;
         u->cgroup_realized_mask = 0;
         u->cgroup_enabled_mask = 0;
+
+        u->bpf_device_control_installed = bpf_program_unref(u->bpf_device_control_installed);
 }
 
 int unit_search_main_pid(Unit *u, pid_t *ret) {
@@ -2211,6 +2253,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_firewall_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        /* BPF-based device access control */
+        r = bpf_devices_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_DEVICES;
 
         *ret = mask;
         return 0;

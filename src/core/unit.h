@@ -257,6 +257,9 @@ typedef struct Unit {
         CGroupMask cgroup_members_mask;
         int cgroup_inotify_wd;
 
+        /* Device Controller BPF program */
+        BPFProgram *bpf_device_control_installed;
+
         /* IP BPF Firewalling/accounting */
         int ip_accounting_ingress_map_fd;
         int ip_accounting_egress_map_fd;

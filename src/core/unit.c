@@ -666,6 +666,8 @@ void unit_free(Unit *u) {
         bpf_program_unref(u->ip_bpf_egress);
         bpf_program_unref(u->ip_bpf_egress_installed);
 
+        bpf_program_unref(u->bpf_device_control_installed);
+
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
 
