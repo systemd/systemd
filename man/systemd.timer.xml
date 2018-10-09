@@ -213,7 +213,7 @@
         distributed amount of time between 0 and the specified time
         value. Defaults to 0, indicating that no randomized delay
         shall be applied. Each timer unit will determine this delay
-        randomly each time it is started, and the delay will simply be
+        randomly before each iteration, and the delay will simply be
         added on top of the next determined elapsing time. This is
         useful to stretch dispatching of similarly configured timer
         events over a certain amount time, to avoid that they all fire
