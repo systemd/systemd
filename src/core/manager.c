@@ -1612,9 +1612,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         manager_build_unit_path_cache(m);
 
-        /* If we will deserialize make sure that during enumeration
-         * this is already known, so we increase the counter here
-         * already */
+        /* If we will deserialize make sure that during enumeration this is already known, so we increase the counter
+         * here already */
         if (serialization)
                 m->n_reloading++;
 
@@ -1631,14 +1630,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                         return log_error_errno(r, "Deserialization failed: %m");
         }
 
-        /* Any fds left? Find some unit which wants them. This is
-         * useful to allow container managers to pass some file
-         * descriptors to us pre-initialized. This enables
-         * socket-based activation of entire containers. */
+        /* Any fds left? Find some unit which wants them. This is useful to allow container managers to pass some file
+         * descriptors to us pre-initialized. This enables socket-based activation of entire containers. */
         manager_distribute_fds(m, fds);
 
-        /* We might have deserialized the notify fd, but if we didn't
-         * then let's create the bus now */
+        /* We might have deserialized the notify fd, but if we didn't then let's create the bus now */
         r = manager_setup_notify(m);
         if (r < 0)
                 /* No sense to continue without notifications, our children would fail anyway. */
@@ -1679,8 +1675,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 assert(m->n_reloading > 0);
                 m->n_reloading--;
 
-                /* Let's wait for the UnitNew/JobNew messages being
-                 * sent, before we notify that the reload is
+                /* Let's wait for the UnitNew/JobNew messages being sent, before we notify that the reload is
                  * finished */
                 m->send_reloading_done = true;
         }
