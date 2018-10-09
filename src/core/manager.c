@@ -1595,6 +1595,24 @@ static void manager_vacuum(Manager *m) {
         exec_runtime_vacuum(m);
 }
 
+static void manager_ready(Manager *m) {
+        assert(m);
+
+        /* After having loaded everything, do the final round of catching up with what might have changed */
+
+        m->objective = MANAGER_OK; /* Tell everyone we are up now */
+
+        /* It might be safe to log to the journal now and connect to dbus */
+        manager_recheck_journal(m);
+        manager_recheck_dbus(m);
+
+        /* Sync current state of bus names with our set of listening units */
+        (void) manager_enqueue_sync_bus_names(m);
+
+        /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
+        manager_catchup(m);
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r;
 
@@ -1688,17 +1706,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 m->send_reloading_done = true;
         }
 
-        m->objective = MANAGER_OK;
-
-        /* It might be safe to log to the journal now and connect to dbus */
-        manager_recheck_journal(m);
-        manager_recheck_dbus(m);
-
-        /* Sync current state of bus names with our set of listening units */
-        (void) manager_enqueue_sync_bus_names(m);
-
-        /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
-        manager_catchup(m);
+        manager_ready(m);
 
         return 0;
 }
@@ -3554,17 +3562,8 @@ int manager_reload(Manager *m) {
         /* Consider the reload process complete now. */
         assert(m->n_reloading > 0);
         m->n_reloading--;
-        m->objective = MANAGER_OK;
 
-        /* It might be safe to log to the journal now and connect to dbus */
-        manager_recheck_journal(m);
-        manager_recheck_dbus(m);
-
-        /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
-        manager_catchup(m);
-
-        /* Sync current state of bus names with our set of listening units */
-        (void) manager_enqueue_sync_bus_names(m);
+        manager_ready(m);
 
         if (!MANAGER_IS_RELOADING(m))
                 manager_flush_finished_jobs(m);
