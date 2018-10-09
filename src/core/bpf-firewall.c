@@ -483,7 +483,7 @@ int bpf_firewall_compile(Unit *u) {
         if (supported < 0)
                 return supported;
         if (supported == BPF_FIREWALL_UNSUPPORTED) {
-                log_debug("BPF firewalling not supported on this manager, proceeding without.");
+                log_unit_debug(u, "BPF firewalling not supported on this manager, proceeding without.");
                 return -EOPNOTSUPP;
         }
         if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI && u->type == UNIT_SLICE) {
@@ -492,7 +492,7 @@ int bpf_firewall_compile(Unit *u) {
                  * that BPF is more interesting on leaf nodes we hence avoid it on inner nodes in that case. This is
                  * consistent with old systemd behaviour from before v238, where BPF wasn't supported in inner nodes at
                  * all, either. */
-                log_debug("BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
+                log_unit_debug(u, "BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
                 return -EOPNOTSUPP;
         }
 
@@ -518,24 +518,24 @@ int bpf_firewall_compile(Unit *u) {
 
                 r = bpf_firewall_prepare_access_maps(u, ACCESS_ALLOWED, &u->ipv4_allow_map_fd, &u->ipv6_allow_map_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Preparation of eBPF allow maps failed: %m");
+                        return log_unit_error_errno(u, r, "Preparation of eBPF allow maps failed: %m");
 
                 r = bpf_firewall_prepare_access_maps(u, ACCESS_DENIED, &u->ipv4_deny_map_fd, &u->ipv6_deny_map_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Preparation of eBPF deny maps failed: %m");
+                        return log_unit_error_errno(u, r, "Preparation of eBPF deny maps failed: %m");
         }
 
         r = bpf_firewall_prepare_accounting_maps(u, cc->ip_accounting, &u->ip_accounting_ingress_map_fd, &u->ip_accounting_egress_map_fd);
         if (r < 0)
-                return log_error_errno(r, "Preparation of eBPF accounting maps failed: %m");
+                return log_unit_error_errno(u, r, "Preparation of eBPF accounting maps failed: %m");
 
         r = bpf_firewall_compile_bpf(u, true, &u->ip_bpf_ingress);
         if (r < 0)
-                return log_error_errno(r, "Compilation for ingress BPF program failed: %m");
+                return log_unit_error_errno(u, r, "Compilation for ingress BPF program failed: %m");
 
         r = bpf_firewall_compile_bpf(u, false, &u->ip_bpf_egress);
         if (r < 0)
-                return log_error_errno(r, "Compilation for egress BPF program failed: %m");
+                return log_unit_error_errno(u, r, "Compilation for egress BPF program failed: %m");
 
         return 0;
 }
@@ -560,17 +560,17 @@ int bpf_firewall_install(Unit *u) {
         if (supported < 0)
                 return supported;
         if (supported == BPF_FIREWALL_UNSUPPORTED) {
-                log_debug("BPF firewalling not supported on this manager, proceeding without.");
+                log_unit_debug(u, "BPF firewalling not supported on this manager, proceeding without.");
                 return -EOPNOTSUPP;
         }
         if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI && u->type == UNIT_SLICE) {
-                log_debug("BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
+                log_unit_debug(u, "BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
                 return -EOPNOTSUPP;
         }
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &path);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine cgroup path: %m");
+                return log_unit_error_errno(u, r, "Failed to determine cgroup path: %m");
 
         flags = (supported == BPF_FIREWALL_SUPPORTED_WITH_MULTI &&
                  (u->type == UNIT_SLICE || unit_cgroup_delegate(u))) ? BPF_F_ALLOW_MULTI : 0;
@@ -583,7 +583,7 @@ int bpf_firewall_install(Unit *u) {
         if (u->ip_bpf_egress) {
                 r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, flags);
                 if (r < 0)
-                        return log_error_errno(r, "Attaching egress BPF program to cgroup %s failed: %m", path);
+                        return log_unit_error_errno(u, r, "Attaching egress BPF program to cgroup %s failed: %m", path);
 
                 /* Remember that this BPF program is installed now. */
                 u->ip_bpf_egress_installed = bpf_program_ref(u->ip_bpf_egress);
@@ -592,7 +592,7 @@ int bpf_firewall_install(Unit *u) {
         if (u->ip_bpf_ingress) {
                 r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path, flags);
                 if (r < 0)
-                        return log_error_errno(r, "Attaching ingress BPF program to cgroup %s failed: %m", path);
+                        return log_unit_error_errno(u, r, "Attaching ingress BPF program to cgroup %s failed: %m", path);
 
                 u->ip_bpf_ingress_installed = bpf_program_ref(u->ip_bpf_ingress);
         }
