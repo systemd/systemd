@@ -62,18 +62,13 @@
 
 static int client_context_compare(const void *a, const void *b) {
         const ClientContext *x = a, *y = b;
+        int r;
 
-        if (x->timestamp < y->timestamp)
-                return -1;
-        if (x->timestamp > y->timestamp)
-                return 1;
+        r = CMP(x->timestamp, y->timestamp);
+        if (r != 0)
+                return r;
 
-        if (x->pid < y->pid)
-                return -1;
-        if (x->pid > y->pid)
-                return 1;
-
-        return 0;
+        return CMP(x->pid, y->pid);
 }
 
 static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
