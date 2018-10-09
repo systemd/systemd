@@ -113,13 +113,7 @@ static void test_sd_device_enumerator_filter_subsystem(void) {
                         assert_se(hashmap_put(subsystems, str, h) >= 0);
                 }
 
-                r = hashmap_put(h, syspath, d);
-                assert_se(r >= 0 || r == -EEXIST);
-                if (r < 0) {
-                        log_info("Duplicated subsystem:%s syspath:%s", subsystem, syspath);
-                        continue;
-                }
-
+                assert_se(hashmap_put(h, syspath, d) >= 0);
                 assert_se(sd_device_ref(d));
 
                 log_debug("Added subsystem:%s syspath:%s", subsystem, syspath);
