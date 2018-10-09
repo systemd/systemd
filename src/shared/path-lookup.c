@@ -142,9 +142,9 @@ int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
         if (!data_dirs)
                 return -ENOMEM;
 
-        *ret_config_dirs = config_dirs;
-        *ret_data_dirs = data_dirs;
-        config_dirs = data_dirs = NULL;
+        *ret_config_dirs = TAKE_PTR(config_dirs);
+        *ret_data_dirs = TAKE_PTR(data_dirs);
+
         return 0;
 }
 
@@ -421,6 +421,34 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
         return 0;
 }
 
+static int acquire_attached_dirs(
+                UnitFileScope scope,
+                char **ret_persistent,
+                char **ret_runtime) {
+
+        _cleanup_free_ char *a = NULL, *b = NULL;
+
+        assert(ret_persistent);
+        assert(ret_runtime);
+
+        /* Portable services are not available to regular users for now. */
+        if (scope != UNIT_FILE_SYSTEM)
+                return -EOPNOTSUPP;
+
+        a = strdup("/etc/systemd/system.attached");
+        if (!a)
+                return -ENOMEM;
+
+        b = strdup("/run/systemd/system.attached");
+        if (!b)
+                return -ENOMEM;
+
+        *ret_persistent = TAKE_PTR(a);
+        *ret_runtime = TAKE_PTR(b);
+
+        return 0;
+}
+
 static int patch_root_prefix(char **p, const char *root_dir) {
         char *c;
 
@@ -468,7 +496,8 @@ int lookup_paths_init(
                 *global_persistent_config = NULL, *global_runtime_config = NULL,
                 *generator = NULL, *generator_early = NULL, *generator_late = NULL,
                 *transient = NULL,
-                *persistent_control = NULL, *runtime_control = NULL;
+                *persistent_control = NULL, *runtime_control = NULL,
+                *persistent_attached = NULL, *runtime_attached = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
         _cleanup_strv_free_ char **paths = NULL;
         const char *e;
@@ -532,6 +561,10 @@ int lookup_paths_init(
         if (r < 0 && r != -EOPNOTSUPP)
                 return r;
 
+        r = acquire_attached_dirs(scope, &persistent_attached, &runtime_attached);
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
         /* First priority is whatever has been passed to us via env vars */
         e = getenv("SYSTEMD_UNIT_PATH");
         if (e) {
@@ -574,8 +607,10 @@ int lookup_paths_init(
                                         persistent_config,
                                         SYSTEM_CONFIG_UNIT_PATH,
                                         "/etc/systemd/system",
+                                        STRV_IFNOTNULL(persistent_attached),
                                         runtime_config,
                                         "/run/systemd/system",
+                                        STRV_IFNOTNULL(runtime_attached),
                                         STRV_IFNOTNULL(generator),
                                         "/usr/local/lib/systemd/system",
                                         SYSTEM_DATA_UNIT_PATH,
@@ -658,8 +693,14 @@ int lookup_paths_init(
         r = patch_root_prefix(&persistent_control, root);
         if (r < 0)
                 return r;
-
         r = patch_root_prefix(&runtime_control, root);
+        if (r < 0)
+                return r;
+
+        r = patch_root_prefix(&persistent_attached, root);
+        if (r < 0)
+                return r;
+        r = patch_root_prefix(&runtime_attached, root);
         if (r < 0)
                 return r;
 
@@ -667,24 +708,29 @@ int lookup_paths_init(
         if (r < 0)
                 return -ENOMEM;
 
-        p->search_path = strv_uniq(paths);
+        *p = (LookupPaths) {
+                .search_path = strv_uniq(paths),
+
+                .persistent_config = TAKE_PTR(persistent_config),
+                .runtime_config = TAKE_PTR(runtime_config),
+
+                .generator = TAKE_PTR(generator),
+                .generator_early = TAKE_PTR(generator_early),
+                .generator_late = TAKE_PTR(generator_late),
+
+                .transient = TAKE_PTR(transient),
+
+                .persistent_control = TAKE_PTR(persistent_control),
+                .runtime_control = TAKE_PTR(runtime_control),
+
+                .persistent_attached = TAKE_PTR(persistent_attached),
+                .runtime_attached = TAKE_PTR(runtime_attached),
+
+                .root_dir = TAKE_PTR(root),
+                .temporary_dir = TAKE_PTR(tempdir),
+        };
+
         paths = NULL;
-
-        p->persistent_config = TAKE_PTR(persistent_config);
-        p->runtime_config = TAKE_PTR(runtime_config);
-
-        p->generator = TAKE_PTR(generator);
-        p->generator_early = TAKE_PTR(generator_early);
-        p->generator_late = TAKE_PTR(generator_late);
-
-        p->transient = TAKE_PTR(transient);
-
-        p->persistent_control = TAKE_PTR(persistent_control);
-        p->runtime_control = TAKE_PTR(runtime_control);
-
-        p->root_dir = TAKE_PTR(root);
-        p->temporary_dir = TAKE_PTR(tempdir);
-
         return 0;
 }
 
@@ -696,6 +742,9 @@ void lookup_paths_free(LookupPaths *p) {
 
         p->persistent_config = mfree(p->persistent_config);
         p->runtime_config = mfree(p->runtime_config);
+
+        p->persistent_attached = mfree(p->persistent_attached);
+        p->runtime_attached = mfree(p->runtime_attached);
 
         p->generator = mfree(p->generator);
         p->generator_early = mfree(p->generator_early);

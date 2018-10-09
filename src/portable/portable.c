@@ -815,15 +815,15 @@ static int install_profile_dropin(
         return 0;
 }
 
-static const char *config_path(const LookupPaths *paths, PortableFlags flags) {
+static const char *attached_path(const LookupPaths *paths, PortableFlags flags) {
         const char *where;
 
         assert(paths);
 
         if (flags & PORTABLE_RUNTIME)
-                where = paths->runtime_config;
+                where = paths->runtime_attached;
         else
-                where = paths->persistent_config;
+                where = paths->persistent_attached;
 
         assert(where);
         return where;
@@ -849,15 +849,25 @@ static int attach_unit_file(
         assert(m);
         assert(PORTABLE_METADATA_IS_UNIT(m));
 
-        where = config_path(paths, flags);
-        path = strjoina(where, "/", m->name);
+        where = attached_path(paths, flags);
 
+        (void) mkdir_parents(where, 0755);
+        if (mkdir(where, 0755) < 0) {
+                if (errno != EEXIST)
+                        return -errno;
+        } else
+                (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, where, NULL);
+
+        path = strjoina(where, "/", m->name);
         dropin_dir = strjoin(path, ".d");
         if (!dropin_dir)
                 return -ENOMEM;
 
-        (void) mkdir_p(dropin_dir, 0755);
-        (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, dropin_dir, NULL);
+        if (mkdir(dropin_dir, 0755) < 0) {
+                if (errno != EEXIST)
+                        return -errno;
+        } else
+                (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, dropin_dir, NULL);
 
         /* We install the drop-ins first, and the actual unit file last to achieve somewhat atomic behaviour if PID 1
          * is reloaded while we are creating things here: as long as only the drop-ins exist the unit doesn't exist at
@@ -1147,11 +1157,15 @@ int portable_detach(
         if (r < 0)
                 return r;
 
-        where = config_path(&paths, flags);
+        where = attached_path(&paths, flags);
 
         d = opendir(where);
-        if (!d)
+        if (!d) {
+                if (errno == ENOENT)
+                        goto not_found;
+
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
+        }
 
         unit_files = set_new(&string_hash_ops);
         if (!unit_files)
@@ -1213,10 +1227,8 @@ int portable_detach(
                 }
         }
 
-        if (set_isempty(unit_files)) {
-                log_debug("No unit files associated with '%s' found. Image not attached?", name_or_path);
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "No unit files associated with '%s' found. Image not attached?", name_or_path);
-        }
+        if (set_isempty(unit_files))
+                goto not_found;
 
         SET_FOREACH(item, unit_files, iterator) {
                 _cleanup_free_ char *md = NULL;
@@ -1289,7 +1301,15 @@ int portable_detach(
                         portable_changes_add(changes, n_changes, PORTABLE_UNLINK, sl, NULL);
         }
 
+        /* Try to remove the unit file directory, if we can */
+        if (rmdir(where) >= 0)
+                portable_changes_add(changes, n_changes, PORTABLE_UNLINK, where, NULL);
+
         return ret;
+
+not_found:
+        log_debug("No unit files associated with '%s' found. Image not attached?", name_or_path);
+        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "No unit files associated with '%s' found. Image not attached?", name_or_path);
 }
 
 static int portable_get_state_internal(
@@ -1314,11 +1334,18 @@ static int portable_get_state_internal(
         if (r < 0)
                 return r;
 
-        where = config_path(&paths, flags);
+        where = attached_path(&paths, flags);
 
         d = opendir(where);
-        if (!d)
+        if (!d) {
+                if (errno == ENOENT) {
+                        /* If the 'attached' directory doesn't exist at all, then we know for sure this image isn't attached. */
+                        *ret = PORTABLE_DETACHED;
+                        return 0;
+                }
+
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
+        }
 
         unit_files = set_new(&string_hash_ops);
         if (!unit_files)

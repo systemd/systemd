@@ -59,7 +59,7 @@
       <listitem><para>btrfs subvolumes containing OS trees, similar to normal directory trees.</para></listitem>
 
       <listitem><para>Binary "raw" disk images containing MBR or GPT partition tables and Linux file system
-      partitions.</para></listitem>
+      partitions. (These must be regular files, with the <filename>.raw</filename> suffix.)</para></listitem>
     </itemizedlist>
 
   </refsect1>
@@ -101,9 +101,9 @@
         <term><option>--runtime</option></term>
 
         <listitem><para>When specified the unit and drop-in files are placed in
-        <filename>/run/systemd/system/</filename> instead of <filename>/etc/systemd/system/</filename>. Images attached
-        with this option set hence remain attached only until the next reboot, while they are normally attached
-        persistently.</para></listitem>
+        <filename>/run/systemd/system.attached/</filename> instead of
+        <filename>/etc/systemd/system.attached/</filename>. Images attached with this option set hence remain attached
+        only until the next reboot, while they are normally attached persistently.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -167,8 +167,10 @@
           <listitem><para>All unit files of types <filename>.service</filename>, <filename>.socket</filename>,
           <filename>.target</filename>, <filename>.timer</filename> and <filename>.path</filename> which match the
           indicated unit file name prefix are copied from the image to the host's
-          <filename>/etc/systemd/system/</filename> directory (or <filename>/run/systemd/system/</filename> — depending
-          whether <option>--runtime</option> is specified, see above).</para></listitem>
+          <filename>/etc/systemd/system.attached/</filename> directory (or
+          <filename>/run/systemd/system.attached/</filename> — depending whether <option>--runtime</option> is
+          specified, see above), which is included in the built-in unit search path of the system service
+          manager.</para></listitem>
 
           <listitem><para>For unit files of type <filename>.service</filename> a drop-in is added to these copies that
           adds <varname>RootDirectory=</varname> or <varname>RootImage=</varname> settings (see
@@ -330,6 +332,10 @@
     to place image files directly in <filename>/etc/portables/</filename> or
     <filename>/run/systemd/portables/</filename> (as these are generally not suitable for storing large or non-textual
     data), but use these directories only for linking images located elsewhere into the image search path.</para>
+
+    <para>When a portable service image is attached, matching unit files are copied onto the host into the
+    <filename>/etc/systemd/system.attached/</filename> and <filename>/run/systemd/system.attached/</filename>
+    directories. When an image is detached, the unit files are removed again from these directories.</para>
   </refsect1>
 
   <refsect1>
