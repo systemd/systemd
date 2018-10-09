@@ -2444,43 +2444,36 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                         if (!(flags & UNIT_NOTIFY_WILL_AUTO_RESTART))
                                 unit_start_on_failure(u);
                 }
-        }
 
-        if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+                if (UNIT_IS_ACTIVE_OR_RELOADING(ns) && !UNIT_IS_ACTIVE_OR_RELOADING(os)) {
+                        /* This unit just finished starting up */
 
-                if (u->type == UNIT_SERVICE &&
-                    !UNIT_IS_ACTIVE_OR_RELOADING(os) &&
-                    !MANAGER_IS_RELOADING(m)) {
-                        /* Write audit record if we have just finished starting up */
-                        manager_send_unit_audit(m, u, AUDIT_SERVICE_START, true);
-                        u->in_audit = true;
+                        if (u->type == UNIT_SERVICE) {
+                                /* Write audit record if we have just finished starting up */
+                                manager_send_unit_audit(m, u, AUDIT_SERVICE_START, true);
+                                u->in_audit = true;
+                        }
+
+                        manager_send_unit_plymouth(m, u);
                 }
 
-                if (!UNIT_IS_ACTIVE_OR_RELOADING(os))
-                        manager_send_unit_plymouth(m, u);
-
-        } else {
-
-                if (UNIT_IS_INACTIVE_OR_FAILED(ns) &&
-                    !UNIT_IS_INACTIVE_OR_FAILED(os)
-                    && !MANAGER_IS_RELOADING(m)) {
-
+                if (UNIT_IS_INACTIVE_OR_FAILED(ns) && !UNIT_IS_INACTIVE_OR_FAILED(os)) {
                         /* This unit just stopped/failed. */
+
                         if (u->type == UNIT_SERVICE) {
 
-                                /* Hmm, if there was no start record written
-                                 * write it now, so that we always have a nice
-                                 * pair */
-                                if (!u->in_audit) {
+                                if (u->in_audit) {
+                                        /* Write audit record if we have just finished shutting down */
+                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
+                                        u->in_audit = false;
+                                } else {
+                                        /* Hmm, if there was no start record written write it now, so that we always
+                                         * have a nice pair */
                                         manager_send_unit_audit(m, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
 
                                         if (ns == UNIT_INACTIVE)
                                                 manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, true);
-                                } else
-                                        /* Write audit record if we have just finished shutting down */
-                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
-
-                                u->in_audit = false;
+                                }
                         }
 
                         /* Write a log message about consumed resources */
