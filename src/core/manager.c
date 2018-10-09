@@ -1581,6 +1581,20 @@ static void manager_preset_all(Manager *m) {
                 log_info("Populated /etc with preset unit settings.");
 }
 
+static void manager_vacuum(Manager *m) {
+        assert(m);
+
+        /* Release any dynamic users no longer referenced */
+        dynamic_user_vacuum(m, true);
+
+        /* Release any references to UIDs/GIDs no longer referenced, and destroy any IPC owned by them */
+        manager_vacuum_uid_refs(m);
+        manager_vacuum_gid_refs(m);
+
+        /* Release any runtimes no longer referenced */
+        exec_runtime_vacuum(m);
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r;
 
@@ -1662,14 +1676,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         /* Third, fire things up! */
         manager_coldplug(m);
 
-        /* Release any dynamic users no longer referenced */
-        dynamic_user_vacuum(m, true);
-
-        /* Release any references to UIDs/GIDs no longer referenced, and destroy any IPC owned by them */
-        manager_vacuum_uid_refs(m);
-        manager_vacuum_gid_refs(m);
-
-        exec_runtime_vacuum(m);
+        /* Clean up runtime objects */
+        manager_vacuum(m);
 
         if (serialization) {
                 assert(m->n_reloading > 0);
@@ -3540,14 +3548,8 @@ int manager_reload(Manager *m) {
         /* Third, fire things up! */
         manager_coldplug(m);
 
-        /* Release any dynamic users no longer referenced */
-        dynamic_user_vacuum(m, true);
-
-        /* Release any references to UIDs/GIDs no longer referenced, and destroy any IPC owned by them */
-        manager_vacuum_uid_refs(m);
-        manager_vacuum_gid_refs(m);
-
-        exec_runtime_vacuum(m);
+        /* Clean up runtime objects no longer referenced */
+        manager_vacuum(m);
 
         /* Consider the reload process complete now. */
         assert(m->n_reloading > 0);
