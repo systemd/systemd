@@ -540,7 +540,7 @@ typedef struct MachineStatusInfo {
         pid_t leader;
         struct dual_timestamp timestamp;
         int *netif;
-        unsigned n_netif;
+        size_t n_netif;
 } MachineStatusInfo;
 
 static void machine_status_info_clear(MachineStatusInfo *info) {
@@ -600,7 +600,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 printf("\t    Root: %s\n", i->root_directory);
 
         if (i->n_netif > 0) {
-                unsigned c;
+                size_t c;
 
                 fputs("\t   Iface:", stdout);
 

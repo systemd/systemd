@@ -183,7 +183,7 @@ int machine_save(Machine *m) {
                         m->timestamp.monotonic);
 
         if (m->n_netif > 0) {
-                unsigned i;
+                size_t i;
 
                 fputs("NETIF=", f);
 

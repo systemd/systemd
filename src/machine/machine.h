@@ -57,7 +57,7 @@ struct Machine {
         sd_bus_message *create_message;
 
         int *netif;
-        unsigned n_netif;
+        size_t n_netif;
 
         LIST_HEAD(Operation, operations);
 
