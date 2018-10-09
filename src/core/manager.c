@@ -3453,37 +3453,42 @@ static void manager_flush_finished_jobs(Manager *m) {
 }
 
 int manager_reload(Manager *m) {
-        int r, q;
-        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(m);
 
         r = manager_open_serialization(m, &f);
         if (r < 0)
-                return r;
-
-        m->n_reloading++;
-        bus_manager_send_reloading(m, true);
+                return log_error_errno(r, "Failed to create serialization file: %m");
 
         fds = fdset_new();
-        if (!fds) {
-                m->n_reloading--;
-                return -ENOMEM;
-        }
+        if (!fds)
+                return log_oom();
+
+        /* We are officially in reload mode from here on */
+        m->n_reloading++;
 
         r = manager_serialize(m, f, fds, false);
         if (r < 0) {
-                m->n_reloading--;
-                return r;
+                log_error_errno(r, "Failed to serialize manager: %m");
+                goto fail;
         }
 
         if (fseeko(f, 0, SEEK_SET) < 0) {
-                m->n_reloading--;
-                return -errno;
+                r = log_error_errno(errno, "Failed to seek to beginning of serialization: %m");
+                goto fail;
         }
 
-        /* From here on there is no way back. */
+        /* 💀 This is the point of no return, from here on there is no way back. 💀 */
+
+        bus_manager_send_reloading(m, true);
+
+        /* Start by flushing out all jobs and units, all generated units, all runtime environments, all dynamic users
+         * and everything else that is worth flushing out. We'll get it all back from the serialization — if we need
+         * it.*/
+
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
         lookup_paths_free(&m->lookup_paths);
@@ -3493,45 +3498,33 @@ int manager_reload(Manager *m) {
         m->gid_refs = hashmap_free(m->gid_refs);
 
         r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to initialize path lookup table, ignoring: %m");
 
-        q = manager_run_environment_generators(m);
-        if (q < 0 && r >= 0)
-                r = q;
+        (void) manager_run_environment_generators(m);
+        (void) manager_run_generators(m);
 
-        /* Find new unit paths */
-        q = manager_run_generators(m);
-        if (q < 0 && r >= 0)
-                r = q;
+        r = lookup_paths_reduce(&m->lookup_paths);
+        if (r < 0)
+                log_warning_errno(r, "Failed ot reduce unit file paths, ignoring: %m");
 
-        lookup_paths_reduce(&m->lookup_paths);
         manager_build_unit_path_cache(m);
 
-        /* First, enumerate what we can from all config files */
+        /* First, enumerate what we can from kernel and suchlike */
         manager_enumerate(m);
 
         /* Second, deserialize our stored data */
-        q = manager_deserialize(m, f, fds);
-        if (q < 0) {
-                log_error_errno(q, "Deserialization failed: %m");
+        r = manager_deserialize(m, f, fds);
+        if (r < 0)
+                log_warning_errno(r, "Deserialization failed, proceeding anyway: %m");
 
-                if (r >= 0)
-                        r = q;
-        }
-
+        /* We don't need the serialization anymore */
         f = safe_fclose(f);
 
-        /* Re-register notify_fd as event source */
-        q = manager_setup_notify(m);
-        if (q < 0 && r >= 0)
-                r = q;
-
-        q = manager_setup_cgroups_agent(m);
-        if (q < 0 && r >= 0)
-                r = q;
-
-        q = manager_setup_user_lookup_fd(m);
-        if (q < 0 && r >= 0)
-                r = q;
+        /* Re-register notify_fd as event source, and set up other sockets/communication channels we might need */
+        (void) manager_setup_notify(m);
+        (void) manager_setup_cgroups_agent(m);
+        (void) manager_setup_user_lookup_fd(m);
 
         /* Third, fire things up! */
         manager_coldplug(m);
@@ -3545,6 +3538,7 @@ int manager_reload(Manager *m) {
 
         exec_runtime_vacuum(m);
 
+        /* Consider the reload process complete now. */
         assert(m->n_reloading > 0);
         m->n_reloading--;
 
@@ -3556,14 +3550,19 @@ int manager_reload(Manager *m) {
         manager_catchup(m);
 
         /* Sync current state of bus names with our set of listening units */
-        q = manager_enqueue_sync_bus_names(m);
-        if (q < 0 && r >= 0)
-                r = q;
+        (void) manager_enqueue_sync_bus_names(m);
 
         if (!MANAGER_IS_RELOADING(m))
                 manager_flush_finished_jobs(m);
 
         m->send_reloading_done = true;
+        return 0;
+
+fail:
+        /* Fail the call. Note that we hit this only if we fail before the point of no return, i.e. when the error is
+         * still something that can be handled. */
+        assert(m->n_reloading > 0);
+        m->n_reloading--;
 
         return r;
 }

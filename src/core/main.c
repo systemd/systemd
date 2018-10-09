@@ -1698,10 +1698,7 @@ static int invoke_main_loop(
                         if (saved_log_target >= 0)
                                 manager_override_log_target(m, saved_log_target);
 
-                        r = manager_reload(m);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to reload, ignoring: %m");
-
+                        (void) manager_reload(m);
                         break;
                 }
 
