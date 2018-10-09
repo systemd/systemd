@@ -9,7 +9,7 @@ sanitize_address = custom_target(
                    'fuzzers',
                    '-Db_lundef=false -Db_sanitize=address',
                    ' '.join(cc.cmd_array()),
-                   ' '.join(meson.get_compiler('cpp').cmd_array())])
+                   cpp_cmd])
 
 sanitizers = [['address', sanitize_address]]
 

@@ -278,6 +278,9 @@ cxx = find_program('c++', required : false)
 if cxx.found()
         #  Used only for tests
         add_languages('cpp')
+        cpp_cmd = ' '.join(meson.get_compiler('cpp').cmd_array())
+else
+        cpp_cmd = ''
 endif
 
 want_ossfuzz = get_option('oss-fuzz')
