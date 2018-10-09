@@ -1945,13 +1945,7 @@ static int timeout_compare(const void *a, const void *b) {
         if (x->timeout_usec == 0 && y->timeout_usec != 0)
                 return 1;
 
-        if (x->timeout_usec < y->timeout_usec)
-                return -1;
-
-        if (x->timeout_usec > y->timeout_usec)
-                return 1;
-
-        return 0;
+        return CMP(x->timeout_usec, y->timeout_usec);
 }
 
 _public_ int sd_bus_call_async(

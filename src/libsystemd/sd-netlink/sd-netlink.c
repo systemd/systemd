@@ -490,13 +490,7 @@ static int timeout_compare(const void *a, const void *b) {
         if (x->timeout == 0 && y->timeout != 0)
                 return 1;
 
-        if (x->timeout < y->timeout)
-                return -1;
-
-        if (x->timeout > y->timeout)
-                return 1;
-
-        return 0;
+        return CMP(x->timeout, y->timeout);
 }
 
 int sd_netlink_call_async(sd_netlink *nl,
