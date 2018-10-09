@@ -1095,7 +1095,7 @@ int dissected_image_decrypt_interactively(
 
                 z = strv_free(z);
 
-                r = ask_password_auto("Please enter image passphrase!", NULL, "dissect", "dissect", USEC_INFINITY, 0, &z);
+                r = ask_password_auto("Please enter image passphrase:", NULL, "dissect", "dissect", USEC_INFINITY, 0, &z);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query for passphrase: %m");
 

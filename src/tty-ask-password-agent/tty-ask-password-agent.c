@@ -323,7 +323,7 @@ static int parse_password(const char *filename, char **wall) {
 
                 if (asprintf(&_wall,
                              "%s%sPassword entry required for \'%s\' (PID %u).\r\n"
-                             "Please enter password with the systemd-tty-ask-password-agent tool!",
+                             "Please enter password with the systemd-tty-ask-password-agent tool:",
                              strempty(*wall),
                              *wall ? "\r\n\r\n" : "",
                              message,
