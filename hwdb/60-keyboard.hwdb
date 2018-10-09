@@ -669,6 +669,7 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*
  KEYBOARD_KEY_16=mute
  KEYBOARD_KEY_17=prog1
  KEYBOARD_KEY_1a=f20                                    # Microphone mute button; should be micmute
+ KEYBOARD_KEY_45=bookmarks
 
 # ThinkPad Keyboard with TrackPoint
 evdev:input:b0003v17EFp6009*
