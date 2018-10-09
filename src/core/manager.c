@@ -3194,6 +3194,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
         log_debug("Deserializing state...");
 
+        /* If we are not in reload mode yet, enter it now. Not that this is recursive, a caller might already have
+         * increased it to non-zero, which is why we just increase it by one here and down again at the end of this
+         * call. */
         m->n_reloading++;
 
         for (;;) {
@@ -3431,6 +3434,7 @@ finish:
         if (ferror(f))
                 r = -EIO;
 
+        /* We are done with reloading, decrease counter again */
         assert(m->n_reloading > 0);
         m->n_reloading--;
 
