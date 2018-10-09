@@ -1673,7 +1673,7 @@ static int invoke_main_loop(
                         return log_emergency_errno(r, "Failed to run main loop: %m");
                 }
 
-                switch (m->objective) {
+                switch ((ManagerObjective) r) {
 
                 case MANAGER_RELOAD: {
                         LogTarget saved_log_target;
