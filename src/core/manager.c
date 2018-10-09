@@ -3831,8 +3831,10 @@ static int manager_run_generators(Manager *m) {
                 return 0;
 
         r = lookup_paths_mkdir_generator(&m->lookup_paths);
-        if (r < 0)
+        if (r < 0) {
+                log_error_errno(r, "Failed to create generator directories: %m");
                 goto finish;
+        }
 
         argv[0] = NULL; /* Leave this empty, execute_directory() will fill something in */
         argv[1] = m->lookup_paths.generator;
@@ -3841,8 +3843,10 @@ static int manager_run_generators(Manager *m) {
         argv[4] = NULL;
 
         RUN_WITH_UMASK(0022)
-                execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC,
-                                    NULL, NULL, (char**) argv, m->environment);
+                (void) execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC,
+                                           NULL, NULL, (char**) argv, m->environment);
+
+        r = 0;
 
 finish:
         lookup_paths_trim_generator(&m->lookup_paths);
