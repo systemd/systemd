@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 
 #include <errno.h>
-#include <fcntl.h>
 #include <getopt.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/epoll.h>
-#include <unistd.h>
+
+#include "sd-device.h"
+#include "sd-event.h"
 
 #include "device-enumerator-private.h"
-#include "device-monitor-private.h"
 #include "fd-util.h"
 #include "path-util.h"
 #include "set.h"
@@ -56,6 +52,28 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
                 if (write(fd, action, strlen(action)) < 0)
                         log_debug_errno(errno, "Failed to write '%s' to '%s', ignoring: %m", action, filename);
         }
+
+        return 0;
+}
+
+static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *userdata) {
+        Set *settle_set = userdata;
+        const char *syspath;
+
+        assert(dev);
+        assert(settle_set);
+
+        if (sd_device_get_syspath(dev, &syspath) < 0)
+                return 0;
+
+        if (arg_verbose)
+                printf("settle %s\n", syspath);
+
+        if (!set_remove(settle_set, syspath))
+                log_debug("Got epoll event on syspath %s not present in syspath set", syspath);
+
+        if (set_isempty(settle_set))
+                return sd_event_exit(sd_device_monitor_get_event(m), 0);
 
         return 0;
 }
@@ -136,11 +154,10 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         const char *action = "change";
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_set_free_free_ Set *settle_set = NULL;
-        _cleanup_close_ int fd_ep = -1;
-        struct epoll_event ep_monitor;
-        int c, r, fd_monitor = -1;
         bool settle = false;
+        int c, r;
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
@@ -277,32 +294,25 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         }
 
         if (settle) {
-                fd_ep = epoll_create1(EPOLL_CLOEXEC);
-                if (fd_ep < 0)
-                        return log_error_errno(errno, "Failed to create epoll fd: %m");
+                settle_set = set_new(&string_hash_ops);
+                if (!settle_set)
+                        return log_oom();
+
+                r = sd_event_default(&event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get default event: %m");
 
                 r = sd_device_monitor_new(&m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create device monitor object: %m");
 
-                fd_monitor = device_monitor_get_fd(m);
-                if (fd_monitor < 0)
-                        return log_error_errno(fd_monitor, "Failed to get monitor fd: %m");
-
-                r = device_monitor_enable_receiving(m);
+                r = sd_device_monitor_attach_event(m, event, 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to subscribe udev events: %m");
+                        return log_error_errno(r, "Failed to attach event to device monitor: %m");
 
-                ep_monitor = (struct epoll_event) {
-                        .events = EPOLLIN,
-                        .data.fd = fd_monitor,
-                };
-                if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0)
-                        return log_error_errno(errno, "Failed to add fd to epoll: %m");
-
-                settle_set = set_new(&string_hash_ops);
-                if (!settle_set)
-                        return log_oom();
+                r = sd_device_monitor_start(m, device_monitor_handler, settle_set, "udevadm-trigger-device-monitor");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to start device monitor: %m");
         }
 
         switch (device_type) {
@@ -323,37 +333,10 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        while (!set_isempty(settle_set)) {
-                int fdcount;
-                struct epoll_event ev[4];
-                int i;
-
-                fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), -1);
-                if (fdcount < 0) {
-                        if (errno != EINTR)
-                                log_error_errno(errno, "Failed to receive uevent message: %m");
-                        continue;
-                }
-
-                for (i = 0; i < fdcount; i++) {
-                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                        const char *syspath;
-
-                        if (!(ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN))
-                                continue;
-
-                        if (device_monitor_receive_device(m, &dev) <= 0)
-                                continue;
-
-                        if (sd_device_get_syspath(dev, &syspath) < 0)
-                                continue;
-
-                        if (arg_verbose)
-                                printf("settle %s\n", syspath);
-
-                        if (!set_remove(settle_set, syspath))
-                                log_debug("Got epoll event on syspath %s not present in syspath set", syspath);
-                }
+        if (event && !set_isempty(settle_set)) {
+                r = sd_event_loop(event);
+                if (r < 0)
+                        return log_error_errno(r, "Event loop failed: %m");
         }
 
         return 0;
