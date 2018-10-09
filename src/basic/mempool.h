@@ -22,6 +22,8 @@ static struct mempool pool_name = { \
         .at_least = alloc_at_least, \
 }
 
+bool mempool_enabled(void);
+
 #if VALGRIND
 void mempool_drop(struct mempool *mp);
 #endif
