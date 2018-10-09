@@ -1407,6 +1407,7 @@ install_libsystemd_static = static_library(
         journal_client_sources,
         basic_sources,
         basic_gcrypt_sources,
+        hashmap_sources,
         include_directories : includes,
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
@@ -1421,7 +1422,7 @@ install_libsystemd_static = static_library(
                         libmount,
                         libselinux,
                         libgcrypt],
-        c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
+        c_args : libsystemd_c_args + ['-DUSE_HASHMAP_MEMPOOL=1'] + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
 ############################################################
 

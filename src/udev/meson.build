@@ -122,6 +122,7 @@ static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
 install_libudev_static = static_library(
         'udev',
         basic_sources,
+        hashmap_sources,
         shared_sources,
         libsystemd_sources,
         libudev_sources,
@@ -131,7 +132,7 @@ install_libudev_static = static_library(
         install_dir : rootlibdir,
         link_depends : libudev_sym,
         dependencies : libshared_deps + [libmount],
-        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
+        c_args : ['-DUSE_HASHMAP_MEMPOOL=1'] + (static_libudev_pic ? [] : ['-fno-PIC']),
         pic : static_libudev_pic)
 
 libudev = shared_library(
