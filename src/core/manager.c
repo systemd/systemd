@@ -1680,6 +1680,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 m->send_reloading_done = true;
         }
 
+        m->objective = MANAGER_OK;
+
         /* It might be safe to log to the journal now and connect to dbus */
         manager_recheck_journal(m);
         manager_recheck_dbus(m);
@@ -2811,7 +2813,7 @@ int manager_loop(Manager *m) {
         RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 50000);
 
         assert(m);
-        m->objective = MANAGER_OK;
+        assert(m->objective == MANAGER_OK); /* Ensure manager_startup() has been called */
 
         /* Release the path cache */
         m->unit_path_cache = set_free_free(m->unit_path_cache);
@@ -3550,6 +3552,7 @@ int manager_reload(Manager *m) {
         /* Consider the reload process complete now. */
         assert(m->n_reloading > 0);
         m->n_reloading--;
+        m->objective = MANAGER_OK;
 
         /* It might be safe to log to the journal now and connect to dbus */
         manager_recheck_journal(m);
