@@ -718,21 +718,44 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         assert(_m);
         assert(IN_SET(scope, UNIT_FILE_SYSTEM, UNIT_FILE_USER));
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
-        m->unit_file_scope = scope;
-        m->objective = _MANAGER_OBJECTIVE_INVALID;
-        m->default_timer_accuracy_usec = USEC_PER_MINUTE;
-        m->default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
-        m->default_tasks_accounting = true;
-        m->default_tasks_max = UINT64_MAX;
-        m->default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;
-        m->default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
-        m->default_restart_usec = DEFAULT_RESTART_USEC;
-        m->original_log_level = -1;
-        m->original_log_target = _LOG_TARGET_INVALID;
+        *m = (Manager) {
+                .unit_file_scope = scope,
+                .objective = _MANAGER_OBJECTIVE_INVALID,
+
+                .default_timer_accuracy_usec = USEC_PER_MINUTE,
+                .default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
+                .default_tasks_accounting = true,
+                .default_tasks_max = UINT64_MAX,
+                .default_timeout_start_usec = DEFAULT_TIMEOUT_USEC,
+                .default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC,
+                .default_restart_usec = DEFAULT_RESTART_USEC,
+
+                .original_log_level = -1,
+                .original_log_target = _LOG_TARGET_INVALID,
+
+                .notify_fd = -1,
+                .cgroups_agent_fd = -1,
+                .signal_fd = -1,
+                .time_change_fd = -1,
+                .user_lookup_fds = { -1, -1 },
+                .private_listen_fd = -1,
+                .dev_autofs_fd = -1,
+                .cgroup_inotify_fd = -1,
+                .pin_cgroupfs_fd = -1,
+                .ask_password_inotify_fd = -1,
+                .idle_pipe = { -1, -1, -1, -1},
+
+                 /* start as id #1, so that we can leave #0 around as "null-like" value */
+                .current_job_id = 1,
+
+                .have_ask_password = -EINVAL, /* we don't know */
+                .first_boot = -1,
+                .test_run_flags = test_run_flags,
+        };
 
 #if ENABLE_EFI
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
@@ -755,21 +778,6 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
                 m->invocation_log_field = "USER_INVOCATION_ID=";
                 m->invocation_log_format_string = "USER_INVOCATION_ID=%s";
         }
-
-        m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
-
-        m->pin_cgroupfs_fd = m->notify_fd = m->cgroups_agent_fd = m->signal_fd = m->time_change_fd =
-                m->dev_autofs_fd = m->private_listen_fd = m->cgroup_inotify_fd =
-                m->ask_password_inotify_fd = -1;
-
-        m->user_lookup_fds[0] = m->user_lookup_fds[1] = -1;
-
-        m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
-
-        m->have_ask_password = -EINVAL; /* we don't know */
-        m->first_boot = -1;
-
-        m->test_run_flags = test_run_flags;
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
         RATELIMIT_INIT(m->ctrl_alt_del_ratelimit, 2 * USEC_PER_SEC, 7);
