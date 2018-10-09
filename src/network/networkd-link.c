@@ -3389,6 +3389,9 @@ static int link_carrier_gained(Link *link) {
 
         assert(link);
 
+        if (link->state == LINK_STATE_CONFIGURED && link->network->ignore_carrier_gainloss)
+                return 0;
+
         if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_UNMANAGED, LINK_STATE_FAILED)) {
                 r = link_acquire_conf(link);
                 if (r < 0) {
@@ -3417,6 +3420,9 @@ static int link_carrier_lost(Link *link) {
          * setting_mtu keep track whether the device got reset because of setting MTU and does not drop the
          * configuration and stop the clients as well. */
         if (link->setting_mtu)
+                return 0;
+
+        if (link->state == LINK_STATE_CONFIGURED && link->network->ignore_carrier_gainloss)
                 return 0;
 
         r = link_stop_clients(link);
