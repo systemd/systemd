@@ -3238,6 +3238,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
 
         unit_serialize_item(u, f, "transient", yes_no(u->transient));
 
+        unit_serialize_item(u, f, "in-audit", yes_no(u->in_audit));
+
         unit_serialize_item(u, f, "exported-invocation-id", yes_no(u->exported_invocation_id));
         unit_serialize_item(u, f, "exported-log-level-max", yes_no(u->exported_log_level_max));
         unit_serialize_item(u, f, "exported-log-extra-fields", yes_no(u->exported_log_extra_fields));
@@ -3473,6 +3475,16 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse transient bool %s, ignoring.", v);
                         else
                                 u->transient = r;
+
+                        continue;
+
+                } else if (streq(l, "in-audit")) {
+
+                        r = parse_boolean(v);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse in-audit bool %s, ignoring.", v);
+                        else
+                                u->in_audit = r;
 
                         continue;
 
