@@ -3219,7 +3219,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         uint32_t id;
 
                         if (safe_atou32(val, &id) < 0)
-                                log_notice("Failed to parse current job id value %s", val);
+                                log_notice("Failed to parse current job id value '%s', ignoring.", val);
                         else
                                 m->current_job_id = MAX(m->current_job_id, id);
 
@@ -3227,7 +3227,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         uint32_t n;
 
                         if (safe_atou32(val, &n) < 0)
-                                log_notice("Failed to parse installed jobs counter %s", val);
+                                log_notice("Failed to parse installed jobs counter '%s', ignoring.", val);
                         else
                                 m->n_installed_jobs += n;
 
@@ -3235,7 +3235,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         uint32_t n;
 
                         if (safe_atou32(val, &n) < 0)
-                                log_notice("Failed to parse failed jobs counter %s", val);
+                                log_notice("Failed to parse failed jobs counter '%s', ignoring.", val);
                         else
                                 m->n_failed_jobs += n;
 
@@ -3244,7 +3244,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         b = parse_boolean(val);
                         if (b < 0)
-                                log_notice("Failed to parse taint /usr flag %s", val);
+                                log_notice("Failed to parse taint /usr flag '%s', ignoring.", val);
                         else
                                 m->taint_usr = m->taint_usr || b;
 
@@ -3253,7 +3253,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         b = parse_boolean(val);
                         if (b < 0)
-                                log_notice("Failed to parse ready-sent flag %s", val);
+                                log_notice("Failed to parse ready-sent flag '%s', ignoring.", val);
                         else
                                 m->ready_sent = m->ready_sent || b;
 
@@ -3262,7 +3262,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         b = parse_boolean(val);
                         if (b < 0)
-                                log_notice("Failed to parse taint-logged flag %s", val);
+                                log_notice("Failed to parse taint-logged flag '%s', ignoring.", val);
                         else
                                 m->taint_logged = m->taint_logged || b;
 
@@ -3271,7 +3271,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         b = parse_boolean(val);
                         if (b < 0)
-                                log_notice("Failed to parse service-watchdogs flag %s", val);
+                                log_notice("Failed to parse service-watchdogs flag '%s', ignoring.", val);
                         else
                                 m->service_watchdogs = b;
 
@@ -3280,7 +3280,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         s = show_status_from_string(val);
                         if (s < 0)
-                                log_notice("Failed to parse show-status flag %s", val);
+                                log_notice("Failed to parse show-status flag '%s', ignoring.", val);
                         else
                                 manager_set_show_status(m, s);
 
@@ -3307,13 +3307,13 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (r == -ENOMEM)
                                 goto finish;
                         if (r < 0)
-                                log_notice_errno(r, "Failed to parse environment entry: \"%s\": %m", l);
+                                log_notice_errno(r, "Failed to parse environment entry: \"%s\", ignoring: %m", l);
 
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;
 
                         if (safe_atoi(val, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                                log_notice("Failed to parse notify fd: \"%s\"", val);
+                                log_notice("Failed to parse notify fd, ignoring: \"%s\"", val);
                         else {
                                 m->notify_event_source = sd_event_source_unref(m->notify_event_source);
                                 safe_close(m->notify_fd);
@@ -3336,7 +3336,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         int fd;
 
                         if (safe_atoi(val, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                                log_notice("Failed to parse cgroups agent fd: %s", val);
+                                log_notice("Failed to parse cgroups agent fd, ignoring.: %s", val);
                         else {
                                 m->cgroups_agent_event_source = sd_event_source_unref(m->cgroups_agent_event_source);
                                 safe_close(m->cgroups_agent_fd);
@@ -3347,7 +3347,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         int fd0, fd1;
 
                         if (sscanf(val, "%i %i", &fd0, &fd1) != 2 || fd0 < 0 || fd1 < 0 || fd0 == fd1 || !fdset_contains(fds, fd0) || !fdset_contains(fds, fd1))
-                                log_notice("Failed to parse user lookup fd: %s", val);
+                                log_notice("Failed to parse user lookup fd, ignoring: %s", val);
                         else {
                                 m->user_lookup_event_source = sd_event_source_unref(m->user_lookup_event_source);
                                 safe_close_pair(m->user_lookup_fds);
@@ -3383,7 +3383,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (q < _MANAGER_TIMESTAMP_MAX) /* found it */
                                 dual_timestamp_deserialize(val, m->timestamps + q);
                         else if (!startswith(l, "kdbus-fd=")) /* ignore kdbus */
-                                log_notice("Unknown serialization item '%s'", l);
+                                log_notice("Unknown serialization item '%s', ignoring.", l);
                 }
         }
 
