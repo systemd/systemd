@@ -56,28 +56,22 @@ int main(int argc, char *argv[]) {
         _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
         const char *devpath, *action;
-        int r;
 
         test_setup_logging(LOG_INFO);
 
-        r = fake_filesystems();
-        if (r < 0)
+        if (argc != 3) {
+                log_error("This program needs two arguments, %d given", argc - 1);
+                return EXIT_FAILURE;
+        }
+
+        if (fake_filesystems() < 0)
                 return EXIT_FAILURE;
 
         log_debug("version %s", PACKAGE_VERSION);
         mac_selinux_init();
 
         action = argv[1];
-        if (!action) {
-                log_error("action missing");
-                goto out;
-        }
-
         devpath = argv[2];
-        if (!devpath) {
-                log_error("devpath missing");
-                goto out;
-        }
 
         rules = udev_rules_new(1);
 
@@ -88,8 +82,7 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        event = udev_event_new(dev);
-        assert_se(event);
+        assert_se(event = udev_event_new(dev));
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
 
@@ -103,22 +96,18 @@ int main(int argc, char *argv[]) {
                         mode |= S_IFCHR;
 
                 if (!streq(action, "remove")) {
-                        mkdir_parents_label(udev_device_get_devnode(dev), 0755);
-                        mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev));
+                        (void) mkdir_parents_label(udev_device_get_devnode(dev), 0755);
+                        assert_se(mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev)) == 0);
                 } else {
-                        unlink(udev_device_get_devnode(dev));
-                        rmdir_parents(udev_device_get_devnode(dev), "/");
+                        assert_se(unlink(udev_device_get_devnode(dev)) == 0);
+                        (void) rmdir_parents(udev_device_get_devnode(dev), "/");
                 }
         }
 
-        udev_event_execute_rules(event,
-                                 3 * USEC_PER_SEC, USEC_PER_SEC,
-                                 NULL,
-                                 rules);
-        udev_event_execute_run(event,
-                               3 * USEC_PER_SEC, USEC_PER_SEC);
+        udev_event_execute_rules(event, 3 * USEC_PER_SEC, USEC_PER_SEC, NULL, rules);
+        udev_event_execute_run(event, 3 * USEC_PER_SEC, USEC_PER_SEC);
 out:
         mac_selinux_finish();
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return EXIT_SUCCESS;
 }
