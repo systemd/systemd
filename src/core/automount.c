@@ -85,7 +85,7 @@ static void unmount_autofs(Automount *a) {
         a->pipe_fd = safe_close(a->pipe_fd);
 
         /* If we reload/reexecute things we keep the mount point around */
-        if (!IN_SET(UNIT(a)->manager->exit_code, MANAGER_RELOAD, MANAGER_REEXECUTE)) {
+        if (!IN_SET(UNIT(a)->manager->objective, MANAGER_RELOAD, MANAGER_REEXECUTE)) {
 
                 automount_send_ready(a, a->tokens, -EHOSTDOWN);
                 automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);

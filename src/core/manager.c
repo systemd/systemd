@@ -723,7 +723,7 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
                 return -ENOMEM;
 
         m->unit_file_scope = scope;
-        m->exit_code = _MANAGER_EXIT_CODE_INVALID;
+        m->objective = _MANAGER_OBJECTIVE_INVALID;
         m->default_timer_accuracy_usec = USEC_PER_MINUTE;
         m->default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
         m->default_tasks_accounting = true;
@@ -1288,7 +1288,7 @@ Manager* manager_free(Manager *m) {
                         unit_vtable[c]->shutdown(m);
 
         /* If we reexecute ourselves, we keep the root cgroup around */
-        manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
+        manager_shutdown_cgroup(m, m->objective != MANAGER_REEXECUTE);
 
         lookup_paths_flush_generator(&m->lookup_paths);
 
@@ -2545,7 +2545,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         /* This is for compatibility with the original sysvinit */
                         r = verify_run_space_and_log("Refusing to reexecute");
                         if (r >= 0)
-                                m->exit_code = MANAGER_REEXECUTE;
+                                m->objective = MANAGER_REEXECUTE;
                         break;
                 }
 
@@ -2603,7 +2603,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         case SIGHUP:
                 r = verify_run_space_and_log("Refusing to reload");
                 if (r >= 0)
-                        m->exit_code = MANAGER_RELOAD;
+                        m->objective = MANAGER_RELOAD;
                 break;
 
         default: {
@@ -2623,7 +2623,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 };
 
                 /* Starting SIGRTMIN+13, so that target halt and system halt are 10 apart */
-                static const ManagerExitCode code_table[] = {
+                static const ManagerObjective objective_table[] = {
                         [0] = MANAGER_HALT,
                         [1] = MANAGER_POWEROFF,
                         [2] = MANAGER_REBOOT,
@@ -2639,8 +2639,8 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 }
 
                 if ((int) sfsi.ssi_signo >= SIGRTMIN+13 &&
-                    (int) sfsi.ssi_signo < SIGRTMIN+13+(int) ELEMENTSOF(code_table)) {
-                        m->exit_code = code_table[sfsi.ssi_signo - SIGRTMIN - 13];
+                    (int) sfsi.ssi_signo < SIGRTMIN+13+(int) ELEMENTSOF(objective_table)) {
+                        m->objective = objective_table[sfsi.ssi_signo - SIGRTMIN - 13];
                         break;
                 }
 
@@ -2664,7 +2664,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 case 24:
                         if (MANAGER_IS_USER(m)) {
-                                m->exit_code = MANAGER_EXIT;
+                                m->objective = MANAGER_EXIT;
                                 return 0;
                         }
 
@@ -2793,7 +2793,7 @@ int manager_loop(Manager *m) {
         RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 50000);
 
         assert(m);
-        m->exit_code = MANAGER_OK;
+        m->objective = MANAGER_OK;
 
         /* Release the path cache */
         m->unit_path_cache = set_free_free(m->unit_path_cache);
@@ -2805,7 +2805,7 @@ int manager_loop(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable SIGCHLD event source: %m");
 
-        while (m->exit_code == MANAGER_OK) {
+        while (m->objective == MANAGER_OK) {
                 usec_t wait_usec;
 
                 if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && MANAGER_IS_SYSTEM(m))
@@ -2851,7 +2851,7 @@ int manager_loop(Manager *m) {
                         return log_error_errno(r, "Failed to run event loop: %m");
         }
 
-        return m->exit_code;
+        return m->objective;
 }
 
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u) {

@@ -1673,7 +1673,7 @@ static int invoke_main_loop(
                         return log_emergency_errno(r, "Failed to run main loop: %m");
                 }
 
-                switch (m->exit_code) {
+                switch (m->objective) {
 
                 case MANAGER_RELOAD: {
                         LogTarget saved_log_target;
@@ -1764,19 +1764,19 @@ static int invoke_main_loop(
                 case MANAGER_POWEROFF:
                 case MANAGER_HALT:
                 case MANAGER_KEXEC: {
-                        static const char * const table[_MANAGER_EXIT_CODE_MAX] = {
-                                [MANAGER_EXIT] = "exit",
-                                [MANAGER_REBOOT] = "reboot",
+                        static const char * const table[_MANAGER_OBJECTIVE_MAX] = {
+                                [MANAGER_EXIT]     = "exit",
+                                [MANAGER_REBOOT]   = "reboot",
                                 [MANAGER_POWEROFF] = "poweroff",
-                                [MANAGER_HALT] = "halt",
-                                [MANAGER_KEXEC] = "kexec"
+                                [MANAGER_HALT]     = "halt",
+                                [MANAGER_KEXEC]    = "kexec",
                         };
 
                         log_notice("Shutting down.");
 
                         *ret_reexecute = false;
                         *ret_retval = m->return_value;
-                        assert_se(*ret_shutdown_verb = table[m->exit_code]);
+                        assert_se(*ret_shutdown_verb = table[m->objective]);
                         *ret_fds = NULL;
                         *ret_switch_root_dir = *ret_switch_root_init = NULL;
 
@@ -1784,7 +1784,7 @@ static int invoke_main_loop(
                 }
 
                 default:
-                        assert_not_reached("Unknown exit code.");
+                        assert_not_reached("Unknown or unexpected manager objective.");
                 }
         }
 }

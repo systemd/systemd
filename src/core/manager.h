@@ -36,7 +36,7 @@ typedef enum ManagerState {
         _MANAGER_STATE_INVALID = -1
 } ManagerState;
 
-typedef enum ManagerExitCode {
+typedef enum ManagerObjective {
         MANAGER_OK,
         MANAGER_EXIT,
         MANAGER_RELOAD,
@@ -46,9 +46,9 @@ typedef enum ManagerExitCode {
         MANAGER_HALT,
         MANAGER_KEXEC,
         MANAGER_SWITCH_ROOT,
-        _MANAGER_EXIT_CODE_MAX,
-        _MANAGER_EXIT_CODE_INVALID = -1
-} ManagerExitCode;
+        _MANAGER_OBJECTIVE_MAX,
+        _MANAGER_OBJECTIVE_INVALID = -1
+} ManagerObjective;
 
 typedef enum StatusType {
         STATUS_TYPE_EPHEMERAL,
@@ -282,9 +282,9 @@ struct Manager {
         usec_t etc_localtime_mtime;
         bool etc_localtime_accessible:1;
 
-        /* Flags */
-        ManagerExitCode exit_code:5;
+        ManagerObjective objective:5;
 
+        /* Flags */
         bool dispatching_load_queue:1;
         bool dispatching_dbus_queue:1;
 
@@ -407,8 +407,8 @@ struct Manager {
 
 #define MANAGER_IS_FINISHED(m) (dual_timestamp_is_set((m)->timestamps + MANAGER_TIMESTAMP_FINISH))
 
-/* The exit code is set to OK as soon as we enter the main loop, and set otherwise as soon as we are done with it */
-#define MANAGER_IS_RUNNING(m) ((m)->exit_code == MANAGER_OK)
+/* The objective is set to OK as soon as we enter the main loop, and set otherwise as soon as we are done with it */
+#define MANAGER_IS_RUNNING(m) ((m)->objective == MANAGER_OK)
 
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);

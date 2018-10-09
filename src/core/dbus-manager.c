@@ -1334,7 +1334,7 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        m->exit_code = MANAGER_RELOAD;
+        m->objective = MANAGER_RELOAD;
 
         return 1;
 }
@@ -1363,7 +1363,7 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
         /* We don't send a reply back here, the client should
          * just wait for us disconnecting. */
 
-        m->exit_code = MANAGER_REEXECUTE;
+        m->objective = MANAGER_REEXECUTE;
         return 1;
 }
 
@@ -1383,7 +1383,7 @@ static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *er
          * systemd-shutdown if it cannot do the exit() because it isn't a
          * container. */
 
-        m->exit_code = MANAGER_EXIT;
+        m->objective = MANAGER_EXIT;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -1402,7 +1402,7 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
 
-        m->exit_code = MANAGER_REBOOT;
+        m->objective = MANAGER_REBOOT;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -1421,7 +1421,7 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
 
-        m->exit_code = MANAGER_POWEROFF;
+        m->objective = MANAGER_POWEROFF;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -1440,7 +1440,7 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Halt is only supported for system managers.");
 
-        m->exit_code = MANAGER_HALT;
+        m->objective = MANAGER_HALT;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -1459,7 +1459,7 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "KExec is only supported for system managers.");
 
-        m->exit_code = MANAGER_KEXEC;
+        m->objective = MANAGER_KEXEC;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -1549,7 +1549,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         free(m->switch_root_init);
         m->switch_root_init = ri;
 
-        m->exit_code = MANAGER_SWITCH_ROOT;
+        m->objective = MANAGER_SWITCH_ROOT;
 
         return sd_bus_reply_method_return(message, NULL);
 }
