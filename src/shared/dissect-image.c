@@ -231,7 +231,7 @@ int dissect_image(
                                 .node = TAKE_PTR(n),
                         };
 
-                        m->encrypted = streq(fstype, "crypto_LUKS");
+                        m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
                         *ret = TAKE_PTR(m);
 
