@@ -529,7 +529,7 @@ int lookup_paths_init(
         if (flags & LOOKUP_PATHS_TEMPORARY_GENERATED) {
                 r = mkdtemp_malloc("/tmp/systemd-temporary-XXXXXX", &tempdir);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create temporary directory: %m");
+                        return log_debug_errno(r, "Failed to create temporary directory: %m");
         }
 
         /* Note: when XDG_RUNTIME_DIR is not set this will not return -ENXIO, but simply set runtime_config to NULL */
