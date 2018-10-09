@@ -526,7 +526,9 @@ static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_erro
                 if (j->unit->job && (mode == JOB_FAIL || j->unit->job->irreversible) &&
                     job_type_is_conflicting(j->unit->job->type, j->type))
                         return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE,
-                                                 "Transaction is destructive.");
+                                                 "Transaction for %s/%s is destructive (%s has '%s' job queued, but '%s' is included in transaction).",
+                                                 tr->anchor_job->unit->id, job_type_to_string(tr->anchor_job->type),
+                                                 j->unit->id, job_type_to_string(j->unit->job->type), job_type_to_string(j->type));
         }
 
         return 0;
