@@ -1,46 +1,67 @@
-The extended testsuite only works with uid=0. It contains of several
+The extended testsuite only works with UID=0. It contains of several
 subdirectories named "test/TEST-??-*", which are run one by one.
 
 To run the extended testsuite do the following:
 
-$ make all  # Avoid the "sudo make" below building anything as root
-$ cd test
-$ sudo make clean check
+$ ninja -C build  # Avoid building anything as root later
+$ sudo test/run-integration-tests.sh
+ninja: Entering directory `/home/zbyszek/src/systemd/build'
+ninja: no work to do.
+--x-- Running TEST-01-BASIC --x--
++ make -C TEST-01-BASIC BUILD_DIR=/home/zbyszek/src/systemd/build clean setup run
+make: Entering directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
+TEST CLEANUP: Basic systemd setup
+TEST SETUP: Basic systemd setup
 ...
-make[1]: Entering directory `/mnt/data/harald/git/systemd/test/TEST-01-BASIC'
-Making all in .
-Making all in po
-TEST: Basic systemd setup [OK]
-make[1]: Leaving directory `/mnt/data/harald/git/systemd/test/TEST-01-BASIC'
-...
+TEST RUN: Basic systemd setup [OK]
+make: Leaving directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
+--x-- Result of TEST-01-BASIC: 0 --x--
+--x-- Running TEST-02-CRYPTSETUP --x--
++ make -C TEST-02-CRYPTSETUP BUILD_DIR=/home/zbyszek/src/systemd/build clean setup run
 
 If one of the tests fails, then $subdir/test.log contains the log file of
 the test.
 
-To debug a special testcase of the testsuite do:
+To run just one of the cases:
 
-$ make all
-$ cd test/TEST-01-BASIC
-$ sudo make clean setup run
+$ sudo make -C test/TEST-01-BASIC clean setup run
 
-QEMU
-====
+Specifying the build directory
+==============================
 
-If you want to log in the testsuite virtual machine, you can specify
-additional kernel command line parameter with $KERNEL_APPEND.
+If the build directory is not detected automatically, it can be specified
+with BUILD_DIR=:
 
-$ sudo make KERNEL_APPEND="systemd.unit=multi-user.target" clean setup run
+$ sudo BUILD_DIR=some-other-build/ test/run-integration-tests
 
-you can even skip the "clean" and "setup" if you want to run the machine again.
+or
 
-$ sudo make KERNEL_APPEND="systemd.unit=multi-user.target" run
+$ sudo make -C test/TEST-01-BASIC BUILD_DIR=../../some-other-build/ ...
 
-You can specify a different kernel and initramfs with $KERNEL_BIN and $INITRD.
+Note that in the second case, the path is relative to the test case directory.
+An absolute path may also be used in both cases.
+
+Configuration variables
+=======================
+
+TEST_NO_QEMU=1 can be used to disable qemu tests.
+
+TEST_NO_NSPAWN=1 can be used to disable nspawn tests.
+
+KERNEL_APPEND='...' can be used to add additional kernel parameters for the QEMU runs.
+
+The kernel and initramfs can be specified with $KERNEL_BIN and $INITRD.
 (Fedora's or Debian's default kernel path and initramfs are used by default)
 
-$ sudo make KERNEL_BIN=/boot/vmlinuz-foo INITRD=/boot/initramfs-bar clean check
-
 A script will try to find your QEMU binary. If you want to specify a different
-one you can use $QEMU_BIN.
+one with $QEMU_BIN.
 
-$ sudo make QEMU_BIN=/path/to/qemu/qemu-kvm clean check
+Debugging the qemu image
+========================
+
+If you want to log in the testsuite virtual machine, you can specify additional
+kernel command line parameter with $KERNEL_APPEND and then log in as root.
+
+$ sudo make -C test/TEST-01-BASIC KERNEL_APPEND="systemd.unit=multi-user.target" run
+
+Root password is empty.
