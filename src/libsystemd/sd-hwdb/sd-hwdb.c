@@ -330,7 +330,7 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
         }
 
         if (!hwdb->f) {
-                log_debug("hwdb.bin does not exist, please run systemd-hwdb update");
+                log_debug("hwdb.bin does not exist, please run 'systemd-hwdb update'");
                 return -ENOENT;
         }
 
