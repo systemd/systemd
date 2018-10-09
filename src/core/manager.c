@@ -1283,8 +1283,8 @@ static void manager_clear_jobs_and_units(Manager *m) {
 }
 
 Manager* manager_free(Manager *m) {
-        UnitType c;
         ExecDirectoryType dt;
+        UnitType c;
 
         if (!m)
                 return NULL;
@@ -1295,8 +1295,8 @@ Manager* manager_free(Manager *m) {
                 if (unit_vtable[c]->shutdown)
                         unit_vtable[c]->shutdown(m);
 
-        /* If we reexecute ourselves, we keep the root cgroup around */
-        manager_shutdown_cgroup(m, m->objective != MANAGER_REEXECUTE);
+        /* Keep the cgroup hierarchy in place except when we know we are going down for good */
+        manager_shutdown_cgroup(m, IN_SET(m->objective, MANAGER_EXIT, MANAGER_REBOOT, MANAGER_POWEROFF, MANAGER_HALT, MANAGER_KEXEC));
 
         lookup_paths_flush_generator(&m->lookup_paths);
 
