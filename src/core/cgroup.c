@@ -2305,7 +2305,7 @@ int manager_setup_cgroup(Manager *m) {
 
                 (void) sd_event_source_set_description(m->cgroup_inotify_event_source, "cgroup-inotify");
 
-        } else if (MANAGER_IS_SYSTEM(m) && m->test_run_flags == 0) {
+        } else if (MANAGER_IS_SYSTEM(m) && !MANAGER_IS_TEST_RUN(m)) {
 
                 /* On the legacy hierarchy we only get notifications via cgroup agents. (Which isn't really reliable,
                  * since it does not generate events when control groups with children run empty. */
@@ -2334,11 +2334,11 @@ int manager_setup_cgroup(Manager *m) {
                 if (m->pin_cgroupfs_fd < 0)
                         return log_error_errno(errno, "Failed to open pin file: %m");
 
-        } else if (!m->test_run_flags)
+        } else if (!MANAGER_IS_TEST_RUN(m))
                 return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
 
         /* 7. Always enable hierarchical support if it exists... */
-        if (!all_unified && m->test_run_flags == 0)
+        if (!all_unified && !MANAGER_IS_TEST_RUN(m))
                 (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
 
         /* 8. Figure out which controllers are supported, and log about it */

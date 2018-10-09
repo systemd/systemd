@@ -351,7 +351,7 @@ static int manager_setup_time_change(Manager *m) {
 
         assert(m);
 
-        if (m->test_run_flags)
+        if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
         m->time_change_event_source = sd_event_source_unref(m->time_change_event_source);
@@ -407,7 +407,7 @@ static int manager_setup_timezone_change(Manager *m) {
 
         assert(m);
 
-        if (m->test_run_flags != 0)
+        if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
         /* We watch /etc/localtime for three events: change of the link count (which might mean removal from /etc even
@@ -446,7 +446,7 @@ static int enable_special_signals(Manager *m) {
 
         assert(m);
 
-        if (m->test_run_flags)
+        if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
         /* Enable that we get SIGINT on control-alt-del. In containers
@@ -711,7 +711,7 @@ static int manager_setup_sigchld_event_source(Manager *m) {
         return 0;
 }
 
-int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
+int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -865,7 +865,7 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
 static int manager_setup_notify(Manager *m) {
         int r;
 
-        if (m->test_run_flags)
+        if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
         if (m->notify_fd < 0) {
@@ -944,7 +944,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
          * to it. The system instance hence listens on this special socket, but the user instances listen on the system
          * bus for these messages. */
 
-        if (m->test_run_flags)
+        if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
         if (!MANAGER_IS_SYSTEM(m))
@@ -1521,7 +1521,7 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
          * and the service unit. If the 'deserialized' parameter is true we'll check the deserialized state of the unit
          * rather than the current one. */
 
-        if (m->test_run_flags != 0)
+        if (MANAGER_IS_TEST_RUN(m))
                 return false;
 
         u = manager_get_unit(m, SPECIAL_DBUS_SOCKET);
@@ -1569,7 +1569,7 @@ static void manager_preset_all(Manager *m) {
         if (!MANAGER_IS_SYSTEM(m))
                 return;
 
-        if (m->test_run_flags != 0)
+        if (MANAGER_IS_TEST_RUN(m))
                 return;
 
         /* If this is the first boot, and we are in the host system, then preset everything */
@@ -1589,7 +1589,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         /* If we are running in test mode, we still want to run the generators,
          * but we should not touch the real generator directories. */
         r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope,
-                              m->test_run_flags ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
+                              MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
                               NULL);
         if (r < 0)
                 return r;
@@ -3593,7 +3593,7 @@ static void manager_notify_finished(Manager *m) {
         char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
 
-        if (m->test_run_flags)
+        if (MANAGER_IS_TEST_RUN(m))
                 return;
 
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0) {
@@ -3788,7 +3788,7 @@ static int manager_run_environment_generators(Manager *m) {
         const char **paths;
         void* args[] = {&tmp, &tmp, &m->environment};
 
-        if (m->test_run_flags && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
+        if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
 
         paths = MANAGER_IS_SYSTEM(m) ? system_env_generator_binary_paths : user_env_generator_binary_paths;
@@ -3806,7 +3806,7 @@ static int manager_run_generators(Manager *m) {
 
         assert(m);
 
-        if (m->test_run_flags && !(m->test_run_flags & MANAGER_TEST_RUN_GENERATORS))
+        if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_GENERATORS))
                 return 0;
 
         paths = generator_binary_paths(m->unit_file_scope);
@@ -3920,7 +3920,7 @@ static bool manager_journal_is_running(Manager *m) {
 
         assert(m);
 
-        if (m->test_run_flags != 0)
+        if (MANAGER_IS_TEST_RUN(m))
                 return false;
 
         /* If we are the user manager we can safely assume that the journal is up */

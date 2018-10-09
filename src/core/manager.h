@@ -108,14 +108,15 @@ typedef enum ManagerTimestamp {
 #include "show-status.h"
 #include "unit-name.h"
 
-enum {
-        /* 0 = run normally */
+typedef enum ManagerTestRunFlags {
+        MANAGER_TEST_NORMAL             = 0,       /* run normally */
         MANAGER_TEST_RUN_MINIMAL        = 1 << 0,  /* create basic data structures */
         MANAGER_TEST_RUN_BASIC          = 1 << 1,  /* interact with the environment */
         MANAGER_TEST_RUN_ENV_GENERATORS = 1 << 2,  /* also run env generators  */
         MANAGER_TEST_RUN_GENERATORS     = 1 << 3,  /* also run unit generators */
         MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
-};
+} ManagerTestRunFlags;
+
 assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
 
 struct Manager {
@@ -299,7 +300,7 @@ struct Manager {
         /* Have we ever changed the "kernel.pid_max" sysctl? */
         bool sysctl_pid_max_changed:1;
 
-        unsigned test_run_flags:8;
+        ManagerTestRunFlags test_run_flags:8;
 
         /* If non-zero, exit with the following value when the systemd
          * process terminate. Useful for containers: systemd-nspawn could get
@@ -410,7 +411,9 @@ struct Manager {
 /* The objective is set to OK as soon as we enter the main loop, and set otherwise as soon as we are done with it */
 #define MANAGER_IS_RUNNING(m) ((m)->objective == MANAGER_OK)
 
-int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **m);
+#define MANAGER_IS_TEST_RUN(m) ((m)->test_run_flags != 0)
+
+int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 

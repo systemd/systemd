@@ -5283,7 +5283,7 @@ void unit_export_state_files(Unit *u) {
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
 
-        if (u->manager->test_run_flags != 0)
+        if (MANAGER_IS_TEST_RUN(u->manager))
                 return;
 
         /* Exports a couple of unit properties to /run/systemd/units/, so that journald can quickly query this data
