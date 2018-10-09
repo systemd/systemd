@@ -23,6 +23,8 @@ typedef struct Unit Unit;
 
 typedef struct Manager Manager;
 
+/* An externally visible state. We don't actually maintain this as state variable, but derive it from various fields
+ * when requested */
 typedef enum ManagerState {
         MANAGER_INITIALIZING,
         MANAGER_STARTING,
