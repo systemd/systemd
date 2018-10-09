@@ -82,8 +82,7 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        event = udev_event_new(dev);
-        assert_se(event);
+        assert_se(event = udev_event_new(dev));
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
 
@@ -97,20 +96,16 @@ int main(int argc, char *argv[]) {
                         mode |= S_IFCHR;
 
                 if (!streq(action, "remove")) {
-                        mkdir_parents_label(udev_device_get_devnode(dev), 0755);
-                        mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev));
+                        (void) mkdir_parents_label(udev_device_get_devnode(dev), 0755);
+                        assert_se(mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev)) == 0);
                 } else {
-                        unlink(udev_device_get_devnode(dev));
-                        rmdir_parents(udev_device_get_devnode(dev), "/");
+                        assert_se(unlink(udev_device_get_devnode(dev)) == 0);
+                        (void) rmdir_parents(udev_device_get_devnode(dev), "/");
                 }
         }
 
-        udev_event_execute_rules(event,
-                                 3 * USEC_PER_SEC, USEC_PER_SEC,
-                                 NULL,
-                                 rules);
-        udev_event_execute_run(event,
-                               3 * USEC_PER_SEC, USEC_PER_SEC);
+        udev_event_execute_rules(event, 3 * USEC_PER_SEC, USEC_PER_SEC, NULL, rules);
+        udev_event_execute_run(event, 3 * USEC_PER_SEC, USEC_PER_SEC);
 out:
         mac_selinux_finish();
 
