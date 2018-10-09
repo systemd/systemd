@@ -3602,6 +3602,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         else
                                 unit_ref_uid_gid(u, UID_INVALID, gid);
 
+                        continue;
+
                 } else if (streq(l, "ref")) {
 
                         r = strv_extend(&u->deserialized_refs, v);
