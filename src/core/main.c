@@ -1115,14 +1115,19 @@ static int help(void) {
         return 0;
 }
 
-static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching_root) {
+static int prepare_reexecute(
+                Manager *m,
+                FILE **ret_f,
+                FDSet **ret_fds,
+                bool switching_root) {
+
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(m);
-        assert(_f);
-        assert(_fds);
+        assert(ret_f);
+        assert(ret_fds);
 
         r = manager_open_serialization(m, &f);
         if (r < 0)
@@ -1151,8 +1156,8 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for serialization fds: %m");
 
-        *_f = TAKE_PTR(f);
-        *_fds = TAKE_PTR(fds);
+        *ret_f = TAKE_PTR(f);
+        *ret_fds = TAKE_PTR(fds);
 
         return 0;
 }
