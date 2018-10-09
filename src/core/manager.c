@@ -1626,12 +1626,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize path lookup table: %m");
 
-        r = manager_run_environment_generators(m);
-        if (r < 0)
-                return r;
-
         dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_GENERATORS_START));
-        r = manager_run_generators(m);
+        r = manager_run_environment_generators(m);
+        if (r >= 0)
+                r = manager_run_generators(m);
         dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_GENERATORS_FINISH));
         if (r < 0)
                 return r;
