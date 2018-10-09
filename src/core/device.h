@@ -11,9 +11,9 @@ typedef struct Device Device;
  * in quick succession). Hence we need to track precisely where it is already visible and where not. */
 typedef enum DeviceFound {
         DEVICE_NOT_FOUND   = 0,
-        DEVICE_FOUND_UDEV  = 1U << 1, /* The device has shown up in the udev database */
-        DEVICE_FOUND_MOUNT = 1U << 2, /* The device has shown up in /proc/self/mountinfo */
-        DEVICE_FOUND_SWAP  = 1U << 3, /* The device has shown up in /proc/swaps */
+        DEVICE_FOUND_UDEV  = 1 << 0, /* The device has shown up in the udev database */
+        DEVICE_FOUND_MOUNT = 1 << 1, /* The device has shown up in /proc/self/mountinfo */
+        DEVICE_FOUND_SWAP  = 1 << 2, /* The device has shown up in /proc/swaps */
         DEVICE_FOUND_MASK  = DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP,
 } DeviceFound;
 
