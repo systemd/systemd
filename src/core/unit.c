@@ -2000,7 +2000,7 @@ bool unit_is_unneeded(Unit *u) {
                  * restart, then don't clean this one up. */
 
                 HASHMAP_FOREACH_KEY(v, other, u->dependencies[deps[j]], i) {
-                        if (u->job)
+                        if (other->job)
                                 return false;
 
                         if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
