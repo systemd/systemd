@@ -56,28 +56,22 @@ int main(int argc, char *argv[]) {
         _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
         const char *devpath, *action;
-        int r;
 
         test_setup_logging(LOG_INFO);
 
-        r = fake_filesystems();
-        if (r < 0)
+        if (argc != 3) {
+                log_error("This program needs two arguments, %d given", argc - 1);
+                return EXIT_FAILURE;
+        }
+
+        if (fake_filesystems() < 0)
                 return EXIT_FAILURE;
 
         log_debug("version %s", PACKAGE_VERSION);
         mac_selinux_init();
 
         action = argv[1];
-        if (!action) {
-                log_error("action missing");
-                goto out;
-        }
-
         devpath = argv[2];
-        if (!devpath) {
-                log_error("devpath missing");
-                goto out;
-        }
 
         rules = udev_rules_new(1);
 
@@ -120,5 +114,5 @@ int main(int argc, char *argv[]) {
 out:
         mac_selinux_finish();
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return EXIT_SUCCESS;
 }
