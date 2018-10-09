@@ -3043,7 +3043,12 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         return 0;
 }
 
-int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
+int manager_serialize(
+                Manager *m,
+                FILE *f,
+                FDSet *fds,
+                bool switching_root) {
+
         ManagerTimestamp q;
         const char *t;
         Iterator i;
@@ -3097,8 +3102,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 int copy;
 
                 copy = fdset_put_dup(fds, m->notify_fd);
-                if (copy < 0)
-                        return copy;
+                if (copy < 0) {
+                        r = copy;
+                        goto finish;
+                }
 
                 fprintf(f, "notify-fd=%i\n", copy);
                 fprintf(f, "notify-socket=%s\n", m->notify_socket);
@@ -3108,8 +3115,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 int copy;
 
                 copy = fdset_put_dup(fds, m->cgroups_agent_fd);
-                if (copy < 0)
-                        return copy;
+                if (copy < 0) {
+                        r = copy;
+                        goto finish;
+                }
 
                 fprintf(f, "cgroups-agent-fd=%i\n", copy);
         }
@@ -3118,12 +3127,16 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 int copy0, copy1;
 
                 copy0 = fdset_put_dup(fds, m->user_lookup_fds[0]);
-                if (copy0 < 0)
-                        return copy0;
+                if (copy0 < 0) {
+                        r = copy0;
+                        goto finish;
+                }
 
                 copy1 = fdset_put_dup(fds, m->user_lookup_fds[1]);
-                if (copy1 < 0)
-                        return copy1;
+                if (copy1 < 0) {
+                        r = copy1;
+                        goto finish;
+                }
 
                 fprintf(f, "user-lookup=%i %i\n", copy0, copy1);
         }
@@ -3132,14 +3145,14 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
 
         r = dynamic_user_serialize(m, f, fds);
         if (r < 0)
-                return r;
+                goto finish;
 
         manager_serialize_uid_refs(m, f);
         manager_serialize_gid_refs(m, f);
 
         r = exec_runtime_serialize(m, f, fds);
         if (r < 0)
-                return r;
+                goto finish;
 
         (void) fputc('\n', f);
 
@@ -3152,24 +3165,25 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 fputc('\n', f);
 
                 r = unit_serialize(u, f, fds, !switching_root);
-                if (r < 0) {
-                        m->n_reloading--;
-                        return r;
-                }
+                if (r < 0)
+                        goto finish;
         }
-
-        assert(m->n_reloading > 0);
-        m->n_reloading--;
 
         r = fflush_and_check(f);
         if (r < 0)
-                return r;
+                goto finish;
 
         r = bus_fdset_add_all(m, fds);
         if (r < 0)
-                return r;
+                goto finish;
 
-        return 0;
+        r = 0;
+
+finish:
+        assert(m->n_reloading > 0);
+        m->n_reloading--;
+
+        return r;
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
