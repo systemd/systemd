@@ -2767,6 +2767,8 @@ static const char *cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_MEMORY] = "memory",
         [CGROUP_CONTROLLER_DEVICES] = "devices",
         [CGROUP_CONTROLLER_PIDS] = "pids",
+        [CGROUP_CONTROLLER_BPF_FIREWALL] = "bpf-firewall",
+        [CGROUP_CONTROLLER_BPF_DEVICES] = "bpf-devices",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);

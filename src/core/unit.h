@@ -105,12 +105,6 @@ struct UnitRef {
         LIST_FIELDS(UnitRef, refs_by_target);
 };
 
-typedef enum UnitCGroupBPFState {
-        UNIT_CGROUP_BPF_OFF = 0,
-        UNIT_CGROUP_BPF_ON = 1,
-        UNIT_CGROUP_BPF_INVALIDATED = -1,
-} UnitCGroupBPFState;
-
 typedef struct Unit {
         Manager *manager;
 
@@ -258,9 +252,13 @@ typedef struct Unit {
         char *cgroup_path;
         CGroupMask cgroup_realized_mask;
         CGroupMask cgroup_enabled_mask;
+        CGroupMask cgroup_invalidated_mask;
         CGroupMask cgroup_subtree_mask;
         CGroupMask cgroup_members_mask;
         int cgroup_inotify_wd;
+
+        /* Device Controller BPF program */
+        BPFProgram *bpf_device_control_installed;
 
         /* IP BPF Firewalling/accounting */
         int ip_accounting_ingress_map_fd;
@@ -335,8 +333,6 @@ typedef struct Unit {
         bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
         bool cgroup_subtree_mask_valid:1;
-
-        UnitCGroupBPFState cgroup_bpf_state:2;
 
         /* Reset cgroup accounting next time we fork something off */
         bool reset_accounting:1;

@@ -174,6 +174,16 @@ struct bpf_insn;
                 .off   = OFF,					\
                 .imm   = IMM })
 
+/* Unconditional jumps */
+
+#define BPF_JMP_A(OFF)						\
+        ((struct bpf_insn) {					\
+                .code  = BPF_JMP | BPF_JA,			\
+                .dst_reg = 0,					\
+                .src_reg = 0,					\
+                .off   = OFF,					\
+                .imm   = 0 })
+
 /* Raw code statement block */
 
 #define BPF_RAW_INSN(CODE, DST, SRC, OFF, IMM)			\

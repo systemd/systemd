@@ -93,7 +93,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->ref_uid = UID_INVALID;
         u->ref_gid = GID_INVALID;
         u->cpu_usage_last = NSEC_INFINITY;
-        u->cgroup_bpf_state = UNIT_CGROUP_BPF_INVALIDATED;
+        u->cgroup_invalidated_mask |= CGROUP_MASK_BPF_FIREWALL;
 
         u->ip_accounting_ingress_map_fd = -1;
         u->ip_accounting_egress_map_fd = -1;
@@ -665,6 +665,8 @@ void unit_free(Unit *u) {
         bpf_program_unref(u->ip_bpf_ingress_installed);
         bpf_program_unref(u->ip_bpf_egress);
         bpf_program_unref(u->ip_bpf_egress_installed);
+
+        bpf_program_unref(u->bpf_device_control_installed);
 
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
@@ -3253,7 +3255,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         unit_serialize_item(u, f, "cgroup-realized", yes_no(u->cgroup_realized));
         (void) unit_serialize_cgroup_mask(f, "cgroup-realized-mask", u->cgroup_realized_mask);
         (void) unit_serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
-        unit_serialize_item_format(u, f, "cgroup-bpf-realized", "%i", u->cgroup_bpf_state);
+        (void) unit_serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
         if (uid_is_valid(u->ref_uid))
                 unit_serialize_item_format(u, f, "ref-uid", UID_FMT, u->ref_uid);
@@ -3568,18 +3570,11 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse cgroup-enabled-mask %s, ignoring.", v);
                         continue;
 
-                } else if (streq(l, "cgroup-bpf-realized")) {
-                        int i;
+                } else if (streq(l, "cgroup-invalidated-mask")) {
 
-                        r = safe_atoi(v, &i);
+                        r = cg_mask_from_string(v, &u->cgroup_invalidated_mask);
                         if (r < 0)
-                                log_unit_debug(u, "Failed to parse cgroup BPF state %s, ignoring.", v);
-                        else
-                                u->cgroup_bpf_state =
-                                        i < 0 ? UNIT_CGROUP_BPF_INVALIDATED :
-                                        i > 0 ? UNIT_CGROUP_BPF_ON :
-                                        UNIT_CGROUP_BPF_OFF;
-
+                                log_unit_debug(u, "Failed to parse cgroup-invalidated-mask %s, ignoring.", v);
                         continue;
 
                 } else if (streq(l, "ref-uid")) {
