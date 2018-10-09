@@ -1698,7 +1698,11 @@ static int invoke_main_loop(
                         if (saved_log_target >= 0)
                                 manager_override_log_target(m, saved_log_target);
 
-                        (void) manager_reload(m);
+                        r = manager_reload(m);
+                        if (r < 0)
+                                /* Reloading failed before the point of no return. Let's continue running as if nothing happened. */
+                                m->objective = MANAGER_OK;
+
                         break;
                 }
 
