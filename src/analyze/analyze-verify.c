@@ -254,7 +254,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         r = manager_startup(m, NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to start manager: %m");
+                return r;
 
         manager_clear_jobs(m);
 

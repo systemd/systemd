@@ -2427,7 +2427,6 @@ int main(int argc, char *argv[]) {
 
         r = manager_startup(m, arg_serialization, fds);
         if (r < 0) {
-                log_error_errno(r, "Failed to fully start up daemon: %m");
                 error_message = "Failed to start up manager";
                 goto finish;
         }

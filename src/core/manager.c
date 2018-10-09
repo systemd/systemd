@@ -1592,7 +1592,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                               MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
                               NULL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to initialize path lookup table: %m");
 
         r = manager_run_environment_generators(m);
         if (r < 0)
@@ -1605,7 +1605,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 return r;
 
         manager_preset_all(m);
-        lookup_paths_reduce(&m->lookup_paths);
+
+        r = lookup_paths_reduce(&m->lookup_paths);
+        if (r < 0)
+                log_warning_errno(r, "Failed ot reduce unit file paths, ignoring: %m");
+
         manager_build_unit_path_cache(m);
 
         /* If we will deserialize make sure that during enumeration
@@ -1654,7 +1658,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         manager_setup_bus(m);
 
         /* Now that we are connected to all possible busses, let's deserialize who is tracking us. */
-        (void) bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
+        r = bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
+        if (r < 0)
+                log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
         m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
 
         /* Third, fire things up! */
