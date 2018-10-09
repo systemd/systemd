@@ -78,6 +78,8 @@ bool mempool_enabled(void) {
         if (!is_main_thread())
                 return false;
 
+        if (!mempool_use_allowed)
+                b = false;
         if (b < 0)
                 b = getenv_bool("SYSTEMD_MEMPOOL") != 0;
 

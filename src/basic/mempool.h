@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 
 struct pool;
@@ -22,6 +23,7 @@ static struct mempool pool_name = { \
         .at_least = alloc_at_least, \
 }
 
+extern const bool mempool_use_allowed;
 bool mempool_enabled(void);
 
 #if VALGRIND

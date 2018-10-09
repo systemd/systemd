@@ -1380,6 +1380,7 @@ libjournal_core = static_library(
 libsystemd_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sym)
 libsystemd = shared_library(
         'systemd',
+        disable_mempool_c,
         version : libsystemd_version,
         include_directories : includes,
         link_args : ['-shared',
@@ -1461,6 +1462,7 @@ subdir('test')
 test_dlopen = executable(
         'test-dlopen',
         test_dlopen_c,
+        disable_mempool_c,
         include_directories : includes,
         link_with : [libbasic],
         dependencies : [libdl],
@@ -1481,6 +1483,7 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                 nss = shared_library(
                         'nss_' + module,
                         'src/nss-@0@/nss-@0@.c'.format(module),
+                        disable_mempool_c,
                         version : '2',
                         include_directories : includes,
                         # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned

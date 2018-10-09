@@ -81,6 +81,8 @@ libsystemd_sources = files('''
         sd-utf8/sd-utf8.c
 '''.split()) + id128_sources + sd_daemon_c + sd_event_c + sd_login_c
 
+disable_mempool_c = files('disable-mempool.c')
+
 libsystemd_c_args = ['-fvisibility=default']
 
 libsystemd_static = static_library(
