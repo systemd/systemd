@@ -357,7 +357,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
         name = name_buffer ? name_buffer : vol;
 
-        if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0)
+        if (asprintf(&text, "Please enter passphrase for disk %s:", name) < 0)
                 return log_oom();
 
         id = strjoina("cryptsetup:", disk_path);
@@ -373,7 +373,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
                 assert(strv_length(passwords) == 1);
 
-                if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0)
+                if (asprintf(&text, "Please enter passphrase for disk %s (verification):", name) < 0)
                         return log_oom();
 
                 id = strjoina("cryptsetup-verification:", disk_path);
