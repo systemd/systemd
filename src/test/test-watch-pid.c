@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
         assert_se(set_unit_path(get_testdata_dir()) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
-        assert_se(manager_new(UNIT_FILE_USER, true, &m) >= 0);
+        assert_se(manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m) >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         assert_se(a = unit_new(m, sizeof(Service)));
