@@ -3365,8 +3365,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         exec_runtime_deserialize_one(m, val, fds);
                 else if ((val = startswith(l, "subscribed="))) {
 
-                        if (strv_extend(&m->deserialized_subscribed, val) < 0)
-                                log_oom();
+                        if (strv_extend(&m->deserialized_subscribed, val) < 0) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
                 } else {
                         ManagerTimestamp q;
 
@@ -3407,18 +3410,20 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                 r = manager_load_unit(m, unit_name, NULL, NULL, &u);
                 if (r < 0) {
-                        log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", unit_name);
                         if (r == -ENOMEM)
                                 goto finish;
+
+                        log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", unit_name);
                         unit_deserialize_skip(f);
                         continue;
                 }
 
                 r = unit_deserialize(u, f, fds);
                 if (r < 0) {
-                        log_notice_errno(r, "Failed to deserialize unit \"%s\": %m", unit_name);
                         if (r == -ENOMEM)
                                 goto finish;
+
+                        log_notice_errno(r, "Failed to deserialize unit \"%s\": %m", unit_name);
                 }
         }
 
