@@ -819,11 +819,11 @@ unsigned columns(void) {
         if (e)
                 (void) safe_atoi(e, &c);
 
-        if (c <= 0)
+        if (c <= 0 || c > USHRT_MAX) {
                 c = fd_columns(STDOUT_FILENO);
-
-        if (c <= 0)
-                c = 80;
+                if (c <= 0)
+                        c = 80;
+        }
 
         cached_columns = c;
         return cached_columns;
@@ -853,11 +853,11 @@ unsigned lines(void) {
         if (e)
                 (void) safe_atoi(e, &l);
 
-        if (l <= 0)
+        if (l <= 0 || l > USHRT_MAX) {
                 l = fd_lines(STDOUT_FILENO);
-
-        if (l <= 0)
-                l = 24;
+                if (l <= 0)
+                        l = 24;
+        }
 
         cached_lines = l;
         return cached_lines;
