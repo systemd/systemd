@@ -649,7 +649,7 @@ _public_ int sd_bus_creds_get_description(sd_bus_creds *c, const char **ret) {
         return 0;
 }
 
-static int has_cap(sd_bus_creds *c, unsigned offset, int capability) {
+static int has_cap(sd_bus_creds *c, size_t offset, int capability) {
         size_t sz;
 
         assert(c);
