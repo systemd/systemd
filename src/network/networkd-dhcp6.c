@@ -110,7 +110,7 @@ static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, voi
         if (r < 0)
                 log_link_debug_errno(link, r, "Received error on unreachable route removal for DHCPv6 delegated subnetl: %m");
 
-        return 0;
+        return 1;
 }
 
 int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
@@ -257,7 +257,7 @@ static int dhcp6_route_handler(sd_netlink *nl, sd_netlink_message *m, void *user
         if (r < 0 && r !=  -EEXIST)
                 log_link_debug_errno(link, r, "Received error when adding unreachable route for DHCPv6 delegated subnet: %m");
 
-        return 0;
+        return 1;
 }
 
 

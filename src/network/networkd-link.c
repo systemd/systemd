@@ -1271,10 +1271,9 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userd
         if (r < 0 && r != -EEXIST) {
                 log_link_error_errno(link, r, "Could not join netdev: %m");
                 link_enter_failed(link);
-                return 1;
         }
 
-        return 0;
+        return 1;
 }
 
 static int link_configure_after_setting_mtu(Link *link);

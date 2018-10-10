@@ -1286,7 +1286,7 @@ static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, voi
         if (r < 0)
                 log_link_debug_errno(link, r, "Received error on DHCPv6 Prefix Delegation route removal: %m");
 
-        return 0;
+        return 1;
 }
 
 static int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
