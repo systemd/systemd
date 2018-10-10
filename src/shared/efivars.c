@@ -412,9 +412,13 @@ int efi_get_boot_option(
 
         if (header->path_len > 0) {
                 uint8_t *dbuf;
-                size_t dnext;
+                size_t dnext, doff;
 
-                dbuf = buf + offsetof(struct boot_option, title) + title_size;
+                doff = offsetof(struct boot_option, title) + title_size;
+                dbuf = buf + doff;
+                if (header->path_len > l - doff)
+                        return -EINVAL;
+
                 dnext = 0;
                 while (dnext < header->path_len) {
                         struct device_path *dpath;
