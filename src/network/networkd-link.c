@@ -3024,9 +3024,7 @@ static int link_configure_duid(Link *link) {
         return 0;
 }
 
-static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
-                                       void *userdata) {
-        Link *link = userdata;
+static int link_initialized_and_synced(Link *link) {
         Network *network;
         int r;
 
@@ -3092,6 +3090,11 @@ static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
         return 1;
 }
 
+static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+        (void) link_initialized_and_synced(userdata);
+        return 1;
+}
+
 int link_initialized(Link *link, sd_device *device) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
@@ -3121,8 +3124,7 @@ int link_initialized(Link *link, sd_device *device) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(link->manager->rtnl, req,
-                                  link_initialized_and_synced,
+        r = sd_netlink_call_async(link->manager->rtnl, req, link_initialized_handler,
                                   link_netlink_destroy_callback, link, 0, NULL);
         if (r < 0)
                 return r;
@@ -3369,7 +3371,7 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
                 if (r < 0)
                         goto failed;
         } else {
-                r = link_initialized_and_synced(m->rtnl, NULL, link);
+                r = link_initialized_and_synced(link);
                 if (r < 0)
                         goto failed;
         }
