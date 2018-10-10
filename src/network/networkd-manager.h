@@ -94,7 +94,6 @@ int manager_request_product_uuid(Manager *m, Link *link);
 
 Link *manager_dhcp6_prefix_get(Manager *m, struct in6_addr *addr);
 int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link);
-int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr);
 int manager_dhcp6_prefix_remove_all(Manager *m, Link *link);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

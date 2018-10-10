@@ -1291,7 +1291,7 @@ static int dhcp6_route_remove_callback(sd_netlink *nl, sd_netlink_message *m,
         return 0;
 }
 
-int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
+static int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
         Link *l;
         int r;
         Route *route;
