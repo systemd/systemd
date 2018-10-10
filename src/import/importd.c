@@ -325,14 +325,12 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
         assert(t);
 
         l = read(fd, t->log_message + t->log_message_size, sizeof(t->log_message) - t->log_message_size);
+        if (l < 0)
+                log_error_errno(errno, "Failed to read log message: %m");
         if (l <= 0) {
                 /* EOF/read error. We just close the pipe here, and
                  * close the watch, waiting for the SIGCHLD to arrive,
                  * before we do anything else. */
-
-                if (l < 0)
-                        log_error_errno(errno, "Failed to read log message: %m");
-
                 t->log_event_source = sd_event_source_unref(t->log_event_source);
                 return 0;
         }
@@ -635,12 +633,9 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *remote)
         assert(type >= 0);
         assert(type < _TRANSFER_TYPE_MAX);
 
-        HASHMAP_FOREACH(t, m->transfers, i) {
-
-                if (t->type == type &&
-                    streq_ptr(t->remote, remote))
+        HASHMAP_FOREACH(t, m->transfers, i)
+                if (t->type == type && streq_ptr(t->remote, remote))
                         return t;
-        }
 
         return NULL;
 }
