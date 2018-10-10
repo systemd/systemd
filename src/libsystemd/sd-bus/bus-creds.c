@@ -650,16 +650,19 @@ _public_ int sd_bus_creds_get_description(sd_bus_creds *c, const char **ret) {
 }
 
 static int has_cap(sd_bus_creds *c, size_t offset, int capability) {
+        unsigned long lc;
         size_t sz;
 
         assert(c);
         assert(capability >= 0);
         assert(c->capability);
 
-        if ((unsigned) capability > cap_last_cap())
+        lc = cap_last_cap();
+
+        if ((unsigned long) capability > lc)
                 return 0;
 
-        sz = DIV_ROUND_UP(cap_last_cap(), 32U);
+        sz = DIV_ROUND_UP(lc, 32LU);
 
         return !!(c->capability[offset * sz + CAP_TO_INDEX((uint32_t) capability)] & CAP_TO_MASK_CORRECTED((uint32_t) capability));
 }
