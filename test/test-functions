@@ -331,7 +331,7 @@ set -x
 
 DEFAULT_ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
 DEFAULT_UBSAN_OPTIONS=print_stacktrace=1:print_summary=1
-DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS"
+DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS:halt_on_error=1"
 
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
