@@ -301,17 +301,16 @@ static int transfer_on_pid(sd_event_source *s, const siginfo_t *si, void *userda
 
         if (si->si_code == CLD_EXITED) {
                 if (si->si_status != 0)
-                        log_error("Import process failed with exit code %i.", si->si_status);
+                        log_error("Transfer process failed with exit code %i.", si->si_status);
                 else {
-                        log_debug("Import process succeeded.");
+                        log_debug("Transfer process succeeded.");
                         success = true;
                 }
 
         } else if (IN_SET(si->si_code, CLD_KILLED, CLD_DUMPED))
-
-                log_error("Import process terminated by signal %s.", signal_to_string(si->si_status));
+                log_error("Transfer process terminated by signal %s.", signal_to_string(si->si_status));
         else
-                log_error("Import process failed due to unknown reason.");
+                log_error("Transfer process failed due to unknown reason.");
 
         t->pid = 0;
 
