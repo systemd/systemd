@@ -1613,6 +1613,17 @@ static void manager_ready(Manager *m) {
         manager_catchup(m);
 }
 
+static Manager* manager_reloading_start(Manager *m) {
+        m->n_reloading++;
+        return m;
+}
+static void manager_reloading_stopp(Manager **m) {
+        if (*m) {
+                assert((*m)->n_reloading > 0);
+                (*m)->n_reloading--;
+        }
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r;
 
@@ -3083,7 +3094,7 @@ int manager_serialize(
         assert(f);
         assert(fds);
 
-        m->n_reloading++;
+        _cleanup_(manager_reloading_stopp) Manager *reloading = manager_reloading_start(m);
 
         fprintf(f, "current-job-id=%"PRIu32"\n", m->current_job_id);
         fprintf(f, "n-installed-jobs=%u\n", m->n_installed_jobs);
@@ -3123,10 +3134,8 @@ int manager_serialize(
                 int copy;
 
                 copy = fdset_put_dup(fds, m->notify_fd);
-                if (copy < 0) {
-                        r = copy;
-                        goto finish;
-                }
+                if (copy < 0)
+                        return copy;
 
                 fprintf(f, "notify-fd=%i\n", copy);
                 fprintf(f, "notify-socket=%s\n", m->notify_socket);
@@ -3136,10 +3145,8 @@ int manager_serialize(
                 int copy;
 
                 copy = fdset_put_dup(fds, m->cgroups_agent_fd);
-                if (copy < 0) {
-                        r = copy;
-                        goto finish;
-                }
+                if (copy < 0)
+                        return copy;
 
                 fprintf(f, "cgroups-agent-fd=%i\n", copy);
         }
@@ -3148,16 +3155,12 @@ int manager_serialize(
                 int copy0, copy1;
 
                 copy0 = fdset_put_dup(fds, m->user_lookup_fds[0]);
-                if (copy0 < 0) {
-                        r = copy0;
-                        goto finish;
-                }
+                if (copy0 < 0)
+                        return copy0;
 
                 copy1 = fdset_put_dup(fds, m->user_lookup_fds[1]);
-                if (copy1 < 0) {
-                        r = copy1;
-                        goto finish;
-                }
+                if (copy1 < 0)
+                        return copy1;
 
                 fprintf(f, "user-lookup=%i %i\n", copy0, copy1);
         }
@@ -3166,14 +3169,14 @@ int manager_serialize(
 
         r = dynamic_user_serialize(m, f, fds);
         if (r < 0)
-                goto finish;
+                return r;
 
         manager_serialize_uid_refs(m, f);
         manager_serialize_gid_refs(m, f);
 
         r = exec_runtime_serialize(m, f, fds);
         if (r < 0)
-                goto finish;
+                return r;
 
         (void) fputc('\n', f);
 
@@ -3187,24 +3190,18 @@ int manager_serialize(
 
                 r = unit_serialize(u, f, fds, !switching_root);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         r = fflush_and_check(f);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = bus_fdset_add_all(m, fds);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = 0;
-
-finish:
-        assert(m->n_reloading > 0);
-        m->n_reloading--;
-
-        return r;
+        return 0;
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
@@ -3218,7 +3215,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         /* If we are not in reload mode yet, enter it now. Not that this is recursive, a caller might already have
          * increased it to non-zero, which is why we just increase it by one here and down again at the end of this
          * call. */
-        m->n_reloading++;
+        _cleanup_(manager_reloading_stopp) Manager *reloading = manager_reloading_start(m);
 
         for (;;) {
                 char line[LINE_MAX];
@@ -3455,10 +3452,6 @@ finish:
         if (ferror(f))
                 r = -EIO;
 
-        /* We are done with reloading, decrease counter again */
-        assert(m->n_reloading > 0);
-        m->n_reloading--;
-
         return r;
 }
 
@@ -3474,6 +3467,7 @@ static void manager_flush_finished_jobs(Manager *m) {
 }
 
 int manager_reload(Manager *m) {
+        _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -3488,21 +3482,18 @@ int manager_reload(Manager *m) {
         if (!fds)
                 return log_oom();
 
-        /* We are officially in reload mode from here on */
-        m->n_reloading++;
+        /* We are officially in reload mode from here on. */
+        reloading = manager_reloading_start(m);
 
         r = manager_serialize(m, f, fds, false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to serialize manager: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to serialize manager: %m");
 
-        if (fseeko(f, 0, SEEK_SET) < 0) {
-                r = log_error_errno(errno, "Failed to seek to beginning of serialization: %m");
-                goto fail;
-        }
+        if (fseeko(f, 0, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to seek to beginning of serialization: %m");
 
         /* 💀 This is the point of no return, from here on there is no way back. 💀 */
+        reloading = NULL;
 
         bus_manager_send_reloading(m, true);
 
@@ -3565,14 +3556,6 @@ int manager_reload(Manager *m) {
 
         m->send_reloading_done = true;
         return 0;
-
-fail:
-        /* Fail the call. Note that we hit this only if we fail before the point of no return, i.e. when the error is
-         * still something that can be handled. */
-        assert(m->n_reloading > 0);
-        m->n_reloading--;
-
-        return r;
 }
 
 void manager_reset_failed(Manager *m) {
