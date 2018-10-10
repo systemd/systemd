@@ -70,11 +70,12 @@
       top-level directories <filename>/usr</filename>,
       <filename>/etc</filename>, and so on.</para></listitem>
 
-      <listitem><para>btrfs subvolumes containing OS trees, similar to
-      normal directory trees.</para></listitem>
+      <listitem><para>btrfs subvolumes containing OS trees, similar to regular directory trees.</para></listitem>
 
-      <listitem><para>Binary "raw" disk images containing MBR or GPT
-      partition tables and Linux file system partitions.</para></listitem>
+      <listitem><para>Binary "raw" disk image files containing MBR or GPT partition tables and Linux file
+      systems.</para></listitem>
+
+      <listitem><para>Similarly, block devices containing MBR or GPT partition tables and file systems.</para></listitem>
 
       <listitem><para>The file system tree of the host OS itself.</para></listitem>
     </itemizedlist>
