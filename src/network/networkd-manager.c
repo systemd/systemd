@@ -1239,8 +1239,7 @@ Link *manager_dhcp6_prefix_get(Manager *m, struct in6_addr *addr) {
         return hashmap_get(m->dhcp6_prefixes, addr);
 }
 
-static int dhcp6_route_add_callback(sd_netlink *nl, sd_netlink_message *m,
-                                  void *userdata) {
+static int dhcp6_route_add_handler(sd_netlink *nl, sd_netlink_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
@@ -1267,7 +1266,7 @@ int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
         if (r < 0)
                 return r;
 
-        r = route_configure(route, link, dhcp6_route_add_callback);
+        r = route_configure(route, link, dhcp6_route_add_handler);
         if (r < 0)
                 return r;
 
@@ -1277,8 +1276,7 @@ int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
         return hashmap_put(m->dhcp6_prefixes, addr, link);
 }
 
-static int dhcp6_route_remove_callback(sd_netlink *nl, sd_netlink_message *m,
-                                       void *userdata) {
+static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
@@ -1311,7 +1309,7 @@ static int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
         if (r < 0)
                 return r;
 
-        r = route_remove(route, l, dhcp6_route_remove_callback);
+        r = route_remove(route, l, dhcp6_route_remove_handler);
         if (r < 0)
                 return r;
 
