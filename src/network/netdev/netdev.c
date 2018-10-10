@@ -292,7 +292,7 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, void *
         return 1;
 }
 
-int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t callback) {
+static int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t callback) {
         int r;
 
         assert(netdev);

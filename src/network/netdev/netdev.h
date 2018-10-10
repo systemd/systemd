@@ -155,7 +155,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
-int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t callback);
 int netdev_get_mac(const char *ifname, struct ether_addr **ret);
 int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t cb);
 
