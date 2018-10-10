@@ -37,6 +37,10 @@ fuzzers += [
           libsystemd_network],
          []],
 
+        [['src/fuzz/fuzz-json.c'],
+         [libshared],
+         []],
+
         [['src/fuzz/fuzz-unit-file.c'],
          [libcore,
           libshared],
