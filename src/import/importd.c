@@ -196,7 +196,7 @@ static void transfer_send_log_line(Transfer *t, const char *line) {
                         priority,
                         line);
         if (r < 0)
-                log_error_errno(r, "Cannot emit message: %m");
+                log_warning_errno(r, "Cannot emit log message signal, ignoring: %m");
  }
 
 static void transfer_send_logs(Transfer *t, bool flush) {
