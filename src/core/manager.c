@@ -3223,13 +3223,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 char line[LINE_MAX];
                 const char *val, *l;
 
+                errno = 0;
                 if (!fgets(line, sizeof(line), f)) {
-                        if (feof(f))
-                                r = 0;
-                        else
-                                r = -errno;
-
-                        goto finish;
+                        if (!feof(f))
+                                return -errno ?: -EIO;
+                        return 0;
                 }
 
                 char_array_0(line);
@@ -3328,7 +3326,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(&m->environment, l);
                         if (r == -ENOMEM)
-                                goto finish;
+                                return r;
                         if (r < 0)
                                 log_notice_errno(r, "Failed to parse environment entry: \"%s\", ignoring: %m", l);
 
@@ -3344,16 +3342,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         }
 
                 } else if ((val = startswith(l, "notify-socket="))) {
-                        char *n;
-
-                        n = strdup(val);
-                        if (!n) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        free(m->notify_socket);
-                        m->notify_socket = n;
+                        r = free_and_strdup(&m->notify_socket, val);
+                        if (r < 0)
+                                return r;
 
                 } else if ((val = startswith(l, "cgroups-agent-fd="))) {
                         int fd;
@@ -3388,10 +3379,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         exec_runtime_deserialize_one(m, val, fds);
                 else if ((val = startswith(l, "subscribed="))) {
 
-                        if (strv_extend(&m->deserialized_subscribed, val) < 0) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (strv_extend(&m->deserialized_subscribed, val) < 0)
+                                return -ENOMEM;
 
                 } else {
                         ManagerTimestamp q;
@@ -3419,13 +3408,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 const char* unit_name;
 
                 /* Start marker */
+                errno = 0;
                 if (!fgets(name, sizeof(name), f)) {
-                        if (feof(f))
-                                r = 0;
-                        else
-                                r = -errno;
-
-                        goto finish;
+                        if (!feof(f))
+                                return -errno ?: -EIO;
+                        return 0;
                 }
 
                 char_array_0(name);
@@ -3434,7 +3421,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 r = manager_load_unit(m, unit_name, NULL, NULL, &u);
                 if (r < 0) {
                         if (r == -ENOMEM)
-                                goto finish;
+                                return r;
 
                         log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", unit_name);
                         unit_deserialize_skip(f);
@@ -3444,17 +3431,13 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 r = unit_deserialize(u, f, fds);
                 if (r < 0) {
                         if (r == -ENOMEM)
-                                goto finish;
+                                return r;
 
                         log_notice_errno(r, "Failed to deserialize unit \"%s\": %m", unit_name);
                 }
         }
 
-finish:
-        if (ferror(f))
-                r = -EIO;
-
-        return r;
+        return 0;
 }
 
 static void manager_flush_finished_jobs(Manager *m) {
