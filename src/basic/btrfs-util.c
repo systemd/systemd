@@ -1503,7 +1503,12 @@ static int copy_subtree_quota_limits(int fd, uint64_t old_subvol, uint64_t new_s
         return changed;
 }
 
-static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolume, uint64_t old_subvol_id, BtrfsSnapshotFlags flags) {
+static int subvol_snapshot_children(
+                int old_fd,
+                int new_fd,
+                const char *subvolume,
+                uint64_t old_subvol_id,
+                BtrfsSnapshotFlags flags) {
 
         struct btrfs_ioctl_search_args args = {
                 .key.tree_id = BTRFS_ROOT_TREE_OBJECTID,
@@ -1683,7 +1688,14 @@ static int subvol_snapshot_children(int old_fd, int new_fd, const char *subvolum
         return 0;
 }
 
-int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlags flags) {
+int btrfs_subvol_snapshot_fd_full(
+                int old_fd,
+                const char *new_path,
+                BtrfsSnapshotFlags flags,
+                copy_progress_path_t progress_path,
+                copy_progress_bytes_t progress_bytes,
+                void *userdata) {
+
         _cleanup_close_ int new_fd = -1;
         const char *subvolume;
         int r;
@@ -1711,7 +1723,7 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlag
                 } else if (r < 0)
                         return r;
 
-                r = copy_directory_fd(old_fd, new_path, COPY_MERGE|COPY_REFLINK);
+                r = copy_directory_fd_full(old_fd, new_path, COPY_MERGE|COPY_REFLINK, progress_path, progress_bytes, userdata);
                 if (r < 0)
                         goto fallback_fail;
 
@@ -1748,7 +1760,14 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlag
         return subvol_snapshot_children(old_fd, new_fd, subvolume, 0, flags);
 }
 
-int btrfs_subvol_snapshot(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags) {
+int btrfs_subvol_snapshot_full(
+                const char *old_path,
+                const char *new_path,
+                BtrfsSnapshotFlags flags,
+                copy_progress_path_t progress_path,
+                copy_progress_bytes_t progress_bytes,
+                void *userdata) {
+
         _cleanup_close_ int old_fd = -1;
 
         assert(old_path);
@@ -1758,7 +1777,7 @@ int btrfs_subvol_snapshot(const char *old_path, const char *new_path, BtrfsSnaps
         if (old_fd < 0)
                 return -errno;
 
-        return btrfs_subvol_snapshot_fd(old_fd, new_path, flags);
+        return btrfs_subvol_snapshot_fd_full(old_fd, new_path, flags, progress_path, progress_bytes, userdata);
 }
 
 int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
