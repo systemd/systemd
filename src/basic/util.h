@@ -150,7 +150,13 @@ static inline int memcmp_safe(const void *s1, const void *s2, size_t n) {
 
 int on_ac_power(void);
 
-#define memzero(x,l) (memset((x), 0, (l)))
+#define memzero(x,l)                                            \
+        ({                                                      \
+                size_t _l_ = (l);                               \
+                void *_x_ = (x);                                \
+                _l_ == 0 ? _x_ : memset(_x_, 0, _l_);           \
+        })
+
 #define zero(x) (memzero(&(x), sizeof(x)))
 
 static inline void *mempset(void *s, int c, size_t n) {
