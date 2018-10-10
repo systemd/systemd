@@ -266,7 +266,7 @@
           the event that there is no address being assigned by DHCP or the
           cable is not plugged in, the link will simply remain offline and be
           skipped automatically by <literal>systemd-networkd-wait-online</literal>
-          if <literal>RequiredForOnline=true</literal>.</para>
+          if <literal>RequiredForOnline=no</literal>.</para>
         </listitem>
       </varlistentry>
     </variablelist>
