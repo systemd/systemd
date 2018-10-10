@@ -206,7 +206,7 @@ bool bitmap_equal(Bitmap *a, Bitmap *b) {
                 return true;
 
         common_n_bitmaps = MIN(a->n_bitmaps, b->n_bitmaps);
-        if (memcmp(a->bitmaps, b->bitmaps, sizeof(uint64_t) * common_n_bitmaps) != 0)
+        if (memcmp_safe(a->bitmaps, b->bitmaps, sizeof(uint64_t) * common_n_bitmaps) != 0)
                 return false;
 
         c = a->n_bitmaps > b->n_bitmaps ? a : b;
