@@ -1653,66 +1653,68 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         manager_build_unit_path_cache(m);
 
-        /* If we will deserialize make sure that during enumeration this is already known, so we increase the counter
-         * here already */
-        if (serialization)
-                m->n_reloading++;
+        {
+                /* This block is (optionally) done with the reloading counter bumped */
+                _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
 
-        /* First, enumerate what we can from all config files */
-        dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_UNITS_LOAD_START));
-        manager_enumerate_perpetual(m);
-        manager_enumerate(m);
-        dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_UNITS_LOAD_FINISH));
+                /* If we will deserialize make sure that during enumeration this is already known, so we increase the
+                 * counter here already */
+                if (serialization)
+                        reloading = manager_reloading_start(m);
 
-        /* Second, deserialize if there is something to deserialize */
-        if (serialization) {
-                r = manager_deserialize(m, serialization, fds);
+                /* First, enumerate what we can from all config files */
+                dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_UNITS_LOAD_START));
+                manager_enumerate_perpetual(m);
+                manager_enumerate(m);
+                dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_UNITS_LOAD_FINISH));
+
+                /* Second, deserialize if there is something to deserialize */
+                if (serialization) {
+                        r = manager_deserialize(m, serialization, fds);
+                        if (r < 0)
+                                return log_error_errno(r, "Deserialization failed: %m");
+                }
+
+                /* Any fds left? Find some unit which wants them. This is useful to allow container managers to pass
+                 * some file descriptors to us pre-initialized. This enables socket-based activation of entire
+                 * containers. */
+                manager_distribute_fds(m, fds);
+
+                /* We might have deserialized the notify fd, but if we didn't then let's create the bus now */
+                r = manager_setup_notify(m);
                 if (r < 0)
-                        return log_error_errno(r, "Deserialization failed: %m");
-        }
+                        /* No sense to continue without notifications, our children would fail anyway. */
+                        return r;
 
-        /* Any fds left? Find some unit which wants them. This is useful to allow container managers to pass some file
-         * descriptors to us pre-initialized. This enables socket-based activation of entire containers. */
-        manager_distribute_fds(m, fds);
+                r = manager_setup_cgroups_agent(m);
+                if (r < 0)
+                        /* Likewise, no sense to continue without empty cgroup notifications. */
+                        return r;
 
-        /* We might have deserialized the notify fd, but if we didn't then let's create the bus now */
-        r = manager_setup_notify(m);
-        if (r < 0)
-                /* No sense to continue without notifications, our children would fail anyway. */
-                return r;
+                r = manager_setup_user_lookup_fd(m);
+                if (r < 0)
+                        /* This shouldn't fail, except if things are really broken. */
+                        return r;
 
-        r = manager_setup_cgroups_agent(m);
-        if (r < 0)
-                /* Likewise, no sense to continue without empty cgroup notifications. */
-                return r;
+                /* Connect to the bus if we are good for it */
+                manager_setup_bus(m);
 
-        r = manager_setup_user_lookup_fd(m);
-        if (r < 0)
-                /* This shouldn't fail, except if things are really broken. */
-                return r;
+                /* Now that we are connected to all possible busses, let's deserialize who is tracking us. */
+                r = bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
+                m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
 
-        /* Connect to the bus if we are good for it */
-        manager_setup_bus(m);
+                /* Third, fire things up! */
+                manager_coldplug(m);
 
-        /* Now that we are connected to all possible busses, let's deserialize who is tracking us. */
-        r = bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
-        if (r < 0)
-                log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
-        m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
+                /* Clean up runtime objects */
+                manager_vacuum(m);
 
-        /* Third, fire things up! */
-        manager_coldplug(m);
-
-        /* Clean up runtime objects */
-        manager_vacuum(m);
-
-        if (serialization) {
-                assert(m->n_reloading > 0);
-                m->n_reloading--;
-
-                /* Let's wait for the UnitNew/JobNew messages being sent, before we notify that the reload is
-                 * finished */
-                m->send_reloading_done = true;
+                if (serialization)
+                        /* Let's wait for the UnitNew/JobNew messages being sent, before we notify that the
+                         * reload is finished */
+                        m->send_reloading_done = true;
         }
 
         manager_ready(m);
