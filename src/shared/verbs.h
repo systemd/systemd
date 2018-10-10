@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <stdbool.h>
+
 #define VERB_ANY ((unsigned) -1)
 
 typedef enum VerbFlags {

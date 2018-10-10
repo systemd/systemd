@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "sd-id128.h"
+
 #include "hashmap.h"
 #include "lockfile-util.h"
 #include "macro.h"
