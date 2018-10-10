@@ -39,3 +39,7 @@ static inline bool cap_test_all(uint64_t caps) {
 }
 
 bool ambient_capabilities_supported(void);
+
+/* Identical to linux/capability.h's CAP_TO_MASK(), but uses an unsigned 1U instead of a signed 1 for shifting left, in
+ * order to avoid complaints about shifting a signed int left by 31 bits, which would make it negative. */
+#define CAP_TO_MASK_CORRECTED(x) (1U << ((x) & 31U))
