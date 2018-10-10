@@ -38,6 +38,12 @@ systemd_import_sources = files('''
         qcow2-util.h
 '''.split())
 
+systemd_import_fs_sources = files('''
+        import-fs.c
+        import-common.c
+        import-common.h
+'''.split())
+
 systemd_export_sources = files('''
         export.c
         export-tar.c

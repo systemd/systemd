@@ -816,6 +816,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>import-fs</command> <replaceable>DIRECTORY</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+        <listitem><para>Imports a container image stored in a local directory into
+        <filename>/var/lib/machines/</filename>, operates similar to <command>import-tar</command> or
+        <command>import-raw</command>, but the first argument is the source directory. If supported, this command will
+        create btrfs snapshot or subvolume for the new image.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>export-tar</command> <replaceable>NAME</replaceable> [<replaceable>FILE</replaceable>]</term>
         <term><command>export-raw</command> <replaceable>NAME</replaceable> [<replaceable>FILE</replaceable>]</term>
         <listitem><para>Exports a TAR or RAW container or VM image and
