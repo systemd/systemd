@@ -41,7 +41,7 @@ int emergency_action(
                  * in user mode */
 
                 log_warning("Exiting: %s", reason);
-                m->exit_code = MANAGER_EXIT;
+                m->objective = MANAGER_EXIT;
                 return -ECANCELED;
         }
 
@@ -59,7 +59,7 @@ int emergency_action(
                 log_and_status(m, "Forcibly rebooting", reason);
 
                 (void) update_reboot_parameter_and_warn(reboot_arg);
-                m->exit_code = MANAGER_REBOOT;
+                m->objective = MANAGER_REBOOT;
 
                 break;
 
@@ -85,7 +85,7 @@ int emergency_action(
 
         case EMERGENCY_ACTION_POWEROFF_FORCE:
                 log_and_status(m, "Forcibly powering off", reason);
-                m->exit_code = MANAGER_POWEROFF;
+                m->objective = MANAGER_POWEROFF;
                 break;
 
         case EMERGENCY_ACTION_POWEROFF_IMMEDIATE:

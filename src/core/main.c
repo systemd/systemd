@@ -1115,14 +1115,19 @@ static int help(void) {
         return 0;
 }
 
-static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching_root) {
+static int prepare_reexecute(
+                Manager *m,
+                FILE **ret_f,
+                FDSet **ret_fds,
+                bool switching_root) {
+
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(m);
-        assert(_f);
-        assert(_fds);
+        assert(ret_f);
+        assert(ret_fds);
 
         r = manager_open_serialization(m, &f);
         if (r < 0)
@@ -1151,8 +1156,8 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for serialization fds: %m");
 
-        *_f = TAKE_PTR(f);
-        *_fds = TAKE_PTR(fds);
+        *ret_f = TAKE_PTR(f);
+        *ret_fds = TAKE_PTR(fds);
 
         return 0;
 }
@@ -1668,7 +1673,7 @@ static int invoke_main_loop(
                         return log_emergency_errno(r, "Failed to run main loop: %m");
                 }
 
-                switch (m->exit_code) {
+                switch ((ManagerObjective) r) {
 
                 case MANAGER_RELOAD: {
                         LogTarget saved_log_target;
@@ -1695,7 +1700,8 @@ static int invoke_main_loop(
 
                         r = manager_reload(m);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to reload, ignoring: %m");
+                                /* Reloading failed before the point of no return. Let's continue running as if nothing happened. */
+                                m->objective = MANAGER_OK;
 
                         break;
                 }
@@ -1759,19 +1765,19 @@ static int invoke_main_loop(
                 case MANAGER_POWEROFF:
                 case MANAGER_HALT:
                 case MANAGER_KEXEC: {
-                        static const char * const table[_MANAGER_EXIT_CODE_MAX] = {
-                                [MANAGER_EXIT] = "exit",
-                                [MANAGER_REBOOT] = "reboot",
+                        static const char * const table[_MANAGER_OBJECTIVE_MAX] = {
+                                [MANAGER_EXIT]     = "exit",
+                                [MANAGER_REBOOT]   = "reboot",
                                 [MANAGER_POWEROFF] = "poweroff",
-                                [MANAGER_HALT] = "halt",
-                                [MANAGER_KEXEC] = "kexec"
+                                [MANAGER_HALT]     = "halt",
+                                [MANAGER_KEXEC]    = "kexec",
                         };
 
                         log_notice("Shutting down.");
 
                         *ret_reexecute = false;
                         *ret_retval = m->return_value;
-                        assert_se(*ret_shutdown_verb = table[m->exit_code]);
+                        assert_se(*ret_shutdown_verb = table[m->objective]);
                         *ret_fds = NULL;
                         *ret_switch_root_dir = *ret_switch_root_init = NULL;
 
@@ -1779,7 +1785,7 @@ static int invoke_main_loop(
                 }
 
                 default:
-                        assert_not_reached("Unknown exit code.");
+                        assert_not_reached("Unknown or unexpected manager objective.");
                 }
         }
 }
@@ -2425,7 +2431,6 @@ int main(int argc, char *argv[]) {
 
         r = manager_startup(m, arg_serialization, fds);
         if (r < 0) {
-                log_error_errno(r, "Failed to fully start up daemon: %m");
                 error_message = "Failed to start up manager";
                 goto finish;
         }
