@@ -3112,11 +3112,8 @@ int manager_serialize(
                         continue;
 
                 t = manager_timestamp_to_string(q);
-                {
-                        char field[strlen(t) + STRLEN("-timestamp") + 1];
-                        strcpy(stpcpy(field, t), "-timestamp");
-                        dual_timestamp_serialize(f, field, m->timestamps + q);
-                }
+                const char *field = strjoina(t, "-timestamp");
+                dual_timestamp_serialize(f, field, m->timestamps + q);
         }
 
         if (!switching_root)
