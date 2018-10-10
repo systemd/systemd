@@ -27,6 +27,13 @@ substs = configuration_data()
 substs.set('PACKAGE_URL',          'https://www.freedesktop.org/wiki/Software/systemd')
 substs.set('PACKAGE_VERSION',      meson.project_version())
 
+want_ossfuzz = get_option('oss-fuzz')
+want_libfuzzer = get_option('llvm-fuzz')
+if want_ossfuzz and want_libfuzzer
+        error('only one of oss-fuzz and llvm-fuzz can be specified')
+endif
+fuzzer_build = want_ossfuzz or want_libfuzzer
+
 #####################################################################
 
 # Try to install the git pre-commit hook
@@ -274,7 +281,7 @@ want_tests = get_option('tests')
 slow_tests = want_tests != 'false' and get_option('slow-tests')
 install_tests = get_option('install-tests')
 
-cxx = find_program('c++', required : false)
+cxx = find_program('c++', required : fuzzer_build)
 if cxx.found()
         #  Used only for tests
         add_languages('cpp')
@@ -283,16 +290,9 @@ else
         cxx_cmd = ''
 endif
 
-want_ossfuzz = get_option('oss-fuzz')
-want_libfuzzer = get_option('llvm-fuzz')
-fuzzer_build = want_ossfuzz or want_libfuzzer
-if want_ossfuzz and want_libfuzzer
-        error('only one of oss-fuzz and llvm-fuzz can be specified')
-endif
 if want_libfuzzer
         fuzzing_engine = meson.get_compiler('cpp').find_library('Fuzzer')
-endif
-if want_ossfuzz
+elif want_ossfuzz
         fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
 endif
 
