@@ -661,7 +661,7 @@ static int has_cap(sd_bus_creds *c, unsigned offset, int capability) {
 
         sz = DIV_ROUND_UP(cap_last_cap(), 32U);
 
-        return !!(c->capability[offset * sz + CAP_TO_INDEX(capability)] & CAP_TO_MASK(capability));
+        return !!(c->capability[offset * sz + CAP_TO_INDEX((uint32_t) capability)] & CAP_TO_MASK_CORRECTED((uint32_t) capability));
 }
 
 _public_ int sd_bus_creds_has_effective_cap(sd_bus_creds *c, int capability) {
