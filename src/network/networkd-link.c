@@ -1752,8 +1752,7 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                /* we warn but don't fail the link, as it may be
-                   brought up later */
+                /* we warn but don't fail the link, as it may be brought up later */
                 log_link_warning_errno(link, r, "Could not bring up interface: %m");
 
         return 1;
