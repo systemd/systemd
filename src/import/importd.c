@@ -510,7 +510,6 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         struct ucred *ucred = NULL;
         Manager *m = userdata;
         struct cmsghdr *cmsg;
-        unsigned percent;
         char *p, *e;
         Transfer *t;
         Iterator i;
@@ -566,15 +565,15 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         e = strchrnul(p, '\n');
         *e = 0;
 
-        r = safe_atou(p, &percent);
-        if (r < 0 || percent > 100) {
+        r = parse_percent(p);
+        if (r < 0) {
                 log_warning("Got invalid percent value, ignoring.");
                 return 0;
         }
 
-        t->progress_percent = percent;
+        t->progress_percent = (unsigned) r;
 
-        log_debug("Got percentage from client: %u%%", percent);
+        log_debug("Got percentage from client: %u%%", t->progress_percent);
         return 0;
 }
 
