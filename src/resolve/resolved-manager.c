@@ -1051,9 +1051,9 @@ int manager_send(
         log_debug("Sending %s packet with id %" PRIu16 " on interface %i/%s.", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p), ifindex, af_to_name(family));
 
         if (family == AF_INET)
-                return manager_ipv4_send(m, fd, ifindex, &destination->in, port, &source->in, p);
+                return manager_ipv4_send(m, fd, ifindex, &destination->in, port, source ? &source->in : NULL, p);
         if (family == AF_INET6)
-                return manager_ipv6_send(m, fd, ifindex, &destination->in6, port, &source->in6, p);
+                return manager_ipv6_send(m, fd, ifindex, &destination->in6, port, source ? &source->in6 : NULL, p);
 
         return -EAFNOSUPPORT;
 }
