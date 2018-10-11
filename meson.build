@@ -1389,7 +1389,8 @@ libsystemd = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic,
-                     libbasic_gcrypt],
+                     libbasic_gcrypt,
+                     libhashmap_nomempool],
         link_whole : [libsystemd_static,
                       libjournal_client],
         dependencies : [threads,
@@ -1409,6 +1410,7 @@ install_libsystemd_static = static_library(
         journal_client_sources,
         basic_sources,
         basic_gcrypt_sources,
+        hashmap_sources,
         include_directories : includes,
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
@@ -1423,7 +1425,7 @@ install_libsystemd_static = static_library(
                         libmount,
                         libselinux,
                         libgcrypt],
-        c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
+        c_args : libsystemd_c_args + ['-DUSE_HASHMAP_MEMPOOL=1'] + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
 ############################################################
 
@@ -1466,7 +1468,8 @@ test_dlopen = executable(
         'test-dlopen',
         test_dlopen_c,
         include_directories : includes,
-        link_with : [libbasic],
+        link_with : [libbasic,
+                     libhashmap],
         dependencies : [libdl],
         build_by_default : want_tests != 'false')
 
@@ -1493,7 +1496,8 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                                      '-Wl,--version-script=' + version_script_arg,
                                      '-Wl,--undefined'],
                         link_with : [libsystemd_static,
-                                     libbasic],
+                                     libbasic,
+                                     libhashmap_nomempool],
                         dependencies : [threads,
                                         librt],
                         link_depends : sym,
@@ -1744,7 +1748,8 @@ if conf.get('ENABLE_LOGIND') == 1
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + version_script_arg],
                         link_with : [libsystemd_static,
-                                     libshared_static],
+                                     libshared_static,
+                                     libhashmap_nomempool],
                         dependencies : [threads,
                                         libpam,
                                         libpam_misc],
@@ -1805,7 +1810,8 @@ else
         systemctl_link_with = [libsystemd_static,
                                libshared_static,
                                libjournal_client,
-                               libbasic_gcrypt]
+                               libbasic_gcrypt,
+                               libhashmap]
 endif
 
 exe = executable('systemctl', 'src/systemctl/systemctl.c',
@@ -2984,6 +2990,10 @@ alt_time_epoch = run_command('date', '-Is', '-u', '-d',
 status += [
         'time epoch:                        @0@ (@1@)'.format(time_epoch, alt_time_epoch)]
 
+status += [
+        'static libsystemd:                 @0@'.format(get_option('static-libsystemd')),
+        'static libudev:                    @0@'.format(get_option('static-libudev'))]
+
 # TODO:
 # CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
 # CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
@@ -3083,6 +3093,8 @@ foreach tuple : [
         ['debug mmap cache'],
         ['valgrind',         conf.get('VALGRIND') == 1],
         ['trace logging',    conf.get('LOG_TRACE') == 1],
+        ['link-udev-shared',      get_option('link-udev-shared')],
+        ['link-systemctl-shared', get_option('link-systemctl-shared')],
 ]
 
         if tuple.length() >= 2

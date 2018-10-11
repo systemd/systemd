@@ -768,6 +768,8 @@ static void reset_direct_storage(HashmapBase *h) {
 }
 
 static bool use_pool(void) {
+
+#if USE_HASHMAP_MEMPOOL
         static int b = -1;
 
         if (!is_main_thread())
@@ -777,6 +779,9 @@ static bool use_pool(void) {
                 b = getenv_bool("SYSTEMD_MEMPOOL") != 0;
 
         return b;
+#else
+        return false;
+#endif
 }
 
 static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type HASHMAP_DEBUG_PARAMS) {

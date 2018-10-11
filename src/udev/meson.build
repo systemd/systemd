@@ -99,7 +99,8 @@ if get_option('link-udev-shared')
         udev_rpath = rootlibexecdir
 else
         udev_link_with = [libshared_static,
-                          libsystemd_static]
+                          libsystemd_static,
+                          libhashmap]
         udev_rpath = ''
 endif
 
@@ -121,6 +122,7 @@ static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
 install_libudev_static = static_library(
         'udev',
         basic_sources,
+        hashmap_sources,
         shared_sources,
         libsystemd_sources,
         libudev_sources,
@@ -130,7 +132,7 @@ install_libudev_static = static_library(
         install_dir : rootlibdir,
         link_depends : libudev_sym,
         dependencies : libshared_deps + [libmount],
-        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
+        c_args : ['-DUSE_HASHMAP_MEMPOOL=1'] + (static_libudev_pic ? [] : ['-fno-PIC']),
         pic : static_libudev_pic)
 
 libudev = shared_library(
@@ -140,7 +142,9 @@ libudev = shared_library(
         include_directories : includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
-        link_with : [libsystemd_static, libshared_static],
+        link_with : [libsystemd_static,
+                     libshared_static,
+                     libhashmap_nomempool],
         link_whole : libudev_basic,
         dependencies : [threads],
         link_depends : libudev_sym,

@@ -167,6 +167,7 @@ libshared = shared_library(
         link_whole : [libshared_static,
                       libbasic,
                       libbasic_gcrypt,
+                      libhashmap,
                       libsystemd_static,
                       libjournal_client],
         c_args : ['-fvisibility=default'],
