@@ -775,6 +775,14 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (!streq(s, p))
                 return 0;
 
+        /* Skip Libertas devices with an OLPC mesh companion */
+        s = udev_device_get_sysattr_value(dev, "lbs_mesh");
+        if (s && streq(s, "0x1"))
+                return 0;
+        s = udev_device_get_sysattr_value(dev, "anycast_mask");
+        if (s)
+                return 0;
+
         devtype = udev_device_get_devtype(dev);
         if (devtype) {
                 if (streq("wlan", devtype))
