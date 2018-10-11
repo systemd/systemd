@@ -3093,7 +3093,7 @@ int config_parse_tasks_max(
         int r;
 
         if (isempty(rvalue)) {
-                *tasks_max = u->manager->default_tasks_max;
+                *tasks_max = u ? u->manager->default_tasks_max : UINT64_MAX;
                 return 0;
         }
 
