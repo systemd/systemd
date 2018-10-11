@@ -73,6 +73,7 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "switch-root.h"
+#include "sysctl-util.h"
 #include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
@@ -1162,6 +1163,88 @@ static int prepare_reexecute(
         return 0;
 }
 
+static void bump_file_max_and_nr_open(void) {
+
+        /* Let's bump fs.file-max and fs.nr_open to their respective maximums. On current kernels large numbers of file
+         * descriptors are no longer a performance problem and their memory is properly tracked by memcg, thus counting
+         * them and limiting them in another two layers of limits is unnecessary and just complicates things. This
+         * function hence turns off 2 of the 4 levels of limits on file descriptors, and makes RLIMIT_NOLIMIT (soft +
+         * hard) the only ones that really matter. */
+
+#if BUMP_PROC_SYS_FS_FILE_MAX || BUMP_PROC_SYS_FS_NR_OPEN
+        _cleanup_free_ char *t = NULL;
+        int r;
+#endif
+
+#if BUMP_PROC_SYS_FS_FILE_MAX
+        /* I so wanted to use STRINGIFY(ULONG_MAX) here, but alas we can't as glibc/gcc define that as
+         * "(0x7fffffffffffffffL * 2UL + 1UL)". Seriously. 😢 */
+        if (asprintf(&t, "%lu\n", ULONG_MAX) < 0) {
+                log_oom();
+                return;
+        }
+
+        r = sysctl_write("fs/file-max", t);
+        if (r < 0)
+                log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r, "Failed to bump fs.file-max, ignoring: %m");
+#endif
+
+#if BUMP_PROC_SYS_FS_FILE_MAX && BUMP_PROC_SYS_FS_NR_OPEN
+        t = mfree(t);
+#endif
+
+#if BUMP_PROC_SYS_FS_NR_OPEN
+        int v = INT_MAX;
+
+        /* Arg! The kernel enforces maximum and minimum values on the fs.nr_open, but we don't really know what they
+         * are. The expression by which the maximum is determined is dependent on the architecture, and is something we
+         * don't really want to copy to userspace, as it is dependent on implementation details of the kernel. Since
+         * the kernel doesn't expose the maximum value to us, we can only try and hope. Hence, let's start with
+         * INT_MAX, and then keep halving the value until we find one that works. Ugly? Yes, absolutely, but kernel
+         * APIs are kernel APIs, so what do can we do... 🤯 */
+
+        for (;;) {
+                int k;
+
+                v &= ~(__SIZEOF_POINTER__ - 1); /* Round down to next multiple of the pointer size */
+                if (v < 1024) {
+                        log_warning("Can't bump fs.nr_open, value too small.");
+                        break;
+                }
+
+                k = read_nr_open();
+                if (k < 0) {
+                        log_error_errno(k, "Failed to read fs.nr_open: %m");
+                        break;
+                }
+                if (k >= v) { /* Already larger */
+                        log_debug("Skipping bump, value is already larger.");
+                        break;
+                }
+
+                if (asprintf(&t, "%i\n", v) < 0) {
+                        log_oom();
+                        return;
+                }
+
+                r = sysctl_write("fs/nr_open", t);
+                t = mfree(t);
+                if (r == -EINVAL) {
+                        log_debug("Couldn't write fs.nr_open as %i, halving it.", v);
+                        v /= 2;
+                        continue;
+                }
+                if (r < 0) {
+                        log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r, "Failed to bump fs.nr_open, ignoring: %m");
+                        break;
+                }
+
+                log_debug("Successfully bumped fs.nr_open to %i", v);
+                break;
+        }
+#endif
+}
+
 static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         int r, nr;
 
@@ -1883,6 +1966,7 @@ static int initialize_runtime(
                         machine_id_setup(NULL, arg_machine_id, NULL);
                         loopback_setup();
                         bump_unix_max_dgram_qlen();
+                        bump_file_max_and_nr_open();
                         test_usr();
                         write_container_id();
                 }
