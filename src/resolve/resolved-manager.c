@@ -562,26 +562,33 @@ int manager_new(Manager **ret) {
 
         assert(ret);
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
-        m->llmnr_ipv4_udp_fd = m->llmnr_ipv6_udp_fd = -1;
-        m->llmnr_ipv4_tcp_fd = m->llmnr_ipv6_tcp_fd = -1;
-        m->mdns_ipv4_fd = m->mdns_ipv6_fd = -1;
-        m->dns_stub_udp_fd = m->dns_stub_tcp_fd = -1;
-        m->hostname_fd = -1;
+        *m = (Manager) {
+                .llmnr_ipv4_udp_fd = -1,
+                .llmnr_ipv6_udp_fd = -1,
+                .llmnr_ipv4_tcp_fd = -1,
+                .llmnr_ipv6_tcp_fd = -1,
+                .mdns_ipv4_fd = -1,
+                .mdns_ipv6_fd = -1,
+                .dns_stub_udp_fd = -1,
+                .dns_stub_tcp_fd = -1,
+                .hostname_fd = -1,
 
-        m->llmnr_support = RESOLVE_SUPPORT_YES;
-        m->mdns_support = RESOLVE_SUPPORT_YES;
-        m->dnssec_mode = DEFAULT_DNSSEC_MODE;
-        m->dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE;
-        m->enable_cache = true;
-        m->dns_stub_listener_mode = DNS_STUB_LISTENER_UDP;
-        m->read_resolv_conf = true;
-        m->need_builtin_fallbacks = true;
-        m->etc_hosts_last = m->etc_hosts_mtime = USEC_INFINITY;
-        m->read_etc_hosts = true;
+                .llmnr_support = RESOLVE_SUPPORT_YES,
+                .mdns_support = RESOLVE_SUPPORT_YES,
+                .dnssec_mode = DEFAULT_DNSSEC_MODE,
+                .dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE,
+                .enable_cache = true,
+                .dns_stub_listener_mode = DNS_STUB_LISTENER_UDP,
+                .read_resolv_conf = true,
+                .need_builtin_fallbacks = true,
+                .etc_hosts_last = USEC_INFINITY,
+                .etc_hosts_mtime = USEC_INFINITY,
+                .read_etc_hosts = true,
+        };
 
         r = dns_trust_anchor_load(&m->trust_anchor);
         if (r < 0)
@@ -723,9 +730,16 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                                + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */];
         } control;
         union sockaddr_union sa;
-        struct msghdr mh = {};
-        struct cmsghdr *cmsg;
         struct iovec iov;
+        struct msghdr mh = {
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa),
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
         ssize_t ms, l;
         int r;
 
@@ -741,15 +755,10 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         if (r < 0)
                 return r;
 
-        iov.iov_base = DNS_PACKET_DATA(p);
-        iov.iov_len = p->allocated;
-
-        mh.msg_name = &sa.sa;
-        mh.msg_namelen = sizeof(sa);
-        mh.msg_iov = &iov;
-        mh.msg_iovlen = 1;
-        mh.msg_control = &control;
-        mh.msg_controllen = sizeof(control);
+        iov = (struct iovec) {
+                .iov_base = DNS_PACKET_DATA(p),
+                iov.iov_len = p->allocated,
+        };
 
         l = recvmsg(fd, &mh, 0);
         if (l == 0)
@@ -909,15 +918,18 @@ static int manager_ipv4_send(
                 uint16_t port,
                 const struct in_addr *source,
                 DnsPacket *p) {
-        union sockaddr_union sa = {
-                .in.sin_family = AF_INET,
-        };
         union {
                 struct cmsghdr header; /* For alignment */
                 uint8_t buffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
-        } control;
-        struct msghdr mh = {};
+        } control = {};
+        union sockaddr_union sa;
         struct iovec iov;
+        struct msghdr mh = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa.in),
+        };
 
         assert(m);
         assert(fd >= 0);
@@ -925,22 +937,20 @@ static int manager_ipv4_send(
         assert(port > 0);
         assert(p);
 
-        iov.iov_base = DNS_PACKET_DATA(p);
-        iov.iov_len = p->size;
+        iov = (struct iovec) {
+                .iov_base = DNS_PACKET_DATA(p),
+                .iov_len = p->size,
+        };
 
-        sa.in.sin_addr = *destination;
-        sa.in.sin_port = htobe16(port),
-
-        mh.msg_iov = &iov;
-        mh.msg_iovlen = 1;
-        mh.msg_name = &sa.sa;
-        mh.msg_namelen = sizeof(sa.in);
+        sa = (union sockaddr_union) {
+                .in.sin_family = AF_INET,
+                .in.sin_addr = *destination,
+                .in.sin_port = htobe16(port),
+        };
 
         if (ifindex > 0) {
                 struct cmsghdr *cmsg;
                 struct in_pktinfo *pi;
-
-                zero(control);
 
                 mh.msg_control = &control;
                 mh.msg_controllen = CMSG_LEN(sizeof(struct in_pktinfo));
@@ -969,15 +979,18 @@ static int manager_ipv6_send(
                 const struct in6_addr *source,
                 DnsPacket *p) {
 
-        union sockaddr_union sa = {
-                .in6.sin6_family = AF_INET6,
-        };
         union {
                 struct cmsghdr header; /* For alignment */
                 uint8_t buffer[CMSG_SPACE(sizeof(struct in6_pktinfo))];
-        } control;
-        struct msghdr mh = {};
+        } control = {};
+        union sockaddr_union sa;
         struct iovec iov;
+        struct msghdr mh = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa.in6),
+        };
 
         assert(m);
         assert(fd >= 0);
@@ -985,23 +998,21 @@ static int manager_ipv6_send(
         assert(port > 0);
         assert(p);
 
-        iov.iov_base = DNS_PACKET_DATA(p);
-        iov.iov_len = p->size;
+        iov = (struct iovec) {
+                .iov_base = DNS_PACKET_DATA(p),
+                .iov_len = p->size,
+        };
 
-        sa.in6.sin6_addr = *destination;
-        sa.in6.sin6_port = htobe16(port),
-        sa.in6.sin6_scope_id = ifindex;
-
-        mh.msg_iov = &iov;
-        mh.msg_iovlen = 1;
-        mh.msg_name = &sa.sa;
-        mh.msg_namelen = sizeof(sa.in6);
+        sa = (union sockaddr_union) {
+                .in6.sin6_family = AF_INET6,
+                .in6.sin6_addr = *destination,
+                .in6.sin6_port = htobe16(port),
+                .in6.sin6_scope_id = ifindex,
+        };
 
         if (ifindex > 0) {
                 struct cmsghdr *cmsg;
                 struct in6_pktinfo *pi;
-
-                zero(control);
 
                 mh.msg_control = &control;
                 mh.msg_controllen = CMSG_LEN(sizeof(struct in6_pktinfo));
@@ -1040,9 +1051,9 @@ int manager_send(
         log_debug("Sending %s packet with id %" PRIu16 " on interface %i/%s.", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p), ifindex, af_to_name(family));
 
         if (family == AF_INET)
-                return manager_ipv4_send(m, fd, ifindex, &destination->in, port, &source->in, p);
+                return manager_ipv4_send(m, fd, ifindex, &destination->in, port, source ? &source->in : NULL, p);
         if (family == AF_INET6)
-                return manager_ipv6_send(m, fd, ifindex, &destination->in6, port, &source->in6, p);
+                return manager_ipv6_send(m, fd, ifindex, &destination->in6, port, source ? &source->in6 : NULL, p);
 
         return -EAFNOSUPPORT;
 }
