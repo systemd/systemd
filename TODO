@@ -41,6 +41,9 @@ Features:
 
 * bootctl,sd-boot: actually honour the "architecture" key
 
+* when a socket unit is spawned with an AF_UNIX path in /var/run, complain and
+  patch it to use /run instead
+
 * consider splitting out all temporary file creation APIs (we have so many in
   fileio.h and elsewhere!) into a new util file of its own.
 
