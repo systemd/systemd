@@ -1168,7 +1168,7 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
          * should normally disable such checks. We need them to implement IPAccessAllow= and IPAccessDeny=, hence let's
          * bump the value high enough for the root user. */
 
-        r = setrlimit_closest(RLIMIT_MEMLOCK, &RLIMIT_MAKE_CONST(1024ULL*1024ULL*16ULL));
+        r = setrlimit_closest(RLIMIT_MEMLOCK, &RLIMIT_MAKE_CONST(HIGH_RLIMIT_MEMLOCK));
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_MEMLOCK failed, ignoring: %m");
 
