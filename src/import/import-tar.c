@@ -184,6 +184,10 @@ static int tar_import_finish(TarImport *i) {
                         return r;
         }
 
+        r = import_mangle_os_tree(i->temp_path);
+        if (r < 0)
+                return r;
+
         if (i->read_only) {
                 r = import_make_read_only(i->temp_path);
                 if (r < 0)

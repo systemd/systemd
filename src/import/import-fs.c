@@ -192,6 +192,10 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                 goto finish;
         }
 
+        r = import_mangle_os_tree(temp_path);
+        if (r < 0)
+                goto finish;
+
         (void) import_assign_pool_quota_and_warn(temp_path);
 
         if (arg_read_only) {
