@@ -175,6 +175,24 @@ int specifier_kernel_release(char specifier, void *data, void *userdata, char **
         return 0;
 }
 
+int specifier_group_name(char specifier, void *data, void *userdata, char **ret) {
+        char *t;
+
+        t = gid_to_name(getgid());
+        if (!t)
+                return -ENOMEM;
+
+        *ret = t;
+        return 0;
+}
+
+int specifier_group_id(char specifier, void *data, void *userdata, char **ret) {
+        if (asprintf(ret, UID_FMT, getgid()) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
 int specifier_user_name(char specifier, void *data, void *userdata, char **ret) {
         char *t;
 

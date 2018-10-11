@@ -191,7 +191,7 @@ static void test_unit_name_mangle(void) {
 }
 
 static int test_unit_printf(void) {
-        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
+        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         int r;
@@ -200,7 +200,9 @@ static int test_unit_printf(void) {
         assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
         assert_se(host = gethostname_malloc());
         assert_se(user = uid_to_name(getuid()));
+        assert_se(group = gid_to_name(getgid()));
         assert_se(asprintf(&uid, UID_FMT, getuid()));
+        assert_se(asprintf(&gid, UID_FMT, getgid()));
         assert_se(get_home_dir(&home) >= 0);
         assert_se(get_shell(&shell) >= 0);
 
@@ -241,6 +243,8 @@ static int test_unit_printf(void) {
         expect(u, "%I", "");
         expect(u, "%j", "blah");
         expect(u, "%J", "blah");
+        expect(u, "%g", group);
+        expect(u, "%G", gid);
         expect(u, "%u", user);
         expect(u, "%U", uid);
         expect(u, "%h", home);
@@ -263,6 +267,8 @@ static int test_unit_printf(void) {
         expect(u, "%I", "foo/foo");
         expect(u, "%j", "blah");
         expect(u, "%J", "blah");
+        expect(u, "%g", group);
+        expect(u, "%G", gid);
         expect(u, "%u", user);
         expect(u, "%U", uid);
         expect(u, "%h", home);
