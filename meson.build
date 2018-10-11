@@ -2981,8 +2981,8 @@ status += [
         'time epoch:                        @0@ (@1@)'.format(time_epoch, alt_time_epoch)]
 
 status += [
-        'static libsystemd:                 @0@'.format(get_option('static-libsystemd')),
-        'static libudev:                    @0@'.format(get_option('static-libudev'))]
+        'static libsystemd:                 @0@'.format(static_libsystemd),
+        'static libudev:                    @0@'.format(static_libudev)]
 
 # TODO:
 # CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
