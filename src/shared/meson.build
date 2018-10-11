@@ -36,6 +36,7 @@ shared_sources = files('''
         dropin.h
         efivars.c
         efivars.h
+        enable-mempool.c
         fdset.c
         fdset.h
         firewall-util.h

@@ -1383,7 +1383,7 @@ libjournal_core = static_library(
 libsystemd_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sym)
 libsystemd = shared_library(
         'systemd',
-        'src/systemd/sd-id128.h', # pick a header file at random to work around old meson bug
+        disable_mempool_c,
         version : libsystemd_version,
         include_directories : includes,
         link_args : ['-shared',
@@ -1465,6 +1465,7 @@ subdir('test')
 test_dlopen = executable(
         'test-dlopen',
         test_dlopen_c,
+        disable_mempool_c,
         include_directories : includes,
         link_with : [libbasic],
         dependencies : [libdl],
@@ -1485,6 +1486,7 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                 nss = shared_library(
                         'nss_' + module,
                         'src/nss-@0@/nss-@0@.c'.format(module),
+                        disable_mempool_c,
                         version : '2',
                         include_directories : includes,
                         # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned
@@ -2782,11 +2784,8 @@ subdir('shell-completion/zsh')
 subdir('docs/sysvinit')
 subdir('docs/var-log')
 
-# FIXME: figure out if the warning is true:
-# https://github.com/mesonbuild/meson/wiki/Reference-manual#install_subdir
 install_subdir('factory/etc',
                install_dir : factorydir)
-
 
 install_data('xorg/50-systemd-user.sh',
              install_dir : xinitrcdir)
@@ -2984,6 +2983,10 @@ alt_time_epoch = run_command('date', '-Is', '-u', '-d',
 status += [
         'time epoch:                        @0@ (@1@)'.format(time_epoch, alt_time_epoch)]
 
+status += [
+        'static libsystemd:                 @0@'.format(static_libsystemd),
+        'static libudev:                    @0@'.format(static_libudev)]
+
 # TODO:
 # CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
 # CPPFLAGS: ${OUR_CPPFLAGS} ${CPPFLAGS}
@@ -3083,6 +3086,8 @@ foreach tuple : [
         ['debug mmap cache'],
         ['valgrind',         conf.get('VALGRIND') == 1],
         ['trace logging',    conf.get('LOG_TRACE') == 1],
+        ['link-udev-shared',      get_option('link-udev-shared')],
+        ['link-systemctl-shared', get_option('link-systemctl-shared')],
 ]
 
         if tuple.length() >= 2
