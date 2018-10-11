@@ -306,6 +306,22 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>LOGO=</varname></term>
+
+        <listitem><para>
+        A string, specifying the name of an icon as defined by <ulink
+        url="http://standards.freedesktop.org/icon-theme-spec/latest">
+        freedesktop.org Icon Theme Specification</ulink>. This can be
+        used by graphical applications to display an operating
+        system's or distributor's logo. This field is optional and
+        may not necessarily be implemented on all systems.
+        Examples:
+        <literal>LOGO=fedora-logo</literal>,
+        <literal>LOGO=distributor-logo-opensuse</literal>
+        </para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>If you are reading this file from C code or a shell script
