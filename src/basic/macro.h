@@ -415,8 +415,11 @@ static inline int __coverity_check__(int condition) {
 #define IN_SET(x, ...)                          \
         ({                                      \
                 bool _found = false;            \
-                /* If the build breaks in the line below, you need to extend the case macros */ \
-                static _unused_ char _static_assert__macros_need_to_be_extended[20 - sizeof((int[]){__VA_ARGS__})/sizeof(int)]; \
+                /* If the build breaks in the line below, you need to extend the case macros. (We use "long double" as  \
+                 * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
+                 * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
+                 * doesn't work, as we want to use this on bitfields and gcc refuses typeof() on bitfields.) */         \
+                assert_cc((sizeof((long double[]){__VA_ARGS__})/sizeof(long double)) <= 20); \
                 switch(x) {                     \
                 FOR_EACH_MAKE_CASE(__VA_ARGS__) \
                         _found = true;          \
