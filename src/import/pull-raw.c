@@ -56,7 +56,6 @@ struct RawPull {
 
         char *local;
         bool force_local;
-        bool grow_machine_directory;
         bool settings;
         bool roothash;
 
@@ -119,7 +118,6 @@ int raw_pull_new(
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(raw_pull_unrefp) RawPull *i = NULL;
         _cleanup_free_ char *root = NULL;
-        bool grow;
         int r;
 
         assert(ret);
@@ -127,8 +125,6 @@ int raw_pull_new(
         root = strdup(image_root ?: "/var/lib/machines");
         if (!root)
                 return -ENOMEM;
-
-        grow = path_startswith(root, "/var/lib/machines");
 
         if (event)
                 e = sd_event_ref(event);
@@ -150,7 +146,6 @@ int raw_pull_new(
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .image_root = TAKE_PTR(root),
-                .grow_machine_directory = grow,
                 .event = TAKE_PTR(e),
                 .glue = TAKE_PTR(g),
         };
@@ -689,7 +684,6 @@ int raw_pull_start(
         i->raw_job->on_open_disk = raw_pull_job_on_open_disk_raw;
         i->raw_job->on_progress = raw_pull_job_on_progress;
         i->raw_job->calc_checksum = verify != IMPORT_VERIFY_NO;
-        i->raw_job->grow_machine_directory = i->grow_machine_directory;
 
         r = pull_find_old_etags(url, i->image_root, DT_REG, ".raw-", ".raw", &i->raw_job->old_etags);
         if (r < 0)

@@ -80,9 +80,6 @@ struct PullJob {
 
         char *checksum;
 
-        bool grow_machine_directory;
-        uint64_t written_since_last_grow;
-
         VerificationStyle style;
 };
 

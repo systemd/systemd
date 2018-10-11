@@ -62,9 +62,6 @@ int btrfs_quota_scan_start(int fd);
 int btrfs_quota_scan_wait(int fd);
 int btrfs_quota_scan_ongoing(int fd);
 
-int btrfs_resize_loopback_fd(int fd, uint64_t size, bool grow_only);
-int btrfs_resize_loopback(const char *path, uint64_t size, bool grow_only);
-
 int btrfs_subvol_make(const char *path);
 int btrfs_subvol_make_fd(int fd, const char *subvolume);
 

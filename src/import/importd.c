@@ -719,7 +719,7 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!machine_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
 
-        r = setup_machine_directory((uint64_t) -1, error);
+        r = setup_machine_directory(error);
         if (r < 0)
                 return r;
 
@@ -783,7 +783,7 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (!machine_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
 
-        r = setup_machine_directory((uint64_t) -1, error);
+        r = setup_machine_directory(error);
         if (r < 0)
                 return r;
 
@@ -924,7 +924,7 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         if (v < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown verification mode %s", verify);
 
-        r = setup_machine_directory((uint64_t) -1, error);
+        r = setup_machine_directory(error);
         if (r < 0)
                 return r;
 

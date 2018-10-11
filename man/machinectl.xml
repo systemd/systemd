@@ -650,22 +650,7 @@
         units. If the size limit shall be disabled, specify
         <literal>-</literal> as size.</para>
 
-        <para>Note that per-container size limits are only supported
-        on btrfs file systems. Also note that, if
-        <command>set-limit</command> is invoked without an image
-        parameter, and <filename>/var/lib/machines</filename> is
-        empty, and the directory is not located on btrfs, a btrfs
-        loopback file is implicitly created as
-        <filename>/var/lib/machines.raw</filename> with the given
-        size, and mounted to
-        <filename>/var/lib/machines</filename>. The size of the
-        loopback may later be readjusted with
-        <command>set-limit</command>, as well. If such a
-        loopback-mounted <filename>/var/lib/machines</filename>
-        directory is used, <command>set-limit</command> without an image
-        name alters both the quota setting within the file system as
-        well as the loopback file and file system size
-        itself.</para></listitem>
+        <para>Note that per-container size limits are only supported on btrfs file systems.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -803,12 +788,8 @@
         image is read from standard input, in which case the second
         argument is mandatory.</para>
 
-        <para>Both <command>pull-tar</command> and <command>pull-raw</command>
-        will resize <filename>/var/lib/machines.raw</filename> and the
-        filesystem therein as necessary. Optionally, the
-        <option>--read-only</option> switch may be used to create a
-        read-only container or VM image. No cryptographic validation
-        is done when importing the images.</para>
+        <para>Optionally, the <option>--read-only</option> switch may be used to create a read-only container or VM
+        image. No cryptographic validation is done when importing the images.</para>
 
         <para>Much like image downloads, ongoing imports may be listed
         with <command>list-transfers</command> and aborted with
@@ -920,18 +901,7 @@
     <filename>/var/lib/machines/</filename> to make them available for
     control with <command>machinectl</command>.</para>
 
-    <para>Note that some image operations are only supported,
-    efficient or atomic on btrfs file systems. Due to this, if the
-    <command>pull-tar</command>, <command>pull-raw</command>,
-    <command>import-tar</command>, <command>import-raw</command> and
-    <command>set-limit</command> commands notice that
-    <filename>/var/lib/machines</filename> is empty and not located on
-    btrfs, they will implicitly set up a loopback file
-    <filename>/var/lib/machines.raw</filename> containing a btrfs file
-    system that is mounted to
-    <filename>/var/lib/machines</filename>. The size of this loopback
-    file may be controlled dynamically with
-    <command>set-limit</command>.</para>
+    <para>Note that some image operations are only supported, efficient or atomic on btrfs file systems.</para>
 
     <para>Disk images are understood by
     <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>

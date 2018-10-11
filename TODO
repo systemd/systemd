@@ -235,8 +235,7 @@ Features:
   the runtime dir as we maintain for the fdstore: i.e. keep it around as long
   as the unit is running or has a job queued.
 
-* support projid-based quota in machinectl for containers, and then drop
-  implicit btrfs loopback magic in machined
+* support projid-based quota in machinectl for containers
 
 * Add NetworkNamespacePath= to specify a path to a network namespace
 
@@ -882,9 +881,6 @@ Features:
   - "machinectl diff"
   - "machinectl commit" that takes a writable snapshot of a tree, invokes a
     shell in it, and marks it read-only after use
-
-* importd:
-  - generate a nice warning if mkfs.btrfs is missing
 
 * cryptsetup:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
