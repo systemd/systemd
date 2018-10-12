@@ -293,7 +293,7 @@
       <citerefentry><refentrytitle>sd_event_source_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_get_pending</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
