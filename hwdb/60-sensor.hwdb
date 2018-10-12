@@ -71,6 +71,9 @@ sensor:modalias:acpi:INVN6500*:dmi:*svn*Acer*:*pn*AspireSW5-012*
 sensor:modalias:acpi:BMA250E*:dmi:*:svnAcer:pnIconiaW1-810:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+sensor:modalias:acpi:KIOX0009*:dmi:*:svnAcer:pnOneS1003:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
 #########################################
 # Archos
 #########################################
