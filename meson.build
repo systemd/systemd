@@ -1409,6 +1409,7 @@ install_libsystemd_static = static_library(
         journal_client_sources,
         basic_sources,
         basic_gcrypt_sources,
+        disable_mempool_c,
         include_directories : includes,
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',

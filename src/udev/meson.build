@@ -124,6 +124,7 @@ install_libudev_static = static_library(
         shared_sources,
         libsystemd_sources,
         libudev_sources,
+        disable_mempool_c,
         include_directories : includes,
         build_by_default : static_libudev != 'false',
         install : static_libudev != 'false',
