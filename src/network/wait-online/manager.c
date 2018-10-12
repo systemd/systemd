@@ -263,8 +263,8 @@ int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout)
         if (r < 0)
                 return r;
 
-        sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
-        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         if (timeout > 0) {
                 usec_t usec;
