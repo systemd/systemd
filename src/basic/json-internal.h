@@ -35,6 +35,7 @@ assert_cc(sizeof(JsonValue) == 16U);
 #define JSON_VARIANT_MAGIC_EMPTY_STRING ((JsonVariant*) 7)
 #define JSON_VARIANT_MAGIC_EMPTY_ARRAY ((JsonVariant*) 8)
 #define JSON_VARIANT_MAGIC_EMPTY_OBJECT ((JsonVariant*) 9)
+#define _JSON_VARIANT_MAGIC_MAX ((JsonVariant*) 10)
 
 enum { /* JSON tokens */
         JSON_TOKEN_END,

@@ -140,15 +140,10 @@ static bool json_source_equal(JsonSource *a, JsonSource *b) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(JsonSource*, json_source_unref);
 
 static bool json_variant_is_magic(const JsonVariant *v) {
-        return v == JSON_VARIANT_MAGIC_TRUE ||
-                v == JSON_VARIANT_MAGIC_FALSE ||
-                v == JSON_VARIANT_MAGIC_NULL ||
-                v == JSON_VARIANT_MAGIC_ZERO_INTEGER ||
-                v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
-                v == JSON_VARIANT_MAGIC_ZERO_REAL ||
-                v == JSON_VARIANT_MAGIC_EMPTY_STRING ||
-                v == JSON_VARIANT_MAGIC_EMPTY_ARRAY ||
-                v == JSON_VARIANT_MAGIC_EMPTY_OBJECT;
+        if (!v)
+                return false;
+
+        return v < _JSON_VARIANT_MAGIC_MAX;
 }
 
 static JsonVariant *json_variant_dereference(JsonVariant *v) {
