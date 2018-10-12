@@ -589,6 +589,10 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
                         *c = array[v->n_elements];
                 uint16_t d;
 
+                if ((v->n_elements & 1) == 0 &&
+                    !json_variant_is_string(c))
+                        return -EINVAL; /* Every second one needs to be a string, as it is the key name */
+
                 d = json_variant_depth(c);
                 if (d >= DEPTH_MAX) /* Refuse too deep nesting */
                         return -ELNRNG;
