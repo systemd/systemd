@@ -910,6 +910,12 @@ tests += [
           libshared_static,
           libsystemd],
          [threads]],
+
+        [['src/libsystemd/sd-device/test-udev-device-thread.c'],
+         [libbasic,
+          libshared_static,
+          libudev],
+         [threads]],
 ]
 
 if cxx.found()
