@@ -1344,10 +1344,15 @@ static int json_format(FILE *f, JsonVariant *v, unsigned flags, const char *pref
                 if (n == 0)
                         fputs("[]", f);
                 else {
+                        _cleanup_free_ char *joined = NULL;
                         const char *prefix2;
 
                         if (flags & JSON_FORMAT_PRETTY) {
-                                prefix2 = strjoina(strempty(prefix), "\t");
+                                joined = strjoin(strempty(prefix), "\t");
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                prefix2 = joined;
                                 fputs("[\n", f);
                         } else {
                                 prefix2 = strempty(prefix);
@@ -1395,10 +1400,15 @@ static int json_format(FILE *f, JsonVariant *v, unsigned flags, const char *pref
                 if (n == 0)
                         fputs("{}", f);
                 else {
+                        _cleanup_free_ char *joined = NULL;
                         const char *prefix2;
 
                         if (flags & JSON_FORMAT_PRETTY) {
-                                prefix2 = strjoina(strempty(prefix), "\t");
+                                joined = strjoin(strempty(prefix), "\t");
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                prefix2 = joined;
                                 fputs("{\n", f);
                         } else {
                                 prefix2 = strempty(prefix);
