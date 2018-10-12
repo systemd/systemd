@@ -105,7 +105,7 @@ int test_main(int argc, char *argv[], void *userdata) {
                "some values may be different, or not available at a simulation run.\n"
                "\n");
 
-        sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
+        assert_se(sigprocmask(SIG_SETMASK, NULL, &sigmask_orig) >= 0);
 
         udev_builtin_init();
 
