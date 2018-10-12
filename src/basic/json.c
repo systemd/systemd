@@ -45,6 +45,10 @@ struct JsonVariant {
                 JsonVariant *parent;
         };
 
+        /* If this was parsed from some file or buffer, this stores where from, as well as the source line/column */
+        JsonSource *source;
+        unsigned line, column;
+
         JsonVariantType type:5;
 
         /* A marker whether this variant is embedded into in array/object or not. If true, the 'parent' pointer above
@@ -58,10 +62,6 @@ struct JsonVariant {
 
         /* While comparing two arrays, we use this for marking what we already have seen */
         bool is_marked:1;
-
-        /* If this was parsed from some file or buffer, this stores where from, as well as the source line/column */
-        unsigned line, column;
-        JsonSource *source;
 
         union {
                 /* For simple types we store the value in-line. */
