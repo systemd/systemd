@@ -73,11 +73,11 @@ typedef struct TableData {
 } TableData;
 
 static size_t TABLE_CELL_TO_INDEX(TableCell *cell) {
-        unsigned i;
+        size_t i;
 
         assert(cell);
 
-        i = PTR_TO_UINT(cell);
+        i = PTR_TO_SIZE(cell);
         assert(i > 0);
 
         return i-1;
@@ -85,7 +85,7 @@ static size_t TABLE_CELL_TO_INDEX(TableCell *cell) {
 
 static TableCell* TABLE_INDEX_TO_CELL(size_t index) {
         assert(index != (size_t) -1);
-        return UINT_TO_PTR((unsigned) (index + 1));
+        return SIZE_TO_PTR(index + 1);
 }
 
 struct Table {
