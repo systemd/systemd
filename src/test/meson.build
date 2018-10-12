@@ -399,6 +399,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-set-disable-mempool.c'],
+         [],
+         [threads]],
+
         [['src/test/test-bitmap.c'],
          [],
          []],
@@ -900,6 +904,18 @@ tests += [
         [['src/libsystemd/sd-device/test-sd-device.c'],
          [],
          []],
+
+        [['src/libsystemd/sd-device/test-sd-device-thread.c'],
+         [libbasic,
+          libshared_static,
+          libsystemd],
+         [threads]],
+
+        [['src/libsystemd/sd-device/test-udev-device-thread.c'],
+         [libbasic,
+          libshared_static,
+          libudev],
+         [threads]],
 ]
 
 if cxx.found()

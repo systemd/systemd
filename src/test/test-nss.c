@@ -1,22 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <dlfcn.h>
-#include <stdlib.h>
 #include <net/if.h>
+#include <stdlib.h>
 
+#include "af-list.h"
+#include "alloc-util.h"
+#include "errno-list.h"
+#include "hexdecoct.h"
+#include "hostname-util.h"
+#include "in-addr-util.h"
+#include "local-addresses.h"
 #include "log.h"
 #include "nss-util.h"
 #include "path-util.h"
-#include "string-util.h"
-#include "alloc-util.h"
-#include "in-addr-util.h"
-#include "hexdecoct.h"
-#include "af-list.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "errno-list.h"
-#include "hostname-util.h"
-#include "local-addresses.h"
 
 static const char* nss_status_to_string(enum nss_status status, char *buf, size_t buf_len) {
         switch (status) {
