@@ -16,6 +16,7 @@
 #include "catalog.h"
 #include "compress.h"
 #include "dirent-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -381,7 +382,7 @@ static char *match_make_string(Match *m) {
                 return strdup("none");
 
         if (m->type == MATCH_DISCRETE)
-                return strndup(m->data, m->size);
+                return cescape_length(m->data, m->size);
 
         LIST_FOREACH(matches, i, m->matches) {
                 char *t, *k;
