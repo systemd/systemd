@@ -1846,6 +1846,9 @@ static int journal_file_append_entry_internal(
 void journal_file_post_change(JournalFile *f) {
         assert(f);
 
+        if (f->fd < 0)
+                return;
+
         /* inotify() does not receive IN_MODIFY events from file
          * accesses done via mmap(). After each access we hence
          * trigger IN_MODIFY by truncating the journal file to its

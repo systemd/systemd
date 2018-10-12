@@ -160,7 +160,7 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         r = socket_from_display(display, &p);
         if (r < 0)
                 return r;
-        strncpy(sa.un.sun_path, p, sizeof(sa.un.sun_path)-1);
+        strncpy(sa.un.sun_path, p, sizeof(sa.un.sun_path));
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)

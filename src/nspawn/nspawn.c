@@ -2826,7 +2826,7 @@ static int setup_sd_notify_child(void) {
         (void) mkdir_parents(NSPAWN_NOTIFY_SOCKET_PATH, 0755);
         (void) unlink(NSPAWN_NOTIFY_SOCKET_PATH);
 
-        strncpy(sa.un.sun_path, NSPAWN_NOTIFY_SOCKET_PATH, sizeof(sa.un.sun_path)-1);
+        strncpy(sa.un.sun_path, NSPAWN_NOTIFY_SOCKET_PATH, sizeof(sa.un.sun_path));
         r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
         if (r < 0) {
                 safe_close(fd);

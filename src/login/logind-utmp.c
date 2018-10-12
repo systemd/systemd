@@ -61,7 +61,7 @@ bool logind_wall_tty_filter(const char *tty, void *userdata) {
 
 static int warn_wall(Manager *m, usec_t n) {
         char date[FORMAT_TIMESTAMP_MAX] = {};
-        _cleanup_free_ char *l = NULL;
+        _cleanup_free_ char *l = NULL, *username = NULL;
         usec_t left;
         int r;
 
@@ -83,8 +83,8 @@ static int warn_wall(Manager *m, usec_t n) {
                 return 0;
         }
 
-        utmp_wall(l, uid_to_name(m->scheduled_shutdown_uid),
-                  m->scheduled_shutdown_tty, logind_wall_tty_filter, m);
+        username = uid_to_name(m->scheduled_shutdown_uid);
+        utmp_wall(l, username, m->scheduled_shutdown_tty, logind_wall_tty_filter, m);
 
         return 1;
 }

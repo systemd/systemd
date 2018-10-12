@@ -892,7 +892,7 @@ static int manager_setup_notify(Manager *m) {
                 (void) mkdir_parents_label(m->notify_socket, 0755);
                 (void) unlink(m->notify_socket);
 
-                strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path)-1);
+                strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path));
                 r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
