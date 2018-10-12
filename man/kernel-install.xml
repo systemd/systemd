@@ -165,7 +165,7 @@
     <para>
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <ulink url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader Specification</ulink>
+      <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>
     </para>
   </refsect1>
 
