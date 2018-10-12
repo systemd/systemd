@@ -476,10 +476,9 @@ int json_variant_new_array_bytes(JsonVariant **ret, const void *p, size_t n) {
                 *w = (JsonVariant) {
                         .is_embedded = true,
                         .parent = v,
+                        .type = JSON_VARIANT_UNSIGNED,
+                        .value.unsig = ((const uint8_t*) p)[i],
                 };
-
-                w->type = JSON_VARIANT_UNSIGNED;
-                w->value.unsig = ((const uint8_t*) p)[i];
         }
 
         *ret = v;
@@ -499,7 +498,7 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
                 return 0;
         }
 
-        v = new0(JsonVariant, n + 1);
+        v = new(JsonVariant, n + 1);
         if (!v)
                 return -ENOMEM;
 
@@ -512,9 +511,11 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
                 JsonVariant *w = v + 1 + v->n_elements;
                 size_t k;
 
-                w->is_embedded = true;
-                w->parent = v;
-                w->type = JSON_VARIANT_STRING;
+                *w = (JsonVariant) {
+                        .is_embedded = true,
+                        .parent = v,
+                        .type = JSON_VARIANT_STRING,
+                };
 
                 k = strlen(l[v->n_elements]);
 
