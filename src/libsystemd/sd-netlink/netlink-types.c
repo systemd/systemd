@@ -685,7 +685,7 @@ static const NLType genl_wireguard_peer_types[] = {
         [WGPEER_A_PUBLIC_KEY] = { .size = WG_KEY_LEN  },
         [WGPEER_A_FLAGS] = { .type = NETLINK_TYPE_U32 },
         [WGPEER_A_PRESHARED_KEY] = { .size = WG_KEY_LEN },
-        [WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL] = { .type = NETLINK_TYPE_U32 },
+        [WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL] = { .type = NETLINK_TYPE_U16 },
         [WGPEER_A_ENDPOINT] = { /* either size of sockaddr_in or sockaddr_in6 depending on address family */ },
         [WGPEER_A_ALLOWEDIPS] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_allowedip_type_system },
 };
