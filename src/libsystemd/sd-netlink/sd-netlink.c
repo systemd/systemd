@@ -21,28 +21,29 @@ static int sd_netlink_new(sd_netlink **ret) {
 
         assert_return(ret, -EINVAL);
 
-        rtnl = new0(sd_netlink, 1);
+        rtnl = new(sd_netlink, 1);
         if (!rtnl)
                 return -ENOMEM;
 
-        rtnl->n_ref = REFCNT_INIT;
-        rtnl->fd = -1;
-        rtnl->sockaddr.nl.nl_family = AF_NETLINK;
-        rtnl->original_pid = getpid_cached();
-        rtnl->protocol = -1;
+        *rtnl = (sd_netlink) {
+                .n_ref = REFCNT_INIT,
+                .fd = -1,
+                .sockaddr.nl.nl_family = AF_NETLINK,
+                .original_pid = getpid_cached(),
+                .protocol = -1,
 
-        LIST_HEAD_INIT(rtnl->match_callbacks);
+                /* Change notification responses have sequence 0, so we must
+                 * start our request sequence numbers at 1, or we may confuse our
+                 * responses with notifications from the kernel */
+                .serial = 1,
+
+        };
 
         /* We guarantee that the read buffer has at least space for
          * a message header */
         if (!greedy_realloc((void**)&rtnl->rbuffer, &rtnl->rbuffer_allocated,
                             sizeof(struct nlmsghdr), sizeof(uint8_t)))
                 return -ENOMEM;
-
-        /* Change notification responses have sequence 0, so we must
-         * start our request sequence numbers at 1, or we may confuse our
-         * responses with notifications from the kernel */
-        rtnl->serial = 1;
 
         *ret = TAKE_PTR(rtnl);
 
@@ -147,6 +148,7 @@ int sd_netlink_inc_rcvbuf(sd_netlink *rtnl, size_t size) {
 }
 
 static sd_netlink *netlink_free(sd_netlink *rtnl) {
+        struct reply_callback *c;
         struct match_callback *f;
         unsigned i;
 
@@ -162,7 +164,12 @@ static sd_netlink *netlink_free(sd_netlink *rtnl) {
 
         free(rtnl->rbuffer);
 
-        hashmap_free_free(rtnl->reply_callbacks);
+        while ((c = hashmap_steal_first(rtnl->reply_callbacks))) {
+                if (c->destroy_callback)
+                        c->destroy_callback(c->userdata);
+                free(c);
+        }
+        hashmap_free(rtnl->reply_callbacks);
         prioq_free(rtnl->reply_callbacks_prioq);
 
         sd_event_source_unref(rtnl->io_event_source);
@@ -298,6 +305,9 @@ static int process_timeout(sd_netlink *rtnl) {
         if (r < 0)
                 log_debug_errno(r, "sd-netlink: timedout callback failed: %m");
 
+        if (c->destroy_callback)
+                c->destroy_callback(c->userdata);
+
         free(c);
 
         return 1;
@@ -330,6 +340,9 @@ static int process_reply(sd_netlink *rtnl, sd_netlink_message *m) {
         r = c->callback(rtnl, m, c->userdata);
         if (r < 0)
                 log_debug_errno(r, "sd-netlink: callback failed: %m");
+
+        if (c->destroy_callback)
+                c->destroy_callback(c->userdata);
 
         return 1;
 }
@@ -493,13 +506,15 @@ static int timeout_compare(const void *a, const void *b) {
         return CMP(x->timeout, y->timeout);
 }
 
-int sd_netlink_call_async(sd_netlink *nl,
-                       sd_netlink_message *m,
-                       sd_netlink_message_handler_t callback,
-                       void *userdata,
-                       uint64_t usec,
-                       uint32_t *serial) {
-        struct reply_callback *c;
+int sd_netlink_call_async(
+                sd_netlink *nl,
+                sd_netlink_message *m,
+                sd_netlink_message_handler_t callback,
+                sd_netlink_destroy_t destroy_callback,
+                void *userdata,
+                uint64_t usec,
+                uint32_t *serial) {
+        _cleanup_free_ struct reply_callback *c = NULL;
         uint32_t s;
         int r, k;
 
@@ -518,39 +533,39 @@ int sd_netlink_call_async(sd_netlink *nl,
                         return r;
         }
 
-        c = new0(struct reply_callback, 1);
+        c = new(struct reply_callback, 1);
         if (!c)
                 return -ENOMEM;
 
-        c->callback = callback;
-        c->userdata = userdata;
-        c->timeout = calc_elapse(usec);
+        *c = (struct reply_callback) {
+                .callback = callback,
+                .userdata = userdata,
+                .timeout = calc_elapse(usec),
+                .destroy_callback = destroy_callback,
+        };
 
         k = sd_netlink_send(nl, m, &s);
-        if (k < 0) {
-                free(c);
+        if (k < 0)
                 return k;
-        }
 
         c->serial = s;
 
         r = hashmap_put(nl->reply_callbacks, &c->serial, c);
-        if (r < 0) {
-                free(c);
+        if (r < 0)
                 return r;
-        }
 
         if (c->timeout != 0) {
                 r = prioq_put(nl->reply_callbacks_prioq, c, &c->prioq_idx);
-                if (r > 0) {
-                        c->timeout = 0;
-                        sd_netlink_call_async_cancel(nl, c->serial);
+                if (r < 0) {
+                        (void) hashmap_remove(nl->reply_callbacks, &c->serial);
                         return r;
                 }
         }
 
         if (serial)
                 *serial = s;
+
+        TAKE_PTR(c);
 
         return k;
 }
@@ -569,6 +584,9 @@ int sd_netlink_call_async_cancel(sd_netlink *nl, uint32_t serial) {
 
         if (c->timeout != 0)
                 prioq_remove(nl->reply_callbacks_prioq, c, &c->prioq_idx);
+
+        if (c->destroy_callback)
+                c->destroy_callback(c->userdata);
 
         free(c);
         return 1;
@@ -827,13 +845,15 @@ int sd_netlink_add_match(sd_netlink *rtnl,
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
 
-        c = new0(struct match_callback, 1);
+        c = new(struct match_callback, 1);
         if (!c)
                 return -ENOMEM;
 
-        c->callback = callback;
-        c->type = type;
-        c->userdata = userdata;
+        *c = (struct match_callback) {
+                .callback = callback,
+                .type = type,
+                .userdata = userdata,
+        };
 
         switch (type) {
                 case RTM_NEWLINK:

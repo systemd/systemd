@@ -16,8 +16,8 @@
 #define NDISC_RDNSS_MAX 64U
 #define NDISC_PREFIX_LFT_MIN 7200U
 
-static int ndisc_netlink_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_(link_unrefp) Link *link = userdata;
+static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+        Link *link = userdata;
         int r;
 
         assert(link);
@@ -126,7 +126,7 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
         route->mtu = mtu;
 
-        r = route_configure(route, link, ndisc_netlink_handler);
+        r = route_configure(route, link, ndisc_route_handler);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set default route: %m");
                 link_enter_failed(link);
@@ -224,7 +224,7 @@ static void ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *
         if (address->cinfo.ifa_valid == 0)
                 return;
 
-        r = address_configure(address, link, ndisc_netlink_handler, true);
+        r = address_configure(address, link, ndisc_route_handler, true);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set SLAAC address: %m");
                 link_enter_failed(link);
@@ -282,7 +282,7 @@ static void ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) 
                 return;
         }
 
-        r = route_configure(route, link, ndisc_netlink_handler);
+        r = route_configure(route, link, ndisc_route_handler);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set prefix route: %m");
                 link_enter_failed(link);
@@ -354,7 +354,7 @@ static void ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return;
         }
 
-        r = route_configure(route, link, ndisc_netlink_handler);
+        r = route_configure(route, link, ndisc_route_handler);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set additional route: %m");
                 link_enter_failed(link);

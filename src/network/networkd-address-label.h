@@ -18,7 +18,6 @@ typedef struct NetworkConfigSection NetworkConfigSection;
 
 struct AddressLabel {
         Network *network;
-        Link *link;
         NetworkConfigSection *section;
 
         unsigned char prefixlen;
