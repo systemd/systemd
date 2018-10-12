@@ -14,7 +14,7 @@
 #include "string-util.h"
 #include "util.h"
 
-#define POOL_SIZE_MIN 512
+#define POOL_SIZE_MIN 1024
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int seed_fd = -1, random_fd = -1;
