@@ -21,7 +21,8 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "socket-util.h"
-#include "udev.h"
+#include "strxcpyx.h"
+#include "udev-ctrl.h"
 
 /* wire protocol magic must match */
 #define UDEV_CTRL_MAGIC                                0xdead1dea

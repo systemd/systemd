@@ -101,14 +101,18 @@
 #include <unistd.h>
 #include <linux/pci_regs.h>
 
+#include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "libudev-private.h"
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "udev.h"
+#include "strv.h"
+#include "strxcpyx.h"
+#include "udev-builtin.h"
 
 #define ONBOARD_INDEX_MAX (16*1024-1)
 

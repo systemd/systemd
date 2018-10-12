@@ -19,11 +19,13 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "libudev-private.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "time-util.h"
-#include "udev.h"
 #include "udevadm.h"
+#include "udev-ctrl.h"
+#include "util.h"
 
 static int help(void) {
         printf("%s control OPTION\n\n"

@@ -9,9 +9,10 @@
 
 #include "alloc-util.h"
 #include "hwdb-util.h"
+#include "libudev-private.h"
 #include "parse-util.h"
 #include "string-util.h"
-#include "udev.h"
+#include "udev-builtin.h"
 
 static sd_hwdb *hwdb;
 

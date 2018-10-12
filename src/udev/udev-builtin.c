@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "string-util.h"
+#include "udev-builtin.h"
 #include "udev.h"
 
 static bool initialized;

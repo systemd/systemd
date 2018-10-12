@@ -17,8 +17,9 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "libudev-private.h"
 #include "string-util.h"
-#include "udev.h"
+#include "udev-builtin.h"
 
 static void set_usb_iftype(char *to, int if_class_num, size_t len) {
         const char *type = "generic";

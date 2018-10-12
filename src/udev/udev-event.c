@@ -18,11 +18,15 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "libudev-device-internal.h"
 #include "netlink-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "udev-builtin.h"
+#include "udev-node.h"
+#include "udev-watch.h"
 #include "udev.h"
 
 typedef struct Spawn {
@@ -697,41 +701,6 @@ static int spawn_wait(struct udev_event *event,
         return ret;
 }
 
-int udev_build_argv(char *cmd, int *argc, char *argv[]) {
-        int i = 0;
-        char *pos;
-
-        if (strchr(cmd, ' ') == NULL) {
-                argv[i++] = cmd;
-                goto out;
-        }
-
-        pos = cmd;
-        while (pos != NULL && pos[0] != '\0') {
-                if (IN_SET(pos[0], '\'', '"')) {
-                        /* do not separate quotes or double quotes */
-                        char delim[2] = { pos[0], '\0' };
-
-                        pos++;
-                        argv[i] = strsep(&pos, delim);
-                        if (pos != NULL)
-                                while (pos[0] == ' ')
-                                        pos++;
-                } else {
-                        argv[i] = strsep(&pos, " ");
-                        if (pos != NULL)
-                                while (pos[0] == ' ')
-                                        pos++;
-                }
-                i++;
-        }
-out:
-        argv[i] = NULL;
-        if (argc)
-                *argc = i;
-        return 0;
-}
-
 int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_usec,
                      usec_t timeout_warn_usec,
@@ -834,20 +803,20 @@ void udev_event_execute_rules(struct udev_event *event,
                 udev_device_delete_db(dev);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
-                        udev_watch_end(dev);
+                        udev_watch_end(dev->device);
 
                 udev_rules_apply_to_event(rules, event,
                                           timeout_usec, timeout_warn_usec,
                                           properties_list);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
-                        udev_node_remove(dev);
+                        udev_node_remove(dev->device);
         } else {
                 event->dev_db = udev_device_clone_with_db(dev);
                 if (event->dev_db != NULL) {
                         /* disable watch during event processing */
                         if (major(udev_device_get_devnum(dev)) != 0)
-                                udev_watch_end(event->dev_db);
+                                udev_watch_end(event->dev_db->device);
 
                         if (major(udev_device_get_devnum(dev)) == 0 &&
                             streq(udev_device_get_action(dev), "move"))
@@ -882,7 +851,7 @@ void udev_event_execute_rules(struct udev_event *event,
 
                         /* remove/update possible left-over symlinks from old database entry */
                         if (event->dev_db != NULL)
-                                udev_node_update_old_links(dev, event->dev_db);
+                                udev_node_update_old_links(dev->device, event->dev_db->device);
 
                         if (!event->owner_set)
                                 event->uid = udev_device_get_devnode_uid(dev);
@@ -904,7 +873,7 @@ void udev_event_execute_rules(struct udev_event *event,
                         }
 
                         apply = streq(udev_device_get_action(dev), "add") || event->owner_set || event->group_set || event->mode_set;
-                        udev_node_add(dev, apply, event->mode, event->uid, event->gid, &event->seclabel_list);
+                        udev_node_add(dev->device, apply, event->mode, event->uid, event->gid, &event->seclabel_list);
                 }
 
                 /* preserve old, or get new initialization timestamp */
