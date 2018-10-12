@@ -399,6 +399,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-set-disable-mempool.c'],
+         [],
+         [threads]],
+
         [['src/test/test-bitmap.c'],
          [],
          []],
