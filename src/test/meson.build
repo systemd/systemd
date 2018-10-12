@@ -904,6 +904,12 @@ tests += [
         [['src/libsystemd/sd-device/test-sd-device.c'],
          [],
          []],
+
+        [['src/libsystemd/sd-device/test-sd-device-thread.c'],
+         [libbasic,
+          libshared_static,
+          libsystemd],
+         [threads]],
 ]
 
 if cxx.found()
