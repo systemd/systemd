@@ -921,6 +921,12 @@ evdev:input:b0003v045Ep00DB*
  KEYBOARD_KEY_c022d=up                                  # zoomin
  KEYBOARD_KEY_c022e=down                                # zoomout
 
+# Microsoft (Razer produced) Reclusa keyboard
+evdev:input:b0003v1532p0200*
+ KEYBOARD_KEY_c01c9=shuffle
+ KEYBOARD_KEY_c01ca=up                                  # zoomin
+ KEYBOARD_KEY_c01cb=down                                # zoomout
+
 ###########################################################
 # Micro Star
 ###########################################################
