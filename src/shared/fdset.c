@@ -211,13 +211,16 @@ fail:
 int fdset_close_others(FDSet *fds) {
         void *e;
         Iterator i;
-        int *a;
+        int *a = NULL;
         size_t j = 0, m;
 
         m = fdset_size(fds);
-        a = newa(int, m);
-        SET_FOREACH(e, MAKE_SET(fds), i)
-                a[j++] = PTR_TO_FD(e);
+
+        if (m > 0) {
+                a = newa(int, m);
+                SET_FOREACH(e, MAKE_SET(fds), i)
+                        a[j++] = PTR_TO_FD(e);
+        }
 
         assert(j == m);
 
