@@ -33,7 +33,6 @@ SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
-IPAddressDeny=any
 
 # Increase the default a bit in order to allow many simultaneous
 # services being run since we keep one fd open per service. Also, when

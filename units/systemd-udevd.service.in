@@ -33,4 +33,3 @@ SystemCallFilter=@system-service @module @raw-io
 SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
-IPAddressDeny=any

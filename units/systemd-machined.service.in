@@ -27,7 +27,6 @@ SystemCallFilter=@system-service @mount
 SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
-IPAddressDeny=any
 
 # Note that machined cannot be placed in a mount namespace, since it
 # needs access to the host's mount namespace in order to implement the

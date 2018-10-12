@@ -34,7 +34,6 @@ SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
-IPAddressDeny=any
 FileDescriptorStoreMax=512
 
 # Increase the default a bit in order to allow many simultaneous

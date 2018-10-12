@@ -31,5 +31,4 @@ SystemCallFilter=@system-service @clock
 SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
-IPAddressDeny=any
 ReadWritePaths=/etc

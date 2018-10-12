@@ -33,5 +33,4 @@ SystemCallFilter=@system-service sethostname
 SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
-IPAddressDeny=any
 ReadWritePaths=/etc
