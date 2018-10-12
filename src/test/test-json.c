@@ -354,6 +354,38 @@ static void test_source(void) {
         printf("--- pretty end ---\n");
 }
 
+static void test_depth(void) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *k = NULL;
+        unsigned i;
+        int r;
+
+        assert_se(json_variant_new_string(&k, "hallo") >= 0);
+        v = json_variant_ref(k);
+
+        /* Let's verify that the maximum depth checks work */
+
+        for (i = 0;; i++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+
+                assert_se(i <= UINT16_MAX);
+                if (i & 1)
+                        r = json_variant_new_array(&w, &v, 1);
+                else
+                        r = json_variant_new_object(&w, (JsonVariant*[]) { k, v }, 2);
+                if (r == -ELNRNG) {
+                        log_info("max depth at %u", i);
+                        break;
+                }
+
+                assert_se(r >= 0);
+
+                json_variant_unref(v);
+                v = TAKE_PTR(w);
+        }
+
+        json_variant_dump(v, 0, stdout, NULL);
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -406,6 +438,8 @@ int main(int argc, char *argv[]) {
         test_build();
 
         test_source();
+
+        test_depth();
 
         return 0;
 }

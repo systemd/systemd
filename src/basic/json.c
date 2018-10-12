@@ -24,6 +24,12 @@
 #include "terminal-util.h"
 #include "utf8.h"
 
+/* Refuse putting together variants with a larger depth than 16K by default (as a protection against overflowing stacks
+ * if code processes JSON objects recursively. Note that we store the depth in an uint16_t, hence make sure this
+ * remains under 2^16. */
+#define DEPTH_MAX (16U*1024U)
+assert_cc(DEPTH_MAX <= UINT16_MAX);
+
 typedef struct JsonSource {
         /* When we parse from a file or similar, encodes the filename, to indicate the source of a json variant */
         size_t n_ref;
@@ -62,6 +68,9 @@ struct JsonVariant {
 
         /* While comparing two arrays, we use this for marking what we already have seen */
         bool is_marked:1;
+
+        /* The current 'depth' of the JsonVariant, i.e. how many levels of member variants this has */
+        uint16_t depth;
 
         union {
                 /* For simple types we store the value in-line. */
@@ -156,6 +165,18 @@ static JsonVariant *json_variant_dereference(JsonVariant *v) {
                 return v;
 
         return json_variant_dereference(v->reference);
+}
+
+static uint16_t json_variant_depth(JsonVariant *v) {
+
+        v = json_variant_dereference(v);
+        if (!v)
+                return 0;
+
+        if (json_variant_is_magic(v))
+                return 0;
+
+        return v->depth;
 }
 
 static JsonVariant *json_variant_normalize(JsonVariant *v) {
@@ -413,8 +434,7 @@ static void json_variant_copy_source(JsonVariant *v, JsonVariant *from) {
 }
 
 int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
-        JsonVariant *v;
-        size_t i;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         assert_return(ret, -EINVAL);
         if (n == 0) {
@@ -430,22 +450,29 @@ int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
         *v = (JsonVariant) {
                 .n_ref = 1,
                 .type = JSON_VARIANT_ARRAY,
-                .n_elements = n,
         };
 
-        for (i = 0; i < n; i++) {
-                JsonVariant *w = v + 1 + i;
+        for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
+                JsonVariant *w = v + 1 + v->n_elements,
+                        *c = array[v->n_elements];
+                uint16_t d;
+
+                d = json_variant_depth(c);
+                if (d >= DEPTH_MAX) /* Refuse too deep nesting */
+                        return -ELNRNG;
+                if (d >= v->depth)
+                        v->depth = d + 1;
 
                 *w = (JsonVariant) {
                         .is_embedded = true,
                         .parent = v,
                 };
 
-                json_variant_set(w, array[i]);
-                json_variant_copy_source(w, array[i]);
+                json_variant_set(w, c);
+                json_variant_copy_source(w, c);
         }
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
@@ -468,6 +495,7 @@ int json_variant_new_array_bytes(JsonVariant **ret, const void *p, size_t n) {
                 .n_ref = 1,
                 .type = JSON_VARIANT_ARRAY,
                 .n_elements = n,
+                .depth = 1,
         };
 
         for (i = 0; i < n; i++) {
@@ -505,6 +533,7 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
         *v = (JsonVariant) {
                 .n_ref = 1,
                 .type = JSON_VARIANT_ARRAY,
+                .depth = 1,
         };
 
         for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
@@ -536,8 +565,7 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
 }
 
 int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
-        JsonVariant *v;
-        size_t i;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         assert_return(ret, -EINVAL);
         if (n == 0) {
@@ -554,22 +582,29 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
         *v = (JsonVariant) {
                 .n_ref = 1,
                 .type = JSON_VARIANT_OBJECT,
-                .n_elements = n,
         };
 
-        for (i = 0; i < n; i++) {
-                JsonVariant *w = v + 1 + i;
+        for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
+                JsonVariant *w = v + 1 + v->n_elements,
+                        *c = array[v->n_elements];
+                uint16_t d;
+
+                d = json_variant_depth(c);
+                if (d >= DEPTH_MAX) /* Refuse too deep nesting */
+                        return -ELNRNG;
+                if (d >= v->depth)
+                        v->depth = d + 1;
 
                 *w = (JsonVariant) {
                         .is_embedded = true,
                         .parent = v,
                 };
 
-                json_variant_set(w, array[i]);
-                json_variant_copy_source(w, array[i]);
+                json_variant_set(w, c);
+                json_variant_copy_source(w, c);
         }
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
