@@ -301,7 +301,7 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         return 0;
 
 fail:
-        sd_ndisc_stop(nd);
+        (void) sd_ndisc_stop(nd);
         return 0;
 }
 
