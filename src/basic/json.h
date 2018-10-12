@@ -270,5 +270,14 @@ int json_log_internal(JsonVariant *variant, int level, int error, const char *fi
                         : -abs(_e);                                     \
         })
 
+#define JSON_VARIANT_STRING_CONST(x) _JSON_VARIANT_STRING_CONST(UNIQ, (x))
+
+#define _JSON_VARIANT_STRING_CONST(xq, x)                                       \
+        ({                                                              \
+                __attribute__((aligned(2))) static const char UNIQ_T(json_string_const, xq)[] = (x); \
+                assert((((uintptr_t) UNIQ_T(json_string_const, xq)) & 1) == 0); \
+                (JsonVariant*) ((uintptr_t) UNIQ_T(json_string_const, xq) + 1); \
+        })
+
 const char *json_variant_type_to_string(JsonVariantType t);
 JsonVariantType json_variant_type_from_string(const char *s);

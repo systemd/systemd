@@ -292,6 +292,7 @@ static void test_build(void) {
                                                   JSON_BUILD_STRING(NULL),
                                                   JSON_BUILD_NULL,
                                                   JSON_BUILD_INTEGER(77),
+                                                  JSON_BUILD_ARRAY(JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("foobar")), JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("zzz"))),
                                                   JSON_BUILD_STRV(STRV_MAKE("one", "two", "three", "four")))) >= 0);
 
         assert_se(json_variant_format(a, 0, &s) >= 0);
@@ -355,12 +356,11 @@ static void test_source(void) {
 }
 
 static void test_depth(void) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *k = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         unsigned i;
         int r;
 
-        assert_se(json_variant_new_string(&k, "hallo") >= 0);
-        v = json_variant_ref(k);
+        v = JSON_VARIANT_STRING_CONST("start");
 
         /* Let's verify that the maximum depth checks work */
 
@@ -371,7 +371,7 @@ static void test_depth(void) {
                 if (i & 1)
                         r = json_variant_new_array(&w, &v, 1);
                 else
-                        r = json_variant_new_object(&w, (JsonVariant*[]) { k, v }, 2);
+                        r = json_variant_new_object(&w, (JsonVariant*[]) { JSON_VARIANT_STRING_CONST("key"), v }, 2);
                 if (r == -ELNRNG) {
                         log_info("max depth at %u", i);
                         break;
@@ -384,6 +384,7 @@ static void test_depth(void) {
         }
 
         json_variant_dump(v, 0, stdout, NULL);
+        fputs("\n", stdout);
 }
 
 int main(int argc, char *argv[]) {
