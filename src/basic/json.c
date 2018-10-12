@@ -823,7 +823,7 @@ long double json_variant_real(JsonVariant *v) {
 
 mismatch:
         log_debug("Non-integer JSON variant requested as integer, returning 0.");
-        return 0;
+        return 0.0;
 }
 
 bool json_variant_is_negative(JsonVariant *v) {
