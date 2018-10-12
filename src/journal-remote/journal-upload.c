@@ -280,8 +280,7 @@ int start_upload(Uploader *u,
 
 static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
         Uploader *u = userp;
-
-        ssize_t r;
+        ssize_t n;
 
         assert(u);
         assert(nmemb < SSIZE_MAX / size);
@@ -289,21 +288,22 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
         if (u->input < 0)
                 return 0;
 
-        r = read(u->input, buf, size * nmemb);
-        log_debug("%s: allowed %zu, read %zd", __func__, size*nmemb, r);
+        assert(!size_multiply_overflow(size, nmemb));
 
-        if (r > 0)
-                return r;
+        n = read(u->input, buf, size * nmemb);
+        log_debug("%s: allowed %zu, read %zd", __func__, size*nmemb, n);
+        if (n > 0)
+                return n;
 
         u->uploading = false;
-        if (r == 0) {
-                log_debug("Reached EOF");
-                close_fd_input(u);
-                return 0;
-        } else {
+        if (n < 0) {
                 log_error_errno(errno, "Aborting transfer after read error on input: %m.");
                 return CURL_READFUNC_ABORT;
         }
+
+        log_debug("Reached EOF");
+        close_fd_input(u);
+        return 0;
 }
 
 static void close_fd_input(Uploader *u) {
