@@ -433,7 +433,7 @@ int route_remove(Route *route, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_PRIORITY attribute: %m");
 
-        if (!IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE)) {
+        if (!IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW)) {
                 r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
@@ -582,7 +582,7 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not set route type: %m");
 
-        if (!IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE)) {
+        if (!IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW)) {
                 r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
@@ -1045,6 +1045,8 @@ int config_parse_route_type(
                 n->type = RTN_UNREACHABLE;
         else if (streq(rvalue, "prohibit"))
                 n->type = RTN_PROHIBIT;
+        else if (streq(rvalue, "throw"))
+                n->type = RTN_THROW;
         else {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
