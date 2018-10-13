@@ -46,7 +46,7 @@ static inline int abs_size_mm(const struct input_absinfo *absinfo) {
         return (absinfo->maximum - absinfo->minimum) / absinfo->resolution;
 }
 
-static void extract_info(struct udev_device *dev, const char *devpath, bool test) {
+static void extract_info(sd_device *dev, const char *devpath, bool test) {
         char width[DECIMAL_STR_MAX(int)], height[DECIMAL_STR_MAX(int)];
         struct input_absinfo xabsinfo = {}, yabsinfo = {};
         _cleanup_close_ int fd = -1;
@@ -65,18 +65,18 @@ static void extract_info(struct udev_device *dev, const char *devpath, bool test
         xsprintf(width, "%d", abs_size_mm(&xabsinfo));
         xsprintf(height, "%d", abs_size_mm(&yabsinfo));
 
-        udev_builtin_add_property(dev->device, test, "ID_INPUT_WIDTH_MM", width);
-        udev_builtin_add_property(dev->device, test, "ID_INPUT_HEIGHT_MM", height);
+        udev_builtin_add_property(dev, test, "ID_INPUT_WIDTH_MM", width);
+        udev_builtin_add_property(dev, test, "ID_INPUT_HEIGHT_MM", height);
 }
 
 /*
  * Read a capability attribute and return bitmask.
- * @param dev udev_device
+ * @param dev sd_device
  * @param attr sysfs attribute name (e. g. "capabilities/key")
  * @param bitmask: Output array which has a sizeof of bitmask_size
  */
-static void get_cap_mask(struct udev_device *dev,
-                         struct udev_device *pdev, const char* attr,
+static void get_cap_mask(sd_device *dev,
+                         sd_device *pdev, const char* attr,
                          unsigned long *bitmask, size_t bitmask_size,
                          bool test) {
         const char *v;
@@ -85,8 +85,8 @@ static void get_cap_mask(struct udev_device *dev,
         char* word;
         unsigned long val;
 
-        v = udev_device_get_sysattr_value(pdev, attr);
-        v = strempty(v);
+        if (sd_device_get_sysattr_value(pdev, attr, &v) < 0)
+                v = "";
 
         xsprintf(text, "%s", v);
         log_debug("%s raw kernel attribute: %s", attr, text);
@@ -126,7 +126,7 @@ static void get_cap_mask(struct udev_device *dev,
 }
 
 /* pointer devices */
-static bool test_pointers(struct udev_device *dev,
+static bool test_pointers(sd_device *dev,
                           const unsigned long* bitmask_ev,
                           const unsigned long* bitmask_abs,
                           const unsigned long* bitmask_key,
@@ -162,7 +162,7 @@ static bool test_pointers(struct udev_device *dev,
                 is_accelerometer = true;
 
         if (is_accelerometer) {
-                udev_builtin_add_property(dev->device, test, "ID_INPUT_ACCELEROMETER", "1");
+                udev_builtin_add_property(dev, test, "ID_INPUT_ACCELEROMETER", "1");
                 return true;
         }
 
@@ -232,23 +232,23 @@ static bool test_pointers(struct udev_device *dev,
                 is_mouse = true;
 
         if (is_pointing_stick)
-                udev_builtin_add_property(dev->device, test, "ID_INPUT_POINTINGSTICK", "1");
+                udev_builtin_add_property(dev, test, "ID_INPUT_POINTINGSTICK", "1");
         if (is_mouse)
-                udev_builtin_add_property(dev->device, test, "ID_INPUT_MOUSE", "1");
+                udev_builtin_add_property(dev, test, "ID_INPUT_MOUSE", "1");
         if (is_touchpad)
-                udev_builtin_add_property(dev->device, test, "ID_INPUT_TOUCHPAD", "1");
+                udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHPAD", "1");
         if (is_touchscreen)
-                udev_builtin_add_property(dev->device, test, "ID_INPUT_TOUCHSCREEN", "1");
+                udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHSCREEN", "1");
         if (is_joystick)
-                udev_builtin_add_property(dev->device, test, "ID_INPUT_JOYSTICK", "1");
+                udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
         if (is_tablet)
-                udev_builtin_add_property(dev->device, test, "ID_INPUT_TABLET", "1");
+                udev_builtin_add_property(dev, test, "ID_INPUT_TABLET", "1");
 
         return is_tablet || is_mouse || is_touchpad || is_touchscreen || is_joystick || is_pointing_stick;
 }
 
 /* key like devices */
-static bool test_key(struct udev_device *dev,
+static bool test_key(sd_device *dev,
                      const unsigned long* bitmask_ev,
                      const unsigned long* bitmask_key,
                      bool test) {
@@ -284,7 +284,7 @@ static bool test_key(struct udev_device *dev,
         }
 
         if (found > 0) {
-                udev_builtin_add_property(dev->device, test, "ID_INPUT_KEY", "1");
+                udev_builtin_add_property(dev, test, "ID_INPUT_KEY", "1");
                 ret = true;
         }
 
@@ -292,15 +292,15 @@ static bool test_key(struct udev_device *dev,
          * those, consider it a full keyboard; do not test KEY_RESERVED, though */
         mask = 0xFFFFFFFE;
         if (FLAGS_SET(bitmask_key[0], mask)) {
-                udev_builtin_add_property(dev->device, test, "ID_INPUT_KEYBOARD", "1");
+                udev_builtin_add_property(dev, test, "ID_INPUT_KEYBOARD", "1");
                 ret = true;
         }
 
         return ret;
 }
 
-static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], bool test) {
-        struct udev_device *pdev;
+static int builtin_input_id(struct udev_device *_dev, int argc, char *argv[], bool test) {
+        sd_device *pdev, *dev = _dev->device;
         unsigned long bitmask_ev[NBITS(EV_MAX)];
         unsigned long bitmask_abs[NBITS(ABS_MAX)];
         unsigned long bitmask_key[NBITS(KEY_MAX)];
@@ -314,14 +314,23 @@ static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], boo
 
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
-        pdev = dev;
-        while (pdev != NULL && udev_device_get_sysattr_value(pdev, "capabilities/ev") == NULL)
-                pdev = udev_device_get_parent_with_subsystem_devtype(pdev, "input", NULL);
+        for (pdev = dev; pdev; ) {
+                const char *s;
+
+                if (sd_device_get_sysattr_value(pdev, "capabilities/ev", &s) >= 0)
+                        break;
+
+                if (sd_device_get_parent_with_subsystem_devtype(pdev, "input", NULL, &pdev) >= 0)
+                        continue;
+
+                pdev = NULL;
+                break;
+        }
 
         if (pdev) {
                 /* Use this as a flag that input devices were detected, so that this
                  * program doesn't need to be called more than once per device */
-                udev_builtin_add_property(dev->device, test, "ID_INPUT", "1");
+                udev_builtin_add_property(dev, test, "ID_INPUT", "1");
                 get_cap_mask(dev, pdev, "capabilities/ev", bitmask_ev, sizeof(bitmask_ev), test);
                 get_cap_mask(dev, pdev, "capabilities/abs", bitmask_abs, sizeof(bitmask_abs), test);
                 get_cap_mask(dev, pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
@@ -334,15 +343,15 @@ static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], boo
                 /* Some evdev nodes have only a scrollwheel */
                 if (!is_pointer && !is_key && test_bit(EV_REL, bitmask_ev) &&
                     (test_bit(REL_WHEEL, bitmask_rel) || test_bit(REL_HWHEEL, bitmask_rel)))
-                        udev_builtin_add_property(dev->device, test, "ID_INPUT_KEY", "1");
+                        udev_builtin_add_property(dev, test, "ID_INPUT_KEY", "1");
                 if (test_bit(EV_SW, bitmask_ev))
-                        udev_builtin_add_property(dev->device, test, "ID_INPUT_SWITCH", "1");
+                        udev_builtin_add_property(dev, test, "ID_INPUT_SWITCH", "1");
 
         }
 
-        devnode = udev_device_get_devnode(dev);
-        sysname = udev_device_get_sysname(dev);
-        if (devnode && sysname && startswith(sysname, "event"))
+        if (sd_device_get_devname(dev, &devnode) >= 0 &&
+            sd_device_get_sysname(dev, &sysname) >= 0 &&
+            startswith(sysname, "event"))
                 extract_info(dev, devnode, test);
 
         return EXIT_SUCCESS;
