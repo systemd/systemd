@@ -3,8 +3,9 @@
 
 #include <stdbool.h>
 
+#include "sd-device.h"
+
 #include "libudev.h"
-#include "libudev-device-internal.h"
 
 enum udev_builtin_cmd {
 #if HAVE_BLKID
@@ -29,7 +30,7 @@ enum udev_builtin_cmd {
 
 struct udev_builtin {
         const char *name;
-        int (*cmd)(struct udev_device *dev, int argc, char *argv[], bool test);
+        int (*cmd)(sd_device *dev, int argc, char *argv[], bool test);
         const char *help;
         int (*init)(void);
         void (*exit)(void);

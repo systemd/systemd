@@ -113,7 +113,7 @@ next:
         return r;
 }
 
-static int builtin_hwdb(struct udev_device *_dev, int argc, char *argv[], bool test) {
+static int builtin_hwdb(sd_device *dev, int argc, char *argv[], bool test) {
         static const struct option options[] = {
                 { "filter", required_argument, NULL, 'f' },
                 { "device", required_argument, NULL, 'd' },
@@ -126,7 +126,6 @@ static int builtin_hwdb(struct udev_device *_dev, int argc, char *argv[], bool t
         const char *subsystem = NULL;
         const char *prefix = NULL;
         _cleanup_(sd_device_unrefp) sd_device *srcdev = NULL;
-        sd_device *dev = _dev->device;
 
         if (!hwdb)
                 return EXIT_FAILURE;

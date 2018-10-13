@@ -183,13 +183,12 @@ static int open_device(const char *devnode) {
         return fd;
 }
 
-static int builtin_keyboard(struct udev_device *_dev, int argc, char *argv[], bool test) {
+static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
         unsigned release[1024];
         unsigned release_count = 0;
         _cleanup_close_ int fd = -1;
         const char *node, *key, *value;
         int has_abs = -1, r;
-        sd_device *dev = _dev->device;
 
         r = sd_device_get_devname(dev, &node);
         if (r < 0) {

@@ -21,7 +21,7 @@ _printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *fi
         log_internalv(priority, 0, file, line, fn, format, args);
 }
 
-static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool test) {
+static int builtin_kmod(sd_device *dev, int argc, char *argv[], bool test) {
         int i;
 
         if (!ctx)

@@ -805,12 +805,11 @@ static int ieee_oui(sd_device *dev, struct netnames *names, bool test) {
         return 0;
 }
 
-static int builtin_net_id(struct udev_device *_dev, int argc, char *argv[], bool test) {
+static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
         const char *s, *p, *devtype, *prefix = "en";
         struct netnames names = {};
         unsigned long i;
         int r;
-        sd_device *dev = _dev->device;
 
         /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
         r = sd_device_get_sysattr_value(dev, "type", &s);

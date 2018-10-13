@@ -519,13 +519,12 @@ static sd_device *handle_ap(sd_device *parent, char **path) {
         return skip_subsystem(parent, "ap");
 }
 
-static int builtin_path_id(struct udev_device *_dev, int argc, char *argv[], bool test) {
+static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
         sd_device *parent;
         _cleanup_free_ char *path = NULL;
         bool supported_transport = false;
         bool supported_parent = false;
         const char *subsystem;
-        sd_device *dev = _dev->device;
 
         assert(dev);
 

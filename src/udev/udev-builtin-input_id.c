@@ -299,8 +299,8 @@ static bool test_key(sd_device *dev,
         return ret;
 }
 
-static int builtin_input_id(struct udev_device *_dev, int argc, char *argv[], bool test) {
-        sd_device *pdev, *dev = _dev->device;
+static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
+        sd_device *pdev;
         unsigned long bitmask_ev[NBITS(EV_MAX)];
         unsigned long bitmask_abs[NBITS(ABS_MAX)];
         unsigned long bitmask_key[NBITS(KEY_MAX)];

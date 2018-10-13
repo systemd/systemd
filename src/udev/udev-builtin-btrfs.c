@@ -15,7 +15,7 @@
 #include "udev-builtin.h"
 #include "util.h"
 
-static int builtin_btrfs(struct udev_device *dev, int argc, char *argv[], bool test) {
+static int builtin_btrfs(sd_device *dev, int argc, char *argv[], bool test) {
         struct btrfs_ioctl_vol_args args = {};
         _cleanup_close_ int fd = -1;
         int err;
@@ -32,7 +32,7 @@ static int builtin_btrfs(struct udev_device *dev, int argc, char *argv[], bool t
         if (err < 0)
                 return EXIT_FAILURE;
 
-        udev_builtin_add_property(dev->device, test, "ID_BTRFS_READY", one_zero(err == 0));
+        udev_builtin_add_property(dev, test, "ID_BTRFS_READY", one_zero(err == 0));
         return EXIT_SUCCESS;
 }
 

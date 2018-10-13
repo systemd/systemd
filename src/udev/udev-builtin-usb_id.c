@@ -223,7 +223,7 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
  * 6.) If the device supplies a serial number, this number
  *     is concatenated with the identification with an underscore '_'.
  */
-static int builtin_usb_id(struct udev_device *_dev, int argc, char *argv[], bool test) {
+static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
         char vendor_str[64] = "";
         char vendor_str_enc[256];
         const char *vendor_id;
@@ -248,7 +248,6 @@ static int builtin_usb_id(struct udev_device *_dev, int argc, char *argv[], bool
 
         const char *syspath, *sysname, *devtype, *interface_syspath;
         int r;
-        sd_device *dev = _dev->device;
 
         assert(dev);
 
