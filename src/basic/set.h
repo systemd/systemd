@@ -86,7 +86,7 @@ static inline void set_clear_free(Set *s) {
 /* no set_clear_free_free */
 
 static inline void *set_steal_first(Set *s) {
-        return internal_hashmap_steal_first(HASHMAP_BASE(s));
+        return internal_hashmap_first_key_and_value(HASHMAP_BASE(s), true, NULL);
 }
 
 #define set_clear_with_destructor(_s, _f)               \
@@ -105,7 +105,7 @@ static inline void *set_steal_first(Set *s) {
 /* no set_first_key */
 
 static inline void *set_first(Set *s) {
-        return internal_hashmap_first(HASHMAP_BASE(s));
+        return internal_hashmap_first_key_and_value(HASHMAP_BASE(s), false, NULL);
 }
 
 /* no set_next */
