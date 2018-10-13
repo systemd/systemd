@@ -33,7 +33,8 @@
   - Supports event source prioritization
   - Scales better with a large number of time events because it does not require one timerfd each
   - Automatically tries to coalesce timer events system-wide
-  - Handles signals and child PIDs
+  - Handles signals, child PIDs, inotify events
+  - Supports systemd-style automatic watchdog event generation
 */
 
 _SD_BEGIN_DECLARATIONS;

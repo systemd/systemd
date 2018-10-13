@@ -100,11 +100,13 @@
     <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    or
+    <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_inotify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_post</refentrytitle><manvolnum>3</manvolnum></citerefentry> or
+    <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     and then execute the event loop using
-    <citerefentry><refentrytitle>sd_event_run</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    <citerefentry><refentrytitle>sd_event_loop</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
     <para><function>sd_event_ref()</function> increases the reference
     count of the specified event loop object by one.</para>
@@ -211,9 +213,8 @@
       <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_inotify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_event_add_post</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_run</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>gettid</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     </para>
