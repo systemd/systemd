@@ -629,6 +629,16 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
               <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
             </row>
             <row>
+              <entry><literal>%g</literal></entry>
+              <entry>User group</entry>
+              <entry>This is the name of the group running the command. In case of the system instance this resolves to <literal>root</literal>.</entry>
+            </row>
+            <row>
+              <entry><literal>%G</literal></entry>
+              <entry>User GID</entry>
+              <entry>This is the numeric GID of the group running the command. In case of the system instance this resolves to <constant>0</constant>.</entry>
+            </row>
+            <row>
               <entry><literal>%u</literal></entry>
               <entry>User name</entry>
               <entry>This is the name of the user running the command. In case of the system instance this resolves to <literal>root</literal>.</entry>

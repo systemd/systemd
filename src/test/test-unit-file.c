@@ -621,11 +621,13 @@ static void test_install_printf(void) {
         UnitFileInstallInfo i3 = { .name = name3, .path = path3, };
         UnitFileInstallInfo i4 = { .name = name3, .path = path3, };
 
-        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *uid = NULL, *user = NULL;
+        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL;
 
         assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
         assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
         assert_se(host = gethostname_malloc());
+        assert_se(group = gid_to_name(getgid()));
+        assert_se(asprintf(&gid, UID_FMT, getgid()) >= 0);
         assert_se(user = uid_to_name(getuid()));
         assert_se(asprintf(&uid, UID_FMT, getuid()) >= 0);
 
@@ -652,6 +654,8 @@ static void test_install_printf(void) {
         expect(i, "%p", "name");
         expect(i, "%i", "");
         expect(i, "%j", "name");
+        expect(i, "%g", group);
+        expect(i, "%G", gid);
         expect(i, "%u", user);
         expect(i, "%U", uid);
 
@@ -659,12 +663,16 @@ static void test_install_printf(void) {
         expect(i, "%b", bid);
         expect(i, "%H", host);
 
+        expect(i2, "%g", group);
+        expect(i2, "%G", gid);
         expect(i2, "%u", user);
         expect(i2, "%U", uid);
 
         expect(i3, "%n", "name@inst.service");
         expect(i3, "%N", "name@inst");
         expect(i3, "%p", "name");
+        expect(i3, "%g", group);
+        expect(i3, "%G", gid);
         expect(i3, "%u", user);
         expect(i3, "%U", uid);
 
@@ -672,6 +680,8 @@ static void test_install_printf(void) {
         expect(i3, "%b", bid);
         expect(i3, "%H", host);
 
+        expect(i4, "%g", group);
+        expect(i4, "%G", gid);
         expect(i4, "%u", user);
         expect(i4, "%U", uid);
 }

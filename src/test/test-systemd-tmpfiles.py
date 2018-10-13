@@ -12,6 +12,7 @@ import socket
 import subprocess
 import tempfile
 import pwd
+import grp
 
 try:
     from systemd import id128
@@ -95,9 +96,13 @@ def test_valid_specifiers(*, user):
     test_content('f {} - - - - %H', '{}'.format(socket.gethostname()), user=user)
     test_content('f {} - - - - %v', '{}'.format(os.uname().release), user=user)
     test_content('f {} - - - - %U', '{}'.format(os.getuid()), user=user)
+    test_content('f {} - - - - %G', '{}'.format(os.getgid()), user=user)
 
-    user = pwd.getpwuid(os.getuid())
-    test_content('f {} - - - - %u', '{}'.format(user.pw_name), user=user)
+    puser = pwd.getpwuid(os.getuid())
+    test_content('f {} - - - - %u', '{}'.format(puser.pw_name), user=user)
+
+    pgroup = grp.getgrgid(os.getgid())
+    test_content('f {} - - - - %g', '{}'.format(pgroup.gr_name), user=user)
 
     # Note that %h is the only specifier in which we look the environment,
     # because we check $HOME. Should we even be doing that?

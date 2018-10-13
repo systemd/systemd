@@ -19,9 +19,11 @@ ExecStart=test %L = /var/log
 ExecStart=test %E = /etc
 ExecStart=test %T = /tmp
 ExecStart=test %V = /var/tmp
-ExecStart=sh -c 'test %u = $$(id -un 0)'
-ExecStart=test %U = 0
-ExecStart=sh -c 'test %h = $$(getent passwd 0 | cut -d: -f 6)'
+ExecStart=sh -c 'test %u = $$(id -un)'
+ExecStart=sh -c 'test %U = $$(id -u)'
+ExecStart=sh -c 'test %g = $$(id -gn)'
+ExecStart=sh -c 'test %G = $$(id -g)'
+ExecStart=test %h = /root
 ExecStart=sh -c 'test %s = /bin/sh'
 ExecStart=sh -c 'test %m = $$(cat /etc/machine-id)'
 ExecStart=sh -c 'test %b = $$(cat /proc/sys/kernel/random/boot_id | sed -e 's/-//g')'

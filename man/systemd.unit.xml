@@ -1486,8 +1486,8 @@
     </variablelist>
 
     <para>The following specifiers are interpreted in the Install
-    section: %n, %N, %p, %i, %j, %U, %u, %m, %H, %b, %v. For their meaning
-    see the next section.
+    section: %n, %N, %p, %i, %j, %g, %G, %U, %u, %m, %H, %b, %v. For their
+    meaning see the next section.
     </para>
   </refsect1>
 
@@ -1613,6 +1613,16 @@
             <entry><literal>%T</literal></entry>
             <entry>Directory for temporary files</entry>
             <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
+          </row>
+          <row>
+            <entry><literal>%g</literal></entry>
+            <entry>User group</entry>
+            <entry>This is the name of the group running the service manager instance. In case of the system manager this resolves to <literal>root</literal>.</entry>
+          </row>
+          <row>
+            <entry><literal>%G</literal></entry>
+            <entry>User GID</entry>
+            <entry>This is the numeric GID of the user running the service manager instance. In case of the system manager this resolves to <literal>0</literal>.</entry>
           </row>
           <row>
             <entry><literal>%u</literal></entry>

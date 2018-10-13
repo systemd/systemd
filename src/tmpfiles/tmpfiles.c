@@ -174,6 +174,8 @@ static const Specifier specifier_table[] = {
         { 'H', specifier_host_name,       NULL },
         { 'v', specifier_kernel_release,  NULL },
 
+        { 'g', specifier_group_name,      NULL },
+        { 'G', specifier_group_id,        NULL },
         { 'U', specifier_user_id,         NULL },
         { 'u', specifier_user_name,       NULL },
         { 'h', specifier_user_home,       NULL },
