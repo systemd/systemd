@@ -49,18 +49,14 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                         log_error("Conflicting device node '%s' found, link to '%s' will not be created.", slink, node);
                         return -EOPNOTSUPP;
                 } else if (S_ISLNK(stats.st_mode)) {
-                        char buf[PATH_MAX];
-                        ssize_t len;
+                        _cleanup_free_ char *buf = NULL;
 
-                        len = readlink(slink, buf, sizeof(buf));
-                        if (len > 0 && len < (ssize_t) sizeof(buf)) {
-                                buf[len] = '\0';
-                                if (streq(target, buf)) {
-                                        log_debug("Preserve already existing symlink '%s' to '%s'", slink, target);
-                                        (void) label_fix(slink, LABEL_IGNORE_ENOENT);
-                                        (void) utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
-                                        return 0;
-                                }
+                        if (readlink_malloc(slink, &buf) >= 0 &&
+                            streq(target, buf)) {
+                                log_debug("Preserve already existing symlink '%s' to '%s'", slink, target);
+                                (void) label_fix(slink, LABEL_IGNORE_ENOENT);
+                                (void) utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
+                                return 0;
                         }
                 }
         } else {
