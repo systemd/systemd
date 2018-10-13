@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "libudev-device-internal.h"
 #include "libudev-private.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -74,7 +73,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int builtin_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         enum udev_builtin_cmd cmd;
         int r;
 
@@ -93,13 +92,13 @@ int builtin_main(int argc, char *argv[], void *userdata) {
                 goto finish;
         }
 
-        dev = udev_device_new_from_syspath(NULL, arg_syspath);
-        if (!dev) {
-                r = log_error_errno(errno, "Failed to open device '%s'", arg_syspath);
+        r = sd_device_new_from_syspath(&dev, arg_syspath);
+        if (r < 0) {
+                log_error_errno(r, "Failed to open device '%s': %m", arg_syspath);
                 goto finish;
         }
 
-        r = udev_builtin_run(dev->device, cmd, arg_command, true);
+        r = udev_builtin_run(dev, cmd, arg_command, true);
         if (r < 0)
                 log_debug("error executing '%s', exit code %i", arg_command, r);
 
