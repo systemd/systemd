@@ -742,6 +742,7 @@ static int mount_private_dev(MountEntry *m) {
         return 0;
 
 fail:
+        log_warning_errno(r, "Failed to setup private /dev, ignoring: %m");
         if (devpts)
                 umount(devpts);
 
