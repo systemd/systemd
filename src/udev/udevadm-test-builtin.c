@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "libudev-device-internal.h"
 #include "libudev-private.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -98,7 +99,7 @@ int builtin_main(int argc, char *argv[], void *userdata) {
                 goto finish;
         }
 
-        r = udev_builtin_run(dev, cmd, arg_command, true);
+        r = udev_builtin_run(dev->device, cmd, arg_command, true);
         if (r < 0)
                 log_debug("error executing '%s', exit code %i", arg_command, r);
 

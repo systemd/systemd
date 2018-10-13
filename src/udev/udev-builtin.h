@@ -5,8 +5,6 @@
 
 #include "sd-device.h"
 
-#include "libudev.h"
-
 enum udev_builtin_cmd {
 #if HAVE_BLKID
         UDEV_BUILTIN_BLKID,
@@ -61,7 +59,7 @@ void udev_builtin_exit(void);
 enum udev_builtin_cmd udev_builtin_lookup(const char *command);
 const char *udev_builtin_name(enum udev_builtin_cmd cmd);
 bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
-int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
+int udev_builtin_run(sd_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
 void udev_builtin_list(void);
 bool udev_builtin_validate(void);
 int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val);

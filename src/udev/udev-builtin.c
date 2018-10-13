@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include "device-private.h"
-#include "libudev-device-internal.h"
 #include "string-util.h"
 #include "strv.h"
 #include "udev-builtin.h"
@@ -103,7 +102,7 @@ enum udev_builtin_cmd udev_builtin_lookup(const char *command) {
         return UDEV_BUILTIN_MAX;
 }
 
-int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test) {
+int udev_builtin_run(sd_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test) {
         _cleanup_strv_free_ char **argv = NULL;
 
         if (!builtins[cmd])
@@ -115,7 +114,7 @@ int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const c
 
         /* we need '0' here to reset the internal state */
         optind = 0;
-        return builtins[cmd]->cmd(dev->device, strv_length(argv), argv, test);
+        return builtins[cmd]->cmd(dev, strv_length(argv), argv, test);
 }
 
 int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val) {
