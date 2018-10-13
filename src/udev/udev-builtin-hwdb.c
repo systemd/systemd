@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <errno.h>
 #include <fnmatch.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -9,7 +10,6 @@
 
 #include "alloc-util.h"
 #include "hwdb-util.h"
-#include "libudev-private.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
