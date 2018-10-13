@@ -7,8 +7,10 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "device-private.h"
 #include "dirent-util.h"
+#include "fs-util.h"
 #include "mkdir.h"
 #include "stdio-util.h"
 #include "udev-watch.h"
@@ -48,21 +50,16 @@ int udev_watch_restore(void) {
 
         FOREACH_DIRENT_ALL(ent, dir, break) {
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-                char device[PATH_MAX];
-                ssize_t len;
+                _cleanup_free_ char *device = NULL;
 
                 if (ent->d_name[0] == '.')
                         continue;
 
-                len = readlinkat(dirfd(dir), ent->d_name, device, sizeof(device));
-                if (len <= 0) {
-                        log_error_errno(errno, "Failed to read link '/run/udev/watch.old/%s', ignoring: %m", ent->d_name);
-                        goto unlink;
-                } else if (len >= (ssize_t) sizeof(device)) {
-                        log_error("Path specified by link '/run/udev/watch.old/%s' is truncated, ignoring.", ent->d_name);
+                r = readlinkat_malloc(dirfd(dir), ent->d_name, &device);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read link '/run/udev/watch.old/%s', ignoring: %m", ent->d_name);
                         goto unlink;
                 }
-                device[len] = '\0';
 
                 r = sd_device_new_from_device_id(&dev, device);
                 if (r < 0) {
@@ -152,8 +149,8 @@ int udev_watch_end(sd_device *dev) {
 }
 
 int udev_watch_lookup(int wd, sd_device **ret) {
-        char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)], device[PATH_MAX];
-        ssize_t len;
+        char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *device = NULL;
         int r;
 
         assert(ret);
@@ -165,14 +162,12 @@ int udev_watch_lookup(int wd, sd_device **ret) {
                 return log_error_errno(EINVAL, "Invalid watch handle.");
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
-        len = readlink(filename, device, sizeof(device));
-        if (len <= 0) {
-                if (errno != ENOENT)
+        r = readlink_malloc(filename, &device);
+        if (r < 0) {
+                if (r != -ENOENT)
                         return log_error_errno(errno, "Failed to read link '%s': %m", filename);
                 return 0;
-        } else if (len >= (ssize_t) sizeof(device))
-                return log_error_errno(ENAMETOOLONG, "Path specified by link '%s' is truncated.", filename);
-        device[len] = '\0';
+        }
 
         r = sd_device_new_from_device_id(ret, device);
         if (r < 0)
