@@ -1592,7 +1592,7 @@ finish:
 }
 
 static int json_transform_variant(sd_bus_message *m, const char *contents, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *type = NULL, *value = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *value = NULL;
         int r;
 
         assert(m);
