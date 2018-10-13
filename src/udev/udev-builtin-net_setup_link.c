@@ -1,29 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
-#include "libudev-device-internal.h"
 #include "link-config.h"
 #include "log.h"
+#include "string-util.h"
 #include "udev-builtin.h"
 
 static link_config_ctx *ctx = NULL;
 
-static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv, bool test) {
+static int builtin_net_setup_link(struct udev_device *_dev, int argc, char **argv, bool test) {
         _cleanup_free_ char *driver = NULL;
         const char *name = NULL;
         link_config *link;
         int r;
+        sd_device *dev = _dev->device;
 
         if (argc > 1) {
                 log_error("This program takes no arguments.");
                 return EXIT_FAILURE;
         }
 
-        r = link_get_driver(ctx, dev->device, &driver);
+        r = link_get_driver(ctx, dev, &driver);
         if (r >= 0)
-                udev_builtin_add_property(dev->device, test, "ID_NET_DRIVER", driver);
+                udev_builtin_add_property(dev, test, "ID_NET_DRIVER", driver);
 
-        r = link_config_get(ctx, dev->device, &link);
+        r = link_config_get(ctx, dev, &link);
         if (r < 0) {
                 if (r == -ENOENT) {
                         log_debug("No matching link configuration found.");
@@ -34,14 +35,18 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
                 }
         }
 
-        r = link_config_apply(ctx, link, dev->device, &name);
-        if (r < 0)
-                log_warning_errno(r, "Could not apply link config to %s, ignoring: %m", udev_device_get_sysname(dev));
+        r = link_config_apply(ctx, link, dev, &name);
+        if (r < 0) {
+                const char *sysname = NULL;
 
-        udev_builtin_add_property(dev->device, test, "ID_NET_LINK_FILE", link->filename);
+                (void) sd_device_get_sysname(dev, &sysname);
+                log_warning_errno(r, "Could not apply link config to %s, ignoring: %m", strnull(sysname));
+        }
+
+        udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE", link->filename);
 
         if (name)
-                udev_builtin_add_property(dev->device, test, "ID_NET_NAME", name);
+                udev_builtin_add_property(dev, test, "ID_NET_NAME", name);
 
         return EXIT_SUCCESS;
 }
