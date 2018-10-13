@@ -2795,7 +2795,18 @@ static int inner_child(
 
                 exec_target = "/usr/lib/systemd/systemd, /lib/systemd/systemd, /sbin/init";
         } else if (!strv_isempty(arg_parameters)) {
+                const char *dollar_path;
+
                 exec_target = arg_parameters[0];
+
+                /* Use the user supplied search $PATH if there is one, or DEFAULT_PATH_COMPAT if not to search the
+                 * binary. */
+                dollar_path = strv_env_get(env_use, "PATH");
+                if (dollar_path) {
+                        if (putenv((char*) dollar_path) != 0)
+                                return log_error_errno(errno, "Failed to update $PATH: %m");
+                }
+
                 execvpe(arg_parameters[0], arg_parameters, env_use);
         } else {
                 if (!arg_chdir)
