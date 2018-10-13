@@ -32,7 +32,7 @@ static int builtin_btrfs(struct udev_device *dev, int argc, char *argv[], bool t
         if (err < 0)
                 return EXIT_FAILURE;
 
-        udev_builtin_add_property(dev, test, "ID_BTRFS_READY", one_zero(err == 0));
+        udev_builtin_add_property(dev->device, test, "ID_BTRFS_READY", one_zero(err == 0));
         return EXIT_SUCCESS;
 }
 

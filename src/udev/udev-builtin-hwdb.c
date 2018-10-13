@@ -37,7 +37,7 @@ int udev_builtin_hwdb_lookup(struct udev_device *dev,
                 if (filter && fnmatch(filter, key, FNM_NOESCAPE) != 0)
                         continue;
 
-                if (udev_builtin_add_property(dev, test, key, value) < 0)
+                if (udev_builtin_add_property(dev->device, test, key, value) < 0)
                         return -ENOMEM;
                 n++;
         }

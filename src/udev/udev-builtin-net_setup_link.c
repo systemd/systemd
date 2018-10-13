@@ -21,7 +21,7 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
 
         r = link_get_driver(ctx, dev->device, &driver);
         if (r >= 0)
-                udev_builtin_add_property(dev, test, "ID_NET_DRIVER", driver);
+                udev_builtin_add_property(dev->device, test, "ID_NET_DRIVER", driver);
 
         r = link_config_get(ctx, dev->device, &link);
         if (r < 0) {
@@ -38,10 +38,10 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
         if (r < 0)
                 log_warning_errno(r, "Could not apply link config to %s, ignoring: %m", udev_device_get_sysname(dev));
 
-        udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE", link->filename);
+        udev_builtin_add_property(dev->device, test, "ID_NET_LINK_FILE", link->filename);
 
         if (name)
-                udev_builtin_add_property(dev, test, "ID_NET_NAME", name);
+                udev_builtin_add_property(dev->device, test, "ID_NET_NAME", name);
 
         return EXIT_SUCCESS;
 }

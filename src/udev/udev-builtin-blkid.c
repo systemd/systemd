@@ -32,65 +32,65 @@ static void print_property(struct udev_device *dev, bool test, const char *name,
         s[0] = '\0';
 
         if (streq(name, "TYPE")) {
-                udev_builtin_add_property(dev, test, "ID_FS_TYPE", value);
+                udev_builtin_add_property(dev->device, test, "ID_FS_TYPE", value);
 
         } else if (streq(name, "USAGE")) {
-                udev_builtin_add_property(dev, test, "ID_FS_USAGE", value);
+                udev_builtin_add_property(dev->device, test, "ID_FS_USAGE", value);
 
         } else if (streq(name, "VERSION")) {
-                udev_builtin_add_property(dev, test, "ID_FS_VERSION", value);
+                udev_builtin_add_property(dev->device, test, "ID_FS_VERSION", value);
 
         } else if (streq(name, "UUID")) {
                 blkid_safe_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_FS_UUID", s);
+                udev_builtin_add_property(dev->device, test, "ID_FS_UUID", s);
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_FS_UUID_ENC", s);
+                udev_builtin_add_property(dev->device, test, "ID_FS_UUID_ENC", s);
 
         } else if (streq(name, "UUID_SUB")) {
                 blkid_safe_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_FS_UUID_SUB", s);
+                udev_builtin_add_property(dev->device, test, "ID_FS_UUID_SUB", s);
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_FS_UUID_SUB_ENC", s);
+                udev_builtin_add_property(dev->device, test, "ID_FS_UUID_SUB_ENC", s);
 
         } else if (streq(name, "LABEL")) {
                 blkid_safe_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_FS_LABEL", s);
+                udev_builtin_add_property(dev->device, test, "ID_FS_LABEL", s);
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_FS_LABEL_ENC", s);
+                udev_builtin_add_property(dev->device, test, "ID_FS_LABEL_ENC", s);
 
         } else if (streq(name, "PTTYPE")) {
-                udev_builtin_add_property(dev, test, "ID_PART_TABLE_TYPE", value);
+                udev_builtin_add_property(dev->device, test, "ID_PART_TABLE_TYPE", value);
 
         } else if (streq(name, "PTUUID")) {
-                udev_builtin_add_property(dev, test, "ID_PART_TABLE_UUID", value);
+                udev_builtin_add_property(dev->device, test, "ID_PART_TABLE_UUID", value);
 
         } else if (streq(name, "PART_ENTRY_NAME")) {
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_PART_ENTRY_NAME", s);
+                udev_builtin_add_property(dev->device, test, "ID_PART_ENTRY_NAME", s);
 
         } else if (streq(name, "PART_ENTRY_TYPE")) {
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_PART_ENTRY_TYPE", s);
+                udev_builtin_add_property(dev->device, test, "ID_PART_ENTRY_TYPE", s);
 
         } else if (startswith(name, "PART_ENTRY_")) {
                 strscpyl(s, sizeof(s), "ID_", name, NULL);
-                udev_builtin_add_property(dev, test, s, value);
+                udev_builtin_add_property(dev->device, test, s, value);
 
         } else if (streq(name, "SYSTEM_ID")) {
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_FS_SYSTEM_ID", s);
+                udev_builtin_add_property(dev->device, test, "ID_FS_SYSTEM_ID", s);
 
         } else if (streq(name, "PUBLISHER_ID")) {
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_FS_PUBLISHER_ID", s);
+                udev_builtin_add_property(dev->device, test, "ID_FS_PUBLISHER_ID", s);
 
         } else if (streq(name, "APPLICATION_ID")) {
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_FS_APPLICATION_ID", s);
+                udev_builtin_add_property(dev->device, test, "ID_FS_APPLICATION_ID", s);
 
         } else if (streq(name, "BOOT_SYSTEM_ID")) {
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "ID_FS_BOOT_SYSTEM_ID", s);
+                udev_builtin_add_property(dev->device, test, "ID_FS_BOOT_SYSTEM_ID", s);
         }
 }
 
@@ -172,7 +172,7 @@ static int find_gpt_root(struct udev_device *dev, blkid_probe pr, bool test) {
         /* We found the ESP on this disk, and also found a root
          * partition, nice! Let's export its UUID */
         if (found_esp && root_id)
-                udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT_UUID", root_id);
+                udev_builtin_add_property(dev->device, test, "ID_PART_GPT_AUTO_ROOT_UUID", root_id);
 #endif
 
         return 0;
@@ -300,7 +300,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
                 /* Is this a partition that matches the root partition
                  * property we inherited from our parent? */
                 if (root_partition && streq(name, "PART_ENTRY_UUID") && streq(data, root_partition))
-                        udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT", "1");
+                        udev_builtin_add_property(dev->device, test, "ID_PART_GPT_AUTO_ROOT", "1");
         }
 
         if (is_gpt)

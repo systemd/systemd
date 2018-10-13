@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "libudev.h"
+#include "libudev-device-internal.h"
 
 enum udev_builtin_cmd {
 #if HAVE_BLKID
@@ -62,6 +63,6 @@ bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
 int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
 void udev_builtin_list(void);
 bool udev_builtin_validate(void);
-int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
+int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val);
 int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const char *modalias,
                              const char *filter, bool test);

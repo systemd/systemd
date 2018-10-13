@@ -666,8 +666,8 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                         i--;
                 tag[i] = '\0';
 
-                udev_builtin_add_property(dev, test, "ID_PATH", path);
-                udev_builtin_add_property(dev, test, "ID_PATH_TAG", tag);
+                udev_builtin_add_property(dev->device, test, "ID_PATH", path);
+                udev_builtin_add_property(dev->device, test, "ID_PATH_TAG", tag);
         }
 
         return EXIT_SUCCESS;

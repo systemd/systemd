@@ -428,27 +428,27 @@ fallback:
         if (!isempty(instance_str))
                 strpcpyl(&s, l, "-", instance_str, NULL);
 
-        udev_builtin_add_property(dev, test, "ID_VENDOR", vendor_str);
-        udev_builtin_add_property(dev, test, "ID_VENDOR_ENC", vendor_str_enc);
-        udev_builtin_add_property(dev, test, "ID_VENDOR_ID", vendor_id);
-        udev_builtin_add_property(dev, test, "ID_MODEL", model_str);
-        udev_builtin_add_property(dev, test, "ID_MODEL_ENC", model_str_enc);
-        udev_builtin_add_property(dev, test, "ID_MODEL_ID", product_id);
-        udev_builtin_add_property(dev, test, "ID_REVISION", revision_str);
-        udev_builtin_add_property(dev, test, "ID_SERIAL", serial);
+        udev_builtin_add_property(dev->device, test, "ID_VENDOR", vendor_str);
+        udev_builtin_add_property(dev->device, test, "ID_VENDOR_ENC", vendor_str_enc);
+        udev_builtin_add_property(dev->device, test, "ID_VENDOR_ID", vendor_id);
+        udev_builtin_add_property(dev->device, test, "ID_MODEL", model_str);
+        udev_builtin_add_property(dev->device, test, "ID_MODEL_ENC", model_str_enc);
+        udev_builtin_add_property(dev->device, test, "ID_MODEL_ID", product_id);
+        udev_builtin_add_property(dev->device, test, "ID_REVISION", revision_str);
+        udev_builtin_add_property(dev->device, test, "ID_SERIAL", serial);
         if (!isempty(serial_str))
-                udev_builtin_add_property(dev, test, "ID_SERIAL_SHORT", serial_str);
+                udev_builtin_add_property(dev->device, test, "ID_SERIAL_SHORT", serial_str);
         if (!isempty(type_str))
-                udev_builtin_add_property(dev, test, "ID_TYPE", type_str);
+                udev_builtin_add_property(dev->device, test, "ID_TYPE", type_str);
         if (!isempty(instance_str))
-                udev_builtin_add_property(dev, test, "ID_INSTANCE", instance_str);
-        udev_builtin_add_property(dev, test, "ID_BUS", "usb");
+                udev_builtin_add_property(dev->device, test, "ID_INSTANCE", instance_str);
+        udev_builtin_add_property(dev->device, test, "ID_BUS", "usb");
         if (!isempty(packed_if_str))
-                udev_builtin_add_property(dev, test, "ID_USB_INTERFACES", packed_if_str);
+                udev_builtin_add_property(dev->device, test, "ID_USB_INTERFACES", packed_if_str);
         if (ifnum != NULL)
-                udev_builtin_add_property(dev, test, "ID_USB_INTERFACE_NUM", ifnum);
+                udev_builtin_add_property(dev->device, test, "ID_USB_INTERFACE_NUM", ifnum);
         if (driver != NULL)
-                udev_builtin_add_property(dev, test, "ID_USB_DRIVER", driver);
+                udev_builtin_add_property(dev->device, test, "ID_USB_DRIVER", driver);
         return EXIT_SUCCESS;
 }
 

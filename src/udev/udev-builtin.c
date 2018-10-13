@@ -4,9 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "device-private.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-builtin.h"
-#include "udev.h"
 
 static bool initialized;
 
@@ -117,8 +118,12 @@ int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const c
         return builtins[cmd]->cmd(dev, strv_length(argv), argv, test);
 }
 
-int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val) {
-        udev_device_add_property(dev, key, val);
+int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val) {
+        int r;
+
+        r = device_add_property(dev, key, val);
+        if (r < 0)
+                return r;
 
         if (test)
                 printf("%s=%s\n", key, val);
