@@ -3070,9 +3070,11 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 one_name = action_table[arg_action].target;
         }
 
-        if (one_name)
+        if (one_name) {
                 names = strv_new(one_name, NULL);
-        else {
+                if (!names)
+                        return log_oom();
+        } else {
                 r = expand_names(bus, strv_skip(argv, 1), suffix, &names);
                 if (r < 0)
                         return log_error_errno(r, "Failed to expand names: %m");
