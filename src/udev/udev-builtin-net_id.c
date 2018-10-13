@@ -735,7 +735,7 @@ static int ieee_oui(struct udev_device *dev, struct netnames *names, bool test) 
         xsprintf(str, "OUI:%02X%02X%02X%02X%02X%02X", names->mac[0],
                  names->mac[1], names->mac[2], names->mac[3], names->mac[4],
                  names->mac[5]);
-        udev_builtin_hwdb_lookup(dev, NULL, str, NULL, test);
+        udev_builtin_hwdb_lookup(dev->device, NULL, str, NULL, test);
         return 0;
 }
 
