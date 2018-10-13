@@ -23,7 +23,8 @@ enum udev_builtin_cmd {
 #if HAVE_ACL
         UDEV_BUILTIN_UACCESS,
 #endif
-        UDEV_BUILTIN_MAX
+        _UDEV_BUILTIN_MAX,
+        _UDEV_BUILTIN_INVALID = -1,
 };
 
 struct udev_builtin {

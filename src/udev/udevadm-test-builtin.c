@@ -86,7 +86,7 @@ int builtin_main(int argc, char *argv[], void *userdata) {
         udev_builtin_init();
 
         cmd = udev_builtin_lookup(arg_command);
-        if (cmd >= UDEV_BUILTIN_MAX) {
+        if (cmd < 0) {
                 log_error("Unknown command '%s'", arg_command);
                 r = -EINVAL;
                 goto finish;
