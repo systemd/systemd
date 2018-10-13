@@ -590,9 +590,8 @@
         <term><option>--lines=</option></term>
 
         <listitem>
-          <para>When used with <command>status</command>, controls the
-          number of journal lines to show, counting from the most
-          recent ones. Takes a positive integer argument. Defaults to
+          <para>When used with <command>status</command>, controls the number of journal lines to show, counting from
+          the most recent ones. Takes a positive integer argument, or 0 to disable journal output. Defaults to
           10.</para>
         </listitem>
       </varlistentry>
