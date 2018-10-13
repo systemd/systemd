@@ -15,11 +15,12 @@
 #include "log.h"
 #include "udev-builtin.h"
 
-static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool test) {
+static int builtin_uaccess(struct udev_device *_dev, int argc, char *argv[], bool test) {
         int r;
         const char *path = NULL, *seat;
         bool changed_acl = false;
         uid_t uid;
+        sd_device *dev = _dev->device;
 
         umask(0022);
 
@@ -27,9 +28,11 @@ static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool
         if (!logind_running())
                 return 0;
 
-        path = udev_device_get_devnode(dev);
-        seat = udev_device_get_property_value(dev, "ID_SEAT");
-        if (!seat)
+        r = sd_device_get_devname(dev, &path);
+        if (r < 0)
+                goto finish;
+
+        if (sd_device_get_property_value(dev, "ID_SEAT", &seat) < 0)
                 seat = "seat0";
 
         r = sd_seat_get_active(seat, NULL, &uid);
