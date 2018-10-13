@@ -90,16 +90,15 @@ bool udev_builtin_run_once(enum udev_builtin_cmd cmd) {
 }
 
 enum udev_builtin_cmd udev_builtin_lookup(const char *command) {
-        char name[UTIL_PATH_SIZE];
         enum udev_builtin_cmd i;
-        char *pos;
+        size_t n;
 
-        strscpy(name, sizeof(name), command);
-        pos = strchr(name, ' ');
-        if (pos)
-                pos[0] = '\0';
+        assert(command);
+
+        command += strspn(command, WHITESPACE);
+        n = strcspn(command, WHITESPACE);
         for (i = 0; i < ELEMENTSOF(builtins); i++)
-                if (builtins[i] && streq(builtins[i]->name, name))
+                if (builtins[i] && strneq(builtins[i]->name, command, n))
                         return i;
         return UDEV_BUILTIN_MAX;
 }
