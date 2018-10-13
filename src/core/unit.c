@@ -2172,12 +2172,13 @@ void unit_trigger_notify(Unit *u) {
 }
 
 static int unit_log_resources(Unit *u) {
-
         struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + 4];
+        _cleanup_free_ char *igress = NULL, *egress = NULL;
         size_t n_message_parts = 0, n_iovec = 0;
         char* message_parts[3 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
         CGroupIPAccountingMetric m;
+        bool any_traffic = false;
         size_t i;
         int r;
         const char* const ip_fields[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
@@ -2224,6 +2225,8 @@ static int unit_log_resources(Unit *u) {
                 (void) unit_get_ip_accounting(u, m, &value);
                 if (value == UINT64_MAX)
                         continue;
+                if (value > 0)
+                        any_traffic = true;
 
                 /* Format IP accounting data for inclusion in the structured log message */
                 if (asprintf(&t, "%s=%" PRIu64, ip_fields[m], value) < 0) {
@@ -2234,22 +2237,42 @@ static int unit_log_resources(Unit *u) {
 
                 /* Format the IP accounting data for inclusion in the human language message string, but only for the
                  * bytes counters (and not for the packets counters) */
-                if (m == CGROUP_IP_INGRESS_BYTES)
-                        t = strjoin(n_message_parts > 0 ? "received " : "Received ",
-                                    format_bytes(buf, sizeof(buf), value),
-                                    " IP traffic");
-                else if (m == CGROUP_IP_EGRESS_BYTES)
-                        t = strjoin(n_message_parts > 0 ? "sent " : "Sent ",
-                                    format_bytes(buf, sizeof(buf), value),
-                                    " IP traffic");
-                else
-                        continue;
-                if (!t) {
+                if (m == CGROUP_IP_INGRESS_BYTES) {
+                        assert(!igress);
+                        igress = strjoin(n_message_parts > 0 ? "received " : "Received ",
+                                         format_bytes(buf, sizeof(buf), value),
+                                         " IP traffic");
+                        if (!igress) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                } else if (m == CGROUP_IP_EGRESS_BYTES) {
+                        assert(!egress);
+                        egress = strjoin(igress || n_message_parts > 0 ? "sent " : "Sent ",
+                                         format_bytes(buf, sizeof(buf), value),
+                                         " IP traffic");
+                        if (!egress) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                }
+        }
+
+        if (any_traffic) {
+                if (igress)
+                        message_parts[n_message_parts++] = TAKE_PTR(igress);
+                if (egress)
+                        message_parts[n_message_parts++] = TAKE_PTR(egress);
+        } else {
+                char *k;
+
+                k = strdup(n_message_parts > 0 ? "no IP traffic" : "No IP traffic");
+                if (!k) {
                         r = log_oom();
                         goto finish;
                 }
 
-                message_parts[n_message_parts++] = t;
+                message_parts[n_message_parts++] = k;
         }
 
         /* Is there any accounting data available at all? */
@@ -2259,7 +2282,7 @@ static int unit_log_resources(Unit *u) {
         }
 
         if (n_message_parts == 0)
-                t = strjoina("MESSAGE=", u->id, ": Completed");
+                t = strjoina("MESSAGE=", u->id, ": Completed.");
         else {
                 _cleanup_free_ char *joined;
 
@@ -2271,7 +2294,7 @@ static int unit_log_resources(Unit *u) {
                         goto finish;
                 }
 
-                t = strjoina("MESSAGE=", u->id, ": ", joined);
+                t = strjoina("MESSAGE=", u->id, ": ", joined, ".");
         }
 
         /* The following four fields we allocate on the stack or are static strings, we hence don't want to free them,
