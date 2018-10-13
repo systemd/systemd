@@ -423,10 +423,14 @@ static int manager_setup_timezone_change(Manager *m) {
 
         r = sd_event_add_inotify(m->event, &new_event, "/etc/localtime",
                                  IN_ATTRIB|IN_MOVE_SELF|IN_CLOSE_WRITE|IN_DONT_FOLLOW, manager_dispatch_timezone_change, m);
-        if (r == -ENOENT) /* If the file doesn't exist yet, subscribe to /etc instead, and wait until it is created
-                           * either by O_CREATE or by rename() */
+        if (r == -ENOENT) {
+                /* If the file doesn't exist yet, subscribe to /etc instead, and wait until it is created either by
+                 * O_CREATE or by rename() */
+
+                log_debug_errno(r, "/etc/localtime doesn't exist yet, watching /etc instead.");
                 r = sd_event_add_inotify(m->event, &new_event, "/etc",
                                          IN_CREATE|IN_MOVED_TO|IN_ONLYDIR, manager_dispatch_timezone_change, m);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to create timezone change event source: %m");
 
