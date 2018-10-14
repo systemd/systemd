@@ -100,7 +100,7 @@ _public_ sd_event *sd_ndisc_get_event(sd_ndisc *nd) {
         return nd->event;
 }
 
-static int ndisc_reset(sd_ndisc *nd) {
+static void ndisc_reset(sd_ndisc *nd) {
         assert(nd);
 
         nd->timeout_event_source = sd_event_source_unref(nd->timeout_event_source);
@@ -108,8 +108,6 @@ static int ndisc_reset(sd_ndisc *nd) {
         nd->retransmit_time = 0;
         nd->recv_event_source = sd_event_source_unref(nd->recv_event_source);
         nd->fd = safe_close(nd->fd);
-
-        return 0;
 }
 
 static sd_ndisc *ndisc_free(sd_ndisc *nd) {
@@ -301,7 +299,7 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         return 0;
 
 fail:
-        sd_ndisc_stop(nd);
+        (void) sd_ndisc_stop(nd);
         return 0;
 }
 

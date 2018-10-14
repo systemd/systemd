@@ -418,8 +418,9 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
                 if (!prog)
                         return 0;
 
-                cgroup_bpf_whitelist_device(prog, S_ISCHR(st.st_mode) ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
-                                            major(st.st_rdev), minor(st.st_rdev), acc);
+                return cgroup_bpf_whitelist_device(prog, S_ISCHR(st.st_mode) ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
+                                                   major(st.st_rdev), minor(st.st_rdev), acc);
+
         } else {
                 char buf[2+DECIMAL_STR_MAX(dev_t)*2+2+4];
 
@@ -431,11 +432,11 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
 
                 r = cg_set_attribute("devices", path, "devices.allow", buf);
                 if (r < 0)
-                        log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING,
-                                       r, "Failed to set devices.allow on %s: %m", path);
-        }
+                        return log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING,
+                                              r, "Failed to set devices.allow on %s: %m", path);
 
-        return r;
+                return 0;
+        }
 }
 
 static int whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc) {
@@ -499,9 +500,9 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
                         if (!prog)
                                 continue;
 
-                        cgroup_bpf_whitelist_major(prog,
-                                                   type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
-                                                   maj, acc);
+                        (void) cgroup_bpf_whitelist_major(prog,
+                                                          type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
+                                                          maj, acc);
                 } else {
                         char buf[2+DECIMAL_STR_MAX(unsigned)+3+4];
 
@@ -1079,10 +1080,10 @@ static void cgroup_context_apply(
                         const char *x, *y;
 
                         NULSTR_FOREACH_PAIR(x, y, auto_devices)
-                                whitelist_device(prog, path, x, y);
+                                (void) whitelist_device(prog, path, x, y);
 
                         /* PTS (/dev/pts) devices may not be duplicated, but accessed */
-                        whitelist_major(prog, path, "pts", 'c', "rw");
+                        (void) whitelist_major(prog, path, "pts", 'c', "rw");
                 }
 
                 LIST_FOREACH(device_allow, a, c->device_allow) {
@@ -1102,11 +1103,11 @@ static void cgroup_context_apply(
                         acc[k++] = 0;
 
                         if (path_startswith(a->path, "/dev/"))
-                                whitelist_device(prog, path, a->path, acc);
+                                (void) whitelist_device(prog, path, a->path, acc);
                         else if ((val = startswith(a->path, "block-")))
-                                whitelist_major(prog, path, val, 'b', acc);
+                                (void) whitelist_major(prog, path, val, 'b', acc);
                         else if ((val = startswith(a->path, "char-")))
-                                whitelist_major(prog, path, val, 'c', acc);
+                                (void) whitelist_major(prog, path, val, 'c', acc);
                         else
                                 log_unit_debug(u, "Ignoring device %s while writing cgroup attribute.", a->path);
                 }

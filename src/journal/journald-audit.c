@@ -526,7 +526,7 @@ int server_open_audit(Server *s) {
                         return 0;
                 }
         } else
-                fd_nonblock(s->audit_fd, 1);
+                (void) fd_nonblock(s->audit_fd, true);
 
         r = setsockopt(s->audit_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
         if (r < 0)

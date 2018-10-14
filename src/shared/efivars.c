@@ -455,6 +455,9 @@ int efi_get_boot_option(
                         /* Sub-Type 4 – File Path */
                         if (dpath->sub_type == MEDIA_FILEPATH_DP && !p && path) {
                                 p = utf16_to_utf8(dpath->path, dpath->length-4);
+                                if (!p)
+                                        return  -ENOMEM;
+
                                 efi_tilt_backslashes(p);
                                 continue;
                         }

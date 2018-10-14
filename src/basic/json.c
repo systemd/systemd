@@ -2560,7 +2560,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
         };
 
         for (;;) {
-                JsonVariant *add = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *add = NULL;
                 JsonStack *current;
                 int command;
 
@@ -2899,7 +2899,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 goto finish;
                         }
 
-                        current->elements[current->n_elements++] = add;
+                        current->elements[current->n_elements++] = TAKE_PTR(add);
                 }
         }
 

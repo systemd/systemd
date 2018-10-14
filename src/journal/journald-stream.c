@@ -804,7 +804,7 @@ int server_open_stdout_socket(Server *s) {
                 if (listen(s->stdout_fd, SOMAXCONN) < 0)
                         return log_error_errno(errno, "listen(%s) failed: %m", sa.un.sun_path);
         } else
-                fd_nonblock(s->stdout_fd, 1);
+                (void) fd_nonblock(s->stdout_fd, true);
 
         r = sd_event_add_io(s->event, &s->stdout_event_source, s->stdout_fd, EPOLLIN, stdout_stream_new, s);
         if (r < 0)
