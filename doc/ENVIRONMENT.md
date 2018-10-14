@@ -101,3 +101,9 @@ systemd-timedated:
   NTP client services. If set, `timedatectl set-ntp on` enables and starts the
   first existing unit listed in the environment variable, and
   `timedatectl set-ntp off` disables and stops all listed units.
+
+systemd-sulogin-shell:
+
+* `$SYSTEMD_SULOGIN_FORCE=1` — This skips asking for the root password if the
+  root password is not available (such as when the root account is locked).
+  See `sulogin(8)` for more details.
