@@ -3096,7 +3096,7 @@ int manager_serialize(
         assert(f);
         assert(fds);
 
-        _cleanup_(manager_reloading_stopp) Manager *reloading = manager_reloading_start(m);
+        _cleanup_(manager_reloading_stopp) _unused_ Manager *reloading = manager_reloading_start(m);
 
         fprintf(f, "current-job-id=%"PRIu32"\n", m->current_job_id);
         fprintf(f, "n-installed-jobs=%u\n", m->n_installed_jobs);
@@ -3217,7 +3217,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         /* If we are not in reload mode yet, enter it now. Not that this is recursive, a caller might already have
          * increased it to non-zero, which is why we just increase it by one here and down again at the end of this
          * call. */
-        _cleanup_(manager_reloading_stopp) Manager *reloading = manager_reloading_start(m);
+        _cleanup_(manager_reloading_stopp) _unused_ Manager *reloading = manager_reloading_start(m);
 
         for (;;) {
                 char line[LINE_MAX];

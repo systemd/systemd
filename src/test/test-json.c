@@ -208,7 +208,7 @@ static void test_2(JsonVariant *v) {
 
         /* has thisisaverylongproperty */
         p = json_variant_by_key(v, "thisisaverylongproperty");
-        assert_se(p && json_variant_type(p) == JSON_VARIANT_REAL && fabs(json_variant_real(p) - 1.27) < 0.001);
+        assert_se(p && json_variant_type(p) == JSON_VARIANT_REAL && fabsl(json_variant_real(p) - 1.27) < 0.001);
 }
 
 
