@@ -33,7 +33,11 @@ EFI is not ubiquitous, especially not in embedded or more dependable systems. Th
 
 ## Technical Details
 
-Everything described below is located on a placeholder file system `$BOOT`. The installer program should pick `$BOOT` according to the following rules:
+Everything described below is located on a placeholder file system `$BOOT`.
+
+Installation and live media must have a GPT disk label and `$BOOT` on an ESP partition (i.e. with the GPT type UID of c12a7328-f81f-11d2-ba4b-00a0c93ec93b). For maximum compatibility, a shadow MBR partition table should exist that contains the ESP partition with the MBR type id 0xef.
+
+The installer program should pick `$BOOT` according to the following rules:
 
 * On disks with MBR disk labels
   * If the OS is installed on a disk with MBR disk label, and a partition with the MBR type id of 0xEA already exists it should be used as `$BOOT`.
@@ -48,7 +52,7 @@ This placeholder file system shall be determined during _installation time_, and
 
 **Note:** _`$BOOT` should be considered **shared** among all OS installations of a system. Instead of maintaining one `$BOOT` per installed OS (as `/boot` was traditionally handled), all installed OS share the same place to drop in their boot-time configuration._
 
-For systems where the firmware is able to read file systems directly, `$BOOT` must be a file system readable by the firmware. For other systems, `$BOOT` must be a VFAT (16 or 32) file system. Applications accessing `$BOOT` should hence not assume that fancier file system features such as symlinks, hardlinks, access control or case sensitivity are supported.
+For systems where the firmware is able to read file systems directly, `$BOOT` must be a file system readable by the firmware. For other systems and generic installation and live media, `$BOOT` must be a VFAT (16 or 32) file system. Applications accessing `$BOOT` should hence not assume that fancier file system features such as symlinks, hardlinks, access control or case sensitivity are supported.
 
 ### Boot loader specification entries
 
