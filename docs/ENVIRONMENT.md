@@ -112,6 +112,12 @@ systemd-timedated:
   first existing unit listed in the environment variable, and
   `timedatectl set-ntp off` disables and stops all listed units.
 
+systemd-sulogin-shell:
+
+* `$SYSTEMD_SULOGIN_FORCE=1` — This skips asking for the root password if the
+  root password is not available (such as when the root account is locked).
+  See `sulogin(8)` for more details.
+
 bootctl and other tools that access the EFI System Partition (ESP):
 
 * `$SYSTEMD_RELAX_ESP_CHECKS=1` — if set, the ESP validation checks are

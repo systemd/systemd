@@ -9,6 +9,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "def.h"
+#include "env-util.h"
 #include "log.h"
 #include "process-util.h"
 #include "sd-bus.h"
@@ -89,7 +90,11 @@ static void print_mode(const char* mode) {
 }
 
 int main(int argc, char *argv[]) {
-        static const char* const sulogin_cmdline[] = {SULOGIN, NULL};
+        const char* sulogin_cmdline[] = {
+                SULOGIN,
+                NULL,             /* --force */
+                NULL
+        };
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -98,6 +103,10 @@ int main(int argc, char *argv[]) {
         log_open();
 
         print_mode(argc > 1 ? argv[1] : "");
+
+        if (getenv_bool("SYSTEMD_SULOGIN_FORCE") > 0)
+                /* allows passwordless logins if root account is locked. */
+                sulogin_cmdline[1] = "--force";
 
         (void) fork_wait(sulogin_cmdline);
 
