@@ -340,7 +340,7 @@
         <term><varname>Timezone=</varname></term>
 
         <listitem><para>Configures how <filename>/etc/localtime</filename> in the container shall be handled. This is
-        equivalent to the <option>--localtime=</option> command line switch, and takes the same argument. See
+        equivalent to the <option>--timezone=</option> command line switch, and takes the same argument. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
