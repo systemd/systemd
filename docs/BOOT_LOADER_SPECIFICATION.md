@@ -23,7 +23,7 @@ Of course, without this specification things already work mostly fine. But here'
 
 ## Why not simply rely on the EFI boot menu logic?
 
-The EFI specification provides a boot options logic that can offer similar functionality. Here's why we think that it is not enough for our uses:
+EFI is not ubiquitous, especially not in embedded or more dependable systems. Though, if you have an EFI system, it provides a boot options logic that can offer similar functionality. Here's why we think that it is not enough for our uses:
 
 * The various EFI implementations implement the boot order/boot item logic to different levels. Some firmware implementations do not offer a boot menu at all and instead unconditionally follow the EFI boot order, booting the first item that is working.
 * If the firmware setup is used to reset all data usually all EFI boot entries are lost, making the system entirely unbootable, as the firmware setups generally do not offer a UI to define additional boot items. By placing the menu item information on disk, it is always available, regardless if the BIOS setup data is lost.
@@ -86,6 +86,8 @@ Each configuration drop-in snippet must include at least a `linux` or an `efi` k
     initrd     /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd
 
 On EFI systems all kernel images shall be EFI images. In order to be compatible with EFI systems it is highly recommended only to install EFI kernel images, even on non-EFI systems, if that's applicable and supported on the specific architecture.
+
+For maximum compatibility, it is highly recommended only to use kernel images that don't rely on BIOS services such as legacy BIOS calls or UEFI Boot Services.
 
 Note that these configuration snippets may only reference kernels (and EFI programs) that reside on the same file system as the configuration snippets, i.e. everything referenced must be contained in the same file system. This is by design, as referencing other partitions or devices would require a non-trivial language for denoting device paths. If kernels/initrds are to be read from other partitions/disks the boot loader can do this in its own native configuration, using its own specific device path language, and this is out of focus for this specification. More specifically, on non-EFI systems configuration snippets following this specification cannot be used to spawn other operating systems (such as Windows).
 
