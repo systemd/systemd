@@ -1,19 +1,20 @@
 # The Boot Loader Specification
 
-_TL;DR: Currently there's little cooperation between multiple distributions in dual-boot (or triple, ... multi-boot) setups, and we'd like to improve this situation by getting everybody to commit to a single boot configuration format that is based on drop-in files, and thus is robust, simple, works without rewriting configuration files and is free of namespace clashes._
+_TL;DR: Currently there's no common boot scheme across architectures and platforms. We can provide one for open-source operating systems. There's also little cooperation between multiple distributions in dual-boot (or triple, ... multi-boot) setups. So we'd like to improve this situation by getting everybody to commit to a single boot configuration format that is based on drop-in files, and thus is robust, simple, works without rewriting configuration files and is free of namespace clashes._
 
-The Boot Loader Specification defines a scheme how different operating systems can cooperatively manage a boot loader configuration directory, that accepts drop-in files for boot menu items that are defined in a format that is shared between various boot loader implementations, operating systems, and userspace programs. The target audience for this specification is:
+The Boot Loader Specification defines a scheme how different operating systems can cooperatively manage a boot loader configuration directory, that accepts drop-in files for boot menu items that are defined in a format that is shared between various boot loader implementations, operating systems, and userspace programs. The same scheme can be used to prepare installation and live OS media for cases where the firmware includes a boot loader. The target audience for this specification is:
 
-* Boot loader developers, to write a boot loader that directly reads its configuration at runtime from these drop-in snippets
+* Firmware and boot loader developers, to write a boot loader that directly reads its configuration at runtime from these drop-in snippets
 * Distribution and Core OS developers, in order to create these snippets at OS/kernel package installation time
 * UI developers, for implementing a user interface that discovers the available boot options
-* OS Installer developers, for setting up the initial drop-in directory
+* OS Installer developers, to prepare their installation media and for setting up the initial drop-in directory
 
 ## Why is there a need for this specification?
 
 Of course, without this specification things already work mostly fine. But here's why we think this specification is needed:
 
 * To make the boot more robust, as no explicit rewriting of configuration files is required any more
+* To allow an out of the box boot experience on any platform without the need of legacy firmware mechanisms (e.g. BIOS calls, UEFI Boot Services)
 * To improve dual-boot scenarios. Currently, multiple Linux installations tend to fight over which boot loader becomes the primary one in possession of the MBR, and only that one installation can then update the boot loader configuration of it freely. Other Linux installs have to be manually configured to never touch the MBR and instead install a chain-loaded boot loader in their own partition headers. In this new scheme as all installations share a loader directory no manual configuration has to take place, and all participants implicitly cooperate due to removal of name collisions and can install/remove their own boot menu entries at free will, without interfering with the entries of other installed operating systems.
 * Drop-in directories are otherwise now pretty ubiquitous on Linux as an easy way to extend configuration without having to edit, regenerate or manipulate configuration files. For the sake of uniformity, we should do the same for extending the boot menu.
 * Userspace code can sanely parse boot loader configuration which is essential with modern BIOSes which do not necessarily initialize USB keyboards anymore during boot, which makes boot menus hard to reach for the user. If userspace code can parse the boot loader configuration, too, this allows for UIs that can select a boot menu item to boot into, before rebooting the machine, thus not requiring interactivity during early boot.
