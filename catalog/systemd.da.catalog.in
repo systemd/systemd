@@ -159,7 +159,7 @@ Support: %SUPPORT_URL%
 
 Enhed @UNIT@ er færdig med at starte op.
 
-Resultat for opstart er @RESULT@.
+Resultat for opstart er @JOB_RESULT@.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Enhed @UNIT@ har påbegyndt nedlukning
@@ -182,7 +182,7 @@ Support: %SUPPORT_URL%
 
 Enhed @UNIT@ har fejlet.
 
-Resultatet er @RESULT@
+Resultatet er @JOB_RESULT@
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: Enhed @UNIT@ har påbegyndt genindlæsning af sin konfiguration
@@ -198,7 +198,7 @@ Support: %SUPPORT_URL%
 
 Enhed @UNIT@ er færdig med at genindlæse sin konfiguration
 
-Resultatet er: @RESULT@.
+Resultatet er: @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Process @EXECUTABLE@ kunne ikke eksekveres

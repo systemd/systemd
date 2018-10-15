@@ -156,7 +156,7 @@ Support: %SUPPORT_URL%
 
 @UNIT@ 单元已结束启动。
 
-启动结果为“@RESULT@”。
+启动结果为“@JOB_RESULT@”。
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: @UNIT@ 单元已开始停止操作
@@ -179,7 +179,7 @@ Support: %SUPPORT_URL%
 
 @UNIT@ 单元已失败。
 
-结果为“@RESULT@”。
+结果为“@JOB_RESULT@”。
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: @UNIT@ 单元已开始重新载入其配置
@@ -195,7 +195,7 @@ Support: %SUPPORT_URL%
 
 @UNIT@ 单元已结束配置重载入操作。
 
-结果为“@RESULT@”。
+结果为“@JOB_RESULT@”。
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: 进程 @EXECUTABLE@ 无法执行

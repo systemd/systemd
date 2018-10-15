@@ -178,7 +178,7 @@ Support: %SUPPORT_URL%
 
 Стартирането на модул „@UNIT@“ завърши.
 
-Резултатът е: @RESULT@
+Резултатът е: @JOB_RESULT@
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Модул „@UNIT@“ се спира
@@ -201,7 +201,7 @@ Support: %SUPPORT_URL%
 
 Модулът „@UNIT@“ не успя да стартира.
 
-Резултатът е: @RESULT@
+Резултатът е: @JOB_RESULT@
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: Модулът „@UNIT@“ започна презареждане на настройките си
@@ -217,7 +217,7 @@ Support: %SUPPORT_URL%
 
 Модулът „@UNIT@“ завърши презареждането на настройките си.
 
-Резултатът e: @RESULT@
+Резултатът e: @JOB_RESULT@
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Програмата „@EXECUTABLE@“ не успя да се стартира

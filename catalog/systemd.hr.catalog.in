@@ -173,7 +173,7 @@ Support: %SUPPORT_URL%
 
 Jedinica @UNIT@ je završila pokretanje.
 
-Rezultat pokretanja je @RESULT@.
+Rezultat pokretanja je @JOB_RESULT@.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Jedinica @UNIT@ je započela isključivanje
@@ -196,7 +196,7 @@ Support: %SUPPORT_URL%
 
 Jedinica @UNIT@ nije uspjela.
 
-Rezultat je @RESULT@.
+Rezultat je @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: Jedinica @UNIT@ je započela ponovno učitavati podešavanja
@@ -212,7 +212,7 @@ Support: %SUPPORT_URL%
 
 Jedinica @UNIT@ je završila ponovno učitavati podešavanja
 
-Rezultat je @RESULT@.
+Rezultat je @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Proces @EXECUTABLE@ se ne može pokrenuti
