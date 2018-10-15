@@ -747,21 +747,6 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
         return 0;
 }
 
-int socket_address_unlink(SocketAddress *a) {
-        assert(a);
-
-        if (socket_address_family(a) != AF_UNIX)
-                return 0;
-
-        if (a->sockaddr.un.sun_path[0] == 0)
-                return 0;
-
-        if (unlink(a->sockaddr.un.sun_path) < 0)
-                return -errno;
-
-        return 1;
-}
-
 static const char* const netlink_family_table[] = {
         [NETLINK_ROUTE] = "route",
         [NETLINK_FIREWALL] = "firewall",
@@ -1245,4 +1230,28 @@ int socket_ioctl_fd(void) {
                 return -errno;
 
         return fd;
+}
+
+int sockaddr_un_unlink(const struct sockaddr_un *sa) {
+        const char *p, * nul;
+
+        assert(sa);
+
+        if (sa->sun_family != AF_UNIX)
+                return -EPROTOTYPE;
+
+        if (sa->sun_path[0] == 0) /* Nothing to do for abstract sockets */
+                return 0;
+
+        /* The path in .sun_path is not necessarily NUL terminated. Let's fix that. */
+        nul = memchr(sa->sun_path, 0, sizeof(sa->sun_path));
+        if (nul)
+                p = sa->sun_path;
+        else
+                p = memdupa_suffix0(sa->sun_path, sizeof(sa->sun_path));
+
+        if (unlink(p) < 0)
+                return -errno;
+
+        return 1;
 }

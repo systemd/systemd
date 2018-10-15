@@ -71,7 +71,12 @@ int socket_address_parse_and_warn(SocketAddress *a, const char *s);
 int socket_address_parse_netlink(SocketAddress *a, const char *s);
 int socket_address_print(const SocketAddress *a, char **p);
 int socket_address_verify(const SocketAddress *a) _pure_;
-int socket_address_unlink(SocketAddress *a);
+
+int sockaddr_un_unlink(const struct sockaddr_un *sa);
+
+static inline int socket_address_unlink(const SocketAddress *a) {
+        return socket_address_family(a) == AF_UNIX ? sockaddr_un_unlink(&a->sockaddr.un) : 0;
+}
 
 bool socket_address_can_accept(const SocketAddress *a) _pure_;
 
