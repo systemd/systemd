@@ -4,6 +4,7 @@
 ***/
 
 #include <getopt.h>
+#include <inttypes.h>
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,7 @@
 #include "special.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "time-util.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
@@ -1551,6 +1553,29 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
 }
 #endif
 
+static int dump_timespan(int argc, char *argv[], void *userdata) {
+        char **input_timespan;
+
+        STRV_FOREACH(input_timespan, strv_skip(argv, 1)) {
+                int r;
+                usec_t usec_magnitude = 1, output_usecs;
+                char ft_buf[FORMAT_TIMESPAN_MAX];
+
+                r = parse_time(*input_timespan, &output_usecs, USEC_PER_SEC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse time span '%s': %m", *input_timespan);
+
+                printf("Original: %s\n", *input_timespan);
+                printf("      %ss: %" PRIu64 "\n", special_glyph(MU), output_usecs);
+                printf("   Human: %s\n", format_timespan(ft_buf, sizeof(ft_buf), output_usecs, usec_magnitude));
+
+                if (input_timespan[1])
+                        putchar('\n');
+        }
+
+        return EXIT_SUCCESS;
+}
+
 static int test_calendar(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
         char **p;
@@ -1710,6 +1735,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  verify FILE...           Check unit files for correctness\n"
                "  calendar SPEC...         Validate repetitive calendar time events\n"
                "  service-watchdogs [BOOL] Get/set service watchdog state\n"
+               "  timespan SPAN...         Validate a time span\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -1900,6 +1926,7 @@ int main(int argc, char *argv[]) {
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
                 { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
+                { "timespan",          2,        VERB_ANY, 0,            dump_timespan          },
                 {}
         };
 

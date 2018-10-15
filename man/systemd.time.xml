@@ -74,6 +74,10 @@
 1y 12month
 55s500ms
 300ms20s 5day</programlisting>
+
+    <para>One can use the <command>timespan</command> command of
+    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    to normalise a textual time span for testing and validation purposes.</para>
   </refsect1>
 
   <refsect1>

@@ -48,6 +48,7 @@ typedef enum {
         ARROW,
         MDASH,
         ELLIPSIS,
+        MU,
         _SPECIAL_GLYPH_MAX
 } SpecialGlyph;
 
