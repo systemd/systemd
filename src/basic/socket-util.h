@@ -184,7 +184,7 @@ struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
                 offsetof(struct sockaddr_un, sun_path) +                \
                         (_sa->sun_path[0] == 0 ?                        \
                          1 + strnlen(_sa->sun_path+1, sizeof(_sa->sun_path)-1) : \
-                         strnlen(_sa->sun_path, sizeof(_sa->sun_path))); \
+                         strnlen(_sa->sun_path, sizeof(_sa->sun_path))+1); \
         })
 
 int socket_ioctl_fd(void);
