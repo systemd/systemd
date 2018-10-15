@@ -2820,20 +2820,16 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
         return 0;
 }
 
-static int read_presets(UnitFileScope scope, const char *root_dir, Presets *presets) {
-        _cleanup_(presets_freep) Presets ps = {};
-        size_t n_allocated = 0;
-        _cleanup_strv_free_ char **files = NULL;
-        char **p;
+static int presets_find_config(UnitFileScope scope, const char *root_dir, char ***files) {
         int r;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
-        assert(presets);
+        assert(files);
 
         switch (scope) {
         case UNIT_FILE_SYSTEM:
-                r = conf_files_list(&files, ".preset", root_dir, 0,
+                r = conf_files_list(files, ".preset", root_dir, 0,
                                     "/etc/systemd/system-preset",
                                     "/run/systemd/system-preset",
                                     "/usr/local/lib/systemd/system-preset",
@@ -2846,7 +2842,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
 
         case UNIT_FILE_GLOBAL:
         case UNIT_FILE_USER:
-                r = conf_files_list(&files, ".preset", root_dir, 0,
+                r = conf_files_list(files, ".preset", root_dir, 0,
                                     "/etc/systemd/user-preset",
                                     "/run/systemd/user-preset",
                                     "/usr/local/lib/systemd/user-preset",
@@ -2858,6 +2854,21 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
                 assert_not_reached("Invalid unit file scope");
         }
 
+        return r;
+}
+
+static int read_presets(UnitFileScope scope, const char *root_dir, Presets *presets) {
+        _cleanup_(presets_freep) Presets ps = {};
+        size_t n_allocated = 0;
+        _cleanup_strv_free_ char **files = NULL;
+        char **p;
+        int r;
+
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+        assert(presets);
+
+        r = presets_find_config(scope, root_dir, &files);
         if (r < 0)
                 return r;
 
