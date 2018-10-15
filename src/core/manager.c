@@ -894,7 +894,7 @@ static int manager_setup_notify(Manager *m) {
                         return log_error_errno(salen, "Notify socket '%s' not valid for AF_UNIX socket address, refusing.", m->notify_socket);
 
                 (void) mkdir_parents_label(m->notify_socket, 0755);
-                (void) unlink(m->notify_socket);
+                (void) sockaddr_un_unlink(&sa.un);
 
                 r = bind(fd, &sa.sa, salen);
                 if (r < 0)
