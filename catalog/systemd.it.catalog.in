@@ -191,7 +191,7 @@ Support: %SUPPORT_URL%
 
 L'unità @UNIT@ ha terminato la fase di avvio.
 
-La fase di avvio è @RESULT@.
+La fase di avvio è @JOB_RESULT@.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: L'unità @UNIT@ inizia la fase di spegnimento
@@ -214,7 +214,7 @@ Support: %SUPPORT_URL%
 
 L'unità @UNIT@ è fallita.
 
-Il risultato è @RESULT@.
+Il risultato è @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: L'unità @UNIT@ inizia a caricare la propria configurazione
@@ -230,7 +230,7 @@ Support: %SUPPORT_URL%
 
 L'unità @UNIT@ è terminata ricaricando la propria configurazione
 
-Il risultato è @RESULT@.
+Il risultato è @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Il processo @EXECUTABLE@ non può essere eseguito

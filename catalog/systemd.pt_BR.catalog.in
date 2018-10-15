@@ -162,7 +162,7 @@ Support: %SUPPORT_URL%
 
 A unidade @UNIT@ concluiu a inicialização.
 
-The start-up result is @RESULT@.
+The start-up result is @JOB_RESULT@.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Unidade @UNIT@ sendo desligado
@@ -185,7 +185,7 @@ Support: %SUPPORT_URL%
 
 A unidade @UNIT@ falhou.
 
-O resultado é @RESULT@.
+O resultado é @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: Unidade @UNIT@ iniciou recarregamento de sua configuração
@@ -201,7 +201,7 @@ Support: %SUPPORT_URL%
 
 A unidade @UNIT@ concluiu o recarregamento de sua configuração.
 
-O resultado é @RESULT@.
+O resultado é @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Processo @EXECUTABLE@ não pôde ser executado

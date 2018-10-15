@@ -201,7 +201,7 @@ Support: %SUPPORT_URL%
 
 Jednostka @UNIT@ ukończyła uruchamianie.
 
-Wynik uruchamiania: @RESULT@.
+Wynik uruchamiania: @JOB_RESULT@.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Rozpoczęto wyłączanie jednostki @UNIT@
@@ -224,7 +224,7 @@ Support: %SUPPORT_URL%
 
 Jednostka @UNIT@ się nie powiodła.
 
-Wynik: @RESULT@.
+Wynik: @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: Rozpoczęto ponowne wczytywanie konfiguracji jednostki @UNIT@
@@ -240,7 +240,7 @@ Support: %SUPPORT_URL%
 
 Jednostka @UNIT@ ukończyła ponowne wczytywanie swojej konfiguracji.
 
-Wynik: @RESULT@.
+Wynik: @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Nie można wykonać procesu @EXECUTABLE@
