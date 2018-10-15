@@ -1001,7 +1001,7 @@ int bus_init_private(Manager *m) {
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
                 if (!e) {
-                        log_error("Failed to determine XDG_RUNTIME_DIR");
+                        log_error("XDG_RUNTIME_DIR is not set, refusing.");
                         return -EHOSTDOWN;
                 }
 
