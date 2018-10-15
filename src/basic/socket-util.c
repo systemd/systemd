@@ -1262,3 +1262,47 @@ int sockaddr_un_unlink(const struct sockaddr_un *sa) {
 
         return 1;
 }
+
+int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
+        size_t l;
+
+        assert(ret);
+        assert(path);
+
+        /* Initialize ret->sun_path from the specified argument. This will interpret paths starting with '@' as
+         * abstract namespace sockets, and those starting with '/' as regular filesystem sockets. It won't accept
+         * anything else (i.e. no relative paths), to avoid ambiguities. Note that this function cannot be used to
+         * reference paths in the abstract namespace that include NUL bytes in the name. */
+
+        l = strlen(path);
+        if (l == 0)
+                return -EINVAL;
+        if (!IN_SET(path[0], '/', '@'))
+                return -EINVAL;
+        if (path[1] == 0)
+                return -EINVAL;
+
+        /* Don't allow paths larger than the space in sockaddr_un. Note that we are a tiny bit more restrictive than
+         * the kernel is: we insist on NUL termination (both for abstract namespace and regular file system socket
+         * addresses!), which the kernel doesn't. We do this to reduce chance of incompatibility with other apps that
+         * do not expect non-NUL terminated file system path*/
+        if (l+1 > sizeof(ret->sun_path))
+                return -EINVAL;
+
+        *ret = (struct sockaddr_un) {
+                .sun_family = AF_UNIX,
+        };
+
+        if (path[0] == '@') {
+                /* Abstract namespace socket */
+                memcpy(ret->sun_path + 1, path + 1, l); /* copy *with* trailing NUL byte */
+                return (int) (offsetof(struct sockaddr_un, sun_path) + l); /* 🔥 *don't* 🔥 include trailing NUL in size */
+
+        } else {
+                assert(path[0] == '/');
+
+                /* File system socket */
+                memcpy(ret->sun_path, path, l + 1); /* copy *with* trailing NUL byte */
+                return (int) (offsetof(struct sockaddr_un, sun_path) + l + 1); /* include trailing NUL in size */
+        }
+}

@@ -188,3 +188,5 @@ struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
         })
 
 int socket_ioctl_fd(void);
+
+int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path);
