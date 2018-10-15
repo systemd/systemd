@@ -97,7 +97,9 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 size_t l;
 
                 l = strlen(s);
-                if (l >= sizeof(a->sockaddr.un.sun_path))
+                if (l >= sizeof(a->sockaddr.un.sun_path)) /* Note that we refuse non-NUL-terminated sockets when
+                                                           * parsing (the kernel itself is less strict here in what it
+                                                           * accepts) */
                         return -EINVAL;
 
                 a->sockaddr.un.sun_family = AF_UNIX;
@@ -109,7 +111,11 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 size_t l;
 
                 l = strlen(s+1);
-                if (l >= sizeof(a->sockaddr.un.sun_path) - 1)
+                if (l >= sizeof(a->sockaddr.un.sun_path) - 1) /* Note that we refuse non-NUL-terminate sockets here
+                                                               * when parsing, even though abstract namespace sockets
+                                                               * explicitly allow embedded NUL bytes and don't consider
+                                                               * them special. But it's simply annoying to debug such
+                                                               * sockets. */
                         return -EINVAL;
 
                 a->sockaddr.un.sun_family = AF_UNIX;
