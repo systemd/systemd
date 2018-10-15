@@ -19,19 +19,39 @@
 
 struct reply_callback {
         sd_netlink_message_handler_t callback;
-        void *userdata;
         usec_t timeout;
         uint64_t serial;
         unsigned prioq_idx;
-        sd_netlink_destroy_t destroy_callback;
 };
 
 struct match_callback {
         sd_netlink_message_handler_t callback;
         uint16_t type;
-        void *userdata;
 
         LIST_FIELDS(struct match_callback, match_callbacks);
+};
+
+typedef enum NetlinkSlotType {
+        NETLINK_REPLY_CALLBACK,
+        NETLINK_MATCH_CALLBACK,
+        _NETLINK_SLOT_INVALID = -1,
+} NetlinkSlotType;
+
+struct sd_netlink_slot {
+        unsigned n_ref;
+        sd_netlink *netlink;
+        void *userdata;
+        sd_netlink_destroy_t destroy_callback;
+        NetlinkSlotType type:2;
+
+        bool floating:1;
+
+        LIST_FIELDS(sd_netlink_slot, slots);
+
+        union {
+                struct reply_callback reply_callback;
+                struct match_callback match_callback;
+        };
 };
 
 struct sd_netlink {
@@ -68,6 +88,8 @@ struct sd_netlink {
         Hashmap *reply_callbacks;
 
         LIST_HEAD(struct match_callback, match_callbacks);
+
+        LIST_HEAD(sd_netlink_slot, slots);
 
         pid_t original_pid;
 

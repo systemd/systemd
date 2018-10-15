@@ -201,7 +201,7 @@ static void test_event_loop(int ifindex) {
         assert_se(sd_netlink_open(&rtnl) >= 0);
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
-        assert_se(sd_netlink_call_async(rtnl, m, link_handler, NULL, ifname, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler, NULL, ifname, 0) >= 0);
 
         assert_se(sd_event_default(&event) >= 0);
 
@@ -217,7 +217,7 @@ static void test_event_loop(int ifindex) {
 static void test_async(int ifindex) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *r = NULL;
-        uint32_t serial;
+        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot = NULL;
         char *ifname;
 
         ifname = strdup("lo");
@@ -227,7 +227,7 @@ static void test_async(int ifindex) {
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
-        assert_se(sd_netlink_call_async(rtnl, m, link_handler, NULL, ifname, 0, &serial) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, &slot, m, link_handler, NULL, ifname, 0) >= 0);
 
         assert_se(sd_netlink_wait(rtnl, 0) >= 0);
         assert_se(sd_netlink_process(rtnl, &r) >= 0);
@@ -279,7 +279,7 @@ static void test_async_destroy_callback(int ifindex) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *r = NULL;
         _cleanup_(test_async_object_unrefp) struct test_async_object *t = NULL;
-        uint32_t serial;
+        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot = NULL;
         char *ifname;
 
         assert_se(t = new(struct test_async_object, 1));
@@ -293,7 +293,7 @@ static void test_async_destroy_callback(int ifindex) {
 
         /* destroy callback is called after processing message */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
-        assert_se(sd_netlink_call_async(rtnl, m, link_handler2, test_async_object_destroy, t, 0, &serial) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0) >= 0);
 
         assert_se(t->n_ref == 1);
         assert_se(test_async_object_ref(t));
@@ -305,22 +305,22 @@ static void test_async_destroy_callback(int ifindex) {
 
         assert_se(!sd_netlink_message_unref(m));
 
-        /* destroy callback is called when asynchronous call is cancelled */
+        /* destroy callback is called when asynchronous call is cancelled, that is, slot is freed. */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
-        assert_se(sd_netlink_call_async(rtnl, m, link_handler2, test_async_object_destroy, t, 0, &serial) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, &slot, m, link_handler2, test_async_object_destroy, t, 0) >= 0);
 
         assert_se(t->n_ref == 1);
         assert_se(test_async_object_ref(t));
         assert_se(t->n_ref == 2);
 
-        assert_se(sd_netlink_call_async_cancel(rtnl, serial) >= 0);
+        assert_se(!(slot = sd_netlink_slot_unref(slot)));
         assert_se(t->n_ref == 1);
 
         assert_se(!sd_netlink_message_unref(m));
 
         /* destroy callback is also called by sd_netlink_unref() */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
-        assert_se(sd_netlink_call_async(rtnl, m, link_handler2, test_async_object_destroy, t, 0, &serial) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0) >= 0);
 
         assert_se(t->n_ref == 1);
         assert_se(test_async_object_ref(t));
@@ -356,10 +356,10 @@ static void test_pipe(int ifindex) {
         assert_se(sd_rtnl_message_new_link(rtnl, &m2, RTM_GETLINK, ifindex) >= 0);
 
         counter++;
-        assert_se(sd_netlink_call_async(rtnl, m1, pipe_handler, NULL, &counter, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, NULL, m1, pipe_handler, NULL, &counter, 0) >= 0);
 
         counter++;
-        assert_se(sd_netlink_call_async(rtnl, m2, pipe_handler, NULL, &counter, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, NULL, m2, pipe_handler, NULL, &counter, 0) >= 0);
 
         while (counter > 0) {
                 assert_se(sd_netlink_wait(rtnl, 0) >= 0);
@@ -405,16 +405,17 @@ static void test_container(sd_netlink *rtnl) {
 }
 
 static void test_match(void) {
+        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *s1 = NULL, *s2 = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
 
         assert_se(sd_netlink_open(&rtnl) >= 0);
 
-        assert_se(sd_netlink_add_match(rtnl, RTM_NEWLINK, link_handler, NULL) >= 0);
-        assert_se(sd_netlink_add_match(rtnl, RTM_NEWLINK, link_handler, NULL) >= 0);
+        assert_se(sd_netlink_add_match(rtnl, &s1, RTM_NEWLINK, link_handler, NULL, NULL) >= 0);
+        assert_se(sd_netlink_add_match(rtnl, &s2, RTM_NEWLINK, link_handler, NULL, NULL) >= 0);
+        assert_se(sd_netlink_add_match(rtnl, NULL, RTM_NEWLINK, link_handler, NULL, NULL) >= 0);
 
-        assert_se(sd_netlink_remove_match(rtnl, RTM_NEWLINK, link_handler, NULL) == 1);
-        assert_se(sd_netlink_remove_match(rtnl, RTM_NEWLINK, link_handler, NULL) == 1);
-        assert_se(sd_netlink_remove_match(rtnl, RTM_NEWLINK, link_handler, NULL) == 0);
+        assert_se(!(s1 = sd_netlink_slot_unref(s1)));
+        assert_se(!(s2 = sd_netlink_slot_unref(s2)));
 
         assert_se((rtnl = sd_netlink_unref(rtnl)) == NULL);
 }
