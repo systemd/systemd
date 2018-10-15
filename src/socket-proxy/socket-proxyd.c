@@ -378,17 +378,16 @@ static int resolve_remote(Connection *c) {
         const char *node, *service;
         int r;
 
-        if (path_is_absolute(arg_remote_host)) {
-                sa.un.sun_family = AF_UNIX;
-                strncpy(sa.un.sun_path, arg_remote_host, sizeof(sa.un.sun_path));
-                return connection_start(c, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-        }
+        if (IN_SET(arg_remote_host[0], '/', '@')) {
+                int salen;
 
-        if (arg_remote_host[0] == '@') {
-                sa.un.sun_family = AF_UNIX;
-                sa.un.sun_path[0] = 0;
-                strncpy(sa.un.sun_path+1, arg_remote_host+1, sizeof(sa.un.sun_path)-1);
-                return connection_start(c, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+                salen = sockaddr_un_set_path(&sa.un, arg_remote_host);
+                if (salen < 0) {
+                        log_error_errno(salen, "Specified address doesn't fit in an AF_UNIX address, refusing: %m");
+                        goto fail;
+                }
+
+                return connection_start(c, &sa.sa, salen);
         }
 
         service = strrchr(arg_remote_host, ':');

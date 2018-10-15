@@ -140,13 +140,11 @@ static int socket_from_display(const char *display, char **path) {
 }
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
-        union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-        };
+        union sockaddr_union sa = {};
         _cleanup_free_ char *p = NULL, *tty = NULL;
         _cleanup_close_ int fd = -1;
         struct ucred ucred;
-        int v, r;
+        int v, r, salen;
 
         assert(display);
         assert(vtnr);
@@ -160,13 +158,15 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         r = socket_from_display(display, &p);
         if (r < 0)
                 return r;
-        strncpy(sa.un.sun_path, p, sizeof(sa.un.sun_path));
+        salen = sockaddr_un_set_path(&sa.un, p);
+        if (salen < 0)
+                return salen;
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+        if (connect(fd, &sa.sa, salen) < 0)
                 return -errno;
 
         r = getpeercred(fd, &ucred);

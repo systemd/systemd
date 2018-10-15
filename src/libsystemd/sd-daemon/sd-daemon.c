@@ -444,9 +444,7 @@ _public_ int sd_pid_notify_with_fds(
                 const int *fds,
                 unsigned n_fds) {
 
-        union sockaddr_union sockaddr = {
-                .sa.sa_family = AF_UNIX,
-        };
+        union sockaddr_union sockaddr = {};
         struct iovec iovec = {
                 .iov_base = (char*) state,
         };
@@ -459,7 +457,7 @@ _public_ int sd_pid_notify_with_fds(
         struct cmsghdr *cmsg = NULL;
         const char *e;
         bool send_ucred;
-        int r;
+        int r, salen;
 
         if (!state) {
                 r = -EINVAL;
@@ -475,14 +473,9 @@ _public_ int sd_pid_notify_with_fds(
         if (!e)
                 return 0;
 
-        /* Must be an abstract socket, or an absolute path */
-        if (!IN_SET(e[0], '@', '/') || e[1] == 0) {
-                r = -EINVAL;
-                goto finish;
-        }
-
-        if (strlen(e) > sizeof(sockaddr.un.sun_path)) {
-                r = -EINVAL;
+        salen = sockaddr_un_set_path(&sockaddr.un, e);
+        if (salen < 0) {
+                r = salen;
                 goto finish;
         }
 
@@ -495,12 +488,7 @@ _public_ int sd_pid_notify_with_fds(
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         iovec.iov_len = strlen(state);
-
-        strncpy(sockaddr.un.sun_path, e, sizeof(sockaddr.un.sun_path));
-        if (sockaddr.un.sun_path[0] == '@')
-                sockaddr.un.sun_path[0] = 0;
-
-        msghdr.msg_namelen = SOCKADDR_UN_LEN(sockaddr.un);
+        msghdr.msg_namelen = salen;
 
         send_ucred =
                 (pid != 0 && pid != getpid_cached()) ||

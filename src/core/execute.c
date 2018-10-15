@@ -379,10 +379,9 @@ static int open_terminal_as(const char *path, int flags, int nfd) {
 }
 
 static int acquire_path(const char *path, int flags, mode_t mode) {
-        union sockaddr_union sa = {
-                .sa.sa_family = AF_UNIX,
-        };
-        int fd, r;
+        union sockaddr_union sa = {};
+        _cleanup_close_ int fd = -1;
+        int r, salen;
 
         assert(path);
 
@@ -391,11 +390,11 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
         fd = open(path, flags|O_NOCTTY, mode);
         if (fd >= 0)
-                return fd;
+                return TAKE_FD(fd);
 
         if (errno != ENXIO) /* ENXIO is returned when we try to open() an AF_UNIX file system socket on Linux */
                 return -errno;
-        if (strlen(path) > sizeof(sa.un.sun_path)) /* Too long, can't be a UNIX socket */
+        if (strlen(path) >= sizeof(sa.un.sun_path)) /* Too long, can't be a UNIX socket */
                 return -ENXIO;
 
         /* So, it appears the specified path could be an AF_UNIX socket. Let's see if we can connect to it. */
@@ -404,25 +403,24 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
         if (fd < 0)
                 return -errno;
 
-        strncpy(sa.un.sun_path, path, sizeof(sa.un.sun_path));
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-                safe_close(fd);
+        salen = sockaddr_un_set_path(&sa.un, path);
+        if (salen < 0)
+                return salen;
+
+        if (connect(fd, &sa.sa, salen) < 0)
                 return errno == EINVAL ? -ENXIO : -errno; /* Propagate initial error if we get EINVAL, i.e. we have
                                                            * indication that his wasn't an AF_UNIX socket after all */
-        }
 
         if ((flags & O_ACCMODE) == O_RDONLY)
                 r = shutdown(fd, SHUT_WR);
         else if ((flags & O_ACCMODE) == O_WRONLY)
                 r = shutdown(fd, SHUT_RD);
         else
-                return fd;
-        if (r < 0) {
-                safe_close(fd);
+                return TAKE_FD(fd);
+        if (r < 0)
                 return -errno;
-        }
 
-        return fd;
+        return TAKE_FD(fd);
 }
 
 static int fixup_input(

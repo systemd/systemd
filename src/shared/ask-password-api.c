@@ -451,41 +451,36 @@ finish:
         return r;
 }
 
-static int create_socket(char **name) {
-        union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-        };
+static int create_socket(char **ret) {
+        _cleanup_free_ char *path = NULL;
+        union sockaddr_union sa = {};
         _cleanup_close_ int fd = -1;
         static const int one = 1;
-        char *c;
-        int r;
+        int salen;
 
-        assert(name);
+        assert(ret);
 
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
-        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/run/systemd/ask-password/sck.%" PRIx64, random_u64());
+        if (asprintf(&path, "/run/systemd/ask-password/sck.%" PRIx64, random_u64()) < 0)
+                return -ENOMEM;
+
+        salen = sockaddr_un_set_path(&sa.un, path);
+        if (salen < 0)
+                return salen;
 
         RUN_WITH_UMASK(0177) {
-                if (bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+                if (bind(fd, &sa.sa, salen) < 0)
                         return -errno;
         }
 
         if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
                 return -errno;
 
-        c = strdup(sa.un.sun_path);
-        if (!c)
-                return -ENOMEM;
-
-        *name = c;
-
-        r = fd;
-        fd = -1;
-
-        return r;
+        *ret = TAKE_PTR(path);
+        return TAKE_FD(fd);
 }
 
 int ask_password_agent(

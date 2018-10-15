@@ -247,20 +247,17 @@ static int fsck_progress_socket(void) {
                 .un.sun_path = "/run/systemd/fsck.progress",
         };
 
-        int fd, r;
+        _cleanup_close_ int fd = -1;
 
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0)
                 return log_warning_errno(errno, "socket(): %m");
 
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-                r = log_full_errno(IN_SET(errno, ECONNREFUSED, ENOENT) ? LOG_DEBUG : LOG_WARNING,
-                                   errno, "Failed to connect to progress socket %s, ignoring: %m", sa.un.sun_path);
-                safe_close(fd);
-                return r;
-        }
+        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+                return log_full_errno(IN_SET(errno, ECONNREFUSED, ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                      errno, "Failed to connect to progress socket %s, ignoring: %m", sa.un.sun_path);
 
-        return fd;
+        return TAKE_FD(fd);
 }
 
 int main(int argc, char *argv[]) {
