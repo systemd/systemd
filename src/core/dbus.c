@@ -1012,7 +1012,7 @@ int bus_init_private(Manager *m) {
         }
 
         (void) mkdir_parents_label(sa.un.sun_path, 0755);
-        (void) unlink(sa.un.sun_path);
+        (void) sockaddr_un_unlink(&sa.un);
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)

@@ -457,7 +457,7 @@ int server_open_syslog_socket(Server *s) {
                 if (s->syslog_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
-                (void) unlink(sa.un.sun_path);
+                (void) sockaddr_un_unlink(&sa.un);
 
                 r = bind(s->syslog_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)

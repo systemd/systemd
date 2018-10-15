@@ -970,7 +970,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
 
                 fd_inc_rcvbuf(fd, CGROUPS_AGENT_RCVBUF_SIZE);
 
-                (void) unlink(sa.un.sun_path);
+                (void) sockaddr_un_unlink(&sa.un);
 
                 /* Only allow root to connect to this socket */
                 RUN_WITH_UMASK(0077)

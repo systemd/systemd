@@ -608,7 +608,7 @@ static int manager_new(Manager **ret) {
                 return -errno;
 
         (void) mkdir_parents_label(sa.un.sun_path, 0755);
-        (void) unlink(sa.un.sun_path);
+        (void) sockaddr_un_unlink(&sa.un);
 
         if (bind(m->notify_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return -errno;
