@@ -205,7 +205,7 @@ option('ntp-servers', type : 'string',
        value : 'time1.google.com time2.google.com time3.google.com time4.google.com')
 option('support-url', type : 'string',
        description : 'the support URL to show in catalog entries included in systemd',
-       value : 'https://lists.freedesktop.org/mailman/listinfo/systemd-devel')
+       value : 'https://access.redhat.com/support')
 option('www-target', type : 'string',
        description : 'the address and dir to upload docs too',
        value : 'www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd')
