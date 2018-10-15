@@ -489,6 +489,10 @@ const char* socket_address_get_path(const SocketAddress *a) {
         if (a->sockaddr.un.sun_path[0] == 0)
                 return NULL;
 
+        /* Note that this is only safe because we know that there's an extra NUL byte after the sockaddr_un
+         * structure. On Linux AF_UNIX file system socket addresses don't have to be NUL terminated if they take up the
+         * full sun_path space. */
+        assert_cc(sizeof(union sockaddr_union) >= sizeof(struct sockaddr_un)+1);
         return a->sockaddr.un.sun_path;
 }
 
