@@ -1035,9 +1035,8 @@ int bus_init_private(Manager *m) {
 
         (void) sd_event_source_set_description(s, "bus-connection");
 
-        m->private_listen_fd = fd;
+        m->private_listen_fd = TAKE_FD(fd);
         m->private_listen_event_source = s;
-        fd = -1;
 
         log_debug("Successfully created private D-Bus server.");
 

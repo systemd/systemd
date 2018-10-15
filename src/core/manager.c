@@ -978,8 +978,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
-                m->cgroups_agent_fd = fd;
-                fd = -1;
+                m->cgroups_agent_fd = TAKE_FD(fd);
         }
 
         if (!m->cgroups_agent_event_source) {
