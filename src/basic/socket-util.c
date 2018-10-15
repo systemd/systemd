@@ -57,8 +57,9 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         assert(a);
         assert(s);
 
-        zero(*a);
-        a->type = SOCK_STREAM;
+        *a = (SocketAddress) {
+                .type = SOCK_STREAM,
+        };
 
         if (*s == '[') {
                 uint16_t port;
