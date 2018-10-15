@@ -161,7 +161,7 @@ Support: %SUPPORT_URL%
 
 A(z) @UNIT@ egység befejezte az indulást
 
-Az indítás eredménye: @RESULT@.
+Az indítás eredménye: @JOB_RESULT@.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: A(z) @UNIT@ egység megkezdte a leállást
@@ -184,7 +184,7 @@ Support: %SUPPORT_URL%
 
 A(z) @UNIT@ egység hibát jelzett.
 
-Az eredmény: @RESULT@.
+Az eredmény: @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: A(z) @UNIT@ egység megkezdte a beállításainak újratöltését
@@ -200,7 +200,7 @@ Support: %SUPPORT_URL%
 
 A(z) @UNIT@ egység befejezte a beállításainak újratöltését.
 
-Az eredmény: @RESULT@.
+Az eredmény: @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: A folyamat végrehajtása sikertelen: @EXECUTABLE@

@@ -182,7 +182,7 @@ Support: %SUPPORT_URL%
 
 @UNIT@ 유닛 시동을 마쳤습니다.
 
-시동 결과는 @RESULT@ 입니다.
+시동 결과는 @JOB_RESULT@ 입니다.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: @UNIT@ 유닛 끝내기 동작 시작
@@ -205,7 +205,7 @@ Support: %SUPPORT_URL%
 
 @UNIT@ 유닛 동작에 실패했습니다.
 
-결과는 @RESULT@ 입니다.
+결과는 @JOB_RESULT@ 입니다.
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: @UNIT@ 유닛 설정 다시 읽기 시작
@@ -221,7 +221,7 @@ Support: %SUPPORT_URL%
 
 @UNIT@ 유닛의 설정 다시 읽기 동작을 끝냈습니다.
 
-결과는 @RESULT@ 입니다.
+결과는 @JOB_RESULT@ 입니다.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: @EXECUTABLE@ 프로세스 시작할 수 없음

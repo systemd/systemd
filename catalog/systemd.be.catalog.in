@@ -173,7 +173,7 @@ Support: %SUPPORT_URL%
 
 Працэс запуску юніта @UNIT@ завершаны.
 
-Вынік: @RESULT@.
+Вынік: @JOB_RESULT@.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Юніт @UNIT@ спыняецца
@@ -196,7 +196,7 @@ Support: %SUPPORT_URL%
 
 Збой юніта @UNIT@.
 
-Вынік: @RESULT@.
+Вынік: @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: Юніт @UNIT@ перачытвае сваю канфігурацыю
@@ -212,7 +212,7 @@ Support: %SUPPORT_URL%
 
 Юніт @UNIT@ перачытаў сваю канфігурацыю.
 
-Вынік: @RESULT@.
+Вынік: @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Працэс @EXECUTABLE@ не можа быць выкананы

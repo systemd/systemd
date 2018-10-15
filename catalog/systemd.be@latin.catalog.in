@@ -176,7 +176,7 @@ Support: %SUPPORT_URL%
 
 Praces zapusku junita @UNIT@ zavieršany.
 
-Vynik: @RESULT@.
+Vynik: @JOB_RESULT@.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Junit @UNIT@ spyniajecca
@@ -199,7 +199,7 @@ Support: %SUPPORT_URL%
 
 Zboj junita @UNIT@.
 
-Vynik: @RESULT@.
+Vynik: @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: Junit @UNIT@ pieračytvaje svaju kanfihuracyju
@@ -215,7 +215,7 @@ Support: %SUPPORT_URL%
 
 Junit @UNIT@ pieračytaŭ svaju kanfihuracyju.
 
-Vynik: @RESULT@.
+Vynik: @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Praces @EXECUTABLE@ nie moža być vykanany

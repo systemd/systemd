@@ -191,7 +191,7 @@ Subject: L'unité (unit) @UNIT@ a terminé son démarrage
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-L'unité (unit) @UNIT@ a terminé son démarrage, avec le résultat @RESULT@.
+L'unité (unit) @UNIT@ a terminé son démarrage, avec le résultat @JOB_RESULT@.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: L'unité (unit) @UNIT@ a commencé à s'arrêter
@@ -212,7 +212,7 @@ Subject: L'unité (unit) @UNIT@ a échoué
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-L'unité (unit) @UNIT@ a échoué, avec le résultat @RESULT@.
+L'unité (unit) @UNIT@ a échoué, avec le résultat @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: L'unité (unit) @UNIT@ a commencé à recharger sa configuration
@@ -227,7 +227,7 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 L'unité (unit) @UNIT@ a terminé de recharger configuration,
-avec le résultat @RESULT@.
+avec le résultat @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Le processus @EXECUTABLE@ n'a pas pu être exécuté

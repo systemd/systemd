@@ -158,7 +158,7 @@ Support: %SUPPORT_URL%
 
 Јединица @UNIT@ је завршила са покретањем.
 
-Исход покретања је @RESULT@.
+Исход покретања је @JOB_RESULT@.
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Јединица @UNIT@ је почела са гашењем
@@ -181,7 +181,7 @@ Support: %SUPPORT_URL%
 
 Јединица @UNIT@ је пукла.
 
-Исход је @RESULT@.
+Исход је @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: Јединица @UNIT@ је почела са поновним учитавањем свог подешавања
@@ -197,7 +197,7 @@ Support: %SUPPORT_URL%
 
 Јединица @UNIT@ је завршила са поновним учитавањем свог подешавања
 
-Исход је @RESULT@.
+Исход је @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Процес @EXECUTABLE@ није могао бити извршен

@@ -160,7 +160,7 @@ Support: %SUPPORT_URL%
 
 單位 @UNIT@ 啟動已結束。
 
-啟動結果為 @RESULT@。
+啟動結果為 @JOB_RESULT@。
 
 -- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: 單位 @UNIT@ 已開始關閉
@@ -183,7 +183,7 @@ Support: %SUPPORT_URL%
 
 單位 @UNIT@ 已失敗。
 
-結果為 @RESULT@。
+結果為 @JOB_RESULT@。
 
 -- d34d037fff1847e6ae669a370e694725
 Subject: 單位 @UNIT@ 已開始重新載入其設定
@@ -199,7 +199,7 @@ Support: %SUPPORT_URL%
 
 單位 @UNIT@ 已結束重新載入其設定
 
-結果為 @RESULT@。
+結果為 @JOB_RESULT@。
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: 行程 @EXECUTABLE@ 無法執行
