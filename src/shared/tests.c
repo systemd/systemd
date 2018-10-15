@@ -54,3 +54,9 @@ const char* get_testdata_dir(const char *suffix) {
         strncpy(testdir + strlen(testdir), suffix, sizeof(testdir) - strlen(testdir) - 1);
         return testdir;
 }
+
+void test_setup_logging(int level) {
+        log_set_max_level(level);
+        log_parse_environment();
+        log_open();
+}
