@@ -186,6 +186,14 @@ int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_n
 sd_netlink_slot *sd_netlink_slot_ref(sd_netlink_slot *nl);
 sd_netlink_slot *sd_netlink_slot_unref(sd_netlink_slot *nl);
 
+sd_netlink *sd_netlink_slot_get_netlink(sd_netlink_slot *slot);
+void *sd_netlink_slot_get_userdata(sd_netlink_slot *slot);
+void *sd_netlink_slot_set_userdata(sd_netlink_slot *slot, void *userdata);
+int sd_netlink_slot_get_destroy_callback(sd_netlink_slot *slot, sd_netlink_destroy_t *callback);
+int sd_netlink_slot_set_destroy_callback(sd_netlink_slot *slot, sd_netlink_destroy_t callback);
+int sd_netlink_slot_get_floating(sd_netlink_slot *slot);
+int sd_netlink_slot_set_floating(sd_netlink_slot *slot, int b);
+
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink, sd_netlink_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink_message, sd_netlink_message_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink_slot, sd_netlink_slot_unref);
