@@ -454,7 +454,7 @@ int address_remove(
                 return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, req, callback,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -633,7 +633,7 @@ int address_configure(
                 return r;
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, req, callback,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0) {
                 address_release(address);
                 return log_error_errno(r, "Could not send rtnetlink message: %m");

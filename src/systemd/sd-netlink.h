@@ -53,7 +53,7 @@ sd_netlink *sd_netlink_unref(sd_netlink *nl);
 int sd_netlink_send(sd_netlink *nl, sd_netlink_message *message, uint32_t *serial);
 int sd_netlink_call_async(sd_netlink *nl, sd_netlink_slot **ret_slot, sd_netlink_message *message,
                           sd_netlink_message_handler_t callback, sd_netlink_destroy_t destoy_callback,
-                          void *userdata, uint64_t usec);
+                          void *userdata, uint64_t usec, const char *description);
 int sd_netlink_call(sd_netlink *nl, sd_netlink_message *message, uint64_t timeout,
                     sd_netlink_message **reply);
 
@@ -64,7 +64,8 @@ int sd_netlink_wait(sd_netlink *nl, uint64_t timeout);
 
 int sd_netlink_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, uint16_t match,
                          sd_netlink_message_handler_t callback,
-                         sd_netlink_destroy_t destroy_callback, void *userdata);
+                         sd_netlink_destroy_t destroy_callback,
+                         void *userdata, const char *description);
 
 int sd_netlink_attach_event(sd_netlink *nl, sd_event *e, int64_t priority);
 int sd_netlink_detach_event(sd_netlink *nl);
@@ -193,6 +194,9 @@ int sd_netlink_slot_get_destroy_callback(sd_netlink_slot *slot, sd_netlink_destr
 int sd_netlink_slot_set_destroy_callback(sd_netlink_slot *slot, sd_netlink_destroy_t callback);
 int sd_netlink_slot_get_floating(sd_netlink_slot *slot);
 int sd_netlink_slot_set_floating(sd_netlink_slot *slot, int b);
+int sd_netlink_slot_get_description(sd_netlink_slot *slot, const char **description);
+int sd_netlink_slot_set_description(sd_netlink_slot *slot, const char *description);
+
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink, sd_netlink_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink_message, sd_netlink_message_unref);

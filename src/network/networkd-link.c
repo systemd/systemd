@@ -1341,7 +1341,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
                 return log_link_error_errno(link, r, "Could not append MTU: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, req, set_mtu_handler,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1412,7 +1412,7 @@ static int link_set_flags(Link *link) {
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, req, set_flags_handler,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1488,7 +1488,7 @@ static int link_set_bridge(Link *link) {
                 return log_link_error_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, req, link_set_handler,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1541,7 +1541,7 @@ static int link_bond_set(Link *link) {
                 return log_link_error_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, req, set_flags_handler,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_link_error_errno(link, r,  "Could not send rtnetlink message: %m");
 
@@ -1834,7 +1834,7 @@ int link_up(Link *link) {
                 return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1860,7 +1860,7 @@ static int link_up_can(Link *link) {
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1950,7 +1950,7 @@ static int link_set_can(Link *link) {
                 return log_link_error_errno(link, r, "Failed to close netlink container: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, m, link_set_handler,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -2008,7 +2008,7 @@ int link_down(Link *link) {
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, req, link_down_handler,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -3123,7 +3123,7 @@ int link_initialized(Link *link, sd_device *device) {
                 return r;
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, req, link_initialized_handler,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return r;
 

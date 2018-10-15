@@ -7,22 +7,26 @@
 #include "alloc-util.h"
 #include "netlink-internal.h"
 #include "netlink-slot.h"
+#include "string-util.h"
 
-sd_netlink_slot *netlink_slot_allocate(
+int netlink_slot_allocate(
                 sd_netlink *nl,
                 bool floating,
                 NetlinkSlotType type,
                 size_t extra,
                 sd_netlink_destroy_t destroy_callback,
-                void *userdata) {
+                void *userdata,
+                const char *description,
+                sd_netlink_slot **ret) {
 
-        sd_netlink_slot *slot;
+        _cleanup_free_ sd_netlink_slot *slot = NULL;
 
         assert(nl);
+        assert(ret);
 
         slot = malloc0(offsetof(sd_netlink_slot, reply_callback) + extra);
         if (!slot)
-                return NULL;
+                return -ENOMEM;
 
         slot->n_ref = 1;
         slot->netlink = nl;
@@ -31,12 +35,20 @@ sd_netlink_slot *netlink_slot_allocate(
         slot->type = type;
         slot->floating = floating;
 
+        if (description) {
+                slot->description = strdup(description);
+                if (!slot->description)
+                        return -ENOMEM;
+        }
+
         if (!floating)
                 sd_netlink_ref(nl);
 
         LIST_PREPEND(slots, nl->slots, slot);
 
-        return slot;
+        *ret = TAKE_PTR(slot);
+
+        return 0;
 }
 
 void netlink_slot_disconnect(sd_netlink_slot *slot, bool unref) {
@@ -103,6 +115,7 @@ static sd_netlink_slot* netlink_slot_free(sd_netlink_slot *slot) {
         if (slot->destroy_callback)
                 slot->destroy_callback(slot->userdata);
 
+        free(slot->description);
         return mfree(slot);
 }
 
@@ -173,4 +186,19 @@ int sd_netlink_slot_set_floating(sd_netlink_slot *slot, int b) {
         }
 
         return 1;
+}
+
+int sd_netlink_slot_get_description(sd_netlink_slot *slot, const char **description) {
+        assert_return(slot, -EINVAL);
+
+        if (description)
+                *description = slot->description;
+
+        return !!slot->description;
+}
+
+int sd_netlink_slot_set_description(sd_netlink_slot *slot, const char *description) {
+        assert_return(slot, -EINVAL);
+
+        return free_and_strdup(&slot->description, description);
 }

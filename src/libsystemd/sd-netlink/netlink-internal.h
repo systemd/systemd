@@ -45,6 +45,7 @@ struct sd_netlink_slot {
         NetlinkSlotType type:2;
 
         bool floating:1;
+        char *description;
 
         LIST_FIELDS(sd_netlink_slot, slots);
 

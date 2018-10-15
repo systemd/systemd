@@ -15,6 +15,7 @@
 #include "netlink-util.h"
 #include "process-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "util.h"
 
 static int sd_netlink_new(sd_netlink **ret) {
@@ -303,7 +304,10 @@ static int process_timeout(sd_netlink *rtnl) {
 
         r = c->callback(rtnl, m, slot->userdata);
         if (r < 0)
-                log_debug_errno(r, "sd-netlink: timedout callback failed: %m");
+                log_debug_errno(r, "sd-netlink: timedout callback %s%s%sfailed: %m",
+                                slot->description ? "'" : "",
+                                strempty(slot->description),
+                                slot->description ? "' " : "");
 
         if (slot->floating)
                 netlink_slot_disconnect(slot, true);
@@ -342,7 +346,10 @@ static int process_reply(sd_netlink *rtnl, sd_netlink_message *m) {
 
         r = c->callback(rtnl, m, slot->userdata);
         if (r < 0)
-                log_debug_errno(r, "sd-netlink: callback failed: %m");
+                log_debug_errno(r, "sd-netlink: reply callback %s%s%sfailed: %m",
+                                slot->description ? "'" : "",
+                                strempty(slot->description),
+                                slot->description ? "' " : "");
 
         if (slot->floating)
                 netlink_slot_disconnect(slot, true);
@@ -370,7 +377,10 @@ static int process_match(sd_netlink *rtnl, sd_netlink_message *m) {
                         r = c->callback(rtnl, m, slot->userdata);
                         if (r != 0) {
                                 if (r < 0)
-                                        log_debug_errno(r, "sd-netlink: match callback failed: %m");
+                                        log_debug_errno(r, "sd-netlink: match callback %s%s%sfailed: %m",
+                                                        slot->description ? "'" : "",
+                                                        strempty(slot->description),
+                                                        slot->description ? "' " : "");
 
                                 break;
                         }
@@ -519,7 +529,8 @@ int sd_netlink_call_async(
                 sd_netlink_message_handler_t callback,
                 sd_netlink_destroy_t destroy_callback,
                 void *userdata,
-                uint64_t usec) {
+                uint64_t usec,
+                const char *description) {
         _cleanup_free_ sd_netlink_slot *slot = NULL;
         uint32_t s;
         int r, k;
@@ -539,9 +550,9 @@ int sd_netlink_call_async(
                         return r;
         }
 
-        slot = netlink_slot_allocate(nl, !ret_slot, NETLINK_REPLY_CALLBACK, sizeof(struct reply_callback), destroy_callback, userdata);
-        if (!slot)
-                return -ENOMEM;
+        r = netlink_slot_allocate(nl, !ret_slot, NETLINK_REPLY_CALLBACK, sizeof(struct reply_callback), destroy_callback, userdata, description, &slot);
+        if (r < 0)
+                return r;
 
         slot->reply_callback.callback = callback;
         slot->reply_callback.timeout = calc_elapse(usec);
@@ -820,7 +831,8 @@ int sd_netlink_add_match(
                 uint16_t type,
                 sd_netlink_message_handler_t callback,
                 sd_netlink_destroy_t destroy_callback,
-                void *userdata) {
+                void *userdata,
+                const char *description) {
         _cleanup_free_ sd_netlink_slot *slot = NULL;
         int r;
 
@@ -828,9 +840,9 @@ int sd_netlink_add_match(
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
 
-        slot = netlink_slot_allocate(rtnl, !ret_slot, NETLINK_MATCH_CALLBACK, sizeof(struct match_callback), destroy_callback, userdata);
-        if (!slot)
-                return -ENOMEM;
+        r = netlink_slot_allocate(rtnl, !ret_slot, NETLINK_MATCH_CALLBACK, sizeof(struct match_callback), destroy_callback, userdata, description, &slot);
+        if (r < 0)
+                return r;
 
         slot->match_callback.callback = callback;
         slot->match_callback.type = type;

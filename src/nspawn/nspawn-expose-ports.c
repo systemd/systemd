@@ -209,11 +209,11 @@ int expose_port_watch_rtnl(
                 return log_error_errno(r, "Failed to create rtnl object: %m");
         }
 
-        r = sd_netlink_add_match(rtnl, NULL, RTM_NEWADDR, handler, NULL, exposed);
+        r = sd_netlink_add_match(rtnl, NULL, RTM_NEWADDR, handler, NULL, exposed, "nspawn-NEWADDR");
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_NEWADDR messages: %m");
 
-        r = sd_netlink_add_match(rtnl, NULL, RTM_DELADDR, handler, NULL, exposed);
+        r = sd_netlink_add_match(rtnl, NULL, RTM_DELADDR, handler, NULL, exposed, "nspawn-DELADDR");
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_DELADDR messages: %m");
 

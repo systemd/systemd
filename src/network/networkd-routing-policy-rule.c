@@ -371,7 +371,7 @@ int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *lin
         }
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, m, callback,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -540,7 +540,7 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, sd_netlin
         rule->link = link;
 
         r = sd_netlink_call_async(link->manager->rtnl, NULL, m, callback,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 

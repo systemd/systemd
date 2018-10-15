@@ -196,7 +196,7 @@ int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32
 
         /* send message to the kernel */
         r = sd_netlink_call_async(rtnl, NULL, req, set_brvlan_handler,
-                                  link_netlink_destroy_callback, link, 0);
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
