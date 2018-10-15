@@ -293,18 +293,27 @@ int socket_address_verify(const SocketAddress *a) {
         case AF_UNIX:
                 if (a->size < offsetof(struct sockaddr_un, sun_path))
                         return -EINVAL;
+                if (a->size > sizeof(struct sockaddr_un)+1) /* Allow one extra byte, since getsockname() on Linux will
+                                                             * append a NUL byte if we have path sockets that are above
+                                                             * sun_path' full size */
+                        return -EINVAL;
 
-                if (a->size > offsetof(struct sockaddr_un, sun_path)) {
+                if (a->size > offsetof(struct sockaddr_un, sun_path) &&
+                    a->sockaddr.un.sun_path[0] != 0) { /* Only validate file system sockets here */
 
-                        if (a->sockaddr.un.sun_path[0] != 0) {
-                                char *e;
+                        const char *e;
 
-                                /* path */
-                                e = memchr(a->sockaddr.un.sun_path, 0, sizeof(a->sockaddr.un.sun_path));
-                                if (!e)
-                                        return -EINVAL;
-
+                        e = memchr(a->sockaddr.un.sun_path, 0, sizeof(a->sockaddr.un.sun_path));
+                        if (e) {
+                                /* If there's an embedded NUL byte, make sure the size of the socket addresses matches it */
                                 if (a->size != offsetof(struct sockaddr_un, sun_path) + (e - a->sockaddr.un.sun_path) + 1)
+                                        return -EINVAL;
+                        } else {
+                                /* If there's no embedded NUL byte, then then the size needs to match the whole
+                                 * structure or the structure with one extra NUL byte suffixed. (Yeah, Linux is awful,
+                                 * and considers both equivalent: getsockname() even extends sockaddr_un beyond its
+                                 * size if the path is non NUL terminated.)*/
+                                if (!IN_SET(a->size, sizeof(a->sockaddr.un.sun_path), sizeof(a->sockaddr.un.sun_path)+1))
                                         return -EINVAL;
                         }
                 }
