@@ -730,7 +730,7 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
 
         if (path) {
                 l = strlen(path);
-                if (l > sizeof(b->sockaddr.un.sun_path))
+                if (l >= sizeof(b->sockaddr.un.sun_path)) /* We insist on NUL termination */
                         return -E2BIG;
 
                 b->sockaddr.un.sun_family = AF_UNIX;
@@ -738,7 +738,7 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
                 b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + l;
         } else if (abstract) {
                 l = strlen(abstract);
-                if (l > sizeof(b->sockaddr.un.sun_path) - 1)
+                if (l >= sizeof(b->sockaddr.un.sun_path) - 1) /* We insist on NUL termination */
                         return -E2BIG;
 
                 b->sockaddr.un.sun_family = AF_UNIX;
