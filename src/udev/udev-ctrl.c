@@ -101,8 +101,11 @@ struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
         if (r < 0)
                 log_warning_errno(errno, "could not set SO_PASSCRED: %m");
 
-        uctrl->saddr.un.sun_family = AF_LOCAL;
-        strscpy(uctrl->saddr.un.sun_path, sizeof(uctrl->saddr.un.sun_path), "/run/udev/control");
+        uctrl->saddr.un = (struct sockaddr_un) {
+                .sun_family = AF_UNIX,
+                .sun_path = "/run/udev/control",
+        };
+
         uctrl->addrlen = SOCKADDR_UN_LEN(uctrl->saddr.un);
         return uctrl;
 }
