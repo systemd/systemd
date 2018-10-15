@@ -344,7 +344,7 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(MDNS_PORT),
         };
-        static const int one = 1, pmtu = IP_PMTUDISC_DONT, ttl = 255;
+        static const int pmtu = IP_PMTUDISC_DONT, ttl = 255;
         int r;
 
         assert(m);
@@ -368,19 +368,19 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 goto fail;
         }
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &one, sizeof(one));
+        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &const_int_one, sizeof(const_int_one));
         if (r < 0) {
                 r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_MULTICAST_LOOP: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one));
+        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_PKTINFO, &const_int_one, sizeof(const_int_one));
         if (r < 0) {
                 r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_PKTINFO: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof(one));
+        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_RECVTTL, &const_int_one, sizeof(const_int_one));
         if (r < 0) {
                 r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_RECVTTL: %m");
                 goto fail;
@@ -405,7 +405,7 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 log_warning("mDNS-IPv4: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt(m->mdns_ipv4_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+                r = setsockopt(m->mdns_ipv4_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
                 if (r < 0) {
                         r = log_error_errno(errno, "mDNS-IPv4: Failed to set SO_REUSEADDR: %m");
                         goto fail;
@@ -418,7 +418,7 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 }
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple mDNS responders */
-                r = setsockopt(m->mdns_ipv4_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+                r = setsockopt(m->mdns_ipv4_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
                 if (r < 0) {
                         r = log_error_errno(errno, "mDNS-IPv4: Failed to set SO_REUSEADDR: %m");
                         goto fail;
@@ -441,7 +441,7 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(MDNS_PORT),
         };
-        static const int one = 1, ttl = 255;
+        static const int ttl = 255;
         int r;
 
         assert(m);
@@ -466,25 +466,25 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 goto fail;
         }
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &one, sizeof(one));
+        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &const_int_one, sizeof(const_int_one));
         if (r < 0) {
                 r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_MULTICAST_LOOP: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one));
+        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_V6ONLY, &const_int_one, sizeof(const_int_one));
         if (r < 0) {
                 r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_V6ONLY: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
+        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_int_one, sizeof(const_int_one));
         if (r < 0) {
                 r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_RECVPKTINFO: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
+        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &const_int_one, sizeof(const_int_one));
         if (r < 0) {
                 r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_RECVHOPLIMIT: %m");
                 goto fail;
@@ -502,7 +502,7 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 log_warning("mDNS-IPv6: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt(m->mdns_ipv6_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+                r = setsockopt(m->mdns_ipv6_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
                 if (r < 0) {
                         r = log_error_errno(errno, "mDNS-IPv6: Failed to set SO_REUSEADDR: %m");
                         goto fail;
@@ -515,7 +515,7 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 }
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple mDNS responders */
-                r = setsockopt(m->mdns_ipv6_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+                r = setsockopt(m->mdns_ipv6_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
                 if (r < 0) {
                         r = log_error_errno(errno, "mDNS-IPv6: Failed to set SO_REUSEADDR: %m");
                         goto fail;

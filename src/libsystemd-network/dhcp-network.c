@@ -78,7 +78,7 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                 .filter = filter
         };
         _cleanup_close_ int s = -1;
-        int r, on = 1;
+        int r;
 
         assert(ifindex > 0);
         assert(link);
@@ -87,7 +87,7 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
         if (s < 0)
                 return -errno;
 
-        r = setsockopt(s, SOL_PACKET, PACKET_AUXDATA, &on, sizeof(on));
+        r = setsockopt(s, SOL_PACKET, PACKET_AUXDATA, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return -errno;
 
@@ -149,7 +149,7 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         };
         _cleanup_close_ int s = -1;
         char ifname[IF_NAMESIZE] = "";
-        int r, on = 1, tos = IPTOS_CLASS_CS6;
+        int r, tos = IPTOS_CLASS_CS6;
 
         s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
@@ -159,7 +159,7 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+        r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return -errno;
 
@@ -173,16 +173,16 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         }
 
         if (address == INADDR_ANY) {
-                r = setsockopt(s, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on));
+                r = setsockopt(s, IPPROTO_IP, IP_PKTINFO, &const_int_one, sizeof(const_int_one));
                 if (r < 0)
                         return -errno;
 
-                r = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &on, sizeof(on));
+                r = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &const_int_one, sizeof(const_int_one));
                 if (r < 0)
                         return -errno;
 
         } else {
-                r = setsockopt(s, IPPROTO_IP, IP_FREEBIND, &on, sizeof(on));
+                r = setsockopt(s, IPPROTO_IP, IP_FREEBIND, &const_int_one, sizeof(const_int_one));
                 if (r < 0)
                         return -errno;
         }

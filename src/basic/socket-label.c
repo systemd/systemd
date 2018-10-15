@@ -35,7 +35,7 @@ int socket_address_listen(
 
         _cleanup_close_ int fd = -1;
         const char *p;
-        int r, one;
+        int r;
 
         assert(a);
 
@@ -74,26 +74,22 @@ int socket_address_listen(
                                 return -errno;
 
                 if (reuse_port) {
-                        one = 1;
-                        if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) < 0)
+                        if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &const_int_one, sizeof(const_int_one)) < 0)
                                 log_warning_errno(errno, "SO_REUSEPORT failed: %m");
                 }
 
                 if (free_bind) {
-                        one = 1;
-                        if (setsockopt(fd, IPPROTO_IP, IP_FREEBIND, &one, sizeof(one)) < 0)
+                        if (setsockopt(fd, IPPROTO_IP, IP_FREEBIND, &const_int_one, sizeof(const_int_one)) < 0)
                                 log_warning_errno(errno, "IP_FREEBIND failed: %m");
                 }
 
                 if (transparent) {
-                        one = 1;
-                        if (setsockopt(fd, IPPROTO_IP, IP_TRANSPARENT, &one, sizeof(one)) < 0)
+                        if (setsockopt(fd, IPPROTO_IP, IP_TRANSPARENT, &const_int_one, sizeof(const_int_one)) < 0)
                                 log_warning_errno(errno, "IP_TRANSPARENT failed: %m");
                 }
         }
 
-        one = 1;
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0)
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one)) < 0)
                 return -errno;
 
         p = socket_address_get_path(a);

@@ -25,7 +25,7 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
                 .in6.sin6_scope_id = index,
         };
         _cleanup_close_ int s = -1;
-        int r, off = 0, on = 1;
+        int r;
 
         assert(index > 0);
         assert(local_address);
@@ -36,15 +36,15 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
         if (s < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &off, sizeof(off));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &const_int_zero, sizeof(const_int_zero));
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+        r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return -errno;
 

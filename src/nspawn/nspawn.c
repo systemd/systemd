@@ -2812,7 +2812,6 @@ static int inner_child(
 }
 
 static int setup_sd_notify_child(void) {
-        static const int one = 1;
         int fd = -1;
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
@@ -2839,7 +2838,7 @@ static int setup_sd_notify_child(void) {
                 return log_error_errno(r, "Failed to chown " NSPAWN_NOTIFY_SOCKET_PATH ": %m");
         }
 
-        r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
         if (r < 0) {
                 safe_close(fd);
                 return log_error_errno(errno, "SO_PASSCRED failed: %m");

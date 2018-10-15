@@ -88,9 +88,9 @@ static int broadcast_groups_get(sd_netlink *nl) {
 
 int socket_bind(sd_netlink *nl) {
         socklen_t addrlen;
-        int r, one = 1;
+        int r;
 
-        r = setsockopt(nl->fd, SOL_NETLINK, NETLINK_PKTINFO, &one, sizeof(one));
+        r = setsockopt(nl->fd, SOL_NETLINK, NETLINK_PKTINFO, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return -errno;
 

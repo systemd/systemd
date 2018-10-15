@@ -455,7 +455,6 @@ static int create_socket(char **ret) {
         _cleanup_free_ char *path = NULL;
         union sockaddr_union sa = {};
         _cleanup_close_ int fd = -1;
-        static const int one = 1;
         int salen;
 
         assert(ret);
@@ -476,7 +475,7 @@ static int create_socket(char **ret) {
                         return -errno;
         }
 
-        if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
+        if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one)) < 0)
                 return -errno;
 
         *ret = TAKE_PTR(path);

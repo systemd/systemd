@@ -337,7 +337,6 @@ int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct 
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor) {
-        const int on = 1;
         int r;
 
         assert_return(udev_monitor, -EINVAL);
@@ -358,7 +357,7 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor) {
                 return log_debug_errno(r, "Failed to set address: %m");
 
         /* enable receiving of sender credentials */
-        if (setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on)) < 0)
+        if (setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one)) < 0)
                 return log_debug_errno(errno, "Failed to set socket option SO_PASSCRED: %m");
 
         return 0;

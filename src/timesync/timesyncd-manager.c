@@ -630,7 +630,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 static int manager_listen_setup(Manager *m) {
         union sockaddr_union addr = {};
         static const int tos = IPTOS_LOWDELAY;
-        static const int on = 1;
         int r;
 
         assert(m);
@@ -651,7 +650,7 @@ static int manager_listen_setup(Manager *m) {
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, &on, sizeof(on));
+        r = setsockopt(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return -errno;
 

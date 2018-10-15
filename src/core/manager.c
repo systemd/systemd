@@ -873,7 +873,6 @@ static int manager_setup_notify(Manager *m) {
         if (m->notify_fd < 0) {
                 _cleanup_close_ int fd = -1;
                 union sockaddr_union sa = {};
-                static const int one = 1;
                 int salen;
 
                 /* First free all secondary fields */
@@ -901,7 +900,7 @@ static int manager_setup_notify(Manager *m) {
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", m->notify_socket);
 
-                r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+                r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
                 if (r < 0)
                         return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
