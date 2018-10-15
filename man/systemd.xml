@@ -882,6 +882,9 @@
         for more information.</para></listitem>
       </varlistentry>
     </variablelist>
+
+    <para>For further environment variables understood by systemd and its various components, see <ulink
+    url="https://systemd.io/ENVIRONMENT">Known Environment Variables</ulink>.</para>
   </refsect1>
 
   <refsect1>
