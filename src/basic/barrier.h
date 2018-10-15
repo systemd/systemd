@@ -52,11 +52,13 @@ bool barrier_sync_next(Barrier *b);
 bool barrier_sync(Barrier *b);
 
 static inline bool barrier_i_aborted(Barrier *b) {
-        return IN_SET(b->barriers, BARRIER_I_ABORTED, BARRIER_WE_ABORTED);
+        /* IN_SET isn't used here to get around https://github.com/systemd/systemd/issues/10332 */
+        return b->barriers == BARRIER_I_ABORTED || b->barriers == BARRIER_WE_ABORTED;
 }
 
 static inline bool barrier_they_aborted(Barrier *b) {
-        return IN_SET(b->barriers, BARRIER_THEY_ABORTED, BARRIER_WE_ABORTED);
+        /* IN_SET isn't used here to get around https://github.com/systemd/systemd/issues/10332 */
+        return b->barriers == BARRIER_THEY_ABORTED || b->barriers == BARRIER_WE_ABORTED;
 }
 
 static inline bool barrier_we_aborted(Barrier *b) {
@@ -64,8 +66,8 @@ static inline bool barrier_we_aborted(Barrier *b) {
 }
 
 static inline bool barrier_is_aborted(Barrier *b) {
-        return IN_SET(b->barriers,
-                      BARRIER_I_ABORTED, BARRIER_THEY_ABORTED, BARRIER_WE_ABORTED);
+        /* IN_SET isn't used here to get around https://github.com/systemd/systemd/issues/10332 */
+        return b->barriers == BARRIER_I_ABORTED || b->barriers == BARRIER_THEY_ABORTED || b->barriers == BARRIER_WE_ABORTED;
 }
 
 static inline bool barrier_place_and_sync(Barrier *b) {
