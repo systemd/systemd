@@ -32,11 +32,14 @@ struct Prioq {
 Prioq *prioq_new(compare_func_t compare_func) {
         Prioq *q;
 
-        q = new0(Prioq, 1);
+        q = new(Prioq, 1);
         if (!q)
                 return q;
 
-        q->compare_func = compare_func;
+        *q = (Prioq) {
+                .compare_func = compare_func,
+        };
+
         return q;
 }
 
