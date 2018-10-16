@@ -1083,7 +1083,7 @@
         <term><varname>quiet</varname></term>
 
         <listitem><para>Turn off status output at boot, much like
-        <varname>systemd.show_status=false</varname> would. Note that
+        <varname>systemd.show_status=no</varname> would. Note that
         this option is also read by the kernel itself and disables
         kernel log output. Passing this option hence turns off the
         usual output from both the system manager and the kernel.

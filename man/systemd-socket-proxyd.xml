@@ -52,7 +52,7 @@
     <citerefentry project='die-net'><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     The main differences for <command>systemd-socket-proxyd</command>
     are support for socket activation with
-    <literal>Accept=false</literal> and an event-driven
+    <literal>Accept=no</literal> and an event-driven
     design that scales better with the number of
     connections.</para>
   </refsect1>

@@ -27,6 +27,7 @@ struct Manager {
         Hashmap *devices;
         Hashmap *seats;
         Hashmap *sessions;
+        Hashmap *sessions_by_leader;
         Hashmap *users;
         Hashmap *inhibitors;
         Hashmap *buttons;
@@ -42,6 +43,10 @@ struct Manager {
         sd_event_source *udev_device_event_source;
         sd_event_source *udev_vcsa_event_source;
         sd_event_source *udev_button_event_source;
+
+#if ENABLE_UTMP
+        sd_event_source *utmp_event_source;
+#endif
 
         int console_active_fd;
 
@@ -62,6 +67,7 @@ struct Manager {
         Hashmap *user_units;
 
         usec_t inhibit_delay_max;
+        usec_t user_stop_delay;
 
         /* If an action is currently being executed or is delayed,
          * this is != 0 and encodes what is being done */
@@ -128,7 +134,7 @@ int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_dev
 int manager_add_button(Manager *m, const char *name, Button **_button);
 int manager_add_seat(Manager *m, const char *id, Seat **_seat);
 int manager_add_session(Manager *m, const char *id, Session **_session);
-int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **_user);
+int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, const char *home, User **_user);
 int manager_add_user_by_name(Manager *m, const char *name, User **_user);
 int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
 int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor);
@@ -149,6 +155,10 @@ bool manager_is_docked_or_external_displays(Manager *m);
 bool manager_is_on_external_power(void);
 bool manager_all_buttons_ignored(Manager *m);
 
+int manager_read_utmp(Manager *m);
+void manager_connect_utmp(Manager *m);
+void manager_reconnect_utmp(Manager *m);
+
 extern const sd_bus_vtable manager_vtable[];
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
@@ -161,13 +171,13 @@ int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name
 
 int manager_send_changed(Manager *manager, const char *property, ...) _sentinel_;
 
-int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *after2, sd_bus_message *more_properties, sd_bus_error *error, char **job);
+int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, char **wants, char **after, const char *requires_mounts_for, sd_bus_message *more_properties, sd_bus_error *error, char **job);
 int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
 int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *error);
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error);
-int manager_unit_is_active(Manager *manager, const char *unit);
-int manager_job_is_active(Manager *manager, const char *path);
+int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *error);
+int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *error);
 
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

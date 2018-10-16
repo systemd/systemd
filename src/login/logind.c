@@ -35,18 +35,21 @@ static int manager_new(Manager **ret) {
 
         assert(ret);
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
-        m->console_active_fd = -1;
-        m->reserve_vt_fd = -1;
+        *m = (Manager) {
+                .console_active_fd = -1,
+                .reserve_vt_fd = -1,
+        };
 
         m->idle_action_not_before_usec = now(CLOCK_MONOTONIC);
 
         m->devices = hashmap_new(&string_hash_ops);
         m->seats = hashmap_new(&string_hash_ops);
         m->sessions = hashmap_new(&string_hash_ops);
+        m->sessions_by_leader = hashmap_new(NULL);
         m->users = hashmap_new(NULL);
         m->inhibitors = hashmap_new(&string_hash_ops);
         m->buttons = hashmap_new(&string_hash_ops);
@@ -54,7 +57,7 @@ static int manager_new(Manager **ret) {
         m->user_units = hashmap_new(&string_hash_ops);
         m->session_units = hashmap_new(&string_hash_ops);
 
-        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
+        if (!m->devices || !m->seats || !m->sessions || !m->sessions_by_leader || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 return -ENOMEM;
 
         r = sd_event_default(&m->event);
@@ -109,6 +112,7 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->devices);
         hashmap_free(m->seats);
         hashmap_free(m->sessions);
+        hashmap_free(m->sessions_by_leader);
         hashmap_free(m->users);
         hashmap_free(m->inhibitors);
         hashmap_free(m->buttons);
@@ -128,6 +132,10 @@ static Manager* manager_unref(Manager *m) {
         sd_event_source_unref(m->udev_vcsa_event_source);
         sd_event_source_unref(m->udev_button_event_source);
         sd_event_source_unref(m->lid_switch_ignore_event_source);
+
+#if ENABLE_UTMP
+        sd_event_source_unref(m->utmp_event_source);
+#endif
 
         safe_close(m->console_active_fd);
 
@@ -787,28 +795,28 @@ static int manager_connect_console(Manager *m) {
         assert(m);
         assert(m->console_active_fd < 0);
 
-        /* On certain architectures (S390 and Xen, and containers),
-           /dev/tty0 does not exist, so don't fail if we can't open
-           it. */
+        /* On certain systems (such as S390, Xen, and containers) /dev/tty0 does not exist (as there is no VC), so
+         * don't fail if we can't open it. */
+
         if (access("/dev/tty0", F_OK) < 0)
                 return 0;
 
         m->console_active_fd = open("/sys/class/tty/tty0/active", O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (m->console_active_fd < 0) {
 
-                /* On some systems the device node /dev/tty0 may exist
-                 * even though /sys/class/tty/tty0 does not. */
-                if (errno == ENOENT)
+                /* On some systems /dev/tty0 may exist even though /sys/class/tty/tty0 does not. These are broken, but
+                 * common. Let's complain but continue anyway. */
+                if (errno == ENOENT) {
+                        log_warning_errno(errno, "System has /dev/tty0 but not /sys/class/tty/tty0/active which is broken, ignoring: %m");
                         return 0;
+                }
 
                 return log_error_errno(errno, "Failed to open /sys/class/tty/tty0/active: %m");
         }
 
         r = sd_event_add_io(m->event, &m->console_active_event_source, m->console_active_fd, 0, manager_dispatch_console, m);
-        if (r < 0) {
-                log_error("Failed to watch foreground console");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch foreground console: %m");
 
         /*
          * SIGRTMIN is used as global VT-release signal, SIGRTMIN + 1 is used
@@ -827,7 +835,7 @@ static int manager_connect_console(Manager *m) {
 
         r = sd_event_add_signal(m->event, NULL, SIGRTMIN, manager_vt_switch, m);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to subscribe to signal: %m");
 
         return 0;
 }
@@ -951,13 +959,13 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 /* First, if we are not closing yet, initiate stopping */
                 if (session_may_gc(session, drop_not_started) &&
                     session_get_state(session) != SESSION_CLOSING)
-                        session_stop(session, false);
+                        (void) session_stop(session, false);
 
                 /* Normally, this should make the session referenced
                  * again, if it doesn't then let's get rid of it
                  * immediately */
                 if (session_may_gc(session, drop_not_started)) {
-                        session_finalize(session);
+                        (void) session_finalize(session);
                         session_free(session);
                 }
         }
@@ -968,11 +976,11 @@ static void manager_gc(Manager *m, bool drop_not_started) {
 
                 /* First step: queue stop jobs */
                 if (user_may_gc(user, drop_not_started))
-                        user_stop(user, false);
+                        (void) user_stop(user, false);
 
                 /* Second step: finalize user */
                 if (user_may_gc(user, drop_not_started)) {
-                        user_finalize(user);
+                        (void) user_finalize(user);
                         user_free(user);
                 }
         }
@@ -1067,6 +1075,9 @@ static int manager_startup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register SIGHUP handler: %m");
 
+        /* Connect to utmp */
+        manager_connect_utmp(m);
+
         /* Connect to console */
         r = manager_connect_console(m);
         if (r < 0)
@@ -1122,15 +1133,18 @@ static int manager_startup(Manager *m) {
         /* Reserve the special reserved VT */
         manager_reserve_vt(m);
 
+        /* Read in utmp if it exists */
+        manager_read_utmp(m);
+
         /* And start everything */
         HASHMAP_FOREACH(seat, m->seats, i)
-                seat_start(seat);
+                (void) seat_start(seat);
 
         HASHMAP_FOREACH(user, m->users, i)
-                user_start(user);
+                (void) user_start(user);
 
         HASHMAP_FOREACH(session, m->sessions, i)
-                session_start(session, NULL);
+                (void) session_start(session, NULL, NULL);
 
         HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
                 inhibitor_start(inhibitor);

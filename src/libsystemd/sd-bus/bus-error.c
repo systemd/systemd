@@ -308,6 +308,28 @@ finish:
         return -bus_error_name_to_errno(e->name);
 }
 
+_public_ int sd_bus_error_move(sd_bus_error *dest, sd_bus_error *e) {
+        int r;
+
+        if (!sd_bus_error_is_set(e)) {
+
+                if (dest)
+                        *dest = SD_BUS_ERROR_NULL;
+
+                return 0;
+        }
+
+        r = -bus_error_name_to_errno(e->name);
+
+        if (dest) {
+                *dest = *e;
+                *e = SD_BUS_ERROR_NULL;
+        } else
+                sd_bus_error_free(e);
+
+        return r;
+}
+
 _public_ int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message) {
         if (!name)
                 return 0;

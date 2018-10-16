@@ -3,9 +3,11 @@
 #include <stdint.h>
 #include <sys/mount.h>
 
+#include "sd-bus.h"
+
+#include "bus-error.h"
 #include "fs-util.h"
 #include "label.h"
-#include "logind.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "path-util.h"
@@ -17,21 +19,28 @@
 #include "strv.h"
 #include "user-util.h"
 
-static int gather_configuration(size_t *runtime_dir_size) {
-        Manager m = {};
+static int acquire_runtime_dir_size(uint64_t *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
-        manager_reset_config(&m);
-
-        r = manager_parse_config_file(&m);
+        r = sd_bus_default_system(&bus);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse logind.conf: %m");
+                return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        *runtime_dir_size = m.runtime_dir_size;
+        r = sd_bus_get_property_trivial(bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "RuntimeDirectorySize", &error, 't', ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire runtime directory size: %s", bus_error_message(&error, r));
+
         return 0;
 }
 
-static int user_mkdir_runtime_path(const char *runtime_path, uid_t uid, gid_t gid, size_t runtime_dir_size) {
+static int user_mkdir_runtime_path(
+                const char *runtime_path,
+                uid_t uid,
+                gid_t gid,
+                uint64_t runtime_dir_size) {
+
         int r;
 
         assert(runtime_path);
@@ -49,10 +58,10 @@ static int user_mkdir_runtime_path(const char *runtime_path, uid_t uid, gid_t gi
                 char options[sizeof("mode=0700,uid=,gid=,size=,smackfsroot=*")
                              + DECIMAL_STR_MAX(uid_t)
                              + DECIMAL_STR_MAX(gid_t)
-                             + DECIMAL_STR_MAX(size_t)];
+                             + DECIMAL_STR_MAX(uint64_t)];
 
                 xsprintf(options,
-                         "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu%s",
+                         "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%" PRIu64 "%s",
                          uid, gid, runtime_dir_size,
                          mac_smack_use() ? ",smackfsroot=*" : "");
 
@@ -113,7 +122,7 @@ static int user_remove_runtime_path(const char *runtime_path) {
 
 static int do_mount(const char *user) {
         char runtime_path[sizeof("/run/user") + DECIMAL_STR_MAX(uid_t)];
-        size_t runtime_dir_size;
+        uint64_t runtime_dir_size;
         uid_t uid;
         gid_t gid;
         int r;
@@ -126,9 +135,11 @@ static int do_mount(const char *user) {
                                                     : "Failed to look up user \"%s\": %m",
                                        user);
 
-        xsprintf(runtime_path, "/run/user/" UID_FMT, uid);
+        r = acquire_runtime_dir_size(&runtime_dir_size);
+        if (r < 0)
+                return r;
 
-        assert_se(gather_configuration(&runtime_dir_size) == 0);
+        xsprintf(runtime_path, "/run/user/" UID_FMT, uid);
 
         log_debug("Will mount %s owned by "UID_FMT":"GID_FMT, runtime_path, uid, gid);
         return user_mkdir_runtime_path(runtime_path, uid, gid, runtime_dir_size);

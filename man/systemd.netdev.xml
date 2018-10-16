@@ -1470,10 +1470,10 @@ Name=ipip-tun
 Kind=ipip
 
 [Tunnel]
-Independent=true
+Independent=yes
 Local=10.65.208.212
 Remote=10.65.208.211
-FooOverUDP=true
+FooOverUDP=yes
 FOUDestinationPort=5555
       </programlisting>
     </example>
@@ -1484,8 +1484,8 @@ Name=tap-test
 Kind=tap
 
 [Tap]
-MultiQueue=true
-PacketInfo=true</programlisting> </example>
+MultiQueue=yes
+PacketInfo=yes</programlisting> </example>
 
     <example>
       <title>/etc/systemd/network/25-sit.netdev</title>

@@ -465,7 +465,7 @@
           control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
+          <para>Implies <literal>IOAccounting=yes</literal>.</para>
 
           <para>These settings are supported only if the unified control group hierarchy is used.</para>
         </listitem>
@@ -760,7 +760,7 @@
           the startup phase. Using <varname>StartupCPUShares=</varname> allows prioritizing specific services at
           boot-up differently than during normal runtime.</para>
 
-          <para>Implies <literal>CPUAccounting=true</literal>.</para>
+          <para>Implies <literal>CPUAccounting=yes</literal>.</para>
 
           <para>These settings are deprecated. Use <varname>CPUWeight=</varname> and
           <varname>StartupCPUWeight=</varname> instead.</para>
@@ -781,7 +781,7 @@
           attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">memory.txt</ulink>.</para>
 
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
+          <para>Implies <literal>MemoryAccounting=yes</literal>.</para>
 
           <para>This setting is deprecated. Use <varname>MemoryMax=</varname> instead.</para>
         </listitem>
@@ -822,7 +822,7 @@
         boot-up differently than during runtime.</para>
 
         <para>Implies
-        <literal>BlockIOAccounting=true</literal>.</para>
+        <literal>BlockIOAccounting=yes</literal>.</para>
 
         <para>These settings are deprecated. Use <varname>IOWeight=</varname> and <varname>StartupIOWeight=</varname>
         instead.</para>
@@ -844,7 +844,7 @@
           url="https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt">blkio-controller.txt</ulink>.</para>
 
           <para>Implies
-          <literal>BlockIOAccounting=true</literal>.</para>
+          <literal>BlockIOAccounting=yes</literal>.</para>
 
           <para>This setting is deprecated. Use <varname>IODeviceWeight=</varname> instead.</para>
         </listitem>
@@ -869,7 +869,7 @@
           </para>
 
           <para>Implies
-          <literal>BlockIOAccounting=true</literal>.</para>
+          <literal>BlockIOAccounting=yes</literal>.</para>
 
           <para>These settings are deprecated. Use <varname>IOReadBandwidthMax=</varname> and
           <varname>IOWriteBandwidthMax=</varname> instead.</para>
