@@ -16,7 +16,7 @@ static int unsigned_compare(const unsigned *a, const unsigned *b) {
 
 static void test_unsigned(void) {
         _cleanup_(prioq_freep) Prioq *q = NULL;
-        unsigned buffer[SET_SIZE], i, u;
+        unsigned buffer[SET_SIZE], i, u, n;
 
         srand(0);
 
@@ -26,6 +26,9 @@ static void test_unsigned(void) {
                 u = (unsigned) rand();
                 buffer[i] = u;
                 assert_se(prioq_put(q, UINT_TO_PTR(u), NULL) >= 0);
+
+                n = prioq_size(q);
+                assert_se(prioq_remove(q, UINT_TO_PTR(u), &n) == 0);
         }
 
         typesafe_qsort(buffer, ELEMENTSOF(buffer), unsigned_compare);
