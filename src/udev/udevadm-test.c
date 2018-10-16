@@ -92,6 +92,9 @@ int test_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
         struct udev_list_entry *entry;
         sigset_t mask, sigmask_orig;
+        const char *cmd;
+        Iterator i;
+        void *val;
         int r;
 
         log_set_max_level(LOG_DEBUG);
@@ -138,10 +141,10 @@ int test_main(int argc, char *argv[], void *userdata) {
         udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev))
                 printf("%s=%s\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
 
-        udev_list_entry_foreach(entry, udev_list_get_entry(&event->run_list)) {
+        HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
                 char program[UTIL_PATH_SIZE];
 
-                udev_event_apply_format(event, udev_list_entry_get_name(entry), program, sizeof(program), false);
+                udev_event_apply_format(event, cmd, program, sizeof(program), false);
                 printf("run: '%s'\n", program);
         }
 

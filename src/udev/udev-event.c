@@ -44,16 +44,18 @@ struct udev_event *udev_event_new(struct udev_device *dev) {
         if (event == NULL)
                 return NULL;
         event->dev = dev;
-        udev_list_init(NULL, &event->run_list, false);
         event->birth_usec = now(CLOCK_MONOTONIC);
         return event;
 }
 
 void udev_event_unref(struct udev_event *event) {
+        void *p;
+
         if (event == NULL)
                 return;
         sd_netlink_unref(event->rtnl);
-        udev_list_cleanup(&event->run_list);
+        while ((p = hashmap_steal_first_key(event->run_list)))
+                free(p);
         hashmap_free_free_free(event->seclabel_list);
         free(event->program_result);
         free(event->name);
@@ -888,12 +890,13 @@ void udev_event_execute_rules(struct udev_event *event,
 }
 
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec) {
-        struct udev_list_entry *list_entry;
+        const char *cmd;
+        void *val;
+        Iterator i;
 
-        udev_list_entry_foreach(list_entry, udev_list_get_entry(&event->run_list)) {
+        HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
+                enum udev_builtin_cmd builtin_cmd = PTR_TO_INT(val);
                 char command[UTIL_PATH_SIZE];
-                const char *cmd = udev_list_entry_get_name(list_entry);
-                enum udev_builtin_cmd builtin_cmd = udev_list_entry_get_num(list_entry);
 
                 udev_event_apply_format(event, cmd, command, sizeof(command), false);
 

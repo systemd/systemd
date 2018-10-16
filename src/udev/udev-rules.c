@@ -2388,16 +2388,33 @@ int udev_rules_apply_to_event(
                 }
                 case TK_A_RUN_BUILTIN:
                 case TK_A_RUN_PROGRAM: {
-                        struct udev_list_entry *entry;
+                        _cleanup_free_ char *cmd = NULL;
 
-                        if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
-                                udev_list_cleanup(&event->run_list);
+                        if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL)) {
+                                void *p;
+
+                                while ((p = hashmap_steal_first_key(event->run_list)))
+                                        free(p);
+                        }
+
+                        r = hashmap_ensure_allocated(&event->run_list, NULL);
+                        if (r < 0)
+                                return log_oom();
+
+                        cmd = strdup(rules_str(rules, cur->key.value_off));
+                        if (!cmd)
+                                return log_oom();
+
+                        r = hashmap_put(event->run_list, cmd, INT_TO_PTR(cur->key.builtin_cmd));
+                        if (r < 0)
+                                return log_oom();
+
+                        cmd = NULL;
+
                         log_debug("RUN '%s' %s:%u",
                                   rules_str(rules, cur->key.value_off),
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
-                        entry = udev_list_entry_add(&event->run_list, rules_str(rules, cur->key.value_off), NULL);
-                        udev_list_entry_set_num(entry, cur->key.builtin_cmd);
                         break;
                 }
                 case TK_A_GOTO:

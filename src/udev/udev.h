@@ -30,7 +30,7 @@ struct udev_event {
         uid_t uid;
         gid_t gid;
         Hashmap *seclabel_list;
-        struct udev_list run_list;
+        Hashmap *run_list;
         int exec_delay;
         usec_t birth_usec;
         sd_netlink *rtnl;
