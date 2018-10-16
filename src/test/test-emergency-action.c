@@ -36,10 +36,10 @@ static void test_parse_emergency_action(void) {
         assert_se(parse_emergency_action("poweroff-force", true, &x) == 0);
         assert_se(x == EMERGENCY_ACTION_POWEROFF_FORCE);
         assert_se(parse_emergency_action("poweroff-immediate", true, &x) == 0);
-        assert_se(parse_emergency_action("exit", true, &x) == -EOPNOTSUPP);
-        assert_se(parse_emergency_action("exit-force", true, &x) == -EOPNOTSUPP);
+        assert_se(parse_emergency_action("exit", true, &x) == 0);
+        assert_se(parse_emergency_action("exit-force", true, &x) == 0);
         assert_se(parse_emergency_action("exit-forcee", true, &x) == -EINVAL);
-        assert_se(x == EMERGENCY_ACTION_POWEROFF_IMMEDIATE);
+        assert_se(x == EMERGENCY_ACTION_EXIT_FORCE);
 }
 
 int main(int argc, char **argv) {

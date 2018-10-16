@@ -10,6 +10,7 @@
 #include "special.h"
 #include "string-table.h"
 #include "terminal-util.h"
+#include "virt.h"
 
 static void log_and_status(Manager *m, const char *message, const char *reason) {
         log_warning("%s: %s", message, reason);
@@ -71,12 +72,14 @@ int emergency_action(
                 break;
 
         case EMERGENCY_ACTION_EXIT:
-                assert(MANAGER_IS_USER(m));
+                if (MANAGER_IS_USER(m) || detect_container() > 0) {
+                        log_and_status(m, "Exiting", reason);
+                        (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
+                        break;
+                }
 
-                log_and_status(m, "Exiting", reason);
-
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
-                break;
+                log_notice("Doing \"poweroff\" action instead of an \"exit\" emergency action.");
+                _fallthrough_;
 
         case EMERGENCY_ACTION_POWEROFF:
                 log_and_status(m, "Powering off", reason);
@@ -84,11 +87,14 @@ int emergency_action(
                 break;
 
         case EMERGENCY_ACTION_EXIT_FORCE:
-                assert(MANAGER_IS_USER(m));
+                if (MANAGER_IS_USER(m) || detect_container() > 0) {
+                        log_and_status(m, "Exiting immediately", reason);
+                        m->objective = MANAGER_EXIT;
+                        break;
+                }
 
-                log_and_status(m, "Exiting immediately", reason);
-                m->objective = MANAGER_EXIT;
-                break;
+                log_notice("Doing \"poweroff-force\" action instead of an \"exit-force\" emergency action.");
+                _fallthrough_;
 
         case EMERGENCY_ACTION_POWEROFF_FORCE:
                 log_and_status(m, "Forcibly powering off", reason);
@@ -135,8 +141,7 @@ int parse_emergency_action(
         if (x < 0)
                 return -EINVAL;
 
-        if ((system && x >= _EMERGENCY_ACTION_FIRST_USER_ACTION) ||
-            (!system && x != EMERGENCY_ACTION_NONE && x < _EMERGENCY_ACTION_FIRST_USER_ACTION))
+        if (!system && x != EMERGENCY_ACTION_NONE && x < _EMERGENCY_ACTION_FIRST_USER_ACTION)
                 return -EOPNOTSUPP;
 
         *ret = x;
