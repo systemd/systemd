@@ -3648,7 +3648,11 @@ static void service_notify_message(
                         }
                         if (r > 0) {
                                 service_set_main_pid(s, new_main_pid);
-                                unit_watch_pid(UNIT(s), new_main_pid);
+
+                                r = unit_watch_pid(UNIT(s), new_main_pid);
+                                if (r < 0)
+                                        log_unit_warning_errno(UNIT(s), r, "Failed to watch new main PID "PID_FMT" for service: %m", new_main_pid);
+
                                 notify_dbus = true;
                         }
                 }

@@ -555,7 +555,7 @@ static void event_run(Manager *manager, struct event *event) {
                 if (count < 0) {
                         log_error_errno(errno, "worker ["PID_FMT"] did not accept message %zi (%m), kill it",
                                         worker->pid, count);
-                        kill(worker->pid, SIGKILL);
+                        (void) kill(worker->pid, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
                 }
@@ -629,7 +629,7 @@ static void manager_kill_workers(Manager *manager) {
                         continue;
 
                 worker->state = WORKER_KILLED;
-                kill(worker->pid, SIGTERM);
+                (void) kill(worker->pid, SIGTERM);
         }
 }
 
