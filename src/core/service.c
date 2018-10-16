@@ -2024,6 +2024,12 @@ static void service_enter_start(Service *s) {
                         goto fail;
                 }
 
+                /* We force a fake state transition here. Otherwise, the unit would go directly from
+                 * SERVICE_DEAD to SERVICE_DEAD without SERVICE_ACTIVATING or SERVICE_ACTIVE
+                 * inbetween. This way we can later trigger actions that depend on the state
+                 * transition, including SuccessAction=. */
+                service_set_state(s, SERVICE_START);
+
                 service_enter_start_post(s);
                 return;
         }
