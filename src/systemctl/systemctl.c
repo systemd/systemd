@@ -3018,12 +3018,12 @@ static enum action verb_to_action(const char *verb) {
 
 static int start_unit(int argc, char *argv[], void *userdata) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_(wait_context_free) WaitContext wait_context = {};
         const char *method, *mode, *one_name, *suffix = NULL;
         _cleanup_strv_free_ char **names = NULL;
+        int r, ret = EXIT_SUCCESS;
         sd_bus *bus;
-        _cleanup_(wait_context_free) WaitContext wait_context = {};
         char **name;
-        int r = 0;
 
         if (arg_wait && !STR_IN_SET(argv[0], "start", "restart")) {
                 log_error("--wait may only be used with the 'start' or 'restart' commands.");
@@ -3070,9 +3070,11 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 one_name = action_table[arg_action].target;
         }
 
-        if (one_name)
+        if (one_name) {
                 names = strv_new(one_name, NULL);
-        else {
+                if (!names)
+                        return log_oom();
+        } else {
                 r = expand_names(bus, strv_skip(argv, 1), suffix, &names);
                 if (r < 0)
                         return log_error_errno(r, "Failed to expand names: %m");
@@ -3110,16 +3112,15 @@ static int start_unit(int argc, char *argv[], void *userdata) {
 
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                int q;
 
-                q = start_unit_one(bus, method, *name, mode, &error, w, arg_wait ? &wait_context : NULL);
-                if (r >= 0 && q < 0)
-                        r = translate_bus_error_to_exit_status(q, &error);
+                r = start_unit_one(bus, method, *name, mode, &error, w, arg_wait ? &wait_context : NULL);
+                if (ret == EXIT_SUCCESS && r < 0)
+                        ret = translate_bus_error_to_exit_status(r, &error);
         }
 
         if (!arg_no_block) {
-                int q, arg_count = 0;
                 const char* extra_args[4] = {};
+                int arg_count = 0;
 
                 if (arg_scope != UNIT_FILE_SYSTEM)
                         extra_args[arg_count++] = "--user";
@@ -3133,9 +3134,9 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                         extra_args[arg_count++] = arg_host;
                 }
 
-                q = bus_wait_for_jobs(w, arg_quiet, extra_args);
-                if (q < 0)
-                        return q;
+                r = bus_wait_for_jobs(w, arg_quiet, extra_args);
+                if (r < 0)
+                        return r;
 
                 /* When stopping units, warn if they can still be triggered by
                  * another active unit (socket, path, timer) */
@@ -3144,16 +3145,15 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                                 (void) check_triggering_units(bus, *name);
         }
 
-        if (r >= 0 && arg_wait && !set_isempty(wait_context.unit_paths)) {
-                int q;
-                q = sd_event_loop(wait_context.event);
-                if (q < 0)
-                        return log_error_errno(q, "Failed to run event loop: %m");
+        if (ret == EXIT_SUCCESS && arg_wait && !set_isempty(wait_context.unit_paths)) {
+                r = sd_event_loop(wait_context.event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run event loop: %m");
                 if (wait_context.any_failed)
-                        r = EXIT_FAILURE;
+                        ret = EXIT_FAILURE;
         }
 
-        return r;
+        return ret;
 }
 
 #if ENABLE_LOGIND
