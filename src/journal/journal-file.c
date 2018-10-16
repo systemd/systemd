@@ -2616,6 +2616,8 @@ void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
 }
 
 int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
+        int r;
+
         assert(af);
         assert(af->header);
         assert(bf);
@@ -2635,10 +2637,9 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
 
                 /* If this is from the same seqnum source, compare
                  * seqnums */
-                if (af->current_seqnum < bf->current_seqnum)
-                        return -1;
-                if (af->current_seqnum > bf->current_seqnum)
-                        return 1;
+                r = CMP(af->current_seqnum, bf->current_seqnum);
+                if (r != 0)
+                        return r;
 
                 /* Wow! This is weird, different data but the same
                  * seqnums? Something is borked, but let's make the
@@ -2648,17 +2649,15 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
         if (sd_id128_equal(af->current_boot_id, bf->current_boot_id)) {
 
                 /* If the boot id matches, compare monotonic time */
-                if (af->current_monotonic < bf->current_monotonic)
-                        return -1;
-                if (af->current_monotonic > bf->current_monotonic)
-                        return 1;
+                r = CMP(af->current_monotonic, bf->current_monotonic);
+                if (r != 0)
+                        return r;
         }
 
         /* Otherwise, compare UTC time */
-        if (af->current_realtime < bf->current_realtime)
-                return -1;
-        if (af->current_realtime > bf->current_realtime)
-                return 1;
+        r = CMP(af->current_realtime, bf->current_realtime);
+        if (r != 0)
+                return r;
 
         /* Finally, compare by contents */
         return CMP(af->current_xor_hash, bf->current_xor_hash);
