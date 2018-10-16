@@ -4212,6 +4212,16 @@ int config_parse_emergency_action(
 
         r = parse_emergency_action(rvalue, MANAGER_IS_SYSTEM(m), x);
         if (r < 0) {
+                if (r == -EOPNOTSUPP && MANAGER_IS_USER(m)) {
+                        /* Compat mode: remove for systemd 241. */
+
+                        log_syntax(unit, LOG_INFO, filename, line, r,
+                                   "%s= in user mode specified as \"%s\", using \"exit-force\" instead.",
+                                   lvalue, rvalue);
+                        *x = EMERGENCY_ACTION_EXIT_FORCE;
+                        return 0;
+                }
+
                 if (r == -EOPNOTSUPP)
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "%s= specified as %s mode action, ignoring: %s",
