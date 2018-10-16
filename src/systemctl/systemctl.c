@@ -8449,7 +8449,7 @@ static int start_with_fallback(void) {
 
 static int halt_now(enum action a) {
         /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need to be
-         * synce'd explicitly in advance. */
+         * synced explicitly in advance. */
         if (!arg_no_sync && !arg_dry_run)
                 (void) sync();
 
