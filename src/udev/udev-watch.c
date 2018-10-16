@@ -121,23 +121,22 @@ int udev_watch_begin(sd_device *dev) {
 
 int udev_watch_end(sd_device *dev) {
         char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
-        const char *devnode;
+        const char *name = NULL;
         int wd, r;
 
         if (inotify_fd < 0)
                 return log_error_errno(EINVAL, "Invalid inotify descriptor.");
 
-        r = sd_device_get_devname(dev, &devnode);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device name: %m");
+        if (sd_device_get_devname(dev, &name) < 0)
+                (void) sd_device_get_syspath(dev, &name);
 
         r = device_get_watch_handle(dev, &wd);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to get watch handle for device '%s', ignoring: %m", devnode);
+                return log_error_errno(r, "Failed to get watch handle for device '%s', ignoring: %m", strnull(name));
 
-        log_debug("Removing watch on '%s'", devnode);
+        log_debug("Removing watch on '%s'", strnull(name));
         (void) inotify_rm_watch(inotify_fd, wd);
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
