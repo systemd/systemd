@@ -418,12 +418,7 @@ static int btrfs_ioctl_search_args_compare(const struct btrfs_ioctl_search_args 
         if (args->key.min_type > args->key.max_type)
                 return 1;
 
-        if (args->key.min_offset < args->key.max_offset)
-                return -1;
-        if (args->key.min_offset > args->key.max_offset)
-                return 1;
-
-        return 0;
+        return CMP(args->key.min_offset, args->key.max_offset);
 }
 
 #define FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args)                  \

@@ -496,11 +496,7 @@ static int peer_address_compare_func(const void *a, const void *b) {
         case AF_INET6:
                 return memcmp(&x->peer.in6.sin6_addr, &y->peer.in6.sin6_addr, sizeof(x->peer.in6.sin6_addr));
         case AF_VSOCK:
-                if (x->peer.vm.svm_cid < y->peer.vm.svm_cid)
-                        return -1;
-                if (x->peer.vm.svm_cid > y->peer.vm.svm_cid)
-                        return 1;
-                return 0;
+                return CMP(x->peer.vm.svm_cid, y->peer.vm.svm_cid);
         }
         assert_not_reached("Black sheep in the family!");
 }

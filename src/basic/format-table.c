@@ -688,32 +688,16 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return 0;
 
                 case TABLE_TIMESTAMP:
-                        if (a->timestamp < b->timestamp)
-                                return -1;
-                        if (a->timestamp > b->timestamp)
-                                return 1;
-                        return 0;
+                        return CMP(a->timestamp, b->timestamp);
 
                 case TABLE_TIMESPAN:
-                        if (a->timespan < b->timespan)
-                                return -1;
-                        if (a->timespan > b->timespan)
-                                return 1;
-                        return 0;
+                        return CMP(a->timespan, b->timespan);
 
                 case TABLE_SIZE:
-                        if (a->size < b->size)
-                                return -1;
-                        if (a->size > b->size)
-                                return 1;
-                        return 0;
+                        return CMP(a->size, b->size);
 
                 case TABLE_UINT32:
-                        if (a->uint32 < b->uint32)
-                                return -1;
-                        if (a->uint32 > b->uint32)
-                                return 1;
-                        return 0;
+                        return CMP(a->uint32, b->uint32);
 
                 default:
                         ;
@@ -721,12 +705,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
         }
 
         /* Generic fallback using the orginal order in which the cells where added. */
-        if (index_a < index_b)
-                return -1;
-        if (index_a > index_b)
-                return 1;
-
-        return 0;
+        return CMP(index_a, index_b);
 }
 
 static int table_data_compare(const size_t *a, const size_t *b, Table *t) {

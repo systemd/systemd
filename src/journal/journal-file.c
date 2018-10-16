@@ -2661,12 +2661,7 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
                 return 1;
 
         /* Finally, compare by contents */
-        if (af->current_xor_hash < bf->current_xor_hash)
-                return -1;
-        if (af->current_xor_hash > bf->current_xor_hash)
-                return 1;
-
-        return 0;
+        return CMP(af->current_xor_hash, bf->current_xor_hash);
 }
 
 static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
