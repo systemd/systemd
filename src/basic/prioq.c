@@ -32,11 +32,14 @@ struct Prioq {
 Prioq *prioq_new(compare_func_t compare_func) {
         Prioq *q;
 
-        q = new0(Prioq, 1);
+        q = new(Prioq, 1);
         if (!q)
                 return q;
 
-        q->compare_func = compare_func;
+        *q = (Prioq) {
+                .compare_func = compare_func,
+        };
+
         return q;
 }
 
@@ -88,6 +91,7 @@ static void swap(Prioq *q, unsigned j, unsigned k) {
 
 static unsigned shuffle_up(Prioq *q, unsigned idx) {
         assert(q);
+        assert(idx < q->n_items);
 
         while (idx > 0) {
                 unsigned k;
@@ -211,9 +215,12 @@ _pure_ static struct prioq_item* find_item(Prioq *q, void *data, unsigned *idx) 
 
         assert(q);
 
+        if (q->n_items <= 0)
+                return NULL;
+
         if (idx) {
                 if (*idx == PRIOQ_IDX_NULL ||
-                    *idx > q->n_items)
+                    *idx >= q->n_items)
                         return NULL;
 
                 i = q->items + *idx;
