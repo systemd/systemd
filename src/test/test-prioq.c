@@ -86,6 +86,7 @@ static void test_struct(void) {
         while ((t = set_steal_first(s))) {
                 assert_se(prioq_remove(q, t, &t->idx) == 1);
                 assert_se(prioq_remove(q, t, &t->idx) == 0);
+                assert_se(prioq_remove(q, t, NULL) == 0);
 
                 free(t);
         }
@@ -94,6 +95,8 @@ static void test_struct(void) {
                 assert_se(prioq_size(q) == (SET_SIZE * 3 / 4) - i);
 
                 assert_se(t = prioq_pop(q));
+                assert_se(prioq_remove(q, t, &t->idx) == 0);
+                assert_se(prioq_remove(q, t, NULL) == 0);
                 assert_se(previous <= t->value);
 
                 previous = t->value;
