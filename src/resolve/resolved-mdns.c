@@ -101,12 +101,7 @@ static int proposed_rrs_cmp(DnsResourceRecord **x, unsigned x_size, DnsResourceR
                         return r;
         }
 
-        if (x_size < y_size)
-                return -1;
-        if (x_size > y_size)
-                return 1;
-
-        return 0;
+        return CMP(x_size, y_size);
 }
 
 static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, DnsResourceRecord ***ret_rrs) {

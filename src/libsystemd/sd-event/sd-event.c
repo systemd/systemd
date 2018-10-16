@@ -419,12 +419,7 @@ static int exit_prioq_compare(const void *a, const void *b) {
                 return 1;
 
         /* Lower priority values first */
-        if (x->priority < y->priority)
-                return -1;
-        if (x->priority > y->priority)
-                return 1;
-
-        return 0;
+        return CMP(x->priority, y->priority);
 }
 
 static void free_clock_data(struct clock_data *d) {
@@ -1579,12 +1574,7 @@ static int inode_data_compare(const void *a, const void *b) {
         if (x->dev > y->dev)
                 return 1;
 
-        if (x->ino < y->ino)
-                return -1;
-        if (x->ino > y->ino)
-                return 1;
-
-        return 0;
+        return CMP(x->ino, y->ino);
 }
 
 static void inode_data_hash_func(const void *p, struct siphash *state) {
