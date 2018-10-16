@@ -404,19 +404,19 @@ static void btrfs_ioctl_search_args_set(struct btrfs_ioctl_search_args *args, co
 }
 
 static int btrfs_ioctl_search_args_compare(const struct btrfs_ioctl_search_args *args) {
+        int r;
+
         assert(args);
 
         /* Compare min and max */
 
-        if (args->key.min_objectid < args->key.max_objectid)
-                return -1;
-        if (args->key.min_objectid > args->key.max_objectid)
-                return 1;
+        r = CMP(args->key.min_objectid, args->key.max_objectid);
+        if (r != 0)
+                return r;
 
-        if (args->key.min_type < args->key.max_type)
-                return -1;
-        if (args->key.min_type > args->key.max_type)
-                return 1;
+        r = CMP(args->key.min_type, args->key.max_type);
+        if (r != 0)
+                return r;
 
         return CMP(args->key.min_offset, args->key.max_offset);
 }

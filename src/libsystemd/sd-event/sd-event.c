@@ -1565,14 +1565,14 @@ static int event_make_inotify_data(
 
 static int inode_data_compare(const void *a, const void *b) {
         const struct inode_data *x = a, *y = b;
+        int r;
 
         assert(x);
         assert(y);
 
-        if (x->dev < y->dev)
-                return -1;
-        if (x->dev > y->dev)
-                return 1;
+        r = CMP(x->dev, y->dev);
+        if (r != 0)
+                return r;
 
         return CMP(x->ino, y->ino);
 }
