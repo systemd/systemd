@@ -45,7 +45,6 @@ struct udev_event *udev_event_new(struct udev_device *dev) {
                 return NULL;
         event->dev = dev;
         udev_list_init(NULL, &event->run_list, false);
-        udev_list_init(NULL, &event->seclabel_list, false);
         event->birth_usec = now(CLOCK_MONOTONIC);
         return event;
 }
@@ -55,7 +54,7 @@ void udev_event_unref(struct udev_event *event) {
                 return;
         sd_netlink_unref(event->rtnl);
         udev_list_cleanup(&event->run_list);
-        udev_list_cleanup(&event->seclabel_list);
+        hashmap_free_free_free(event->seclabel_list);
         free(event->program_result);
         free(event->name);
         free(event);
@@ -873,7 +872,7 @@ void udev_event_execute_rules(struct udev_event *event,
                         }
 
                         apply = streq(udev_device_get_action(dev), "add") || event->owner_set || event->group_set || event->mode_set;
-                        udev_node_add(dev->device, apply, event->mode, event->uid, event->gid, &event->seclabel_list);
+                        udev_node_add(dev->device, apply, event->mode, event->uid, event->gid, event->seclabel_list);
                 }
 
                 /* preserve old, or get new initialization timestamp */

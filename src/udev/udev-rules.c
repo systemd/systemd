@@ -1711,19 +1711,20 @@ enum escape_type {
         ESCAPE_REPLACE,
 };
 
-void udev_rules_apply_to_event(struct udev_rules *rules,
-                               struct udev_event *event,
-                               usec_t timeout_usec,
-                               usec_t timeout_warn_usec,
-                               struct udev_list *properties_list) {
+int udev_rules_apply_to_event(
+                struct udev_rules *rules,
+                struct udev_event *event,
+                usec_t timeout_usec,
+                usec_t timeout_warn_usec,
+                struct udev_list *properties_list) {
         struct token *cur;
         struct token *rule;
         enum escape_type esc = ESCAPE_UNSET;
         bool can_set_name;
         int r;
 
-        if (rules->tokens == NULL)
-                return;
+        if (!rules->tokens)
+                return 0;
 
         can_set_name = ((!streq(udev_device_get_action(event->dev), "remove")) &&
                         (major(udev_device_get_devnum(event->dev)) > 0 ||
@@ -2188,19 +2189,34 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                   rule->rule.filename_line);
                         break;
                 case TK_A_SECLABEL: {
+                        _cleanup_free_ char *name = NULL, *label = NULL;
                         char label_str[UTIL_LINE_SIZE] = {};
-                        const char *name, *label;
 
-                        name = rules_str(rules, cur->key.attr_off);
+                        name = strdup(rules_str(rules, cur->key.attr_off));
+                        if (!name)
+                                return log_oom();
+
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), label_str, sizeof(label_str), false);
-                        if (label_str[0] != '\0')
-                                label = label_str;
+                        if (!isempty(label_str))
+                                label = strdup(label_str);
                         else
-                                label = rules_str(rules, cur->key.value_off);
+                                label = strdup(rules_str(rules, cur->key.value_off));
+                        if (!label)
+                                return log_oom();
 
                         if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
-                                udev_list_cleanup(&event->seclabel_list);
-                        udev_list_entry_add(&event->seclabel_list, name, label);
+                                hashmap_clear_free_free(event->seclabel_list);
+
+                        r = hashmap_ensure_allocated(&event->seclabel_list, NULL);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = hashmap_put(event->seclabel_list, name, label);
+                        if (r < 0)
+                                return log_oom();
+
+                        name = label = NULL;
+
                         log_debug("SECLABEL{%s}='%s' %s:%u",
                                   name, label,
                                   rules_str(rules, rule->rule.filename_off),
@@ -2280,10 +2296,9 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                           rule->rule.filename_line);
                                 break;
                         }
-                        if (free_and_strdup(&event->name, name_str) < 0) {
-                                log_oom();
-                                return;
-                        }
+                        if (free_and_strdup(&event->name, name_str) < 0)
+                                return log_oom();
+
                         log_debug("NAME '%s' %s:%u",
                                   event->name,
                                   rules_str(rules, rule->rule.filename_off),
@@ -2391,7 +2406,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                         cur = &rules->tokens[cur->key.rule_goto];
                         continue;
                 case TK_END:
-                        return;
+                        return 0;
 
                 case TK_M_PARENTS_MIN:
                 case TK_M_PARENTS_MAX:
@@ -2407,6 +2422,8 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                 /* fast-forward to next rule */
                 cur = rule + rule->rule.token_count;
         }
+
+        return 0;
 }
 
 int udev_rules_apply_static_dev_perms(struct udev_rules *rules) {

@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "libudev-private.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
@@ -271,9 +272,8 @@ int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
 
 static int node_permissions_apply(sd_device *dev, bool apply,
                                   mode_t mode, uid_t uid, gid_t gid,
-                                  struct udev_list *seclabel_list) {
+                                  Hashmap *seclabel_list) {
         const char *devnode, *subsystem, *id_filename = NULL;
-        struct udev_list_entry *entry;
         struct stat stats;
         dev_t devnum;
         int r = 0;
@@ -305,6 +305,8 @@ static int node_permissions_apply(sd_device *dev, bool apply,
 
         if (apply) {
                 bool selinux = false, smack = false;
+                const char *name, *label;
+                Iterator i;
 
                 if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
                         log_debug("Setting permissions %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
@@ -316,12 +318,8 @@ static int node_permissions_apply(sd_device *dev, bool apply,
                         log_debug("Preserve permissions of %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
 
                 /* apply SECLABEL{$module}=$label */
-                udev_list_entry_foreach(entry, udev_list_get_entry(seclabel_list)) {
-                        const char *name, *label;
+                HASHMAP_FOREACH_KEY(label, name, seclabel_list, i) {
                         int q;
-
-                        name = udev_list_entry_get_name(entry);
-                        label = udev_list_entry_get_value(entry);
 
                         if (streq(name, "selinux")) {
                                 selinux = true;
@@ -388,7 +386,7 @@ static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char **ret) {
 
 int udev_node_add(sd_device *dev, bool apply,
                   mode_t mode, uid_t uid, gid_t gid,
-                  struct udev_list *seclabel_list) {
+                  Hashmap *seclabel_list) {
         const char *devnode, *devlink;
         _cleanup_free_ char *filename = NULL;
         int r;
