@@ -75,7 +75,7 @@ typedef struct Manager {
         pid_t pid; /* the process that originally allocated the manager object */
 
         struct udev_rules *rules;
-        struct udev_list properties;
+        Hashmap *properties;
 
         struct udev_monitor *monitor;
         struct udev_ctrl *ctrl;
@@ -293,7 +293,7 @@ static void manager_free(Manager *manager) {
         udev_ctrl_unref(manager->ctrl);
         udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
 
-        udev_list_cleanup(&manager->properties);
+        hashmap_free_free_free(manager->properties);
         udev_rules_unref(manager->rules);
 
         safe_close(manager->fd_inotify);
@@ -444,7 +444,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         /* apply rules, create node, symlinks */
                         udev_event_execute_rules(udev_event,
                                                  arg_event_timeout_usec, arg_event_timeout_warn_usec,
-                                                 &manager->properties,
+                                                 manager->properties,
                                                  manager->rules);
 
                         udev_event_execute_run(udev_event,
@@ -918,7 +918,7 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
         _cleanup_(udev_ctrl_connection_unrefp) struct udev_ctrl_connection *ctrl_conn = NULL;
         _cleanup_(udev_ctrl_msg_unrefp) struct udev_ctrl_msg *ctrl_msg = NULL;
         const char *str;
-        int i;
+        int i, r;
 
         assert(manager);
 
@@ -954,27 +954,56 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
         }
 
         str = udev_ctrl_get_set_env(ctrl_msg);
-        if (str != NULL) {
-                _cleanup_free_ char *key = NULL;
+        if (str) {
+                _cleanup_free_ char *key = NULL, *val = NULL, *old_key = NULL, *old_val = NULL;
+                char *eq;
 
-                key = strdup(str);
-                if (key) {
-                        char *val;
-
-                        val = strchr(key, '=');
-                        if (val != NULL) {
-                                val[0] = '\0';
-                                val = &val[1];
-                                if (val[0] == '\0') {
-                                        log_debug("udevd message (ENV) received, unset '%s'", key);
-                                        udev_list_entry_add(&manager->properties, key, NULL);
-                                } else {
-                                        log_debug("udevd message (ENV) received, set '%s=%s'", key, val);
-                                        udev_list_entry_add(&manager->properties, key, val);
-                                }
-                        } else
-                                log_error("wrong key format '%s'", key);
+                eq = strchr(str, '=');
+                if (!eq) {
+                        log_error("Invalid key format '%s'", str);
+                        return 1;
                 }
+
+                key = strndup(str, eq - str);
+                if (!key) {
+                        log_oom();
+                        return 1;
+                }
+
+                old_val = hashmap_remove2(manager->properties, key, (void **) &old_key);
+
+                r = hashmap_ensure_allocated(&manager->properties, &string_hash_ops);
+                if (r < 0) {
+                        log_oom();
+                        return 1;
+                }
+
+                eq++;
+                if (!isempty(eq)) {
+                        log_debug("udevd message (ENV) received, unset '%s'", key);
+
+                        r = hashmap_put(manager->properties, key, NULL);
+                        if (r < 0) {
+                                log_oom();
+                                return 1;
+                        }
+                } else {
+                        val = strdup(eq);
+                        if (!val) {
+                                log_oom();
+                                return 1;
+                        }
+
+                        log_debug("udevd message (ENV) received, set '%s=%s'", key, val);
+
+                        r = hashmap_put(manager->properties, key, val);
+                        if (r < 0) {
+                                log_oom();
+                                return 1;
+                        }
+                }
+
+                key = val = NULL;
                 manager_kill_workers(manager);
         }
 
@@ -1529,7 +1558,6 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
                 return log_error_errno(ENOMEM, "error reading rules");
 
         LIST_HEAD_INIT(manager->events);
-        udev_list_init(NULL, &manager->properties, true);
 
         manager->cgroup = cgroup;
 

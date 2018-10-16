@@ -791,7 +791,7 @@ static int rename_netif(struct udev_event *event) {
 
 void udev_event_execute_rules(struct udev_event *event,
                               usec_t timeout_usec, usec_t timeout_warn_usec,
-                              struct udev_list *properties_list,
+                              Hashmap *properties_list,
                               struct udev_rules *rules) {
         struct udev_device *dev = event->dev;
 

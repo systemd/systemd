@@ -56,7 +56,7 @@ struct udev_rules *udev_rules_unref(struct udev_rules *rules);
 bool udev_rules_check_timestamp(struct udev_rules *rules);
 int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event,
                               usec_t timeout_usec, usec_t timeout_warn_usec,
-                              struct udev_list *properties_list);
+                              Hashmap *properties_list);
 int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
 /* udev-event.c */
@@ -74,7 +74,7 @@ int udev_event_spawn(struct udev_event *event,
                      const char *cmd, char *result, size_t ressize);
 void udev_event_execute_rules(struct udev_event *event,
                               usec_t timeout_usec, usec_t timeout_warn_usec,
-                              struct udev_list *properties_list,
+                              Hashmap *properties_list,
                               struct udev_rules *rules);
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec);
 

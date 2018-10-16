@@ -1716,7 +1716,7 @@ int udev_rules_apply_to_event(
                 struct udev_event *event,
                 usec_t timeout_usec,
                 usec_t timeout_warn_usec,
-                struct udev_list *properties_list) {
+                Hashmap *properties_list) {
         struct token *cur;
         struct token *rule;
         enum escape_type esc = ESCAPE_UNSET;
@@ -1784,18 +1784,10 @@ int udev_rules_apply_to_event(
                         value = udev_device_get_property_value(event->dev, key_name);
 
                         /* check global properties */
-                        if (!value && properties_list) {
-                                struct udev_list_entry *list_entry;
+                        if (!value && properties_list)
+                                value = hashmap_get(properties_list, key_name);
 
-                                list_entry = udev_list_get_entry(properties_list);
-                                list_entry = udev_list_entry_get_by_name(list_entry, key_name);
-                                if (list_entry != NULL)
-                                        value = udev_list_entry_get_value(list_entry);
-                        }
-
-                        if (!value)
-                                value = "";
-                        if (match_key(rules, cur, value))
+                        if (match_key(rules, cur, strempty(value)))
                                 goto nomatch;
                         break;
                 }
