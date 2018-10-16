@@ -1724,7 +1724,8 @@ int unit_start_limit_test(Unit *u) {
         log_unit_warning(u, "Start request repeated too quickly.");
         u->start_limit_hit = true;
 
-        return emergency_action(u->manager, u->start_limit_action, u->reboot_arg, "unit failed");
+        return emergency_action(u->manager, u->start_limit_action, EMERGENCY_ACTION_IS_WATCHDOG,
+                                u->reboot_arg, "unit failed");
 }
 
 bool unit_shall_confirm_spawn(Unit *u) {
@@ -2498,9 +2499,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                 unit_check_binds_to(u);
 
                 if (os != UNIT_FAILED && ns == UNIT_FAILED)
-                        (void) emergency_action(u->manager, u->failure_action, u->reboot_arg, "unit failed");
+                        (void) emergency_action(u->manager, u->failure_action, 0,
+                                                u->reboot_arg, "unit failed");
                 else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && ns == UNIT_INACTIVE)
-                        (void) emergency_action(u->manager, u->success_action, u->reboot_arg, "unit succeeded");
+                        (void) emergency_action(u->manager, u->success_action, 0,
+                                                u->reboot_arg, "unit succeeded");
         }
 
         unit_add_to_dbus_queue(u);

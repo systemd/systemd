@@ -16,10 +16,16 @@ typedef enum EmergencyAction {
         _EMERGENCY_ACTION_INVALID = -1
 } EmergencyAction;
 
+typedef enum EmergencyActionFlags {
+        EMERGENCY_ACTION_IS_WATCHDOG = 1 << 0,
+} EmergencyActionFlags;
+
 #include "macro.h"
 #include "manager.h"
 
-int emergency_action(Manager *m, EmergencyAction action, const char *reboot_arg, const char *reason);
+int emergency_action(Manager *m,
+                     EmergencyAction action, EmergencyActionFlags options,
+                     const char *reboot_arg, const char *reason);
 
 const char* emergency_action_to_string(EmergencyAction i) _const_;
 EmergencyAction emergency_action_from_string(const char *s) _pure_;
