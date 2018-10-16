@@ -76,7 +76,6 @@ DEFINE_CONFIG_PARSE(config_parse_socket_protocol, supported_socket_protocol_from
 DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string, "Failed to parse secure bits");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode, "Failed to parse garbage collection mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_emergency_action, emergency_action, EmergencyAction, "Failed to parse failure action specifier");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
@@ -4181,6 +4180,47 @@ int config_parse_job_running_timeout_sec(
 
         u->job_running_timeout = usec;
         u->job_running_timeout_set = true;
+
+        return 0;
+}
+
+int config_parse_emergency_action(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *m = NULL;
+        EmergencyAction *x = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (unit)
+                m = ((Unit*) userdata)->manager;
+        else
+                m = data;
+
+        r = parse_emergency_action(rvalue, MANAGER_IS_SYSTEM(m), x);
+        if (r < 0) {
+                if (r == -EOPNOTSUPP)
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "%s= specified as %s mode action, ignoring: %s",
+                                   lvalue, MANAGER_IS_SYSTEM(m) ? "user" : "system", rvalue);
+                else
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
 
         return 0;
 }

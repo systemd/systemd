@@ -36,15 +36,6 @@ int emergency_action(
                 return -ECANCELED;
         }
 
-        if (!MANAGER_IS_SYSTEM(m)) {
-                /* Downgrade all options to simply exiting if we run
-                 * in user mode */
-
-                log_warning("Exiting: %s", reason);
-                m->objective = MANAGER_EXIT;
-                return -ECANCELED;
-        }
-
         switch (action) {
 
         case EMERGENCY_ACTION_REBOOT:
@@ -78,9 +69,24 @@ int emergency_action(
                 (void) reboot(RB_AUTOBOOT);
                 break;
 
+        case EMERGENCY_ACTION_EXIT:
+                assert(MANAGER_IS_USER(m));
+
+                log_and_status(m, "Exiting", reason);
+
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
+                break;
+
         case EMERGENCY_ACTION_POWEROFF:
                 log_and_status(m, "Powering off", reason);
                 (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
+                break;
+
+        case EMERGENCY_ACTION_EXIT_FORCE:
+                assert(MANAGER_IS_USER(m));
+
+                log_and_status(m, "Exiting immediately", reason);
+                m->objective = MANAGER_EXIT;
                 break;
 
         case EMERGENCY_ACTION_POWEROFF_FORCE:
@@ -111,6 +117,27 @@ static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
         [EMERGENCY_ACTION_REBOOT_IMMEDIATE] = "reboot-immediate",
         [EMERGENCY_ACTION_POWEROFF] = "poweroff",
         [EMERGENCY_ACTION_POWEROFF_FORCE] = "poweroff-force",
-        [EMERGENCY_ACTION_POWEROFF_IMMEDIATE] = "poweroff-immediate"
+        [EMERGENCY_ACTION_POWEROFF_IMMEDIATE] = "poweroff-immediate",
+        [EMERGENCY_ACTION_EXIT] = "exit",
+        [EMERGENCY_ACTION_EXIT_FORCE] = "exit-force",
 };
 DEFINE_STRING_TABLE_LOOKUP(emergency_action, EmergencyAction);
+
+int parse_emergency_action(
+                const char *value,
+                bool system,
+                EmergencyAction *ret) {
+
+        EmergencyAction x;
+
+        x = emergency_action_from_string(value);
+        if (x < 0)
+                return -EINVAL;
+
+        if ((system && x >= _EMERGENCY_ACTION_FIRST_USER_ACTION) ||
+            (!system && x != EMERGENCY_ACTION_NONE && x < _EMERGENCY_ACTION_FIRST_USER_ACTION))
+                return -EOPNOTSUPP;
+
+        *ret = x;
+        return 0;
+}

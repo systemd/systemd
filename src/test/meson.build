@@ -63,6 +63,11 @@ tests += [
           libmount,
           libblkid]],
 
+        [['src/test/test-emergency-action.c'],
+         [libcore,
+          libshared],
+         []],
+
         [['src/test/test-job-type.c'],
          [libcore,
           libshared],

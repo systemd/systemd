@@ -2,6 +2,10 @@ Bugfixes:
 
 * copy.c: set the right chattrs before copying files and others after
 
+* Many manager configuration settings that are only applicable to user
+  manager or system manager can be always set. It would be better to reject
+  them when parsing config.
+
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
