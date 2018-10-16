@@ -12,6 +12,7 @@ typedef struct Prioq Prioq;
 
 Prioq *prioq_new(compare_func_t compare);
 Prioq *prioq_free(Prioq *q);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Prioq*, prioq_free);
 int prioq_ensure_allocated(Prioq **q, compare_func_t compare_func);
 
 int prioq_put(Prioq *q, void *data, unsigned *idx);
