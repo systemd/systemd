@@ -447,7 +447,6 @@ int server_open_syslog_socket(Server *s) {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/journal/dev-log",
         };
-        static const int one = 1;
         int r;
 
         assert(s);
@@ -457,7 +456,7 @@ int server_open_syslog_socket(Server *s) {
                 if (s->syslog_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
-                (void) unlink(sa.un.sun_path);
+                (void) sockaddr_un_unlink(&sa.un);
 
                 r = bind(s->syslog_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
@@ -467,19 +466,19 @@ int server_open_syslog_socket(Server *s) {
         } else
                 (void) fd_nonblock(s->syslog_fd, true);
 
-        r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
 #if HAVE_SELINUX
         if (mac_selinux_use()) {
-                r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
+                r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &const_int_one, sizeof(const_int_one));
                 if (r < 0)
                         log_warning_errno(errno, "SO_PASSSEC failed: %m");
         }
 #endif
 
-        r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
+        r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return log_error_errno(errno, "SO_TIMESTAMP failed: %m");
 

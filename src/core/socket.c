@@ -1014,8 +1014,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         assert(fd >= 0);
 
         if (s->keep_alive) {
-                int one = 1;
-                if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof(one)) < 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &const_int_one, sizeof(const_int_one)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "SO_KEEPALIVE failed: %m");
         }
 
@@ -1044,32 +1043,27 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->no_delay) {
-                int one = 1;
-
                 if (s->socket_protocol == IPPROTO_SCTP) {
-                        if (setsockopt(fd, SOL_SCTP, SCTP_NODELAY, &one, sizeof(one)) < 0)
+                        if (setsockopt(fd, SOL_SCTP, SCTP_NODELAY, &const_int_one, sizeof(const_int_one)) < 0)
                                 log_unit_warning_errno(UNIT(s), errno, "SCTP_NODELAY failed: %m");
                 } else {
-                        if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0)
+                        if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &const_int_one, sizeof(const_int_one)) < 0)
                                 log_unit_warning_errno(UNIT(s), errno, "TCP_NODELAY failed: %m");
                 }
         }
 
         if (s->broadcast) {
-                int one = 1;
-                if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one)) < 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &const_int_one, sizeof(const_int_one)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "SO_BROADCAST failed: %m");
         }
 
         if (s->pass_cred) {
-                int one = 1;
-                if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "SO_PASSCRED failed: %m");
         }
 
         if (s->pass_sec) {
-                int one = 1;
-                if (setsockopt(fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one)) < 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_PASSSEC, &const_int_one, sizeof(const_int_one)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "SO_PASSSEC failed: %m");
         }
 

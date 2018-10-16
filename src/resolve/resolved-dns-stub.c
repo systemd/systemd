@@ -392,7 +392,6 @@ static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void
 }
 
 static int manager_dns_stub_udp_fd(Manager *m) {
-        static const int one = 1;
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(53),
@@ -408,13 +407,13 @@ static int manager_dns_stub_udp_fd(Manager *m) {
         if (fd < 0)
                 return -errno;
 
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one) < 0)
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof const_int_one) < 0)
                 return -errno;
 
-        if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof one) < 0)
+        if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &const_int_one, sizeof const_int_one) < 0)
                 return -errno;
 
-        if (setsockopt(fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof one) < 0)
+        if (setsockopt(fd, IPPROTO_IP, IP_RECVTTL, &const_int_one, sizeof const_int_one) < 0)
                 return -errno;
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */
@@ -479,7 +478,6 @@ static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void
 }
 
 static int manager_dns_stub_tcp_fd(Manager *m) {
-        static const int one = 1;
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
                 .in.sin_addr.s_addr = htobe32(INADDR_DNS_STUB),
@@ -495,16 +493,16 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
         if (fd < 0)
                 return -errno;
 
-        if (setsockopt(fd, IPPROTO_IP, IP_TTL, &one, sizeof one) < 0)
+        if (setsockopt(fd, IPPROTO_IP, IP_TTL, &const_int_one, sizeof const_int_one) < 0)
                 return -errno;
 
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one) < 0)
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof const_int_one) < 0)
                 return -errno;
 
-        if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof one) < 0)
+        if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &const_int_one, sizeof const_int_one) < 0)
                 return -errno;
 
-        if (setsockopt(fd, IPPROTO_IP, IP_RECVTTL, &one, sizeof one) < 0)
+        if (setsockopt(fd, IPPROTO_IP, IP_RECVTTL, &const_int_one, sizeof const_int_one) < 0)
                 return -errno;
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */

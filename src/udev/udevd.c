@@ -1508,7 +1508,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cgroup) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        int r, fd_worker, one = 1;
+        int r, fd_worker;
 
         assert(ret);
         assert(fd_ctrl >= 0);
@@ -1548,7 +1548,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         fd_worker = manager->worker_watch[READ_END];
 
-        r = setsockopt(fd_worker, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        r = setsockopt(fd_worker, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return log_error_errno(errno, "could not enable SO_PASSCRED: %m");
 

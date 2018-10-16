@@ -872,10 +872,8 @@ static int manager_setup_notify(Manager *m) {
 
         if (m->notify_fd < 0) {
                 _cleanup_close_ int fd = -1;
-                union sockaddr_union sa = {
-                        .sa.sa_family = AF_UNIX,
-                };
-                static const int one = 1;
+                union sockaddr_union sa = {};
+                int salen;
 
                 /* First free all secondary fields */
                 m->notify_socket = mfree(m->notify_socket);
@@ -891,15 +889,18 @@ static int manager_setup_notify(Manager *m) {
                 if (!m->notify_socket)
                         return log_oom();
 
+                salen = sockaddr_un_set_path(&sa.un, m->notify_socket);
+                if (salen < 0)
+                        return log_error_errno(salen, "Notify socket '%s' not valid for AF_UNIX socket address, refusing.", m->notify_socket);
+
                 (void) mkdir_parents_label(m->notify_socket, 0755);
-                (void) unlink(m->notify_socket);
+                (void) sockaddr_un_unlink(&sa.un);
 
-                strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path));
-                r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+                r = bind(fd, &sa.sa, salen);
                 if (r < 0)
-                        return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
+                        return log_error_errno(errno, "bind(%s) failed: %m", m->notify_socket);
 
-                r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+                r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
                 if (r < 0)
                         return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
@@ -970,7 +971,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
 
                 fd_inc_rcvbuf(fd, CGROUPS_AGENT_RCVBUF_SIZE);
 
-                (void) unlink(sa.un.sun_path);
+                (void) sockaddr_un_unlink(&sa.un);
 
                 /* Only allow root to connect to this socket */
                 RUN_WITH_UMASK(0077)
@@ -978,8 +979,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 
-                m->cgroups_agent_fd = fd;
-                fd = -1;
+                m->cgroups_agent_fd = TAKE_FD(fd);
         }
 
         if (!m->cgroups_agent_event_source) {

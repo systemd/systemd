@@ -1595,11 +1595,9 @@ static int dispatch_watchdog(sd_event_source *es, uint64_t usec, void *userdata)
 }
 
 static int server_connect_notify(Server *s) {
-        union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-        };
+        union sockaddr_union sa = {};
         const char *e;
-        int r;
+        int r, salen;
 
         assert(s);
         assert(s->notify_fd < 0);
@@ -1628,15 +1626,9 @@ static int server_connect_notify(Server *s) {
         if (!e)
                 return 0;
 
-        if (!IN_SET(e[0], '@', '/') || e[1] == 0) {
-                log_error("NOTIFY_SOCKET set to an invalid value: %s", e);
-                return -EINVAL;
-        }
-
-        if (strlen(e) > sizeof(sa.un.sun_path)) {
-                log_error("NOTIFY_SOCKET path too long: %s", e);
-                return -EINVAL;
-        }
+        salen = sockaddr_un_set_path(&sa.un, e);
+        if (salen < 0)
+                return log_error_errno(salen, "NOTIFY_SOCKET set to invalid value '%s': %m", e);
 
         s->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (s->notify_fd < 0)
@@ -1644,11 +1636,7 @@ static int server_connect_notify(Server *s) {
 
         (void) fd_inc_sndbuf(s->notify_fd, NOTIFY_SNDBUF_SIZE);
 
-        strncpy(sa.un.sun_path, e, sizeof(sa.un.sun_path));
-        if (sa.un.sun_path[0] == '@')
-                sa.un.sun_path[0] = 0;
-
-        r = connect(s->notify_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        r = connect(s->notify_fd, &sa.sa, salen);
         if (r < 0)
                 return log_error_errno(errno, "Failed to connect to notify socket: %m");
 

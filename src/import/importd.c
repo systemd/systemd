@@ -584,7 +584,6 @@ static int manager_new(Manager **ret) {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/import/notify",
         };
-        static const int one = 1;
         int r;
 
         assert(ret);
@@ -608,12 +607,12 @@ static int manager_new(Manager **ret) {
                 return -errno;
 
         (void) mkdir_parents_label(sa.un.sun_path, 0755);
-        (void) unlink(sa.un.sun_path);
+        (void) sockaddr_un_unlink(&sa.un);
 
         if (bind(m->notify_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return -errno;
 
-        if (setsockopt(m->notify_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
+        if (setsockopt(m->notify_fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one)) < 0)
                 return -errno;
 
         r = sd_event_add_io(m->event, &m->notify_event_source, m->notify_fd, EPOLLIN, manager_on_notify, m);

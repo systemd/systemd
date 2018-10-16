@@ -2812,10 +2812,10 @@ static int inner_child(
 }
 
 static int setup_sd_notify_child(void) {
-        static const int one = 1;
-        int fd = -1;
+        _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {
-                .sa.sa_family = AF_UNIX,
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = NSPAWN_NOTIFY_SOCKET_PATH,
         };
         int r;
 
@@ -2824,28 +2824,21 @@ static int setup_sd_notify_child(void) {
                 return log_error_errno(errno, "Failed to allocate notification socket: %m");
 
         (void) mkdir_parents(NSPAWN_NOTIFY_SOCKET_PATH, 0755);
-        (void) unlink(NSPAWN_NOTIFY_SOCKET_PATH);
+        (void) sockaddr_un_unlink(&sa.un);
 
-        strncpy(sa.un.sun_path, NSPAWN_NOTIFY_SOCKET_PATH, sizeof(sa.un.sun_path));
         r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-        if (r < 0) {
-                safe_close(fd);
-                return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
-        }
+        if (r < 0)
+                return log_error_errno(errno, "bind(" NSPAWN_NOTIFY_SOCKET_PATH ") failed: %m");
 
         r = userns_lchown(NSPAWN_NOTIFY_SOCKET_PATH, 0, 0);
-        if (r < 0) {
-                safe_close(fd);
+        if (r < 0)
                 return log_error_errno(r, "Failed to chown " NSPAWN_NOTIFY_SOCKET_PATH ": %m");
-        }
 
-        r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-        if (r < 0) {
-                safe_close(fd);
+        r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
+        if (r < 0)
                 return log_error_errno(errno, "SO_PASSCRED failed: %m");
-        }
 
-        return fd;
+        return TAKE_FD(fd);
 }
 
 static int outer_child(

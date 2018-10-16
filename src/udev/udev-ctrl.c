@@ -73,7 +73,6 @@ struct udev_ctrl_connection {
 
 struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
         struct udev_ctrl *uctrl;
-        const int on = 1;
         int r;
 
         uctrl = new0(struct udev_ctrl, 1);
@@ -97,12 +96,15 @@ struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
          * FIXME: remove it as soon as we can depend on this:
          *   http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=90c6bd34f884cd9cee21f1d152baf6c18bcac949
          */
-        r = setsockopt(uctrl->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+        r = setsockopt(uctrl->sock, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 log_warning_errno(errno, "could not set SO_PASSCRED: %m");
 
-        uctrl->saddr.un.sun_family = AF_LOCAL;
-        strscpy(uctrl->saddr.un.sun_path, sizeof(uctrl->saddr.un.sun_path), "/run/udev/control");
+        uctrl->saddr.un = (struct sockaddr_un) {
+                .sun_family = AF_UNIX,
+                .sun_path = "/run/udev/control",
+        };
+
         uctrl->addrlen = SOCKADDR_UN_LEN(uctrl->saddr.un);
         return uctrl;
 }
@@ -117,7 +119,7 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl) {
         if (!uctrl->bound) {
                 err = bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen);
                 if (err < 0 && errno == EADDRINUSE) {
-                        unlink(uctrl->saddr.un.sun_path);
+                        (void) sockaddr_un_unlink(&uctrl->saddr.un);
                         err = bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen);
                 }
 
@@ -148,7 +150,7 @@ int udev_ctrl_cleanup(struct udev_ctrl *uctrl) {
         if (uctrl == NULL)
                 return 0;
         if (uctrl->cleanup_socket)
-                unlink(uctrl->saddr.un.sun_path);
+                sockaddr_un_unlink(&uctrl->saddr.un);
         return 0;
 }
 
@@ -161,7 +163,6 @@ int udev_ctrl_get_fd(struct udev_ctrl *uctrl) {
 struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
         struct udev_ctrl_connection *conn;
         struct ucred ucred = {};
-        const int on = 1;
         int r;
 
         conn = new(struct udev_ctrl_connection, 1);
@@ -189,15 +190,14 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
         }
 
         /* enable receiving of the sender credentials in the messages */
-        r = setsockopt(conn->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+        r = setsockopt(conn->sock, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 log_warning_errno(errno, "could not set SO_PASSCRED: %m");
 
         udev_ctrl_ref(uctrl);
         return conn;
 err:
-        if (conn->sock >= 0)
-                close(conn->sock);
+        safe_close(conn->sock);
         return mfree(conn);
 }
 

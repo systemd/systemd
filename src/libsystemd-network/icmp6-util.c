@@ -33,7 +33,7 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         int index = mreq->ipv6mr_interface;
         _cleanup_close_ int s = -1;
         char ifname[IF_NAMESIZE] = "";
-        static const int zero = 0, one = 1, hops = 255;
+        static const int hops = 255;
         int r;
 
         s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
@@ -56,7 +56,7 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &zero, sizeof(zero));
+        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &const_int_zero, sizeof(const_int_zero));
         if (r < 0)
                 return -errno;
 
@@ -68,11 +68,11 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, SOL_IPV6, IPV6_RECVHOPLIMIT, &one, sizeof(one));
+        r = setsockopt(s, SOL_IPV6, IPV6_RECVHOPLIMIT, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
+        r = setsockopt(s, SOL_SOCKET, SO_TIMESTAMP, &const_int_one, sizeof(const_int_one));
         if (r < 0)
                 return -errno;
 

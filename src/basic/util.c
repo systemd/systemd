@@ -51,6 +51,9 @@ int saved_argc = 0;
 char **saved_argv = NULL;
 static int saved_in_initrd = -1;
 
+const int const_int_zero = 0;
+const int const_int_one = 1;
+
 size_t page_size(void) {
         static thread_local size_t pgsz = 0;
         long r;

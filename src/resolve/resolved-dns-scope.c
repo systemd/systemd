@@ -313,7 +313,6 @@ static int dns_scope_socket(
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa;
         socklen_t salen;
-        static const int one = 1;
         int r, ifindex;
 
         assert(s);
@@ -379,7 +378,7 @@ static int dns_scope_socket(
                 return -errno;
 
         if (type == SOCK_STREAM) {
-                r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+                r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &const_int_one, sizeof(const_int_one));
                 if (r < 0)
                         return -errno;
         }
@@ -402,11 +401,11 @@ static int dns_scope_socket(
                 /* RFC 4795, section 2.5 requires the TTL to be set to 1 */
 
                 if (sa.sa.sa_family == AF_INET) {
-                        r = setsockopt(fd, IPPROTO_IP, IP_TTL, &one, sizeof(one));
+                        r = setsockopt(fd, IPPROTO_IP, IP_TTL, &const_int_one, sizeof(const_int_one));
                         if (r < 0)
                                 return -errno;
                 } else if (sa.sa.sa_family == AF_INET6) {
-                        r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &one, sizeof(one));
+                        r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &const_int_one, sizeof(const_int_one));
                         if (r < 0)
                                 return -errno;
                 }

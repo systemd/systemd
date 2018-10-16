@@ -14,17 +14,18 @@
 #include "util.h"
 
 static int send_on_socket(int fd, const char *socket_name, const void *packet, size_t size) {
-        union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-        };
+        union sockaddr_union sa = {};
+        int salen;
 
         assert(fd >= 0);
         assert(socket_name);
         assert(packet);
 
-        strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
+        salen = sockaddr_un_set_path(&sa.un, socket_name);
+        if (salen < 0)
+                return log_error_errno(salen, "Specified socket path for AF_UNIX socket invalid, refusing: %s", socket_name);
 
-        if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+        if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, salen) < 0)
                 return log_error_errno(errno, "Failed to send: %m");
 
         return 0;
