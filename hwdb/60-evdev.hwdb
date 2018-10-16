@@ -38,19 +38,21 @@
 
 #
 # Sort by brand, model
+
 #########################################
 # AIPTEK
 #########################################
+
 # Hyperpen 12000U
 evdev:input:b0003v08CAp0010*
  EVDEV_ABS_00=::20
  EVDEV_ABS_01=::20
- 
+
 #########################################
 # Apple
 #########################################
 
-#  Macbook2,1 (late 2006), single-button touchpad
+# Macbook2,1 (late 2006), single-button touchpad
 evdev:input:b0003v05ACp021B*
 # Macbook4,1
 evdev:input:b0003v05ACp0229*
@@ -264,7 +266,7 @@ evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondm4*
  EVDEV_ABS_35=1360:5563:47
  EVDEV_ABS_36=1269:4618:61
 
-# HP Pavilion g6 
+# HP Pavilion g6
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHewlett-Packard:pnHPPaviliong6*
  EVDEV_ABS_00=1284:5696:88
  EVDEV_ABS_01=1287:4838:39
