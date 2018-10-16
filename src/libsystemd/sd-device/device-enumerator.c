@@ -792,6 +792,33 @@ static int enumerator_scan_devices_all(sd_device_enumerator *enumerator) {
         return r;
 }
 
+static void device_enumerator_dedup_devices(sd_device_enumerator *enumerator) {
+        sd_device **a, **b, **end;
+
+        assert(enumerator);
+
+        if (enumerator->n_devices <= 1)
+                return;
+
+        a = enumerator->devices + 1;
+        b = enumerator->devices;
+        end = enumerator->devices + enumerator->n_devices;
+
+        for (; a < end; a++) {
+                const char *devpath_a, *devpath_b;
+
+                assert_se(sd_device_get_devpath(*a, &devpath_a) >= 0);
+                assert_se(sd_device_get_devpath(*b, &devpath_b) >= 0);
+
+                if (path_equal(devpath_a, devpath_b))
+                        sd_device_unref(*a);
+                else
+                        *(++b) = *a;
+        }
+
+        enumerator->n_devices = b - enumerator->devices + 1;
+}
+
 int device_enumerator_scan_devices(sd_device_enumerator *enumerator) {
         int r = 0, k;
         size_t i;
@@ -822,6 +849,7 @@ int device_enumerator_scan_devices(sd_device_enumerator *enumerator) {
         }
 
         typesafe_qsort(enumerator->devices, enumerator->n_devices, device_compare);
+        device_enumerator_dedup_devices(enumerator);
 
         enumerator->scan_uptodate = true;
         enumerator->type = DEVICE_ENUMERATION_TYPE_DEVICES;
@@ -906,6 +934,7 @@ int device_enumerator_scan_subsystems(sd_device_enumerator *enumerator) {
         }
 
         typesafe_qsort(enumerator->devices, enumerator->n_devices, device_compare);
+        device_enumerator_dedup_devices(enumerator);
 
         enumerator->scan_uptodate = true;
         enumerator->type = DEVICE_ENUMERATION_TYPE_SUBSYSTEMS;

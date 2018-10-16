@@ -1543,47 +1543,9 @@ static unsigned find_first_entry(HashmapBase *h) {
         return hashmap_iterate_entry(h, &i);
 }
 
-void *internal_hashmap_first(HashmapBase *h) {
-        unsigned idx;
-
-        idx = find_first_entry(h);
-        if (idx == IDX_NIL)
-                return NULL;
-
-        return entry_value(h, bucket_at(h, idx));
-}
-
-void *internal_hashmap_first_key(HashmapBase *h) {
+void *internal_hashmap_first_key_and_value(HashmapBase *h, bool remove, void **ret_key) {
         struct hashmap_base_entry *e;
-        unsigned idx;
-
-        idx = find_first_entry(h);
-        if (idx == IDX_NIL)
-                return NULL;
-
-        e = bucket_at(h, idx);
-        return (void*) e->key;
-}
-
-void *internal_hashmap_steal_first(HashmapBase *h) {
-        struct hashmap_base_entry *e;
-        void *data;
-        unsigned idx;
-
-        idx = find_first_entry(h);
-        if (idx == IDX_NIL)
-                return NULL;
-
-        e = bucket_at(h, idx);
-        data = entry_value(h, e);
-        remove_entry(h, idx);
-
-        return data;
-}
-
-void *internal_hashmap_steal_first_key(HashmapBase *h) {
-        struct hashmap_base_entry *e;
-        void *key;
+        void *key, *data;
         unsigned idx;
 
         idx = find_first_entry(h);
@@ -1592,9 +1554,15 @@ void *internal_hashmap_steal_first_key(HashmapBase *h) {
 
         e = bucket_at(h, idx);
         key = (void*) e->key;
-        remove_entry(h, idx);
+        data = entry_value(h, e);
 
-        return key;
+        if (remove)
+                remove_entry(h, idx);
+
+        if (ret_key)
+                *ret_key = key;
+
+        return data;
 }
 
 unsigned internal_hashmap_size(HashmapBase *h) {
