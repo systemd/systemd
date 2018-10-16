@@ -88,6 +88,7 @@ static void swap(Prioq *q, unsigned j, unsigned k) {
 
 static unsigned shuffle_up(Prioq *q, unsigned idx) {
         assert(q);
+        assert(idx < q->n_items);
 
         while (idx > 0) {
                 unsigned k;
