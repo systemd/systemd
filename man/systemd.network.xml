@@ -1077,7 +1077,7 @@
         <varlistentry>
           <term><varname>Protocol=</varname></term>
           <listitem>
-            <para>The Protocol identifier for the route. Takes a number between 0 and 255 or the special values
+            <para>The protocol identifier for the route. Takes a number between 0 and 255 or the special values
             <literal>kernel</literal>, <literal>boot</literal> and <literal>static</literal>. Defaults to
             <literal>static</literal>.
             </para>
@@ -1086,15 +1086,13 @@
         <varlistentry>
           <term><varname>Type=</varname></term>
           <listitem>
-            <para>The Type identifier for special route types, which can be
-            <literal>unicast</literal> route to a destination network address which describes the path to the destination,
-            <literal>blackhole</literal> packets are discarded silently,
-            <literal>unreachable</literal> packets are discarded and the ICMP message host unreachable is generated,
-            <literal>prohibit</literal> packets are discarded and the ICMP message communication administratively
-            prohibited is generated,
-            if <literal>throw</literal> the lookup in current routing table will fail and routing selection process
-            will returns to Routing Policy Database.
-            Defaults to <literal>unicast</literal>.
+            <para>Specifies the type for the route. If <literal>unicast</literal>, a regular route is defined, i.e. a
+            route indicating the path to take to a destination network address. If <literal>blackhole</literal>, packets
+            to the defined route are discarded silently. If <literal>unreachable</literal>, packets to the defined route
+            are discarded and the ICMP message "Host Unreachable" is generated. If <literal>prohibit</literal>, packets
+            to the defined route are discarded and the ICMP message "Communication Administratively Prohibited" is
+            generated. If <literal>throw</literal>, route lookup in the current routing table will fail and the route
+            selection process will return to Routing Policy Database (RPDB). Defaults to <literal>unicast</literal>.
             </para>
           </listitem>
         </varlistentry>
