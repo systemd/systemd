@@ -54,13 +54,7 @@ struct test {
 static int test_compare(const void *a, const void *b) {
         const struct test *x = a, *y = b;
 
-        if (x->value < y->value)
-                return -1;
-
-        if (x->value > y->value)
-                return 1;
-
-        return 0;
+        return CMP(x->value, y->value);
 }
 
 static void test_hash(const void *a, struct siphash *state) {
