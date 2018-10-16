@@ -1077,7 +1077,7 @@
         <varlistentry>
           <term><varname>Protocol=</varname></term>
           <listitem>
-            <para>The Protocol identifier for the route. Takes a number between 0 and 255 or the special values
+            <para>The protocol identifier for the route. Takes a number between 0 and 255 or the special values
             <literal>kernel</literal>, <literal>boot</literal> and <literal>static</literal>. Defaults to
             <literal>static</literal>.
             </para>
