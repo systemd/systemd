@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/types.h>
 
 struct siphash {
@@ -21,3 +22,7 @@ void siphash24_compress(const void *in, size_t inlen, struct siphash *state);
 uint64_t siphash24_finalize(struct siphash *state);
 
 uint64_t siphash24(const void *in, size_t inlen, const uint8_t k[16]);
+
+static inline uint64_t siphash24_string(const char *s, const uint8_t k[16]) {
+        return siphash24(s, strlen(s) + 1, k);
+}
