@@ -44,12 +44,6 @@ Features:
 
 * chown() tty a service is attached to after the service goes down
 
-* replace systemd-reboot.service's ExecStart= with a single SuccessAction=
-  line, so that we don't need to fork() for executing the reboot
-  service. Similar for other services like this, such as systemd-exit.service
-  and so on. Of course, for this to work service units with no ExecYYZ= set but
-  SuccessAction= set need to be acceptable.
-
 * optionally: turn on cgroup delegation for per-session scope units
 
 * optionally, if a per-partition GPT flag is set for the root/home/… partitions
