@@ -3118,6 +3118,8 @@ int manager_serialize(
                 fprintf(f, "log-target-override=%s\n", log_target_to_string(log_get_target()));
 
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
+                _cleanup_free_ char *joined = NULL;
+
                 /* The following timestamps only apply to the host system, hence only serialize them there */
                 if (in_initrd() &&
                     IN_SET(q, MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH,
@@ -3126,9 +3128,11 @@ int manager_serialize(
                            MANAGER_TIMESTAMP_UNITS_LOAD_START, MANAGER_TIMESTAMP_UNITS_LOAD_FINISH))
                         continue;
 
-                t = manager_timestamp_to_string(q);
-                const char *field = strjoina(t, "-timestamp");
-                dual_timestamp_serialize(f, field, m->timestamps + q);
+                joined = strjoin(manager_timestamp_to_string(q), "-timestamp");
+                if (!joined)
+                        return log_oom();
+
+                dual_timestamp_serialize(f, joined, m->timestamps + q);
         }
 
         if (!switching_root)
