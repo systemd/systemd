@@ -882,12 +882,13 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                         a->result = f;
 
         } else if (streq(key, "dev-id")) {
-                unsigned d;
+                unsigned long d;
 
-                if (safe_atou(value, &d) < 0)
+                if (safe_atolu(value, &d) < 0)
                         log_unit_debug(u, "Failed to parse dev-id value: %s", value);
                 else
-                        a->dev_id = (unsigned) d;
+                        a->dev_id = (dev_t) d;
+
         } else if (streq(key, "token")) {
                 unsigned token;
 
