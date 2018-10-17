@@ -14,7 +14,7 @@ Finally, it is able to compile the translations (to `*.gmo` files), so that
 they can be used by systemd software. (This step is also useful to confirm the
 syntax of the `*.po` files is correct.)
 
-# Creating a New Translation
+## Creating a New Translation
 
 To create a translation to a language not yet available, start by creating the
 initial template:
@@ -39,7 +39,7 @@ $ cp po/systemd.pot po/<i>${lang_code}</i>.po
 Then edit the new <code>po/<i>${lang_code}</i>.po</code> file (for example,
 using the `poedit` GUI editor.)
 
-# Updating an Existing Translation
+## Updating an Existing Translation
 
 Start by updating the `*.po` files from the latest template:
 

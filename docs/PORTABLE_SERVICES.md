@@ -20,7 +20,7 @@ Portable services don't bring anything inherently new to the table. All they do
 is put together known concepts in a slightly nicer way to cover a specific set
 of use-cases in a nicer way.
 
-# So, what *is* a "Portable Service"?
+## So, what *is* a "Portable Service"?
 
 A portable service is ultimately just an OS tree, either inside of a directory
 tree, or inside a raw disk image containing a Linux file system. This tree is
@@ -43,7 +43,7 @@ do too.
 If you so will, "Portable Services" are a nicer way to manage chroot()
 environments, with better security, tooling and behavior.
 
-# Where's the difference to a "Container"?
+## Where's the difference to a "Container"?
 
 "Container" is a very vague term, after all it is used for
 systemd-nspawn/LXC-type OS containers, for Docker/rkt-like micro service
@@ -74,7 +74,7 @@ Note that portable services are only available for system services, not for
 user services. i.e. the functionality cannot be used for the stuff
 bubblewrap/flatpak is focusing on.
 
-# Mode of Operation
+## Mode of Operation
 
 If you have portable service image, maybe in a raw disk image called
 `foobar_0.7.23.raw`, then attaching the services to the host is as easy as:
@@ -141,7 +141,7 @@ Note that `portable attach` won't enable or start any of the units it copies
 out. This still has to take place in a second, separate step. (That said We
 might add options to do this automatically later on.).
 
-# Requirements on Images
+## Requirements on Images
 
 Note that portable services don't introduce any new image format, but most OS
 images should just work the way they are. Specifically, the following
@@ -208,14 +208,14 @@ image. To facility 3 and 4 you also need to include a boot loader in the
 image. As mentioned `mkosi -b` takes care of all of that for you, but any other
 image generator should work too.
 
-# Execution Environment
+## Execution Environment
 
 Note that the code in portable service images is run exactly like regular
 services. Hence there's no new execution environment to consider. Oh, unlike
 Docker would do it, as these are regular system services they aren't run as PID
 1 either, but with regular PID values.
 
-# Access to host resources
+## Access to host resources
 
 If services shipped with this mechanism shall be able to access host resources
 (such as files or AF_UNIX sockets for IPC), use the normal `BindPaths=` and
@@ -224,7 +224,7 @@ If services shipped with this mechanism shall be able to access host resources
 `/etc/resolv.conf`, the D-Bus system bus socket or write access to the logging
 subsystem are available to the service.
 
-# Instantiation
+## Instantiation
 
 Sometimes it makes sense to instantiate the same set of services multiple
 times. The portable service concept does not introduce a new logic for this. It
@@ -242,7 +242,7 @@ simple as:
 The benefit of this approach is that templating works exactly the same for
 units shipped with the OS itself as for attached portable services.
 
-# Immutable images with local data
+## Immutable images with local data
 
 It's a good idea to keep portable service images read-only during normal
 operation. In fact all but the `trusted` profile will default to this kind of
