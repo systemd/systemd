@@ -26,6 +26,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "serialize.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -841,16 +842,16 @@ static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", automount_state_to_string(a->state));
-        unit_serialize_item(u, f, "result", automount_result_to_string(a->result));
-        unit_serialize_item_format(u, f, "dev-id", "%u", (unsigned) a->dev_id);
+        (void) serialize_item(f, "state", automount_state_to_string(a->state));
+        (void) serialize_item(f, "result", automount_result_to_string(a->result));
+        (void) serialize_item_format(f, "dev-id", "%lu", (unsigned long) a->dev_id);
 
         SET_FOREACH(p, a->tokens, i)
-                unit_serialize_item_format(u, f, "token", "%u", PTR_TO_UINT(p));
+                (void) serialize_item_format(f, "token", "%u", PTR_TO_UINT(p));
         SET_FOREACH(p, a->expire_tokens, i)
-                unit_serialize_item_format(u, f, "expire-token", "%u", PTR_TO_UINT(p));
+                (void) serialize_item_format(f, "expire-token", "%u", PTR_TO_UINT(p));
 
-        r = unit_serialize_item_fd(u, f, fds, "pipe-fd", a->pipe_fd);
+        r = serialize_fd(f, fds, "pipe-fd", a->pipe_fd);
         if (r < 0)
                 return r;
 

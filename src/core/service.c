@@ -27,6 +27,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "serialize.h"
 #include "service.h"
 #include "signal-util.h"
 #include "special.h"
@@ -2431,13 +2432,13 @@ static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, ExecC
 }
 
 static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command) {
-        Service *s = SERVICE(u);
-        ServiceExecCommand id;
-        unsigned idx;
-        const char *type;
-        char **arg;
         _cleanup_free_ char *args = NULL, *p = NULL;
         size_t allocated = 0, length = 0;
+        Service *s = SERVICE(u);
+        const char *type, *key;
+        ServiceExecCommand id;
+        unsigned idx;
+        char **arg;
 
         assert(s);
         assert(f);
@@ -2456,16 +2457,16 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
         idx = service_exec_command_index(u, id, command);
 
         STRV_FOREACH(arg, command->argv) {
-                size_t n;
                 _cleanup_free_ char *e = NULL;
+                size_t n;
 
-                e = xescape(*arg, WHITESPACE);
+                e = cescape(*arg);
                 if (!e)
-                        return -ENOMEM;
+                        return log_oom();
 
                 n = strlen(e);
                 if (!GREEDY_REALLOC(args, allocated, length + 1 + n + 1))
-                        return -ENOMEM;
+                        return log_oom();
 
                 if (length > 0)
                         args[length++] = ' ';
@@ -2475,16 +2476,16 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
         }
 
         if (!GREEDY_REALLOC(args, allocated, length + 1))
-                return -ENOMEM;
+                return log_oom();
+
         args[length++] = 0;
 
-        p = xescape(command->path, WHITESPACE);
+        p = cescape(command->path);
         if (!p)
                 return -ENOMEM;
 
-        fprintf(f, "%s-command=%s %u %s %s\n", type, service_exec_command_to_string(id), idx, p, args);
-
-        return 0;
+        key = strjoina(type, "-command");
+        return serialize_item_format(f, key, "%s %u %s %s", service_exec_command_to_string(id), idx, p, args);
 }
 
 static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
@@ -2496,54 +2497,55 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", service_state_to_string(s->state));
-        unit_serialize_item(u, f, "result", service_result_to_string(s->result));
-        unit_serialize_item(u, f, "reload-result", service_result_to_string(s->reload_result));
+        (void) serialize_item(f, "state", service_state_to_string(s->state));
+        (void) serialize_item(f, "result", service_result_to_string(s->result));
+        (void) serialize_item(f, "reload-result", service_result_to_string(s->reload_result));
 
         if (s->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", PID_FMT, s->control_pid);
+                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid);
 
         if (s->main_pid_known && s->main_pid > 0)
-                unit_serialize_item_format(u, f, "main-pid", PID_FMT, s->main_pid);
+                (void) serialize_item_format(f, "main-pid", PID_FMT, s->main_pid);
 
-        unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
-        unit_serialize_item(u, f, "bus-name-good", yes_no(s->bus_name_good));
-        unit_serialize_item(u, f, "bus-name-owner", s->bus_name_owner);
+        (void) serialize_bool(f, "main-pid-known", s->main_pid_known);
+        (void) serialize_bool(f, "bus-name-good", s->bus_name_good);
+        (void) serialize_bool(f, "bus-name-owner", s->bus_name_owner);
 
-        unit_serialize_item_format(u, f, "n-restarts", "%u", s->n_restarts);
-        unit_serialize_item(u, f, "flush-n-restarts", yes_no(s->flush_n_restarts));
+        (void) serialize_item_format(f, "n-restarts", "%u", s->n_restarts);
+        (void) serialize_bool(f, "flush-n-restarts", s->flush_n_restarts);
 
-        r = unit_serialize_item_escaped(u, f, "status-text", s->status_text);
+        r = serialize_item_escaped(f, "status-text", s->status_text);
         if (r < 0)
                 return r;
 
         service_serialize_exec_command(u, f, s->control_command);
         service_serialize_exec_command(u, f, s->main_command);
 
-        r = unit_serialize_item_fd(u, f, fds, "stdin-fd", s->stdin_fd);
+        r = serialize_fd(f, fds, "stdin-fd", s->stdin_fd);
         if (r < 0)
                 return r;
-        r = unit_serialize_item_fd(u, f, fds, "stdout-fd", s->stdout_fd);
+        r = serialize_fd(f, fds, "stdout-fd", s->stdout_fd);
         if (r < 0)
                 return r;
-        r = unit_serialize_item_fd(u, f, fds, "stderr-fd", s->stderr_fd);
+        r = serialize_fd(f, fds, "stderr-fd", s->stderr_fd);
         if (r < 0)
                 return r;
 
         if (s->exec_fd_event_source) {
-                r = unit_serialize_item_fd(u, f, fds, "exec-fd", sd_event_source_get_io_fd(s->exec_fd_event_source));
+                r = serialize_fd(f, fds, "exec-fd", sd_event_source_get_io_fd(s->exec_fd_event_source));
                 if (r < 0)
                         return r;
-                unit_serialize_item(u, f, "exec-fd-hot", yes_no(s->exec_fd_hot));
+
+                (void) serialize_bool(f, "exec-fd-hot", s->exec_fd_hot);
         }
 
         if (UNIT_ISSET(s->accept_socket)) {
-                r = unit_serialize_item(u, f, "accept-socket", UNIT_DEREF(s->accept_socket)->id);
+                r = serialize_item(f, "accept-socket", UNIT_DEREF(s->accept_socket)->id);
                 if (r < 0)
                         return r;
         }
 
-        r = unit_serialize_item_fd(u, f, fds, "socket-fd", s->socket_fd);
+        r = serialize_fd(f, fds, "socket-fd", s->socket_fd);
         if (r < 0)
                 return r;
 
@@ -2553,30 +2555,31 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
                 copy = fdset_put_dup(fds, fs->fd);
                 if (copy < 0)
-                        return copy;
+                        return log_error_errno(copy, "Failed to copy file descriptor for serialization: %m");
 
                 c = cescape(fs->fdname);
+                if (!c)
+                        return log_oom();
 
-                unit_serialize_item_format(u, f, "fd-store-fd", "%i %s", copy, strempty(c));
+                (void) serialize_item_format(f, "fd-store-fd", "%i %s", copy, c);
         }
 
         if (s->main_exec_status.pid > 0) {
-                unit_serialize_item_format(u, f, "main-exec-status-pid", PID_FMT, s->main_exec_status.pid);
-                dual_timestamp_serialize(f, "main-exec-status-start", &s->main_exec_status.start_timestamp);
-                dual_timestamp_serialize(f, "main-exec-status-exit", &s->main_exec_status.exit_timestamp);
+                (void) serialize_item_format(f, "main-exec-status-pid", PID_FMT, s->main_exec_status.pid);
+                (void) serialize_dual_timestamp(f, "main-exec-status-start", &s->main_exec_status.start_timestamp);
+                (void) serialize_dual_timestamp(f, "main-exec-status-exit", &s->main_exec_status.exit_timestamp);
 
                 if (dual_timestamp_is_set(&s->main_exec_status.exit_timestamp)) {
-                        unit_serialize_item_format(u, f, "main-exec-status-code", "%i", s->main_exec_status.code);
-                        unit_serialize_item_format(u, f, "main-exec-status-status", "%i", s->main_exec_status.status);
+                        (void) serialize_item_format(f, "main-exec-status-code", "%i", s->main_exec_status.code);
+                        (void) serialize_item_format(f, "main-exec-status-status", "%i", s->main_exec_status.status);
                 }
         }
 
-        dual_timestamp_serialize(f, "watchdog-timestamp", &s->watchdog_timestamp);
-
-        unit_serialize_item(u, f, "forbid-restart", yes_no(s->forbid_restart));
+        (void) serialize_dual_timestamp(f, "watchdog-timestamp", &s->watchdog_timestamp);
+        (void) serialize_bool(f, "forbid-restart", s->forbid_restart);
 
         if (s->watchdog_override_enable)
-               unit_serialize_item_format(u, f, "watchdog-override-usec", USEC_FMT, s->watchdog_override_usec);
+                (void) serialize_item_format(f, "watchdog-override-usec", USEC_FMT, s->watchdog_override_usec);
 
         return 0;
 }
@@ -2825,11 +2828,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 else
                         s->main_exec_status.status = i;
         } else if (streq(key, "main-exec-status-start"))
-                dual_timestamp_deserialize(value, &s->main_exec_status.start_timestamp);
+                deserialize_dual_timestamp(value, &s->main_exec_status.start_timestamp);
         else if (streq(key, "main-exec-status-exit"))
-                dual_timestamp_deserialize(value, &s->main_exec_status.exit_timestamp);
+                deserialize_dual_timestamp(value, &s->main_exec_status.exit_timestamp);
         else if (streq(key, "watchdog-timestamp"))
-                dual_timestamp_deserialize(value, &s->watchdog_timestamp);
+                deserialize_dual_timestamp(value, &s->watchdog_timestamp);
         else if (streq(key, "forbid-restart")) {
                 int b;
 
@@ -2881,13 +2884,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                                 safe_close(fd);
                 }
         } else if (streq(key, "watchdog-override-usec")) {
-                usec_t watchdog_override_usec;
-                if (timestamp_deserialize(value, &watchdog_override_usec) < 0)
+                if (deserialize_usec(value, &s->watchdog_override_usec) < 0)
                         log_unit_debug(u, "Failed to parse watchdog_override_usec value: %s", value);
-                else {
+                else
                         s->watchdog_override_enable = true;
-                        s->watchdog_override_usec = watchdog_override_usec;
-                }
+
         } else if (STR_IN_SET(key, "main-command", "control-command")) {
                 r = service_deserialize_exec_command(u, key, value);
                 if (r < 0)

@@ -23,6 +23,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "serialize.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -332,11 +333,11 @@ int user_load(User *u) {
         }
 
         if (realtime)
-                (void) timestamp_deserialize(realtime, &u->timestamp.realtime);
+                (void) deserialize_usec(realtime, &u->timestamp.realtime);
         if (monotonic)
-                (void) timestamp_deserialize(monotonic, &u->timestamp.monotonic);
+                (void) deserialize_usec(monotonic, &u->timestamp.monotonic);
         if (last_session_timestamp)
-                (void) timestamp_deserialize(last_session_timestamp, &u->last_session_timestamp);
+                (void) deserialize_usec(last_session_timestamp, &u->last_session_timestamp);
 
         return 0;
 }

@@ -21,6 +21,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "serialize.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -284,9 +285,9 @@ int machine_load(Machine *m) {
         }
 
         if (realtime)
-                timestamp_deserialize(realtime, &m->timestamp.realtime);
+                (void) deserialize_usec(realtime, &m->timestamp.realtime);
         if (monotonic)
-                timestamp_deserialize(monotonic, &m->timestamp.monotonic);
+                (void) deserialize_usec(monotonic, &m->timestamp.monotonic);
 
         if (netif) {
                 size_t allocated = 0, nr = 0;

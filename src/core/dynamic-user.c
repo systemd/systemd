@@ -12,6 +12,7 @@
 #include "io-util.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "serialize.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -607,13 +608,13 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
 
                 copy0 = fdset_put_dup(fds, d->storage_socket[0]);
                 if (copy0 < 0)
-                        return copy0;
+                        return log_error_errno(copy0, "Failed to add dynamic user storage fd to serialization: %m");
 
                 copy1 = fdset_put_dup(fds, d->storage_socket[1]);
                 if (copy1 < 0)
-                        return copy1;
+                        return log_error_errno(copy1, "Failed to add dynamic user storage fd to serialization: %m");
 
-                fprintf(f, "dynamic-user=%s %i %i\n", d->name, copy0, copy1);
+                (void) serialize_item_format(f, "dynamic-user", "%s %i %i", d->name, copy0, copy1);
         }
 
         return 0;

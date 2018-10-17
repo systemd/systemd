@@ -36,6 +36,7 @@
 #include "mkdir.h"
 #include "process-util.h"
 #include "selinux-access.h"
+#include "serialize.h"
 #include "service.h"
 #include "special.h"
 #include "string-util.h"
@@ -1204,13 +1205,8 @@ void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix) {
                 int c, j;
 
                 c = sd_bus_track_count_name(t, n);
-
-                for (j = 0; j < c; j++) {
-                        fputs(prefix, f);
-                        fputc('=', f);
-                        fputs(n, f);
-                        fputc('\n', f);
-                }
+                for (j = 0; j < c; j++)
+                        (void) serialize_item(f, prefix, n);
         }
 }
 

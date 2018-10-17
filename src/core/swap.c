@@ -20,6 +20,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "serialize.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -894,14 +895,14 @@ static int swap_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", swap_state_to_string(s->state));
-        unit_serialize_item(u, f, "result", swap_result_to_string(s->result));
+        (void) serialize_item(f, "state", swap_state_to_string(s->state));
+        (void) serialize_item(f, "result", swap_result_to_string(s->result));
 
         if (s->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", PID_FMT, s->control_pid);
+                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid);
 
         if (s->control_command_id >= 0)
-                unit_serialize_item(u, f, "control-command", swap_exec_command_to_string(s->control_command_id));
+                (void) serialize_item(f, "control-command", swap_exec_command_to_string(s->control_command_id));
 
         return 0;
 }

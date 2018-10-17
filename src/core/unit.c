@@ -10,8 +10,8 @@
 #include "sd-id128.h"
 #include "sd-messages.h"
 
-#include "alloc-util.h"
 #include "all-units.h"
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
@@ -35,6 +35,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "serialize.h"
 #include "set.h"
 #include "signal-util.h"
 #include "sparse-endian.h"
@@ -3206,23 +3207,21 @@ bool unit_can_serialize(Unit *u) {
         return UNIT_VTABLE(u)->serialize && UNIT_VTABLE(u)->deserialize_item;
 }
 
-static int unit_serialize_cgroup_mask(FILE *f, const char *key, CGroupMask mask) {
+static int serialize_cgroup_mask(FILE *f, const char *key, CGroupMask mask) {
         _cleanup_free_ char *s = NULL;
-        int r = 0;
+        int r;
 
         assert(f);
         assert(key);
 
-        if (mask != 0) {
-                r = cg_mask_to_string(mask, &s);
-                if (r >= 0) {
-                        fputs(key, f);
-                        fputc('=', f);
-                        fputs(s, f);
-                        fputc('\n', f);
-                }
-        }
-        return r;
+        if (mask == 0)
+                return 0;
+
+        r = cg_mask_to_string(mask, &s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format cgroup mask: %m");
+
+        return serialize_item(f, key, s);
 }
 
 static const char *ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
@@ -3246,50 +3245,50 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
                         return r;
         }
 
-        dual_timestamp_serialize(f, "state-change-timestamp", &u->state_change_timestamp);
+        (void) serialize_dual_timestamp(f, "state-change-timestamp", &u->state_change_timestamp);
 
-        dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
-        dual_timestamp_serialize(f, "active-enter-timestamp", &u->active_enter_timestamp);
-        dual_timestamp_serialize(f, "active-exit-timestamp", &u->active_exit_timestamp);
-        dual_timestamp_serialize(f, "inactive-enter-timestamp", &u->inactive_enter_timestamp);
+        (void) serialize_dual_timestamp(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
+        (void) serialize_dual_timestamp(f, "active-enter-timestamp", &u->active_enter_timestamp);
+        (void) serialize_dual_timestamp(f, "active-exit-timestamp", &u->active_exit_timestamp);
+        (void) serialize_dual_timestamp(f, "inactive-enter-timestamp", &u->inactive_enter_timestamp);
 
-        dual_timestamp_serialize(f, "condition-timestamp", &u->condition_timestamp);
-        dual_timestamp_serialize(f, "assert-timestamp", &u->assert_timestamp);
+        (void) serialize_dual_timestamp(f, "condition-timestamp", &u->condition_timestamp);
+        (void) serialize_dual_timestamp(f, "assert-timestamp", &u->assert_timestamp);
 
         if (dual_timestamp_is_set(&u->condition_timestamp))
-                unit_serialize_item(u, f, "condition-result", yes_no(u->condition_result));
+                (void) serialize_bool(f, "condition-result", u->condition_result);
 
         if (dual_timestamp_is_set(&u->assert_timestamp))
-                unit_serialize_item(u, f, "assert-result", yes_no(u->assert_result));
+                (void) serialize_bool(f, "assert-result", u->assert_result);
 
-        unit_serialize_item(u, f, "transient", yes_no(u->transient));
+        (void) serialize_bool(f, "transient", u->transient);
+        (void) serialize_bool(f, "in-audit", u->in_audit);
 
-        unit_serialize_item(u, f, "in-audit", yes_no(u->in_audit));
+        (void) serialize_bool(f, "exported-invocation-id", u->exported_invocation_id);
+        (void) serialize_bool(f, "exported-log-level-max", u->exported_log_level_max);
+        (void) serialize_bool(f, "exported-log-extra-fields", u->exported_log_extra_fields);
+        (void) serialize_bool(f, "exported-log-rate-limit-interval", u->exported_log_rate_limit_interval);
+        (void) serialize_bool(f, "exported-log-rate-limit-burst", u->exported_log_rate_limit_burst);
 
-        unit_serialize_item(u, f, "exported-invocation-id", yes_no(u->exported_invocation_id));
-        unit_serialize_item(u, f, "exported-log-level-max", yes_no(u->exported_log_level_max));
-        unit_serialize_item(u, f, "exported-log-extra-fields", yes_no(u->exported_log_extra_fields));
-        unit_serialize_item(u, f, "exported-log-rate-limit-interval", yes_no(u->exported_log_rate_limit_interval));
-        unit_serialize_item(u, f, "exported-log-rate-limit-burst", yes_no(u->exported_log_rate_limit_burst));
-
-        unit_serialize_item_format(u, f, "cpu-usage-base", "%" PRIu64, u->cpu_usage_base);
+        (void) serialize_item_format(f, "cpu-usage-base", "%" PRIu64, u->cpu_usage_base);
         if (u->cpu_usage_last != NSEC_INFINITY)
-                unit_serialize_item_format(u, f, "cpu-usage-last", "%" PRIu64, u->cpu_usage_last);
+                (void) serialize_item_format(f, "cpu-usage-last", "%" PRIu64, u->cpu_usage_last);
 
         if (u->cgroup_path)
-                unit_serialize_item(u, f, "cgroup", u->cgroup_path);
-        unit_serialize_item(u, f, "cgroup-realized", yes_no(u->cgroup_realized));
-        (void) unit_serialize_cgroup_mask(f, "cgroup-realized-mask", u->cgroup_realized_mask);
-        (void) unit_serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
-        (void) unit_serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
+                (void) serialize_item(f, "cgroup", u->cgroup_path);
+
+        (void) serialize_bool(f, "cgroup-realized", u->cgroup_realized);
+        (void) serialize_cgroup_mask(f, "cgroup-realized-mask", u->cgroup_realized_mask);
+        (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
+        (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
         if (uid_is_valid(u->ref_uid))
-                unit_serialize_item_format(u, f, "ref-uid", UID_FMT, u->ref_uid);
+                (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
         if (gid_is_valid(u->ref_gid))
-                unit_serialize_item_format(u, f, "ref-gid", GID_FMT, u->ref_gid);
+                (void) serialize_item_format(f, "ref-gid", GID_FMT, u->ref_gid);
 
         if (!sd_id128_is_null(u->invocation_id))
-                unit_serialize_item_format(u, f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
+                (void) serialize_item_format(f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
 
         bus_track_serialize(u->bus_track, f, "ref");
 
@@ -3298,17 +3297,17 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
 
                 r = unit_get_ip_accounting(u, m, &v);
                 if (r >= 0)
-                        unit_serialize_item_format(u, f, ip_accounting_metric_field[m], "%" PRIu64, v);
+                        (void) serialize_item_format(f, ip_accounting_metric_field[m], "%" PRIu64, v);
         }
 
         if (serialize_jobs) {
                 if (u->job) {
-                        fprintf(f, "job\n");
+                        fputs("job\n", f);
                         job_serialize(u->job, f);
                 }
 
                 if (u->nop_job) {
-                        fprintf(f, "job\n");
+                        fputs("job\n", f);
                         job_serialize(u->nop_job, f);
                 }
         }
@@ -3316,80 +3315,6 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         /* End marker */
         fputc('\n', f);
         return 0;
-}
-
-int unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
-        assert(u);
-        assert(f);
-        assert(key);
-
-        if (!value)
-                return 0;
-
-        fputs(key, f);
-        fputc('=', f);
-        fputs(value, f);
-        fputc('\n', f);
-
-        return 1;
-}
-
-int unit_serialize_item_escaped(Unit *u, FILE *f, const char *key, const char *value) {
-        _cleanup_free_ char *c = NULL;
-
-        assert(u);
-        assert(f);
-        assert(key);
-
-        if (!value)
-                return 0;
-
-        c = cescape(value);
-        if (!c)
-                return -ENOMEM;
-
-        fputs(key, f);
-        fputc('=', f);
-        fputs(c, f);
-        fputc('\n', f);
-
-        return 1;
-}
-
-int unit_serialize_item_fd(Unit *u, FILE *f, FDSet *fds, const char *key, int fd) {
-        int copy;
-
-        assert(u);
-        assert(f);
-        assert(key);
-
-        if (fd < 0)
-                return 0;
-
-        copy = fdset_put_dup(fds, fd);
-        if (copy < 0)
-                return copy;
-
-        fprintf(f, "%s=%i\n", key, copy);
-        return 1;
-}
-
-void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *format, ...) {
-        va_list ap;
-
-        assert(u);
-        assert(f);
-        assert(key);
-        assert(format);
-
-        fputs(key, f);
-        fputc('=', f);
-
-        va_start(ap, format);
-        vfprintf(f, format, ap);
-        va_end(ap);
-
-        fputc('\n', f);
 }
 
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
@@ -3454,25 +3379,25 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_warning(u, "Update from too old systemd versions are unsupported, cannot deserialize job: %s", v);
                         continue;
                 } else if (streq(l, "state-change-timestamp")) {
-                        dual_timestamp_deserialize(v, &u->state_change_timestamp);
+                        (void) deserialize_dual_timestamp(v, &u->state_change_timestamp);
                         continue;
                 } else if (streq(l, "inactive-exit-timestamp")) {
-                        dual_timestamp_deserialize(v, &u->inactive_exit_timestamp);
+                        (void) deserialize_dual_timestamp(v, &u->inactive_exit_timestamp);
                         continue;
                 } else if (streq(l, "active-enter-timestamp")) {
-                        dual_timestamp_deserialize(v, &u->active_enter_timestamp);
+                        (void) deserialize_dual_timestamp(v, &u->active_enter_timestamp);
                         continue;
                 } else if (streq(l, "active-exit-timestamp")) {
-                        dual_timestamp_deserialize(v, &u->active_exit_timestamp);
+                        (void) deserialize_dual_timestamp(v, &u->active_exit_timestamp);
                         continue;
                 } else if (streq(l, "inactive-enter-timestamp")) {
-                        dual_timestamp_deserialize(v, &u->inactive_enter_timestamp);
+                        (void) deserialize_dual_timestamp(v, &u->inactive_enter_timestamp);
                         continue;
                 } else if (streq(l, "condition-timestamp")) {
-                        dual_timestamp_deserialize(v, &u->condition_timestamp);
+                        (void) deserialize_dual_timestamp(v, &u->condition_timestamp);
                         continue;
                 } else if (streq(l, "assert-timestamp")) {
-                        dual_timestamp_deserialize(v, &u->assert_timestamp);
+                        (void) deserialize_dual_timestamp(v, &u->assert_timestamp);
                         continue;
                 } else if (streq(l, "condition-result")) {
 
@@ -3647,7 +3572,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         r = strv_extend(&u->deserialized_refs, v);
                         if (r < 0)
-                                log_oom();
+                                return log_oom();
 
                         continue;
                 } else if (streq(l, "invocation-id")) {

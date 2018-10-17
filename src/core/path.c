@@ -14,6 +14,7 @@
 #include "macro.h"
 #include "mkdir.h"
 #include "path.h"
+#include "serialize.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -600,8 +601,8 @@ static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", path_state_to_string(p->state));
-        unit_serialize_item(u, f, "result", path_result_to_string(p->result));
+        (void) serialize_item(f, "state", path_state_to_string(p->state));
+        (void) serialize_item(f, "result", path_result_to_string(p->result));
 
         return 0;
 }

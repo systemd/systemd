@@ -22,8 +22,8 @@
 #include "sd-messages.h"
 #include "sd-path.h"
 
-#include "alloc-util.h"
 #include "all-units.h"
+#include "alloc-util.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
 #include "bus-common-errors.h"
@@ -61,6 +61,7 @@
 #include "ratelimit.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
+#include "serialize.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
@@ -3113,22 +3114,22 @@ int manager_serialize(
 
         _cleanup_(manager_reloading_stopp) _unused_ Manager *reloading = manager_reloading_start(m);
 
-        fprintf(f, "current-job-id=%"PRIu32"\n", m->current_job_id);
-        fprintf(f, "n-installed-jobs=%u\n", m->n_installed_jobs);
-        fprintf(f, "n-failed-jobs=%u\n", m->n_failed_jobs);
-        fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
-        fprintf(f, "ready-sent=%s\n", yes_no(m->ready_sent));
-        fprintf(f, "taint-logged=%s\n", yes_no(m->taint_logged));
-        fprintf(f, "service-watchdogs=%s\n", yes_no(m->service_watchdogs));
+        (void) serialize_item_format(f, "current-job-id", "%" PRIu32, m->current_job_id);
+        (void) serialize_item_format(f, "n-installed-jobs", "%u", m->n_installed_jobs);
+        (void) serialize_item_format(f, "n-failed-jobs", "%u", m->n_failed_jobs);
+        (void) serialize_bool(f, "taint-usr", m->taint_usr);
+        (void) serialize_bool(f, "ready-sent", m->ready_sent);
+        (void) serialize_bool(f, "taint-logged", m->taint_logged);
+        (void) serialize_bool(f, "service-watchdogs", m->service_watchdogs);
 
         t = show_status_to_string(m->show_status);
         if (t)
-                fprintf(f, "show-status=%s\n", t);
+                (void) serialize_item(f, "show-status", t);
 
         if (m->log_level_overridden)
-                fprintf(f, "log-level-override=%i\n", log_get_max_level());
+                (void) serialize_item_format(f, "log-level-override", "%i", log_get_max_level());
         if (m->log_target_overridden)
-                fprintf(f, "log-target-override=%s\n", log_target_to_string(log_get_target()));
+                (void) serialize_item(f, "log-target-override", log_target_to_string(log_get_target()));
 
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 _cleanup_free_ char *joined = NULL;
@@ -3140,31 +3141,24 @@ int manager_serialize(
                 if (!joined)
                         return log_oom();
 
-                dual_timestamp_serialize(f, joined, m->timestamps + q);
+                (void) serialize_dual_timestamp(f, joined, m->timestamps + q);
         }
 
         if (!switching_root)
-                (void) serialize_environment(f, m->environment);
+                (void) serialize_strv(f, "env", m->environment);
 
         if (m->notify_fd >= 0) {
-                int copy;
+                r = serialize_fd(f, fds, "notify-fd", m->notify_fd);
+                if (r < 0)
+                        return r;
 
-                copy = fdset_put_dup(fds, m->notify_fd);
-                if (copy < 0)
-                        return copy;
-
-                fprintf(f, "notify-fd=%i\n", copy);
-                fprintf(f, "notify-socket=%s\n", m->notify_socket);
+                (void) serialize_item(f, "notify-socket", m->notify_socket);
         }
 
         if (m->cgroups_agent_fd >= 0) {
-                int copy;
-
-                copy = fdset_put_dup(fds, m->cgroups_agent_fd);
-                if (copy < 0)
-                        return copy;
-
-                fprintf(f, "cgroups-agent-fd=%i\n", copy);
+                r = serialize_fd(f, fds, "cgroups-agent-fd", m->cgroups_agent_fd);
+                if (r < 0)
+                        return r;
         }
 
         if (m->user_lookup_fds[0] >= 0) {
@@ -3172,13 +3166,13 @@ int manager_serialize(
 
                 copy0 = fdset_put_dup(fds, m->user_lookup_fds[0]);
                 if (copy0 < 0)
-                        return copy0;
+                        return log_error_errno(copy0, "Failed to add user lookup fd to serialization: %m");
 
                 copy1 = fdset_put_dup(fds, m->user_lookup_fds[1]);
                 if (copy1 < 0)
-                        return copy1;
+                        return log_error_errno(copy1, "Failed to add user lookup fd to serialization: %m");
 
-                fprintf(f, "user-lookup=%i %i\n", copy0, copy1);
+                (void) serialize_item_format(f, "user-lookup", "%i %i", copy0, copy1);
         }
 
         bus_track_serialize(m->subscribed, f, "subscribed");
@@ -3211,11 +3205,11 @@ int manager_serialize(
 
         r = fflush_and_check(f);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to flush serialization: %m");
 
         r = bus_fdset_add_all(m, fds);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add bus sockets to serialization: %m");
 
         return 0;
 }
@@ -3335,9 +3329,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 manager_override_log_target(m, target);
 
                 } else if (startswith(l, "env=")) {
-                        r = deserialize_environment(&m->environment, l);
-                        if (r == -ENOMEM)
-                                return r;
+                        r = deserialize_environment(l + 4, &m->environment);
                         if (r < 0)
                                 log_notice_errno(r, "Failed to parse environment entry: \"%s\", ignoring: %m", l);
 
@@ -3407,7 +3399,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         }
 
                         if (q < _MANAGER_TIMESTAMP_MAX) /* found it */
-                                dual_timestamp_deserialize(val, m->timestamps + q);
+                                (void) deserialize_dual_timestamp(val, m->timestamps + q);
                         else if (!startswith(l, "kdbus-fd=")) /* ignore kdbus */
                                 log_notice("Unknown serialization item '%s', ignoring.", l);
                 }
@@ -3485,7 +3477,7 @@ int manager_reload(Manager *m) {
 
         r = manager_serialize(m, f, fds, false);
         if (r < 0)
-                return log_error_errno(r, "Failed to serialize manager: %m");
+                return r;
 
         if (fseeko(f, 0, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek to beginning of serialization: %m");
@@ -4353,7 +4345,7 @@ static void manager_serialize_uid_refs_internal(
                 if (!(c & DESTROY_IPC_FLAG))
                         continue;
 
-                fprintf(f, "%s=" UID_FMT "\n", field_name, uid);
+                (void) serialize_item_format(f, field_name, UID_FMT, uid);
         }
 }
 
