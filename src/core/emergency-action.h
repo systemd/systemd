@@ -18,6 +18,7 @@ typedef enum EmergencyAction {
 
 typedef enum EmergencyActionFlags {
         EMERGENCY_ACTION_IS_WATCHDOG = 1 << 0,
+        EMERGENCY_ACTION_WARN        = 1 << 1,
 } EmergencyActionFlags;
 
 #include "macro.h"

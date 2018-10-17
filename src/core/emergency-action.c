@@ -12,11 +12,12 @@
 #include "terminal-util.h"
 #include "virt.h"
 
-static void log_and_status(Manager *m, const char *message, const char *reason) {
-        log_warning("%s: %s", message, reason);
-        manager_status_printf(m, STATUS_TYPE_EMERGENCY,
-                              ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
-                              "%s: %s", message, reason);
+static void log_and_status(Manager *m, bool warn, const char *message, const char *reason) {
+        log_full(warn ? LOG_WARNING : LOG_DEBUG, "%s: %s", message, reason);
+        if (warn)
+                manager_status_printf(m, STATUS_TYPE_EMERGENCY,
+                                      ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
+                                      "%s: %s", message, reason);
 }
 
 int emergency_action(
@@ -38,10 +39,12 @@ int emergency_action(
                 return -ECANCELED;
         }
 
+        bool warn = FLAGS_SET(options, EMERGENCY_ACTION_WARN);
+
         switch (action) {
 
         case EMERGENCY_ACTION_REBOOT:
-                log_and_status(m, "Rebooting", reason);
+                log_and_status(m, warn, "Rebooting", reason);
 
                 (void) update_reboot_parameter_and_warn(reboot_arg);
                 (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
@@ -49,7 +52,7 @@ int emergency_action(
                 break;
 
         case EMERGENCY_ACTION_REBOOT_FORCE:
-                log_and_status(m, "Forcibly rebooting", reason);
+                log_and_status(m, warn, "Forcibly rebooting", reason);
 
                 (void) update_reboot_parameter_and_warn(reboot_arg);
                 m->objective = MANAGER_REBOOT;
@@ -57,7 +60,7 @@ int emergency_action(
                 break;
 
         case EMERGENCY_ACTION_REBOOT_IMMEDIATE:
-                log_and_status(m, "Rebooting immediately", reason);
+                log_and_status(m, warn, "Rebooting immediately", reason);
 
                 sync();
 
@@ -73,7 +76,7 @@ int emergency_action(
 
         case EMERGENCY_ACTION_EXIT:
                 if (MANAGER_IS_USER(m) || detect_container() > 0) {
-                        log_and_status(m, "Exiting", reason);
+                        log_and_status(m, warn, "Exiting", reason);
                         (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
                         break;
                 }
@@ -82,13 +85,13 @@ int emergency_action(
                 _fallthrough_;
 
         case EMERGENCY_ACTION_POWEROFF:
-                log_and_status(m, "Powering off", reason);
+                log_and_status(m, warn, "Powering off", reason);
                 (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
                 break;
 
         case EMERGENCY_ACTION_EXIT_FORCE:
                 if (MANAGER_IS_USER(m) || detect_container() > 0) {
-                        log_and_status(m, "Exiting immediately", reason);
+                        log_and_status(m, warn, "Exiting immediately", reason);
                         m->objective = MANAGER_EXIT;
                         break;
                 }
@@ -97,12 +100,12 @@ int emergency_action(
                 _fallthrough_;
 
         case EMERGENCY_ACTION_POWEROFF_FORCE:
-                log_and_status(m, "Forcibly powering off", reason);
+                log_and_status(m, warn, "Forcibly powering off", reason);
                 m->objective = MANAGER_POWEROFF;
                 break;
 
         case EMERGENCY_ACTION_POWEROFF_IMMEDIATE:
-                log_and_status(m, "Powering off immediately", reason);
+                log_and_status(m, warn, "Powering off immediately", reason);
 
                 sync();
 

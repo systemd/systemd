@@ -2538,7 +2538,7 @@ static void manager_handle_ctrl_alt_del(Manager *m) {
         if (ratelimit_below(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
                 manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
         else
-                emergency_action(m, m->cad_burst_action, 0, NULL, 
+                emergency_action(m, m->cad_burst_action, EMERGENCY_ACTION_WARN, NULL,
                                 "Ctrl-Alt-Del was pressed more than 7 times within 2s");
 }
 

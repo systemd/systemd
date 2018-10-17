@@ -1724,7 +1724,8 @@ int unit_start_limit_test(Unit *u) {
         log_unit_warning(u, "Start request repeated too quickly.");
         u->start_limit_hit = true;
 
-        return emergency_action(u->manager, u->start_limit_action, EMERGENCY_ACTION_IS_WATCHDOG,
+        return emergency_action(u->manager, u->start_limit_action,
+                                EMERGENCY_ACTION_IS_WATCHDOG|EMERGENCY_ACTION_WARN,
                                 u->reboot_arg, "unit failed");
 }
 
