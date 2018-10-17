@@ -88,17 +88,18 @@ These configuration snippets shall be Unix-style text files (i.e. line separatio
 * `devicetree` refers to the binary device tree to use when executing the
 kernel. This also shall be a path relative to the `$BOOT` directory. This
 key is optional. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.armv7hl/tegra20-paz00.dtb`.
-* `architecture` refers to the UEFI architecture this entry is defined for. If specified and this does not match the local UEFI system architecture the entry is hidden.
+* `architecture` refers to the architecture this entry is defined for. The argument should be an architecture identifier, using the architecture vocabulary defined by the EFI specification (i.e. `IA32`, `x64`, `IA64`, `ARM`, `AA64`, …). If specified and this does not match (case insensitively) the local system architecture this entry should be hidden.
 
 Each configuration drop-in snippet must include at least a `linux` or an `efi` key and is otherwise not valid. Here's an example for a complete drop-in file:
 
     # /boot/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf
-    title      Fedora 19 (Rawhide)
-    version    3.8.0-2.fc19.x86_64
-    machine-id 6a9857a393724b7a981ebb5b8495b9ea
-    options    root=UUID=6d3376e4-fc93-4509-95ec-a21d68011da2
-    linux      /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux
-    initrd     /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd
+    title        Fedora 19 (Rawhide)
+    version      3.8.0-2.fc19.x86_64
+    machine-id   6a9857a393724b7a981ebb5b8495b9ea
+    options      root=UUID=6d3376e4-fc93-4509-95ec-a21d68011da2
+    architecture x64
+    linux        /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux
+    initrd       /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd
 
 On EFI systems all Linux kernel images should be EFI images. In order to increase compatibility with EFI systems it is highly recommended only to install EFI kernel images, even on non-EFI systems, if that's applicable and supported on the specific architecture.
 
