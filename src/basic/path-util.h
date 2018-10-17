@@ -134,6 +134,7 @@ char* dirname_malloc(const char *path);
 const char *last_path_component(const char *path);
 
 bool filename_is_valid(const char *p) _pure_;
+bool path_is_valid(const char *p) _pure_;
 bool path_is_normalized(const char *p) _pure_;
 
 char *file_in_same_dir(const char *path, const char *filename);

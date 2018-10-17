@@ -351,16 +351,27 @@ static int bus_socket_set_transient_property(
                 while ((r = sd_bus_message_read(message, "(ss)", &t, &a)) > 0) {
                         _cleanup_free_ SocketPort *p = NULL;
 
-                        p = new0(SocketPort, 1);
+                        p = new(SocketPort, 1);
                         if (!p)
                                 return log_oom();
+
+                        *p = (SocketPort) {
+                                .fd = -1,
+                                .socket = s,
+                        };
 
                         p->type = socket_port_type_from_string(t);
                         if (p->type < 0)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown Socket type: %s", t);
 
                         if (p->type != SOCKET_SOCKET) {
+                                if (!path_is_valid(p->path))
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid socket path: %s", t);
+
                                 p->path = strdup(a);
+                                if (!p->path)
+                                        return log_oom();
+
                                 path_simplify(p->path, false);
 
                         } else if (streq(t, "Netlink")) {
@@ -381,21 +392,10 @@ static int bus_socket_set_transient_property(
                                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Address family not supported: %s", a);
                         }
 
-                        p->fd = -1;
-                        p->auxiliary_fds = NULL;
-                        p->n_auxiliary_fds = 0;
-                        p->socket = s;
-
                         empty = false;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                SocketPort *tail;
-
-                                LIST_FIND_TAIL(port, s->ports, tail);
-                                LIST_INSERT_AFTER(port, s->ports, tail, p);
-
-                                p = NULL;
-
+                                LIST_APPEND(port, s->ports, TAKE_PTR(p));
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "Listen%s=%s", t, a);
                         }
                 }

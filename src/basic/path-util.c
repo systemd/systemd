@@ -779,7 +779,18 @@ bool filename_is_valid(const char *p) {
         if (*e != 0)
                 return false;
 
-        if (e - p > FILENAME_MAX)
+        if (e - p > FILENAME_MAX) /* FILENAME_MAX is counted *without* the trailing NUL byte */
+                return false;
+
+        return true;
+}
+
+bool path_is_valid(const char *p) {
+
+        if (isempty(p))
+                return false;
+
+        if (strlen(p) >= PATH_MAX) /* PATH_MAX is counted *with* the trailing NUL byte */
                 return false;
 
         return true;
@@ -787,16 +798,13 @@ bool filename_is_valid(const char *p) {
 
 bool path_is_normalized(const char *p) {
 
-        if (isempty(p))
+        if (!path_is_valid(p))
                 return false;
 
         if (dot_or_dot_dot(p))
                 return false;
 
         if (startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
-                return false;
-
-        if (strlen(p)+1 > PATH_MAX)
                 return false;
 
         if (startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
