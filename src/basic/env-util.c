@@ -380,22 +380,23 @@ char **strv_env_unset_many(char **l, ...) {
 }
 
 int strv_env_replace(char ***l, char *p) {
-        char **f;
         const char *t, *name;
+        char **f;
+        int r;
 
         assert(p);
 
-        /* Replace first occurrence of the env var or add a new one in the
-         * string list. Drop other occurrences. Edits in-place. Does not copy p.
-         * p must be a valid key=value assignment.
+        /* Replace first occurrence of the env var or add a new one in the string list. Drop other occurrences. Edits
+         * in-place. Does not copy p.  p must be a valid key=value assignment.
          */
 
         t = strchr(p, '=');
-        assert(t);
+        if (!t)
+                return -EINVAL;
 
         name = strndupa(p, t - p);
 
-        for (f = *l; f && *f; f++)
+        STRV_FOREACH(f, *l)
                 if (env_entry_has_name(*f, name)) {
                         free_and_replace(*f, p);
                         strv_env_unset(f + 1, *f);
@@ -403,8 +404,10 @@ int strv_env_replace(char ***l, char *p) {
                 }
 
         /* We didn't find a match, we need to append p or create a new strv */
-        if (strv_push(l, p) < 0)
-                return -ENOMEM;
+        r = strv_push(l, p);
+        if (r < 0)
+                return r;
+
         return 1;
 }
 
