@@ -195,10 +195,10 @@ static int env_append(char **r, char ***k, char **a) {
 }
 
 char **strv_env_merge(size_t n_lists, ...) {
-        size_t n = 0;
-        char **l, **k, **r;
+        _cleanup_strv_free_ char **ret = NULL;
+        size_t n = 0, i;
+        char **l, **k;
         va_list ap;
-        size_t i;
 
         /* Merges an arbitrary number of environment sets */
 
@@ -209,29 +209,24 @@ char **strv_env_merge(size_t n_lists, ...) {
         }
         va_end(ap);
 
-        r = new(char*, n+1);
-        if (!r)
+        ret = new(char*, n+1);
+        if (!ret)
                 return NULL;
 
-        k = r;
+        *ret = NULL;
+        k = ret;
 
         va_start(ap, n_lists);
         for (i = 0; i < n_lists; i++) {
                 l = va_arg(ap, char**);
-                if (env_append(r, &k, l) < 0)
-                        goto fail;
+                if (env_append(ret, &k, l) < 0) {
+                        va_end(ap);
+                        return NULL;
+                }
         }
         va_end(ap);
 
-        *k = NULL;
-
-        return r;
-
-fail:
-        va_end(ap);
-        strv_free(r);
-
-        return NULL;
+        return TAKE_PTR(ret);
 }
 
 static bool env_match(const char *t, const char *pattern) {
