@@ -125,30 +125,28 @@ bool strv_env_is_valid(char **e) {
 }
 
 bool strv_env_name_is_valid(char **l) {
-        char **p, **q;
+        char **p;
 
         STRV_FOREACH(p, l) {
                 if (!env_name_is_valid(*p))
                         return false;
 
-                STRV_FOREACH(q, p + 1)
-                        if (streq(*p, *q))
-                                return false;
+                if (strv_contains(p + 1, *p))
+                        return false;
         }
 
         return true;
 }
 
 bool strv_env_name_or_assignment_is_valid(char **l) {
-        char **p, **q;
+        char **p;
 
         STRV_FOREACH(p, l) {
                 if (!env_assignment_is_valid(*p) && !env_name_is_valid(*p))
                         return false;
 
-                STRV_FOREACH(q, p + 1)
-                        if (streq(*p, *q))
-                                return false;
+                if (strv_contains(p + 1, *p))
+                        return false;
         }
 
         return true;
