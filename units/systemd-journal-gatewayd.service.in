@@ -30,9 +30,9 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallArchitectures=native
 LockPersonality=yes
 
-# If there are many split upjournal files we need a lot of fds to
-# access them all and combine
-LimitNOFILE=16384
+# If there are many split up journal files we need a lot of fds to access them
+# all in parallel.
+LimitNOFILE=@HIGH_RLIMIT_NOFILE@
 
 [Install]
 Also=systemd-journal-gatewayd.socket

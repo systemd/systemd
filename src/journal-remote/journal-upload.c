@@ -20,6 +20,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -779,6 +780,9 @@ int main(int argc, char **argv) {
 
         log_show_color(true);
         log_parse_environment();
+
+        /* The journal merging logic potentially needs a lot of fds. */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
 
         r = parse_config();
         if (r < 0)

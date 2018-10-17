@@ -73,6 +73,7 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "switch-root.h"
+#include "sysctl-util.h"
 #include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
@@ -1162,18 +1163,102 @@ static int prepare_reexecute(
         return 0;
 }
 
+static void bump_file_max_and_nr_open(void) {
+
+        /* Let's bump fs.file-max and fs.nr_open to their respective maximums. On current kernels large numbers of file
+         * descriptors are no longer a performance problem and their memory is properly tracked by memcg, thus counting
+         * them and limiting them in another two layers of limits is unnecessary and just complicates things. This
+         * function hence turns off 2 of the 4 levels of limits on file descriptors, and makes RLIMIT_NOLIMIT (soft +
+         * hard) the only ones that really matter. */
+
+#if BUMP_PROC_SYS_FS_FILE_MAX || BUMP_PROC_SYS_FS_NR_OPEN
+        _cleanup_free_ char *t = NULL;
+        int r;
+#endif
+
+#if BUMP_PROC_SYS_FS_FILE_MAX
+        /* I so wanted to use STRINGIFY(ULONG_MAX) here, but alas we can't as glibc/gcc define that as
+         * "(0x7fffffffffffffffL * 2UL + 1UL)". Seriously. 😢 */
+        if (asprintf(&t, "%lu\n", ULONG_MAX) < 0) {
+                log_oom();
+                return;
+        }
+
+        r = sysctl_write("fs/file-max", t);
+        if (r < 0)
+                log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r, "Failed to bump fs.file-max, ignoring: %m");
+#endif
+
+#if BUMP_PROC_SYS_FS_FILE_MAX && BUMP_PROC_SYS_FS_NR_OPEN
+        t = mfree(t);
+#endif
+
+#if BUMP_PROC_SYS_FS_NR_OPEN
+        int v = INT_MAX;
+
+        /* Arg! The kernel enforces maximum and minimum values on the fs.nr_open, but we don't really know what they
+         * are. The expression by which the maximum is determined is dependent on the architecture, and is something we
+         * don't really want to copy to userspace, as it is dependent on implementation details of the kernel. Since
+         * the kernel doesn't expose the maximum value to us, we can only try and hope. Hence, let's start with
+         * INT_MAX, and then keep halving the value until we find one that works. Ugly? Yes, absolutely, but kernel
+         * APIs are kernel APIs, so what do can we do... 🤯 */
+
+        for (;;) {
+                int k;
+
+                v &= ~(__SIZEOF_POINTER__ - 1); /* Round down to next multiple of the pointer size */
+                if (v < 1024) {
+                        log_warning("Can't bump fs.nr_open, value too small.");
+                        break;
+                }
+
+                k = read_nr_open();
+                if (k < 0) {
+                        log_error_errno(k, "Failed to read fs.nr_open: %m");
+                        break;
+                }
+                if (k >= v) { /* Already larger */
+                        log_debug("Skipping bump, value is already larger.");
+                        break;
+                }
+
+                if (asprintf(&t, "%i\n", v) < 0) {
+                        log_oom();
+                        return;
+                }
+
+                r = sysctl_write("fs/nr_open", t);
+                t = mfree(t);
+                if (r == -EINVAL) {
+                        log_debug("Couldn't write fs.nr_open as %i, halving it.", v);
+                        v /= 2;
+                        continue;
+                }
+                if (r < 0) {
+                        log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r, "Failed to bump fs.nr_open, ignoring: %m");
+                        break;
+                }
+
+                log_debug("Successfully bumped fs.nr_open to %i", v);
+                break;
+        }
+#endif
+}
+
 static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         int r, nr;
 
         assert(saved_rlimit);
 
-        /* Save the original RLIMIT_NOFILE so that we can reset it
-         * later when transitioning from the initrd to the main
+        /* Save the original RLIMIT_NOFILE so that we can reset it later when transitioning from the initrd to the main
          * systemd or suchlike. */
         if (getrlimit(RLIMIT_NOFILE, saved_rlimit) < 0)
                 return log_warning_errno(errno, "Reading RLIMIT_NOFILE failed, ignoring: %m");
 
-        /* Make sure forked processes get the default kernel setting */
+        /* Get the underlying absolute limit the kernel enforces */
+        nr = read_nr_open();
+
+        /* Make sure forked processes get limits based on the original kernel setting */
         if (!arg_default_rlimit[RLIMIT_NOFILE]) {
                 struct rlimit *rl;
 
@@ -1181,11 +1266,25 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
                 if (!rl)
                         return log_oom();
 
+                /* Bump the hard limit for system services to a substantially higher value. The default hard limit
+                 * current kernels set is pretty low (4K), mostly for historical reasons. According to kernel
+                 * developers, the fd handling in recent kernels has been optimized substantially enough, so that we
+                 * can bump the limit now, without paying too high a price in memory or performance. Note however that
+                 * we only bump the hard limit, not the soft limit. That's because select() works the way it works, and
+                 * chokes on fds >= 1024. If we'd bump the soft limit globally, it might accidentally happen to
+                 * unexpecting programs that they get fds higher than what they can process using select(). By only
+                 * bumping the hard limit but leaving the low limit as it is we avoid this pitfall: programs that are
+                 * written by folks aware of the select() problem in mind (and thus use poll()/epoll instead of
+                 * select(), the way everybody should) can explicitly opt into high fds by bumping their soft limit
+                 * beyond 1024, to the hard limit we pass. */
+                if (arg_system)
+                        rl->rlim_max = MIN((rlim_t) nr, MAX(rl->rlim_max, (rlim_t) HIGH_RLIMIT_NOFILE));
+
                 arg_default_rlimit[RLIMIT_NOFILE] = rl;
         }
 
-        /* Bump up the resource limit for ourselves substantially, all the way to the maximum the kernel allows */
-        nr = read_nr_open();
+        /* Bump up the resource limit for ourselves substantially, all the way to the maximum the kernel allows, for
+         * both hard and soft. */
         r = setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(nr));
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_NOFILE failed, ignoring: %m");
@@ -1197,16 +1296,15 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
         int r;
 
         assert(saved_rlimit);
-        assert(getuid() == 0);
 
-        /* BPF_MAP_TYPE_LPM_TRIE bpf maps are charged against RLIMIT_MEMLOCK, even though we have CAP_IPC_LOCK which
-         * should normally disable such checks. We need them to implement IPAccessAllow= and IPAccessDeny=, hence let's
-         * bump the value high enough for the root user. */
+        /* BPF_MAP_TYPE_LPM_TRIE bpf maps are charged against RLIMIT_MEMLOCK, even if we have CAP_IPC_LOCK which should
+         * normally disable such checks. We need them to implement IPAccessAllow= and IPAccessDeny=, hence let's bump
+         * the value high enough for our user. */
 
         if (getrlimit(RLIMIT_MEMLOCK, saved_rlimit) < 0)
                 return log_warning_errno(errno, "Reading RLIMIT_MEMLOCK failed, ignoring: %m");
 
-        r = setrlimit_closest(RLIMIT_MEMLOCK, &RLIMIT_MAKE_CONST(1024ULL*1024ULL*64ULL));
+        r = setrlimit_closest(RLIMIT_MEMLOCK, &RLIMIT_MAKE_CONST(HIGH_RLIMIT_MEMLOCK));
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_MEMLOCK failed, ignoring: %m");
 
@@ -1868,6 +1966,7 @@ static int initialize_runtime(
                         machine_id_setup(NULL, arg_machine_id, NULL);
                         loopback_setup();
                         bump_unix_max_dgram_qlen();
+                        bump_file_max_and_nr_open();
                         test_usr();
                         write_container_id();
                 }
@@ -1920,11 +2019,9 @@ static int initialize_runtime(
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
                         log_warning_errno(errno, "Failed to make us a subreaper: %m");
 
-        if (arg_system) {
-                /* Bump up RLIMIT_NOFILE for systemd itself */
-                (void) bump_rlimit_nofile(saved_rlimit_nofile);
-                (void) bump_rlimit_memlock(saved_rlimit_memlock);
-        }
+        /* Bump up RLIMIT_NOFILE for systemd itself */
+        (void) bump_rlimit_nofile(saved_rlimit_nofile);
+        (void) bump_rlimit_memlock(saved_rlimit_memlock);
 
         return 0;
 }

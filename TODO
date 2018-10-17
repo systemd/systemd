@@ -48,6 +48,8 @@ Features:
 
 * optionally: turn on cgroup delegation for per-session scope units
 
+* introduce per-unit (i.e. per-slice, per-service) journal log size limits.
+
 * optionally, if a per-partition GPT flag is set for the root/home/… partitions
   format the partition on next boot and unset the flag, in order to implement
   factory reset. also, add a second flag that simply indicates whether such a

@@ -35,8 +35,6 @@ SystemCallArchitectures=native
 LockPersonality=yes
 IPAddressDeny=any
 
-# Increase the default a bit in order to allow many simultaneous
-# services being run since we keep one fd open per service. Also, when
-# flushing journal files to disk, we might need a lot of fds when many
-# journal files are combined.
-LimitNOFILE=16384
+# If there are many split up journal files we need a lot of fds to access them
+# all in parallel.
+LimitNOFILE=@HIGH_RLIMIT_NOFILE@

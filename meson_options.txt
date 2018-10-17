@@ -49,6 +49,10 @@ option('debug-extra', type : 'array', choices : ['hashmap', 'mmap-cache'], value
        description : 'enable extra debugging')
 option('memory-accounting-default', type : 'boolean',
        description : 'enable MemoryAccounting= by default')
+option('bump-proc-sys-fs-file-max', type : 'boolean',
+       description : 'bump /proc/sys/fs/file-max to ULONG_MAX')
+option('bump-proc-sys-fs-nr-open', type : 'boolean',
+       description : 'bump /proc/sys/fs/nr_open to INT_MAX')
 option('valgrind', type : 'boolean', value : false,
        description : 'do extra operations to avoid valgrind warnings')
 option('log-trace', type : 'boolean', value : false,

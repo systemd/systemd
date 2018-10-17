@@ -10,6 +10,7 @@ Release=27
 [Output]
 Format=raw_btrfs
 Bootable=yes
+KernelCommandLine=printk.devkmsg=on
 
 [Partitions]
 RootSize=3G
