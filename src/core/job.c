@@ -31,14 +31,15 @@ Job* job_new_raw(Unit *unit) {
 
         assert(unit);
 
-        j = new0(Job, 1);
+        j = new(Job, 1);
         if (!j)
                 return NULL;
 
-        j->manager = unit->manager;
-        j->unit = unit;
-        j->type = _JOB_TYPE_INVALID;
-        j->reloaded = false;
+        *j = (Job) {
+                .manager = unit->manager,
+                .unit = unit,
+                .type = _JOB_TYPE_INVALID,
+        };
 
         return j;
 }
