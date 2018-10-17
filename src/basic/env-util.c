@@ -155,20 +155,23 @@ bool strv_env_name_or_assignment_is_valid(char **l) {
 static int env_append(char **r, char ***k, char **a) {
         assert(r);
         assert(k);
+        assert(*k >= r);
 
         if (!a)
                 return 0;
 
-        /* Add the entries of a to *k unless they already exist in *r
-         * in which case they are overridden instead. This assumes
-         * there is enough space in the r array. */
+        /* Expects the following arguments: 'r' shall point to the beginning of an strv we are going to append to, 'k'
+         * to a pointer pointing to the NULL entry at the end of the same array. 'a' shall point to another strv.
+         *
+         * This call adds every entry of 'a' to 'r', either overriding an existing matching entry, or appending to it.
+         *
+         * This call assumes 'r' has enough pre-allocated space to grow by all of 'a''s items. */
 
         for (; *a; a++) {
-                char **j;
+                char **j, *c;
                 size_t n;
 
                 n = strcspn(*a, "=");
-
                 if ((*a)[n] == '=')
                         n++;
 
@@ -176,14 +179,16 @@ static int env_append(char **r, char ***k, char **a) {
                         if (strneq(*j, *a, n))
                                 break;
 
-                if (j >= *k)
-                        (*k)++;
-                else
-                        free(*j);
-
-                *j = strdup(*a);
-                if (!*j)
+                c = strdup(*a);
+                if (!c)
                         return -ENOMEM;
+
+                if (j >= *k) { /* Append to the end? */
+                        (*k)[0] = c;
+                        (*k)[1] = NULL;
+                        (*k)++;
+                } else
+                        free_and_replace(*j, c); /* Override existing item */
         }
 
         return 0;
