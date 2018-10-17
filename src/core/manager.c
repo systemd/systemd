@@ -3082,6 +3082,19 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         return 0;
 }
 
+static bool manager_timestamp_shall_serialize(ManagerTimestamp t) {
+
+        if (!in_initrd())
+                return true;
+
+        /* The following timestamps only apply to the host system, hence only serialize them there */
+        return !IN_SET(t,
+                       MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH,
+                       MANAGER_TIMESTAMP_SECURITY_START, MANAGER_TIMESTAMP_SECURITY_FINISH,
+                       MANAGER_TIMESTAMP_GENERATORS_START, MANAGER_TIMESTAMP_GENERATORS_FINISH,
+                       MANAGER_TIMESTAMP_UNITS_LOAD_START, MANAGER_TIMESTAMP_UNITS_LOAD_FINISH);
+}
+
 int manager_serialize(
                 Manager *m,
                 FILE *f,
@@ -3120,12 +3133,7 @@ int manager_serialize(
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 _cleanup_free_ char *joined = NULL;
 
-                /* The following timestamps only apply to the host system, hence only serialize them there */
-                if (in_initrd() &&
-                    IN_SET(q, MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH,
-                           MANAGER_TIMESTAMP_SECURITY_START, MANAGER_TIMESTAMP_SECURITY_FINISH,
-                           MANAGER_TIMESTAMP_GENERATORS_START, MANAGER_TIMESTAMP_GENERATORS_FINISH,
-                           MANAGER_TIMESTAMP_UNITS_LOAD_START, MANAGER_TIMESTAMP_UNITS_LOAD_FINISH))
+                if (!manager_timestamp_shall_serialize(q))
                         continue;
 
                 joined = strjoin(manager_timestamp_to_string(q), "-timestamp");
