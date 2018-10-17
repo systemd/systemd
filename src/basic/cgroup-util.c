@@ -1166,7 +1166,7 @@ int cg_is_empty(const char *controller, const char *path) {
 
         r = cg_enumerate_processes(controller, path, &f);
         if (r == -ENOENT)
-                return 1;
+                return true;
         if (r < 0)
                 return r;
 
@@ -1196,6 +1196,8 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
                  * via the "populated" attribute of "cgroup.events". */
 
                 r = cg_read_event(controller, path, "populated", &t);
+                if (r == -ENOENT)
+                        return true;
                 if (r < 0)
                         return r;
 
@@ -1210,7 +1212,7 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
 
                 r = cg_enumerate_subgroups(controller, path, &d);
                 if (r == -ENOENT)
-                        return 1;
+                        return true;
                 if (r < 0)
                         return r;
 

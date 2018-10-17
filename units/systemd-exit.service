@@ -13,7 +13,4 @@ Documentation=man:systemd.special(7)
 DefaultDependencies=no
 Requires=shutdown.target
 After=shutdown.target
-
-[Service]
-Type=oneshot
-ExecStart=@SYSTEMCTL@ --user --force exit
+SuccessAction=exit

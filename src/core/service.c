@@ -538,8 +538,13 @@ static int service_verify(Service *s) {
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
-        if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP]) {
-                log_unit_error(UNIT(s), "Service lacks both ExecStart= and ExecStop= setting. Refusing.");
+        if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP]
+            && UNIT(s)->success_action == EMERGENCY_ACTION_NONE) {
+                /* FailureAction= only makes sense if one of the start or stop commands is specified.
+                 * SuccessAction= will be executed unconditionally if no commands are specified. Hence,
+                 * either a command or SuccessAction= are required. */
+
+                log_unit_error(UNIT(s), "Service has no ExecStart=, ExecStop=, or SuccessAction=. Refusing.");
                 return -ENOEXEC;
         }
 
@@ -548,8 +553,8 @@ static int service_verify(Service *s) {
                 return -ENOEXEC;
         }
 
-        if (!s->remain_after_exit && !s->exec_command[SERVICE_EXEC_START]) {
-                log_unit_error(UNIT(s), "Service has no ExecStart= setting, which is only allowed for RemainAfterExit=yes services. Refusing.");
+        if (!s->remain_after_exit && !s->exec_command[SERVICE_EXEC_START] && UNIT(s)->success_action == EMERGENCY_ACTION_NONE) {
+                log_unit_error(UNIT(s), "Service has no ExecStart= and no SuccessAction= settings and does not have RemainAfterExit=yes set. Refusing.");
                 return -ENOEXEC;
         }
 
@@ -2023,6 +2028,12 @@ static void service_enter_start(Service *s) {
                         r = -ENXIO;
                         goto fail;
                 }
+
+                /* We force a fake state transition here. Otherwise, the unit would go directly from
+                 * SERVICE_DEAD to SERVICE_DEAD without SERVICE_ACTIVATING or SERVICE_ACTIVE
+                 * inbetween. This way we can later trigger actions that depend on the state
+                 * transition, including SuccessAction=. */
+                service_set_state(s, SERVICE_START);
 
                 service_enter_start_post(s);
                 return;

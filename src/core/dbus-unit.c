@@ -1299,8 +1299,43 @@ static int bus_unit_set_live_property(
         return 0;
 }
 
+static int bus_set_transient_emergency_action(
+                Unit *u,
+                const char *name,
+                EmergencyAction *p,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        const char *s;
+        EmergencyAction v;
+        int r;
+        bool system;
+
+        assert(p);
+
+        r = sd_bus_message_read(message, "s", &s);
+        if (r < 0)
+                return r;
+
+        system = MANAGER_IS_SYSTEM(u->manager);
+        r = parse_emergency_action(s, system, &v);
+        if (v < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         v == -EOPNOTSUPP ? "EmergencyAction setting invalid for manager type: %s"
+                                                          : "Invalid %s setting: %s",
+                                         name, s);
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                *p = v;
+                unit_write_settingf(u, flags, name,
+                                    "%s=%s", name, s);
+        }
+
+        return 1;
+}
+
 static BUS_DEFINE_SET_TRANSIENT_PARSE(collect_mode, CollectMode, collect_mode_from_string);
-static BUS_DEFINE_SET_TRANSIENT_PARSE(emergency_action, EmergencyAction, emergency_action_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(job_mode, JobMode, job_mode_from_string);
 
 static int bus_set_transient_conditions(
