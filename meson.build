@@ -231,7 +231,7 @@ conf.set_quoted('SYSTEMD_EXPORT_PATH',                        join_paths(rootlib
 conf.set_quoted('VENDOR_KEYRING_PATH',                        join_paths(rootlibexecdir, 'import-pubring.gpg'))
 conf.set_quoted('USER_KEYRING_PATH',                          join_paths(pkgsysconfdir, 'import-pubring.gpg'))
 conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdatadir, 'gatewayd'))
-conf.set('MEMORY_ACCOUNTING_DEFAULT',                         memory_accounting_default ? 'true' : 'false')
+conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default)
 conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_YES_NO',           memory_accounting_default ? 'yes' : 'no')
 
 substs.set('prefix',                                          prefixdir)
