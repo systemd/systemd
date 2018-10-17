@@ -50,7 +50,7 @@
     understood:</para>
 
     <itemizedlist>
-      <listitem><para>usec, us</para></listitem>
+      <listitem><para>usec, us, µs</para></listitem>
       <listitem><para>msec, ms</para></listitem>
       <listitem><para>seconds, second, sec, s</para></listitem>
       <listitem><para>minutes, minute, min, m</para></listitem>
