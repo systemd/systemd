@@ -9,31 +9,48 @@
 
 #include "device-util.h"
 #include "macro.h"
+#include "tests.h"
 
 static void* thread(void *p) {
-        sd_device **d = p;
+        sd_device_enumerator **e = p;
 
-        assert_se(!(*d = sd_device_unref(*d)));
+        assert_se(!(*e = sd_device_enumerator_unref(*e)));
 
         return NULL;
 }
 
 int main(int argc, char *argv[]) {
-        sd_device *loopback;
+        sd_device_enumerator *e;
+        bool has = false;
+        sd_device *d;
         pthread_t t;
-        const char *key, *value;
 
         assert_se(unsetenv("SYSTEMD_MEMPOOL") == 0);
 
-        assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
+        test_setup_logging(LOG_INFO);
 
-        FOREACH_DEVICE_PROPERTY(loopback, key, value)
-                printf("%s=%s\n", key, value);
+        assert_se(sd_device_enumerator_new(&e) >= 0);
 
-        assert_se(pthread_create(&t, NULL, thread, &loopback) == 0);
+        FOREACH_DEVICE(e, d) {
+                const char *key, *value, *syspath;
+
+                FOREACH_DEVICE_PROPERTY(d, key, value) {
+                        log_debug("%s=%s", key, value);
+                        has = true;
+                }
+
+                if (has) {
+                        assert_se(sd_device_get_syspath(d, &syspath) >= 0);
+                        log_debug("Device %s has some properties.", syspath);
+                        break;
+                }
+        }
+        assert_se(has);
+
+        assert_se(pthread_create(&t, NULL, thread, &e) == 0);
         assert_se(pthread_join(t, NULL) == 0);
 
-        assert_se(!loopback);
+        assert_se(!e);
 
         return 0;
 }
