@@ -395,13 +395,7 @@ static int bus_socket_set_transient_property(
                         empty = false;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                SocketPort *tail;
-
-                                LIST_FIND_TAIL(port, s->ports, tail);
-                                LIST_INSERT_AFTER(port, s->ports, tail, p);
-
-                                p = NULL;
-
+                                LIST_APPEND(port, s->ports, TAKE_PTR(p));
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "Listen%s=%s", t, a);
                         }
                 }
