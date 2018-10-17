@@ -3712,8 +3712,12 @@ static void service_notify_message(
                 _cleanup_free_ char *t = NULL;
 
                 if (!isempty(e)) {
-                        if (!utf8_is_valid(e))
-                                log_unit_warning(u, "Status message in notification message is not UTF-8 clean.");
+                        /* Note that this size limit check is mostly paranoia: since the datagram size we are willing
+                         * to process is already limited to NOTIFY_BUFFER_MAX, this limit here should never be hit. */
+                        if (strlen(e) > STATUS_TEXT_MAX)
+                                log_unit_warning(u, "Status message overly long (%zu > %u), ignoring.", strlen(e), STATUS_TEXT_MAX);
+                        else if (!utf8_is_valid(e))
+                                log_unit_warning(u, "Status message in notification message is not UTF-8 clean, ignoring.");
                         else {
                                 t = strdup(e);
                                 if (!t)
