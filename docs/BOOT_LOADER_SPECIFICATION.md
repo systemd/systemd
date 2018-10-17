@@ -181,5 +181,3 @@ There are a couple of items that are out of focus for this specification:
 
 [systemd-boot(7)](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
 [bootctl(1)](https://www.freedesktop.org/software/systemd/man/bootctl.html)
-
-[Obsolete patch adding Boot Loader Specification support to GNU grub 2](http://pkgs.fedoraproject.org/cgit/grub2.git/tree/0460-blscfg-add-blscfg-module-to-parse-Boot-Loader-Specif.patch?h=f20)
