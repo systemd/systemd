@@ -32,7 +32,7 @@ LockPersonality=yes
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.
-LimitNOFILE=262144
+LimitNOFILE=@HIGH_RLIMIT_NOFILE@
 
 [Install]
 Also=systemd-journal-gatewayd.socket

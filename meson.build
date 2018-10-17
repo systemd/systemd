@@ -75,6 +75,7 @@ conf.set10('HAVE_SYSV_COMPAT', sysvinit_path != '' and sysvrcnd_path != '',
 
 conf.set10('BUMP_PROC_SYS_FS_FILE_MAX', get_option('bump-proc-sys-fs-file-max'))
 conf.set10('BUMP_PROC_SYS_FS_NR_OPEN',  get_option('bump-proc-sys-fs-nr-open'))
+conf.set('HIGH_RLIMIT_NOFILE',          256*1024)
 
 # join_paths ignore the preceding arguments if an absolute component is
 # encountered, so this should canonicalize various paths when they are
@@ -272,6 +273,7 @@ substs.set('SYSTEM_SYSVRCND_PATH',                            sysvrcnd_path)
 substs.set('RC_LOCAL_SCRIPT_PATH_START',                      get_option('rc-local'))
 substs.set('RC_LOCAL_SCRIPT_PATH_STOP',                       get_option('halt-local'))
 substs.set('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default ? 'yes' : 'no')
+substs.set('HIGH_RLIMIT_NOFILE',                              conf.get('HIGH_RLIMIT_NOFILE'))
 
 #####################################################################
 

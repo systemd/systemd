@@ -53,7 +53,7 @@
 #DefaultLimitSTACK=
 #DefaultLimitCORE=
 #DefaultLimitRSS=
-#DefaultLimitNOFILE=
+#DefaultLimitNOFILE=1024:@HIGH_RLIMIT_NOFILE@
 #DefaultLimitAS=
 #DefaultLimitNPROC=
 #DefaultLimitMEMLOCK=

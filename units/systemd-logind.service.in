@@ -39,4 +39,4 @@ FileDescriptorStoreMax=512
 
 # Increase the default a bit in order to allow many simultaneous logins since
 # we keep one fd open per session.
-LimitNOFILE=262144
+LimitNOFILE=@HIGH_RLIMIT_NOFILE@
