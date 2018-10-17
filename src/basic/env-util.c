@@ -21,10 +21,6 @@
         DIGITS LETTERS                          \
         "_"
 
-#ifndef ARG_MAX
-#define ARG_MAX ((size_t) sysconf(_SC_ARG_MAX))
-#endif
-
 static bool env_name_is_valid_n(const char *e, size_t n) {
         const char *p;
 
@@ -42,7 +38,7 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
          * either. Discounting the equal sign and trailing NUL this
          * hence leaves ARG_MAX-2 as longest possible variable
          * name. */
-        if (n > ARG_MAX - 2)
+        if (n > (size_t) sysconf(_SC_ARG_MAX) - 2)
                 return false;
 
         for (p = e; p < e + n; p++)
@@ -76,7 +72,7 @@ bool env_value_is_valid(const char *e) {
          * either. Discounting the shortest possible variable name of
          * length 1, the equal sign and trailing NUL this hence leaves
          * ARG_MAX-3 as longest possible variable value. */
-        if (strlen(e) > ARG_MAX - 3)
+        if (strlen(e) > (size_t) sysconf(_SC_ARG_MAX) - 3)
                 return false;
 
         return true;
@@ -99,7 +95,7 @@ bool env_assignment_is_valid(const char *e) {
          * be > ARG_MAX, hence the individual variable assignments
          * cannot be either, but let's leave room for one trailing NUL
          * byte. */
-        if (strlen(e) > ARG_MAX - 1)
+        if (strlen(e) > (size_t) sysconf(_SC_ARG_MAX) - 1)
                 return false;
 
         return true;
