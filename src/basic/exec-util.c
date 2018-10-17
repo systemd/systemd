@@ -268,8 +268,8 @@ static int gather_environment_generate(int fd, void *arg) {
 }
 
 static int gather_environment_collect(int fd, void *arg) {
-        char ***env = arg;
         _cleanup_fclose_ FILE *f = NULL;
+        char ***env = arg;
         int r;
 
         /* Write out a series of env=cescape(VAR=value) assignments to fd. */
@@ -286,8 +286,9 @@ static int gather_environment_collect(int fd, void *arg) {
         if (r < 0)
                 return r;
 
-        if (ferror(f))
-                return errno > 0 ? -errno : -EIO;
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
 
         return 0;
 }

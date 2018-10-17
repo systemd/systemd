@@ -2612,10 +2612,10 @@ static int service_deserialize_exec_command(Unit *u, const char *key, const char
                 _cleanup_free_ char *arg = NULL;
 
                 r = extract_first_word(&value, &arg, NULL, EXTRACT_CUNESCAPE);
+                if (r < 0)
+                        return r;
                 if (r == 0)
                         break;
-                else if (r < 0)
-                        return r;
 
                 switch (state) {
                 case STATE_EXEC_COMMAND_TYPE:
@@ -2755,10 +2755,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 r = cunescape(value, 0, &t);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to unescape status text: %s", value);
-                else {
-                        free(s->status_text);
-                        s->status_text = t;
-                }
+                else
+                        free_and_replace(s->status_text, t);
 
         } else if (streq(key, "accept-socket")) {
                 Unit *socket;
