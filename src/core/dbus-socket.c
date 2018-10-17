@@ -351,9 +351,14 @@ static int bus_socket_set_transient_property(
                 while ((r = sd_bus_message_read(message, "(ss)", &t, &a)) > 0) {
                         _cleanup_free_ SocketPort *p = NULL;
 
-                        p = new0(SocketPort, 1);
+                        p = new(SocketPort, 1);
                         if (!p)
                                 return log_oom();
+
+                        *p = (SocketPort) {
+                                .fd = -1,
+                                .socket = s,
+                        };
 
                         p->type = socket_port_type_from_string(t);
                         if (p->type < 0)
@@ -386,11 +391,6 @@ static int bus_socket_set_transient_property(
                                 if (socket_address_family(&p->address) != AF_LOCAL && p->address.type == SOCK_SEQPACKET)
                                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Address family not supported: %s", a);
                         }
-
-                        p->fd = -1;
-                        p->auxiliary_fds = NULL;
-                        p->n_auxiliary_fds = 0;
-                        p->socket = s;
 
                         empty = false;
 
