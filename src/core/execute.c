@@ -5073,10 +5073,8 @@ void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
 finalize:
 
         r = exec_runtime_add(m, id, tmp_dir, var_tmp_dir, (int[]) { fd0, fd1 }, NULL);
-        if (r < 0) {
+        if (r < 0)
                 log_debug_errno(r, "Failed to add exec-runtime: %m");
-                return;
-        }
 }
 
 void exec_runtime_vacuum(Manager *m) {

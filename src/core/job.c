@@ -31,14 +31,15 @@ Job* job_new_raw(Unit *unit) {
 
         assert(unit);
 
-        j = new0(Job, 1);
+        j = new(Job, 1);
         if (!j)
                 return NULL;
 
-        j->manager = unit->manager;
-        j->unit = unit;
-        j->type = _JOB_TYPE_INVALID;
-        j->reloaded = false;
+        *j = (Job) {
+                .manager = unit->manager,
+                .unit = unit,
+                .type = _JOB_TYPE_INVALID,
+        };
 
         return j;
 }
@@ -1124,16 +1125,16 @@ int job_deserialize(Job *j, FILE *f) {
                 if (streq(l, "job-id")) {
 
                         if (safe_atou32(v, &j->id) < 0)
-                                log_debug("Failed to parse job id value %s", v);
+                                log_debug("Failed to parse job id value: %s", v);
 
                 } else if (streq(l, "job-type")) {
                         JobType t;
 
                         t = job_type_from_string(v);
                         if (t < 0)
-                                log_debug("Failed to parse job type %s", v);
+                                log_debug("Failed to parse job type: %s", v);
                         else if (t >= _JOB_TYPE_MAX_IN_TRANSACTION)
-                                log_debug("Cannot deserialize job of type %s", v);
+                                log_debug("Cannot deserialize job of type: %s", v);
                         else
                                 j->type = t;
 
@@ -1142,7 +1143,7 @@ int job_deserialize(Job *j, FILE *f) {
 
                         s = job_state_from_string(v);
                         if (s < 0)
-                                log_debug("Failed to parse job state %s", v);
+                                log_debug("Failed to parse job state: %s", v);
                         else
                                 job_set_state(j, s);
 
@@ -1151,7 +1152,7 @@ int job_deserialize(Job *j, FILE *f) {
 
                         b = parse_boolean(v);
                         if (b < 0)
-                                log_debug("Failed to parse job irreversible flag %s", v);
+                                log_debug("Failed to parse job irreversible flag: %s", v);
                         else
                                 j->irreversible = j->irreversible || b;
 
@@ -1160,7 +1161,7 @@ int job_deserialize(Job *j, FILE *f) {
 
                         b = parse_boolean(v);
                         if (b < 0)
-                                log_debug("Failed to parse job sent_dbus_new_signal flag %s", v);
+                                log_debug("Failed to parse job sent_dbus_new_signal flag: %s", v);
                         else
                                 j->sent_dbus_new_signal = j->sent_dbus_new_signal || b;
 
@@ -1169,7 +1170,7 @@ int job_deserialize(Job *j, FILE *f) {
 
                         b = parse_boolean(v);
                         if (b < 0)
-                                log_debug("Failed to parse job ignore_order flag %s", v);
+                                log_debug("Failed to parse job ignore_order flag: %s", v);
                         else
                                 j->ignore_order = j->ignore_order || b;
 
