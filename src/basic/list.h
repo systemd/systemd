@@ -38,9 +38,9 @@
 /* Append an item to the list */
 #define LIST_APPEND(name,head,item)                                     \
         do {                                                            \
-                typeof(*(head)) *_tail;                                 \
-                LIST_FIND_TAIL(name,head,_tail);                        \
-                LIST_INSERT_AFTER(name,head,_tail,item);                \
+                typeof(*(head)) **_hhead = &(head), *_tail;             \
+                LIST_FIND_TAIL(name, *_hhead, _tail);                   \
+                LIST_INSERT_AFTER(name, *_hhead, _tail, item);          \
         } while (false)
 
 /* Remove an item from the list */
