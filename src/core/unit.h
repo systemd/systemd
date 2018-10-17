@@ -682,7 +682,7 @@ bool unit_can_serialize(Unit *u) _pure_;
 
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
-void unit_deserialize_skip(FILE *f);
+int unit_deserialize_skip(FILE *f);
 
 int unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value);
 int unit_serialize_item_escaped(Unit *u, FILE *f, const char *key, const char *value);

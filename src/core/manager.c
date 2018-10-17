@@ -3222,20 +3222,17 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         _cleanup_(manager_reloading_stopp) _unused_ Manager *reloading = manager_reloading_start(m);
 
         for (;;) {
-                char line[LINE_MAX];
+                _cleanup_free_ char *line = NULL;
                 const char *val, *l;
 
-                errno = 0;
-                if (!fgets(line, sizeof(line), f)) {
-                        if (!feof(f))
-                                return -errno ?: -EIO;
-                        return 0;
-                }
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read serialization line: %m");
+                if (r == 0)
+                        break;
 
-                char_array_0(line);
                 l = strstrip(line);
-
-                if (l[0] == 0)
+                if (isempty(l)) /* end marker */
                         break;
 
                 if ((val = startswith(l, "current-job-id="))) {
@@ -3405,20 +3402,18 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         }
 
         for (;;) {
-                Unit *u;
-                char name[UNIT_NAME_MAX+2];
+                _cleanup_free_ char *line = NULL;
                 const char* unit_name;
+                Unit *u;
 
                 /* Start marker */
-                errno = 0;
-                if (!fgets(name, sizeof(name), f)) {
-                        if (!feof(f))
-                                return -errno ?: -EIO;
-                        return 0;
-                }
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read serialization line: %m");
+                if (r == 0)
+                        break;
 
-                char_array_0(name);
-                unit_name = strstrip(name);
+                unit_name = strstrip(line);
 
                 r = manager_load_unit(m, unit_name, NULL, NULL, &u);
                 if (r < 0) {
@@ -3426,7 +3421,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 return r;
 
                         log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", unit_name);
-                        unit_deserialize_skip(f);
+
+                        r = unit_deserialize_skip(f);
+                        if (r < 0)
+                                return r;
+
                         continue;
                 }
 

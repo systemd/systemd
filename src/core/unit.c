@@ -3400,21 +3400,19 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         for (;;) {
-                char line[LINE_MAX], *l, *v;
+                _cleanup_free_ char *line = NULL;
                 CGroupIPAccountingMetric m;
+                char *l, *v;
                 size_t k;
 
-                if (!fgets(line, sizeof(line), f)) {
-                        if (feof(f))
-                                return 0;
-                        return -errno;
-                }
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read serialization line: %m");
+                if (r == 0) /* eof */
+                        break;
 
-                char_array_0(line);
                 l = strstrip(line);
-
-                /* End marker */
-                if (isempty(l))
+                if (isempty(l)) /* End marker */
                         break;
 
                 k = strcspn(l, "=");
@@ -3714,23 +3712,27 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-void unit_deserialize_skip(FILE *f) {
+int unit_deserialize_skip(FILE *f) {
+        int r;
         assert(f);
 
         /* Skip serialized data for this unit. We don't know what it is. */
 
         for (;;) {
-                char line[LINE_MAX], *l;
+                _cleanup_free_ char *line = NULL;
+                char *l;
 
-                if (!fgets(line, sizeof line, f))
-                        return;
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read serialization line: %m");
+                if (r == 0)
+                        return 0;
 
-                char_array_0(line);
                 l = strstrip(line);
 
                 /* End marker */
                 if (isempty(l))
-                        return;
+                        return 1;
         }
 }
 
