@@ -96,9 +96,9 @@ struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
          * FIXME: remove it as soon as we can depend on this:
          *   http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=90c6bd34f884cd9cee21f1d152baf6c18bcac949
          */
-        r = setsockopt(uctrl->sock, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(uctrl->sock, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                log_warning_errno(errno, "could not set SO_PASSCRED: %m");
+                log_warning_errno(r, "could not set SO_PASSCRED: %m");
 
         uctrl->saddr.un = (struct sockaddr_un) {
                 .sun_family = AF_UNIX,
@@ -190,9 +190,9 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
         }
 
         /* enable receiving of the sender credentials in the messages */
-        r = setsockopt(conn->sock, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(conn->sock, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                log_warning_errno(errno, "could not set SO_PASSCRED: %m");
+                log_warning_errno(r, "could not set SO_PASSCRED: %m");
 
         udev_ctrl_ref(uctrl);
         return conn;

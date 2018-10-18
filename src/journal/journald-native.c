@@ -462,21 +462,21 @@ int server_open_native_socket(Server*s) {
         } else
                 (void) fd_nonblock(s->native_fd, true);
 
-        r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(errno, "SO_PASSCRED failed: %m");
+                return log_error_errno(r, "SO_PASSCRED failed: %m");
 
 #if HAVE_SELINUX
         if (mac_selinux_use()) {
-                r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSSEC, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_warning_errno(errno, "SO_PASSSEC failed: %m");
+                        log_warning_errno(r, "SO_PASSSEC failed: %m");
         }
 #endif
 
-        r = setsockopt(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)
-                return log_error_errno(errno, "SO_TIMESTAMP failed: %m");
+                return log_error_errno(r, "SO_TIMESTAMP failed: %m");
 
         r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)

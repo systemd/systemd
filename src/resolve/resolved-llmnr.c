@@ -140,21 +140,21 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MULTICAST_LOOP, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to set IP_MULTICAST_LOOP: %m");
+                log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_MULTICAST_LOOP: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_PKTINFO, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_PKTINFO, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to set IP_PKTINFO: %m");
+                log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_PKTINFO: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_RECVTTL, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_RECVTTL, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to set IP_RECVTTL: %m");
+                log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_RECVTTL: %m");
                 goto fail;
         }
 
@@ -176,9 +176,9 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
                 log_warning("LLMNR-IPv4(UDP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt(m->llmnr_ipv4_udp_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(m->llmnr_ipv4_udp_fd, SOL_SOCKET, SO_REUSEADDR, true);
                 if (r < 0) {
-                        r = log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to set SO_REUSEADDR: %m");
+                        log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set SO_REUSEADDR: %m");
                         goto fail;
                 }
 
@@ -189,9 +189,9 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
                 }
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple LLMNR responders */
-                r = setsockopt(m->llmnr_ipv4_udp_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(m->llmnr_ipv4_udp_fd, SOL_SOCKET, SO_REUSEADDR, true);
                 if (r < 0) {
-                        r = log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to set SO_REUSEADDR: %m");
+                        log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set SO_REUSEADDR: %m");
                         goto fail;
                 }
         }
@@ -239,27 +239,27 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to set IPV6_MULTICAST_LOOP: %m");
+                log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_MULTICAST_LOOP: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_V6ONLY, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_V6ONLY, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to set IPV6_V6ONLY: %m");
+                log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_V6ONLY: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to set IPV6_RECVPKTINFO: %m");
+                log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_RECVPKTINFO: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to set IPV6_RECVHOPLIMIT: %m");
+                log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_RECVHOPLIMIT: %m");
                 goto fail;
         }
 
@@ -274,9 +274,9 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
                 log_warning("LLMNR-IPv6(UDP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt(m->llmnr_ipv6_udp_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(m->llmnr_ipv6_udp_fd, SOL_SOCKET, SO_REUSEADDR, true);
                 if (r < 0) {
-                        r = log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to set SO_REUSEADDR: %m");
+                        log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set SO_REUSEADDR: %m");
                         goto fail;
                 }
 
@@ -287,9 +287,9 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
                 }
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple LLMNR responders */
-                r = setsockopt(m->llmnr_ipv6_udp_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(m->llmnr_ipv6_udp_fd, SOL_SOCKET, SO_REUSEADDR, true);
                 if (r < 0) {
-                        r = log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to set SO_REUSEADDR: %m");
+                        log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set SO_REUSEADDR: %m");
                         goto fail;
                 }
         }
@@ -368,21 +368,21 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
                 return log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to create socket: %m");
 
         /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
-        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_TTL, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_TTL, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to set IP_TTL: %m");
+                log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set IP_TTL: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_PKTINFO, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_PKTINFO, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to set IP_PKTINFO: %m");
+                log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set IP_PKTINFO: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_RECVTTL, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_RECVTTL, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to set IP_RECVTTL: %m");
+                log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set IP_RECVTTL: %m");
                 goto fail;
         }
 
@@ -404,9 +404,9 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
                 log_warning("LLMNR-IPv4(TCP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt(m->llmnr_ipv4_tcp_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(m->llmnr_ipv4_tcp_fd, SOL_SOCKET, SO_REUSEADDR, true);
                 if (r < 0) {
-                        r = log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to set SO_REUSEADDR: %m");
+                        log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set SO_REUSEADDR: %m");
                         goto fail;
                 }
 
@@ -417,9 +417,9 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
                 }
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple LLMNR responders */
-                r = setsockopt(m->llmnr_ipv4_tcp_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(m->llmnr_ipv4_tcp_fd, SOL_SOCKET, SO_REUSEADDR, true);
                 if (r < 0) {
-                        r = log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to set SO_REUSEADDR: %m");
+                        log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set SO_REUSEADDR: %m");
                         goto fail;
                 }
         }
@@ -460,27 +460,27 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
                 return log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to create socket: %m");
 
         /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
-        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to set IPV6_UNICAST_HOPS: %m");
+                log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set IPV6_UNICAST_HOPS: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_V6ONLY, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_V6ONLY, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to set IPV6_V6ONLY: %m");
+                log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set IPV6_V6ONLY: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to set IPV6_RECVPKTINFO: %m");
+                log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set IPV6_RECVPKTINFO: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(m->llmnr_ipv6_tcp_fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to set IPV6_RECVHOPLIMIT: %m");
+                log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set IPV6_RECVHOPLIMIT: %m");
                 goto fail;
         }
 
@@ -495,9 +495,9 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
                 log_warning("LLMNR-IPv6(TCP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
-                r = setsockopt(m->llmnr_ipv6_tcp_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(m->llmnr_ipv6_tcp_fd, SOL_SOCKET, SO_REUSEADDR, true);
                 if (r < 0) {
-                        r = log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to set SO_REUSEADDR: %m");
+                        log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set SO_REUSEADDR: %m");
                         goto fail;
                 }
 
@@ -508,9 +508,9 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
                 }
         } else {
                 /* enable SO_REUSEADDR for the case that the user really wants multiple LLMNR responders */
-                r = setsockopt(m->llmnr_ipv6_tcp_fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(m->llmnr_ipv6_tcp_fd, SOL_SOCKET, SO_REUSEADDR, true);
                 if (r < 0) {
-                        r = log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to set SO_REUSEADDR: %m");
+                        log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set SO_REUSEADDR: %m");
                         goto fail;
                 }
         }

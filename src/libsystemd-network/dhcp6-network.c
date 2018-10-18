@@ -36,17 +36,17 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
         if (s < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, true);
         if (r < 0)
-                return -errno;
+                return r;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &const_int_zero, sizeof(const_int_zero));
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, false);
         if (r < 0)
-                return -errno;
+                return r;
 
-        r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
         if (r < 0)
-                return -errno;
+                return r;
 
         r = bind(s, &src.sa, sizeof(src.in6));
         if (r < 0)

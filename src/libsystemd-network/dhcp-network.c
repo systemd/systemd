@@ -87,9 +87,9 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
         if (s < 0)
                 return -errno;
 
-        r = setsockopt(s, SOL_PACKET, PACKET_AUXDATA, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(s, SOL_PACKET, PACKET_AUXDATA, true);
         if (r < 0)
-                return -errno;
+                return r;
 
         r = setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog));
         if (r < 0)
@@ -159,9 +159,9 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
         if (r < 0)
-                return -errno;
+                return r;
 
         if (ifindex > 0) {
                 if (if_indextoname(ifindex, ifname) == 0)
@@ -173,18 +173,18 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         }
 
         if (address == INADDR_ANY) {
-                r = setsockopt(s, IPPROTO_IP, IP_PKTINFO, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, true);
                 if (r < 0)
-                        return -errno;
+                        return r;
 
-                r = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(s, SOL_SOCKET, SO_BROADCAST, true);
                 if (r < 0)
-                        return -errno;
+                        return r;
 
         } else {
-                r = setsockopt(s, IPPROTO_IP, IP_FREEBIND, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(s, IPPROTO_IP, IP_FREEBIND, true);
                 if (r < 0)
-                        return -errno;
+                        return r;
         }
 
         r = bind(s, &src.sa, sizeof(src.in));

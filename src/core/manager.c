@@ -900,9 +900,9 @@ static int manager_setup_notify(Manager *m) {
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", m->notify_socket);
 
-                r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
                 if (r < 0)
-                        return log_error_errno(errno, "SO_PASSCRED failed: %m");
+                        return log_error_errno(r, "SO_PASSCRED failed: %m");
 
                 m->notify_fd = TAKE_FD(fd);
 

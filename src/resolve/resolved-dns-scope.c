@@ -378,9 +378,9 @@ static int dns_scope_socket(
                 return -errno;
 
         if (type == SOCK_STREAM) {
-                r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(fd, IPPROTO_TCP, TCP_NODELAY, true);
                 if (r < 0)
-                        return -errno;
+                        return r;
         }
 
         if (s->link) {
@@ -401,21 +401,21 @@ static int dns_scope_socket(
                 /* RFC 4795, section 2.5 requires the TTL to be set to 1 */
 
                 if (sa.sa.sa_family == AF_INET) {
-                        r = setsockopt(fd, IPPROTO_IP, IP_TTL, &const_int_one, sizeof(const_int_one));
+                        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, true);
                         if (r < 0)
-                                return -errno;
+                                return r;
                 } else if (sa.sa.sa_family == AF_INET6) {
-                        r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &const_int_one, sizeof(const_int_one));
+                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, true);
                         if (r < 0)
-                                return -errno;
+                                return r;
                 }
         }
 
         if (type == SOCK_DGRAM) {
                 /* Set IP_RECVERR or IPV6_RECVERR to get ICMP error feedback. See discussion in #10345. */
-                r = setsockopt(fd, SOL_IP, sa.sa.sa_family == AF_INET ? IP_RECVERR : IPV6_RECVERR, &const_int_one, sizeof(const_int_one));
+                r = setsockopt_int(fd, SOL_IP, sa.sa.sa_family == AF_INET ? IP_RECVERR : IPV6_RECVERR, true);
                 if (r < 0)
-                        return -errno;
+                        return r;
         }
 
         if (ret_socket_address)

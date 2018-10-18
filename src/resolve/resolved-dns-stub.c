@@ -407,14 +407,17 @@ static int manager_dns_stub_udp_fd(Manager *m) {
         if (fd < 0)
                 return -errno;
 
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof const_int_one) < 0)
-                return -errno;
+        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, true);
+        if (r < 0)
+                return r;
 
-        if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &const_int_one, sizeof const_int_one) < 0)
-                return -errno;
+        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
+        if (r < 0)
+                return r;
 
-        if (setsockopt(fd, IPPROTO_IP, IP_RECVTTL, &const_int_one, sizeof const_int_one) < 0)
-                return -errno;
+        r = setsockopt_int(fd, IPPROTO_IP, IP_RECVTTL, true);
+        if (r < 0)
+                return r;
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */
         if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3) < 0)
@@ -493,17 +496,21 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
         if (fd < 0)
                 return -errno;
 
-        if (setsockopt(fd, IPPROTO_IP, IP_TTL, &const_int_one, sizeof const_int_one) < 0)
-                return -errno;
+        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, true);
+        if (r < 0)
+                return r;
 
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &const_int_one, sizeof const_int_one) < 0)
-                return -errno;
+        r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, true);
+        if (r < 0)
+                return r;
 
-        if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &const_int_one, sizeof const_int_one) < 0)
-                return -errno;
+        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
+        if (r < 0)
+                return r;
 
-        if (setsockopt(fd, IPPROTO_IP, IP_RECVTTL, &const_int_one, sizeof const_int_one) < 0)
-                return -errno;
+        r = setsockopt_int(fd, IPPROTO_IP, IP_RECVTTL, true);
+        if (r < 0)
+                return r;
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */
         if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3) < 0)

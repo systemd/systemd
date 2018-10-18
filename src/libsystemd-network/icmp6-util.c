@@ -56,9 +56,9 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &const_int_zero, sizeof(const_int_zero));
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, false);
         if (r < 0)
-                return -errno;
+                return r;
 
         r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops, sizeof(hops));
         if (r < 0)
@@ -68,13 +68,13 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         if (r < 0)
                 return -errno;
 
-        r = setsockopt(s, SOL_IPV6, IPV6_RECVHOPLIMIT, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(s, SOL_IPV6, IPV6_RECVHOPLIMIT, true);
         if (r < 0)
-                return -errno;
+                return r;
 
-        r = setsockopt(s, SOL_SOCKET, SO_TIMESTAMP, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(s, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)
-                return -errno;
+                return r;
 
         if (if_indextoname(index, ifname) == 0)
                 return -errno;
