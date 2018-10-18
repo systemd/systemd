@@ -58,7 +58,7 @@ int ima_setup(void) {
                 return 0;
         }
 
-        close(imafd);
+        safe_close(imafd);
 
         imafd = open(IMA_SECFS_POLICY, O_WRONLY|O_CLOEXEC);
         if (imafd < 0) {
