@@ -433,7 +433,6 @@ static int dns_trust_anchor_load_files(
 
         STRV_FOREACH(f, files) {
                 _cleanup_fclose_ FILE *g = NULL;
-                char line[LINE_MAX];
                 unsigned n = 0;
 
                 g = fopen(*f, "r");
@@ -441,12 +440,21 @@ static int dns_trust_anchor_load_files(
                         if (errno == ENOENT)
                                 continue;
 
-                        log_warning_errno(errno, "Failed to open %s: %m", *f);
+                        log_warning_errno(errno, "Failed to open '%s', ignoring: %m", *f);
                         continue;
                 }
 
-                FOREACH_LINE(line, g, log_warning_errno(errno, "Failed to read %s, ignoring: %m", *f)) {
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
                         char *l;
+
+                        r = read_line(g, LONG_LINE_MAX, &line);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to read '%s', ignoring: %m", *f);
+                                break;
+                        }
+                        if (r == 0)
+                                break;
 
                         n++;
 
