@@ -280,7 +280,6 @@ static int set_x11_keymap(int argc, char **argv, void *userdata) {
 static int list_x11_keymaps(int argc, char **argv, void *userdata) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **list = NULL;
-        char line[LINE_MAX];
         enum {
                 NONE,
                 MODELS,
@@ -305,8 +304,15 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
         else
                 assert_not_reached("Wrong parameter");
 
-        FOREACH_LINE(line, f, break) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 char *l, *w;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read keyboard mapping list: %m");
+                if (r == 0)
+                        break;
 
                 l = strstrip(line);
 
