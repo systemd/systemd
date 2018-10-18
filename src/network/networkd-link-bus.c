@@ -19,7 +19,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static char *link_bus_path(Link *link) {
+char *link_bus_path(Link *link) {
         _cleanup_free_ char *ifindex = NULL;
         char *p;
         int r;
