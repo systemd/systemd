@@ -72,25 +72,25 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                return log_error_errno(r, "Failed to open %s, ignoring: %m", path);
+                return log_error_errno(r, "Failed to open %s: %m", path);
         }
 
         log_debug("apply: %s", path);
         for (;;) {
-                char line[LINE_MAX], *l;
+                _cleanup_free_ char *line = NULL;
+                char *l;
                 int k;
 
-                if (!fgets(line, sizeof(line), f)) {
-                        if (feof(f))
-                                break;
-
-                        return log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
-                }
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to read file '%s': %m", path);
+                if (r == 0)
+                        break;
 
                 l = strstrip(line);
-                if (!*l)
+                if (isempty(l))
                         continue;
-                if (strchr(COMMENTS "\n", *l))
+                if (strchr(COMMENTS, *l))
                         continue;
 
                 k = module_load_and_warn(ctx, l, true);
