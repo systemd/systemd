@@ -10,7 +10,7 @@
  * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
  * associated EFI variables.
  */
-static const EFI_GUID loader_guid = { 0x4a67b082, 0x0a4c, 0x41cf, {0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f} };
+const EFI_GUID loader_guid = { 0x4a67b082, 0x0a4c, 0x41cf, {0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f} };
 
 #ifdef __x86_64__
 UINT64 ticks_read(VOID) {
@@ -79,7 +79,7 @@ EFI_STATUS parse_boolean(CHAR8 *v, BOOLEAN *b) {
         return EFI_INVALID_PARAMETER;
 }
 
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN size, BOOLEAN persistent) {
+EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, CHAR16 *name, VOID *buf, UINTN size, BOOLEAN persistent) {
         UINT32 flags;
 
         flags = EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
@@ -90,7 +90,7 @@ EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINT
 }
 
 EFI_STATUS efivar_set(CHAR16 *name, CHAR16 *value, BOOLEAN persistent) {
-        return efivar_set_raw(&loader_guid, name, (CHAR8 *)value, value ? (StrLen(value)+1) * sizeof(CHAR16) : 0, persistent);
+        return efivar_set_raw(&loader_guid, name, value, value ? (StrLen(value)+1) * sizeof(CHAR16) : 0, persistent);
 }
 
 EFI_STATUS efivar_set_int(CHAR16 *name, UINTN i, BOOLEAN persistent) {
