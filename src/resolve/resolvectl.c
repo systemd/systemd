@@ -15,6 +15,7 @@
 #include "escape.h"
 #include "gcrypt-util.h"
 #include "in-addr-util.h"
+#include "list.h"
 #include "netlink-util.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -34,6 +35,8 @@ static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+static char *arg_host = NULL;
 static bool arg_no_pager = false;
 bool arg_ifindex_permissive = false; /* If true, don't generate an error if the specified interface index doesn't exist */
 static const char *arg_service_family = NULL;
@@ -66,29 +69,179 @@ typedef enum StatusMode {
         STATUS_NTA,
 } StatusMode;
 
+typedef struct Link {
+        int ifindex;
+        char *ifname;
+        char *path;
+
+        LIST_FIELDS(struct Link, links);
+} Link;
+
+static LIST_HEAD(Link, links) = NULL;
+
+static Link *link_free(Link *link) {
+        if (!link)
+                return NULL;
+
+        free(link->ifname);
+        free(link->path);
+
+        LIST_REMOVE(links, links, link);
+
+        return mfree(link);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Link *, link_free);
+
+static int get_links(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *ifname, *path;
+        int ifindex, r;
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL)
+                return 0;
+
+        if (links)
+                return 0;
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.resolve1",
+                                "/org/freedesktop/resolve1",
+                                "org.freedesktop.resolve1.Manager",
+                                "Links",
+                                &error,
+                                &reply,
+                                "a(iso)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get links: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, 'a', "(iso)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "(iso)", &ifindex, &ifname, &path)) > 0) {
+                _cleanup_(link_freep) Link *l = NULL;
+                _cleanup_free_ char *n = NULL, *p = NULL;
+
+                if (ifindex <= 0 || isempty(ifname) || isempty(path))
+                        continue;
+
+                n = strdup(ifname);
+                if (!n)
+                        return log_oom();
+
+                p = strdup(path);
+                if (!n)
+                        return log_oom();
+
+                l = new(Link, 1);
+                if (!l)
+                        return log_oom();
+
+                *l = (Link) {
+                        .ifindex = ifindex,
+                        .ifname = TAKE_PTR(n),
+                        .path = TAKE_PTR(p),
+                };
+
+                LIST_APPEND(links, links, TAKE_PTR(l));
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
+static int link_index_to_name(int ifindex, char **ret) {
+        char *ifname = NULL;
+
+        assert(ret);
+
+        if (ifindex <= 0)
+                return -EINVAL;
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                char name[IF_NAMESIZE] = {};
+
+                if (!if_indextoname((unsigned) ifindex, name))
+                        return -errno;
+
+                ifname = strdup(name);
+                if (!ifname)
+                        return -ENOMEM;
+
+        } else {
+                Link *l;
+
+                LIST_FOREACH(links, l, links)
+                        if (ifindex == l->ifindex) {
+                                ifname = strdup(l->ifname);
+                                if (!ifname)
+                                        return -ENOMEM;
+
+                                break;
+                        }
+
+                if (!ifname)
+                        return -ENODEV;
+        }
+
+        *ret = TAKE_PTR(ifname);
+        return 0;
+}
+
 static int parse_ifindex_and_warn(const char *s) {
-        int ifi;
+        int ifindex;
+        Link *l;
 
         assert(s);
 
-        if (parse_ifindex(s, &ifi) < 0) {
-                ifi = if_nametoindex(s);
-                if (ifi <= 0)
-                        return log_error_errno(errno, "Unknown interface '%s': %m", s);
-        }
+        if (parse_ifindex(s, &ifindex) < 0) {
+                /* input seems to be a ifname */
+                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                        ifindex = if_nametoindex(s);
+                        if (ifindex <= 0)
+                                return log_error_errno(errno, "Unknown interface '%s': %m", s);
 
-        return ifi;
+                        return ifindex;
+                } else {
+                        LIST_FOREACH(links, l, links)
+                                if (streq_ptr(l->ifname, s))
+                                        return l->ifindex;
+
+                        log_error("Unknown interface '%s'.", s);
+                        return -ENODEV;
+                }
+        } else {
+                /* input seems to be a ifindex */
+                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                        char name[IF_NAMESIZE] = {};
+
+                        if (!if_indextoname((unsigned) ifindex, name))
+                                return log_error_errno(errno, "Unknown interface '%i': %m", ifindex);
+
+                        return ifindex;
+                } else {
+                        LIST_FOREACH(links, l, links)
+                                if (ifindex == l->ifindex)
+                                        return ifindex;
+
+                        log_error("Unknown interface '%i'.", ifindex);
+                        return -ENODEV;
+                }
+        }
 }
 
 int ifname_mangle(const char *s, bool allow_loopback) {
-        _cleanup_free_ char *iface = NULL;
+        _cleanup_free_ char *str = NULL, *ifname = NULL;
         const char *dot;
-        int r;
+        int ifindex, r;
 
         assert(s);
 
         if (arg_ifname) {
-                assert(arg_ifindex >= 0);
+                assert(arg_ifindex > 0);
 
                 if (!allow_loopback && arg_ifindex == LOOPBACK_IFINDEX) {
                         log_error("Interface can't be the loopback interface (lo). Sorry.");
@@ -100,36 +253,70 @@ int ifname_mangle(const char *s, bool allow_loopback) {
 
         dot = strchr(s, '.');
         if (dot) {
-                iface = strndup(s, dot - s);
-                if (!iface)
+                str = strndup(s, dot - s);
+                if (!str)
                         return log_oom();
 
                 log_debug("Ignoring protocol specifier '%s'.", dot + 1);
         } else {
-                iface = strdup(s);
-                if (!iface)
+                str = strdup(s);
+                if (!str)
                         return log_oom();
         }
 
-        if (parse_ifindex(iface, &r) < 0) {
-                r = if_nametoindex(iface);
-                if (r <= 0) {
-                        if (errno == ENODEV && arg_ifindex_permissive) {
-                                log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
+        if (parse_ifindex(str, &ifindex) < 0) {
+                /* str seems to be ifname */
+                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                        ifindex = r = if_nametoindex(str);
+                        if (r <= 0) {
+                                if (errno == ENODEV && arg_ifindex_permissive) {
+                                        log_debug("Interface '%s' not found, but -f specified, ignoring.", str);
+                                        return 0; /* done */
+                                }
+
+                                return log_error_errno(errno, "Unknown interface '%s': %m", str);
+                        }
+                        ifname = TAKE_PTR(str);
+                } else {
+                        bool found = false;
+                        Link *l;
+
+                        LIST_FOREACH(links, l, links) {
+                                if (!streq_ptr(l->ifname, str))
+                                        continue;
+
+                                ifindex = l->ifindex;
+                                ifname = strdup(l->ifname);
+                                if (!ifname)
+                                        return log_oom();
+                                found = true;
+                                break;
+                        }
+                        if (!found) {
+                                log_error("Unknown interface '%s'.", str);
+                                return -ENODEV;
+                        }
+                }
+        } else {
+                /* str seems to be ifindex */
+                r = link_index_to_name(ifindex, &ifname);
+                if (r < 0) {
+                        if (r == -ENODEV && arg_ifindex_permissive) {
+                                log_debug("Interface '%i' not found, but -f specified, ignoring.", ifindex);
                                 return 0; /* done */
                         }
 
-                        return log_error_errno(errno, "Unknown interface '%s': %m", iface);
+                        return log_error_errno(r, "Unknown interface '%i': %m", ifindex);
                 }
         }
 
-        if (!allow_loopback && r == LOOPBACK_IFINDEX) {
+        if (!allow_loopback && ifindex == LOOPBACK_IFINDEX) {
                 log_error("Interface can't be the loopback interface (lo). Sorry.");
                 return -EINVAL;
         }
 
-        arg_ifindex = r;
-        arg_ifname = TAKE_PTR(iface);
+        arg_ifindex = ifindex;
+        arg_ifname = TAKE_PTR(ifname);
 
         return 1;
 }
@@ -203,8 +390,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
-                _cleanup_free_ char *pretty = NULL;
-                char ifname[IF_NAMESIZE] = "";
+                _cleanup_free_ char *pretty = NULL, *ifname = NULL;
                 int ifindex, family;
                 const void *a;
                 size_t sz;
@@ -233,7 +419,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
                         return -EINVAL;
                 }
 
-                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
+                if (ifindex > 0 && link_index_to_name(ifindex, &ifname) < 0)
                         log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
 
                 r = in_addr_ifindex_to_string(family, a, ifindex, &pretty);
@@ -243,7 +429,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 printf("%*s%s %s%s%s\n",
                        (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
                        pretty,
-                       isempty(ifname) ? "" : "%", ifname);
+                       isempty(ifname) ? "" : "%", strempty(ifname));
 
                 c++;
         }
@@ -276,8 +462,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 static int resolve_address(sd_bus *bus, int family, const union in_addr_union *address, int ifindex) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *pretty = NULL;
-        char ifname[IF_NAMESIZE] = "";
+        _cleanup_free_ char *pretty = NULL, *ifname = NULL;
         uint64_t flags;
         unsigned c = 0;
         usec_t ts;
@@ -294,10 +479,10 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         if (r < 0)
                 return log_oom();
 
-        if (ifindex > 0 && !if_indextoname(ifindex, ifname))
+        if (ifindex > 0 && link_index_to_name(ifindex, &ifname) < 0)
                 return log_error_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
 
-        log_debug("Resolving %s%s%s.", pretty, isempty(ifname) ? "" : "%", ifname);
+        log_debug("Resolving %s%s%s.", pretty, isempty(ifname) ? "" : "%", strempty(ifname));
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -346,14 +531,14 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
                 if (r < 0)
                         return r;
 
-                ifname[0] = 0;
-                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
+                ifname = mfree(ifname);
+                if (ifindex > 0 && link_index_to_name(ifindex, &ifname) < 0)
                         log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
 
                 printf("%*s%*s%*s%s %s\n",
                        (int) strlen(pretty), c == 0 ? pretty : "",
                        isempty(ifname) ? 0 : 1, c > 0 || isempty(ifname) ? "" : "%",
-                       (int) strlen(ifname), c == 0 ? ifname : "",
+                       (int) strlen_ptr(ifname), c == 0 ? strempty(ifname) : "",
                        c == 0 ? ":" : " ",
                        n);
 
@@ -383,8 +568,8 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
 static int output_rr_packet(const void *d, size_t l, int ifindex) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_free_ char *ifname = NULL;
         int r;
-        char ifname[IF_NAMESIZE] = "";
 
         r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
         if (r < 0)
@@ -415,10 +600,10 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
                 if (!s)
                         return log_oom();
 
-                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
+                if (ifindex > 0 && link_index_to_name(ifindex, &ifname) < 0)
                         log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
 
-                printf("%s%s%s\n", s, isempty(ifname) ? "" : " # interface ", ifname);
+                printf("%s%s%s\n", s, isempty(ifname) ? "" : " # interface ", strempty(ifname));
         }
 
         return 0;
@@ -765,8 +950,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
                         return bus_log_parse_error(r);
 
                 while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
-                        _cleanup_free_ char *pretty = NULL;
-                        char ifname[IF_NAMESIZE] = "";
+                        _cleanup_free_ char *pretty = NULL, *ifname = NULL;
                         int ifindex, family;
                         const void *a;
 
@@ -794,14 +978,14 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
                                 return -EINVAL;
                         }
 
-                        if (ifindex > 0 && !if_indextoname(ifindex, ifname))
+                        if (ifindex > 0 && link_index_to_name(ifindex, &ifname) < 0)
                                 log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
 
                         r = in_addr_to_string(family, a, &pretty);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to print address for %s: %m", name);
 
-                        printf("%*s%s%s%s\n", (int) indent, "", pretty, isempty(ifname) ? "" : "%s", ifname);
+                        printf("%*s%s%s%s\n", (int) indent, "", pretty, isempty(ifname) ? "" : "%s", strempty(ifname));
                 }
                 if (r < 0)
                         return bus_log_parse_error(r);
@@ -1405,8 +1589,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(link_info_clear) struct link_info link_info = {};
-        _cleanup_free_ char *ifi = NULL, *p = NULL;
-        char ifname[IF_NAMESIZE] = "";
+        _cleanup_free_ char *ifi = NULL, *p = NULL, *ifname = NULL;
         char **i;
         int r;
 
@@ -1414,8 +1597,9 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         assert(ifindex > 0);
 
         if (!name) {
-                if (!if_indextoname(ifindex, ifname))
-                        return log_error_errno(errno, "Failed to resolve interface name for %i: %m", ifindex);
+                r = link_index_to_name(ifindex, &ifname);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve interface name for %i: %m", ifindex);
 
                 name = ifname;
         }
@@ -1770,11 +1954,8 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 }
 
 static int status_all(sd_bus *bus, StatusMode mode) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        sd_netlink_message *i;
         bool empty_line = false;
-        int r;
+        int q, r;
 
         assert(bus);
 
@@ -1782,49 +1963,66 @@ static int status_all(sd_bus *bus, StatusMode mode) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_open(&rtnl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+                _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+                sd_netlink_message *i;
 
-        r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
-        if (r < 0)
-                return rtnl_log_create_error(r);
+                r = sd_netlink_open(&rtnl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        r = sd_netlink_message_request_dump(req, true);
-        if (r < 0)
-                return rtnl_log_create_error(r);
+                r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, 0);
+                if (r < 0)
+                        return rtnl_log_create_error(r);
 
-        r = sd_netlink_call(rtnl, req, 0, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate links: %m");
+                r = sd_netlink_message_request_dump(req, true);
+                if (r < 0)
+                        return rtnl_log_create_error(r);
 
-        r = 0;
-        for (i = reply; i; i = sd_netlink_message_next(i)) {
-                const char *name;
-                int ifindex, q;
-                uint16_t type;
+                r = sd_netlink_call(rtnl, req, 0, &reply);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate links: %m");
 
-                q = sd_netlink_message_get_type(i, &type);
-                if (q < 0)
-                        return rtnl_log_parse_error(q);
+                r = 0;
+                for (i = reply; i; i = sd_netlink_message_next(i)) {
+                        const char *name;
+                        int ifindex;
+                        uint16_t type;
 
-                if (type != RTM_NEWLINK)
-                        continue;
+                        q = sd_netlink_message_get_type(i, &type);
+                        if (q < 0)
+                                return rtnl_log_parse_error(q);
 
-                q = sd_rtnl_message_link_get_ifindex(i, &ifindex);
-                if (q < 0)
-                        return rtnl_log_parse_error(q);
+                        if (type != RTM_NEWLINK)
+                                continue;
 
-                if (ifindex == LOOPBACK_IFINDEX)
-                        continue;
+                        q = sd_rtnl_message_link_get_ifindex(i, &ifindex);
+                        if (q < 0)
+                                return rtnl_log_parse_error(q);
 
-                q = sd_netlink_message_read_string(i, IFLA_IFNAME, &name);
-                if (q < 0)
-                        return rtnl_log_parse_error(q);
+                        if (ifindex == LOOPBACK_IFINDEX)
+                                continue;
 
-                q = status_ifindex(bus, ifindex, name, mode, &empty_line);
-                if (q < 0 && r >= 0)
-                        r = q;
+                        q = sd_netlink_message_read_string(i, IFLA_IFNAME, &name);
+                        if (q < 0)
+                                return rtnl_log_parse_error(q);
+
+                        q = status_ifindex(bus, ifindex, name, mode, &empty_line);
+                        if (q < 0 && r >= 0)
+                                r = q;
+                }
+        } else {
+                Link *l;
+
+                LIST_FOREACH(links, l, links) {
+                        if (l->ifindex == LOOPBACK_IFINDEX)
+                                continue;
+
+                        q = status_ifindex(bus, l->ifindex, l->ifname, mode, &empty_line);
+                        if (q < 0 && r >= 0)
+                                r = q;
+                }
         }
 
         return r;
@@ -1856,12 +2054,14 @@ static int verb_status(int argc, char **argv, void *userdata) {
 }
 
 static int log_interface_is_managed(int r, int ifindex) {
-        char ifname[IFNAMSIZ];
+        _cleanup_free_ char *ifname = NULL;
+
+        (void) link_index_to_name(ifindex, &ifname);
 
         return log_error_errno(r,
                                "The specified interface %s is managed by systemd-networkd. Operation refused.\n"
                                "Please configure DNS settings for systemd-networkd managed interfaces directly in their .network files.",
-                               strna(if_indextoname(ifindex, ifname)));
+                               strna(ifname));
 }
 
 static int verb_dns(int argc, char **argv, void *userdata) {
@@ -2372,6 +2572,8 @@ static int native_help(void) {
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
                "     --no-pager                Do not pipe output into a pager\n"
+               "  -H --host=[USER@]HOST        Operate on remote host\n"
+               "  -M --machine=CONTAINER       Operate on local container\n"
                "  -4                           Resolve IPv4 addresses\n"
                "  -6                           Resolve IPv6 addresses\n"
                "  -i --interface=INTERFACE     Look on interface\n"
@@ -2773,6 +2975,8 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "raw",                   optional_argument, NULL, ARG_RAW                   },
                 { "search",                required_argument, NULL, ARG_SEARCH                },
                 { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
+                { "host",                  required_argument, NULL, 'H'                       },
+                { "machine",               required_argument, NULL, 'M'                       },
                 {}
         };
 
@@ -2781,7 +2985,7 @@ static int native_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h46i:t:c:p:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "h46i:t:c:p:H:M:", options, NULL)) >= 0)
                 switch(c) {
 
                 case 'h':
@@ -2789,6 +2993,16 @@ static int native_parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
+                        break;
+
+                case 'M':
+                        arg_transport = BUS_TRANSPORT_MACHINE;
+                        arg_host = optarg;
+                        break;
 
                 case '4':
                         arg_family = AF_INET;
@@ -2799,8 +3013,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'i':
-                        arg_ifname = mfree(arg_ifname);
-                        r = ifname_mangle(optarg, true);
+                        r = free_and_strdup(&arg_ifname, optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -2876,7 +3089,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                                 return -ENOTTY;
                         }
 
-                        if (optarg == NULL || streq(optarg, "payload"))
+                        if (!optarg || streq(optarg, "payload"))
                                 arg_raw = RAW_PAYLOAD;
                         else if (streq(optarg, "packet"))
                                 arg_raw = RAW_PACKET;
@@ -3081,6 +3294,7 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
 
 int main(int argc, char **argv) {
         sd_bus *bus = NULL;
+        Link *link;
         int r;
 
         setlocale(LC_ALL, "");
@@ -3096,16 +3310,29 @@ int main(int argc, char **argv) {
         if (r <= 0)
                 goto finish;
 
-        r = sd_bus_open_system(&bus);
+        r = bus_connect_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
-                log_error_errno(r, "sd_bus_open_system: %m");
+                log_error_errno(r, "Failed to create bus connection: %m");
                 goto finish;
         }
 
+        r = get_links(bus);
+        if (r < 0)
+                goto finish;
+
         if (STR_IN_SET(program_invocation_short_name, "systemd-resolve", "resolvconf"))
                 r = compat_main(argc, argv, bus);
-        else
+        else {
+                if (arg_ifname) {
+                        _cleanup_free_ char *tmp = TAKE_PTR(arg_ifname);
+
+                        r = ifname_mangle(tmp, true);
+                        if (r < 0)
+                                goto finish;
+                }
+
                 r = native_main(argc, argv, bus);
+        }
 
 finish:
         /* make sure we terminate the bus connection first, and then close the
@@ -3117,6 +3344,10 @@ finish:
         strv_free(arg_set_dns);
         strv_free(arg_set_domain);
         strv_free(arg_set_nta);
+
+        while ((link = links)) {
+                link_free(link);
+        }
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

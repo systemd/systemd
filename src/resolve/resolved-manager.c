@@ -78,14 +78,14 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                         goto fail;
 
                 if (is_new)
-                        log_debug("Found new link %i/%s", ifindex, l->name);
+                        log_debug("Found new link %i/%s", ifindex, l->ifname);
 
                 break;
         }
 
         case RTM_DELLINK:
                 if (l) {
-                        log_debug("Removing link %i/%s", l->ifindex, l->name);
+                        log_debug("Removing link %i/%s", l->ifindex, l->ifname);
                         link_remove_user(l);
                         link_free(l);
                 }

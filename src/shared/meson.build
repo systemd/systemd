@@ -58,6 +58,7 @@ shared_sources = files('''
         install-printf.h
         journal-util.c
         journal-util.h
+        log-link.h
         logs-show.c
         logs-show.h
         loop-util.c

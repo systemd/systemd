@@ -267,7 +267,7 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
                   t->id,
                   dns_resource_key_to_string(t->key, key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
-                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->link ? t->scope->link->ifname : "*",
                   af_to_name_short(t->scope->family),
                   strnull(pretty));
 
@@ -332,7 +332,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                   t->id,
                   dns_resource_key_to_string(t->key, key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
-                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->link ? t->scope->link->ifname : "*",
                   af_to_name_short(t->scope->family),
                   st,
                   t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source),
@@ -1651,7 +1651,7 @@ int dns_transaction_go(DnsTransaction *t) {
                   t->id,
                   dns_resource_key_to_string(t->key, key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
-                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->link ? t->scope->link->ifname : "*",
                   af_to_name_short(t->scope->family));
 
         if (!t->initial_jitter_scheduled &&

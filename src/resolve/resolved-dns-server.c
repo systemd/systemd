@@ -854,7 +854,7 @@ void dns_server_dump(DnsServer *s, FILE *f) {
                 assert(s->link);
 
                 fputs(" interface=", f);
-                fputs(s->link->name, f);
+                fputs(s->link->ifname, f);
         }
 
         fputs("]\n", f);

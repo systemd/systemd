@@ -4,6 +4,7 @@
 #include <net/if.h>
 
 #include "in-addr-util.h"
+#include "log-link.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
 
@@ -39,6 +40,7 @@ struct Link {
         Manager *manager;
 
         int ifindex;
+        char *ifname;
         unsigned flags;
 
         LIST_HEAD(LinkAddress, addresses);
@@ -65,7 +67,6 @@ struct Link {
 
         bool is_managed;
 
-        char name[IF_NAMESIZE];
         uint32_t mtu;
         uint8_t operstate;
 
