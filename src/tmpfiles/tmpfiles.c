@@ -2979,10 +2979,9 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
         _cleanup_fclose_ FILE *_f = NULL;
-        FILE *f;
-        char line[LINE_MAX];
         Iterator iterator;
         unsigned v = 0;
+        FILE *f;
         Item *i;
         int r = 0;
 
@@ -3006,10 +3005,17 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
                 f = _f;
         }
 
-        FOREACH_LINE(line, f, break) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                bool invalid_line = false;
                 char *l;
                 int k;
-                bool invalid_line = false;
+
+                k = read_line(f, LONG_LINE_MAX, &line);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to read '%s': %m", fn);
+                if (k == 0)
+                        break;
 
                 v++;
 
