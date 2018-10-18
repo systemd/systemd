@@ -324,7 +324,8 @@ static int connect_logger_as(
                 uid_t uid,
                 gid_t gid) {
 
-        int fd, r;
+        _cleanup_close_ int fd = -1;
+        int r;
 
         assert(context);
         assert(params);
@@ -340,14 +341,12 @@ static int connect_logger_as(
         if (r < 0)
                 return r;
 
-        if (shutdown(fd, SHUT_RD) < 0) {
-                safe_close(fd);
+        if (shutdown(fd, SHUT_RD) < 0)
                 return -errno;
-        }
 
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
-        dprintf(fd,
+        if (dprintf(fd,
                 "%s\n"
                 "%s\n"
                 "%i\n"
@@ -361,10 +360,12 @@ static int connect_logger_as(
                 !!context->syslog_level_prefix,
                 is_syslog_output(output),
                 is_kmsg_output(output),
-                is_terminal_output(output));
+                is_terminal_output(output)) < 0)
+                return -errno;
 
-        return move_fd(fd, nfd, false);
+        return move_fd(TAKE_FD(fd), nfd, false);
 }
+
 static int open_terminal_as(const char *path, int flags, int nfd) {
         int fd;
 
