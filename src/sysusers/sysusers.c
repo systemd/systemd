@@ -1681,7 +1681,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 static int read_config_file(const char *fn, bool ignore_enoent) {
         _cleanup_fclose_ FILE *rf = NULL;
         FILE *f = NULL;
-        char line[LINE_MAX];
         unsigned v = 0;
         int r = 0;
 
@@ -1701,9 +1700,16 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 f = rf;
         }
 
-        FOREACH_LINE(line, f, break) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 char *l;
                 int k;
+
+                k = read_line(f, LONG_LINE_MAX, &line);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to read '%s': %m", fn);
+                if (k == 0)
+                        break;
 
                 v++;
 
