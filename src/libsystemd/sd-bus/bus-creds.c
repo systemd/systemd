@@ -803,10 +803,15 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         else if (!IN_SET(errno, EPERM, EACCES))
                                 return -errno;
                 } else {
-                        char line[LINE_MAX];
 
-                        FOREACH_LINE(line, f, return -errno) {
-                                truncate_nl(line);
+                        for (;;) {
+                                _cleanup_free_ char *line = NULL;
+
+                                r = read_line(f, LONG_LINE_MAX, &line);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
 
                                 if (missing & SD_BUS_CREDS_PPID) {
                                         p = startswith(line, "PPid:");
