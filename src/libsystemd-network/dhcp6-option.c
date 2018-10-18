@@ -553,6 +553,7 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
                 bool first = true;
 
                 for (;;) {
+                        const char *label;
                         uint8_t c;
 
                         c = optval[pos++];
@@ -560,47 +561,41 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
                         if (c == 0)
                                 /* End of name */
                                 break;
-                        else if (c <= 63) {
-                                const char *label;
+                        if (c > 63)
+                                return -EBADMSG;
 
-                                /* Literal label */
-                                label = (const char *)&optval[pos];
-                                pos += c;
-                                if (pos >= optlen)
-                                        return -EMSGSIZE;
+                        /* Literal label */
+                        label = (const char *)&optval[pos];
+                        pos += c;
+                        if (pos >= optlen)
+                                return -EMSGSIZE;
 
-                                if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX)) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                        if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                                return -ENOMEM;
 
-                                if (first)
-                                        first = false;
-                                else
-                                        ret[n++] = '.';
+                        if (first)
+                                first = false;
+                        else
+                                ret[n++] = '.';
 
-                                r = dns_label_escape(label, c, ret + n, DNS_LABEL_ESCAPED_MAX);
-                                if (r < 0)
-                                        goto fail;
+                        r = dns_label_escape(label, c, ret + n, DNS_LABEL_ESCAPED_MAX);
+                        if (r < 0)
+                                return r;
 
-                                n += r;
-                                continue;
-                        } else {
-                                r = -EBADMSG;
-                                goto fail;
-                        }
+                        n += r;
                 }
 
-                if (!GREEDY_REALLOC(ret, allocated, n + 1)) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (n == 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(ret, allocated, n + 1))
+                        return -ENOMEM;
 
                 ret[n] = 0;
 
                 r = strv_extend(&names, ret);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 idx++;
         }
@@ -608,7 +603,4 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
         *str_arr = TAKE_PTR(names);
 
         return idx;
-
-fail:
-        return r;
 }
