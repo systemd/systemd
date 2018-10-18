@@ -1839,6 +1839,8 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         cgroup_context_apply(u, target_mask, state);
         cgroup_xattr_apply(u);
 
+        /* Now, reset the invalidation mask */
+        u->cgroup_invalidated_mask = 0;
         return 0;
 }
 
