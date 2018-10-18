@@ -11,9 +11,11 @@
 #include "macro.h"
 #include "missing.h"
 #include "netlink-internal.h"
+#include "netlink-slot.h"
 #include "netlink-util.h"
 #include "process-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "util.h"
 
 static int sd_netlink_new(sd_netlink **ret) {
@@ -148,8 +150,7 @@ int sd_netlink_inc_rcvbuf(sd_netlink *rtnl, size_t size) {
 }
 
 static sd_netlink *netlink_free(sd_netlink *rtnl) {
-        struct reply_callback *c;
-        struct match_callback *f;
+        sd_netlink_slot *s;
         unsigned i;
 
         assert(rtnl);
@@ -164,10 +165,9 @@ static sd_netlink *netlink_free(sd_netlink *rtnl) {
 
         free(rtnl->rbuffer);
 
-        while ((c = hashmap_steal_first(rtnl->reply_callbacks))) {
-                if (c->destroy_callback)
-                        c->destroy_callback(c->userdata);
-                free(c);
+        while ((s = rtnl->slots)) {
+                assert(s->floating);
+                netlink_slot_disconnect(s, true);
         }
         hashmap_free(rtnl->reply_callbacks);
         prioq_free(rtnl->reply_callbacks_prioq);
@@ -175,9 +175,6 @@ static sd_netlink *netlink_free(sd_netlink *rtnl) {
         sd_event_source_unref(rtnl->io_event_source);
         sd_event_source_unref(rtnl->time_event_source);
         sd_event_unref(rtnl->event);
-
-        while ((f = rtnl->match_callbacks))
-                sd_netlink_remove_match(rtnl, f->type, f->callback, f->userdata);
 
         hashmap_free(rtnl->broadcast_group_refs);
 
@@ -281,6 +278,7 @@ static int dispatch_rqueue(sd_netlink *rtnl, sd_netlink_message **message) {
 static int process_timeout(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         struct reply_callback *c;
+        sd_netlink_slot *slot;
         usec_t n;
         int r;
 
@@ -299,22 +297,27 @@ static int process_timeout(sd_netlink *rtnl) {
                 return r;
 
         assert_se(prioq_pop(rtnl->reply_callbacks_prioq) == c);
+        c->timeout = 0;
         hashmap_remove(rtnl->reply_callbacks, &c->serial);
 
-        r = c->callback(rtnl, m, c->userdata);
+        slot = container_of(c, sd_netlink_slot, reply_callback);
+
+        r = c->callback(rtnl, m, slot->userdata);
         if (r < 0)
-                log_debug_errno(r, "sd-netlink: timedout callback failed: %m");
+                log_debug_errno(r, "sd-netlink: timedout callback %s%s%sfailed: %m",
+                                slot->description ? "'" : "",
+                                strempty(slot->description),
+                                slot->description ? "' " : "");
 
-        if (c->destroy_callback)
-                c->destroy_callback(c->userdata);
-
-        free(c);
+        if (slot->floating)
+                netlink_slot_disconnect(slot, true);
 
         return 1;
 }
 
 static int process_reply(sd_netlink *rtnl, sd_netlink_message *m) {
-        _cleanup_free_ struct reply_callback *c = NULL;
+        struct reply_callback *c;
+        sd_netlink_slot *slot;
         uint64_t serial;
         uint16_t type;
         int r;
@@ -327,28 +330,36 @@ static int process_reply(sd_netlink *rtnl, sd_netlink_message *m) {
         if (!c)
                 return 0;
 
-        if (c->timeout != 0)
+        if (c->timeout != 0) {
                 prioq_remove(rtnl->reply_callbacks_prioq, c, &c->prioq_idx);
+                c->timeout = 0;
+        }
 
         r = sd_netlink_message_get_type(m, &type);
         if (r < 0)
-                return 0;
+                return r;
 
         if (type == NLMSG_DONE)
                 m = NULL;
 
-        r = c->callback(rtnl, m, c->userdata);
-        if (r < 0)
-                log_debug_errno(r, "sd-netlink: callback failed: %m");
+        slot = container_of(c, sd_netlink_slot, reply_callback);
 
-        if (c->destroy_callback)
-                c->destroy_callback(c->userdata);
+        r = c->callback(rtnl, m, slot->userdata);
+        if (r < 0)
+                log_debug_errno(r, "sd-netlink: reply callback %s%s%sfailed: %m",
+                                slot->description ? "'" : "",
+                                strempty(slot->description),
+                                slot->description ? "' " : "");
+
+        if (slot->floating)
+                netlink_slot_disconnect(slot, true);
 
         return 1;
 }
 
 static int process_match(sd_netlink *rtnl, sd_netlink_message *m) {
         struct match_callback *c;
+        sd_netlink_slot *slot;
         uint16_t type;
         int r;
 
@@ -361,10 +372,15 @@ static int process_match(sd_netlink *rtnl, sd_netlink_message *m) {
 
         LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks) {
                 if (type == c->type) {
-                        r = c->callback(rtnl, m, c->userdata);
+                        slot = container_of(c, sd_netlink_slot, match_callback);
+
+                        r = c->callback(rtnl, m, slot->userdata);
                         if (r != 0) {
                                 if (r < 0)
-                                        log_debug_errno(r, "sd-netlink: match callback failed: %m");
+                                        log_debug_errno(r, "sd-netlink: match callback %s%s%sfailed: %m",
+                                                        slot->description ? "'" : "",
+                                                        strempty(slot->description),
+                                                        slot->description ? "' " : "");
 
                                 break;
                         }
@@ -508,13 +524,14 @@ static int timeout_compare(const void *a, const void *b) {
 
 int sd_netlink_call_async(
                 sd_netlink *nl,
+                sd_netlink_slot **ret_slot,
                 sd_netlink_message *m,
                 sd_netlink_message_handler_t callback,
                 sd_netlink_destroy_t destroy_callback,
                 void *userdata,
                 uint64_t usec,
-                uint32_t *serial) {
-        _cleanup_free_ struct reply_callback *c = NULL;
+                const char *description) {
+        _cleanup_free_ sd_netlink_slot *slot = NULL;
         uint32_t s;
         int r, k;
 
@@ -533,63 +550,37 @@ int sd_netlink_call_async(
                         return r;
         }
 
-        c = new(struct reply_callback, 1);
-        if (!c)
-                return -ENOMEM;
+        r = netlink_slot_allocate(nl, !ret_slot, NETLINK_REPLY_CALLBACK, sizeof(struct reply_callback), destroy_callback, userdata, description, &slot);
+        if (r < 0)
+                return r;
 
-        *c = (struct reply_callback) {
-                .callback = callback,
-                .userdata = userdata,
-                .timeout = calc_elapse(usec),
-                .destroy_callback = destroy_callback,
-        };
+        slot->reply_callback.callback = callback;
+        slot->reply_callback.timeout = calc_elapse(usec);
 
         k = sd_netlink_send(nl, m, &s);
         if (k < 0)
                 return k;
 
-        c->serial = s;
+        slot->reply_callback.serial = s;
 
-        r = hashmap_put(nl->reply_callbacks, &c->serial, c);
+        r = hashmap_put(nl->reply_callbacks, &slot->reply_callback.serial, &slot->reply_callback);
         if (r < 0)
                 return r;
 
-        if (c->timeout != 0) {
-                r = prioq_put(nl->reply_callbacks_prioq, c, &c->prioq_idx);
+        if (slot->reply_callback.timeout != 0) {
+                r = prioq_put(nl->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
                 if (r < 0) {
-                        (void) hashmap_remove(nl->reply_callbacks, &c->serial);
+                        (void) hashmap_remove(nl->reply_callbacks, &slot->reply_callback.serial);
                         return r;
                 }
         }
 
-        if (serial)
-                *serial = s;
+        if (ret_slot)
+                *ret_slot = slot;
 
-        TAKE_PTR(c);
+        TAKE_PTR(slot);
 
         return k;
-}
-
-int sd_netlink_call_async_cancel(sd_netlink *nl, uint32_t serial) {
-        struct reply_callback *c;
-        uint64_t s = serial;
-
-        assert_return(nl, -EINVAL);
-        assert_return(serial != 0, -EINVAL);
-        assert_return(!rtnl_pid_changed(nl), -ECHILD);
-
-        c = hashmap_remove(nl->reply_callbacks, &s);
-        if (!c)
-                return 0;
-
-        if (c->timeout != 0)
-                prioq_remove(nl->reply_callbacks_prioq, c, &c->prioq_idx);
-
-        if (c->destroy_callback)
-                c->destroy_callback(c->userdata);
-
-        free(c);
-        return 1;
 }
 
 int sd_netlink_call(sd_netlink *rtnl,
@@ -834,26 +825,27 @@ int sd_netlink_detach_event(sd_netlink *rtnl) {
         return 0;
 }
 
-int sd_netlink_add_match(sd_netlink *rtnl,
-                      uint16_t type,
-                      sd_netlink_message_handler_t callback,
-                      void *userdata) {
-        _cleanup_free_ struct match_callback *c = NULL;
+int sd_netlink_add_match(
+                sd_netlink *rtnl,
+                sd_netlink_slot **ret_slot,
+                uint16_t type,
+                sd_netlink_message_handler_t callback,
+                sd_netlink_destroy_t destroy_callback,
+                void *userdata,
+                const char *description) {
+        _cleanup_free_ sd_netlink_slot *slot = NULL;
         int r;
 
         assert_return(rtnl, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
 
-        c = new(struct match_callback, 1);
-        if (!c)
-                return -ENOMEM;
+        r = netlink_slot_allocate(rtnl, !ret_slot, NETLINK_MATCH_CALLBACK, sizeof(struct match_callback), destroy_callback, userdata, description, &slot);
+        if (r < 0)
+                return r;
 
-        *c = (struct match_callback) {
-                .callback = callback,
-                .type = type,
-                .userdata = userdata,
-        };
+        slot->match_callback.callback = callback;
+        slot->match_callback.type = type;
 
         switch (type) {
                 case RTM_NEWLINK:
@@ -898,64 +890,12 @@ int sd_netlink_add_match(sd_netlink *rtnl,
                         return -EOPNOTSUPP;
         }
 
-        LIST_PREPEND(match_callbacks, rtnl->match_callbacks, c);
+        LIST_PREPEND(match_callbacks, rtnl->match_callbacks, &slot->match_callback);
 
-        c = NULL;
+        if (ret_slot)
+                *ret_slot = slot;
 
-        return 0;
-}
-
-int sd_netlink_remove_match(sd_netlink *rtnl,
-                         uint16_t type,
-                         sd_netlink_message_handler_t callback,
-                         void *userdata) {
-        struct match_callback *c;
-        int r;
-
-        assert_return(rtnl, -EINVAL);
-        assert_return(callback, -EINVAL);
-        assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
-
-        LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks)
-                if (c->callback == callback && c->type == type && c->userdata == userdata) {
-                        LIST_REMOVE(match_callbacks, rtnl->match_callbacks, c);
-                        free(c);
-
-                        switch (type) {
-                                case RTM_NEWLINK:
-                                case RTM_DELLINK:
-                                        r = socket_broadcast_group_unref(rtnl, RTNLGRP_LINK);
-                                        if (r < 0)
-                                                return r;
-
-                                        break;
-                                case RTM_NEWADDR:
-                                case RTM_DELADDR:
-                                        r = socket_broadcast_group_unref(rtnl, RTNLGRP_IPV4_IFADDR);
-                                        if (r < 0)
-                                                return r;
-
-                                        r = socket_broadcast_group_unref(rtnl, RTNLGRP_IPV6_IFADDR);
-                                        if (r < 0)
-                                                return r;
-
-                                        break;
-                                case RTM_NEWROUTE:
-                                case RTM_DELROUTE:
-                                        r = socket_broadcast_group_unref(rtnl, RTNLGRP_IPV4_ROUTE);
-                                        if (r < 0)
-                                                return r;
-
-                                        r = socket_broadcast_group_unref(rtnl, RTNLGRP_IPV6_ROUTE);
-                                        if (r < 0)
-                                                return r;
-                                        break;
-                                default:
-                                        return -EOPNOTSUPP;
-                        }
-
-                        return 1;
-                }
+        TAKE_PTR(slot);
 
         return 0;
 }

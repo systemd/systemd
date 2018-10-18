@@ -439,8 +439,8 @@ int route_remove(Route *route, Link *link,
                         return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
         }
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, callback,
-                                  link_netlink_destroy_callback, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, callback,
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -620,8 +620,8 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_METRICS attribute: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, req, callback,
-                                  link_netlink_destroy_callback, link, 0, NULL);
+        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, callback,
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 

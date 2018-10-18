@@ -234,7 +234,7 @@ int sd_bus_slot_set_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t callback);
 int sd_bus_slot_get_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t *callback);
 
 sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot);
-sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *bus);
+sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *slot);
 void *sd_bus_slot_get_current_userdata(sd_bus_slot *slot);
 
 /* Message object */

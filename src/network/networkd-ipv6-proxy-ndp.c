@@ -173,8 +173,8 @@ int ipv6_proxy_ndp_address_configure(Link *link, IPv6ProxyNDPAddress *ipv6_proxy
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = sd_netlink_call_async(rtnl, req, set_ipv6_proxy_ndp_address_handler,
-                                  link_netlink_destroy_callback, link, 0, NULL);
+        r = sd_netlink_call_async(rtnl, NULL, req, set_ipv6_proxy_ndp_address_handler,
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

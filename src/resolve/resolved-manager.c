@@ -200,19 +200,19 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_NEWLINK, manager_process_link, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWLINK, manager_process_link, NULL, m, "resolve-NEWLINK");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_DELLINK, manager_process_link, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELLINK, manager_process_link, NULL, m, "resolve-DELLINK");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_NEWADDR, manager_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWADDR, manager_process_address, NULL, m, "resolve-NEWADDR");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_DELADDR, manager_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELADDR, manager_process_address, NULL, m, "resolve-DELADDR");
         if (r < 0)
                 return r;
 

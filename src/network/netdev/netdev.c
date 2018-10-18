@@ -225,8 +225,8 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_h
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_MASTER attribute: %m");
 
-        r = sd_netlink_call_async(netdev->manager->rtnl, req, callback,
-                                  link_netlink_destroy_callback, link, 0, NULL);
+        r = sd_netlink_call_async(netdev->manager->rtnl, NULL, req, callback,
+                                  link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
@@ -534,15 +534,15 @@ static int netdev_create(NetDev *netdev, Link *link,
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
                 if (link) {
-                        r = sd_netlink_call_async(netdev->manager->rtnl, m, callback,
-                                                  link_netlink_destroy_callback, link, 0, NULL);
+                        r = sd_netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
+                                                  link_netlink_destroy_callback, link, 0, __func__);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
                         link_ref(link);
                 } else {
-                        r = sd_netlink_call_async(netdev->manager->rtnl, m, netdev_create_handler,
-                                                  netdev_netlink_destroy_callback, netdev, 0, NULL);
+                        r = sd_netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
+                                                  netdev_netlink_destroy_callback, netdev, 0, __func__);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 

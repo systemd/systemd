@@ -930,35 +930,35 @@ static int manager_connect_rtnl(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_NEWLINK, &manager_rtnl_process_link, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWLINK, &manager_rtnl_process_link, NULL, m, "network-rtnl_process_link");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_DELLINK, &manager_rtnl_process_link, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELLINK, &manager_rtnl_process_link, NULL, m, "network-rtnl_process_link");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_NEWADDR, &manager_rtnl_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWADDR, &manager_rtnl_process_address, NULL, m, "network-rtnl_process_address");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_DELADDR, &manager_rtnl_process_address, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELADDR, &manager_rtnl_process_address, NULL, m, "network-rtnl_process_address");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_NEWROUTE, &manager_rtnl_process_route, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWROUTE, &manager_rtnl_process_route, NULL, m, "network-rtnl_process_route");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_DELROUTE, &manager_rtnl_process_route, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELROUTE, &manager_rtnl_process_route, NULL, m, "network-rtnl_process_route");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_NEWRULE, &manager_rtnl_process_rule, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWRULE, &manager_rtnl_process_rule, NULL, m, "network-rtnl_process_rule");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, RTM_DELRULE, &manager_rtnl_process_rule, m);
+        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELRULE, &manager_rtnl_process_rule, NULL, m, "network-rtnl_process_rule");
         if (r < 0)
                 return r;
 

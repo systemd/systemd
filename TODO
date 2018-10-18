@@ -21,9 +21,6 @@ Janitorial Clean-ups:
 
 Features:
 
-* rework sd_netlink_call_async() to return a new "sd_netlink_slot" object, á la
-  sd_bus_slot
-
 * consider splitting out all temporary file creation APIs (we have so many in
   fileio.h and elsewhere!) into a new util file of its own.
 
