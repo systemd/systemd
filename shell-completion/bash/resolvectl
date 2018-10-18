@@ -31,6 +31,11 @@ __get_interfaces(){
         done
 }
 
+__get_machines() {
+        local a b
+        machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+}
+
 _resolvectl() {
         local i comps verb name
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -38,7 +43,8 @@ _resolvectl() {
                [STANDALONE]='-h --help --version --no-pager -4 -6
                              --service-address=no --service-txt=no
                              --cname=no --search=no --legend=no'
-                      [ARG]='-i --interface -p --protocol -t --type -c --class --raw'
+                      [ARG]='-i --interface -p --protocol -t --type -c --class --raw
+                             -H --host -M --machine'
         )
         local -A VERBS=(
                    [DOMAIN]='query service openpgp'
@@ -68,6 +74,12 @@ _resolvectl() {
                                 ;;
                         --raw)
                                 comps="payload packet"
+                                ;;
+                        --host|-H)
+                                comps=$(compgen -A hostname)
+                                ;;
+                        --machine|-M)
+                                comps=$( __get_machines )
                                 ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
