@@ -511,7 +511,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         const char *fddelim = "", *path;
         struct dirent *dent = NULL;
         size_t size = 0;
-        int r = 0;
+        int r;
 
         assert(pid >= 0);
         assert(open_fds != NULL);
@@ -534,7 +534,6 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         FOREACH_DIRENT(dent, proc_fd_dir, return -errno) {
                 _cleanup_fclose_ FILE *fdinfo = NULL;
                 _cleanup_free_ char *fdname = NULL;
-                char line[LINE_MAX];
                 int fd;
 
                 r = readlinkat_malloc(dirfd(proc_fd_dir), dent->d_name, &fdname);
@@ -555,10 +554,17 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
                         continue;
                 }
 
-                FOREACH_LINE(line, fdinfo, break) {
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
+
+                        r = read_line(fdinfo, LONG_LINE_MAX, &line);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
                         fputs(line, stream);
-                        if (!endswith(line, "\n"))
-                                fputc('\n', stream);
+                        fputc('\n', stream);
                 }
         }
 
