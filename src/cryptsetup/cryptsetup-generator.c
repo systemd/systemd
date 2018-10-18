@@ -4,6 +4,7 @@
 #include <stdio_ext.h>
 
 #include "alloc-util.h"
+#include "def.h"
 #include "dropin.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -443,9 +444,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int add_crypttab_devices(void) {
-        struct stat st;
-        unsigned crypttab_line = 0;
         _cleanup_fclose_ FILE *f = NULL;
+        unsigned crypttab_line = 0;
+        struct stat st;
+        int r;
 
         if (!arg_read_crypttab)
                 return 0;
@@ -465,18 +467,21 @@ static int add_crypttab_devices(void) {
         }
 
         for (;;) {
-                int r, k;
-                char line[LINE_MAX], *l, *uuid;
+                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyfile = NULL, *options = NULL;
                 crypto_device *d = NULL;
-                _cleanup_free_ char *name = NULL, *device = NULL, *keyfile = NULL, *options = NULL;
+                char *l, *uuid;
+                int k;
 
-                if (!fgets(line, sizeof(line), f))
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read /etc/crypttab: %m");
+                if (r == 0)
                         break;
 
                 crypttab_line++;
 
                 l = strstrip(line);
-                if (IN_SET(*l, 0, '#'))
+                if (IN_SET(l[0], 0, '#'))
                         continue;
 
                 k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &keyfile, &options);

@@ -199,7 +199,6 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
 int x11_read_data(Context *c, sd_bus_message *m) {
         _cleanup_fclose_ FILE *f = NULL;
         bool in_section = false;
-        char line[LINE_MAX];
         struct stat st;
         usec_t t;
         int r;
@@ -234,12 +233,17 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         if (!f)
                 return -errno;
 
-        while (fgets(line, sizeof(line), f)) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 char *l;
 
-                char_array_0(line);
-                l = strstrip(line);
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
+                l = strstrip(line);
                 if (IN_SET(l[0], 0, '#'))
                         continue;
 
@@ -470,19 +474,16 @@ static int read_next_mapping(const char* filename,
         assert(a);
 
         for (;;) {
-                char line[LINE_MAX];
+                _cleanup_free_ char *line = NULL;
+                size_t length;
                 char *l, **b;
                 int r;
-                size_t length;
 
-                errno = 0;
-                if (!fgets(line, sizeof(line), f)) {
-
-                        if (ferror(f))
-                                return errno > 0 ? -errno : -EIO;
-
-                        return 0;
-                }
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 (*n)++;
 
@@ -505,6 +506,8 @@ static int read_next_mapping(const char* filename,
                 *a = b;
                 return 1;
         }
+
+        return 0;
 }
 
 int vconsole_convert_to_x11(Context *c) {

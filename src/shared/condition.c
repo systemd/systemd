@@ -384,10 +384,9 @@ static int condition_test_security(Condition *c) {
 }
 
 static int condition_test_capability(Condition *c) {
+        unsigned long long capabilities = (unsigned long long) -1;
         _cleanup_fclose_ FILE *f = NULL;
-        int value;
-        char line[LINE_MAX];
-        unsigned long long capabilities = -1;
+        int value, r;
 
         assert(c);
         assert(c->parameter);
@@ -405,11 +404,21 @@ static int condition_test_capability(Condition *c) {
         if (!f)
                 return -errno;
 
-        while (fgets(line, sizeof(line), f)) {
-                truncate_nl(line);
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *p;
 
-                if (startswith(line, "CapBnd:")) {
-                        (void) sscanf(line+7, "%llx", &capabilities);
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                p = startswith(line, "CapBnd:");
+                if (p) {
+                        if (sscanf(line+7, "%llx", &capabilities) != 1)
+                                return -EIO;
+
                         break;
                 }
         }

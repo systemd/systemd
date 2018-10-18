@@ -15,6 +15,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "pager.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -27,6 +28,7 @@ static int delete_rule(const char *rule) {
         _cleanup_free_ char *x = NULL, *fn = NULL;
         char *e;
 
+        assert(rule);
         assert(rule[0]);
 
         x = strdup(rule);
@@ -35,6 +37,11 @@ static int delete_rule(const char *rule) {
 
         e = strchrnul(x+1, x[0]);
         *e = 0;
+
+        if (!filename_is_valid(x + 1)) {
+                log_error("Rule file name '%s' is not valid, refusing.", x+1);
+                return -EINVAL;
+        }
 
         fn = strappend("/proc/sys/fs/binfmt_misc/", x+1);
         if (!fn)
@@ -46,7 +53,7 @@ static int delete_rule(const char *rule) {
 static int apply_rule(const char *rule) {
         int r;
 
-        delete_rule(rule);
+        (void) delete_rule(rule);
 
         r = write_string_file("/proc/sys/fs/binfmt_misc/register", rule, 0);
         if (r < 0)
@@ -66,25 +73,25 @@ static int apply_file(const char *path, bool ignore_enoent) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
+                return log_error_errno(r, "Failed to open file '%s': %m", path);
         }
 
         log_debug("apply: %s", path);
         for (;;) {
-                char l[LINE_MAX], *p;
+                _cleanup_free_ char *line = NULL;
+                char *p;
                 int k;
 
-                if (!fgets(l, sizeof(l), f)) {
-                        if (feof(f))
-                                break;
+                k = read_line(f, LONG_LINE_MAX, &line);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to read file '%s': %m", path);
+                if (k == 0)
+                        break;
 
-                        return log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
-                }
-
-                p = strstrip(l);
-                if (!*p)
+                p = strstrip(line);
+                if (isempty(p))
                         continue;
-                if (strchr(COMMENTS "\n", *p))
+                if (strchr(COMMENTS, p[0]))
                         continue;
 
                 k = apply_rule(p);

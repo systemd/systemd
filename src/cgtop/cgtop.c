@@ -343,10 +343,14 @@ static int process(
                 }
 
                 for (;;) {
-                        char line[LINE_MAX], *l;
+                        _cleanup_free_ char *line = NULL;
                         uint64_t k, *q;
+                        char *l;
 
-                        if (!fgets(line, sizeof(line), f))
+                        r = read_line(f, LONG_LINE_MAX, &line);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
                                 break;
 
                         /* Trim and skip the device */

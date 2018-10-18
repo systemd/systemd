@@ -10,8 +10,11 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 
+#include "alloc-util.h"
 #include "clock-util.h"
+#include "def.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "macro.h"
 #include "string-util.h"
 #include "util.h"
@@ -54,6 +57,7 @@ int clock_set_hwclock(const struct tm *tm) {
 
 int clock_is_localtime(const char* adjtime_path) {
         _cleanup_fclose_ FILE *f;
+        int r;
 
         if (!adjtime_path)
                 adjtime_path = "/etc/adjtime";
@@ -67,24 +71,30 @@ int clock_is_localtime(const char* adjtime_path) {
          */
         f = fopen(adjtime_path, "re");
         if (f) {
-                char line[LINE_MAX];
-                bool b;
+                _cleanup_free_ char *line = NULL;
+                unsigned i;
 
-                b = fgets(line, sizeof(line), f) &&
-                        fgets(line, sizeof(line), f) &&
-                        fgets(line, sizeof(line), f);
-                if (!b)
-                        /* less than three lines -> default to UTC */
-                        return 0;
+                for (i = 0; i < 2; i++) { /* skip the first two lines */
+                        r = read_line(f, LONG_LINE_MAX, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return false; /* less than three lines → default to UTC */
+                }
 
-                truncate_nl(line);
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return false; /* less than three lines → default to UTC */
+
                 return streq(line, "LOCAL");
 
         } else if (errno != ENOENT)
                 return -errno;
 
-        /* adjtime not present -> default to UTC */
-        return 0;
+        /* adjtime not present → default to UTC */
+        return false;
 }
 
 int clock_set_timezone(int *min) {

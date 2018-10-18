@@ -13,6 +13,7 @@
 #include "alloc-util.h"
 #include "catalog.h"
 #include "conf-files.h"
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -267,26 +268,23 @@ int catalog_import_file(Hashmap *h, const char *path) {
                 log_debug("File %s has language %s.", path, deflang);
 
         for (;;) {
-                char line[LINE_MAX];
+                _cleanup_free_ char *line = NULL;
                 size_t line_len;
 
-                if (!fgets(line, sizeof(line), f)) {
-                        if (feof(f))
-                                break;
-
-                        return log_error_errno(errno, "Failed to read file %s: %m", path);
-                }
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read file %s: %m", path);
+                if (r == 0)
+                        break;
 
                 n++;
 
-                truncate_nl(line);
-
-                if (line[0] == 0) {
+                if (isempty(line)) {
                         empty_line = true;
                         continue;
                 }
 
-                if (strchr(COMMENTS "\n", line[0]))
+                if (strchr(COMMENTS, line[0]))
                         continue;
 
                 if (empty_line &&

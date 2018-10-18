@@ -81,35 +81,42 @@ int chvt(int vt) {
 }
 
 int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
-        struct termios old_termios, new_termios;
-        char c, line[LINE_MAX];
+        _cleanup_free_ char *line = NULL;
+        struct termios old_termios;
+        int r;
 
         assert(f);
         assert(ret);
 
+        /* If this is a terminal, then switch canonical mode off, so that we can read a single character */
         if (tcgetattr(fileno(f), &old_termios) >= 0) {
-                new_termios = old_termios;
+                struct termios new_termios = old_termios;
 
                 new_termios.c_lflag &= ~ICANON;
                 new_termios.c_cc[VMIN] = 1;
                 new_termios.c_cc[VTIME] = 0;
 
                 if (tcsetattr(fileno(f), TCSADRAIN, &new_termios) >= 0) {
-                        size_t k;
+                        int c;
 
                         if (t != USEC_INFINITY) {
                                 if (fd_wait_for_event(fileno(f), POLLIN, t) <= 0) {
-                                        tcsetattr(fileno(f), TCSADRAIN, &old_termios);
+                                        (void) tcsetattr(fileno(f), TCSADRAIN, &old_termios);
                                         return -ETIMEDOUT;
                                 }
                         }
 
-                        k = fread(&c, 1, 1, f);
+                        errno = 0;
+                        c = fgetc(f);
+                        if (c == EOF)
+                                r = ferror(f) && errno > 0 ? -errno : -EIO;
+                        else
+                                r = 0;
 
-                        tcsetattr(fileno(f), TCSADRAIN, &old_termios);
+                        (void) tcsetattr(fileno(f), TCSADRAIN, &old_termios);
 
-                        if (k <= 0)
-                                return -EIO;
+                        if (r < 0)
+                                return r;
 
                         if (need_nl)
                                 *need_nl = c != '\n';
@@ -124,11 +131,13 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
                         return -ETIMEDOUT;
         }
 
-        errno = 0;
-        if (!fgets(line, sizeof(line), f))
-                return errno > 0 ? -errno : -EIO;
+        /* If this is not a terminal, then read a full line instead */
 
-        truncate_nl(line);
+        r = read_line(f, 16, &line); /* longer than necessary, to eat up UTF-8 chars/vt100 key sequences */
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EIO;
 
         if (strlen(line) != 1)
                 return -EBADMSG;
@@ -196,11 +205,13 @@ int ask_char(char *ret, const char *replies, const char *fmt, ...) {
 }
 
 int ask_string(char **ret, const char *text, ...) {
+        int r;
+
         assert(ret);
         assert(text);
 
         for (;;) {
-                char line[LINE_MAX];
+                _cleanup_free_ char *line = NULL;
                 va_list ap;
 
                 if (colors_enabled())
@@ -215,24 +226,14 @@ int ask_string(char **ret, const char *text, ...) {
 
                 fflush(stdout);
 
-                errno = 0;
-                if (!fgets(line, sizeof(line), stdin))
-                        return errno > 0 ? -errno : -EIO;
+                r = read_line(stdin, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EIO;
 
-                if (!endswith(line, "\n"))
-                        putchar('\n');
-                else {
-                        char *s;
-
-                        if (isempty(line))
-                                continue;
-
-                        truncate_nl(line);
-                        s = strdup(line);
-                        if (!s)
-                                return -ENOMEM;
-
-                        *ret = s;
+                if (!isempty(line)) {
+                        *ret = TAKE_PTR(line);
                         return 0;
                 }
         }
