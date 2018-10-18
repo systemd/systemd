@@ -2880,7 +2880,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
                                 /* Unit_name will remain the same as parameter when no instances are specified */
                                 r = split_pattern_into_name_and_instances(parameter, &unit_name, &instances);
                                 if (r < 0) {
-                                        log_syntax(NULL, LOG_WARNING, *p, n, 0, "Couldn't parse line '%s'. Ignoring.", line);
+                                        log_syntax(NULL, LOG_WARNING, *p, n, r, "Couldn't parse line '%s'. Ignoring.", line);
                                         continue;
                                 }
 
