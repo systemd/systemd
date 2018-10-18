@@ -21,10 +21,6 @@
         DIGITS LETTERS                          \
         "_"
 
-#ifndef ARG_MAX
-#define ARG_MAX ((size_t) sysconf(_SC_ARG_MAX))
-#endif
-
 static bool env_name_is_valid_n(const char *e, size_t n) {
         const char *p;
 
@@ -42,7 +38,7 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
          * either. Discounting the equal sign and trailing NUL this
          * hence leaves ARG_MAX-2 as longest possible variable
          * name. */
-        if (n > ARG_MAX - 2)
+        if (n > (size_t) sysconf(_SC_ARG_MAX) - 2)
                 return false;
 
         for (p = e; p < e + n; p++)
@@ -76,7 +72,7 @@ bool env_value_is_valid(const char *e) {
          * either. Discounting the shortest possible variable name of
          * length 1, the equal sign and trailing NUL this hence leaves
          * ARG_MAX-3 as longest possible variable value. */
-        if (strlen(e) > ARG_MAX - 3)
+        if (strlen(e) > (size_t) sysconf(_SC_ARG_MAX) - 3)
                 return false;
 
         return true;
@@ -99,7 +95,7 @@ bool env_assignment_is_valid(const char *e) {
          * be > ARG_MAX, hence the individual variable assignments
          * cannot be either, but let's leave room for one trailing NUL
          * byte. */
-        if (strlen(e) > ARG_MAX - 1)
+        if (strlen(e) > (size_t) sysconf(_SC_ARG_MAX) - 1)
                 return false;
 
         return true;
@@ -125,30 +121,28 @@ bool strv_env_is_valid(char **e) {
 }
 
 bool strv_env_name_is_valid(char **l) {
-        char **p, **q;
+        char **p;
 
         STRV_FOREACH(p, l) {
                 if (!env_name_is_valid(*p))
                         return false;
 
-                STRV_FOREACH(q, p + 1)
-                        if (streq(*p, *q))
-                                return false;
+                if (strv_contains(p + 1, *p))
+                        return false;
         }
 
         return true;
 }
 
 bool strv_env_name_or_assignment_is_valid(char **l) {
-        char **p, **q;
+        char **p;
 
         STRV_FOREACH(p, l) {
                 if (!env_assignment_is_valid(*p) && !env_name_is_valid(*p))
                         return false;
 
-                STRV_FOREACH(q, p + 1)
-                        if (streq(*p, *q))
-                                return false;
+                if (strv_contains(p + 1, *p))
+                        return false;
         }
 
         return true;
@@ -157,20 +151,23 @@ bool strv_env_name_or_assignment_is_valid(char **l) {
 static int env_append(char **r, char ***k, char **a) {
         assert(r);
         assert(k);
+        assert(*k >= r);
 
         if (!a)
                 return 0;
 
-        /* Add the entries of a to *k unless they already exist in *r
-         * in which case they are overridden instead. This assumes
-         * there is enough space in the r array. */
+        /* Expects the following arguments: 'r' shall point to the beginning of an strv we are going to append to, 'k'
+         * to a pointer pointing to the NULL entry at the end of the same array. 'a' shall point to another strv.
+         *
+         * This call adds every entry of 'a' to 'r', either overriding an existing matching entry, or appending to it.
+         *
+         * This call assumes 'r' has enough pre-allocated space to grow by all of 'a''s items. */
 
         for (; *a; a++) {
-                char **j;
+                char **j, *c;
                 size_t n;
 
                 n = strcspn(*a, "=");
-
                 if ((*a)[n] == '=')
                         n++;
 
@@ -178,24 +175,26 @@ static int env_append(char **r, char ***k, char **a) {
                         if (strneq(*j, *a, n))
                                 break;
 
-                if (j >= *k)
-                        (*k)++;
-                else
-                        free(*j);
-
-                *j = strdup(*a);
-                if (!*j)
+                c = strdup(*a);
+                if (!c)
                         return -ENOMEM;
+
+                if (j >= *k) { /* Append to the end? */
+                        (*k)[0] = c;
+                        (*k)[1] = NULL;
+                        (*k)++;
+                } else
+                        free_and_replace(*j, c); /* Override existing item */
         }
 
         return 0;
 }
 
 char **strv_env_merge(size_t n_lists, ...) {
-        size_t n = 0;
-        char **l, **k, **r;
+        _cleanup_strv_free_ char **ret = NULL;
+        size_t n = 0, i;
+        char **l, **k;
         va_list ap;
-        size_t i;
 
         /* Merges an arbitrary number of environment sets */
 
@@ -206,29 +205,24 @@ char **strv_env_merge(size_t n_lists, ...) {
         }
         va_end(ap);
 
-        r = new(char*, n+1);
-        if (!r)
+        ret = new(char*, n+1);
+        if (!ret)
                 return NULL;
 
-        k = r;
+        *ret = NULL;
+        k = ret;
 
         va_start(ap, n_lists);
         for (i = 0; i < n_lists; i++) {
                 l = va_arg(ap, char**);
-                if (env_append(r, &k, l) < 0)
-                        goto fail;
+                if (env_append(ret, &k, l) < 0) {
+                        va_end(ap);
+                        return NULL;
+                }
         }
         va_end(ap);
 
-        *k = NULL;
-
-        return r;
-
-fail:
-        va_end(ap);
-        strv_free(r);
-
-        return NULL;
+        return TAKE_PTR(ret);
 }
 
 static bool env_match(const char *t, const char *pattern) {
@@ -382,22 +376,23 @@ char **strv_env_unset_many(char **l, ...) {
 }
 
 int strv_env_replace(char ***l, char *p) {
-        char **f;
         const char *t, *name;
+        char **f;
+        int r;
 
         assert(p);
 
-        /* Replace first occurrence of the env var or add a new one in the
-         * string list. Drop other occurrences. Edits in-place. Does not copy p.
-         * p must be a valid key=value assignment.
+        /* Replace first occurrence of the env var or add a new one in the string list. Drop other occurrences. Edits
+         * in-place. Does not copy p.  p must be a valid key=value assignment.
          */
 
         t = strchr(p, '=');
-        assert(t);
+        if (!t)
+                return -EINVAL;
 
         name = strndupa(p, t - p);
 
-        for (f = *l; f && *f; f++)
+        STRV_FOREACH(f, *l)
                 if (env_entry_has_name(*f, name)) {
                         free_and_replace(*f, p);
                         strv_env_unset(f + 1, *f);
@@ -405,33 +400,40 @@ int strv_env_replace(char ***l, char *p) {
                 }
 
         /* We didn't find a match, we need to append p or create a new strv */
-        if (strv_push(l, p) < 0)
-                return -ENOMEM;
+        r = strv_push(l, p);
+        if (r < 0)
+                return r;
+
         return 1;
 }
 
 char **strv_env_set(char **x, const char *p) {
 
+        _cleanup_strv_free_ char **ret = NULL;
+        size_t n, m;
         char **k;
-        _cleanup_strv_free_ char **r = NULL;
-        char* m[2] = { (char*) p, NULL };
 
         /* Overrides the env var setting of p, returns a new copy */
 
-        r = new(char*, strv_length(x)+2);
-        if (!r)
+        n = strv_length(x);
+        m = n + 2;
+        if (m < n) /* overflow? */
                 return NULL;
 
-        k = r;
-        if (env_append(r, &k, x) < 0)
+        ret = new(char*, m);
+        if (!ret)
                 return NULL;
 
-        if (env_append(r, &k, m) < 0)
+        *ret = NULL;
+        k = ret;
+
+        if (env_append(ret, &k, x) < 0)
                 return NULL;
 
-        *k = NULL;
+        if (env_append(ret, &k, STRV_MAKE(p)) < 0)
+                return NULL;
 
-        return TAKE_PTR(r);
+        return TAKE_PTR(ret);
 }
 
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
