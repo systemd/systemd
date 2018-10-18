@@ -97,21 +97,26 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
                 new_termios.c_cc[VTIME] = 0;
 
                 if (tcsetattr(fileno(f), TCSADRAIN, &new_termios) >= 0) {
-                        size_t k;
+                        int c;
 
                         if (t != USEC_INFINITY) {
                                 if (fd_wait_for_event(fileno(f), POLLIN, t) <= 0) {
-                                        tcsetattr(fileno(f), TCSADRAIN, &old_termios);
+                                        (void) tcsetattr(fileno(f), TCSADRAIN, &old_termios);
                                         return -ETIMEDOUT;
                                 }
                         }
 
-                        k = fread(&c, 1, 1, f);
+                        errno = 0;
+                        c = fgetc(f);
+                        if (c == EOF)
+                                r = ferror(f) && errno > 0 ? -errno : -EIO;
+                        else
+                                r = 0;
 
-                        tcsetattr(fileno(f), TCSADRAIN, &old_termios);
+                        (void) tcsetattr(fileno(f), TCSADRAIN, &old_termios);
 
-                        if (k <= 0)
-                                return -EIO;
+                        if (r < 0)
+                                return r;
 
                         if (need_nl)
                                 *need_nl = c != '\n';
