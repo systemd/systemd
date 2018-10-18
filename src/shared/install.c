@@ -15,6 +15,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "def.h"
 #include "dirent-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -2841,7 +2842,6 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
 
         STRV_FOREACH(p, files) {
                 _cleanup_fclose_ FILE *f;
-                char line[LINE_MAX];
                 int n = 0;
 
                 f = fopen(*p, "re");
@@ -2852,10 +2852,17 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
                         return -errno;
                 }
 
-                FOREACH_LINE(line, f, return -errno) {
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
                         PresetRule rule = {};
                         const char *parameter;
                         char *l;
+
+                        r = read_line(f, LONG_LINE_MAX, &line);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
 
                         l = strstrip(line);
                         n++;
