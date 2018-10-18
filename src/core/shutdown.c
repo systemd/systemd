@@ -171,16 +171,23 @@ static int switch_root_initramfs(void) {
  */
 static bool sync_making_progress(unsigned long long *prev_dirty) {
         _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
-        bool r = false;
         unsigned long long val = 0;
+        bool r = false;
 
         f = fopen("/proc/meminfo", "re");
         if (!f)
                 return log_warning_errno(errno, "Failed to open /proc/meminfo: %m");
 
-        FOREACH_LINE(line, f, log_warning_errno(errno, "Failed to parse /proc/meminfo: %m")) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 unsigned long long ull = 0;
+                int q;
+
+                q = read_line(f, LONG_LINE_MAX, &line);
+                if (q < 0)
+                        return log_warning_errno(q, "Failed to parse /proc/meminfo: %m");
+                if (q == 0)
+                        break;
 
                 if (!first_word(line, "NFS_Unstable:") && !first_word(line, "Writeback:") && !first_word(line, "Dirty:"))
                         continue;
