@@ -15,6 +15,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "pager.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -27,6 +28,7 @@ static int delete_rule(const char *rule) {
         _cleanup_free_ char *x = NULL, *fn = NULL;
         char *e;
 
+        assert(rule);
         assert(rule[0]);
 
         x = strdup(rule);
@@ -35,6 +37,11 @@ static int delete_rule(const char *rule) {
 
         e = strchrnul(x+1, x[0]);
         *e = 0;
+
+        if (!filename_is_valid(x + 1)) {
+                log_error("Rule file name '%s' is not valid, refusing.", x+1);
+                return -EINVAL;
+        }
 
         fn = strappend("/proc/sys/fs/binfmt_misc/", x+1);
         if (!fn)
@@ -46,7 +53,7 @@ static int delete_rule(const char *rule) {
 static int apply_rule(const char *rule) {
         int r;
 
-        delete_rule(rule);
+        (void) delete_rule(rule);
 
         r = write_string_file("/proc/sys/fs/binfmt_misc/register", rule, 0);
         if (r < 0)
