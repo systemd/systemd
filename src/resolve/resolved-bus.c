@@ -1826,6 +1826,46 @@ static int bus_method_unregister_service(sd_bus_message *message, void *userdata
         return call_dnssd_method(m, message, bus_dnssd_method_unregister, error);
 }
 
+static int bus_method_get_all_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        Link *link;
+        Iterator i;
+        int r;
+
+        assert(m);
+        assert(message);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(iso)");
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(link, m->links, i) {
+                _cleanup_free_ char *p = NULL;
+
+                if (link->ifindex <= 0 || !link->ifname)
+                        continue;
+
+                p = link_bus_path(link);
+                if (!p)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "(iso)", link->ifindex, link->ifname, p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
@@ -1863,6 +1903,8 @@ static const sd_bus_vtable resolve_vtable[] = {
 
         SD_BUS_METHOD("RegisterService", "sssqqqaa{say}", "o", bus_method_register_service, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("UnregisterService", "o", NULL, bus_method_unregister_service, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetAllLinks", NULL, "a(iso)", bus_method_get_all_links, SD_BUS_VTABLE_UNPRIVILEGED),
+
         SD_BUS_VTABLE_END,
 };
 
