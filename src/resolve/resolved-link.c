@@ -92,6 +92,7 @@ Link *link_free(Link *l) {
         dns_scope_free(l->mdns_ipv6_scope);
 
         free(l->state_file);
+        free(l->ifname);
 
         return mfree(l);
 }
@@ -233,8 +234,9 @@ int link_process_rtnl(Link *l, sd_netlink_message *m) {
         (void) sd_netlink_message_read_u8(m, IFLA_OPERSTATE, &l->operstate);
 
         if (sd_netlink_message_read_string(m, IFLA_IFNAME, &n) >= 0) {
-                strncpy(l->name, n, sizeof(l->name)-1);
-                char_array_0(l->name);
+                r = free_and_strdup(&l->ifname, n);
+                if (r < 0)
+                        return r;
         }
 
         link_allocate_scopes(l);
@@ -569,7 +571,7 @@ static void link_read_settings(Link *l) {
 
         r = link_is_managed(l);
         if (r < 0) {
-                log_warning_errno(r, "Failed to determine whether interface %s is managed: %m", l->name);
+                log_warning_errno(r, "Failed to determine whether interface %s is managed: %m", l->ifname);
                 return;
         }
         if (r == 0) {
@@ -586,31 +588,31 @@ static void link_read_settings(Link *l) {
 
         r = link_update_dns_servers(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->name);
+                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->ifname);
 
         r = link_update_llmnr_support(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read LLMNR support for interface %s, ignoring: %m", l->name);
+                log_warning_errno(r, "Failed to read LLMNR support for interface %s, ignoring: %m", l->ifname);
 
         r = link_update_mdns_support(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->name);
+                log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->ifname);
 
         r = link_update_dns_over_tls_mode(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNS-over-TLS mode for interface %s, ignoring: %m", l->name);
+                log_warning_errno(r, "Failed to read DNS-over-TLS mode for interface %s, ignoring: %m", l->ifname);
 
         r = link_update_dnssec_mode(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->name);
+                log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->ifname);
 
         r = link_update_dnssec_negative_trust_anchors(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNSSEC negative trust anchors for interface %s, ignoring: %m", l->name);
+                log_warning_errno(r, "Failed to read DNSSEC negative trust anchors for interface %s, ignoring: %m", l->ifname);
 
         r = link_update_search_domains(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+                log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->ifname);
 }
 
 int link_update(Link *l) {
@@ -697,7 +699,7 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
                 return s;
 
         if (s)
-                log_debug("Switching to DNS server %s for interface %s.", dns_server_string(s), l->name);
+                log_debug("Switching to DNS server %s for interface %s.", dns_server_string(s), l->ifname);
 
         dns_server_unref(l->current_dns_server);
         l->current_dns_server = dns_server_ref(s);

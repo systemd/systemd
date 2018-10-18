@@ -65,7 +65,7 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         dns_scope_llmnr_membership(s, true);
         dns_scope_mdns_membership(s, true);
 
-        log_debug("New scope on link %s, protocol %s, family %s", l ? l->name : "*", dns_protocol_to_string(protocol), family == AF_UNSPEC ? "*" : af_to_name(family));
+        log_debug("New scope on link %s, protocol %s, family %s", l ? l->ifname : "*", dns_protocol_to_string(protocol), family == AF_UNSPEC ? "*" : af_to_name(family));
 
         /* Enforce ratelimiting for the multicast protocols */
         RATELIMIT_INIT(s->ratelimit, MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST);
@@ -96,7 +96,7 @@ DnsScope* dns_scope_free(DnsScope *s) {
         if (!s)
                 return NULL;
 
-        log_debug("Removing scope on link %s, protocol %s, family %s", s->link ? s->link->name : "*", dns_protocol_to_string(s->protocol), s->family == AF_UNSPEC ? "*" : af_to_name(s->family));
+        log_debug("Removing scope on link %s, protocol %s, family %s", s->link ? s->link->ifname : "*", dns_protocol_to_string(s->protocol), s->family == AF_UNSPEC ? "*" : af_to_name(s->family));
 
         dns_scope_llmnr_membership(s, false);
         dns_scope_mdns_membership(s, false);
@@ -1037,7 +1037,7 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
 
         if (s->link) {
                 fputs(" interface=", f);
-                fputs(s->link->name, f);
+                fputs(s->link->ifname, f);
         }
 
         if (s->family != AF_UNSPEC) {
