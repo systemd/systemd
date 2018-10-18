@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -1222,6 +1223,7 @@ int get_timezones(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
         size_t n_zones = 0, n_allocated = 0;
+        int r;
 
         assert(ret);
 
@@ -1234,13 +1236,18 @@ int get_timezones(char ***ret) {
 
         f = fopen("/usr/share/zoneinfo/zone.tab", "re");
         if (f) {
-                char l[LINE_MAX];
-
-                FOREACH_LINE(l, f, return -errno) {
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
                         char *p, *w;
                         size_t k;
 
-                        p = strstrip(l);
+                        r = read_line(f, LONG_LINE_MAX, &line);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        p = strstrip(line);
 
                         if (isempty(p) || *p == '#')
                                 continue;
