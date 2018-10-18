@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
-#include "resolved-etc-hosts.h"
 #include "resolved-dns-synthesize.h"
+#include "resolved-etc-hosts.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -161,12 +162,18 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
 int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
         _cleanup_(etc_hosts_free) EtcHosts t = {};
-        char line[LINE_MAX];
         unsigned nr = 0;
         int r;
 
-        FOREACH_LINE(line, f, return log_error_errno(errno, "Failed to read /etc/hosts: %m")) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 char *l;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read /etc/hosts: %m");
+                if (r == 0)
+                        break;
 
                 nr++;
 
