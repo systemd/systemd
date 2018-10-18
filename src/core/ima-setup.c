@@ -27,17 +27,17 @@ int ima_setup(void) {
         int r;
 
         if (access(IMA_SECFS_DIR, F_OK) < 0) {
-                log_debug("IMA support is disabled in the kernel, ignoring.");
+                log_debug_errno(errno, "IMA support is disabled in the kernel, ignoring: %m");
                 return 0;
         }
 
         if (access(IMA_SECFS_POLICY, W_OK) < 0) {
-                log_warning("Another IMA custom policy has already been loaded, ignoring.");
+                log_warning_errno(errno, "Another IMA custom policy has already been loaded, ignoring: %m");
                 return 0;
         }
 
         if (access(IMA_POLICY_PATH, F_OK) < 0) {
-                log_debug("No IMA custom policy file "IMA_POLICY_PATH", ignoring.");
+                log_debug_errno(errno, "No IMA custom policy file "IMA_POLICY_PATH", ignoring: %m");
                 return 0;
         }
 
