@@ -293,8 +293,9 @@ int device_monitor_enable_receiving(sd_device_monitor *m) {
                 return log_debug_errno(r, "Failed to set address: %m");
 
         /* enable receiving of sender credentials */
-        if (setsockopt(m->sock, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one)) < 0)
-                return log_debug_errno(errno, "Failed to set socket option SO_PASSCRED: %m");
+        r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set socket option SO_PASSCRED: %m");
 
         return 0;
 }

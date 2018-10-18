@@ -612,8 +612,9 @@ static int manager_new(Manager **ret) {
         if (bind(m->notify_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return -errno;
 
-        if (setsockopt(m->notify_fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one)) < 0)
-                return -errno;
+        r = setsockopt_int(m->notify_fd, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return r;
 
         r = sd_event_add_io(m->event, &m->notify_event_source, m->notify_fd, EPOLLIN, manager_on_notify, m);
         if (r < 0)

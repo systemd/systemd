@@ -232,6 +232,3 @@ int version(void);
 int str_verscmp(const char *s1, const char *s2);
 
 void disable_coredumps(void);
-
-extern const int const_int_zero;
-extern const int const_int_one;

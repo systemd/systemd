@@ -1576,9 +1576,9 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         fd_worker = manager->worker_watch[READ_END];
 
-        r = setsockopt(fd_worker, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(fd_worker, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(errno, "could not enable SO_PASSCRED: %m");
+                return log_error_errno(r, "could not enable SO_PASSCRED: %m");
 
         manager->fd_inotify = udev_watch_init();
         if (manager->fd_inotify < 0)

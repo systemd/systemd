@@ -1392,12 +1392,14 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 rule_add_key(&rule_tmp, TK_A_DB_PERSIST, op, NULL, NULL);
 
                         pos = strstr(value, "nowatch");
-                        if (pos)
-                                rule_add_key(&rule_tmp, TK_A_INOTIFY_WATCH, op, NULL, &const_int_zero);
-                        else {
+                        if (pos) {
+                                static const int zero = 0;
+                                rule_add_key(&rule_tmp, TK_A_INOTIFY_WATCH, op, NULL, &zero);
+                        } else {
+                                static const int one = 1;
                                 pos = strstr(value, "watch");
                                 if (pos)
-                                        rule_add_key(&rule_tmp, TK_A_INOTIFY_WATCH, op, NULL, &const_int_one);
+                                        rule_add_key(&rule_tmp, TK_A_INOTIFY_WATCH, op, NULL, &one);
                         }
 
                         pos = strstr(value, "static_node=");

@@ -90,9 +90,9 @@ int socket_bind(sd_netlink *nl) {
         socklen_t addrlen;
         int r;
 
-        r = setsockopt(nl->fd, SOL_NETLINK, NETLINK_PKTINFO, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(nl->fd, SOL_NETLINK, NETLINK_PKTINFO, true);
         if (r < 0)
-                return -errno;
+                return r;
 
         addrlen = sizeof(nl->sockaddr);
 

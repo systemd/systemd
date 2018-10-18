@@ -1014,8 +1014,9 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         assert(fd >= 0);
 
         if (s->keep_alive) {
-                if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &const_int_one, sizeof(const_int_one)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "SO_KEEPALIVE failed: %m");
+                r = setsockopt_int(fd, SOL_SOCKET, SO_KEEPALIVE, true);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "SO_KEEPALIVE failed: %m");
         }
 
         if (s->keep_alive_time > 0) {
@@ -1044,27 +1045,32 @@ static void socket_apply_socket_options(Socket *s, int fd) {
 
         if (s->no_delay) {
                 if (s->socket_protocol == IPPROTO_SCTP) {
-                        if (setsockopt(fd, SOL_SCTP, SCTP_NODELAY, &const_int_one, sizeof(const_int_one)) < 0)
-                                log_unit_warning_errno(UNIT(s), errno, "SCTP_NODELAY failed: %m");
+                        r = setsockopt_int(fd, SOL_SCTP, SCTP_NODELAY, true);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "SCTP_NODELAY failed: %m");
                 } else {
-                        if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &const_int_one, sizeof(const_int_one)) < 0)
-                                log_unit_warning_errno(UNIT(s), errno, "TCP_NODELAY failed: %m");
+                        r = setsockopt_int(fd, SOL_TCP, TCP_NODELAY, true);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "TCP_NODELAY failed: %m");
                 }
         }
 
         if (s->broadcast) {
-                if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &const_int_one, sizeof(const_int_one)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "SO_BROADCAST failed: %m");
+                r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, true);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "SO_BROADCAST failed: %m");
         }
 
         if (s->pass_cred) {
-                if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "SO_PASSCRED failed: %m");
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "SO_PASSCRED failed: %m");
         }
 
         if (s->pass_sec) {
-                if (setsockopt(fd, SOL_SOCKET, SO_PASSSEC, &const_int_one, sizeof(const_int_one)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "SO_PASSSEC failed: %m");
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSSEC, true);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "SO_PASSSEC failed: %m");
         }
 
         if (s->priority >= 0)

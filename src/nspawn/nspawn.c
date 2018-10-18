@@ -2834,9 +2834,9 @@ static int setup_sd_notify_child(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to chown " NSPAWN_NOTIFY_SOCKET_PATH ": %m");
 
-        r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &const_int_one, sizeof(const_int_one));
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(errno, "SO_PASSCRED failed: %m");
+                return log_error_errno(r, "SO_PASSCRED failed: %m");
 
         return TAKE_FD(fd);
 }
