@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "def.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -29,7 +30,6 @@ static int write_access2_rules(const char* srcdir) {
         _cleanup_close_ int load2_fd = -1, change_fd = -1;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
-        char buf[NAME_MAX];
         int dfd = -1;
         int r = 0;
 
@@ -83,13 +83,17 @@ static int write_access2_rules(const char* srcdir) {
                 }
 
                 /* load2 write rules in the kernel require a line buffered stream */
-                FOREACH_LINE(buf, policy,
-                             log_error_errno(errno, "Failed to read line from '%s': %m",
-                                             entry->d_name)) {
+                for (;;) {
+                        _cleanup_free_ char *buf = NULL, *sbj = NULL, *obj = NULL, *acc1 = NULL, *acc2 = NULL;
+                        int q;
 
-                        _cleanup_free_ char *sbj = NULL, *obj = NULL, *acc1 = NULL, *acc2 = NULL;
+                        q = read_line(policy, NAME_MAX, &buf);
+                        if (q < 0)
+                                return log_error_errno(q, "Failed to read line from '%s': %m", entry->d_name);
+                        if (q == 0)
+                                break;
 
-                        if (isempty(truncate_nl(buf)) || strchr(COMMENTS, *buf))
+                        if (isempty(buf) || strchr(COMMENTS, buf[0]))
                                 continue;
 
                         /* if 3 args -> load rule   : subject object access1 */
@@ -115,7 +119,6 @@ static int write_cipso2_rules(const char* srcdir) {
         _cleanup_close_ int cipso2_fd = -1;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
-        char buf[NAME_MAX];
         int dfd = -1;
         int r = 0;
 
@@ -162,11 +165,17 @@ static int write_cipso2_rules(const char* srcdir) {
                 }
 
                 /* cipso2 write rules in the kernel require a line buffered stream */
-                FOREACH_LINE(buf, policy,
-                             log_error_errno(errno, "Failed to read line from '%s': %m",
-                                             entry->d_name)) {
+                for (;;) {
+                        _cleanup_free_ char *buf = NULL;
+                        int q;
 
-                        if (isempty(truncate_nl(buf)) || strchr(COMMENTS, *buf))
+                        q = read_line(policy, NAME_MAX, &buf);
+                        if (q < 0)
+                                return log_error_errno(q, "Failed to read line from '%s': %m", entry->d_name);
+                        if (q == 0)
+                                break;
+
+                        if (isempty(buf) || strchr(COMMENTS, buf[0]))
                                 continue;
 
                         if (write(cipso2_fd, buf, strlen(buf)) < 0) {
@@ -186,7 +195,6 @@ static int write_netlabel_rules(const char* srcdir) {
         _cleanup_fclose_ FILE *dst = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
-        char buf[NAME_MAX];
         int dfd = -1;
         int r = 0;
 
@@ -232,10 +240,15 @@ static int write_netlabel_rules(const char* srcdir) {
                 (void) __fsetlocking(policy, FSETLOCKING_BYCALLER);
 
                 /* load2 write rules in the kernel require a line buffered stream */
-                FOREACH_LINE(buf, policy,
-                             log_error_errno(errno, "Failed to read line from %s: %m", entry->d_name)) {
-
+                for (;;) {
+                        _cleanup_free_ char *buf = NULL;
                         int q;
+
+                        q = read_line(policy, NAME_MAX, &buf);
+                        if (q < 0)
+                                return log_error_errno(q, "Failed to read line from %s: %m", entry->d_name);
+                        if (q == 0)
+                                break;
 
                         if (!fputs(buf, dst)) {
                                 if (r == 0)
@@ -261,7 +274,6 @@ static int write_onlycap_list(void) {
         _cleanup_free_ char *list = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         size_t len = 0, allocated = 0;
-        char buf[LINE_MAX];
         int r;
 
         f = fopen("/etc/smack/onlycap", "re");
@@ -271,10 +283,17 @@ static int write_onlycap_list(void) {
                 return errno == ENOENT ? ENOENT : -errno;
         }
 
-        FOREACH_LINE(buf, f, return -errno) {
+        for (;;) {
+                _cleanup_free_ char *buf = NULL;
                 size_t l;
 
-                if (isempty(truncate_nl(buf)) || strchr(COMMENTS, *buf))
+                r = read_line(f, LONG_LINE_MAX, &buf);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read line from /etc/smack/onlycap: %m");
+                if (r == 0)
+                        break;
+
+                if (isempty(buf) || strchr(COMMENTS, *buf))
                         continue;
 
                 l = strlen(buf);
