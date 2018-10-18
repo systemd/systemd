@@ -13,6 +13,7 @@
 #include <libmount.h>
 
 #include "alloc-util.h"
+#include "def.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -954,8 +955,8 @@ int mount_option_mangle(
 
 int dev_is_devtmpfs(void) {
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-        char line[LINE_MAX], *e;
         int mount_id, r;
+        char *e;
 
         r = path_get_mnt_id("/dev", &mount_id);
         if (r < 0)
@@ -967,8 +968,15 @@ int dev_is_devtmpfs(void) {
 
         (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
 
-        FOREACH_LINE(line, proc_self_mountinfo, return -errno) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 int mid;
+
+                r = read_line(proc_self_mountinfo, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 if (sscanf(line, "%i", &mid) != 1)
                         continue;

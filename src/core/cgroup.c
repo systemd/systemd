@@ -441,7 +441,6 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
 
 static int whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc) {
         _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
         char *p, *w;
         bool good = false;
         int r;
@@ -454,10 +453,15 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
         if (!f)
                 return log_warning_errno(errno, "Cannot open /proc/devices to resolve %s (%c): %m", name, type);
 
-        FOREACH_LINE(line, f, goto fail) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 unsigned maj;
 
-                truncate_nl(line);
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to read /proc/devices: %m");
+                if (r == 0)
+                        break;
 
                 if (type == 'c' && streq(line, "Character devices:")) {
                         good = true;
@@ -520,9 +524,6 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
         }
 
         return 0;
-
-fail:
-        return log_warning_errno(errno, "Failed to read /proc/devices: %m");
 }
 
 static bool cgroup_context_has_cpu_weight(CGroupContext *c) {

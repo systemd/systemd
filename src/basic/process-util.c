@@ -25,6 +25,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "def.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -514,8 +515,8 @@ int get_process_exe(pid_t pid, char **name) {
 
 static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
         const char *p;
+        int r;
 
         assert(field);
         assert(uid);
@@ -533,8 +534,15 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
 
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
-        FOREACH_LINE(line, f, return -errno) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 char *l;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 l = strstrip(line);
 
