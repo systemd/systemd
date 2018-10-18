@@ -33,7 +33,6 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         int index = mreq->ipv6mr_interface;
         _cleanup_close_ int s = -1;
         char ifname[IF_NAMESIZE] = "";
-        static const int hops = 255;
         int r;
 
         s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
@@ -52,21 +51,21 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
            IPV6_PKTINFO socket option also applies for ICMPv6 multicast.
            Empirical experiments indicates otherwise and therefore an
            IPV6_MULTICAST_IF socket option is used here instead */
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_IF, &index, sizeof(index));
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_IF, index);
         if (r < 0)
-                return -errno;
+                return r;
 
         r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, false);
         if (r < 0)
                 return r;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops, sizeof(hops));
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, 255);
         if (r < 0)
-                return -errno;
+                return r;
 
-        r = setsockopt(s, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hops, sizeof(hops));
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_UNICAST_HOPS, 255);
         if (r < 0)
-                return -errno;
+                return r;
 
         r = setsockopt_int(s, SOL_IPV6, IPV6_RECVHOPLIMIT, true);
         if (r < 0)

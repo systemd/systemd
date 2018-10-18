@@ -88,14 +88,16 @@ int device_monitor_allow_unicast_sender(sd_device_monitor *m, sd_device_monitor 
 }
 
 _public_ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size) {
-        int n = (int) size;
+        int r, n = (int) size;
 
         assert_return(m, -EINVAL);
         assert_return((size_t) n != size, -EINVAL);
 
-        if (setsockopt(m->sock, SOL_SOCKET, SO_RCVBUF, &n, sizeof(n)) < 0 &&
-            setsockopt(m->sock, SOL_SOCKET, SO_RCVBUFFORCE, &n, sizeof(n)) < 0)
-                return -errno;
+        if (setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUF, n) < 0) {
+                r = setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUFFORCE, n);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }

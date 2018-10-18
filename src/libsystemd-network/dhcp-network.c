@@ -149,15 +149,15 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         };
         _cleanup_close_ int s = -1;
         char ifname[IF_NAMESIZE] = "";
-        int r, tos = IPTOS_CLASS_CS6;
+        int r;
 
         s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return -errno;
 
-        r = setsockopt(s, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
+        r = setsockopt_int(s, IPPROTO_IP, IP_TOS, IPTOS_CLASS_CS6);
         if (r < 0)
-                return -errno;
+                return r;
 
         r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
         if (r < 0)

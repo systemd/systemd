@@ -629,7 +629,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
 static int manager_listen_setup(Manager *m) {
         union sockaddr_union addr = {};
-        static const int tos = IPTOS_LOWDELAY;
         int r;
 
         assert(m);
@@ -654,7 +653,7 @@ static int manager_listen_setup(Manager *m) {
         if (r < 0)
                 return r;
 
-        (void) setsockopt(m->server_socket, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
+        (void) setsockopt_int(m->server_socket, IPPROTO_IP, IP_TOS, IPTOS_LOWDELAY);
 
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_receive_response, m);
 }

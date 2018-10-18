@@ -839,10 +839,11 @@ int fd_inc_sndbuf(int fd, size_t n) {
 
         /* If we have the privileges we will ignore the kernel limit. */
 
-        value = (int) n;
-        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0)
-                if (setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &value, sizeof(value)) < 0)
-                        return -errno;
+        if (setsockopt_int(fd, SOL_SOCKET, SO_SNDBUF, n) < 0) {
+                r = setsockopt_int(fd, SOL_SOCKET, SO_SNDBUFFORCE, n);
+                if (r < 0)
+                        return r;
+        }
 
         return 1;
 }
@@ -857,10 +858,12 @@ int fd_inc_rcvbuf(int fd, size_t n) {
 
         /* If we have the privileges we will ignore the kernel limit. */
 
-        value = (int) n;
-        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
-                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
-                        return -errno;
+        if (setsockopt_int(fd, SOL_SOCKET, SO_RCVBUF, n) < 0) {
+                r = setsockopt_int(fd, SOL_SOCKET, SO_RCVBUFFORCE, n);
+                if (r < 0)
+                        return r;
+        }
+
         return 1;
 }
 

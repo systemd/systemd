@@ -339,7 +339,6 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(MDNS_PORT),
         };
-        static const int pmtu = IP_PMTUDISC_DONT, ttl = 255;
         int r;
 
         assert(m);
@@ -351,15 +350,15 @@ int manager_mdns_ipv4_fd(Manager *m) {
         if (m->mdns_ipv4_fd < 0)
                 return log_error_errno(errno, "mDNS-IPv4: Failed to create socket: %m");
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
+        r = setsockopt_int(m->mdns_ipv4_fd, IPPROTO_IP, IP_TTL, 255);
         if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_TTL: %m");
+                log_error_errno(r, "mDNS-IPv4: Failed to set IP_TTL: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+        r = setsockopt_int(m->mdns_ipv4_fd, IPPROTO_IP, IP_MULTICAST_TTL, 255);
         if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_MULTICAST_TTL: %m");
+                log_error_errno(r, "mDNS-IPv4: Failed to set IP_MULTICAST_TTL: %m");
                 goto fail;
         }
 
@@ -382,9 +381,9 @@ int manager_mdns_ipv4_fd(Manager *m) {
         }
 
         /* Disable Don't-Fragment bit in the IP header */
-        r = setsockopt(m->mdns_ipv4_fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu));
+        r = setsockopt_int(m->mdns_ipv4_fd, IPPROTO_IP, IP_MTU_DISCOVER, IP_PMTUDISC_DONT);
         if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv4: Failed to set IP_MTU_DISCOVER: %m");
+                log_error_errno(r, "mDNS-IPv4: Failed to set IP_MTU_DISCOVER: %m");
                 goto fail;
         }
 
@@ -436,7 +435,6 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(MDNS_PORT),
         };
-        static const int ttl = 255;
         int r;
 
         assert(m);
@@ -448,16 +446,16 @@ int manager_mdns_ipv6_fd(Manager *m) {
         if (m->mdns_ipv6_fd < 0)
                 return log_error_errno(errno, "mDNS-IPv6: Failed to create socket: %m");
 
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl));
+        r = setsockopt_int(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, 255);
         if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_UNICAST_HOPS: %m");
+                log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_UNICAST_HOPS: %m");
                 goto fail;
         }
 
         /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
-        r = setsockopt(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &ttl, sizeof(ttl));
+        r = setsockopt_int(m->mdns_ipv6_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, 255);
         if (r < 0) {
-                r = log_error_errno(errno, "mDNS-IPv6: Failed to set IPV6_MULTICAST_HOPS: %m");
+                log_error_errno(r, "mDNS-IPv6: Failed to set IPV6_MULTICAST_HOPS: %m");
                 goto fail;
         }
 

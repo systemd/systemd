@@ -1020,27 +1020,27 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->keep_alive_time > 0) {
-                int value = s->keep_alive_time / USEC_PER_SEC;
-                if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &value, sizeof(value)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPIDLE failed: %m");
+                r = setsockopt_int(fd, SOL_TCP, TCP_KEEPIDLE, s->keep_alive_time / USEC_PER_SEC);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "TCP_KEEPIDLE failed: %m");
         }
 
         if (s->keep_alive_interval > 0) {
-                int value = s->keep_alive_interval / USEC_PER_SEC;
-                if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &value, sizeof(value)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPINTVL failed: %m");
+                r = setsockopt_int(fd, SOL_TCP, TCP_KEEPINTVL, s->keep_alive_interval / USEC_PER_SEC);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "TCP_KEEPINTVL failed: %m");
         }
 
         if (s->keep_alive_cnt > 0) {
-                int value = s->keep_alive_cnt;
-                if (setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &value, sizeof(value)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPCNT failed: %m");
+                r = setsockopt_int(fd, SOL_TCP, TCP_KEEPCNT, s->keep_alive_cnt);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "TCP_KEEPCNT failed: %m");
         }
 
         if (s->defer_accept > 0) {
-                int value = s->defer_accept / USEC_PER_SEC;
-                if (setsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &value, sizeof(value)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "TCP_DEFER_ACCEPT failed: %m");
+                r = setsockopt_int(fd, SOL_TCP, TCP_DEFER_ACCEPT, s->defer_accept / USEC_PER_SEC);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "TCP_DEFER_ACCEPT failed: %m");
         }
 
         if (s->no_delay) {
@@ -1073,48 +1073,53 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                         log_unit_warning_errno(UNIT(s), r, "SO_PASSSEC failed: %m");
         }
 
-        if (s->priority >= 0)
-                if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &s->priority, sizeof(s->priority)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "SO_PRIORITY failed: %m");
+        if (s->priority >= 0) {
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PRIORITY, s->priority);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "SO_PRIORITY failed: %m");
+        }
 
         if (s->receive_buffer > 0) {
-                int value = (int) s->receive_buffer;
-
                 /* We first try with SO_RCVBUFFORCE, in case we have the perms for that */
-                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
-                        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
-                                log_unit_warning_errno(UNIT(s), errno, "SO_RCVBUF failed: %m");
+                if (setsockopt_int(fd, SOL_SOCKET, SO_RCVBUFFORCE, s->receive_buffer) < 0) {
+                        r = setsockopt_int(fd, SOL_SOCKET, SO_RCVBUF, s->receive_buffer);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "SO_RCVBUF failed: %m");
+                }
         }
 
         if (s->send_buffer > 0) {
-                int value = (int) s->send_buffer;
-                if (setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &value, sizeof(value)) < 0)
-                        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0)
-                                log_unit_warning_errno(UNIT(s), errno, "SO_SNDBUF failed: %m");
+                if (setsockopt_int(fd, SOL_SOCKET, SO_SNDBUFFORCE, s->send_buffer) < 0) {
+                        r = setsockopt_int(fd, SOL_SOCKET, SO_SNDBUF, s->send_buffer);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "SO_SNDBUF failed: %m");
+                }
         }
 
-        if (s->mark >= 0)
-                if (setsockopt(fd, SOL_SOCKET, SO_MARK, &s->mark, sizeof(s->mark)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "SO_MARK failed: %m");
+        if (s->mark >= 0) {
+                r = setsockopt_int(fd, SOL_SOCKET, SO_MARK, s->mark);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "SO_MARK failed: %m");
+        }
 
-        if (s->ip_tos >= 0)
-                if (setsockopt(fd, IPPROTO_IP, IP_TOS, &s->ip_tos, sizeof(s->ip_tos)) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "IP_TOS failed: %m");
+        if (s->ip_tos >= 0) {
+                r = setsockopt_int(fd, IPPROTO_IP, IP_TOS, s->ip_tos);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "IP_TOS failed: %m");
+        }
 
         if (s->ip_ttl >= 0) {
                 int x;
 
-                r = setsockopt(fd, IPPROTO_IP, IP_TTL, &s->ip_ttl, sizeof(s->ip_ttl));
+                r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, s->ip_ttl);
 
                 if (socket_ipv6_is_supported())
-                        x = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &s->ip_ttl, sizeof(s->ip_ttl));
-                else {
-                        x = -1;
-                        errno = EAFNOSUPPORT;
-                }
+                        x = setsockopt_int(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, s->ip_ttl);
+                else
+                        x = -EAFNOSUPPORT;
 
                 if (r < 0 && x < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "IP_TTL/IPV6_UNICAST_HOPS failed: %m");
+                        log_unit_warning_errno(UNIT(s), r, "IP_TTL/IPV6_UNICAST_HOPS failed: %m");
         }
 
         if (s->tcp_congestion)

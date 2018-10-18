@@ -115,7 +115,6 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(LLMNR_PORT),
         };
-        static const int pmtu = IP_PMTUDISC_DONT, ttl = 255;
         int r;
 
         assert(m);
@@ -128,15 +127,15 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
                 return log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to create socket: %m");
 
         /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
+        r = setsockopt_int(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_TTL, 255);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to set IP_TTL: %m");
+                log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_TTL: %m");
                 goto fail;
         }
 
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+        r = setsockopt_int(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MULTICAST_TTL, 255);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to set IP_MULTICAST_TTL: %m");
+                log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_MULTICAST_TTL: %m");
                 goto fail;
         }
 
@@ -159,9 +158,9 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
         }
 
         /* Disable Don't-Fragment bit in the IP header */
-        r = setsockopt(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu));
+        r = setsockopt_int(m->llmnr_ipv4_udp_fd, IPPROTO_IP, IP_MTU_DISCOVER, IP_PMTUDISC_DONT);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to set IP_MTU_DISCOVER: %m");
+                log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_MTU_DISCOVER: %m");
                 goto fail;
         }
 
@@ -214,7 +213,6 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(LLMNR_PORT),
         };
-        static const int ttl = 255;
         int r;
 
         assert(m);
@@ -226,16 +224,16 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
         if (m->llmnr_ipv6_udp_fd < 0)
                 return log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to create socket: %m");
 
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl));
+        r = setsockopt_int(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, 255);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to set IPV6_UNICAST_HOPS: %m");
+                log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_UNICAST_HOPS: %m");
                 goto fail;
         }
 
         /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
-        r = setsockopt(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &ttl, sizeof(ttl));
+        r = setsockopt_int(m->llmnr_ipv6_udp_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, 255);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to set IPV6_MULTICAST_HOPS: %m");
+                log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_MULTICAST_HOPS: %m");
                 goto fail;
         }
 
@@ -355,7 +353,6 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(LLMNR_PORT),
         };
-        static const int pmtu = IP_PMTUDISC_DONT;
         int r;
 
         assert(m);
@@ -387,9 +384,9 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
         }
 
         /* Disable Don't-Fragment bit in the IP header */
-        r = setsockopt(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_MTU_DISCOVER, &pmtu, sizeof(pmtu));
+        r = setsockopt_int(m->llmnr_ipv4_tcp_fd, IPPROTO_IP, IP_MTU_DISCOVER, IP_PMTUDISC_DONT);
         if (r < 0) {
-                r = log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to set IP_MTU_DISCOVER: %m");
+                log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set IP_MTU_DISCOVER: %m");
                 goto fail;
         }
 
