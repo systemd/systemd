@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -472,7 +473,6 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                 HW_DATA,
         } state = HW_NONE;
         _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
         _cleanup_strv_free_ char **match_list = NULL;
         uint32_t line_number = 0;
         char *match = NULL;
@@ -482,9 +482,16 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
         if (!f)
                 return -errno;
 
-        while (fgets(line, sizeof(line), f)) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 size_t len;
                 char *pos;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
 
                 ++line_number;
 
