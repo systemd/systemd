@@ -1463,6 +1463,45 @@ static int bus_property_get_ntas(
         return sd_bus_message_close_container(reply);
 }
 
+static int bus_property_get_links(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        Link *link;
+        Iterator i;
+        int r;
+
+        assert(reply);
+        assert(m);
+
+        r = sd_bus_message_open_container(reply, 'a', "(iso)");
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(link, m->links, i) {
+                _cleanup_free_ char *p = NULL;
+
+                if (link->ifindex <= 0 || !link->ifname)
+                        continue;
+
+                p = link_bus_path(link);
+                if (!path)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "(iso)", link->ifindex, link->ifname, p);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
 static BUS_DEFINE_PROPERTY_GET(bus_property_get_dnssec_supported, "b", Manager, manager_dnssec_supported);
 static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dnssec_mode, "s", Manager, manager_get_dnssec_mode, dnssec_mode_to_string);
@@ -1843,6 +1882,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("DNSSECSupported", "b", bus_property_get_dnssec_supported, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", bus_property_get_ntas, 0, 0),
         SD_BUS_PROPERTY("DNSStubListener", "s", bus_property_get_dns_stub_listener_mode, offsetof(Manager, dns_stub_listener_mode), 0),
+        SD_BUS_PROPERTY("Links", "a(iso)", bus_property_get_links, 0, 0),
 
         SD_BUS_METHOD("ResolveHostname", "isit", "a(iiay)st", bus_method_resolve_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveAddress", "iiayt", "a(is)t", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1863,6 +1903,7 @@ static const sd_bus_vtable resolve_vtable[] = {
 
         SD_BUS_METHOD("RegisterService", "sssqqqaa{say}", "o", bus_method_register_service, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("UnregisterService", "o", NULL, bus_method_unregister_service, SD_BUS_VTABLE_UNPRIVILEGED),
+
         SD_BUS_VTABLE_END,
 };
 
