@@ -15,9 +15,11 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "def.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "path-util.h"
@@ -613,15 +615,25 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
 }
 
 static int import_file_into_properties(struct udev_device *dev, const char *filename) {
-        FILE *f;
-        char line[UTIL_LINE_SIZE];
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         f = fopen(filename, "re");
-        if (f == NULL)
-                return -1;
-        while (fgets(line, sizeof(line), f) != NULL)
-                import_property_from_string(dev, line);
-        fclose(f);
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                (void) import_property_from_string(dev, line);
+        }
+
         return 0;
 }
 
@@ -646,7 +658,7 @@ static int import_program_into_properties(struct udev_event *event,
                         pos[0] = '\0';
                         pos = &pos[1];
                 }
-                import_property_from_string(event->dev, line);
+                (void) import_property_from_string(event->dev, line);
                 line = pos;
         }
         return 0;
@@ -1429,8 +1441,8 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
         if (!f) {
                 if (errno == ENOENT)
                         return 0;
-                else
-                        return -errno;
+
+                return -errno;
         }
 
         if (null_or_empty_fd(fileno(f))) {
