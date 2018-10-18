@@ -4,6 +4,7 @@
 #include <net/if.h>
 
 #include "in-addr-util.h"
+#include "log-link.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
 
