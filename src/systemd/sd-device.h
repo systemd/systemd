@@ -21,12 +21,19 @@
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 
+#include "sd-event.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_device sd_device;
 typedef struct sd_device_enumerator sd_device_enumerator;
+typedef struct sd_device_monitor sd_device_monitor;
+
+/* callback */
+
+typedef int (*sd_device_monitor_handler_t)(sd_device_monitor *m, sd_device *device, void *userdata);
 
 /* device */
 
@@ -89,8 +96,27 @@ int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator, const c
 int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumerator, sd_device *parent);
 int sd_device_enumerator_allow_uninitialized(sd_device_enumerator *enumerator);
 
+/* device monitor */
+
+int sd_device_monitor_new(sd_device_monitor **ret);
+sd_device_monitor *sd_device_monitor_ref(sd_device_monitor *m);
+sd_device_monitor *sd_device_monitor_unref(sd_device_monitor *m);
+
+int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size);
+int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *event, int64_t priority);
+int sd_device_monitor_detach_event(sd_device_monitor *m);
+sd_event *sd_device_monitor_get_event(sd_device_monitor *m);
+int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_handler_t callback, void *userdata, const char *description);
+int sd_device_monitor_stop(sd_device_monitor *m);
+
+int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_monitor *m, const char *subsystem, const char *devtype);
+int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag);
+int sd_device_monitor_filter_update(sd_device_monitor *m);
+int sd_device_monitor_filter_remove(sd_device_monitor *m);
+
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device, sd_device_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device_enumerator, sd_device_enumerator_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_device_monitor, sd_device_monitor_unref);
 
 _SD_END_DECLARATIONS;
 

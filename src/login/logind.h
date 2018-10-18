@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 
-#include "libudev.h"
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-event.h"
@@ -36,13 +35,9 @@ struct Manager {
         LIST_HEAD(Session, session_gc_queue);
         LIST_HEAD(User, user_gc_queue);
 
-        struct udev_monitor *udev_seat_monitor, *udev_device_monitor, *udev_vcsa_monitor, *udev_button_monitor;
+        sd_device_monitor *device_seat_monitor, *device_monitor, *device_vcsa_monitor, *device_button_monitor;
 
         sd_event_source *console_active_event_source;
-        sd_event_source *udev_seat_event_source;
-        sd_event_source *udev_device_event_source;
-        sd_event_source *udev_vcsa_event_source;
-        sd_event_source *udev_button_event_source;
 
 #if ENABLE_UTMP
         sd_event_source *utmp_event_source;

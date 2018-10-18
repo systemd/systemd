@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 #pragma once
 
-#include "udev.h"
+#include "sd-device.h"
 
-struct udev_device *find_device(const char *id,
-                                const char *prefix);
+int find_device(const char *id, const char *prefix, sd_device **ret);

@@ -9,7 +9,6 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "device.h"
-#include "libudev-private.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -25,7 +24,7 @@ static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_PLUGGED] = UNIT_ACTIVE,
 };
 
-static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata);
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask);
 
 static void device_unset_sysfs(Device *d) {
@@ -472,7 +471,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         if (dev) {
                 r = sd_device_get_syspath(dev, &sysfs);
                 if (r < 0) {
-                        log_debug_errno(r, "Couldn't get syspath from udev device, ignoring: %m");
+                        log_debug_errno(r, "Couldn't get syspath from device, ignoring: %m");
                         return 0;
                 }
         }
@@ -773,8 +772,7 @@ static int device_following_set(Unit *u, Set **_set) {
 static void device_shutdown(Manager *m) {
         assert(m);
 
-        m->udev_event_source = sd_event_source_unref(m->udev_event_source);
-        m->udev_monitor = udev_monitor_unref(m->udev_monitor);
+        m->device_monitor = sd_device_monitor_unref(m->device_monitor);
         m->devices_by_sysfs = hashmap_free(m->devices_by_sysfs);
 }
 
@@ -785,37 +783,35 @@ static void device_enumerate(Manager *m) {
 
         assert(m);
 
-        if (!m->udev_monitor) {
-                m->udev_monitor = udev_monitor_new_from_netlink(NULL, "udev");
-                if (!m->udev_monitor) {
-                        log_error_errno(errno, "Failed to allocate udev monitor: %m");
+        if (!m->device_monitor) {
+                r = sd_device_monitor_new(&m->device_monitor);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to allocate device monitor: %m");
                         goto fail;
                 }
 
                 /* This will fail if we are unprivileged, but that
                  * should not matter much, as user instances won't run
                  * during boot. */
-                (void) udev_monitor_set_receive_buffer_size(m->udev_monitor, 128*1024*1024);
+                (void) sd_device_monitor_set_receive_buffer_size(m->device_monitor, 128*1024*1024);
 
-                r = udev_monitor_filter_add_match_tag(m->udev_monitor, "systemd");
+                r = sd_device_monitor_filter_add_match_tag(m->device_monitor, "systemd");
                 if (r < 0) {
                         log_error_errno(r, "Failed to add udev tag match: %m");
                         goto fail;
                 }
 
-                r = udev_monitor_enable_receiving(m->udev_monitor);
+                r = sd_device_monitor_attach_event(m->device_monitor, m->event, 0);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to enable udev event reception: %m");
+                        log_error_errno(r, "Failed to attach event to device monitor: %m");
                         goto fail;
                 }
 
-                r = sd_event_add_io(m->event, &m->udev_event_source, udev_monitor_get_fd(m->udev_monitor), EPOLLIN, device_dispatch_io, m);
+                r = sd_device_monitor_start(m->device_monitor, device_dispatch_io, m, "systemd-device-monitor");
                 if (r < 0) {
-                        log_error_errno(r, "Failed to watch udev file descriptor: %m");
+                        log_error_errno(r, "Failed to start device monitor: %m");
                         goto fail;
                 }
-
-                (void) sd_event_source_set_description(m->udev_event_source, "device");
         }
 
         r = sd_device_enumerator_new(&e);
@@ -868,30 +864,13 @@ static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
         }
 }
 
-static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *m = userdata;
         const char *action, *sysfs;
         int r;
 
         assert(m);
-
-        if (revents != EPOLLIN) {
-                static RATELIMIT_DEFINE(limit, 10*USEC_PER_SEC, 5);
-
-                if (ratelimit_below(&limit))
-                        log_warning("Failed to get udev event");
-                if (!(revents & EPOLLIN))
-                        return 0;
-        }
-
-        /*
-         * libudev might filter-out devices which pass the bloom
-         * filter, so getting NULL here is not necessarily an error.
-         */
-        r = udev_monitor_receive_sd_device(m->udev_monitor, &dev);
-        if (r < 0)
-                return 0;
+        assert(dev);
 
         r = sd_device_get_syspath(dev, &sysfs);
         if (r < 0) {

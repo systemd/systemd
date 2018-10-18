@@ -228,19 +228,3 @@ int util_replace_chars(char *str, const char *white) {
 _public_ int udev_util_encode_string(const char *str, char *str_enc, size_t len) {
         return encode_devnode_name(str, str_enc, len);
 }
-
-uint32_t util_string_hash32(const char *str) {
-        return MurmurHash2(str, strlen(str), 0);
-}
-
-/* get a bunch of bit numbers out of the hash, and set the bits in our bit field */
-uint64_t util_string_bloom64(const char *str) {
-        uint64_t bits = 0;
-        uint32_t hash = util_string_hash32(str);
-
-        bits |= 1LLU << (hash & 63);
-        bits |= 1LLU << ((hash >> 6) & 63);
-        bits |= 1LLU << ((hash >> 12) & 63);
-        bits |= 1LLU << ((hash >> 18) & 63);
-        return bits;
-}

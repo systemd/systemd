@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "libudev.h"
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-event.h"
 
 #include "cgroup-util.h"
@@ -220,8 +220,7 @@ struct Manager {
         dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
 
         /* Data specific to the device subsystem */
-        struct udev_monitor* udev_monitor;
-        sd_event_source *udev_event_source;
+        sd_device_monitor *device_monitor;
         Hashmap *devices_by_sysfs;
 
         /* Data specific to the mount subsystem */

@@ -4,11 +4,11 @@
 #include <arpa/inet.h>
 
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-event.h"
 #include "sd-id128.h"
 #include "sd-netlink.h"
 #include "sd-resolve.h"
-#include "libudev.h"
 
 #include "dhcp-identifier.h"
 #include "hashmap.h"
@@ -27,8 +27,7 @@ struct Manager {
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
-        struct udev_monitor *udev_monitor;
-        sd_event_source *udev_event_source;
+        sd_device_monitor *device_monitor;
 
         bool enumerating:1;
         bool dirty:1;
