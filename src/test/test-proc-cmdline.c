@@ -82,7 +82,7 @@ static void test_proc_cmdline_get_key(void) {
         _cleanup_free_ char *value = NULL;
 
         log_info("/* %s */", __func__);
-        putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm");
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm") == 0);
 
         assert_se(proc_cmdline_get_key("", 0, &value) == -EINVAL);
         assert_se(proc_cmdline_get_key("abc", 0, NULL) == 0);
@@ -120,7 +120,7 @@ static void test_proc_cmdline_get_bool(void) {
         bool value = false;
 
         log_info("/* %s */", __func__);
-        putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep");
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep") == 0);
 
         assert_se(proc_cmdline_get_bool("", &value) == -EINVAL);
         assert_se(proc_cmdline_get_bool("abc", &value) == 0 && value == false);
