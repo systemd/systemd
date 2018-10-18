@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "ima-setup.h"
@@ -22,7 +24,7 @@ int ima_setup(void) {
         _cleanup_fclose_ FILE *input = NULL;
         _cleanup_close_ int imafd = -1;
         unsigned lineno = 0;
-        char line[page_size()];
+        int r;
 
         if (access(IMA_SECFS_DIR, F_OK) < 0) {
                 log_debug("IMA support is disabled in the kernel, ignoring.");
@@ -64,9 +66,15 @@ int ima_setup(void) {
                 return 0;
         }
 
-        FOREACH_LINE(line, input,
-                     return log_error_errno(errno, "Failed to read the IMA custom policy file "IMA_POLICY_PATH": %m")) {
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
                 size_t len;
+
+                r = read_line(input, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read the IMA custom policy file "IMA_POLICY_PATH": %m");
+                if (r == 0)
+                        break;
 
                 len = strlen(line);
                 lineno++;
