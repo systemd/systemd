@@ -279,7 +279,8 @@ static int write_onlycap_list(void) {
         f = fopen("/etc/smack/onlycap", "re");
         if (!f) {
                 if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to read '/etc/smack/onlycap'");
+                        log_warning_errno(errno, "Failed to read '/etc/smack/onlycap': %m");
+
                 return errno == ENOENT ? ENOENT : -errno;
         }
 
@@ -304,7 +305,7 @@ static int write_onlycap_list(void) {
                 len += l + 1;
         }
 
-        if (!len)
+        if (len == 0)
                 return 0;
 
         list[len - 1] = 0;
@@ -312,13 +313,13 @@ static int write_onlycap_list(void) {
         onlycap_fd = open("/sys/fs/smackfs/onlycap", O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (onlycap_fd < 0) {
                 if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to open '/sys/fs/smackfs/onlycap'");
+                        log_warning_errno(errno, "Failed to open '/sys/fs/smackfs/onlycap': %m");
                 return -errno; /* negative error */
         }
 
         r = write(onlycap_fd, list, len);
         if (r < 0)
-                return log_error_errno(errno, "Failed to write onlycap list(%s) to '/sys/fs/smackfs/onlycap'", list);
+                return log_error_errno(errno, "Failed to write onlycap list(%s) to '/sys/fs/smackfs/onlycap': %m", list);
 
         return 0;
 }
