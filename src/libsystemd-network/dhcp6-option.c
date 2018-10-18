@@ -463,12 +463,14 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
 
                 case SD_DHCP6_OPTION_STATUS_CODE:
 
-                        status = dhcp6_option_parse_status(option, optlen);
-                        if (status) {
+                        status = dhcp6_option_parse_status(option, optlen + sizeof(DHCP6Option));
+                        if (status < 0) {
+                                r = status;
+                                goto error;
+                        }
+                        if (status > 0) {
                                 log_dhcp6_client(client, "IA status %d",
                                                  status);
-
-                                dhcp6_lease_free_ia(ia);
 
                                 r = -EINVAL;
                                 goto error;

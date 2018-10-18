@@ -900,13 +900,14 @@ static int client_parse_message(
                         break;
 
                 case SD_DHCP6_OPTION_STATUS_CODE:
-                        status = dhcp6_option_parse_status(option, optlen);
-                        if (status) {
+                        status = dhcp6_option_parse_status(option, optlen + sizeof(DHCP6Option));
+                        if (status < 0)
+                                return status;
+
+                        if (status > 0) {
                                 log_dhcp6_client(client, "%s Status %s",
                                                  dhcp6_message_type_to_string(message->type),
                                                  dhcp6_message_status_to_string(status));
-                                dhcp6_lease_free_ia(&lease->ia);
-                                dhcp6_lease_free_ia(&lease->pd);
 
                                 return -EINVAL;
                         }
