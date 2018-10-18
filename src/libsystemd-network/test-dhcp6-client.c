@@ -26,8 +26,6 @@ static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
 };
 
-static bool verbose = true;
-
 static sd_event_source *hangcheck;
 static int test_dhcp_fd[2];
 static int test_index = 42;
@@ -39,8 +37,7 @@ static int test_client_basic(sd_event *e) {
         sd_dhcp6_client *client;
         int v;
 
-        if (verbose)
-                printf("* %s\n", __FUNCTION__);
+        log_debug("/* %s */", __func__);
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(client);
@@ -129,8 +126,7 @@ static int test_option(sd_event *e) {
         size_t zero = 0, pos = 3;
         size_t buflen = sizeof(packet), outlen = sizeof(result);
 
-        if (verbose)
-                printf("* %s\n", __FUNCTION__);
+        log_debug("/* %s */", __func__);
 
         assert_se(buflen == outlen);
 
@@ -243,8 +239,7 @@ static int test_option_status(sd_event *e) {
         DHCP6IA ia, pd;
         int r = 0;
 
-        if (verbose)
-                printf("* %s\n", __FUNCTION__);
+        log_debug("/* %s */", __func__);
 
         zero(ia);
         option = (DHCP6Option *)option1;
@@ -377,8 +372,7 @@ static int test_advertise_option(sd_event *e) {
         struct in6_addr *addrs;
         char **domains;
 
-        if (verbose)
-                printf("* %s\n", __FUNCTION__);
+        log_debug("/* %s */", __func__);
 
         assert_se(len >= sizeof(DHCP6Message));
 
@@ -525,6 +519,8 @@ static void test_client_solicit_cb(sd_dhcp6_client *client, int event,
         struct in6_addr *addrs;
         char **domains;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(e);
         assert_se(event == SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
 
@@ -541,9 +537,6 @@ static void test_client_solicit_cb(sd_dhcp6_client *client, int event,
         assert_se(!memcmp(addrs, &msg_advertise[159], 16));
 
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DNS_SERVERS) == -EBUSY);
-
-        if (verbose)
-                printf("  got DHCPv6 event %d\n", event);
 
         sd_event_exit(e, 0);
 }
@@ -575,8 +568,9 @@ static int test_client_verify_request(DHCP6Message *request, size_t len) {
         be32_t val;
         uint32_t lt_pref, lt_valid;
 
-        assert_se(request->type == DHCP6_REQUEST);
+        log_debug("/* %s */", __func__);
 
+        assert_se(request->type == DHCP6_REQUEST);
         assert_se(dhcp6_lease_new(&lease) >= 0);
 
         len -= sizeof(DHCP6Message);
@@ -683,6 +677,8 @@ static int test_client_verify_solicit(DHCP6Message *solicit, size_t len) {
                 found_elapsed_time = false, found_fqdn = false;
         size_t pos = 0;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(solicit->type == DHCP6_SOLICIT);
 
         len -= sizeof(DHCP6Message);
@@ -750,6 +746,8 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
         struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
         char **domains;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(e);
         assert_se(event == SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
 
@@ -764,9 +762,6 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
 
         assert_se(sd_dhcp6_lease_get_ntp_addrs(lease, &addrs) == 1);
         assert_se(!memcmp(addrs, &msg_advertise[159], 16));
-
-        if (verbose)
-                printf("  got DHCPv6 event %d\n", event);
 
         assert_se(sd_dhcp6_client_set_information_request(client, false) == -EBUSY);
         assert_se(sd_dhcp6_client_set_callback(client, NULL, e) >= 0);
@@ -791,8 +786,9 @@ static int test_client_verify_information_request(DHCP6Message *information_requ
         struct in6_addr addr;
         uint32_t lt_pref, lt_valid;
 
-        assert_se(information_request->type == DHCP6_INFORMATION_REQUEST);
+        log_debug("/* %s */", __func__);
 
+        assert_se(information_request->type == DHCP6_INFORMATION_REQUEST);
         assert_se(dhcp6_lease_new(&lease) >= 0);
 
         len -= sizeof(DHCP6Message);
@@ -856,7 +852,6 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
         assert_se(server_address);
         assert_se(packet);
         assert_se(len > sizeof(DHCP6Message) + 4);
-
         assert_se(IN6_ARE_ADDR_EQUAL(server_address, &mcast));
 
         message = (DHCP6Message *)packet;
@@ -895,8 +890,7 @@ static int test_client_solicit(sd_event *e) {
         struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
         int val;
 
-        if (verbose)
-                printf("* %s\n", __FUNCTION__);
+        log_debug("/* %s */", __func__);
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(client);
