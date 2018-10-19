@@ -280,7 +280,7 @@ static char *format_timestamp_internal(
 
         /* Let's not format times with years > 9999 */
         if (t > USEC_TIMESTAMP_FORMATTABLE_MAX) {
-                assert(l >= strlen("--- XXXX-XX-XX XX:XX:XX") + 1);
+                assert(l >= STRLEN("--- XXXX-XX-XX XX:XX:XX") + 1);
                 strcpy(buf, "--- XXXX-XX-XX XX:XX:XX");
                 return buf;
         }
@@ -1026,7 +1026,7 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                         char *b = e + 1;
 
                         /* Don't allow "0.-0", "3.+1" or "3. 1" */
-                        if (*b == '-' || *b == '+' || isspace(*b))
+                        if (IN_SET(*b, '-', '+') || isspace(*b))
                                 return -EINVAL;
 
                         errno = 0;
@@ -1164,7 +1164,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                 if (*e == '.') {
                         char *b = e + 1;
 
-                        if (*b == '-' || *b == '+' || isspace(*b))
+                        if (IN_SET(*b, '-', '+') || isspace(*b))
                                 return -EINVAL;
 
                         errno = 0;

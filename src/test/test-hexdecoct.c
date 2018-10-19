@@ -84,7 +84,7 @@ static void test_unhexmem_one(const char *s, size_t l, int retval) {
                         l = strlen(s);
 
                 assert_se(hex = hexmem(mem, len));
-                answer = strndupa(s ?: "", l);
+                answer = strndupa(strempty(s), l);
                 assert_se(streq(delete_chars(answer, WHITESPACE), hex));
         }
 }
