@@ -1,17 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#include "user-util.h"
-#include "macro.h"
-#include "fd-util.h"
-#include "dirent-util.h"
 #include "chown-recursive.h"
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "macro.h"
+#include "stdio-util.h"
+#include "strv.h"
+#include "user-util.h"
 
-static int chown_one(int fd, const char *name, const struct stat *st, uid_t uid, gid_t gid) {
-        int r;
+static int chown_one(int fd, const struct stat *st, uid_t uid, gid_t gid) {
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
 
         assert(fd >= 0);
         assert(st);
@@ -20,90 +22,82 @@ static int chown_one(int fd, const char *name, const struct stat *st, uid_t uid,
             (!gid_is_valid(gid) || st->st_gid == gid))
                 return 0;
 
-        if (name)
-                r = fchownat(fd, name, uid, gid, AT_SYMLINK_NOFOLLOW);
-        else
-                r = fchown(fd, uid, gid);
-        if (r < 0)
+        /* We change ownership through the /proc/self/fd/%i path, so that we have a stable reference that works with
+         * O_PATH. (Note: fchown() and fchmod() do not work with O_PATH, the kernel refuses that. */
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+
+        if (chown(procfs_path, uid, gid) < 0)
                 return -errno;
 
-        /* The linux kernel alters the mode in some cases of chown(). Let's undo this. */
-        if (name) {
-                if (!S_ISLNK(st->st_mode))
-                        r = fchmodat(fd, name, st->st_mode, 0);
-                else /* There's currently no AT_SYMLINK_NOFOLLOW for fchmodat() */
-                        r = 0;
-        } else
-                r = fchmod(fd, st->st_mode);
-        if (r < 0)
-                return -errno;
+        /* The linux kernel alters the mode in some cases of chown(). Let's undo this. We do this only for non-symlinks
+         * however. That's because for symlinks the access mode is ignored anyway and because on some kernels/file
+         * systems trying to change the access mode will succeed but has no effect while on others it actively
+         * fails. */
+        if (!S_ISLNK(st->st_mode))
+                if (chmod(procfs_path, st->st_mode & 07777) < 0)
+                        return -errno;
 
         return 1;
 }
 
 static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gid_t gid) {
+        _cleanup_closedir_ DIR *d = NULL;
         bool changed = false;
+        struct dirent *de;
         int r;
 
         assert(fd >= 0);
         assert(st);
 
-        if (S_ISDIR(st->st_mode)) {
-                _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
+        d = fdopendir(fd);
+        if (!d) {
+                safe_close(fd);
+                return -errno;
+        }
 
-                d = fdopendir(fd);
-                if (!d) {
-                        r = -errno;
-                        goto finish;
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
+                _cleanup_close_ int path_fd = -1;
+                struct stat fst;
+
+                if (dot_or_dot_dot(de->d_name))
+                        continue;
+
+                /* Let's pin the child inode we want to fix now with an O_PATH fd, so that it cannot be swapped out
+                 * while we manipulate it. */
+                path_fd = openat(dirfd(d), de->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                if (path_fd < 0)
+                        return -errno;
+
+                if (fstat(path_fd, &fst) < 0)
+                        return -errno;
+
+                if (S_ISDIR(fst.st_mode)) {
+                        int subdir_fd;
+
+                        /* Convert it to a "real" (i.e. non-O_PATH) fd now */
+                        subdir_fd = fd_reopen(path_fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
+                        if (subdir_fd < 0)
+                                return subdir_fd;
+
+                        r = chown_recursive_internal(subdir_fd, &fst, uid, gid); /* takes possession of subdir_fd even on failure */
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                changed = true;
+                } else {
+                        r = chown_one(path_fd, &fst, uid, gid);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                changed = true;
                 }
-                fd = -1;
+        }
 
-                FOREACH_DIRENT_ALL(de, d, r = -errno; goto finish) {
-                        struct stat fst;
-
-                        if (dot_or_dot_dot(de->d_name))
-                                continue;
-
-                        if (fstatat(dirfd(d), de->d_name, &fst, AT_SYMLINK_NOFOLLOW) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
-
-                        if (S_ISDIR(fst.st_mode)) {
-                                int subdir_fd;
-
-                                subdir_fd = openat(dirfd(d), de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
-                                if (subdir_fd < 0) {
-                                        r = -errno;
-                                        goto finish;
-                                }
-
-                                r = chown_recursive_internal(subdir_fd, &fst, uid, gid);
-                                if (r < 0)
-                                        goto finish;
-                                if (r > 0)
-                                        changed = true;
-                        } else {
-                                r = chown_one(dirfd(d), de->d_name, &fst, uid, gid);
-                                if (r < 0)
-                                        goto finish;
-                                if (r > 0)
-                                        changed = true;
-                        }
-                }
-
-                r = chown_one(dirfd(d), NULL, st, uid, gid);
-        } else
-                r = chown_one(fd, NULL, st, uid, gid);
+        r = chown_one(dirfd(d), st, uid, gid);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = r > 0 || changed;
-
-finish:
-        safe_close(fd);
-        return r;
+        return r > 0 || changed;
 }
 
 int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
@@ -111,7 +105,7 @@ int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
         struct stat st;
         int r;
 
-        fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+        fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd < 0)
                 return -errno;
 
