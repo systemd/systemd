@@ -1,0 +1,24 @@
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Check if Any System Units Failed
+Documentation=man:systemd-boot-check-no-failures.service(8)
+After=default.target graphical.target multi-user.target
+Before=boot-complete.target
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@rootlibexecdir@/systemd-boot-check-no-failures
+
+[Install]
+RequiredBy=boot-complete.target

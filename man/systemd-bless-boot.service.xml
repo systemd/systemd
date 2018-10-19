@@ -1,0 +1,115 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+
+<refentry id="systemd-bless-boot.service" conditional='ENABLE_EFI'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-bless-boot.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-bless-boot.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-bless-boot.service</refname>
+    <refpurpose>Mark current boot process as successful</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-bless-boot.service</filename></para>
+    <para><filename>/usr/lib/systemd/system-bless-boot</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-bless-boot.service</filename> is a system service that marks the current boot process as
+    successful. It's automatically pulled into the initial transaction when
+    <citerefentry><refentrytitle>systemd-bless-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    detects that <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> style
+    boot counting is used.</para>
+
+    <para>Internally, the service operates based on the <varname>LoaderBootCountPath</varname> EFI variable (of the
+    vendor UUID <constant>4a67b082-0a4c-41cf-b6c7-440b29bb8c4</constant>), which is passed from the boot loader to the
+    OS. It contains a file system path (relative to the EFI system partition) of the <ulink
+    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> compliant boot loader entry
+    file or unified kernel image file that was used to boot up the
+    system. <command>systemd-bless-boot.service</command> removes the two 'tries done' and 'tries left' numeric boot
+    counters from the filename, which indicates to future invocations of the boot loader that the entry has completed
+    booting successfully at least once. (This service will hence rename the boot loader entry file or unified kernel
+    image file on the first successful boot.)</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The <filename>/usr/lib/systemd/system-bless-boot</filename> executable may also be invoked from the
+    command line, taking one of the following command arguments:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>status</option></term>
+
+        <listitem><para>The current status of the boot loader entry file or unified kernel image file is shown. This
+        outputs one of <literal>good</literal>, <literal>bad</literal>, <literal>indeterminate</literal>,
+        <literal>clean</literal>, depending on the state and previous invocations of the command. The string
+        <literal>indeterminate</literal> is shown initially after boot, before it has been marked as "good" or
+        "bad". The string <literal>good</literal> is shown after the boot was marked as "good" with the
+        <option>good</option> command below, and "bad" conversely after the <option>bad</option> command was
+        invoked. The string <literal>clean</literal> is returned when boot counting is currently not in effect.</para>
+
+        <para>This command is implied if no command argument is specified.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>good</option></term>
+
+        <listitem><para>When invoked, the current boot loader entry file or unified kernel image file will be marked as
+        "good", executing the file rename operation described above. This command is intended to be invoked at the end
+        of a successful boot. The <filename>systemd-bless-boot.service</filename> unit invokes this
+        command.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>bad</option></term>
+
+        <listitem><para>When called the 'tries left' counter in the boot loader entry file name or unified kernel image
+        file name is set to zero, marking the boot loader entry or kernel image as "bad", so that the boot loader won't
+        consider it anymore on future boots (at least as long as there are other entries available that are not marked
+        "bad" yet). This command is normally not executed, but can be used to instantly put an end to the boot counting
+        logic if a problem is detected and persistently mark the boot entry as bad.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>indeterminate</option></term>
+
+        <listitem><para>This command undoes any marking of the current boot loader entry file or unified kernel image
+        file as good or bad. This is implemented by renaming the boot loader entry file or unified kernel image file
+        back to the path encoded in the <varname>LoaderBootCountPath</varname> EFI variable.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

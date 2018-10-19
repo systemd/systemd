@@ -29,6 +29,7 @@
     <filename>cryptsetup-pre.target</filename>,
     <filename>cryptsetup.target</filename>,
     <filename>ctrl-alt-del.target</filename>,
+    <filename>boot-complete.target</filename>,
     <filename>default.target</filename>,
     <filename>emergency.target</filename>,
     <filename>exit.target</filename>,
@@ -144,7 +145,28 @@
             <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
             for details on the targets involved.
             </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>boot-complete.target</filename></term>
+          <listitem>
+            <para>This target is intended as generic synchronization point for services that shall determine or act on
+            whether the boot process completed successfully. Order units that are required to succeed for a boot process
+            to be considered successful before this unit, and add a <varname>Requires=</varname> dependency from the
+            target unit to them. Order units that shall only run when the boot process is considered successful after the
+            target unit and pull in the target from it, also with <varname>Requires=</varname>. Note that by default this
+            target unit is not part of the initial boot transaction, but is supposed to be pulled in only if required by
+            units that want to run only on successful boots.</para>
 
+            <para>See
+            <citerefentry><refentrytitle>systemd-boot-check-no-failures.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for a service that implements a generic system health check and orders itself before
+            <filename>boot-complete.target</filename>.</para>
+
+            <para>See
+            <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for a service that propagates boot success information to the boot loader, and orders itself after
+            <filename>boot-complete.target</filename>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

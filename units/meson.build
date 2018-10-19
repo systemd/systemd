@@ -3,6 +3,7 @@
 units = [
         ['basic.target',                        ''],
         ['bluetooth.target',                    ''],
+        ['boot-complete.target',                ''],
         ['cryptsetup-pre.target',               'HAVE_LIBCRYPTSETUP'],
         ['cryptsetup.target',                   'HAVE_LIBCRYPTSETUP',
          'sysinit.target.wants/'],
@@ -135,6 +136,8 @@ in_units = [
         ['systemd-backlight@.service',           'ENABLE_BACKLIGHT'],
         ['systemd-binfmt.service',               'ENABLE_BINFMT',
          'sysinit.target.wants/'],
+        ['systemd-bless-boot.service',           'ENABLE_EFI HAVE_BLKID'],
+        ['systemd-boot-check-no-failures.service', ''],
         ['systemd-coredump@.service',            'ENABLE_COREDUMP'],
         ['systemd-firstboot.service',            'ENABLE_FIRSTBOOT',
          'sysinit.target.wants/'],

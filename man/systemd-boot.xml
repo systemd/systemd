@@ -75,67 +75,67 @@
 
     <variablelist>
       <varlistentry>
-        <term>↑ (Up)</term>
-        <term>↓ (Down)</term>
-        <term>j</term>
-        <term>k</term>
-        <term>PageUp</term>
-        <term>PageDown</term>
-        <term>Home</term>
-        <term>End</term>
+        <term><keycap>↑</keycap> (Up)</term>
+        <term><keycap>↓</keycap> (Down)</term>
+        <term><keycap>j</keycap></term>
+        <term><keycap>k</keycap></term>
+        <term><keycap>PageUp</keycap></term>
+        <term><keycap>PageDown</keycap></term>
+        <term><keycap>Home</keycap></term>
+        <term><keycap>End</keycap></term>
         <listitem><para>Navigate up/down in the entry list</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>↵ (Enter)</term>
+        <term><keycap>↵</keycap> (Enter)</term>
         <listitem><para>Boot selected entry</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>d</term>
+        <term><keycap>d</keycap></term>
         <listitem><para>Make selected entry the default</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>e</term>
+        <term><keycap>e</keycap></term>
         <listitem><para>Edit the kernel command line for selected entry</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>+</term>
-        <term>t</term>
+        <term><keycap>+</keycap></term>
+        <term><keycap>t</keycap></term>
         <listitem><para>Increase the timeout before default entry is booted</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>-</term>
-        <term>T</term>
+        <term><keycap>-</keycap></term>
+        <term><keycap>T</keycap></term>
         <listitem><para>Decrease the timeout</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>v</term>
+        <term><keycap>v</keycap></term>
         <listitem><para>Show systemd-boot, UEFI, and firmware versions</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>P</term>
+        <term><keycap>P</keycap></term>
         <listitem><para>Print status</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Q</term>
+        <term><keycap>Q</keycap></term>
         <listitem><para>Quit</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>h</term>
-        <term>?</term>
+        <term><keycap>h</keycap></term>
+        <term><keycap>?</keycap></term>
         <listitem><para>Show a help screen</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Ctrl + l</term>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>l</keycap></keycombo></term>
         <listitem><para>Reprint the screen</para></listitem>
       </varlistentry>
     </variablelist>
@@ -145,35 +145,35 @@
 
     <variablelist>
       <varlistentry>
-        <term>l</term>
+        <term><keycap>l</keycap></term>
         <listitem><para>Linux</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>w</term>
+        <term><keycap>w</keycap></term>
         <listitem><para>Windows</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>a</term>
+        <term><keycap>a</keycap></term>
         <listitem><para>OS X</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>s</term>
+        <term><keycap>s</keycap></term>
         <listitem><para>EFI shell</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>1</term>
-        <term>2</term>
-        <term>3</term>
-        <term>4</term>
-        <term>5</term>
-        <term>6</term>
-        <term>7</term>
-        <term>8</term>
-        <term>9</term>
+        <term><keycap>1</keycap></term>
+        <term><keycap>2</keycap></term>
+        <term><keycap>3</keycap></term>
+        <term><keycap>4</keycap></term>
+        <term><keycap>5</keycap></term>
+        <term><keycap>6</keycap></term>
+        <term><keycap>7</keycap></term>
+        <term><keycap>8</keycap></term>
+        <term><keycap>9</keycap></term>
         <listitem><para>Boot entry number 1 … 9</para></listitem>
       </varlistentry>
     </variablelist>
@@ -183,36 +183,36 @@
 
     <variablelist>
       <varlistentry>
-        <term>← (Left)</term>
-        <term>→ (Right)</term>
-        <term>Home</term>
-        <term>End</term>
+        <term><keycap>←</keycap> (Left)</term>
+        <term><keycap>→</keycap> (Right)</term>
+        <term><keycap>Home</keycap></term>
+        <term><keycap>End</keycap></term>
         <listitem><para>Navigate left/right</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Esc</term>
+        <term><keycap>Esc</keycap></term>
         <listitem><para>Abort the edit and quit the editor</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Ctrl + k</term>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>k</keycap></keycombo></term>
         <listitem><para>Clear the command line</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Ctrl + w</term>
-        <term>Alt + Backspace</term>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>w</keycap></keycombo></term>
+        <term><keycombo><keycap>Alt</keycap><keycap>Backspace</keycap></keycombo></term>
         <listitem><para>Delete word backwards</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Alt + d </term>
+        <term><keycombo><keycap>Alt</keycap><keycap>d</keycap></keycombo></term>
         <listitem><para>Delete word forwards</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>↵ (Enter)</term>
+        <term><keycap>↵</keycap> (Enter)</term>
         <listitem><para>Boot entry with the edited command line</para></listitem>
       </varlistentry>
     </variablelist>
@@ -238,10 +238,167 @@
   </refsect1>
 
   <refsect1>
+    <title>EFI Variables</title>
+
+    <para>The following EFI variables are defined, set and read by <command>systemd-boot</command>, under the vendor
+    UUID <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4</literal>, for communication between the OS and the boot
+    loader:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>LoaderBootCountPath</varname></term>
+        <listitem><para>If boot counting is enabled, contains the path to the file in whose name the boot counters are
+        encoded. Set by the boot
+        loader. <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses this information to mark a boot as successful as determined by the successful activation of the
+        <filename>boot-complete.target</filename> target unit.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderConfigTimeout</varname></term>
+        <listitem><para>The menu time-out. Read by the boot loader. (Also, modified by it when the
+        <keycap>t</keycap>/<keycap>T</keycap> keys are used, see above.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderDevicePartUUID</varname></term>
+
+        <listitem><para>Contains the partition UUID of the EFI System Partition the boot loader was run from. Set by
+        the boot
+        loader. <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses this information to automatically find the disk booted from, in order to discover various other partitions
+        on the same disk automatically.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntries</varname></term>
+
+        <listitem><para>A list of the identifiers of all discovered boot loader entries. Set by the boot
+        loader.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntryDefault</varname></term>
+        <term><varname>LoaderEntryOneShot</varname></term>
+
+        <listitem><para>The identifier of the default boot loader entry. Set primarily by the OS and read by the boot
+        loader. <varname>LoaderEntryOneShot</varname> sets the default entry for the next boot only, while
+        <varname>LoaderEntryDefault</varname> sets it persistently for all future
+        boots. <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <option>set-default</option> and <option>set-oneshot</option> commands make use of these variables. The boot
+        loader modifies <varname>LoaderEntryDefault</varname> on request, when the <keycap>d</keycap> key is used, see
+        above.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntrySelected</varname></term>
+
+        <listitem><para>The identifier of the boot loader entry currently being booted. Set by the boot
+        loader.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderFirmwareInfo</varname></term>
+        <term><varname>LoaderFirmwareType</varname></term>
+
+        <listitem><para>Brief firmware information. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderImageIdentifier</varname></term>
+
+        <listitem><para>The path of executable of the boot loader used for the current boot, relative to the EFI System
+        Partition's root directory. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderInfo</varname></term>
+
+        <listitem><para>Brief information about the boot loader. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderTimeExecUSec</varname></term>
+        <term><varname>LoaderTimeInitUSec</varname></term>
+        <term><varname>LoaderTimeMenuUsec</varname></term>
+
+        <listitem><para>Information about the time spent in various parts of the boot loader. Set by the boot
+        loader. Use <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to view this data. These variables are defined by the <ulink
+        url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader
+        Interface</ulink>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Boot Counting</title>
+
+    <para><command>systemd-boot</command> implements a simple boot counting mechanism on top of the <ulink
+    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>, for automatic and unattended
+    fallback to older kernel versions/boot loader entries when a specific entry continously fails. Any boot loader
+    entry file and unified kernel image file that contains a <literal>+</literal> followed by one or two numbers (if
+    two they need to be separated by a <literal>-</literal>), before the <filename>.conf</filename> or
+    <filename>.efi</filename> suffix is subject to boot counting: the first of the two numbers ('tries left') is
+    decreased by one on every boot attempt, the second of the two numbers ('tries done') is increased by one (if 'tries
+    done' is absent it is considered equivalent to 0). Depending on the current value of these two counters the boot
+    entry is considered to be in one of three states:</para>
+
+    <orderedlist>
+      <listitem><para>If the 'tries left' counter of an entry is greater than zero the entry is considered to be in
+      'indeterminate' state. This means the entry has not completed booting successfully yet, but also hasn't been
+      determined not to work.</para></listitem>
+
+      <listitem><para>If the 'tries left' counter of an entry is zero it is considered to be in 'bad' state. This means
+      no further attempts to boot this item will be made (that is, unless all other boot entries are also in 'bad'
+      state), as all attempts to boot this entry have not completed successfully.</para></listitem>
+
+      <listitem><para>If the 'tries left' and 'tries done' counters of an entry are absent it is considered to be in
+      'good' state. This means further boot counting for the entry is turned off, as it successfully booted at least
+      once. The
+      <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      service moves the currently booted entry from 'indeterminate' into 'good' state when a boot attempt completed
+      successfully.</para></listitem>
+    </orderedlist>
+
+    <para>Generally, when new entries are added to the boot loader, they first start out in 'indeterminate' state,
+    i.e. with a 'tries left' counter greater than zero. The boot entry remains in this state until either it managed to
+    complete a full boot successfully at least once (in which case it will be in 'good' state) — or the 'tries left'
+    counter reaches zero (in which case it will be in 'bad' state).</para>
+
+    <para>Example: let's say a boot loader entry file <filename>foo.conf</filename> is set up for 3 boot tries. The
+    installer will hence create it under the name <filename>foo+3.conf</filename>. On first boot, the boot loader will
+    rename it to <filename>foo+2-1.conf</filename>. If that boot does not complete successfully, the boot loader will
+    rename it to <filename>foo+1-2.conf</filename> on the following boot. If that fails too, it will finally be renamed
+    <filename>foo+0-3.conf</filename> by the boot loader on next boot, after which it will be considered 'bad'. If the
+    boot succeeds however the entry file will be renamed to <filename>foo.conf</filename> by the OS, so that it is
+    considered 'good' from then on.</para>
+
+    <para>The boot menu takes the 'tries left' counter into account when sorting the menu entries: entries in 'bad'
+    state are ordered at the end of the list, and entries in 'good' or 'indeterminate' at the beginning. The user can
+    freely choose to boot any entry of the menu, including those already marked 'bad'. If the menu entry to boot is
+    automatically determined, this means that 'good' or 'indeterminate' entries are generally preferred (as the top item of
+    the menu is the one booted by default), and 'bad' entries will only be considered if there are no 'good' or
+    'indeterminate' entries left.</para>
+
+    <para>The <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry> kernel
+    install framework optionally sets the initial 'tries left' counter to the value specified in
+    <filename>/etc/kernel/tries</filename> when a boot loader entry is first created.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>,
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>
     </para>

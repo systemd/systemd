@@ -52,6 +52,23 @@ Features:
   show state of these flags, and optionally trigger such a factory reset on
   next boot by setting the flag.
 
+* sd-boot: search drop-ins in $BOOT, too
+
+* sd-boot: add "oneshot boot timeout" variable support
+
+* sd-boot: automatically load EFI modules from some drop-in dir, so that people
+  can add in file system drivers and such
+
+* esp generator: also mount $BOOT if found
+
+* sd-boot: optionally, show boot menu when previous default boot item has
+  non-zero "tries done" count
+
+* logind: add "boot into bootmenu" API, and possibly even "boot into windows"
+  and "boot into macos".
+
+* bootspec.c: also enumerate EFI unified kernel images.
+
 * maybe extend .path units to expose fanotify() per-mount change events
 
 * Add a "systemctl list-units --by-slice" mode or so, which rearranges the
@@ -174,9 +191,6 @@ Features:
 
 * calenderspec: add support for week numbers and day numbers within a
   year. This would allow us to define "bi-weekly" triggers safely.
-
-* add bpf-based implementation of devices cgroup controller logic for compat
-  with cgroupsv2 as supported by newest kernel
 
 * sd-bus: add vtable flag, that may be used to request client creds implicitly
   and asynchronously before dispatching the operation
