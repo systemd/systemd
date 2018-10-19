@@ -909,6 +909,11 @@ tests += [
           libshared_static,
           libudev],
          [threads]],
+
+        [['src/libsystemd/sd-device/test-sd-device-monitor.c'],
+         [],
+         []],
+
 ]
 
 if cxx.found()

@@ -525,7 +525,7 @@ int device_monitor_send_device(
                 return log_debug_errno(r, "Failed to get device subsystem: %m");
         nlh.filter_subsystem_hash = htobe32(string_hash32(val));
 
-        if (sd_device_get_devtype(device, &val) >= 0 && val)
+        if (sd_device_get_devtype(device, &val) >= 0)
                 nlh.filter_devtype_hash = htobe32(string_hash32(val));
 
         /* add tag bloom filter */
@@ -560,7 +560,7 @@ int device_monitor_send_device(
                         log_debug("Passed device to netlink monitor");
                         return 0;
                 } else
-                        return log_debug_errno(errno, "Failed to send device to netlink monitor");
+                        return log_debug_errno(errno, "Failed to send device to netlink monitor: %m");
         }
 
         log_debug("Passed %zi byte device to netlink monitor", count);
