@@ -106,7 +106,7 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
                 return -EINVAL;
         }
 
-        if (*buflen < len)
+        if (*buflen < offsetof(DHCP6Option, data) + len)
                 return -ENOBUFS;
 
         ia_hdr = *buf;
