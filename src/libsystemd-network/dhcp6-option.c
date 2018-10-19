@@ -79,7 +79,7 @@ int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
         return 0;
 }
 
-int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia) {
+int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         uint16_t len;
         uint8_t *ia_hdr;
         size_t iaid_offset, ia_buflen, ia_addrlen = 0;
@@ -165,7 +165,7 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
         return r;
 }
 
-int dhcp6_option_append_pd(uint8_t *buf, size_t len, DHCP6IA *pd) {
+int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd) {
         DHCP6Option *option = (DHCP6Option *)buf;
         size_t i = sizeof(*option) + sizeof(pd->ia_pd);
         DHCP6Address *prefix;

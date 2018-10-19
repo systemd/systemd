@@ -84,8 +84,8 @@ typedef struct DHCP6IA DHCP6IA;
 
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);
-int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia);
-int dhcp6_option_append_pd(uint8_t *buf, size_t len, DHCP6IA *pd);
+int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
+int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd);
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
                        size_t *optlen, uint8_t **optvalue);
