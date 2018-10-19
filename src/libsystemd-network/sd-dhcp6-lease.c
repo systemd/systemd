@@ -52,15 +52,16 @@ DHCP6IA *dhcp6_lease_free_ia(DHCP6IA *ia) {
 
 int dhcp6_lease_set_serverid(sd_dhcp6_lease *lease, const uint8_t *id,
                              size_t len) {
+        uint8_t *serverid;
+
         assert_return(lease, -EINVAL);
         assert_return(id, -EINVAL);
 
-        free(lease->serverid);
+        serverid = memdup(id, len);
+        if (!serverid)
+                return -ENOMEM;
 
-        lease->serverid = memdup(id, len);
-        if (!lease->serverid)
-                return -EINVAL;
-
+        free_and_replace(lease->serverid, serverid);
         lease->serverid_len = len;
 
         return 0;

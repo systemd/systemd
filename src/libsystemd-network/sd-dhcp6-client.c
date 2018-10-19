@@ -829,10 +829,11 @@ static int client_parse_message(
                 DHCP6Message *message,
                 size_t len,
                 sd_dhcp6_lease *lease) {
+
+        uint32_t lt_t1 = ~0, lt_t2 = ~0;
+        bool clientid = false;
         size_t pos = 0;
         int r;
-        bool clientid = false;
-        uint32_t lt_t1 = ~0, lt_t2 = ~0;
 
         assert(client);
         assert(message);
@@ -842,19 +843,21 @@ static int client_parse_message(
         len -= sizeof(DHCP6Message);
 
         while (pos < len) {
-                DHCP6Option *option = (DHCP6Option *)&message->options[pos];
+                DHCP6Option *option = (DHCP6Option *) &message->options[pos];
                 uint16_t optcode, optlen;
-                int status;
-                uint8_t *optval;
                 be32_t iaid_lease;
+                uint8_t *optval;
+                int status;
 
-                if (len < pos + offsetof(DHCP6Option, data) ||
-                    len < pos + offsetof(DHCP6Option, data) + be16toh(option->len))
+                if (len < pos + offsetof(DHCP6Option, data))
                         return -ENOBUFS;
 
                 optcode = be16toh(option->code);
                 optlen = be16toh(option->len);
                 optval = option->data;
+
+                if (len < pos + offsetof(DHCP6Option, data) + optlen)
+                        return -ENOBUFS;
 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
@@ -900,13 +903,14 @@ static int client_parse_message(
                         break;
 
                 case SD_DHCP6_OPTION_STATUS_CODE:
-                        status = dhcp6_option_parse_status(option, optlen);
-                        if (status) {
+                        status = dhcp6_option_parse_status(option, optlen + sizeof(DHCP6Option));
+                        if (status < 0)
+                                return status;
+
+                        if (status > 0) {
                                 log_dhcp6_client(client, "%s Status %s",
                                                  dhcp6_message_type_to_string(message->type),
                                                  dhcp6_message_status_to_string(status));
-                                dhcp6_lease_free_ia(&lease->ia);
-                                dhcp6_lease_free_ia(&lease->pd);
 
                                 return -EINVAL;
                         }
