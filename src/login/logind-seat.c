@@ -166,8 +166,8 @@ int seat_load(Seat *s) {
         return 0;
 }
 
-static int vt_allocate(unsigned int vtnr) {
-        char p[sizeof("/dev/tty") + DECIMAL_STR_MAX(unsigned int)];
+static int vt_allocate(unsigned vtnr) {
+        char p[sizeof("/dev/tty") + DECIMAL_STR_MAX(unsigned)];
         _cleanup_close_ int fd = -1;
 
         assert(vtnr >= 1);
@@ -265,7 +265,7 @@ int seat_set_active(Seat *s, Session *session) {
         return 0;
 }
 
-int seat_switch_to(Seat *s, unsigned int num) {
+int seat_switch_to(Seat *s, unsigned num) {
         /* Public session positions skip 0 (there is only F1-F12). Maybe it
          * will get reassigned in the future, so return error for now. */
         if (num == 0)
@@ -283,7 +283,7 @@ int seat_switch_to(Seat *s, unsigned int num) {
 }
 
 int seat_switch_to_next(Seat *s) {
-        unsigned int start, i;
+        unsigned start, i;
 
         if (s->position_count == 0)
                 return -EINVAL;
@@ -304,7 +304,7 @@ int seat_switch_to_next(Seat *s) {
 }
 
 int seat_switch_to_previous(Seat *s) {
-        unsigned int start, i;
+        unsigned start, i;
 
         if (s->position_count == 0)
                 return -EINVAL;
@@ -324,7 +324,7 @@ int seat_switch_to_previous(Seat *s) {
         return -EINVAL;
 }
 
-int seat_active_vt_changed(Seat *s, unsigned int vtnr) {
+int seat_active_vt_changed(Seat *s, unsigned vtnr) {
         Session *i, *new_active = NULL;
         int r;
 
@@ -459,7 +459,7 @@ int seat_stop_sessions(Seat *s, bool force) {
 
 void seat_evict_position(Seat *s, Session *session) {
         Session *iter;
-        unsigned int pos = session->position;
+        unsigned pos = session->position;
 
         session->position = 0;
 
@@ -481,7 +481,7 @@ void seat_evict_position(Seat *s, Session *session) {
         }
 }
 
-void seat_claim_position(Seat *s, Session *session, unsigned int pos) {
+void seat_claim_position(Seat *s, Session *session, unsigned pos) {
         /* with VTs, the position is always the same as the VTnr */
         if (seat_has_vts(s))
                 pos = session->vtnr;
@@ -497,7 +497,7 @@ void seat_claim_position(Seat *s, Session *session, unsigned int pos) {
 }
 
 static void seat_assign_position(Seat *s, Session *session) {
-        unsigned int pos;
+        unsigned pos;
 
         if (session->position > 0)
                 return;

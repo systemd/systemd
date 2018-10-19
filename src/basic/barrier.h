@@ -41,7 +41,7 @@ void barrier_destroy(Barrier *b);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Barrier*, barrier_destroy);
 
-void barrier_set_role(Barrier *b, unsigned int role);
+void barrier_set_role(Barrier *b, unsigned role);
 
 bool barrier_place(Barrier *b);
 bool barrier_abort(Barrier *b);

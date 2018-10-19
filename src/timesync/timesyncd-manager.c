@@ -320,7 +320,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 }
 
 static bool manager_sample_spike_detection(Manager *m, double offset, double delay) {
-        unsigned int i, idx_cur, idx_new, idx_min;
+        unsigned i, idx_cur, idx_new, idx_min;
         double jitter;
         double j;
 

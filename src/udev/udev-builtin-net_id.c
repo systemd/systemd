@@ -601,7 +601,7 @@ static int names_usb(struct udev_device *dev, struct netnames *names) {
 
 static int names_bcma(struct udev_device *dev, struct netnames *names) {
         struct udev_device *bcmadev;
-        unsigned int core;
+        unsigned core;
 
         assert(dev);
         assert(names);
@@ -676,7 +676,7 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
 static int names_mac(struct udev_device *dev, struct netnames *names) {
         const char *s;
         unsigned long i;
-        unsigned int a1, a2, a3, a4, a5, a6;
+        unsigned a1, a2, a3, a4, a5, a6;
 
         /* Some kinds of devices tend to have hardware addresses
          * that are impossible to use in an iface name.

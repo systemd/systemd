@@ -26,58 +26,58 @@
 #include "util.h"
 
 /* device info */
-static unsigned int cd_cd_rom;
-static unsigned int cd_cd_r;
-static unsigned int cd_cd_rw;
-static unsigned int cd_dvd_rom;
-static unsigned int cd_dvd_r;
-static unsigned int cd_dvd_rw;
-static unsigned int cd_dvd_ram;
-static unsigned int cd_dvd_plus_r;
-static unsigned int cd_dvd_plus_rw;
-static unsigned int cd_dvd_plus_r_dl;
-static unsigned int cd_dvd_plus_rw_dl;
-static unsigned int cd_bd;
-static unsigned int cd_bd_r;
-static unsigned int cd_bd_re;
-static unsigned int cd_hddvd;
-static unsigned int cd_hddvd_r;
-static unsigned int cd_hddvd_rw;
-static unsigned int cd_mo;
-static unsigned int cd_mrw;
-static unsigned int cd_mrw_w;
+static unsigned cd_cd_rom;
+static unsigned cd_cd_r;
+static unsigned cd_cd_rw;
+static unsigned cd_dvd_rom;
+static unsigned cd_dvd_r;
+static unsigned cd_dvd_rw;
+static unsigned cd_dvd_ram;
+static unsigned cd_dvd_plus_r;
+static unsigned cd_dvd_plus_rw;
+static unsigned cd_dvd_plus_r_dl;
+static unsigned cd_dvd_plus_rw_dl;
+static unsigned cd_bd;
+static unsigned cd_bd_r;
+static unsigned cd_bd_re;
+static unsigned cd_hddvd;
+static unsigned cd_hddvd_r;
+static unsigned cd_hddvd_rw;
+static unsigned cd_mo;
+static unsigned cd_mrw;
+static unsigned cd_mrw_w;
 
 /* media info */
-static unsigned int cd_media;
-static unsigned int cd_media_cd_rom;
-static unsigned int cd_media_cd_r;
-static unsigned int cd_media_cd_rw;
-static unsigned int cd_media_dvd_rom;
-static unsigned int cd_media_dvd_r;
-static unsigned int cd_media_dvd_rw;
-static unsigned int cd_media_dvd_rw_ro; /* restricted overwrite mode */
-static unsigned int cd_media_dvd_rw_seq; /* sequential mode */
-static unsigned int cd_media_dvd_ram;
-static unsigned int cd_media_dvd_plus_r;
-static unsigned int cd_media_dvd_plus_rw;
-static unsigned int cd_media_dvd_plus_r_dl;
-static unsigned int cd_media_dvd_plus_rw_dl;
-static unsigned int cd_media_bd;
-static unsigned int cd_media_bd_r;
-static unsigned int cd_media_bd_re;
-static unsigned int cd_media_hddvd;
-static unsigned int cd_media_hddvd_r;
-static unsigned int cd_media_hddvd_rw;
-static unsigned int cd_media_mo;
-static unsigned int cd_media_mrw;
-static unsigned int cd_media_mrw_w;
+static unsigned cd_media;
+static unsigned cd_media_cd_rom;
+static unsigned cd_media_cd_r;
+static unsigned cd_media_cd_rw;
+static unsigned cd_media_dvd_rom;
+static unsigned cd_media_dvd_r;
+static unsigned cd_media_dvd_rw;
+static unsigned cd_media_dvd_rw_ro; /* restricted overwrite mode */
+static unsigned cd_media_dvd_rw_seq; /* sequential mode */
+static unsigned cd_media_dvd_ram;
+static unsigned cd_media_dvd_plus_r;
+static unsigned cd_media_dvd_plus_rw;
+static unsigned cd_media_dvd_plus_r_dl;
+static unsigned cd_media_dvd_plus_rw_dl;
+static unsigned cd_media_bd;
+static unsigned cd_media_bd_r;
+static unsigned cd_media_bd_re;
+static unsigned cd_media_hddvd;
+static unsigned cd_media_hddvd_r;
+static unsigned cd_media_hddvd_rw;
+static unsigned cd_media_mo;
+static unsigned cd_media_mrw;
+static unsigned cd_media_mrw_w;
 
 static const char *cd_media_state = NULL;
-static unsigned int cd_media_session_next;
-static unsigned int cd_media_session_count;
-static unsigned int cd_media_track_count;
-static unsigned int cd_media_track_count_data;
-static unsigned int cd_media_track_count_audio;
+static unsigned cd_media_session_next;
+static unsigned cd_media_session_count;
+static unsigned cd_media_track_count;
+static unsigned cd_media_track_count_data;
+static unsigned cd_media_track_count_audio;
 static unsigned long long int cd_media_session_last_offset;
 
 #define ERRCODE(s)        ((((s)[2] & 0x0F) << 16) | ((s)[12] << 8) | ((s)[13]))
@@ -366,7 +366,7 @@ static void feature_profile_media(int cur_profile) {
 }
 
 static int feature_profiles(const unsigned char *profiles, size_t size) {
-        unsigned int i;
+        unsigned i;
 
         for (i = 0; i+4 <= size; i += 4) {
                 int profile;
@@ -498,9 +498,9 @@ static int cd_profiles_old_mmc(int fd) {
 static int cd_profiles(int fd) {
         struct scsi_cmd sc;
         unsigned char features[65530];
-        unsigned int cur_profile = 0;
-        unsigned int len;
-        unsigned int i;
+        unsigned cur_profile = 0;
+        unsigned len;
+        unsigned i;
         int err;
         int ret;
 
@@ -564,7 +564,7 @@ static int cd_profiles(int fd) {
 
         /* device features */
         for (i = 8; i+4 < len; i += (4 + features[i+3])) {
-                unsigned int feature;
+                unsigned feature;
 
                 feature = features[i] << 8 | features[i+1];
 
@@ -738,7 +738,7 @@ static int cd_media_toc(int fd) {
         struct scsi_cmd sc;
         unsigned char header[12];
         unsigned char toc[65536];
-        unsigned int len, i, num_tracks;
+        unsigned len, i, num_tracks;
         unsigned char *p;
         int err;
 
@@ -782,8 +782,8 @@ static int cd_media_toc(int fd) {
          * the TOC, but also avoid going beyond the TOC length, just in case
          * the last track number is invalidly large */
         for (p = toc+4, i = 4; i < len-8 && num_tracks > 0; i += 8, p += 8, --num_tracks) {
-                unsigned int block;
-                unsigned int is_data_track;
+                unsigned block;
+                unsigned is_data_track;
 
                 is_data_track = (p[1] & 0x04) != 0;
 

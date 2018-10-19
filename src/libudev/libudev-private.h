@@ -66,8 +66,8 @@ struct udev_list {
         struct udev *udev;
         struct udev_list_node node;
         struct udev_list_entry **entries;
-        unsigned int entries_cur;
-        unsigned int entries_max;
+        unsigned entries_cur;
+        unsigned entries_max;
         bool unique;
 };
 void udev_list_node_init(struct udev_list_node *list);

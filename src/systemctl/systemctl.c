@@ -1563,7 +1563,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int list_dependencies_print(const char *name, int level, unsigned int branches, bool last) {
+static int list_dependencies_print(const char *name, int level, unsigned branches, bool last) {
         _cleanup_free_ char *n = NULL;
         size_t max_len = MAX(columns(),20u);
         size_t len = 0;
@@ -1689,7 +1689,7 @@ static int list_dependencies_one(
                 const char *name,
                 int level,
                 char ***units,
-                unsigned int branches) {
+                unsigned branches) {
 
         _cleanup_strv_free_ char **deps = NULL;
         char **c;

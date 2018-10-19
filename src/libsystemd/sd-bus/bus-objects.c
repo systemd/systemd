@@ -164,7 +164,7 @@ static int add_subtree_to_set(
                 sd_bus *bus,
                 const char *prefix,
                 struct node *n,
-                unsigned int flags,
+                unsigned flags,
                 Set *s,
                 sd_bus_error *error) {
 
@@ -213,7 +213,7 @@ static int get_child_nodes(
                 sd_bus *bus,
                 const char *prefix,
                 struct node *n,
-                unsigned int flags,
+                unsigned flags,
                 Set **_s,
                 sd_bus_error *error) {
 

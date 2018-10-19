@@ -38,7 +38,7 @@
 #define PREALLOC_TOKEN          2048
 
 struct uid_gid {
-        unsigned int name_off;
+        unsigned name_off;
         union {
                 uid_t uid;
                 gid_t gid;
@@ -58,26 +58,26 @@ struct udev_rules {
 
         /* every key in the rules file becomes a token */
         struct token *tokens;
-        unsigned int token_cur;
-        unsigned int token_max;
+        unsigned token_cur;
+        unsigned token_max;
 
         /* all key strings are copied and de-duplicated in a single continuous string buffer */
         struct strbuf *strbuf;
 
         /* during rule parsing, uid/gid lookup results are cached */
         struct uid_gid *uids;
-        unsigned int uids_cur;
-        unsigned int uids_max;
+        unsigned uids_cur;
+        unsigned uids_max;
         struct uid_gid *gids;
-        unsigned int gids_cur;
-        unsigned int gids_max;
+        unsigned gids_cur;
+        unsigned gids_max;
 };
 
-static char *rules_str(struct udev_rules *rules, unsigned int off) {
+static char *rules_str(struct udev_rules *rules, unsigned off) {
         return rules->strbuf->buf + off;
 }
 
-static unsigned int rules_add_string(struct udev_rules *rules, const char *s) {
+static unsigned rules_add_string(struct udev_rules *rules, const char *s) {
         return strbuf_add_string(rules->strbuf, s, strlen(s));
 }
 
@@ -182,9 +182,9 @@ struct token {
                         enum token_type type:8;
                         bool can_set_name:1;
                         bool has_static_node:1;
-                        unsigned int unused:6;
+                        unsigned unused:6;
                         unsigned short token_count;
-                        unsigned int label_off;
+                        unsigned label_off;
                         unsigned short filename_off;
                         unsigned short filename_line;
                 } rule;
@@ -194,10 +194,10 @@ struct token {
                         enum string_glob_type glob:8;
                         enum string_subst_type subst:4;
                         enum string_subst_type attrsubst:4;
-                        unsigned int value_off;
+                        unsigned value_off;
                         union {
-                                unsigned int attr_off;
-                                unsigned int rule_goto;
+                                unsigned attr_off;
+                                unsigned rule_goto;
                                 mode_t  mode;
                                 uid_t uid;
                                 gid_t gid;
@@ -214,7 +214,7 @@ struct rule_tmp {
         struct udev_rules *rules;
         struct token rule;
         struct token token[MAX_TK];
-        unsigned int token_cur;
+        unsigned token_cur;
 };
 
 #ifdef DEBUG
@@ -325,7 +325,7 @@ static void dump_token(struct udev_rules *rules, struct token *token) {
                 {
                         const char *tks_ptr = (char *)rules->tokens;
                         const char *tk_ptr = (char *)token;
-                        unsigned int idx = (tk_ptr - tks_ptr) / sizeof(struct token);
+                        unsigned idx = (tk_ptr - tks_ptr) / sizeof(struct token);
 
                         log_debug("* RULE %s:%u, token: %u, count: %u, label: '%s'",
                                   &rules->strbuf->buf[token->rule.filename_off], token->rule.filename_line,
@@ -425,7 +425,7 @@ static void dump_token(struct udev_rules *rules, struct token *token) {
 }
 
 static void dump_rules(struct udev_rules *rules) {
-        unsigned int i;
+        unsigned i;
 
         log_debug("dumping %u (%zu bytes) tokens, %zu (%zu bytes) strings",
                   rules->token_cur,
@@ -444,7 +444,7 @@ static int add_token(struct udev_rules *rules, struct token *token) {
         /* grow buffer if needed */
         if (rules->token_cur+1 >= rules->token_max) {
                 struct token *tokens;
-                unsigned int add;
+                unsigned add;
 
                 /* double the buffer size */
                 add = rules->token_max;
@@ -470,9 +470,9 @@ static void log_unknown_owner(int error, const char *entity, const char *owner) 
 }
 
 static uid_t add_uid(struct udev_rules *rules, const char *owner) {
-        unsigned int i;
+        unsigned i;
         uid_t uid = 0;
-        unsigned int off;
+        unsigned off;
         int r;
 
         /* lookup, if we know it already */
@@ -490,7 +490,7 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
         /* grow buffer if needed */
         if (rules->uids_cur+1 >= rules->uids_max) {
                 struct uid_gid *uids;
-                unsigned int add;
+                unsigned add;
 
                 /* double the buffer size */
                 add = rules->uids_max;
@@ -513,9 +513,9 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
 }
 
 static gid_t add_gid(struct udev_rules *rules, const char *group) {
-        unsigned int i;
+        unsigned i;
         gid_t gid = 0;
-        unsigned int off;
+        unsigned off;
         int r;
 
         /* lookup, if we know it already */
@@ -533,7 +533,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
         /* grow buffer if needed */
         if (rules->gids_cur+1 >= rules->gids_max) {
                 struct uid_gid *gids;
-                unsigned int add;
+                unsigned add;
 
                 /* double the buffer size */
                 add = rules->gids_max;
@@ -973,14 +973,14 @@ static void rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 }
 
 static int sort_token(struct udev_rules *rules, struct rule_tmp *rule_tmp) {
-        unsigned int i;
-        unsigned int start = 0;
-        unsigned int end = rule_tmp->token_cur;
+        unsigned i;
+        unsigned start = 0;
+        unsigned end = rule_tmp->token_cur;
 
         for (i = 0; i < rule_tmp->token_cur; i++) {
                 enum token_type next_val = TK_UNSET;
-                unsigned int next_idx = 0;
-                unsigned int j;
+                unsigned next_idx = 0;
+                unsigned j;
 
                 /* find smallest value */
                 for (j = start; j < end; j++) {
@@ -1012,7 +1012,7 @@ static int sort_token(struct udev_rules *rules, struct rule_tmp *rule_tmp) {
 #define LOG_AND_RETURN(fmt, ...) { LOG_RULE_ERROR(fmt, __VA_ARGS__); return; }
 
 static void add_rule(struct udev_rules *rules, char *line,
-                     const char *filename, unsigned int filename_off, unsigned int lineno) {
+                     const char *filename, unsigned filename_off, unsigned lineno) {
         char *linepos;
         const char *attr;
         struct rule_tmp rule_tmp = {
@@ -1433,11 +1433,11 @@ static void add_rule(struct udev_rules *rules, char *line,
 
 static int parse_file(struct udev_rules *rules, const char *filename) {
         _cleanup_fclose_ FILE *f = NULL;
-        unsigned int first_token;
-        unsigned int filename_off;
+        unsigned first_token;
+        unsigned filename_off;
         char line[UTIL_LINE_SIZE];
         int line_nr = 0;
-        unsigned int i;
+        unsigned i;
 
         f = fopen(filename, "re");
         if (!f) {
@@ -1495,7 +1495,7 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
         for (i = first_token+1; i < rules->token_cur; i++) {
                 if (rules->tokens[i].type == TK_A_GOTO) {
                         char *label = rules_str(rules, rules->tokens[i].key.value_off);
-                        unsigned int j;
+                        unsigned j;
 
                         for (j = i+1; j < rules->token_cur; j++) {
                                 if (rules->tokens[j].type != TK_RULE)

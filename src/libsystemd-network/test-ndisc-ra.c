@@ -293,7 +293,7 @@ static void test_ra(void) {
         sd_event *e;
         sd_radv *ra;
         usec_t time_now = now(clock_boottime_or_monotonic());
-        unsigned int i;
+        unsigned i;
 
         printf("* %s\n", __FUNCTION__);
 

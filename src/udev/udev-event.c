@@ -322,7 +322,7 @@ size_t udev_event_apply_format(struct udev_event *event,
                 while (from[0] != '\0') {
                         if (from[0] == '$') {
                                 /* substitute named variable */
-                                unsigned int i;
+                                unsigned i;
 
                                 if (from[1] == '$') {
                                         from++;
@@ -338,7 +338,7 @@ size_t udev_event_apply_format(struct udev_event *event,
                                 }
                         } else if (from[0] == '%') {
                                 /* substitute format char */
-                                unsigned int i;
+                                unsigned i;
 
                                 if (from[1] == '%') {
                                         from++;
@@ -367,7 +367,7 @@ copy:
 subst:
                 /* extract possible $format{attr} */
                 if (from[0] == '{') {
-                        unsigned int i;
+                        unsigned i;
 
                         from++;
                         for (i = 0; from[i] != '}'; i++)

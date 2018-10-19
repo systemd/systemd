@@ -897,7 +897,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                                 return r;
 
                         if (all || n > 0) {
-                                unsigned int i;
+                                unsigned i;
 
                                 if (!value)
                                         printf("%s=", name);
@@ -919,7 +919,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                                 return r;
 
                         if (all || n > 0) {
-                                unsigned int i;
+                                unsigned i;
 
                                 if (!value)
                                         printf("%s=", name);

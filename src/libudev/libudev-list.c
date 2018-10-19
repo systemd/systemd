@@ -100,12 +100,12 @@ static void udev_list_entry_insert_before(struct udev_list_entry *new, struct ud
 /* binary search in sorted array */
 static int list_search(struct udev_list *list, const char *name)
 {
-        unsigned int first, last;
+        unsigned first, last;
 
         first = 0;
         last = list->entries_cur;
         while (first < last) {
-                unsigned int i;
+                unsigned i;
                 int cmp;
 
                 i = (first + last)/2;
@@ -165,7 +165,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                 /* allocate or enlarge sorted array if needed */
                 if (list->entries_cur >= list->entries_max) {
                         struct udev_list_entry **entries;
-                        unsigned int add;
+                        unsigned add;
 
                         add = list->entries_max;
                         if (add < 1)
@@ -184,7 +184,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                 i = (-i)-1;
 
                 /* insert into sorted list */
-                if ((unsigned int)i < list->entries_cur)
+                if ((unsigned)i < list->entries_cur)
                         udev_list_entry_insert_before(entry, list->entries[i]);
                 else
                         udev_list_entry_append(entry, list);

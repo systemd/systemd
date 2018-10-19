@@ -808,9 +808,9 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int list_dependencies_print(const char *name, unsigned int level, unsigned int branches,
+static int list_dependencies_print(const char *name, unsigned level, unsigned branches,
                                    bool last, struct unit_times *times, struct boot_times *boot) {
-        unsigned int i;
+        unsigned i;
         char ts[FORMAT_TIMESPAN_MAX], ts2[FORMAT_TIMESPAN_MAX];
 
         for (i = level; i != 0; i--)
@@ -869,8 +869,8 @@ static bool times_in_range(const struct unit_times *times, const struct boot_tim
                 times->activated > 0 && times->activated <= boot->finish_time;
 }
 
-static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int level, char ***units,
-                                 unsigned int branches) {
+static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, char ***units,
+                                 unsigned branches) {
         _cleanup_strv_free_ char **deps = NULL;
         char **c;
         int r = 0;

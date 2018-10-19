@@ -86,7 +86,7 @@ struct sd_dhcp_client {
         uint32_t mtu;
         uint32_t xid;
         usec_t start_time;
-        unsigned int attempt;
+        unsigned attempt;
         usec_t request_sent;
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;

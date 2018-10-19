@@ -752,7 +752,7 @@ static int netlink_container_parse(sd_netlink_message *m,
                                    struct netlink_container *container,
                                    int count,
                                    struct rtattr *rta,
-                                   unsigned int rt_len) {
+                                   unsigned rt_len) {
         _cleanup_free_ struct netlink_attribute *attributes = NULL;
 
         attributes = new0(struct netlink_attribute, count);

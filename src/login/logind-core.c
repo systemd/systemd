@@ -498,7 +498,7 @@ int config_parse_n_autovts(
         return 0;
 }
 
-static int vt_is_busy(unsigned int vtnr) {
+static int vt_is_busy(unsigned vtnr) {
         struct vt_stat vt_stat;
         int r = 0;
         _cleanup_close_ int fd;
@@ -526,9 +526,9 @@ static int vt_is_busy(unsigned int vtnr) {
         return r;
 }
 
-int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
+int manager_spawn_autovt(Manager *m, unsigned vtnr) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char name[sizeof("autovt@tty.service") + DECIMAL_STR_MAX(unsigned int)];
+        char name[sizeof("autovt@tty.service") + DECIMAL_STR_MAX(unsigned)];
         int r;
 
         assert(m);

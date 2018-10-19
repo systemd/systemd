@@ -71,7 +71,7 @@ struct Manager {
                 double offset;
                 double delay;
         } samples[8];
-        unsigned int samples_idx;
+        unsigned samples_idx;
         double samples_jitter;
         usec_t max_root_distance_usec;
 

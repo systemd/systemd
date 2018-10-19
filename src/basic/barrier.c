@@ -150,7 +150,7 @@ void barrier_destroy(Barrier *b) {
  * Note that barriers could be supported without fork() or clone(). However,
  * this is currently not needed so it hasn't been implemented.
  */
-void barrier_set_role(Barrier *b, unsigned int role) {
+void barrier_set_role(Barrier *b, unsigned role) {
         int fd;
 
         assert(b);

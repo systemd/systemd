@@ -343,7 +343,7 @@ static int manager_enumerate_users(Manager *m) {
 static int parse_fdname(const char *fdname, char **session_id, dev_t *dev) {
         _cleanup_strv_free_ char **parts = NULL;
         _cleanup_free_ char *id = NULL;
-        unsigned int major, minor;
+        unsigned major, minor;
         int r;
 
         parts = strv_split(fdname, "-");
