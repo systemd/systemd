@@ -59,15 +59,6 @@ DIR *xopendirat(int dirfd, const char *name, int flags);
 int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f);
 int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f);
 
-#define FOREACH_LINE(line, f, on_error)                         \
-        for (;;)                                                \
-                if (!fgets(line, sizeof(line), f)) {            \
-                        if (ferror(f)) {                        \
-                                on_error;                       \
-                        }                                       \
-                        break;                                  \
-                } else
-
 int fflush_and_check(FILE *f);
 int fflush_sync_and_check(FILE *f);
 
