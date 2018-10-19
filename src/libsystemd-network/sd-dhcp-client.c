@@ -1683,6 +1683,8 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                         client->timeout_resend =
                                 sd_event_source_unref(client->timeout_resend);
 
+                        client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
+
                         r = client_initialize(client);
                         if (r < 0)
                                 goto error;
