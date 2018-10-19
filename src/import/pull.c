@@ -280,7 +280,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SETTINGS:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --settings= parameter '%s'", optarg);
+                                return log_error_errno(r, "Failed to parse --settings= parameter '%s': %m", optarg);
 
                         arg_settings = r;
                         break;
@@ -288,7 +288,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ROOTHASH:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --roothash= parameter '%s'", optarg);
+                                return log_error_errno(r, "Failed to parse --roothash= parameter '%s': %m", optarg);
 
                         arg_roothash = r;
                         break;
