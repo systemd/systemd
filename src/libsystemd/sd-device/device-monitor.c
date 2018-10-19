@@ -558,7 +558,7 @@ int device_monitor_send_device(
                         log_debug("Passed device to netlink monitor");
                         return 0;
                 } else
-                        return log_debug_errno(errno, "Failed to send device to netlink monitor");
+                        return log_debug_errno(errno, "Failed to send device to netlink monitor: %m");
         }
 
         log_debug("Passed %zi byte device to netlink monitor", count);
