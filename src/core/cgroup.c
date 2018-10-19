@@ -1948,7 +1948,7 @@ void unit_release_cgroup(Unit *u) {
 
         if (u->cgroup_inotify_wd >= 0) {
                 if (inotify_rm_watch(u->manager->cgroup_inotify_fd, u->cgroup_inotify_wd) < 0)
-                        log_unit_debug_errno(u, errno, "Failed to remove cgroup inotify watch %i for %s, ignoring", u->cgroup_inotify_wd, u->id);
+                        log_unit_debug_errno(u, errno, "Failed to remove cgroup inotify watch %i for %s, ignoring: %m", u->cgroup_inotify_wd, u->id);
 
                 (void) hashmap_remove(u->manager->cgroup_inotify_wd_unit, INT_TO_PTR(u->cgroup_inotify_wd));
                 u->cgroup_inotify_wd = -1;

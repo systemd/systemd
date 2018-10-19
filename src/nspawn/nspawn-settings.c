@@ -391,7 +391,7 @@ int config_parse_network_zone(
 
         j = strappend("vz-", rvalue);
         if (!ifname_valid(j)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid network zone name %s, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid network zone name, ignoring: %s", rvalue);
                 return 0;
         }
 

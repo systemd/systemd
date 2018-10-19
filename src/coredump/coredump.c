@@ -340,7 +340,7 @@ static int save_external_coredump(
 
         r = safe_atou64(context[CONTEXT_RLIMIT], &rlimit);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse resource limit: %s", context[CONTEXT_RLIMIT]);
+                return log_error_errno(r, "Failed to parse resource limit '%s': %m", context[CONTEXT_RLIMIT]);
         if (rlimit < page_size()) {
                 /* Is coredumping disabled? Then don't bother saving/processing the coredump.
                  * Anything below PAGE_SIZE cannot give a readable coredump (the kernel uses

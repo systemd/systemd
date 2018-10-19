@@ -506,7 +506,7 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
                         "ActiveEnterTimestampMonotonic",
                         &activated_time);
         if (r < 0) {
-                log_info_errno(r, "Could not get time to reach default.target. Continuing...");
+                log_info_errno(r, "Could not get time to reach default.target, ignoring: %m");
                 activated_time = USEC_INFINITY;
         }
 

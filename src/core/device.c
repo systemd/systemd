@@ -254,7 +254,7 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
         } else if (streq(key, "found")) {
                 r = device_found_from_string_many(value, &d->deserialized_found);
                 if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to parse found value, ignoring: %s", value);
+                        log_unit_debug_errno(u, r, "Failed to parse found value '%s', ignoring: %m", value);
 
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);

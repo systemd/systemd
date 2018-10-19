@@ -242,7 +242,7 @@ static int status_variables(void) {
         if (n_order == -ENOENT)
                 n_order = 0;
         else if (n_order < 0)
-                return log_error_errno(n_order, "Failed to read EFI boot order.");
+                return log_error_errno(n_order, "Failed to read EFI boot order: %m");
 
         /* print entries in BootOrder first */
         printf("Boot Loaders Listed in EFI Variables:\n");

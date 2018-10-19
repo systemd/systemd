@@ -952,7 +952,7 @@ int main(int argc, char *argv[]) {
 
         r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
         if (r < 0) {
-                log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring.");
+                log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
                 goto finish;
         }
         if (r > 0 && !enabled) {

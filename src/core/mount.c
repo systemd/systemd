@@ -1784,7 +1784,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                         if (r == 0)
                                 rescan = true;
                         else if (r < 0)
-                                return log_error_errno(r, "Failed to drain libmount events");
+                                return log_error_errno(r, "Failed to drain libmount events: %m");
                 } while (r == 0);
 
                 log_debug("libmount event [rescan: %s]", yes_no(rescan));

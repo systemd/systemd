@@ -349,7 +349,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = value ? parse_boolean(value) : true;
                 if (r < 0)
-                        log_warning("Failed to parse dump core switch %s. Ignoring.", value);
+                        log_warning_errno(r, "Failed to parse dump core switch %s, ignoring: %m", value);
                 else
                         arg_dump_core = r;
 
@@ -367,14 +367,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 if (!value)
                         arg_crash_chvt = 0; /* turn on */
-                else if (parse_crash_chvt(value) < 0)
-                        log_warning("Failed to parse crash chvt switch %s. Ignoring.", value);
+                else {
+                        r = parse_crash_chvt(value);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse crash chvt switch %s, ignoring: %m", value);
+                }
 
         } else if (proc_cmdline_key_streq(key, "systemd.crash_shell")) {
 
                 r = value ? parse_boolean(value) : true;
                 if (r < 0)
-                        log_warning("Failed to parse crash shell switch %s. Ignoring.", value);
+                        log_warning_errno(r, "Failed to parse crash shell switch %s, ignoring: %m", value);
                 else
                         arg_crash_shell = r;
 
@@ -382,7 +385,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = value ? parse_boolean(value) : true;
                 if (r < 0)
-                        log_warning("Failed to parse crash reboot switch %s. Ignoring.", value);
+                        log_warning_errno(r, "Failed to parse crash reboot switch %s, ignoring: %m", value);
                 else
                         arg_crash_reboot = r;
 
@@ -391,17 +394,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = parse_confirm_spawn(value, &s);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse confirm_spawn switch %s. Ignoring.", value);
-                else {
-                        free(arg_confirm_spawn);
-                        arg_confirm_spawn = s;
-                }
+                        log_warning_errno(r, "Failed to parse confirm_spawn switch %s, ignoring: %m", value);
+                else
+                        free_and_replace(arg_confirm_spawn, s);
 
         } else if (proc_cmdline_key_streq(key, "systemd.service_watchdogs")) {
 
                 r = value ? parse_boolean(value) : true;
                 if (r < 0)
-                        log_warning("Failed to parse service watchdog switch %s. Ignoring.", value);
+                        log_warning_errno(r, "Failed to parse service watchdog switch %s, ignoring: %m", value);
                 else
                         arg_service_watchdogs = r;
 
@@ -410,7 +411,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (value) {
                         r = parse_show_status(value, &arg_show_status);
                         if (r < 0)
-                                log_warning("Failed to parse show status switch %s. Ignoring.", value);
+                                log_warning_errno(r, "Failed to parse show status switch %s, ignoring: %m", value);
                 } else
                         arg_show_status = SHOW_STATUS_YES;
 
@@ -421,7 +422,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = exec_output_from_string(value);
                 if (r < 0)
-                        log_warning("Failed to parse default standard output switch %s. Ignoring.", value);
+                        log_warning_errno(r, "Failed to parse default standard output switch %s, ignoring: %m", value);
                 else
                         arg_default_std_output = r;
 
@@ -432,7 +433,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = exec_output_from_string(value);
                 if (r < 0)
-                        log_warning("Failed to parse default standard error switch %s. Ignoring.", value);
+                        log_warning_errno(r, "Failed to parse default standard error switch %s, ignoring: %m", value);
                 else
                         arg_default_std_error = r;
 
@@ -459,7 +460,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = set_machine_id(value);
                 if (r < 0)
-                        log_warning("MachineID '%s' is not valid. Ignoring.", value);
+                        log_warning_errno(r, "MachineID '%s' is not valid, ignoring: %m", value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.default_timeout_start_sec")) {
 
@@ -468,7 +469,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = parse_sec(value, &arg_default_timeout_start_usec);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse default start timeout: %s, ignoring.", value);
+                        log_warning_errno(r, "Failed to parse default start timeout '%s', ignoring: %m", value);
 
                 if (arg_default_timeout_start_usec <= 0)
                         arg_default_timeout_start_usec = USEC_INFINITY;

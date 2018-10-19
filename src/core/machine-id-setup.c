@@ -73,7 +73,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
         /* If that didn't work, generate a random machine id */
         r = sd_id128_randomize(ret);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate randomized : %m");
+                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
 
         log_info("Initializing machine ID from random generator.");
         return 0;
@@ -108,8 +108,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
                                                   "2) /etc/machine-id exists and is empty.\n"
                                                   "3) /etc/machine-id is missing and /etc is writable.\n");
                                 else
-                                        return log_error_errno(errno,
-                                                               "Cannot open %s: %m", etc_machine_id);
+                                        return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
                         }
 
                         writable = false;
@@ -208,7 +207,7 @@ int machine_id_commit(const char *root) {
 
         r = id128_read_fd(fd, ID128_PLAIN, &id);
         if (r < 0)
-                return log_error_errno(r, "We didn't find a valid machine ID in %s.", etc_machine_id);
+                return log_error_errno(r, "We didn't find a valid machine ID in %s: %m", etc_machine_id);
 
         fd = safe_close(fd);
 

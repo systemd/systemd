@@ -106,7 +106,7 @@ static int write_access2_rules(const char* srcdir) {
                         if (write(isempty(acc2) ? load2_fd : change_fd, buf, strlen(buf)) < 0) {
                                 if (r == 0)
                                         r = -errno;
-                                log_error_errno(errno, "Failed to write '%s' to '%s' in '%s'",
+                                log_error_errno(errno, "Failed to write '%s' to '%s' in '%s': %m",
                                                 buf, isempty(acc2) ? "/sys/fs/smackfs/load2" : "/sys/fs/smackfs/change-rule", entry->d_name);
                         }
                 }
@@ -181,7 +181,7 @@ static int write_cipso2_rules(const char* srcdir) {
                         if (write(cipso2_fd, buf, strlen(buf)) < 0) {
                                 if (r == 0)
                                         r = -errno;
-                                log_error_errno(errno, "Failed to write '%s' to '/sys/fs/smackfs/cipso2' in '%s'",
+                                log_error_errno(errno, "Failed to write '%s' to '/sys/fs/smackfs/cipso2' in '%s': %m",
                                                 buf, entry->d_name);
                                 break;
                         }
@@ -253,7 +253,7 @@ static int write_netlabel_rules(const char* srcdir) {
                         if (!fputs(buf, dst)) {
                                 if (r == 0)
                                         r = -EINVAL;
-                                log_error_errno(errno, "Failed to write line to /sys/fs/smackfs/netlabel");
+                                log_error_errno(errno, "Failed to write line to /sys/fs/smackfs/netlabel: %m");
                                 break;
                         }
                         q = fflush_and_check(dst);
@@ -410,7 +410,7 @@ int mac_smack_setup(bool *loaded_policy) {
                 log_info("Successfully wrote Smack onlycap list.");
                 break;
         default:
-                log_emergency_errno(r, "Failed to write Smack onlycap list.");
+                log_emergency_errno(r, "Failed to write Smack onlycap list: %m");
                 return r;
         }
 
