@@ -469,6 +469,10 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                         return -ENOMEM;
         }
 
+        r = sd_netlink_message_read_u32(message, IFLA_MASTER, (uint32_t *)&link->master_ifindex);
+        if (r < 0)
+                log_link_debug_errno(link, r, "New device has no master, continuing without");
+
         r = sd_netlink_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
         if (r < 0)
                 log_link_debug_errno(link, r, "MAC address not found for new device, continuing without");
@@ -2358,6 +2362,10 @@ static int link_enter_join_netdev(Link *link) {
                 return link_joined(link);
 
         if (link->network->bond) {
+                if (link->network->bond->state == NETDEV_STATE_READY &&
+                    link->network->bond->ifindex == link->master_ifindex)
+                        return link_joined(link);
+
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
                            LOG_NETDEV_INTERFACE(link->network->bond),
