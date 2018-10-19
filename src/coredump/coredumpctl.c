@@ -237,13 +237,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'S':
                         r = parse_timestamp(optarg, &arg_since);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
+                                return log_error_errno(r, "Failed to parse timestamp '%s': %m", optarg);
                         break;
 
                 case 'U':
                         r = parse_timestamp(optarg, &arg_until);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
+                                return log_error_errno(r, "Failed to parse timestamp '%s': %m", optarg);
                         break;
 
                 case 'F':
