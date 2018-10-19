@@ -407,7 +407,7 @@ void server_process_syslog_message(
         }
 
         if (syslog_ts_len > 0) {
-                const size_t hlen = strlen("SYSLOG_TIMESTAMP=");
+                const size_t hlen = STRLEN("SYSLOG_TIMESTAMP=");
 
                 t = newa(char, hlen + syslog_ts_len);
                 memcpy(t, "SYSLOG_TIMESTAMP=", hlen);
@@ -424,7 +424,7 @@ void server_process_syslog_message(
         iovec[n++] = IOVEC_MAKE_STRING(msg_msg);
 
         if (store_raw) {
-                const size_t hlen = strlen("SYSLOG_RAW=");
+                const size_t hlen = STRLEN("SYSLOG_RAW=");
 
                 msg_raw = new(char, hlen + raw_len);
                 if (!msg_raw) {

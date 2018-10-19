@@ -1419,11 +1419,9 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                 if (!in_charset(p, "0123456789") || *p == '\0') {
                         if (!machine_name_is_valid(p) || got_forward_slash)
                                 return -EINVAL;
-                        else {
-                                m = p;
-                                p = NULL;
-                                goto interpret_port_as_machine_old_syntax;
-                        }
+
+                        m = TAKE_PTR(p);
+                        goto interpret_port_as_machine_old_syntax;
                 }
         }
 

@@ -343,9 +343,9 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
 
         *a = (CGroupDeviceAllow) {
                 .path = TAKE_PTR(d),
-                .r = isempty(mode) || !!strchr(mode, 'r'),
-                .w = isempty(mode) || !!strchr(mode, 'w'),
-                .m = isempty(mode) || !!strchr(mode, 'm'),
+                .r = isempty(mode) || strchr(mode, 'r'),
+                .w = isempty(mode) || strchr(mode, 'w'),
+                .m = isempty(mode) || strchr(mode, 'm'),
         };
 
         LIST_PREPEND(device_allow, c->device_allow, a);
@@ -1579,7 +1579,7 @@ static int unit_create_cgroup(
         r = cg_create_everywhere(u->manager->cgroup_supported, target_mask, u->cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to create cgroup %s: %m", u->cgroup_path);
-        created = !!r;
+        created = r;
 
         /* Start watching it */
         (void) unit_watch_cgroup(u);
