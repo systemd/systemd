@@ -106,7 +106,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = unhexmem(optarg, strlen(optarg), &p, &l);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse root hash: %s", optarg);
+                                return log_error_errno(r, "Failed to parse root hash '%s': %m", optarg);
                         if (l < sizeof(sd_id128_t)) {
                                 log_error("Root hash must be at least 128bit long: %s", optarg);
                                 free(p);
