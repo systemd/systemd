@@ -17,17 +17,17 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-__contains_word () {
+__contains_word() {
         local w word=$1; shift
         for w in "$@"; do
                 [[ $w = "$word" ]] && return
         done
 }
 
-__get_interfaces(){
-        { cd /sys/class/net && echo *; } | \
-        while read -d' ' -r name; do
-                [[ "$name" != "lo" ]] && echo "$name"
+__get_interfaces() {
+        local i
+        for i in $(ls /sys/class/net); do
+                [[ "$i" != "lo" ]] && echo "$i"
         done
 }
 
