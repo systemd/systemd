@@ -16,8 +16,8 @@
 #include <scsi/scsi.h>
 
 struct scsi_ioctl_command {
-        unsigned int inlen;        /* excluding scsi command length */
-        unsigned int outlen;
+        unsigned inlen;        /* excluding scsi command length */
+        unsigned outlen;
         unsigned char data[1];
         /* on input, scsi command starts here then opt. data */
 };

@@ -452,7 +452,7 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path, 
 
 static struct udev_device *handle_cciss(struct udev_device *parent, char **path) {
         const char *str;
-        unsigned int controller, disk;
+        unsigned controller, disk;
 
         str = udev_device_get_sysname(parent);
         if (sscanf(str, "c%ud%u%*s", &controller, &disk) != 2)
@@ -497,7 +497,7 @@ static struct udev_device *handle_usb(struct udev_device *parent, char **path) {
 
 static struct udev_device *handle_bcma(struct udev_device *parent, char **path) {
         const char *sysname;
-        unsigned int core;
+        unsigned core;
 
         sysname = udev_device_get_sysname(parent);
         if (sscanf(sysname, "bcma%*u:%u", &core) != 1)

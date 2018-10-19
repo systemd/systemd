@@ -1480,7 +1480,7 @@ int seccomp_restrict_realtime(void) {
 static int add_seccomp_syscall_filter(scmp_filter_ctx seccomp,
                                       uint32_t arch,
                                       int nr,
-                                      unsigned int arg_cnt,
+                                      unsigned arg_cnt,
                                       const struct scmp_arg_cmp arg) {
         int r;
 

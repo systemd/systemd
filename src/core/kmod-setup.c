@@ -95,7 +95,7 @@ int kmod_setup(void) {
                 { "virtio_rng", NULL,                       false,  false,   has_virtio_rng },
         };
         _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
-        unsigned int i;
+        unsigned i;
 
         if (have_effective_cap(CAP_SYS_MODULE) == 0)
                 return 0;

@@ -41,7 +41,7 @@ static WireguardPeer *wireguard_peer_new(Wireguard *w, unsigned section) {
 
 static int set_wireguard_interface(NetDev *netdev) {
         int r;
-        unsigned int i, j;
+        unsigned i, j;
         WireguardPeer *peer, *peer_start;
         WireguardIPmask *mask, *mask_start = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;

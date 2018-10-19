@@ -41,7 +41,7 @@ enum udev_ctrl_msg_type {
 
 struct udev_ctrl_msg_wire {
         char version[16];
-        unsigned int magic;
+        unsigned magic;
         enum udev_ctrl_msg_type type;
         union {
                 int intval;

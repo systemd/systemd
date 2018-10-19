@@ -468,7 +468,7 @@ void session_device_pause_all(Session *s) {
         }
 }
 
-unsigned int session_device_try_pause_all(Session *s) {
+unsigned session_device_try_pause_all(Session *s) {
         unsigned num_pending = 0;
         SessionDevice *sd;
         Iterator i;

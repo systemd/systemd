@@ -33,7 +33,7 @@ void session_device_complete_pause(SessionDevice *sd);
 
 void session_device_resume_all(Session *s);
 void session_device_pause_all(Session *s);
-unsigned int session_device_try_pause_all(Session *s);
+unsigned session_device_try_pause_all(Session *s);
 
 int session_device_save(SessionDevice *sd);
 void session_device_attach_fd(SessionDevice *sd, int fd, bool active);

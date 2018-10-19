@@ -43,7 +43,7 @@ static ssize_t try_copy_file_range(
                 int fd_in, loff_t *off_in,
                 int fd_out, loff_t *off_out,
                 size_t len,
-                unsigned int flags) {
+                unsigned flags) {
 
         static int have = -1;
         ssize_t r;

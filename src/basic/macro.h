@@ -335,7 +335,7 @@ static inline int __coverity_check__(int condition) {
 
 #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define INT_TO_PTR(u) ((void *) ((intptr_t) (u)))
-#define PTR_TO_UINT(p) ((unsigned int) ((uintptr_t) (p)))
+#define PTR_TO_UINT(p) ((unsigned) ((uintptr_t) (p)))
 #define UINT_TO_PTR(u) ((void *) ((uintptr_t) (u)))
 
 #define PTR_TO_LONG(p) ((long) ((intptr_t) (p)))

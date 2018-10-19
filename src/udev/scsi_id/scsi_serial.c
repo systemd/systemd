@@ -268,7 +268,7 @@ static int scsi_dump_v4(struct scsi_id_device *dev_scsi, struct sg_io_v4 *io) {
 
 static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
                         unsigned char evpd, unsigned char page,
-                        unsigned char *buf, unsigned int buflen) {
+                        unsigned char *buf, unsigned buflen) {
         unsigned char inq_cmd[INQUIRY_CMDLEN] =
                 { INQUIRY_CMD, evpd, page, 0, buflen, 0 };
         unsigned char sense[SENSE_BUFF_LEN];
@@ -359,7 +359,7 @@ error:
 
 /* Get list of supported EVPD pages */
 static int do_scsi_page0_inquiry(struct scsi_id_device *dev_scsi, int fd,
-                                 unsigned char *buffer, unsigned int len) {
+                                 unsigned char *buffer, unsigned len) {
         int retval;
 
         memzero(buffer, len);
@@ -481,9 +481,9 @@ static int check_fill_0x83_id(struct scsi_id_device *dev_scsi,
         }
 
         if (id_search->id_type == SCSI_ID_TGTGROUP && tgpt_group != NULL) {
-                unsigned int group;
+                unsigned group;
 
-                group = ((unsigned int)page_83[6] << 8) | page_83[7];
+                group = ((unsigned)page_83[6] << 8) | page_83[7];
                 sprintf(tgpt_group,"%x", group);
                 return 1;
         }
@@ -557,7 +557,7 @@ static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
                                   char *unit_serial_number, char *wwn,
                                   char *wwn_vendor_extension, char *tgpt_group) {
         int retval;
-        unsigned int id_ind, j;
+        unsigned id_ind, j;
         unsigned char page_83[SCSI_INQ_BUFF_LEN];
 
         /* also pick up the page 80 serial number */
@@ -618,7 +618,7 @@ static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
                  * Examine each descriptor returned. There is normally only
                  * one or a small number of descriptors.
                  */
-                for (j = 4; j <= (unsigned int)page_83[3] + 3; j += page_83[j + 3] + 4) {
+                for (j = 4; j <= (unsigned)page_83[3] + 3; j += page_83[j + 3] + 4) {
                         retval = check_fill_0x83_id(dev_scsi, &page_83[j],
                                                     &id_search_list[id_ind],
                                                     serial, serial_short, len,

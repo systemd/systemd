@@ -58,7 +58,7 @@ struct Session {
         Manager *manager;
 
         const char *id;
-        unsigned int position;
+        unsigned position;
         SessionType type;
         SessionClass class;
 
@@ -82,7 +82,7 @@ struct Session {
         char *scope_job;
 
         Seat *seat;
-        unsigned int vtnr;
+        unsigned vtnr;
         int vtfd;
 
         pid_t leader;

@@ -257,12 +257,12 @@ static int disk_identify_packet_device_command(
  */
 static void disk_identify_get_string(
                 uint8_t identify[512],
-                unsigned int offset_words,
+                unsigned offset_words,
                 char *dest,
                 size_t dest_len) {
 
-        unsigned int c1;
-        unsigned int c2;
+        unsigned c1;
+        unsigned c2;
 
         while (dest_len > 0) {
                 c1 = identify[offset_words * 2 + 1];
@@ -278,13 +278,13 @@ static void disk_identify_get_string(
 
 static void disk_identify_fixup_string(
                 uint8_t identify[512],
-                unsigned int offset_words,
+                unsigned offset_words,
                 size_t len) {
         disk_identify_get_string(identify, offset_words,
                                  (char *) identify + offset_words * 2, len);
 }
 
-static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offset_words) {
+static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned offset_words) {
         uint16_t *p;
 
         p = (uint16_t *) identify;

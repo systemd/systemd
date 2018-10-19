@@ -483,7 +483,7 @@ int session_load(Session *s) {
                 s->vtnr = 0;
 
         if (position && s->seat) {
-                unsigned int npos;
+                unsigned npos;
 
                 safe_atou(position, &npos);
                 seat_claim_position(s->seat, s, npos);
@@ -580,7 +580,7 @@ int session_load(Session *s) {
 }
 
 int session_activate(Session *s) {
-        unsigned int num_pending;
+        unsigned num_pending;
 
         assert(s);
         assert(s->user);

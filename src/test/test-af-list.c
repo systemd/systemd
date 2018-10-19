@@ -16,7 +16,7 @@ static const struct af_name* lookup_af(register const char *str, register GPERF_
 
 int main(int argc, const char *argv[]) {
 
-        unsigned int i;
+        unsigned i;
 
         for (i = 0; i < ELEMENTSOF(af_names); i++) {
                 if (af_names[i]) {

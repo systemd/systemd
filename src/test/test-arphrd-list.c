@@ -16,7 +16,7 @@ static const struct arphrd_name* lookup_arphrd(register const char *str, registe
 
 int main(int argc, const char *argv[]) {
 
-        unsigned int i;
+        unsigned i;
 
         for (i = 1; i < ELEMENTSOF(arphrd_names); i++) {
                 if (arphrd_names[i]) {

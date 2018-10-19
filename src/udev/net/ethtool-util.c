@@ -119,7 +119,7 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         return 0;
 }
 
-int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex duplex) {
+int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET
         };
@@ -474,7 +474,7 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_lin
                 struct ethtool_link_settings req;
                 __u32 link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
         } ecmd = {};
-        unsigned int offset;
+        unsigned offset;
         int r;
 
         if (u->base.cmd != ETHTOOL_GLINKSETTINGS || u->base.link_mode_masks_nwords <= 0)

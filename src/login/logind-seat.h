@@ -37,17 +37,17 @@ int seat_load(Seat *s);
 
 int seat_apply_acls(Seat *s, Session *old_active);
 int seat_set_active(Seat *s, Session *session);
-int seat_switch_to(Seat *s, unsigned int num);
+int seat_switch_to(Seat *s, unsigned num);
 int seat_switch_to_next(Seat *s);
 int seat_switch_to_previous(Seat *s);
-int seat_active_vt_changed(Seat *s, unsigned int vtnr);
+int seat_active_vt_changed(Seat *s, unsigned vtnr);
 int seat_read_active_vt(Seat *s);
 int seat_preallocate_vts(Seat *s);
 
 int seat_attach_session(Seat *s, Session *session);
 void seat_complete_switch(Seat *s);
 void seat_evict_position(Seat *s, Session *session);
-void seat_claim_position(Seat *s, Session *session, unsigned int pos);
+void seat_claim_position(Seat *s, Session *session, unsigned pos);
 
 bool seat_has_vts(Seat *s);
 bool seat_is_seat0(Seat *s);

@@ -32,7 +32,7 @@ static bool skip_attribute(const char *name) {
                 "subsystem",
                 "module",
         };
-        unsigned int i;
+        unsigned i;
 
         for (i = 0; i < ELEMENTSOF(skip); i++)
                 if (streq(name, skip[i]))
