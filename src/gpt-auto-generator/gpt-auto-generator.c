@@ -561,7 +561,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = value ? parse_boolean(value) : 1;
                 if (r < 0)
-                        log_warning("Failed to parse gpt-auto switch \"%s\". Ignoring.", value);
+                        log_warning_errno(r, "Failed to parse gpt-auto switch \"%s\", ignoring: %m", value);
                 else
                         arg_enabled = r;
 
