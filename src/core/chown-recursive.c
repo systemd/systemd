@@ -111,7 +111,6 @@ static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gi
 int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
         struct stat st;
-        int r;
 
         fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd < 0)
@@ -130,8 +129,5 @@ int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
             (!gid_is_valid(gid) || st.st_gid == gid))
                 return 0;
 
-        r = chown_recursive_internal(fd, &st, uid, gid);
-        fd = -1; /* we donated the fd to the call, regardless if it succeeded or failed */
-
-        return r;
+        return chown_recursive_internal(TAKE_FD(fd), &st, uid, gid); /* we donate the fd to the call, regardless if it succeeded or failed */
 }
