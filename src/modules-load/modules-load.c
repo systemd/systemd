@@ -81,10 +81,10 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 char *l;
                 int k;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
-                if (r < 0)
-                        return log_error_errno(errno, "Failed to read file '%s': %m", path);
-                if (r == 0)
+                k = read_line(f, LONG_LINE_MAX, &line);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to read file '%s': %m", path);
+                if (k == 0)
                         break;
 
                 l = strstrip(line);
@@ -94,7 +94,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                         continue;
 
                 k = module_load_and_warn(ctx, l, true);
-                if (k < 0 && r == 0)
+                if (k < 0 && r >= 0)
                         r = k;
         }
 
