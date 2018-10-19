@@ -37,9 +37,9 @@ typedef struct DHCP6PDPrefixOption {
         uint8_t options[];
 } _packed_ DHCP6PDPrefixOption;
 
-#define DHCP6_OPTION_IA_NA_LEN                  (sizeof(struct ia_na))
-#define DHCP6_OPTION_IA_PD_LEN                  (sizeof(struct ia_pd))
-#define DHCP6_OPTION_IA_TA_LEN                  (sizeof(struct ia_ta))
+#define DHCP6_OPTION_IA_NA_LEN (sizeof(struct ia_na))
+#define DHCP6_OPTION_IA_PD_LEN (sizeof(struct ia_pd))
+#define DHCP6_OPTION_IA_TA_LEN (sizeof(struct ia_ta))
 
 static int option_append_hdr(uint8_t **buf, size_t *buflen, uint16_t optcode,
                              size_t optlen) {
