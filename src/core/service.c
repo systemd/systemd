@@ -2754,7 +2754,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 r = cunescape(value, 0, &t);
                 if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to unescape status text: %s", value);
+                        log_unit_debug_errno(u, r, "Failed to unescape status text '%s': %m", value);
                 else
                         free_and_replace(s->status_text, t);
 
@@ -2763,7 +2763,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 r = manager_load_unit(u->manager, value, NULL, NULL, &socket);
                 if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to load accept-socket unit: %s", value);
+                        log_unit_debug_errno(u, r, "Failed to load accept-socket unit '%s': %m", value);
                 else {
                         unit_ref_set(&s->accept_socket, u, socket);
                         SOCKET(socket)->n_connections++;
@@ -3735,7 +3735,7 @@ static void service_notify_message(
                 status_errno = parse_errno(e);
                 if (status_errno < 0)
                         log_unit_warning_errno(u, status_errno,
-                                               "Failed to parse ERRNO= field in notification message: %s", e);
+                                               "Failed to parse ERRNO= field value '%s' in notification message: %m", e);
                 else if (s->status_errno != status_errno) {
                         s->status_errno = status_errno;
                         notify_dbus = true;
