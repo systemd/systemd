@@ -2026,7 +2026,7 @@ static int setup_journal(const char *directory) {
         _cleanup_free_ char *d = NULL;
         const char *p, *q;
         bool try;
-        char id[33];
+        char id[33], *dirname;
         int r;
 
         /* Don't link journals in ephemeral mode */
@@ -2050,17 +2050,15 @@ static int setup_journal(const char *directory) {
                 return -EEXIST;
         }
 
-        r = userns_mkdir(directory, "/var", 0755, 0, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create /var: %m");
-
-        r = userns_mkdir(directory, "/var/log", 0755, 0, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create /var/log: %m");
-
-        r = userns_mkdir(directory, "/var/log/journal", 0755, 0, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create /var/log/journal: %m");
+        FOREACH_STRING(dirname, "/var", "/var/log", "/var/log/journal") {
+                r = userns_mkdir(directory, dirname, 0755, 0, 0);
+                if (r < 0) {
+                        bool ignore = r == -EROFS && try;
+                        log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
+                                       "Failed to create %s%s: %m", dirname, ignore ? ", ignoring" : "");
+                        return ignore ? 0 : r;
+                }
+        }
 
         (void) sd_id128_to_string(arg_uuid, id);
 
