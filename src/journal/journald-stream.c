@@ -610,7 +610,17 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         }
 
         if (s->n_stdout_streams >= STDOUT_STREAMS_MAX) {
-                log_warning("Too many stdout streams, refusing connection.");
+                struct ucred u;
+
+                r = getpeercred(fd, &u);
+
+                /* By closing fd here we make sure that the client won't wait too long for journald to
+                 * gather all the data it adds to the error message to find out that the connection has
+                 * just been refused.
+                 */
+                fd = safe_close(fd);
+
+                server_driver_message(s, r < 0 ? 0 : u.pid, NULL, LOG_MESSAGE("Too many stdout streams, refusing connection."), NULL);
                 return 0;
         }
 
