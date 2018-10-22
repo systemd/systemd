@@ -771,6 +771,16 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
         return 0;
 }
 
+bool efi_loader_entry_name_valid(const char *s) {
+        if (isempty(s))
+                return false;
+
+        if (strlen(s) > FILENAME_MAX) /* Make sure entry names fit in filenames */
+                return false;
+
+        return in_charset(s, ALPHANUMERICAL "-");
+}
+
 int efi_loader_get_entries(char ***ret) {
         _cleanup_free_ char16_t *entries = NULL;
         _cleanup_strv_free_ char **l = NULL;
@@ -789,7 +799,7 @@ int efi_loader_get_entries(char ***ret) {
         /* The variable contains a series of individually NUL terminated UTF-16 strings. */
 
         for (i = 0, start = 0;; i++) {
-                char *decoded;
+                _cleanup_free_ char *decoded = NULL;
                 bool end;
 
                 /* Is this the end of the variable's data? */
@@ -805,9 +815,12 @@ int efi_loader_get_entries(char ***ret) {
                 if (!decoded)
                         return -ENOMEM;
 
-                r = strv_consume(&l, decoded);
-                if (r < 0)
-                        return r;
+                if (efi_loader_entry_name_valid(decoded)) {
+                        r = strv_consume(&l, TAKE_PTR(decoded));
+                        if (r < 0)
+                                return r;
+                } else
+                        log_debug("Ignoring invalid loader entry '%s'.", decoded);
 
                 /* We reached the end of the variable */
                 if (end)
