@@ -454,10 +454,9 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         /* Skip device, if it does not pass the current filter */
         r = passes_filter(m, device);
         if (r < 0)
-                return log_debug_errno(r, "Failed to check received device passing filter: %m");
-
+                return log_device_debug_errno(device, r, "Failed to check received device passing filter: %m");
         if (r == 0)
-                log_debug("Received device does not pass filter, ignoring");
+                log_device_debug(device, "Received device does not pass filter, ignoring");
         else
                 *ret = TAKE_PTR(device);
 
@@ -522,7 +521,7 @@ int device_monitor_send_device(
         /* fill in versioned header */
         r = sd_device_get_subsystem(device, &val);
         if (r < 0)
-                return log_debug_errno(r, "Failed to get device subsystem: %m");
+                return log_device_debug_errno(device, r, "Failed to get device subsystem: %m");
         nlh.filter_subsystem_hash = htobe32(string_hash32(val));
 
         if (sd_device_get_devtype(device, &val) >= 0)
@@ -557,13 +556,13 @@ int device_monitor_send_device(
         count = sendmsg(m->sock, &smsg, 0);
         if (count < 0) {
                 if (!destination && errno == ECONNREFUSED) {
-                        log_debug("Passed device to netlink monitor");
+                        log_device_debug(device, "Passed to netlink monitor");
                         return 0;
                 } else
-                        return log_debug_errno(errno, "Failed to send device to netlink monitor: %m");
+                        return log_device_debug_errno(device, errno, "Failed to send device to netlink monitor: %m");
         }
 
-        log_debug("Passed %zi byte device to netlink monitor", count);
+        log_device_debug(device, "Passed %zi byte to netlink monitor", count);
         return count;
 }
 
