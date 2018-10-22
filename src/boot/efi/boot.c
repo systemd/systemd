@@ -1413,7 +1413,7 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
 
         err = efivar_get_int(L"LoaderConfigTimeout", &sec);
         if (!EFI_ERROR(err)) {
-                config->timeout_sec_efivar = sec;
+                config->timeout_sec_efivar = sec > INTN_MAX ? INTN_MAX : sec;
                 config->timeout_sec = sec;
         } else
                 config->timeout_sec_efivar = -1;
