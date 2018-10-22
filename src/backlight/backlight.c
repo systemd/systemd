@@ -216,14 +216,14 @@ static int get_max_brightness(sd_device *device, unsigned *ret) {
 
         r = sd_device_get_sysattr_value(device, "max_brightness", &max_brightness_str);
         if (r < 0)
-                return log_warning_errno(r, "Failed to read 'max_brightness' attribute: %m");
+                return log_device_warning_errno(device, r, "Failed to read 'max_brightness' attribute: %m");
 
         r = safe_atou(max_brightness_str, &max_brightness);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse 'max_brightness' \"%s\": %m", max_brightness_str);
+                return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", max_brightness_str);
 
         if (max_brightness <= 0) {
-                log_warning("Maximum brightness is 0, ignoring device.");
+                log_device_warning(device, "Maximum brightness is 0, ignoring device.");
                 return -EINVAL;
         }
 
@@ -246,11 +246,11 @@ static int clamp_brightness(sd_device *device, char **value, unsigned max_bright
 
         r = safe_atou(*value, &brightness);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse brightness \"%s\": %m", *value);
+                return log_device_warning_errno(device, r, "Failed to parse brightness \"%s\": %m", *value);
 
         r = sd_device_get_subsystem(device, &subsystem);
         if (r < 0)
-                return log_warning_errno(r, "Failed to get device subsystem: %m");
+                return log_device_warning_errno(device, r, "Failed to get device subsystem: %m");
 
         if (streq(subsystem, "backlight"))
                 min_brightness = MAX(1U, max_brightness/20);
@@ -265,10 +265,10 @@ static int clamp_brightness(sd_device *device, char **value, unsigned max_bright
                 if (r < 0)
                         return log_oom();
 
-                log_info("Saved brightness %s %s to %s.", *value,
-                         new_brightness > brightness ?
-                         "too low; increasing" : "too high; decreasing",
-                         new_value);
+                log_device_info(device, "Saved brightness %s %s to %s.", *value,
+                                new_brightness > brightness ?
+                                "too low; increasing" : "too high; decreasing",
+                                new_value);
 
                 free_and_replace(*value, new_value);
         }
@@ -283,12 +283,14 @@ static bool shall_clamp(sd_device *d) {
         assert(d);
 
         r = sd_device_get_property_value(d, "ID_BACKLIGHT_CLAMP", &s);
-        if (r < 0)
+        if (r < 0) {
+                log_device_debug_errno(d, r, "Failed to get ID_BACKLIGHT_CLAMP property, ignoring: %m");
                 return true;
+        }
 
         r = parse_boolean(s);
         if (r < 0) {
-                log_debug_errno(r, "Failed to parse ID_BACKLIGHT_CLAMP property, ignoring: %m");
+                log_device_debug_errno(d, r, "Failed to parse ID_BACKLIGHT_CLAMP property, ignoring: %m");
                 return true;
         }
 
@@ -402,7 +404,7 @@ int main(int argc, char *argv[]) {
 
                         r = sd_device_get_sysattr_value(device, "brightness", &curval);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to read 'brightness' attribute: %m");
+                                log_device_warning_errno(device, r, "Failed to read 'brightness' attribute: %m");
                                 return EXIT_FAILURE;
                         }
 
@@ -421,7 +423,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_device_set_sysattr_value(device, "brightness", value);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to write system 'brightness' attribute: %m");
+                        log_device_error_errno(device, r, "Failed to write system 'brightness' attribute: %m");
                         return EXIT_FAILURE;
                 }
 
@@ -435,13 +437,13 @@ int main(int argc, char *argv[]) {
 
                 r = sd_device_get_sysattr_value(device, "brightness", &value);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to read system 'brightness' attribute: %m");
+                        log_device_error_errno(device, r, "Failed to read system 'brightness' attribute: %m");
                         return EXIT_FAILURE;
                 }
 
                 r = write_string_file(saved, value, WRITE_STRING_FILE_CREATE);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to write %s: %m", saved);
+                        log_device_error_errno(device, r, "Failed to write %s: %m", saved);
                         return EXIT_FAILURE;
                 }
 
