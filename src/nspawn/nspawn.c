@@ -574,6 +574,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'x':
                         arg_ephemeral = true;
+                        arg_settings_mask |= SETTING_EPHEMERAL;
                         break;
 
                 case 'u':
@@ -3379,6 +3380,9 @@ static int merge_settings(Settings *settings, const char *path) {
                 arg_start_mode = settings->start_mode;
                 strv_free_and_replace(arg_parameters, settings->parameters);
         }
+
+        if ((arg_settings_mask & SETTING_EPHEMERAL) == 0)
+                arg_ephemeral = settings->ephemeral;
 
         if ((arg_settings_mask & SETTING_PIVOT_ROOT) == 0 &&
             settings->pivot_root_new) {
