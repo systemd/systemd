@@ -12,6 +12,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "efivars.h"
@@ -461,42 +462,42 @@ static int open_parent(dev_t devnum, int *ret) {
         if (sd_device_get_devname(d, &name) < 0) {
                 r = sd_device_get_syspath(d, &name);
                 if (r < 0) {
-                        log_debug_errno(r, "Device %u:%u does not have a name, ignoring: %m", major(devnum), minor(devnum));
+                        log_device_debug_errno(d, r, "Device %u:%u does not have a name, ignoring: %m", major(devnum), minor(devnum));
                         return 0;
                 }
         }
 
         r = sd_device_get_parent(d, &parent);
         if (r < 0) {
-                log_debug_errno(r, "%s: not a partitioned device, ignoring: %m", name);
+                log_device_debug_errno(d, r, "Not a partitioned device, ignoring: %m");
                 return 0;
         }
 
         /* Does it have a devtype? */
         r = sd_device_get_devtype(parent, &devtype);
         if (r < 0) {
-                log_debug_errno(r, "%s: parent doesn't have a device type, ignoring: %m", name);
+                log_device_debug_errno(parent, r, "Parent doesn't have a device type, ignoring: %m");
                 return 0;
         }
 
         /* Is this a disk or a partition? We only care for disks... */
         if (!streq(devtype, "disk")) {
-                log_debug("%s: parent isn't a raw disk, ignoring.", name);
+                log_device_debug(parent, "Parent isn't a raw disk, ignoring.");
                 return 0;
         }
 
         /* Does it have a device node? */
         r = sd_device_get_devname(parent, &node);
         if (r < 0) {
-                log_debug_errno(r, "%s: parent device does not have device node, ignoring: %m", name);
+                log_device_debug_errno(parent, r, "Parent device does not have device node, ignoring: %m");
                 return 0;
         }
 
-        log_debug("%s: root device %s.", name, node);
+        log_device_debug(d, "Root device %s.", node);
 
         r = sd_device_get_devnum(parent, &pn);
         if (r < 0) {
-                log_debug_errno(r, "%s: parent device is not a proper block device, ignoring: %m", name);
+                log_device_debug_errno(parent, r, "Parent device is not a proper block device, ignoring: %m");
                 return 0;
         }
 
