@@ -6,15 +6,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "libudev-private.h"
-#include "path-util.h"
-#include "string-util.h"
-#include "strxcpyx.h"
+#include "log.h"
 #include "udev-builtin.h"
 #include "udevadm.h"
+#include "udevadm-util.h"
 
 static const char *arg_command = NULL;
-static char arg_syspath[UTIL_PATH_SIZE] = {};
+static const char *arg_syspath = NULL;
 
 static int help(void) {
         printf("%s test-builtin [OPTIONS] COMMAND DEVPATH\n\n"
@@ -36,7 +34,6 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        const char *s;
         int c;
 
         while ((c = getopt_long(argc, argv, "Vh", options, NULL)) >= 0)
@@ -57,17 +54,11 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        s = argv[optind++];
-        if (!s) {
+        arg_syspath = argv[optind++];
+        if (!arg_syspath) {
                 log_error("syspath missing.");
                 return -EINVAL;
         }
-
-        /* add /sys if needed */
-        if (!path_startswith(s, "/sys"))
-                strscpyl(arg_syspath, sizeof(arg_syspath), "/sys", s, NULL);
-        else
-                strscpy(arg_syspath, sizeof(arg_syspath), s);
 
         return 1;
 }
@@ -92,7 +83,7 @@ int builtin_main(int argc, char *argv[], void *userdata) {
                 goto finish;
         }
 
-        r = sd_device_new_from_syspath(&dev, arg_syspath);
+        r = find_device(arg_syspath, "/sys", &dev);
         if (r < 0) {
                 log_error_errno(r, "Failed to open device '%s': %m", arg_syspath);
                 goto finish;
