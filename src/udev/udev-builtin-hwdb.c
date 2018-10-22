@@ -21,7 +21,7 @@ int udev_builtin_hwdb_lookup(sd_device *dev,
                              const char *filter, bool test) {
         _cleanup_free_ char *lookup = NULL;
         const char *key, *value;
-        int n = 0;
+        int n = 0, r;
 
         if (!hwdb)
                 return -ENOENT;
@@ -37,8 +37,9 @@ int udev_builtin_hwdb_lookup(sd_device *dev,
                 if (filter && fnmatch(filter, key, FNM_NOESCAPE) != 0)
                         continue;
 
-                if (udev_builtin_add_property(dev, test, key, value) < 0)
-                        return -ENOMEM;
+                r = udev_builtin_add_property(dev, test, key, value);
+                if (r < 0)
+                        return r;
                 n++;
         }
         return n;
