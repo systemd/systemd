@@ -7,6 +7,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -73,9 +74,9 @@ static int find_device(
 
         r = sd_device_get_sysattr_value(device, "name", &name);
         if (r < 0)
-                return log_debug_errno(r, "Device has no name, ignoring: %m");
+                return log_device_debug_errno(device, r, "Device has no name, ignoring: %m");
 
-        log_debug("Operating on rfkill device '%s'.", name);
+        log_device_debug(device, "Operating on rfkill device '%s'.", name);
 
         *ret = TAKE_PTR(device);
         return 0;
