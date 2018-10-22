@@ -52,3 +52,6 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
 }
 
 const EFI_GUID loader_guid;
+
+#define UINTN_MAX (~(UINTN)0)
+#define INTN_MAX ((INTN)(UINTN_MAX>>1))
