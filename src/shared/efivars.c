@@ -246,6 +246,24 @@ int efi_get_variable(
         return 0;
 }
 
+int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
+        _cleanup_free_ void *s = NULL;
+        size_t ss = 0;
+        int r;
+        char *x;
+
+        r = efi_get_variable(vendor, name, NULL, &s, &ss);
+        if (r < 0)
+                return r;
+
+        x = utf16_to_utf8(s, ss);
+        if (!x)
+                return -ENOMEM;
+
+        *p = x;
+        return 0;
+}
+
 int efi_set_variable(
                 sd_id128_t vendor,
                 const char *name,
@@ -326,22 +344,14 @@ finish:
         return r;
 }
 
-int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
-        _cleanup_free_ void *s = NULL;
-        size_t ss = 0;
-        int r;
-        char *x;
+int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *v) {
+        _cleanup_free_ char16_t *u16 = NULL;
 
-        r = efi_get_variable(vendor, name, NULL, &s, &ss);
-        if (r < 0)
-                return r;
-
-        x = utf16_to_utf8(s, ss);
-        if (!x)
+        u16 = utf8_to_utf16(v, strlen(v));
+        if (!u16)
                 return -ENOMEM;
 
-        *p = x;
-        return 0;
+        return efi_set_variable(vendor, name, u16, (char16_strlen(u16) + 1) * sizeof(char16_t));
 }
 
 static size_t utf16_size(const uint16_t *s) {
