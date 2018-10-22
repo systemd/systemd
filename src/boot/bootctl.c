@@ -968,14 +968,28 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (is_efi_boot()) {
+                static const struct {
+                        uint64_t flag;
+                        const char *name;
+                } flags[] = {
+                        { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                 },
+                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT,          "Menu timeout control"          },
+                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT, "One-shot menu timeout control" },
+                        { EFI_LOADER_FEATURE_ENTRY_DEFAULT,           "Default entry control"         },
+                        { EFI_LOADER_FEATURE_ENTRY_ONESHOT,           "One-shot entry control"        },
+                };
+
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
                 sd_id128_t loader_part_uuid = SD_ID128_NULL;
+                uint64_t loader_features = 0;
+                size_t i;
 
                 read_loader_efi_var("LoaderFirmwareType", &fw_type);
                 read_loader_efi_var("LoaderFirmwareInfo", &fw_info);
                 read_loader_efi_var("LoaderInfo", &loader);
                 read_loader_efi_var("StubInfo", &stub);
                 read_loader_efi_var("LoaderImageIdentifier", &loader_path);
+                (void) efi_loader_get_features(&loader_features);
 
                 if (loader_path)
                         efi_tilt_backslashes(loader_path);
@@ -992,6 +1006,20 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
                 printf("Current Boot Loader:\n");
                 printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
+
+                for (i = 0; i < ELEMENTSOF(flags); i++) {
+
+                        if (i == 0)
+                                printf("     Features: ");
+                        else
+                                printf("               ");
+
+                        if (FLAGS_SET(loader_features, flags[i].flag))
+                                printf("%s%s%s %s\n", ansi_highlight_green(), special_glyph(CHECK_MARK), ansi_normal(), flags[i].name);
+                        else
+                                printf("%s%s%s %s\n", ansi_highlight_red(), special_glyph(CROSS_MARK), ansi_normal(), flags[i].name);
+                }
+
                 if (stub)
                         printf("         Stub: %s\n", stub);
                 if (!sd_id128_is_null(loader_part_uuid))

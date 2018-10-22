@@ -822,3 +822,53 @@ char *efi_tilt_backslashes(char *s) {
 
         return s;
 }
+
+int efi_loader_get_features(uint64_t *ret) {
+        _cleanup_free_ void *v = NULL;
+        size_t s;
+        int r;
+
+        if (!is_efi_boot()) {
+                *ret = 0;
+                return 0;
+        }
+
+        r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderFeatures", NULL, &v, &s);
+        if (r == -ENOENT) {
+                _cleanup_free_ char *info = NULL;
+
+                /* The new (v240+) LoaderFeatures variable is not supported, let's see if it's systemd-boot at all */
+                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderInfo", &info);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return r;
+
+                        /* Variable not set, definitely means not systemd-boot */
+
+                } else if (first_word(info, "systemd-boot")) {
+
+                        /* An older systemd-boot version. Let's hardcode the feature set, since it was pretty
+                         * static in all its versions. */
+
+                        *ret = EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
+                                EFI_LOADER_FEATURE_ENTRY_DEFAULT |
+                                EFI_LOADER_FEATURE_ENTRY_ONESHOT;
+
+                        return 0;
+                }
+
+                /* No features supported */
+                *ret = 0;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        if (s != sizeof(uint64_t)) {
+                log_debug("LoaderFeatures EFI variable doesn't have the right size.");
+                return -EINVAL;
+        }
+
+        memcpy(ret, v, sizeof(uint64_t));
+        return 0;
+}

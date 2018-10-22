@@ -18,6 +18,12 @@
 #define EFI_VARIABLE_BOOTSERVICE_ACCESS 0x0000000000000002
 #define EFI_VARIABLE_RUNTIME_ACCESS     0x0000000000000004
 
+#define EFI_LOADER_FEATURE_CONFIG_TIMEOUT          (UINT64_C(1) << 0)
+#define EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT (UINT64_C(1) << 1)
+#define EFI_LOADER_FEATURE_ENTRY_DEFAULT           (UINT64_C(1) << 2)
+#define EFI_LOADER_FEATURE_ENTRY_ONESHOT           (UINT64_C(1) << 3)
+#define EFI_LOADER_FEATURE_BOOT_COUNTING           (UINT64_C(1) << 4)
+
 #if ENABLE_EFI
 
 bool is_efi_boot(void);
@@ -42,6 +48,8 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u);
 int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader);
 
 int efi_loader_get_entries(char ***ret);
+
+int efi_loader_get_features(uint64_t *ret);
 
 #else
 
@@ -114,6 +122,10 @@ static inline int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
 }
 
 static inline int efi_loader_get_entries(char ***ret) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_loader_get_features(uint64_t *ret) {
         return -EOPNOTSUPP;
 }
 
