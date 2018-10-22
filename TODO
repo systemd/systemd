@@ -21,6 +21,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* bootctl: implement Type #2 boot loader entry discovery
+
+* bootctl,sd-boot: actually honour the "architecture" key
+
 * consider splitting out all temporary file creation APIs (we have so many in
   fileio.h and elsewhere!) into a new util file of its own.
 
