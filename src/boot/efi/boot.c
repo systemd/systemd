@@ -385,10 +385,10 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"\n--- press key ---\n\n");
         console_key_read(&key, TRUE);
 
-        Print(L"timeout:                %d\n", config->timeout_sec);
+        Print(L"timeout:                %u\n", config->timeout_sec);
         if (config->timeout_sec_efivar >= 0)
                 Print(L"timeout (EFI var):      %d\n", config->timeout_sec_efivar);
-        Print(L"timeout (config):       %d\n", config->timeout_sec_config);
+        Print(L"timeout (config):       %u\n", config->timeout_sec_config);
         if (config->entry_default_pattern)
                 Print(L"default pattern:        '%s'\n", config->entry_default_pattern);
         Print(L"editor:                 %s\n", yes_no(config->editor));
@@ -403,7 +403,8 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"\n");
 
         if (efivar_get_int(L"LoaderConfigTimeout", &i) == EFI_SUCCESS)
-                Print(L"LoaderConfigTimeout:    %d\n", i);
+                Print(L"LoaderConfigTimeout:    %u\n", i);
+
         if (config->entry_oneshot)
                 Print(L"LoaderEntryOneShot:     %s\n", config->entry_oneshot);
         if (efivar_get(L"LoaderDevicePartUUID", &partstr) == EFI_SUCCESS)
