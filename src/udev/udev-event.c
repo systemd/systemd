@@ -737,6 +737,8 @@ int udev_event_spawn(struct udev_event *event,
                 free_and_replace(argv[0], program);
         }
 
+        log_debug("Starting '%s'", cmd);
+
         r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork() to execute command '%s': %m", cmd);
@@ -744,8 +746,6 @@ int udev_event_spawn(struct udev_event *event,
                 /* child closes parent's ends of pipes */
                 outpipe[READ_END] = safe_close(outpipe[READ_END]);
                 errpipe[READ_END] = safe_close(errpipe[READ_END]);
-
-                log_debug("Starting '%s'", cmd);
 
                 spawn_exec(event, cmd, argv, udev_device_get_properties_envp(event->dev),
                            outpipe[WRITE_END], errpipe[WRITE_END]);
