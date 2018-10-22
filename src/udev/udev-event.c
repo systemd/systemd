@@ -452,9 +452,6 @@ static int spawn_exec(struct udev_event *event,
         /* terminate child in case parent goes away */
         prctl(PR_SET_PDEATHSIG, SIGTERM);
 
-        /* restore sigmask before exec */
-        (void) reset_signal_mask();
-
         execve(argv[0], argv, envp);
 
         /* exec failed */
