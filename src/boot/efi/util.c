@@ -60,6 +60,9 @@ UINT64 time_usec(VOID) {
 }
 
 EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
+        if (!v)
+                return EFI_INVALID_PARAMETER;
+
         if (strcmpa(v, (CHAR8 *)"1") == 0 ||
             strcmpa(v, (CHAR8 *)"yes") == 0 ||
             strcmpa(v, (CHAR8 *)"y") == 0 ||
