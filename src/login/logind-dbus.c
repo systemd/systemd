@@ -2458,7 +2458,7 @@ static int method_can_reboot_to_firmware_setup(
         r = efi_reboot_to_firmware_supported();
         if (r < 0) {
                 if (r != -EOPNOTSUPP)
-                        log_warning_errno(errno, "Failed to determine whether reboot to firmware is supported: %m");
+                        log_warning_errno(r, "Failed to determine whether reboot to firmware is supported: %m");
 
                 return sd_bus_reply_method_return(message, "s", "na");
         }
