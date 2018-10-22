@@ -256,8 +256,12 @@
 
       <varlistentry>
         <term><varname>LoaderConfigTimeout</varname></term>
-        <listitem><para>The menu time-out. Read by the boot loader. (Also, modified by it when the
-        <keycap>t</keycap>/<keycap>T</keycap> keys are used, see above.)</para></listitem>
+        <term><varname>LoaderConfigTimeoutOneShot</varname></term>
+        <listitem><para>The menu time-out in seconds. Read by the boot loader. <varname>LoaderConfigTimeout</varname>
+        is maintained persistently, while <varname>LoaderConfigTimeoutOneShot</varname> is a one-time override which is
+        read once (in which case it takes precedence over <varname>LoaderConfigTimeout</varname>) and then
+        removed. <varname>LoaderConfigTimeout</varname> may be manipulated with the
+        <keycap>t</keycap>/<keycap>T</keycap> keys, see above.)</para></listitem>
       </varlistentry>
 
       <varlistentry>

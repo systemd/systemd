@@ -62,6 +62,7 @@ typedef struct {
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
+        BOOLEAN force_menu;
         UINTN console_mode;
         enum console_mode_change_type console_mode_change;
 } Config;
@@ -1417,6 +1418,15 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 config->timeout_sec = sec;
         } else
                 config->timeout_sec_efivar = -1;
+
+        err = efivar_get_int(L"LoaderConfigTimeoutOneShot", &sec);
+        if (!EFI_ERROR(err)) {
+                /* Unset variable now, after all it's "one shot". */
+                (void) efivar_set(L"LoaderConfigTimeoutOneShot", NULL, TRUE);
+
+                config->timeout_sec = sec;
+                config->force_menu = TRUE; /* force the menu when this is set */
+        }
 }
 
 static VOID config_load_entries(
@@ -2167,7 +2177,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* select entry or show menu when key is pressed or timeout is set */
-        if (config.timeout_sec == 0) {
+        if (config.force_menu || config.timeout_sec > 0)
+                menu = TRUE;
+        else {
                 UINT64 key;
 
                 err = console_key_read(&key, FALSE);
@@ -2181,8 +2193,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         else
                                 menu = TRUE;
                 }
-        } else
-                menu = TRUE;
+        }
 
         for (;;) {
                 ConfigEntry *entry;
