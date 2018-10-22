@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "device-private.h"
+#include "device-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "udev-builtin.h"
@@ -134,9 +135,11 @@ int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const 
 
         r = device_add_property(dev, key, val);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to add property '%s%s%s'",
+                                              key, val ? "=" : "", strempty(val));
 
         if (test)
                 printf("%s=%s\n", key, val);
+
         return 0;
 }
