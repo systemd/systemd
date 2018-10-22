@@ -681,15 +681,13 @@ bool manager_is_docked_or_external_displays(Manager *m) {
 bool manager_is_on_external_power(void) {
         int r;
 
-        /* For now we only check for AC power, but 'external power' can apply
-         * to anything that isn't an internal battery */
+        /* For now we only check for AC power, but 'external power' can apply to anything that isn't an internal
+         * battery */
         r = on_ac_power();
         if (r < 0)
                 log_warning_errno(r, "Failed to read AC power status: %m");
-        else if (r > 0)
-                return true;
 
-        return false;
+        return r != 0; /* Treat failure as 'on AC' */
 }
 
 bool manager_all_buttons_ignored(Manager *m) {
