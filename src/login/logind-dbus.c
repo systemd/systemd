@@ -18,6 +18,7 @@
 #include "device-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio-label.h"
@@ -2392,9 +2393,24 @@ static int property_get_reboot_to_firmware_setup(
         assert(reply);
         assert(userdata);
 
-        r = efi_get_reboot_to_firmware();
-        if (r < 0 && r != -EOPNOTSUPP)
-                log_warning_errno(r, "Failed to determine reboot-to-firmware state: %m");
+        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        if (r == -ENXIO) {
+                /* EFI case: let's see what is currently configured in the EFI variables */
+                r = efi_get_reboot_to_firmware();
+                if (r < 0 && r != -EOPNOTSUPP)
+                        log_warning_errno(r, "Failed to determine reboot-to-firmware-setup state: %m");
+        } else if (r < 0)
+                log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP: %m");
+        else if (r > 0) {
+                /* Non-EFI case: let's see whether /run/systemd/reboot-to-firmware-setup exists. */
+                if (access("/run/systemd/reboot-to-firmware-setup", F_OK) < 0) {
+                        if (errno != ENOENT)
+                                log_warning_errno(errno, "Failed to check whether /run/systemd/reboot-to-firmware-setup exists: %m");
+
+                        r = false;
+                } else
+                        r = true;
+        }
 
         return sd_bus_message_append(reply, "b", r > 0);
 }
@@ -2404,8 +2420,9 @@ static int method_set_reboot_to_firmware_setup(
                 void *userdata,
                 sd_bus_error *error) {
 
-        int b, r;
         Manager *m = userdata;
+        bool use_efi;
+        int b, r;
 
         assert(message);
         assert(m);
@@ -2413,6 +2430,29 @@ static int method_set_reboot_to_firmware_setup(
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0)
                 return r;
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        if (r == -ENXIO) {
+                /* EFI case: let's see what the firmware supports */
+
+                r = efi_reboot_to_firmware_supported();
+                if (r == -EOPNOTSUPP)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Firmware does not support boot into firmware.");
+                if (r < 0)
+                        return r;
+
+                use_efi = true;
+
+        } else if (r <= 0) {
+                /* non-EFI case: $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP is set to off */
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP: %m");
+
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Firmware does not support boot into firmware.");
+        } else
+                /* non-EFI case: $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP is set to on */
+                use_efi = false;
 
         r = bus_verify_polkit_async(message,
                                     CAP_SYS_ADMIN,
@@ -2427,9 +2467,20 @@ static int method_set_reboot_to_firmware_setup(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = efi_set_reboot_to_firmware(b);
-        if (r < 0)
-                return r;
+        if (use_efi) {
+                r = efi_set_reboot_to_firmware(b);
+                if (r < 0)
+                        return r;
+        } else {
+                if (b) {
+                        r = touch("/run/systemd/reboot-to-firmware-setup");
+                        if (r < 0)
+                                return r;
+                } else {
+                        if (unlink("/run/systemd/reboot-to-firmware-setup") < 0 && errno != ENOENT)
+                                return -errno;
+                }
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -2439,21 +2490,37 @@ static int method_can_reboot_to_firmware_setup(
                 void *userdata,
                 sd_bus_error *error) {
 
-        int r;
-        bool challenge;
-        const char *result;
+        const char *result = NULL;
         Manager *m = userdata;
+        bool challenge;
+        int r;
 
         assert(message);
         assert(m);
 
-        r = efi_reboot_to_firmware_supported();
-        if (r < 0) {
-                if (r != -EOPNOTSUPP)
-                        log_warning_errno(r, "Failed to determine whether reboot to firmware is supported: %m");
+        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        if (r == -ENXIO) {
+                /* EFI case: let's see what the firmware supports */
 
-                return sd_bus_reply_method_return(message, "s", "na");
+                r = efi_reboot_to_firmware_supported();
+                if (r < 0) {
+                        if (r != -EOPNOTSUPP)
+                                log_warning_errno(r, "Failed to determine whether reboot to firmware is supported: %m");
+
+                        result = "na";
+                }
+
+        } else if (r <= 0) {
+                /* Non-EFI case: let's trust $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP */
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP: %m");
+
+                result = "na";
         }
+
+        if (result)
+                return sd_bus_reply_method_return(message, "s", result);
 
         r = bus_test_polkit(message,
                             CAP_SYS_ADMIN,
