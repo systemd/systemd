@@ -405,56 +405,6 @@ out:
         return l;
 }
 
-static int spawn_exec(struct udev_event *event,
-                      const char *cmd, char *const argv[], char **envp,
-                      int fd_stdout, int fd_stderr) {
-        _cleanup_close_ int fd = -1;
-        int r;
-
-        /* discard child output or connect to pipe */
-        fd = open("/dev/null", O_RDWR);
-        if (fd >= 0) {
-                r = dup2(fd, STDIN_FILENO);
-                if (r < 0)
-                        log_warning_errno(errno, "redirecting stdin failed: %m");
-
-                if (fd_stdout < 0) {
-                        r = dup2(fd, STDOUT_FILENO);
-                        if (r < 0)
-                                log_warning_errno(errno, "redirecting stdout failed: %m");
-                }
-
-                if (fd_stderr < 0) {
-                        r = dup2(fd, STDERR_FILENO);
-                        if (r < 0)
-                                log_warning_errno(errno, "redirecting stderr failed: %m");
-                }
-        } else
-                log_warning_errno(errno, "open /dev/null failed: %m");
-
-        /* connect pipes to std{out,err} */
-        if (fd_stdout >= 0) {
-                r = dup2(fd_stdout, STDOUT_FILENO);
-                if (r < 0)
-                        log_warning_errno(errno, "redirecting stdout failed: %m");
-
-                fd_stdout = safe_close(fd_stdout);
-        }
-
-        if (fd_stderr >= 0) {
-                r = dup2(fd_stderr, STDERR_FILENO);
-                if (r < 0)
-                        log_warning_errno(errno, "redirecting stdout failed: %m");
-
-                fd_stderr = safe_close(fd_stderr);
-        }
-
-        execve(argv[0], argv, envp);
-
-        /* exec failed */
-        return log_error_errno(errno, "failed to execute '%s' '%s': %m", argv[0], cmd);
-}
-
 static void spawn_read(struct udev_event *event,
                        usec_t timeout_usec,
                        const char *cmd,
@@ -737,14 +687,13 @@ int udev_event_spawn(struct udev_event *event,
         if (r < 0)
                 return log_error_errno(r, "Failed to fork() to execute command '%s': %m", cmd);
         if (r == 0) {
-                /* child closes parent's ends of pipes */
-                outpipe[READ_END] = safe_close(outpipe[READ_END]);
-                errpipe[READ_END] = safe_close(errpipe[READ_END]);
+                if (rearrange_stdio(-1, outpipe[WRITE_END], errpipe[WRITE_END]) < 0)
+                        _exit(EXIT_FAILURE);
 
-                spawn_exec(event, cmd, argv, udev_device_get_properties_envp(event->dev),
-                           outpipe[WRITE_END], errpipe[WRITE_END]);
+                (void) close_all_fds(NULL, 0);
 
-                _exit(2);
+                execve(argv[0], argv, udev_device_get_properties_envp(event->dev));
+                _exit(EXIT_FAILURE);
         }
 
         /* parent closed child's ends of pipes */
