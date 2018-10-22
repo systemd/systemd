@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "device-private.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "fs-util.h"
 #include "mkdir.h"
@@ -67,12 +68,7 @@ int udev_watch_restore(void) {
                         goto unlink;
                 }
 
-                if (DEBUG_LOGGING) {
-                        const char *devnode = NULL;
-
-                        (void) sd_device_get_devname(dev, &devnode);
-                        log_debug("Restoring old watch on '%s'", strnull(devnode));
-                }
+                log_device_debug(dev, "Restoring old watch");
                 (void) udev_watch_begin(dev);
 unlink:
                 (void) unlinkat(dirfd(dir), ent->d_name, 0);
@@ -94,49 +90,45 @@ int udev_watch_begin(sd_device *dev) {
 
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device name: %m");
+                return log_device_error_errno(dev, r, "Failed to get device name: %m");
 
-        log_debug("Adding watch on '%s'", devnode);
+        log_device_debug(dev, "Adding watch on '%s'", devnode);
         wd = inotify_add_watch(inotify_fd, devnode, IN_CLOSE_WRITE);
         if (wd < 0)
-                return log_error_errno(errno, "Failed to add device '%s' to watch: %m", devnode);
+                return log_device_error_errno(dev, errno, "Failed to add device '%s' to watch: %m", devnode);
 
         device_set_watch_handle(dev, wd);
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
         r = mkdir_parents(filename, 0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to create parent directory of '%s': %m", filename);
+                return log_device_error_errno(dev, r, "Failed to create parent directory of '%s': %m", filename);
         (void) unlink(filename);
 
         r = device_get_id_filename(dev, &id_filename);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device id-filename: %m");
+                return log_device_error_errno(dev, r, "Failed to get device id-filename: %m");
 
         if (symlink(id_filename, filename) < 0)
-                return log_error_errno(errno, "Failed to create symlink %s: %m", filename);
+                return log_device_error_errno(dev, errno, "Failed to create symlink %s: %m", filename);
 
         return 0;
 }
 
 int udev_watch_end(sd_device *dev) {
         char filename[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
-        const char *name = NULL;
         int wd, r;
 
         if (inotify_fd < 0)
                 return log_error_errno(EINVAL, "Invalid inotify descriptor.");
 
-        if (sd_device_get_devname(dev, &name) < 0)
-                (void) sd_device_get_syspath(dev, &name);
-
         r = device_get_watch_handle(dev, &wd);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to get watch handle for device '%s', ignoring: %m", strnull(name));
+                return log_device_error_errno(dev, r, "Failed to get watch handle, ignoring: %m");
 
-        log_debug("Removing watch on '%s'", strnull(name));
+        log_device_debug(dev, "Removing watch");
         (void) inotify_rm_watch(inotify_fd, wd);
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
