@@ -17,7 +17,7 @@
 #include <linux/if_tunnel.h>
 #include <linux/veth.h>
 
-#if HAVE_FOU_CMD_GET
+#if HAVE_LINUX_FOU_H
 #include <linux/fou.h>
 #endif
 

@@ -6,11 +6,11 @@
 #include <linux/if_tunnel.h>
 #include <linux/ip6_tunnel.h>
 
-#include "sd-netlink.h"
-
-#if HAVE_FOU_CMD_GET
+#if HAVE_LINUX_FOU_H
 #include <linux/fou.h>
 #endif
+
+#include "sd-netlink.h"
 
 #include "conf-parser.h"
 #include "missing.h"

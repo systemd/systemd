@@ -476,7 +476,6 @@ foreach decl : [['IFLA_INET6_ADDR_GEN_MODE',         'linux/if_link.h'],
                 ['VXCAN_INFO_PEER',                  'linux/can/vxcan.h'],
                 ['FOU_ATTR_REMCSUM_NOPARTIAL',       'linux/fou.h'],
                 ['FOU_CMD_GET',                      'linux/fou.h'],
-                ['FOU_ENCAP_GUE',                    'linux/fou.h'],
                ]
         prefix = decl.length() > 2 ? decl[2] : ''
         have = cc.has_header_symbol(decl[1], decl[0], prefix : prefix)
@@ -608,6 +607,7 @@ if not cc.has_header('sys/capability.h')
 endif
 foreach header : ['crypt.h',
                   'linux/btrfs.h',
+                  'linux/fou.h',
                   'linux/memfd.h',
                   'linux/vm_sockets.h',
                   'sys/auxv.h',

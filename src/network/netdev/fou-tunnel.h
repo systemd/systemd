@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#if HAVE_FOU_CMD_GET
+#if HAVE_LINUX_FOU_H
 #include <linux/fou.h>
 #endif
 
 #include "in-addr-util.h"
+#include "missing.h"
 #include "netdev/netdev.h"
 
 typedef enum FooOverUDPEncapType {
