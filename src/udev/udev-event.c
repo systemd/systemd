@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "device-private.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "libudev-device-internal.h"
@@ -654,6 +655,7 @@ int udev_event_spawn(struct udev_event *event,
                      char *result, size_t ressize) {
         _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
         _cleanup_strv_free_ char **argv = NULL;
+        char **envp = NULL;
         pid_t pid;
         int r;
 
@@ -681,6 +683,10 @@ int udev_event_spawn(struct udev_event *event,
                 free_and_replace(argv[0], program);
         }
 
+        r = device_get_properties_strv(event->dev->device, &envp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device properties");
+
         log_debug("Starting '%s'", cmd);
 
         r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
@@ -692,7 +698,7 @@ int udev_event_spawn(struct udev_event *event,
 
                 (void) close_all_fds(NULL, 0);
 
-                execve(argv[0], argv, udev_device_get_properties_envp(event->dev));
+                execve(argv[0], argv, envp);
                 _exit(EXIT_FAILURE);
         }
 
