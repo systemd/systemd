@@ -84,9 +84,10 @@ typedef enum SettingsMask {
         SETTING_RESOLV_CONF       = UINT64_C(1) << 21,
         SETTING_LINK_JOURNAL      = UINT64_C(1) << 22,
         SETTING_TIMEZONE          = UINT64_C(1) << 23,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 24, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (24 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (24 + _RLIMIT_MAX)) -1,
+        SETTING_EPHEMERAL         = UINT64_C(1) << 24,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 25, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (25 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (25 + _RLIMIT_MAX)) -1,
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
@@ -102,6 +103,7 @@ assert_cc(sizeof(SETTING_RLIMIT_LAST) == 8);
 typedef struct Settings {
         /* [Run] */
         StartMode start_mode;
+        bool ephemeral;
         char **parameters;
         char **environment;
         char *user;

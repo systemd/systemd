@@ -127,6 +127,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Ephemeral=</varname></term>
+
+        <listitem><para>Takes a boolean argument, which defaults to off, If enabled, the container is run with
+        a temporary snapshot of its file system that is removed immediately when the container terminates.
+        This is equivalent to the <option>--ephemeral</option> command line switch. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details
+        about the specific options supported.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ProcessTwo=</varname></term>
 
         <listitem><para>Takes a boolean argument, which defaults to off. If enabled, the specified program is run as
