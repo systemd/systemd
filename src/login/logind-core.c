@@ -566,6 +566,17 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr) {
         return 0;
 }
 
+bool manager_is_lid_closed(Manager *m) {
+        Iterator i;
+        Button *b;
+
+        HASHMAP_FOREACH(b, m->buttons, i)
+                if (b->lid_closed)
+                        return true;
+
+        return false;
+}
+
 static bool manager_is_docked(Manager *m) {
         Iterator i;
         Button *b;
