@@ -449,9 +449,6 @@ static int spawn_exec(struct udev_event *event,
                 fd_stderr = safe_close(fd_stderr);
         }
 
-        /* terminate child in case parent goes away */
-        prctl(PR_SET_PDEATHSIG, SIGTERM);
-
         execve(argv[0], argv, envp);
 
         /* exec failed */
@@ -736,7 +733,7 @@ int udev_event_spawn(struct udev_event *event,
 
         log_debug("Starting '%s'", cmd);
 
-        r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork() to execute command '%s': %m", cmd);
         if (r == 0) {
