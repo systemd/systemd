@@ -611,13 +611,13 @@ Domains= ~company ~lab''')
 
         # test vpnclient specific domains; these should *not* be answered by
         # the general DNS
-        out = subprocess.check_output(['systemd-resolve', 'math.lab'])
+        out = subprocess.check_output(['resolvectl', 'query', 'math.lab'])
         self.assertIn(b'math.lab: 10.241.3.3', out)
-        out = subprocess.check_output(['systemd-resolve', 'kettle.cantina.company'])
+        out = subprocess.check_output(['resolvectl', 'query', 'kettle.cantina.company'])
         self.assertIn(b'kettle.cantina.company: 10.241.4.4', out)
 
         # test general domains
-        out = subprocess.check_output(['systemd-resolve', 'megasearch.net'])
+        out = subprocess.check_output(['resolvectl', 'query', 'megasearch.net'])
         self.assertIn(b'megasearch.net: 192.168.42.1', out)
 
         with open(self.dnsmasq_log) as f:
@@ -664,26 +664,26 @@ Domains= ~company ~lab''')
 
         try:
             # family specific queries
-            out = subprocess.check_output(['systemd-resolve', '-4', 'my.example'])
+            out = subprocess.check_output(['resolvectl', 'query', '-4', 'my.example'])
             self.assertIn(b'my.example: 172.16.99.99', out)
             # we don't expect an IPv6 answer; if /etc/hosts has any IP address,
             # it's considered a sufficient source
-            self.assertNotEqual(subprocess.call(['systemd-resolve', '-6', 'my.example']), 0)
+            self.assertNotEqual(subprocess.call(['resolvectl', 'query', '-6', 'my.example']), 0)
             # "any family" query; IPv4 should come from /etc/hosts
-            out = subprocess.check_output(['systemd-resolve', 'my.example'])
+            out = subprocess.check_output(['resolvectl', 'query', 'my.example'])
             self.assertIn(b'my.example: 172.16.99.99', out)
             # IP → name lookup; again, takes the /etc/hosts one
-            out = subprocess.check_output(['systemd-resolve', '172.16.99.99'])
+            out = subprocess.check_output(['resolvectl', 'query', '172.16.99.99'])
             self.assertIn(b'172.16.99.99: my.example', out)
 
             # non-address RRs should fall back to DNS
-            out = subprocess.check_output(['systemd-resolve', '--type=MX', 'example'])
+            out = subprocess.check_output(['resolvectl', 'query', '--type=MX', 'example'])
             self.assertIn(b'example IN MX 1 mail.example', out)
 
             # other domains query DNS
-            out = subprocess.check_output(['systemd-resolve', 'other.example'])
+            out = subprocess.check_output(['resolvectl', 'query', 'other.example'])
             self.assertIn(b'172.16.0.42', out)
-            out = subprocess.check_output(['systemd-resolve', '172.16.0.42'])
+            out = subprocess.check_output(['resolvectl', 'query', '172.16.0.42'])
             self.assertIn(b'172.16.0.42: other.example', out)
         except (AssertionError, subprocess.CalledProcessError):
             self.show_journal('systemd-resolved.service')
