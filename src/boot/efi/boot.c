@@ -2072,6 +2072,14 @@ static VOID config_write_entries_to_variable(Config *config) {
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        static const UINT64 loader_features =
+                (1ULL << 0) | /* I honour the LoaderConfigTimeout variable */
+                (1ULL << 1) | /* I honour the LoaderConfigTimeoutOneShot variable */
+                (1ULL << 2) | /* I honour the LoaderEntryDefault variable */
+                (1ULL << 3) | /* I honour the LoaderEntryOneShot variable */
+                (1ULL << 4) | /* I support boot counting */
+                0;
+
         _cleanup_freepool_ CHAR16 *infostr = NULL, *typestr = NULL;
         CHAR8 *b;
         UINTN size;
@@ -2094,6 +2102,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         typestr = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         efivar_set(L"LoaderFirmwareType", typestr, FALSE);
+
+        (void) efivar_set_raw(&loader_guid, L"LoaderFeatures", &loader_features, sizeof(loader_features), FALSE);
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);

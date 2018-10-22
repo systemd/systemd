@@ -302,6 +302,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderFeatures</varname></term>
+
+        <listitem><para>A set of flags indicating the features the boot loader supports. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LoaderFirmwareInfo</varname></term>
         <term><varname>LoaderFirmwareType</varname></term>
 
