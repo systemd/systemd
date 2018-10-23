@@ -105,17 +105,32 @@ EFI_STATUS efivar_set_int(CHAR16 *name, UINTN i, BOOLEAN persistent) {
 
 EFI_STATUS efivar_get(const CHAR16 *name, CHAR16 **value) {
         _cleanup_freepool_ CHAR8 *buf = NULL;
+        EFI_STATUS err;
         CHAR16 *val;
         UINTN size;
-        EFI_STATUS err;
 
         err = efivar_get_raw(&loader_guid, name, &buf, &size);
         if (EFI_ERROR(err))
                 return err;
 
-        val = StrDuplicate((CHAR16 *)buf);
+        /* Make sure there are no incomplete characters in the buffer */
+        if ((size % 2) != 0)
+                return EFI_INVALID_PARAMETER;
+
+        /* Return buffer directly if it happens to be NUL terminated already */
+        if (size >= 2 && buf[size-2] == 0 && buf[size-1] == 0) {
+                *value = (CHAR16*) buf;
+                buf = NULL;
+                return EFI_SUCCESS;
+        }
+
+        /* Make sure a terminating NUL is available at the end */
+        val = AllocatePool(size + 2);
         if (!val)
                 return EFI_OUT_OF_RESOURCES;
+
+        CopyMem(val, buf, size);
+        val[size/2] = 0; /* NUL terminate */
 
         *value = val;
         return EFI_SUCCESS;
