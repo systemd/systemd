@@ -661,11 +661,11 @@ int udev_event_spawn(struct udev_event *event,
 
         /* pipes from child to parent */
         if (!result || log_get_max_level() >= LOG_INFO)
-                if (pipe2(outpipe, O_NONBLOCK) != 0)
+                if (pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) != 0)
                         return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
 
         if (log_get_max_level() >= LOG_INFO)
-                if (pipe2(errpipe, O_NONBLOCK) != 0)
+                if (pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) != 0)
                         return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
 
         argv = strv_split_full(cmd, NULL, SPLIT_QUOTES|SPLIT_RELAX);
