@@ -660,7 +660,7 @@ int udev_event_spawn(struct udev_event *event,
         int r;
 
         /* pipes from child to parent */
-        if (!result || log_get_max_level() >= LOG_INFO)
+        if (result || log_get_max_level() >= LOG_INFO)
                 if (pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) != 0)
                         return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
 
