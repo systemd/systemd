@@ -15,6 +15,7 @@
 #include <linux/limits.h>
 #include <linux/input.h>
 
+#include "device-util.h"
 #include "fd-util.h"
 #include "missing.h"
 #include "stdio-util.h"
@@ -75,8 +76,7 @@ static void extract_info(sd_device *dev, const char *devpath, bool test) {
  * @param attr sysfs attribute name (e. g. "capabilities/key")
  * @param bitmask: Output array which has a sizeof of bitmask_size
  */
-static void get_cap_mask(sd_device *dev,
-                         sd_device *pdev, const char* attr,
+static void get_cap_mask(sd_device *pdev, const char* attr,
                          unsigned long *bitmask, size_t bitmask_size,
                          bool test) {
         const char *v;
@@ -89,16 +89,16 @@ static void get_cap_mask(sd_device *dev,
                 v = "";
 
         xsprintf(text, "%s", v);
-        log_debug("%s raw kernel attribute: %s", attr, text);
+        log_device_debug(pdev, "%s raw kernel attribute: %s", attr, text);
 
         memzero(bitmask, bitmask_size);
         i = 0;
         while ((word = strrchr(text, ' ')) != NULL) {
-                val = strtoul (word+1, NULL, 16);
-                if (i < bitmask_size/sizeof(unsigned long))
+                val = strtoul(word+1, NULL, 16);
+                if (i < bitmask_size / sizeof(unsigned long))
                         bitmask[i] = val;
                 else
-                        log_debug("ignoring %s block %lX which is larger than maximum size", attr, val);
+                        log_device_debug(pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
                 *word = '\0';
                 ++i;
         }
@@ -106,20 +106,20 @@ static void get_cap_mask(sd_device *dev,
         if (i < bitmask_size / sizeof(unsigned long))
                 bitmask[i] = val;
         else
-                log_debug("ignoring %s block %lX which is larger than maximum size", attr, val);
+                log_device_debug(pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
 
         if (test) {
                 /* printf pattern with the right unsigned long number of hex chars */
                 xsprintf(text, "  bit %%4u: %%0%zulX\n",
                          2 * sizeof(unsigned long));
-                log_debug("%s decoded bit map:", attr);
+                log_device_debug(pdev, "%s decoded bit map:", attr);
                 val = bitmask_size / sizeof (unsigned long);
                 /* skip over leading zeros */
                 while (bitmask[val-1] == 0 && val > 0)
                         --val;
                 for (i = 0; i < val; ++i) {
                         DISABLE_WARNING_FORMAT_NONLITERAL;
-                        log_debug(text, i * BITS_PER_LONG, bitmask[i]);
+                        log_device_debug(pdev, text, i * BITS_PER_LONG, bitmask[i]);
                         REENABLE_WARNING;
                 }
         }
@@ -259,7 +259,7 @@ static bool test_key(sd_device *dev,
 
         /* do we have any KEY_* capability? */
         if (!test_bit(EV_KEY, bitmask_ev)) {
-                log_debug("test_key: no EV_KEY capability");
+                log_device_debug(dev, "test_key: no EV_KEY capability");
                 return false;
         }
 
@@ -267,7 +267,7 @@ static bool test_key(sd_device *dev,
         found = 0;
         for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
                 found |= bitmask_key[i];
-                log_debug("test_key: checking bit block %lu for any keys; found=%i", (unsigned long)i*BITS_PER_LONG, found > 0);
+                log_device_debug(dev, "test_key: checking bit block %lu for any keys; found=%i", (unsigned long)i*BITS_PER_LONG, found > 0);
         }
         /* If there are no keys in the lower block, check the higher blocks */
         if (!found) {
@@ -275,7 +275,7 @@ static bool test_key(sd_device *dev,
                 for (block = 0; block < (sizeof(high_key_blocks) / sizeof(struct range)); ++block) {
                         for (i = high_key_blocks[block].start; i < high_key_blocks[block].end; ++i) {
                                 if (test_bit(i, bitmask_key)) {
-                                        log_debug("test_key: Found key %x in high block", i);
+                                        log_device_debug(dev, "test_key: Found key %x in high block", i);
                                         found = 1;
                                         break;
                                 }
@@ -331,11 +331,11 @@ static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
                 /* Use this as a flag that input devices were detected, so that this
                  * program doesn't need to be called more than once per device */
                 udev_builtin_add_property(dev, test, "ID_INPUT", "1");
-                get_cap_mask(dev, pdev, "capabilities/ev", bitmask_ev, sizeof(bitmask_ev), test);
-                get_cap_mask(dev, pdev, "capabilities/abs", bitmask_abs, sizeof(bitmask_abs), test);
-                get_cap_mask(dev, pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
-                get_cap_mask(dev, pdev, "capabilities/key", bitmask_key, sizeof(bitmask_key), test);
-                get_cap_mask(dev, pdev, "properties", bitmask_props, sizeof(bitmask_props), test);
+                get_cap_mask(pdev, "capabilities/ev", bitmask_ev, sizeof(bitmask_ev), test);
+                get_cap_mask(pdev, "capabilities/abs", bitmask_abs, sizeof(bitmask_abs), test);
+                get_cap_mask(pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
+                get_cap_mask(pdev, "capabilities/key", bitmask_key, sizeof(bitmask_key), test);
+                get_cap_mask(pdev, "properties", bitmask_props, sizeof(bitmask_props), test);
                 is_pointer = test_pointers(dev, bitmask_ev, bitmask_abs,
                                            bitmask_key, bitmask_rel,
                                            bitmask_props, test);
