@@ -94,6 +94,9 @@ static void test_parse_time(void) {
 
         assert_se(parse_time("5s", &u, USEC_PER_MSEC) >= 0);
         assert_se(u == 5 * USEC_PER_SEC);
+
+        assert_se(parse_time("11111111111111y", &u, 1) == -ERANGE);
+        assert_se(parse_time("1.1111111111111y", &u, 1) == -ERANGE);
 }
 
 static void test_parse_nsec(void) {
@@ -144,6 +147,8 @@ static void test_parse_nsec(void) {
         assert_se(parse_nsec("3.+1s", &u) < 0);
         assert_se(parse_nsec("3. 1s", &u) < 0);
         assert_se(parse_nsec("3.s", &u) < 0);
+        assert_se(parse_nsec("1111111111111y", &u) == -ERANGE);
+        assert_se(parse_nsec("1.111111111111y", &u) == -ERANGE);
 }
 
 static void test_format_timespan_one(usec_t x, usec_t accuracy) {
