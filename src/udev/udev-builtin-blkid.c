@@ -18,6 +18,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "device-util.h"
 #include "efivars.h"
 #include "fd-util.h"
 #include "gpt.h"
@@ -237,9 +238,9 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
                 case 'o':
                         r = safe_atoi64(optarg, &offset);
                         if (r < 0)
-                                return r;
+                                return log_device_error_errno(dev, r, "Failed to parse '%s' as an integer: %m", optarg);
                         if (offset < 0)
-                                return -ERANGE;
+                                return log_device_error_errno(dev, -ERANGE, "Invalid offset %"PRIi64": %m", offset);
                         break;
                 case 'R':
                         noraid = true;
@@ -250,7 +251,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         errno = 0;
         pr = blkid_new_probe();
         if (!pr)
-                return errno > 0 ? -errno : -ENOMEM;
+                return log_device_debug_errno(dev, errno > 0 ? errno : ENOMEM, "Failed to create blkid prober: %m");
 
         blkid_probe_set_superblocks_flags(pr,
                 BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
@@ -262,32 +263,33 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
 
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get device name: %m");
 
         fd = open(devnode, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
-                return log_debug_errno(errno, "Failure opening block device %s: %m", devnode);
+                return log_device_debug_errno(dev, errno, "Failed to open block device %s: %m", devnode);
 
         errno = 0;
         r = blkid_probe_set_device(pr, fd, offset, 0);
         if (r < 0)
-                return errno > 0 ? -errno : -ENOMEM;
+                return log_device_debug_errno(dev, errno > 0 ? errno : ENOMEM, "Failed to set device to blkid prober: %m");
 
-        log_debug("probe %s %sraid offset=%"PRIi64,
-                  devnode,
-                  noraid ? "no" : "", offset);
+        log_device_debug(dev, "Probe %s with %sraid and offset=%"PRIi64, devnode, noraid ? "no" : "", offset);
 
         r = probe_superblocks(pr);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to probe superblocks: %m");
 
-        /* If we are a partition then our parent passed on the root
-         * partition UUID to us */
+        /* If the device is a partition then its parent passed the root partition UUID to the device */
         (void) sd_device_get_property_value(dev, "ID_PART_GPT_AUTO_ROOT_UUID", &root_partition);
 
+        errno = 0;
         nvals = blkid_probe_numof_values(pr);
+        if (nvals < 0)
+                return log_device_debug_errno(dev, errno > 0 ? errno : ENOMEM, "Failed to get number of probed values: %m");
+
         for (i = 0; i < nvals; i++) {
-                if (blkid_probe_get_value(pr, i, &name, &data, NULL))
+                if (blkid_probe_get_value(pr, i, &name, &data, NULL) < 0)
                         continue;
 
                 print_property(dev, test, name, data);
@@ -297,7 +299,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
                         is_gpt = true;
 
                 /* Is this a partition that matches the root partition
-                 * property we inherited from our parent? */
+                 * property inherited from the parent? */
                 if (root_partition && streq(name, "PART_ENTRY_UUID") && streq(data, root_partition))
                         udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT", "1");
         }
