@@ -2267,11 +2267,13 @@ static int method_can_shutdown_or_sleep(
                 if (r < 0)
                         return r;
 
-                if (r > 0 && !result)
-                        result = "yes";
-                else if (challenge && (!result || streq(result, "yes")))
-                        result = "challenge";
-                else
+                if (r > 0) {
+                        if (!result)
+                                result = "yes";
+                } else if (challenge) {
+                        if (!result || streq(result, "yes"))
+                                result = "challenge";
+                } else
                         result = "no";
         }
 
