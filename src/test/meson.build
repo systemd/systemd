@@ -143,6 +143,10 @@ tests += [
           libmount,
           libblkid]],
 
+        [['src/test/test-serialize.c'],
+         [],
+         []],
+
         [['src/test/test-utf8.c'],
          [],
          []],
