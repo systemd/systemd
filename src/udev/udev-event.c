@@ -570,11 +570,10 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
                         sd_event_exit(sd_event_source_get_event(s), 0);
 
                         return 1;
-                } else if (spawn->accept_failure)
-                        log_debug("Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
-                else
-                        log_warning("Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
+                }
 
+                log_full(spawn->accept_failure ? LOG_DEBUG : LOG_WARNING,
+                         "Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
                 break;
         case CLD_KILLED:
         case CLD_DUMPED:
