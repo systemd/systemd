@@ -540,7 +540,7 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         kill_and_sigcont(spawn->pid, SIGKILL);
 
-        log_error("spawned process '%s' ["PID_FMT"] timed out after %s, killing", spawn->cmd, spawn->pid,
+        log_error("Spawned process '%s' ["PID_FMT"] timed out after %s, killing", spawn->cmd, spawn->pid,
                   format_timestamp_relative(timeout, sizeof(timeout), spawn->timeout));
 
         return 1;
@@ -552,7 +552,7 @@ static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 
         assert(spawn);
 
-        log_warning("spawned process '%s' ["PID_FMT"] is taking longer than %s to complete", spawn->cmd, spawn->pid,
+        log_warning("Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete", spawn->cmd, spawn->pid,
                     format_timestamp_relative(timeout, sizeof(timeout), spawn->timeout));
 
         return 1;
