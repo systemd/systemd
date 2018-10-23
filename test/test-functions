@@ -782,7 +782,7 @@ _lvl2char() {
 # This enables:
 # dwarn "This is a warning"
 # echo "This is a warning" | dwarn
-LOG_LEVEL=4
+LOG_LEVEL=${LOG_LEVEL:-4}
 
 dlog() {
     [ -z "$LOG_LEVEL" ] && return 0
