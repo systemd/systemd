@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "libudev-private.h"
 #include "string-util.h"
@@ -164,7 +165,7 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
 
         fd = open(filename, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
-                return log_debug_errno(errno, "Error opening USB device 'descriptors' file: %m");
+                return log_device_debug_errno(dev, errno, "Failed to open USB device 'descriptors' file: %m");
 
         size = read(fd, buf, sizeof(buf));
         if (size < 18 || (size_t) size >= sizeof(buf))
@@ -269,17 +270,17 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
         /* usb interface directory */
         r = sd_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface", &dev_interface);
         if (r < 0)
-                return log_debug_errno(r, "Failed to access usb_interface device of '%s': %m", syspath);
+                return log_device_debug_errno(dev, r, "Failed to access usb_interface: %m");
 
         r = sd_device_get_syspath(dev_interface, &interface_syspath);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev_interface, r, "Failed to get syspath: %m");
         (void) sd_device_get_sysattr_value(dev_interface, "bInterfaceNumber", &ifnum);
         (void) sd_device_get_sysattr_value(dev_interface, "driver", &driver);
 
         r = sd_device_get_sysattr_value(dev_interface, "bInterfaceClass", &if_class);
         if (r < 0)
-                return log_debug_errno(r, "Failed to get bInterfaceClass attribute of '%s': %m", sysname);
+                return log_device_debug_errno(dev_interface, r, "Failed to get bInterfaceClass attribute: %m");
 
         if_class_num = strtoul(if_class, NULL, 16);
         if (if_class_num == 8) {
@@ -289,12 +290,12 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
         } else
                 set_usb_iftype(type_str, if_class_num, sizeof(type_str)-1);
 
-        log_debug("%s: if_class %d protocol %d", interface_syspath, if_class_num, protocol);
+        log_device_debug(dev_interface, "if_class:%d protocol:%d", if_class_num, protocol);
 
         /* usb device directory */
         r = sd_device_get_parent_with_subsystem_devtype(dev_interface, "usb", "usb_device", &dev_usb);
         if (r < 0)
-                return log_debug_errno(r, "Failed to find parent 'usb' device of '%s'", syspath);
+                return log_device_debug_errno(dev_interface, r, "Failed to find parent 'usb' device");
 
         /* all interfaces of the device in a single string */
         dev_if_packed_info(dev_usb, packed_if_str, sizeof(packed_if_str));
@@ -308,20 +309,20 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                 /* get scsi device */
                 r = sd_device_get_parent_with_subsystem_devtype(dev, "scsi", "scsi_device", &dev_scsi);
                 if (r < 0) {
-                        log_debug_errno(r, "Unable to find parent 'scsi' device of '%s'", syspath);
+                        log_device_debug_errno(dev, r, "Unable to find parent SCSI device");
                         goto fallback;
                 }
                 if (sd_device_get_sysname(dev_scsi, &scsi_sysname) < 0)
                         goto fallback;
                 if (sscanf(scsi_sysname, "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4) {
-                        log_debug("invalid scsi device '%s'", scsi_sysname);
+                        log_device_debug(dev_scsi, "Invalid SCSI device");
                         goto fallback;
                 }
 
                 /* Generic SPC-2 device */
                 r = sd_device_get_sysattr_value(dev_scsi, "vendor", &scsi_vendor);
                 if (r < 0) {
-                        log_debug_errno(r, "%s: cannot get SCSI vendor attribute: %m", scsi_sysname);
+                        log_device_debug_errno(dev_scsi, r, "Failed to get SCSI vendor attribute: %m");
                         goto fallback;
                 }
                 udev_util_encode_string(scsi_vendor, vendor_str_enc, sizeof(vendor_str_enc));
@@ -330,7 +331,7 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
 
                 r = sd_device_get_sysattr_value(dev_scsi, "model", &scsi_model);
                 if (r < 0) {
-                        log_debug_errno(r, "%s: cannot get SCSI model attribute: %m", scsi_sysname);
+                        log_device_debug_errno(dev_scsi, r, "Failed to get SCSI model attribute: %m");
                         goto fallback;
                 }
                 udev_util_encode_string(scsi_model, model_str_enc, sizeof(model_str_enc));
@@ -339,14 +340,14 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
 
                 r = sd_device_get_sysattr_value(dev_scsi, "type", &scsi_type);
                 if (r < 0) {
-                        log_debug_errno(r, "%s: cannot get SCSI type attribute", scsi_sysname);
+                        log_device_debug_errno(dev_scsi, r, "Failed to get SCSI type attribute: %m");
                         goto fallback;
                 }
                 set_scsi_type(type_str, scsi_type, sizeof(type_str)-1);
 
                 r = sd_device_get_sysattr_value(dev_scsi, "rev", &scsi_rev);
                 if (r < 0) {
-                        log_debug_errno(r, "%s: cannot get SCSI revision attribute: %m", scsi_sysname);
+                        log_device_debug_errno(dev_scsi, r, "Failed to get SCSI revision attribute: %m");
                         goto fallback;
                 }
                 util_replace_whitespace(scsi_rev, revision_str, sizeof(revision_str)-1);
@@ -362,11 +363,11 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
 fallback:
         r = sd_device_get_sysattr_value(dev_usb, "idVendor", &vendor_id);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev_usb, r, "Failed to get idVendor attribute: %m");
 
         r = sd_device_get_sysattr_value(dev_usb, "idProduct", &product_id);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev_usb, r, "Failed to get idProduct attribute: %m");
 
         /* fallback to USB vendor & device */
         if (vendor_str[0] == '\0') {
@@ -405,7 +406,7 @@ fallback:
                         const unsigned char *p;
 
                         /* http://msdn.microsoft.com/en-us/library/windows/hardware/gg487321.aspx */
-                        for (p = (unsigned char *)usb_serial; *p != '\0'; p++)
+                        for (p = (unsigned char *) usb_serial; *p != '\0'; p++)
                                 if (*p < 0x20 || *p > 0x7f || *p == ',') {
                                         usb_serial = NULL;
                                         break;
