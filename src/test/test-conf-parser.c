@@ -6,6 +6,7 @@
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
@@ -210,6 +211,21 @@ static void test_config_parse_iec_uint64(void) {
         assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
 }
 
+static void test_config_parse_categorical_bool(void) {
+        CategoricalBool res;
+
+        assert_se(config_parse_categorical_bool(NULL, "bool.conf", 11, "Section", 22, "CBool", 0, "always", &res, NULL) == 0);
+        assert_se(res == CATEGORICAL_BOOL_ALWAYS);
+
+        assert_se(config_parse_categorical_bool(NULL, "bool.conf", 11, "Section", 22, "CBool", 0, "never", &res, NULL) == 0);
+        assert_se(res == CATEGORICAL_BOOL_NEVER);
+
+        /* Other values are validated as part of overall
+         * DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN and DEFINE_CONFIG_PARSE_ENUM
+         * testing.
+         */
+}
+
 static void test_config_parse_join_controllers(void) {
         int r;
         _cleanup_(strv_free_freep) char ***c = NULL;
@@ -398,6 +414,7 @@ int main(int argc, char **argv) {
         test_config_parse_sec();
         test_config_parse_nsec();
         test_config_parse_iec_uint64();
+        test_config_parse_categorical_bool();
         test_config_parse_join_controllers();
 
         for (i = 0; i < ELEMENTSOF(config_file); i++)

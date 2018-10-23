@@ -7,9 +7,25 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include "conf-parser.h"
 #include "macro.h"
+#include "string-table.h"
 
 #define MODE_INVALID ((mode_t) -1)
+
+typedef enum CategoricalBool {
+        CATEGORICAL_BOOL_NO,
+        CATEGORICAL_BOOL_YES,
+        CATEGORICAL_BOOL_ALWAYS,
+        CATEGORICAL_BOOL_NEVER,
+        _CATEGORICAL_BOOL_MAX,
+        _CATEGORICAL_BOOL_INVALID = -1
+} CategoricalBool;
+
+const char* categorical_bool_to_string(CategoricalBool p) _const_;
+CategoricalBool categorical_bool_from_string(const char *s) _pure_;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_categorical_bool);
 
 int parse_boolean(const char *v) _pure_;
 int parse_dev(const char *s, dev_t *ret);

@@ -741,3 +741,14 @@ int parse_oom_score_adjust(const char *s, int *ret) {
         *ret = v;
         return 0;
 }
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_categorical_bool, categorical_bool, CategoricalBool, "Failed to parse categorical bool value");
+
+static const char *const categorical_bool_table[_CATEGORICAL_BOOL_MAX] = {
+        [CATEGORICAL_BOOL_NO] = "no",
+        [CATEGORICAL_BOOL_YES] = "yes",
+        [CATEGORICAL_BOOL_ALWAYS] = "always",
+        [CATEGORICAL_BOOL_NEVER] = "never"
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(categorical_bool, CategoricalBool, CATEGORICAL_BOOL_YES);
