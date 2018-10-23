@@ -15,7 +15,7 @@
 #include "log.h"
 #include "udev-builtin.h"
 
-static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool test) {
+static int builtin_uaccess(sd_device *dev, int argc, char *argv[], bool test) {
         int r;
         const char *path = NULL, *seat;
         bool changed_acl = false;
@@ -27,18 +27,21 @@ static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool
         if (!logind_running())
                 return 0;
 
-        path = udev_device_get_devnode(dev);
-        seat = udev_device_get_property_value(dev, "ID_SEAT");
-        if (!seat)
+        r = sd_device_get_devname(dev, &path);
+        if (r < 0)
+                goto finish;
+
+        if (sd_device_get_property_value(dev, "ID_SEAT", &seat) < 0)
                 seat = "seat0";
 
         r = sd_seat_get_active(seat, NULL, &uid);
-        if (IN_SET(r, -ENXIO, -ENODATA)) {
-                /* No active session on this seat */
-                r = 0;
-                goto finish;
-        } else if (r < 0) {
-                log_error("Failed to determine active user on seat %s.", seat);
+        if (r < 0) {
+                if (IN_SET(r, -ENXIO, -ENODATA))
+                        /* No active session on this seat */
+                        r = 0;
+                else
+                        log_error_errno(r, "Failed to determine active user on seat %s: %m", seat);
+
                 goto finish;
         }
 
@@ -64,7 +67,7 @@ finish:
                 }
         }
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
 
 const struct udev_builtin udev_builtin_uaccess = {

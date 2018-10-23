@@ -2,17 +2,23 @@
 
 #include <errno.h>
 
+#include "alloc-util.h"
 #include "device-private.h"
 #include "path-util.h"
-#include "string-util.h"
 #include "udevadm-util.h"
 
 int find_device(const char *id, const char *prefix, sd_device **ret) {
+        _cleanup_free_ char *buf = NULL;
+
         assert(id);
         assert(ret);
 
-        if (prefix && !startswith(id, prefix))
-                id = strjoina(prefix, id);
+        if (prefix && !path_startswith(id, prefix)) {
+                buf = path_join(NULL, prefix, id);
+                if (!buf)
+                        return -ENOMEM;
+                id = buf;
+        }
 
         if (path_startswith(id, "/sys/"))
                 return sd_device_new_from_syspath(ret, id);

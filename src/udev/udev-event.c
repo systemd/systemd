@@ -900,8 +900,8 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
 
                 udev_event_apply_format(event, cmd, command, sizeof(command), false);
 
-                if (builtin_cmd < UDEV_BUILTIN_MAX)
-                        udev_builtin_run(event->dev, builtin_cmd, command, false);
+                if (builtin_cmd >= 0 && builtin_cmd < _UDEV_BUILTIN_MAX)
+                        udev_builtin_run(event->dev->device, builtin_cmd, command, false);
                 else {
                         if (event->exec_delay > 0) {
                                 log_debug("delay execution of '%s'", command);

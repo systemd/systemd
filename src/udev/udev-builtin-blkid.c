@@ -26,7 +26,7 @@
 #include "strxcpyx.h"
 #include "udev-builtin.h"
 
-static void print_property(struct udev_device *dev, bool test, const char *name, const char *value) {
+static void print_property(sd_device *dev, bool test, const char *name, const char *value) {
         char s[256];
 
         s[0] = '\0';
@@ -94,7 +94,7 @@ static void print_property(struct udev_device *dev, bool test, const char *name,
         }
 }
 
-static int find_gpt_root(struct udev_device *dev, blkid_probe pr, bool test) {
+static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
 
 #if defined(GPT_ROOT_NATIVE) && ENABLE_EFI
 
@@ -182,6 +182,8 @@ static int probe_superblocks(blkid_probe pr) {
         struct stat st;
         int rc;
 
+        /* TODO: Return negative errno. */
+
         if (fstat(blkid_probe_get_fd(pr), &st))
                 return -errno;
 
@@ -210,18 +212,13 @@ static int probe_superblocks(blkid_probe pr) {
         return blkid_do_safeprobe(pr);
 }
 
-static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool test) {
-        const char *root_partition;
-        int64_t offset = 0;
-        bool noraid = false;
-        _cleanup_close_ int fd = -1;
+static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
+        const char *devnode, *root_partition = NULL, *data, *name;
         _cleanup_(blkid_free_probep) blkid_probe pr = NULL;
-        const char *data;
-        const char *name;
-        int nvals;
-        int i;
-        int err = 0;
-        bool is_gpt = false;
+        bool noraid = false, is_gpt = false;
+        _cleanup_close_ int fd = -1;
+        int64_t offset = 0;
+        int nvals, i, r;
 
         static const struct option options[] = {
                 { "offset", required_argument, NULL, 'o' },
@@ -238,13 +235,11 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
 
                 switch (option) {
                 case 'o':
-                        err = safe_atoi64(optarg, &offset);
-                        if (err < 0)
-                                goto out;
-                        if (offset < 0) {
-                                err = -ERANGE;
-                                goto out;
-                        }
+                        r = safe_atoi64(optarg, &offset);
+                        if (r < 0)
+                                return r;
+                        if (offset < 0)
+                                return -ERANGE;
                         break;
                 case 'R':
                         noraid = true;
@@ -252,9 +247,10 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
                 }
         }
 
+        errno = 0;
         pr = blkid_new_probe();
         if (!pr)
-                return EXIT_FAILURE;
+                return errno > 0 ? -errno : -ENOMEM;
 
         blkid_probe_set_superblocks_flags(pr,
                 BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
@@ -264,27 +260,30 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         if (noraid)
                 blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
 
-        fd = open(udev_device_get_devnode(dev), O_RDONLY|O_CLOEXEC);
-        if (fd < 0) {
-                err = log_debug_errno(errno, "Failure opening block device %s: %m", udev_device_get_devnode(dev));
-                goto out;
-        }
+        r = sd_device_get_devname(dev, &devnode);
+        if (r < 0)
+                return r;
 
-        err = blkid_probe_set_device(pr, fd, offset, 0);
-        if (err < 0)
-                goto out;
+        fd = open(devnode, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failure opening block device %s: %m", devnode);
+
+        errno = 0;
+        r = blkid_probe_set_device(pr, fd, offset, 0);
+        if (r < 0)
+                return errno > 0 ? -errno : -ENOMEM;
 
         log_debug("probe %s %sraid offset=%"PRIi64,
-                  udev_device_get_devnode(dev),
+                  devnode,
                   noraid ? "no" : "", offset);
 
-        err = probe_superblocks(pr);
-        if (err < 0)
-                goto out;
+        r = probe_superblocks(pr);
+        if (r < 0)
+                return r;
 
         /* If we are a partition then our parent passed on the root
          * partition UUID to us */
-        root_partition = udev_device_get_property_value(dev, "ID_PART_GPT_AUTO_ROOT_UUID");
+        (void) sd_device_get_property_value(dev, "ID_PART_GPT_AUTO_ROOT_UUID", &root_partition);
 
         nvals = blkid_probe_numof_values(pr);
         for (i = 0; i < nvals; i++) {
@@ -306,11 +305,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         if (is_gpt)
                 find_gpt_root(dev, pr, test);
 
-out:
-        if (err < 0)
-                return EXIT_FAILURE;
-
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 const struct udev_builtin udev_builtin_blkid = {

@@ -22,6 +22,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "libudev-device-internal.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "stat-util.h"
@@ -1227,7 +1228,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 if (value[0] != '/') {
                                         const enum udev_builtin_cmd cmd = udev_builtin_lookup(value);
 
-                                        if (cmd < UDEV_BUILTIN_MAX) {
+                                        if (cmd >= 0) {
                                                 LOG_RULE_DEBUG("IMPORT found builtin '%s', replacing", value);
                                                 rule_add_key(&rule_tmp, TK_M_IMPORT_BUILTIN, op, value, &cmd);
                                                 continue;
@@ -1237,7 +1238,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         } else if (streq(attr, "builtin")) {
                                 const enum udev_builtin_cmd cmd = udev_builtin_lookup(value);
 
-                                if (cmd >= UDEV_BUILTIN_MAX)
+                                if (cmd < 0)
                                         LOG_RULE_WARNING("IMPORT{builtin} '%s' unknown", value);
                                 else
                                         rule_add_key(&rule_tmp, TK_M_IMPORT_BUILTIN, op, value, &cmd);
@@ -1275,12 +1276,12 @@ static void add_rule(struct udev_rules *rules, char *line,
                         if (streq(attr, "builtin")) {
                                 const enum udev_builtin_cmd cmd = udev_builtin_lookup(value);
 
-                                if (cmd < UDEV_BUILTIN_MAX)
-                                        rule_add_key(&rule_tmp, TK_A_RUN_BUILTIN, op, value, &cmd);
-                                else
+                                if (cmd < 0)
                                         LOG_RULE_ERROR("RUN{builtin}: '%s' unknown", value);
+                                else
+                                        rule_add_key(&rule_tmp, TK_A_RUN_BUILTIN, op, value, &cmd);
                         } else if (streq(attr, "program")) {
-                                const enum udev_builtin_cmd cmd = UDEV_BUILTIN_MAX;
+                                const enum udev_builtin_cmd cmd = _UDEV_BUILTIN_MAX;
 
                                 rule_add_key(&rule_tmp, TK_A_RUN_PROGRAM, op, value, &cmd);
                         } else
@@ -2014,10 +2015,11 @@ int udev_rules_apply_to_event(
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
 
-                        if (udev_builtin_run(event->dev, cur->key.builtin_cmd, command, false) != 0) {
+                        r = udev_builtin_run(event->dev->device, cur->key.builtin_cmd, command, false);
+                        if (r < 0) {
                                 /* remember failure */
-                                log_debug("IMPORT builtin '%s' returned non-zero",
-                                          udev_builtin_name(cur->key.builtin_cmd));
+                                log_debug_errno(r, "IMPORT builtin '%s' fails: %m",
+                                                udev_builtin_name(cur->key.builtin_cmd));
                                 event->builtin_ret |= (1 << cur->key.builtin_cmd);
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;

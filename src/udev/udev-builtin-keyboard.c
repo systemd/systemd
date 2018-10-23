@@ -8,6 +8,7 @@
 #include <sys/ioctl.h>
 #include <linux/input.h>
 
+#include "device-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
 #include "stdio-util.h"
@@ -18,25 +19,25 @@
 static const struct key_name *keyboard_lookup_key(const char *str, GPERF_LEN_TYPE len);
 #include "keyboard-keys-from-name.h"
 
-static int install_force_release(struct udev_device *dev, const unsigned *release, unsigned release_count) {
-        struct udev_device *atkbd;
+static int install_force_release(sd_device *dev, const unsigned *release, unsigned release_count) {
+        sd_device *atkbd;
         const char *cur;
         char codes[4096];
         char *s;
         size_t l;
         unsigned i;
-        int ret;
+        int r;
 
         assert(dev);
         assert(release);
 
-        atkbd = udev_device_get_parent_with_subsystem_devtype(dev, "serio", NULL);
-        if (!atkbd)
-                return -ENODEV;
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", NULL, &atkbd);
+        if (r < 0)
+                return r;
 
-        cur = udev_device_get_sysattr_value(atkbd, "force_release");
-        if (!cur)
-                return -ENODEV;
+        r = sd_device_get_sysattr_value(atkbd, "force_release", &cur);
+        if (r < 0)
+                return r;
 
         s = codes;
         l = sizeof(codes);
@@ -49,14 +50,14 @@ static int install_force_release(struct udev_device *dev, const unsigned *releas
                 l = strpcpyf(&s, l, ",%u", release[i]);
 
         log_debug("keyboard: updating force-release list with '%s'", codes);
-        ret = udev_device_set_sysattr_value(atkbd, "force_release", codes);
-        if (ret < 0)
-                log_error_errno(ret, "Error writing force-release attribute: %m");
-        return ret;
+        r = sd_device_set_sysattr_value(atkbd, "force_release", codes);
+        if (r < 0)
+                return log_error_errno(r, "Error writing force-release attribute: %m");
+
+        return 0;
 }
 
-static void map_keycode(int fd, const char *devnode, int scancode, const char *keycode)
-{
+static void map_keycode(int fd, const char *devnode, int scancode, const char *keycode) {
         struct {
                 unsigned scan;
                 unsigned key;
@@ -139,36 +140,37 @@ static void override_abs(int fd, const char *devnode,
                 log_error_errno(errno, "Unable to EVIOCSABS device \"%s\"", devnode);
 }
 
-static void set_trackpoint_sensitivity(struct udev_device *dev, const char *value)
-{
-        struct udev_device *pdev;
+static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
+        sd_device *pdev;
         char val_s[DECIMAL_STR_MAX(int)];
+        const char *devnode;
         int r, val_i;
 
         assert(dev);
         assert(value);
 
+        r = sd_device_get_devname(dev, &devnode);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get devname: %m");
+
         /* The sensitivity sysfs attr belongs to the serio parent device */
-        pdev = udev_device_get_parent_with_subsystem_devtype(dev, "serio", NULL);
-        if (!pdev) {
-                log_warning("Failed to get serio parent for '%s'", udev_device_get_devnode(dev));
-                return;
-        }
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", NULL, &pdev);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get serio parent for '%s': %m", devnode);
 
         r = safe_atoi(value, &val_i);
-        if (r < 0) {
-                log_error("Unable to parse POINTINGSTICK_SENSITIVITY '%s' for '%s'", value, udev_device_get_devnode(dev));
-                return;
-        } else if (val_i < 0 || val_i > 255) {
-                log_error("POINTINGSTICK_SENSITIVITY %d outside range [0..255] for '%s' ", val_i, udev_device_get_devnode(dev));
-                return;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Unable to parse POINTINGSTICK_SENSITIVITY '%s' for '%s': %m", value, devnode);
+        else if (val_i < 0 || val_i > 255)
+                return log_error_errno(ERANGE, "POINTINGSTICK_SENSITIVITY %d outside range [0..255] for '%s'", val_i, devnode);
 
         xsprintf(val_s, "%d", val_i);
 
-        r = udev_device_set_sysattr_value(pdev, "sensitivity", val_s);
+        r = sd_device_set_sysattr_value(pdev, "sensitivity", val_s);
         if (r < 0)
-                log_error_errno(r, "Failed to write 'sensitivity' attribute for '%s': %m", udev_device_get_devnode(pdev));
+                return log_error_errno(r, "Failed to write 'sensitivity' attribute for '%s': %m", devnode);
+
+        return 0;
 }
 
 static int open_device(const char *devnode) {
@@ -181,27 +183,26 @@ static int open_device(const char *devnode) {
         return fd;
 }
 
-static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], bool test) {
-        struct udev_list_entry *entry;
+static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
         unsigned release[1024];
         unsigned release_count = 0;
         _cleanup_close_ int fd = -1;
-        const char *node;
-        int has_abs = -1;
+        const char *node, *key, *value;
+        int has_abs = -1, r;
 
-        node = udev_device_get_devnode(dev);
-        if (!node) {
-                log_error("No device node for \"%s\"", udev_device_get_syspath(dev));
-                return EXIT_FAILURE;
+        r = sd_device_get_devname(dev, &node);
+        if (r < 0) {
+                const char *s = NULL;
+
+                (void) sd_device_get_syspath(dev, &s);
+                return log_error_errno(r, "No device node for \"%s\": %m", strnull(s));
         }
 
-        udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev)) {
-                const char *key;
+        FOREACH_DEVICE_PROPERTY(dev, key, value) {
                 char *endptr;
 
-                key = udev_list_entry_get_name(entry);
                 if (startswith(key, "KEYBOARD_KEY_")) {
-                        const char *keycode;
+                        const char *keycode = value;
                         unsigned scancode;
 
                         /* KEYBOARD_KEY_<hex scan code>=<key identifier string> */
@@ -210,8 +211,6 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                                 log_warning("Unable to parse scan code from \"%s\"", key);
                                 continue;
                         }
-
-                        keycode = udev_list_entry_get_value(entry);
 
                         /* a leading '!' needs a force-release entry */
                         if (keycode[0] == '!') {
@@ -228,7 +227,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         if (fd == -1) {
                                 fd = open_device(node);
                                 if (fd < 0)
-                                        return EXIT_FAILURE;
+                                        return fd;
                         }
 
                         map_keycode(fd, node, scancode, keycode);
@@ -245,7 +244,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         if (fd == -1) {
                                 fd = open_device(node);
                                 if (fd < 0)
-                                        return EXIT_FAILURE;
+                                        return fd;
                         }
 
                         if (has_abs == -1) {
@@ -253,10 +252,8 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                                 int rc;
 
                                 rc = ioctl(fd, EVIOCGBIT(0, sizeof(bits)), &bits);
-                                if (rc < 0) {
-                                        log_error_errno(errno, "Unable to EVIOCGBIT device \"%s\"", node);
-                                        return EXIT_FAILURE;
-                                }
+                                if (rc < 0)
+                                        return log_error_errno(errno, "Unable to EVIOCGBIT device \"%s\"", node);
 
                                 has_abs = !!(bits & (1 << EV_ABS));
                                 if (!has_abs)
@@ -266,16 +263,16 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         if (!has_abs)
                                 continue;
 
-                        override_abs(fd, node, evcode, udev_list_entry_get_value(entry));
+                        override_abs(fd, node, evcode, value);
                 } else if (streq(key, "POINTINGSTICK_SENSITIVITY"))
-                        set_trackpoint_sensitivity(dev, udev_list_entry_get_value(entry));
+                        set_trackpoint_sensitivity(dev, value);
         }
 
         /* install list of force-release codes */
         if (release_count > 0)
                 install_force_release(dev, release, release_count);
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 const struct udev_builtin udev_builtin_keyboard = {

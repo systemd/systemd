@@ -21,7 +21,7 @@ _printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *fi
         log_internalv(priority, 0, file, line, fn, format, args);
 }
 
-static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool test) {
+static int builtin_kmod(sd_device *dev, int argc, char *argv[], bool test) {
         int i;
 
         if (!ctx)
@@ -29,13 +29,13 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
 
         if (argc < 3 || !streq(argv[1], "load")) {
                 log_error("%s: expected: load <module>", argv[0]);
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
         for (i = 2; argv[i]; i++)
                 (void) module_load_and_warn(ctx, argv[i], false);
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 /* called at udev startup and reload */

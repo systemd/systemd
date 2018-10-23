@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "libudev.h"
+#include "sd-device.h"
 
 enum udev_builtin_cmd {
 #if HAVE_BLKID
@@ -23,12 +23,13 @@ enum udev_builtin_cmd {
 #if HAVE_ACL
         UDEV_BUILTIN_UACCESS,
 #endif
-        UDEV_BUILTIN_MAX
+        _UDEV_BUILTIN_MAX,
+        _UDEV_BUILTIN_INVALID = -1,
 };
 
 struct udev_builtin {
         const char *name;
-        int (*cmd)(struct udev_device *dev, int argc, char *argv[], bool test);
+        int (*cmd)(sd_device *dev, int argc, char *argv[], bool test);
         const char *help;
         int (*init)(void);
         void (*exit)(void);
@@ -59,9 +60,9 @@ void udev_builtin_exit(void);
 enum udev_builtin_cmd udev_builtin_lookup(const char *command);
 const char *udev_builtin_name(enum udev_builtin_cmd cmd);
 bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
-int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
+int udev_builtin_run(sd_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
 void udev_builtin_list(void);
 bool udev_builtin_validate(void);
-int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
-int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const char *modalias,
+int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val);
+int udev_builtin_hwdb_lookup(sd_device *dev, const char *prefix, const char *modalias,
                              const char *filter, bool test);
