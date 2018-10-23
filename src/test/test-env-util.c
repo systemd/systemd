@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "serialize.h"
 #include "string-util.h"
 #include "strv.h"
@@ -321,7 +322,7 @@ static void test_deserialize_environment(void) {
 
 static void test_serialize_environment(void) {
         _cleanup_strv_free_ char **env = NULL, **env2 = NULL;
-        char fn[] = "/tmp/test-env-util.XXXXXXX";
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-env-util.XXXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -358,8 +359,6 @@ static void test_serialize_environment(void) {
         assert_se(feof(f));
 
         assert_se(strv_equal(env, env2));
-
-        unlink(fn);
 }
 
 int main(int argc, char *argv[]) {

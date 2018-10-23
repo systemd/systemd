@@ -14,7 +14,7 @@
 #include "macro.h"
 
 static void test_clock_is_localtime(void) {
-        char adjtime[] = "/tmp/test-adjtime.XXXXXX";
+        _cleanup_(unlink_tempfilep) char adjtime[] = "/tmp/test-adjtime.XXXXXX";
         _cleanup_fclose_ FILE* f = NULL;
 
         static const struct scenario {
@@ -52,8 +52,6 @@ static void test_clock_is_localtime(void) {
                 assert_se(write_string_stream(f, scenarios[i].contents, WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
                 assert_se(clock_is_localtime(adjtime) == scenarios[i].expected_result);
         }
-
-        unlink(adjtime);
 }
 
 /* Test with the real /etc/adjtime */
