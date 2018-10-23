@@ -41,7 +41,7 @@ _systemd_analyze() {
         )
 
         local -A VERBS=(
-                [STANDALONE]='time blame plot dump unit-paths calendar'
+                [STANDALONE]='time blame plot dump unit-paths calendar timespan'
                 [CRITICAL_CHAIN]='critical-chain'
                 [DOT]='dot'
                 [LOG_LEVEL]='log-level'

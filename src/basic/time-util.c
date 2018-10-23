@@ -1048,12 +1048,21 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
 
                 something = true;
 
+
+                k = ((usec_t) -1) / multiplier;
+                if ((usec_t) l + 1 >= k || (usec_t) z >= k)
+                        return -ERANGE;
+
                 k = (usec_t) z * multiplier;
 
                 for (; n > 0; n--)
                         k /= 10;
 
-                r += (usec_t) l * multiplier + k;
+                k += (usec_t) l * multiplier;
+                if (k >= ((usec_t) -1) - r)
+                        return -ERANGE;
+
+                r += k;
         }
 
         *usec = r;
@@ -1185,12 +1194,22 @@ int parse_nsec(const char *t, nsec_t *nsec) {
 
                 for (i = 0; i < ELEMENTSOF(table); i++)
                         if (startswith(e, table[i].suffix)) {
-                                nsec_t k = (nsec_t) z * table[i].nsec;
+                                nsec_t k;
+
+                                k = ((nsec_t) -1) / table[i].nsec;
+                                if ((nsec_t) l + 1 >= k || (nsec_t) z >= k)
+                                        return -ERANGE;
+
+                                k = (nsec_t) z * table[i].nsec;
 
                                 for (; n > 0; n--)
                                         k /= 10;
 
-                                r += (nsec_t) l * table[i].nsec + k;
+                                k += (nsec_t) l * table[i].nsec;
+                                if (k >= ((nsec_t) -1) - r)
+                                        return -ERANGE;
+
+                                r += k;
                                 p = e + strlen(table[i].suffix);
 
                                 something = true;
