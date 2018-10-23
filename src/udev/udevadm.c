@@ -124,7 +124,5 @@ finish:
         mac_selinux_finish();
         log_close();
 
-        /* TODO: fix this later.
-         * Currently, verbs return positive values on failure. */
-        return r < 0 ? EXIT_FAILURE : r;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
