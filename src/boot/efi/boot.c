@@ -2215,12 +2215,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
                         if (!menu_run(&config, &entry, loaded_image_path))
                                 break;
+                }
 
-                        /* run special entry like "reboot" */
-                        if (entry->call) {
-                                entry->call();
-                                continue;
-                        }
+                /* run special entry like "reboot" */
+                if (entry->call) {
+                        entry->call();
+                        continue;
                 }
 
                 config_entry_bump_counters(entry, root_dir);
