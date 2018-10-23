@@ -2488,14 +2488,38 @@ static int method_set_reboot_to_firmware_setup(
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int return_test_polkit(
+                sd_bus_message *message,
+                int capability,
+                const char *action,
+                const char **details,
+                uid_t good_user,
+                sd_bus_error *e) {
+
+        const char *result;
+        bool challenge;
+        int r;
+
+        r = bus_test_polkit(message, capability, action, details, good_user, &challenge, e);
+        if (r < 0)
+                return r;
+
+        if (r > 0)
+                result = "yes";
+        else if (challenge)
+                result = "challenge";
+        else
+                result = "no";
+
+        return sd_bus_reply_method_return(message, "s", result);
+}
+
 static int method_can_reboot_to_firmware_setup(
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
 
-        const char *result = NULL;
         Manager *m = userdata;
-        bool challenge;
         int r;
 
         assert(message);
@@ -2510,7 +2534,7 @@ static int method_can_reboot_to_firmware_setup(
                         if (r != -EOPNOTSUPP)
                                 log_warning_errno(r, "Failed to determine whether reboot to firmware is supported: %m");
 
-                        result = "na";
+                        return sd_bus_reply_method_return(message, "s", "na");
                 }
 
         } else if (r <= 0) {
@@ -2519,30 +2543,16 @@ static int method_can_reboot_to_firmware_setup(
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP: %m");
 
-                result = "na";
+                return sd_bus_reply_method_return(message, "s", "na");
         }
 
-        if (result)
-                return sd_bus_reply_method_return(message, "s", result);
-
-        r = bus_test_polkit(message,
-                            CAP_SYS_ADMIN,
-                            "org.freedesktop.login1.set-reboot-to-firmware-setup",
-                            NULL,
-                            UID_INVALID,
-                            &challenge,
-                            error);
-        if (r < 0)
-                return r;
-
-        if (r > 0)
-                result = "yes";
-        else if (challenge)
-                result = "challenge";
-        else
-                result = "no";
-
-        return sd_bus_reply_method_return(message, "s", result);
+        return return_test_polkit(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.set-reboot-to-firmware-setup",
+                        NULL,
+                        UID_INVALID,
+                        error);
 }
 
 static int property_get_reboot_to_boot_loader_menu(
@@ -2698,9 +2708,7 @@ static int method_can_reboot_to_boot_loader_menu(
                 void *userdata,
                 sd_bus_error *error) {
 
-        const char *result = NULL;
         Manager *m = userdata;
-        bool challenge;
         int r;
 
 
@@ -2717,7 +2725,7 @@ static int method_can_reboot_to_boot_loader_menu(
                 if (r < 0)
                         log_warning_errno(r, "Failed to determine whether reboot to boot loader menu is supported: %m");
                 if (r < 0 || !FLAGS_SET(features, EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT))
-                        result = "na";
+                        return sd_bus_reply_method_return(message, "s", "na");
 
         } else if (r <= 0) {
                 /* Non-EFI case: let's trust $SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU */
@@ -2725,30 +2733,16 @@ static int method_can_reboot_to_boot_loader_menu(
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU: %m");
 
-                result = "na";
+                return sd_bus_reply_method_return(message, "s", "na");
         }
 
-        if (result)
-                return sd_bus_reply_method_return(message, "s", result);
-
-        r = bus_test_polkit(message,
-                            CAP_SYS_ADMIN,
-                            "org.freedesktop.login1.set-reboot-to-boot-loader-menu",
-                            NULL,
-                            UID_INVALID,
-                            &challenge,
-                            error);
-        if (r < 0)
-                return r;
-
-        if (r > 0)
-                result = "yes";
-        else if (challenge)
-                result = "challenge";
-        else
-                result = "no";
-
-        return sd_bus_reply_method_return(message, "s", result);
+        return return_test_polkit(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.set-reboot-to-boot-loader-menu",
+                        NULL,
+                        UID_INVALID,
+                        error);
 }
 
 static int property_get_reboot_to_boot_loader_entry(
@@ -2906,9 +2900,7 @@ static int method_can_reboot_to_boot_loader_entry(
                 void *userdata,
                 sd_bus_error *error) {
 
-        const char *result = NULL;
         Manager *m = userdata;
-        bool challenge;
         int r;
 
         assert(message);
@@ -2924,7 +2916,7 @@ static int method_can_reboot_to_boot_loader_entry(
                 if (r < 0)
                         log_warning_errno(r, "Failed to determine whether reboot to boot loader entry is supported: %m");
                 if (r < 0 || !FLAGS_SET(features, EFI_LOADER_FEATURE_ENTRY_ONESHOT))
-                        result = "na";
+                        return sd_bus_reply_method_return(message, "s", "na");
 
         } else if (r <= 0) {
                 /* Non-EFI case: let's trust $SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY */
@@ -2932,30 +2924,16 @@ static int method_can_reboot_to_boot_loader_entry(
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY: %m");
 
-                result = "na";
+                return sd_bus_reply_method_return(message, "s", "na");
         }
 
-        if (result)
-                return sd_bus_reply_method_return(message, "s", result);
-
-        r = bus_test_polkit(message,
-                            CAP_SYS_ADMIN,
-                            "org.freedesktop.login1.set-reboot-to-boot-loader-entry",
-                            NULL,
-                            UID_INVALID,
-                            &challenge,
-                            error);
-        if (r < 0)
-                return r;
-
-        if (r > 0)
-                result = "yes";
-        else if (challenge)
-                result = "challenge";
-        else
-                result = "no";
-
-        return sd_bus_reply_method_return(message, "s", result);
+        return return_test_polkit(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.set-reboot-to-boot-loader-entry",
+                        NULL,
+                        UID_INVALID,
+                        error);
 }
 
 static int property_get_boot_loader_entries(
