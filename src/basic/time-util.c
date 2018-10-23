@@ -1048,12 +1048,21 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
 
                 something = true;
 
+
+                k = ((usec_t) -1) / multiplier;
+                if ((usec_t) l + 1 >= k || (usec_t) z >= k)
+                        return -ERANGE;
+
                 k = (usec_t) z * multiplier;
 
                 for (; n > 0; n--)
                         k /= 10;
 
-                r += (usec_t) l * multiplier + k;
+                k += (usec_t) l * multiplier;
+                if (k >= ((usec_t) -1) - r)
+                        return -ERANGE;
+
+                r += k;
         }
 
         *usec = r;
