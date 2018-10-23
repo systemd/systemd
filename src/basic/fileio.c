@@ -1221,6 +1221,24 @@ int mkostemp_safe(char *pattern) {
         return fd;
 }
 
+int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
+        int fd;
+        FILE *f;
+
+        fd = mkostemp_safe(pattern);
+        if (fd < 0)
+                return fd;
+
+        f = fdopen(fd, mode);
+        if (!f) {
+                safe_close(fd);
+                return -errno;
+        }
+
+        *ret_f = f;
+        return 0;
+}
+
 int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
         const char *fn;
         char *t;

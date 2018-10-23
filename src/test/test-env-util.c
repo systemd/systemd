@@ -323,8 +323,7 @@ static void test_serialize_environment(void) {
         _cleanup_strv_free_ char **env = NULL, **env2 = NULL;
         char fn[] = "/tmp/test-env-util.XXXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
-        int fd, r;
-
+        int r;
 
         assert_se(env = strv_new("A=1",
                                  "B=2",
@@ -333,12 +332,8 @@ static void test_serialize_environment(void) {
                                  "FOO%%=a\177b\nc\td e",
                                  NULL));
 
-        fd = mkostemp_safe(fn);
-        assert_se(fd >= 0);
-
-        assert_se(f = fdopen(fd, "r+"));
-
-        assert_se(serialize_strv(f, "env", env) > 0);
+        assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
+        assert_se(serialize_strv(f, "env", env) == 1);
         assert_se(fflush_and_check(f) == 0);
 
         rewind(f);

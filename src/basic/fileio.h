@@ -64,6 +64,7 @@ int fflush_sync_and_check(FILE *f);
 
 int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 int mkostemp_safe(char *pattern);
+int fmkostemp_safe(char *pattern, const char *mode, FILE**_f);
 
 int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
 int tempfn_random(const char *p, const char *extra, char **ret);
