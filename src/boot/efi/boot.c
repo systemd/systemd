@@ -1404,9 +1404,11 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         UINTN sec;
         EFI_STATUS err;
 
-        config->editor = TRUE;
-        config->auto_entries = TRUE;
-        config->auto_firmware = TRUE;
+        *config = (Config) {
+                .editor = TRUE,
+                .auto_entries = TRUE,
+                .auto_firmware = TRUE,
+        };
 
         err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
         if (!EFI_ERROR(err))
@@ -2137,7 +2139,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         loaded_image_path = DevicePathToStr(loaded_image->FilePath);
         efivar_set(L"LoaderImageIdentifier", loaded_image_path, FALSE);
 
-        ZeroMem(&config, sizeof(Config));
         config_load_defaults(&config, root_dir);
 
         /* scan /EFI/Linux/ directory */
