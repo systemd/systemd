@@ -2015,10 +2015,11 @@ int udev_rules_apply_to_event(
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
 
-                        if (udev_builtin_run(event->dev->device, cur->key.builtin_cmd, command, false) != 0) {
+                        r = udev_builtin_run(event->dev->device, cur->key.builtin_cmd, command, false);
+                        if (r < 0) {
                                 /* remember failure */
-                                log_debug("IMPORT builtin '%s' returned non-zero",
-                                          udev_builtin_name(cur->key.builtin_cmd));
+                                log_debug_errno(r, "IMPORT builtin '%s' fails: %m",
+                                                udev_builtin_name(cur->key.builtin_cmd));
                                 event->builtin_ret |= (1 << cur->key.builtin_cmd);
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;

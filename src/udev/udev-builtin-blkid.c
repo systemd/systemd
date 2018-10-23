@@ -182,6 +182,8 @@ static int probe_superblocks(blkid_probe pr) {
         struct stat st;
         int rc;
 
+        /* TODO: Return negative errno. */
+
         if (fstat(blkid_probe_get_fd(pr), &st))
                 return -errno;
 
@@ -235,11 +237,9 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
                 case 'o':
                         r = safe_atoi64(optarg, &offset);
                         if (r < 0)
-                                goto out;
-                        if (offset < 0) {
-                                r = -ERANGE;
-                                goto out;
-                        }
+                                return r;
+                        if (offset < 0)
+                                return -ERANGE;
                         break;
                 case 'R':
                         noraid = true;
@@ -247,9 +247,10 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
                 }
         }
 
+        errno = 0;
         pr = blkid_new_probe();
         if (!pr)
-                return EXIT_FAILURE;
+                return errno > 0 ? -errno : -ENOMEM;
 
         blkid_probe_set_superblocks_flags(pr,
                 BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
@@ -261,17 +262,16 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
 
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
-                goto out;
+                return r;
 
         fd = open(devnode, O_RDONLY|O_CLOEXEC);
-        if (fd < 0) {
-                r = log_debug_errno(errno, "Failure opening block device %s: %m", devnode);
-                goto out;
-        }
+        if (fd < 0)
+                return log_debug_errno(errno, "Failure opening block device %s: %m", devnode);
 
+        errno = 0;
         r = blkid_probe_set_device(pr, fd, offset, 0);
         if (r < 0)
-                goto out;
+                return errno > 0 ? -errno : -ENOMEM;
 
         log_debug("probe %s %sraid offset=%"PRIi64,
                   devnode,
@@ -279,7 +279,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
 
         r = probe_superblocks(pr);
         if (r < 0)
-                goto out;
+                return r;
 
         /* If we are a partition then our parent passed on the root
          * partition UUID to us */
@@ -305,8 +305,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         if (is_gpt)
                 find_gpt_root(dev, pr, test);
 
-out:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
 
 const struct udev_builtin udev_builtin_blkid = {

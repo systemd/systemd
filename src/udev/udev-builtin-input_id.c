@@ -354,7 +354,7 @@ static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
             startswith(sysname, "event"))
                 extract_info(dev, devnode, test);
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 const struct udev_builtin udev_builtin_input_id = {

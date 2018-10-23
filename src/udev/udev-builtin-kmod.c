@@ -29,13 +29,13 @@ static int builtin_kmod(sd_device *dev, int argc, char *argv[], bool test) {
 
         if (argc < 3 || !streq(argv[1], "load")) {
                 log_error("%s: expected: load <module>", argv[0]);
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
         for (i = 2; argv[i]; i++)
                 (void) module_load_and_warn(ctx, argv[i], false);
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 /* called at udev startup and reload */

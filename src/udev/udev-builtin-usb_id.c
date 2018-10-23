@@ -253,11 +253,11 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         r = sd_device_get_sysname(dev, &sysname);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         /* shortcut, if we are called directly for a "usb_device" type */
         if (sd_device_get_devtype(dev, &devtype) >= 0 && streq(devtype, "usb_device")) {
@@ -268,22 +268,18 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* usb interface directory */
         r = sd_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface", &dev_interface);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to access usb_interface device of '%s': %m", syspath);
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to access usb_interface device of '%s': %m", syspath);
 
         r = sd_device_get_syspath(dev_interface, &interface_syspath);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
         (void) sd_device_get_sysattr_value(dev_interface, "bInterfaceNumber", &ifnum);
         (void) sd_device_get_sysattr_value(dev_interface, "driver", &driver);
 
         r = sd_device_get_sysattr_value(dev_interface, "bInterfaceClass", &if_class);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to get bInterfaceClass attribute of '%s': %m", sysname);
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get bInterfaceClass attribute of '%s': %m", sysname);
 
         if_class_num = strtoul(if_class, NULL, 16);
         if (if_class_num == 8) {
@@ -297,10 +293,8 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* usb device directory */
         r = sd_device_get_parent_with_subsystem_devtype(dev_interface, "usb", "usb_device", &dev_usb);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to find parent 'usb' device of '%s'", syspath);
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to find parent 'usb' device of '%s'", syspath);
 
         /* all interfaces of the device in a single string */
         dev_if_packed_info(dev_usb, packed_if_str, sizeof(packed_if_str));
@@ -368,11 +362,11 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
 fallback:
         r = sd_device_get_sysattr_value(dev_usb, "idVendor", &vendor_id);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         r = sd_device_get_sysattr_value(dev_usb, "idProduct", &product_id);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         /* fallback to USB vendor & device */
         if (vendor_str[0] == '\0') {
@@ -380,10 +374,6 @@ fallback:
 
                 if (sd_device_get_sysattr_value(dev_usb, "manufacturer", &usb_vendor) < 0)
                         usb_vendor = vendor_id;
-                if (!usb_vendor) {
-                        log_debug("No USB vendor information available");
-                        return EXIT_FAILURE;
-                }
                 udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
                 util_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
                 util_replace_chars(vendor_str, NULL);
@@ -394,8 +384,6 @@ fallback:
 
                 if (sd_device_get_sysattr_value(dev_usb, "product", &usb_model) < 0)
                         usb_model = product_id;
-                if (!usb_model)
-                        return EXIT_FAILURE;
                 udev_util_encode_string(usb_model, model_str_enc, sizeof(model_str_enc));
                 util_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
                 util_replace_chars(model_str, NULL);
@@ -459,7 +447,7 @@ fallback:
                 udev_builtin_add_property(dev, test, "ID_USB_INTERFACE_NUM", ifnum);
         if (driver)
                 udev_builtin_add_property(dev, test, "ID_USB_DRIVER", driver);
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 const struct udev_builtin udev_builtin_usb_id = {

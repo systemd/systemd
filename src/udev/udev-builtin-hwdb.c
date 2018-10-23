@@ -127,9 +127,10 @@ static int builtin_hwdb(sd_device *dev, int argc, char *argv[], bool test) {
         const char *subsystem = NULL;
         const char *prefix = NULL;
         _cleanup_(sd_device_unrefp) sd_device *srcdev = NULL;
+        int r;
 
         if (!hwdb)
-                return EXIT_FAILURE;
+                return -EINVAL;
 
         for (;;) {
                 int option;
@@ -158,21 +159,17 @@ static int builtin_hwdb(sd_device *dev, int argc, char *argv[], bool test) {
         }
 
         /* query a specific key given as argument */
-        if (argv[optind]) {
-                if (udev_builtin_hwdb_lookup(dev, prefix, argv[optind], filter, test) > 0)
-                        return EXIT_SUCCESS;
-                return EXIT_FAILURE;
-        }
+        if (argv[optind])
+                return udev_builtin_hwdb_lookup(dev, prefix, argv[optind], filter, test);
 
         /* read data from another device than the device we will store the data */
-        if (device)
-                if (sd_device_new_from_device_id(&srcdev, device) < 0)
-                        return EXIT_FAILURE;
+        if (device) {
+                r = sd_device_new_from_device_id(&srcdev, device);
+                if (r < 0)
+                        return r;
+        }
 
-        if (udev_builtin_hwdb_search(dev, srcdev, subsystem, prefix, filter, test) > 0)
-                return EXIT_SUCCESS;
-
-        return EXIT_FAILURE;
+        return udev_builtin_hwdb_search(dev, srcdev, subsystem, prefix, filter, test);
 }
 
 /* called at udev startup and reload */

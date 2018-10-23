@@ -35,12 +35,13 @@ static int builtin_uaccess(sd_device *dev, int argc, char *argv[], bool test) {
                 seat = "seat0";
 
         r = sd_seat_get_active(seat, NULL, &uid);
-        if (IN_SET(r, -ENXIO, -ENODATA)) {
-                /* No active session on this seat */
-                r = 0;
-                goto finish;
-        } else if (r < 0) {
-                log_error("Failed to determine active user on seat %s.", seat);
+        if (r < 0) {
+                if (IN_SET(r, -ENXIO, -ENODATA))
+                        /* No active session on this seat */
+                        r = 0;
+                else
+                        log_error_errno(r, "Failed to determine active user on seat %s: %m", seat);
+
                 goto finish;
         }
 
@@ -66,7 +67,7 @@ finish:
                 }
         }
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
 
 const struct udev_builtin udev_builtin_uaccess = {

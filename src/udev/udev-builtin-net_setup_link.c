@@ -16,7 +16,7 @@ static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool te
 
         if (argc > 1) {
                 log_error("This program takes no arguments.");
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
         r = link_get_driver(ctx, dev, &driver);
@@ -25,13 +25,10 @@ static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool te
 
         r = link_config_get(ctx, dev, &link);
         if (r < 0) {
-                if (r == -ENOENT) {
-                        log_debug("No matching link configuration found.");
-                        return EXIT_SUCCESS;
-                } else {
-                        log_error_errno(r, "Could not get link config: %m");
-                        return EXIT_FAILURE;
-                }
+                if (r == -ENOENT)
+                        return log_debug_errno(r, "No matching link configuration found.");
+
+                return log_error_errno(r, "Could not get link config: %m");
         }
 
         r = link_config_apply(ctx, link, dev, &name);
@@ -47,7 +44,7 @@ static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool te
         if (name)
                 udev_builtin_add_property(dev, test, "ID_NET_NAME", name);
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 static int builtin_net_setup_link_init(void) {

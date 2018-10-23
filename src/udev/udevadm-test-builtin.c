@@ -91,7 +91,7 @@ int builtin_main(int argc, char *argv[], void *userdata) {
 
         r = udev_builtin_run(dev, cmd, arg_command, true);
         if (r < 0)
-                log_debug("error executing '%s', exit code %i", arg_command, r);
+                log_debug_errno(r, "Builtin command '%s' fails: %m", arg_command);
 
 finish:
         udev_builtin_exit();

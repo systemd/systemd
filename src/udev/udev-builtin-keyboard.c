@@ -195,8 +195,7 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                 const char *s = NULL;
 
                 (void) sd_device_get_syspath(dev, &s);
-                log_error_errno(r, "No device node for \"%s\": %m", strnull(s));
-                return EXIT_FAILURE;
+                return log_error_errno(r, "No device node for \"%s\": %m", strnull(s));
         }
 
         FOREACH_DEVICE_PROPERTY(dev, key, value) {
@@ -228,7 +227,7 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                         if (fd == -1) {
                                 fd = open_device(node);
                                 if (fd < 0)
-                                        return EXIT_FAILURE;
+                                        return fd;
                         }
 
                         map_keycode(fd, node, scancode, keycode);
@@ -245,7 +244,7 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                         if (fd == -1) {
                                 fd = open_device(node);
                                 if (fd < 0)
-                                        return EXIT_FAILURE;
+                                        return fd;
                         }
 
                         if (has_abs == -1) {
@@ -253,10 +252,8 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                                 int rc;
 
                                 rc = ioctl(fd, EVIOCGBIT(0, sizeof(bits)), &bits);
-                                if (rc < 0) {
-                                        log_error_errno(errno, "Unable to EVIOCGBIT device \"%s\"", node);
-                                        return EXIT_FAILURE;
-                                }
+                                if (rc < 0)
+                                        return log_error_errno(errno, "Unable to EVIOCGBIT device \"%s\"", node);
 
                                 has_abs = !!(bits & (1 << EV_ABS));
                                 if (!has_abs)
@@ -275,7 +272,7 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
         if (release_count > 0)
                 install_force_release(dev, release, release_count);
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 const struct udev_builtin udev_builtin_keyboard = {

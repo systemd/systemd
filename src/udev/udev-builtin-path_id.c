@@ -619,7 +619,7 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
         }
 
         if (!path)
-                return EXIT_FAILURE;
+                return -ENOENT;
 
         /*
          * Do not return devices with an unknown parent device type. They
@@ -627,7 +627,7 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
          * unique and predictable name.
          */
         if (!supported_parent)
-                return EXIT_FAILURE;
+                return -ENOENT;
 
         /*
          * Do not return block devices without a well-known transport. Some
@@ -637,7 +637,7 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
         if (sd_device_get_subsystem(dev, &subsystem) >= 0 &&
             streq(subsystem, "block") &&
             !supported_transport)
-                return EXIT_FAILURE;
+                return -ENOENT;
 
         {
                 char tag[UTIL_NAME_SIZE];
@@ -673,7 +673,7 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
                 udev_builtin_add_property(dev, test, "ID_PATH_TAG", tag);
         }
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 const struct udev_builtin udev_builtin_path_id = {

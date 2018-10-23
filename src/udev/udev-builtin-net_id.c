@@ -813,7 +813,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
         /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
         r = sd_device_get_sysattr_value(dev, "type", &s);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         i = strtoul(s, NULL, 0);
         switch (i) {
@@ -833,10 +833,10 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
         /* skip stacked devices, like VLANs, ... */
         r = sd_device_get_sysattr_value(dev, "ifindex", &s);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
         r = sd_device_get_sysattr_value(dev, "iflink", &p);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
         if (!streq(s, p))
                 return 0;
 
@@ -865,7 +865,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.ccw_busid))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-                goto out;
+                return 0;
         }
 
         /* get ibmveth/ibmvnic slot-based names. */
@@ -874,7 +874,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.vio_slot))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                goto out;
+                return 0;
         }
 
         /* get ACPI path names for ARM64 platform devices */
@@ -883,12 +883,12 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.platform_path))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-                goto out;
+                return 0;
         }
 
         /* get PCI based path names, we compose only PCI based paths */
         if (names_pci(dev, &names) < 0)
-                goto out;
+                return 0;
 
         /* plain PCI device */
         if (names.type == NET_PCI) {
@@ -909,7 +909,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
                 if (names.pci_slot[0] &&
                     snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_slot))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                goto out;
+                return 0;
         }
 
         /* USB device */
@@ -923,7 +923,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
                 if (names.pci_slot[0] &&
                     snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.usb_ports))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                goto out;
+                return 0;
         }
 
         /* Broadcom bus */
@@ -937,11 +937,10 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
                 if (names.pci_slot[0] &&
                     snprintf(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.bcma_core))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                goto out;
+                return 0;
         }
 
-out:
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 const struct udev_builtin udev_builtin_net_id = {
