@@ -33,11 +33,11 @@ static int install_force_release(sd_device *dev, const unsigned *release, unsign
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", NULL, &atkbd);
         if (r < 0)
-                return r;
+                return log_device_error_errno(dev, r, "Failed to get serio parent: %m");
 
         r = sd_device_get_sysattr_value(atkbd, "force_release", &cur);
         if (r < 0)
-                return r;
+                return log_device_error_errno(atkbd, r, "Failed to get force-release attribute: %m");
 
         s = codes;
         l = sizeof(codes);
@@ -49,15 +49,15 @@ static int install_force_release(sd_device *dev, const unsigned *release, unsign
         for (i = 0; i < release_count; i++)
                 l = strpcpyf(&s, l, ",%u", release[i]);
 
-        log_debug("keyboard: updating force-release list with '%s'", codes);
+        log_device_debug(atkbd, "keyboard: updating force-release list with '%s'", codes);
         r = sd_device_set_sysattr_value(atkbd, "force_release", codes);
         if (r < 0)
-                return log_error_errno(r, "Error writing force-release attribute: %m");
+                return log_device_error_errno(atkbd, r, "Failed to set force-release attribute: %m");
 
         return 0;
 }
 
-static void map_keycode(int fd, const char *devnode, int scancode, const char *keycode) {
+static int map_keycode(sd_device *dev, int fd, int scancode, const char *keycode) {
         struct {
                 unsigned scan;
                 unsigned key;
@@ -73,20 +73,20 @@ static void map_keycode(int fd, const char *devnode, int scancode, const char *k
         } else {
                 /* check if it's a numeric code already */
                 keycode_num = strtoul(keycode, &endptr, 0);
-                if (endptr[0] !='\0') {
-                        log_error("Unknown key identifier '%s'", keycode);
-                        return;
-                }
+                if (endptr[0] !='\0')
+                        return log_device_error_errno(dev, EINVAL, "Failed to parse key identifier '%s'", keycode);
         }
 
         map.scan = scancode;
         map.key = keycode_num;
 
-        log_debug("keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)",
-                  map.scan, map.scan, map.key, map.key);
+        log_device_debug(dev, "keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)",
+                         map.scan, map.scan, map.key, map.key);
 
         if (ioctl(fd, EVIOCSKEYCODE, &map) < 0)
-                log_error_errno(errno, "Error calling EVIOCSKEYCODE on device node '%s' (scan code 0x%x, key code %d): %m", devnode, map.scan, map.key);
+                return log_device_error_errno(dev, errno, "Failed to call EVIOCSKEYCODE with scan code 0x%x, and key code %d: %m", map.scan, map.key);
+
+        return 0;
 }
 
 static inline char* parse_token(const char *current, int32_t *val_out) {
@@ -109,78 +109,58 @@ static inline char* parse_token(const char *current, int32_t *val_out) {
         return next;
 }
 
-static void override_abs(int fd, const char *devnode,
-                         unsigned evcode, const char *value) {
+static int override_abs(sd_device *dev, int fd, unsigned evcode, const char *value) {
         struct input_absinfo absinfo;
-        int rc;
         char *next;
+        int r;
 
-        rc = ioctl(fd, EVIOCGABS(evcode), &absinfo);
-        if (rc < 0) {
-                log_error_errno(errno, "Unable to EVIOCGABS device \"%s\"", devnode);
-                return;
-        }
+        r = ioctl(fd, EVIOCGABS(evcode), &absinfo);
+        if (r < 0)
+                return log_device_error_errno(dev, errno, "Failed to call EVIOCGABS");
 
         next = parse_token(value, &absinfo.minimum);
         next = parse_token(next, &absinfo.maximum);
         next = parse_token(next, &absinfo.resolution);
         next = parse_token(next, &absinfo.fuzz);
         next = parse_token(next, &absinfo.flat);
-        if (!next) {
-                log_error("Unable to parse EV_ABS override '%s' for '%s'", value, devnode);
-                return;
-        }
+        if (!next)
+                return log_device_error(dev, "Failed to parse EV_ABS override '%s'", value);
 
-        log_debug("keyboard: %x overridden with %"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32" for \"%s\"",
-                  evcode,
-                  absinfo.minimum, absinfo.maximum, absinfo.resolution, absinfo.fuzz, absinfo.flat,
-                  devnode);
-        rc = ioctl(fd, EVIOCSABS(evcode), &absinfo);
-        if (rc < 0)
-                log_error_errno(errno, "Unable to EVIOCSABS device \"%s\"", devnode);
+        log_device_debug(dev, "keyboard: %x overridden with %"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32,
+                         evcode, absinfo.minimum, absinfo.maximum, absinfo.resolution, absinfo.fuzz, absinfo.flat);
+        r = ioctl(fd, EVIOCSABS(evcode), &absinfo);
+        if (r < 0)
+                return log_device_error_errno(dev, errno, "Failed to call EVIOCSABS");
+
+        return 0;
 }
 
 static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
         sd_device *pdev;
         char val_s[DECIMAL_STR_MAX(int)];
-        const char *devnode;
         int r, val_i;
 
         assert(dev);
         assert(value);
 
-        r = sd_device_get_devname(dev, &devnode);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get devname: %m");
-
         /* The sensitivity sysfs attr belongs to the serio parent device */
         r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", NULL, &pdev);
         if (r < 0)
-                return log_warning_errno(r, "Failed to get serio parent for '%s': %m", devnode);
+                return log_device_error_errno(dev, r, "Failed to get serio parent: %m");
 
         r = safe_atoi(value, &val_i);
         if (r < 0)
-                return log_error_errno(r, "Unable to parse POINTINGSTICK_SENSITIVITY '%s' for '%s': %m", value, devnode);
+                return log_device_error_errno(dev, r, "Failed to parse POINTINGSTICK_SENSITIVITY '%s': %m", value);
         else if (val_i < 0 || val_i > 255)
-                return log_error_errno(ERANGE, "POINTINGSTICK_SENSITIVITY %d outside range [0..255] for '%s'", val_i, devnode);
+                return log_device_error_errno(dev, ERANGE, "POINTINGSTICK_SENSITIVITY %d outside range [0..255]", val_i);
 
         xsprintf(val_s, "%d", val_i);
 
         r = sd_device_set_sysattr_value(pdev, "sensitivity", val_s);
         if (r < 0)
-                return log_error_errno(r, "Failed to write 'sensitivity' attribute for '%s': %m", devnode);
+                return log_device_error_errno(dev, r, "Failed to write 'sensitivity' attribute: %m");
 
         return 0;
-}
-
-static int open_device(const char *devnode) {
-        int fd;
-
-        fd = open(devnode, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (fd < 0)
-                return log_error_errno(errno, "Error opening device \"%s\": %m", devnode);
-
-        return fd;
 }
 
 static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
@@ -191,12 +171,8 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
         int has_abs = -1, r;
 
         r = sd_device_get_devname(dev, &node);
-        if (r < 0) {
-                const char *s = NULL;
-
-                (void) sd_device_get_syspath(dev, &s);
-                return log_error_errno(r, "No device node for \"%s\": %m", strnull(s));
-        }
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get device name: %m");
 
         FOREACH_DEVICE_PROPERTY(dev, key, value) {
                 char *endptr;
@@ -208,7 +184,7 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                         /* KEYBOARD_KEY_<hex scan code>=<key identifier string> */
                         scancode = strtoul(key + 13, &endptr, 16);
                         if (endptr[0] != '\0') {
-                                log_warning("Unable to parse scan code from \"%s\"", key);
+                                log_device_warning(dev, "Failed to parse scan code from \"%s\", ignoring", key);
                                 continue;
                         }
 
@@ -224,27 +200,27 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                                         continue;
                         }
 
-                        if (fd == -1) {
-                                fd = open_device(node);
+                        if (fd < 0) {
+                                fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0)
-                                        return fd;
+                                        return log_device_error_errno(dev, errno, "Failed to open device '%s': %m", node);
                         }
 
-                        map_keycode(fd, node, scancode, keycode);
+                        (void) map_keycode(dev, fd, scancode, keycode);
                 } else if (startswith(key, "EVDEV_ABS_")) {
                         unsigned evcode;
 
                         /* EVDEV_ABS_<EV_ABS code>=<min>:<max>:<res>:<fuzz>:<flat> */
                         evcode = strtoul(key + 10, &endptr, 16);
                         if (endptr[0] != '\0') {
-                                log_warning("Unable to parse EV_ABS code from \"%s\"", key);
+                                log_device_warning(dev, "Failed to parse EV_ABS code from \"%s\", ignoring", key);
                                 continue;
                         }
 
-                        if (fd == -1) {
-                                fd = open_device(node);
+                        if (fd < 0) {
+                                fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0)
-                                        return fd;
+                                        return log_device_error_errno(dev, errno, "Failed to open device '%s': %m", node);
                         }
 
                         if (has_abs == -1) {
@@ -253,24 +229,24 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
 
                                 rc = ioctl(fd, EVIOCGBIT(0, sizeof(bits)), &bits);
                                 if (rc < 0)
-                                        return log_error_errno(errno, "Unable to EVIOCGBIT device \"%s\"", node);
+                                        return log_device_error_errno(dev, errno, "Failed to set EVIOCGBIT");
 
                                 has_abs = !!(bits & (1 << EV_ABS));
                                 if (!has_abs)
-                                        log_warning("EVDEV_ABS override set but no EV_ABS present on device \"%s\"", node);
+                                        log_device_warning(dev, "EVDEV_ABS override set but no EV_ABS present on device");
                         }
 
                         if (!has_abs)
                                 continue;
 
-                        override_abs(fd, node, evcode, value);
+                        (void) override_abs(dev, fd, evcode, value);
                 } else if (streq(key, "POINTINGSTICK_SENSITIVITY"))
-                        set_trackpoint_sensitivity(dev, value);
+                        (void) set_trackpoint_sensitivity(dev, value);
         }
 
         /* install list of force-release codes */
         if (release_count > 0)
-                install_force_release(dev, release, release_count);
+                (void) install_force_release(dev, release, release_count);
 
         return 0;
 }
