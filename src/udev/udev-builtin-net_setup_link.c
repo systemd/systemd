@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include "device-util.h"
 #include "alloc-util.h"
 #include "link-config.h"
 #include "log.h"
@@ -14,10 +15,8 @@ static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool te
         link_config *link;
         int r;
 
-        if (argc > 1) {
-                log_error("This program takes no arguments.");
-                return -EINVAL;
-        }
+        if (argc > 1)
+                return log_device_error_errno(dev, EINVAL, "This program takes no arguments.");
 
         r = link_get_driver(ctx, dev, &driver);
         if (r >= 0)
@@ -26,18 +25,14 @@ static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool te
         r = link_config_get(ctx, dev, &link);
         if (r < 0) {
                 if (r == -ENOENT)
-                        return log_debug_errno(r, "No matching link configuration found.");
+                        return log_device_debug_errno(dev, r, "No matching link configuration found.");
 
-                return log_error_errno(r, "Could not get link config: %m");
+                return log_device_error_errno(dev, r, "Failed to get link config: %m");
         }
 
         r = link_config_apply(ctx, link, dev, &name);
-        if (r < 0) {
-                const char *sysname = NULL;
-
-                (void) sd_device_get_sysname(dev, &sysname);
-                log_warning_errno(r, "Could not apply link config to %s, ignoring: %m", strnull(sysname));
-        }
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Could not apply link config, ignoring: %m");
 
         udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE", link->filename);
 

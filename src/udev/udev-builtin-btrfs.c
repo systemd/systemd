@@ -8,6 +8,7 @@
 #include <linux/btrfs.h>
 #endif
 
+#include "device-util.h"
 #include "fd-util.h"
 #include "missing.h"
 #include "string-util.h"
@@ -21,16 +22,16 @@ static int builtin_btrfs(sd_device *dev, int argc, char *argv[], bool test) {
         int r;
 
         if (argc != 3 || !streq(argv[1], "ready"))
-                return -EINVAL;
+                return log_device_error_errno(dev, EINVAL, "Invalid arguments");
 
         fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC);
         if (fd < 0)
-                return -errno;
+                return log_device_debug_errno(dev, errno, "Failed to open /dev/btrfs-control: %m");
 
         strscpy(args.name, sizeof(args.name), argv[2]);
         r = ioctl(fd, BTRFS_IOC_DEVICES_READY, &args);
         if (r < 0)
-                return -errno;
+                return log_device_debug_errno(dev, errno, "Failed to call BTRFS_IOC_DEVICES_READY: %m");
 
         udev_builtin_add_property(dev, test, "ID_BTRFS_READY", one_zero(r == 0));
         return 0;

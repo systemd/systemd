@@ -9,6 +9,7 @@
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "hwdb-util.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -159,17 +160,28 @@ static int builtin_hwdb(sd_device *dev, int argc, char *argv[], bool test) {
         }
 
         /* query a specific key given as argument */
-        if (argv[optind])
-                return udev_builtin_hwdb_lookup(dev, prefix, argv[optind], filter, test);
+        if (argv[optind]) {
+                r = udev_builtin_hwdb_lookup(dev, prefix, argv[optind], filter, test);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to lookup hwdb: %m");
+                if (r == 0)
+                        return log_device_debug_errno(dev, ENOENT, "No entry found from hwdb: %m");
+                return r;
+        }
 
         /* read data from another device than the device we will store the data */
         if (device) {
                 r = sd_device_new_from_device_id(&srcdev, device);
                 if (r < 0)
-                        return r;
+                        return log_device_debug_errno(dev, r, "Failed to create sd_device object '%s': %m", device);
         }
 
-        return udev_builtin_hwdb_search(dev, srcdev, subsystem, prefix, filter, test);
+        r = udev_builtin_hwdb_search(dev, srcdev, subsystem, prefix, filter, test);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to lookup hwdb: %m");
+        if (r == 0)
+                return log_device_debug_errno(dev, ENOENT, "No entry found from hwdb: %m");
+        return r;
 }
 
 /* called at udev startup and reload */

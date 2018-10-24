@@ -326,7 +326,7 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
                 else if (errno == ENOENT)
                         continue;
                 else
-                        return log_debug_errno(errno, "error reading %s: %m", hwdb_bin_path);
+                        return log_debug_errno(errno, "Failed to open %s: %m", hwdb_bin_path);
         }
 
         if (!hwdb->f) {
@@ -335,16 +335,16 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
         }
 
         if (fstat(fileno(hwdb->f), &hwdb->st) < 0 ||
-            (size_t)hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8)
-                return log_debug_errno(errno, "error reading %s: %m", hwdb_bin_path);
+            (size_t) hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8)
+                return log_debug_errno(errno, "Failed to read %s: %m", hwdb_bin_path);
 
         hwdb->map = mmap(0, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
         if (hwdb->map == MAP_FAILED)
-                return log_debug_errno(errno, "error mapping %s: %m", hwdb_bin_path);
+                return log_debug_errno(errno, "Failed to map %s: %m", hwdb_bin_path);
 
         if (memcmp(hwdb->map, sig, sizeof(hwdb->head->signature)) != 0 ||
-            (size_t)hwdb->st.st_size != le64toh(hwdb->head->file_size)) {
-                log_debug("error recognizing the format of %s", hwdb_bin_path);
+            (size_t) hwdb->st.st_size != le64toh(hwdb->head->file_size)) {
+                log_debug("Failed to recognize the format of %s", hwdb_bin_path);
                 return -EINVAL;
         }
 
