@@ -293,7 +293,7 @@ static void service_reset_watchdog(Service *s) {
         service_start_watchdog(s);
 }
 
-static void service_reset_watchdog_timeout(Service *s, usec_t watchdog_override_usec) {
+static void service_override_watchdog_timeout(Service *s, usec_t watchdog_override_usec) {
         assert(s);
 
         s->watchdog_override_enable = true;
@@ -3774,7 +3774,7 @@ static void service_notify_message(
                 if (safe_atou64(e, &watchdog_override_usec) < 0)
                         log_unit_warning(u, "Failed to parse WATCHDOG_USEC=%s", e);
                 else
-                        service_reset_watchdog_timeout(s, watchdog_override_usec);
+                        service_override_watchdog_timeout(s, watchdog_override_usec);
         }
 
         /* Process FD store messages. Either FDSTOREREMOVE=1 for removal, or FDSTORE=1 for addition. In both cases,
