@@ -678,22 +678,46 @@ int udev_event_spawn(struct udev_event *event,
 }
 
 static int rename_netif(struct udev_event *event) {
-        struct udev_device *dev = event->dev;
+        sd_device *dev = event->dev->device;
+        const char *action, *oldname;
         char name[IFNAMSIZ];
-        const char *oldname;
-        int r;
+        int ifindex, r;
 
-        oldname = udev_device_get_sysname(dev);
+        if (!event->name)
+                return 0; /* No new name is requested. */
+
+        r = sd_device_get_sysname(dev, &oldname);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get sysname: %m");
+
+        if (streq(event->name, oldname))
+                return 0; /* The interface name is already requested name. */
+
+        r = sd_device_get_property_value(dev, "ACTION", &action);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get property 'ACTION': %m");
+
+        if (!streq(action, "add"))
+                return 0; /* Rename the interface only when it is added. */
+
+        r = sd_device_get_ifindex(dev, &ifindex);
+        if (r == -ENOENT)
+                return 0; /* Device is not a network interface. */
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get ifindex: %m");
 
         strscpy(name, IFNAMSIZ, event->name);
-
-        r = rtnl_set_link_name(&event->rtnl, udev_device_get_ifindex(dev), name);
+        r = rtnl_set_link_name(&event->rtnl, ifindex, name);
         if (r < 0)
-                return log_error_errno(r, "Error changing net interface name '%s' to '%s': %m", oldname, name);
+                return log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m", ifindex, oldname, name);
 
-        log_debug("renamed network interface '%s' to '%s'", oldname, name);
+        r = device_rename(dev, event->name);
+        if (r < 0)
+                return log_warning_errno(r, "Network interface %i is renamed from '%s' to '%s', but could not update sd_device object: %m", ifindex, oldname, name);
 
-        return 0;
+        log_device_debug(dev, "Network interface %i is renamed from '%s' to '%s'", ifindex, oldname, name);
+
+        return 1;
 }
 
 void udev_event_execute_rules(struct udev_event *event,
@@ -735,24 +759,7 @@ void udev_event_execute_rules(struct udev_event *event,
                                           timeout_usec, timeout_warn_usec,
                                           properties_list);
 
-                /* rename a new network interface, if needed */
-                if (udev_device_get_ifindex(dev) > 0 && streq(udev_device_get_action(dev), "add") &&
-                    event->name != NULL && !streq(event->name, udev_device_get_sysname(dev))) {
-                        int r;
-
-                        r = rename_netif(event);
-                        if (r < 0)
-                                log_warning_errno(r, "could not rename interface '%d' from '%s' to '%s': %m", udev_device_get_ifindex(dev),
-                                                  udev_device_get_sysname(dev), event->name);
-                        else {
-                                r = udev_device_rename(dev, event->name);
-                                if (r < 0)
-                                        log_warning_errno(r, "renamed interface '%d' from '%s' to '%s', but could not update udev_device: %m",
-                                                          udev_device_get_ifindex(dev), udev_device_get_sysname(dev), event->name);
-                                else
-                                        log_debug("changed devpath to '%s'", udev_device_get_devpath(dev));
-                        }
-                }
+                (void) rename_netif(event);
 
                 if (major(udev_device_get_devnum(dev)) > 0) {
                         bool apply;
