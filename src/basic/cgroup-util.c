@@ -2377,24 +2377,26 @@ int cg_mask_supported(CGroupMask *ret) {
                 if (r < 0)
                         return r;
 
-                /* Currently, we support the cpu, memory, io and pids
-                 * controller in the unified hierarchy, mask
+                /* Currently, we support the cpu, memory, io and pids controller in the unified hierarchy, mask
                  * everything else off. */
-                mask &= CGROUP_MASK_CPU | CGROUP_MASK_MEMORY | CGROUP_MASK_IO | CGROUP_MASK_PIDS;
+                mask &= CGROUP_MASK_V2;
 
         } else {
                 CGroupController c;
 
-                /* In the legacy hierarchy, we check whether which
-                 * hierarchies are mounted. */
+                /* In the legacy hierarchy, we check which hierarchies are mounted. */
 
                 mask = 0;
                 for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+                        CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                         const char *n;
+
+                        if (!FLAGS_SET(CGROUP_MASK_V1, bit))
+                                continue;
 
                         n = cgroup_controller_to_string(c);
                         if (controller_is_accessible(n) >= 0)
-                                mask |= CGROUP_CONTROLLER_TO_MASK(c);
+                                mask |= bit;
                 }
         }
 
