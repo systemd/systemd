@@ -64,7 +64,7 @@ finish:
                 /* Better be safe than sorry and reset ACL */
                 k = devnode_acl(path, true, false, 0, false, 0);
                 if (k < 0) {
-                        log_device_full(dev, errno == ENOENT ? LOG_DEBUG : LOG_ERR, k, "Failed to apply ACL: %m");
+                        log_device_full(dev, k == -ENOENT ? LOG_DEBUG : LOG_ERR, k, "Failed to apply ACL: %m");
                         if (r >= 0)
                                 r = k;
                 }
