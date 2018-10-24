@@ -129,10 +129,12 @@ bool cg_ns_supported(void) {
         if (enabled >= 0)
                 return enabled;
 
-        if (access("/proc/self/ns/cgroup", F_OK) == 0)
-                enabled = 1;
-        else
-                enabled = 0;
+        if (access("/proc/self/ns/cgroup", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to check whether /proc/self/ns/cgroup is available, assuming not: %m");
+                enabled = false;
+        } else
+                enabled = true;
 
         return enabled;
 }
