@@ -197,15 +197,9 @@ static int read_wakealarm(uint64_t *result) {
 }
 
 static int write_wakealarm(const char *str) {
-
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        f = fopen("/sys/class/rtc/rtc0/wakealarm", "we");
-        if (!f)
-                return log_error_errno(errno, "Failed to open /sys/class/rtc/rtc0/wakealarm: %m");
-
-        r = write_string_stream(f, str, 0);
+        r = write_string_file("/sys/class/rtc/rtc0/wakealarm", str, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s' to /sys/class/rtc/rtc0/wakealarm: %m", str);
 
