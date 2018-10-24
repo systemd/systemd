@@ -263,7 +263,17 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
                 return 0;
 
         /* If woken up after alarm time, hibernate */
-        return execute(hibernate_modes, hibernate_states);
+        r = execute(hibernate_modes, hibernate_states);
+        if (r < 0) {
+                log_notice("Couldn't hibernate, will try to suspend again.");
+                r = execute(suspend_modes, suspend_states);
+                if (r < 0) {
+                        log_notice("Could neither hibernate nor suspend again, giving up.");
+                        return r;
+                }
+        }
+
+        return 0;
 }
 
 static int help(void) {
