@@ -178,6 +178,11 @@ static void test_restrict_namespace(void) {
         unsigned long ul;
         pid_t pid;
 
+        if (!have_namespaces()) {
+                log_notice("Testing without namespaces, skipping %s", __func__);
+                return;
+        }
+
         log_info("/* %s */", __func__);
 
         assert_se(namespace_flags_to_string(0, &s) == 0 && streq(s, ""));
