@@ -28,7 +28,7 @@
 #include "util.h"
 #include "virt.h"
 
-static bool can_unshare = true;
+static bool can_unshare;
 
 typedef void (*test_function_t)(Manager *m);
 
@@ -759,6 +759,8 @@ int main(int argc, char *argv[]) {
         (void) unsetenv("USER");
         (void) unsetenv("LOGNAME");
         (void) unsetenv("SHELL");
+
+        can_unshare = have_namespaces();
 
         /* It is needed otherwise cgroup creation fails */
         if (getuid() != 0)

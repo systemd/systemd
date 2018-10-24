@@ -1,14 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <alloc-util.h>
-#include <fs-util.h>
-#include <libgen.h>
+#include <sched.h>
+#include <signal.h>
 #include <stdlib.h>
+#include <sys/mount.h>
+#include <sys/wait.h>
 #include <util.h>
+
+/* When we include libgen.h because we need dirname() we immediately
+ * undefine basename() since libgen.h defines it as a macro to the POSIX
+ * version which is really broken. We prefer GNU basename(). */
+#include <libgen.h>
+#undef basename
 
 #include "alloc-util.h"
 #include "env-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "strv.h"
@@ -107,4 +115,37 @@ int log_tests_skipped_errno(int r, const char *message) {
         log_notice_errno(r, "%s: %s, skipping tests: %m",
                          program_invocation_short_name, message);
         return EXIT_TEST_SKIP;
+}
+
+bool have_namespaces(void) {
+        siginfo_t si = {};
+        pid_t pid;
+
+        /* Checks whether namespaces are available. In some cases they aren't. We do this by calling unshare(), and we
+         * do so in a child process in order not to affect our own process. */
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                /* child */
+                if (unshare(CLONE_NEWNS) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(waitid(P_PID, pid, &si, WEXITED) >= 0);
+        assert_se(si.si_code == CLD_EXITED);
+
+        if (si.si_status == EXIT_SUCCESS)
+                return true;
+
+        if (si.si_status == EXIT_FAILURE)
+                return false;
+
+        assert_not_reached("unexpected exit code");
 }

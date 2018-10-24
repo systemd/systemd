@@ -111,6 +111,11 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
+        if (!have_namespaces()) {
+                log_tests_skipped("Don't have namespace support");
+                return EXIT_TEST_SKIP;
+        }
+
         assert_se(sd_id128_get_boot(&bid) >= 0);
         sd_id128_to_string(bid, boot_id);
 

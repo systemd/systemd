@@ -186,6 +186,11 @@ static void test_get_process_cmdline_harder(void) {
                 return;
         }
 
+        if (!have_namespaces()) {
+                log_notice("Testing without namespaces, skipping %s", __func__);
+                return;
+        }
+
 #if HAVE_VALGRIND_VALGRIND_H
         /* valgrind patches open(/proc//cmdline)
          * so, test_get_process_cmdline_harder fails always
