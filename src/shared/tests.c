@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <alloc-util.h>
-#include <fs-util.h>
 #include <libgen.h>
 #include <stdlib.h>
 #include <util.h>
@@ -9,6 +7,7 @@
 #include "alloc-util.h"
 #include "env-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "strv.h"
