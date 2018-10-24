@@ -58,11 +58,12 @@ struct udev_event *udev_event_new(struct udev_device *dev) {
         return event;
 }
 
-void udev_event_unref(struct udev_event *event) {
+struct udev_event *udev_event_free(struct udev_event *event) {
         void *p;
 
-        if (event == NULL)
-                return;
+        if (!event)
+                return NULL;
+
         sd_netlink_unref(event->rtnl);
         while ((p = hashmap_steal_first_key(event->run_list)))
                 free(p);
@@ -70,7 +71,8 @@ void udev_event_unref(struct udev_event *event) {
         hashmap_free_free_free(event->seclabel_list);
         free(event->program_result);
         free(event->name);
-        free(event);
+
+        return mfree(event);
 }
 
 enum subst_type {

@@ -398,7 +398,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 write_string_file("/proc/self/oom_score_adj", "0", 0);
 
                 for (;;) {
-                        struct udev_event *udev_event;
+                        _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
                         int fd_lock = -1;
 
                         assert(dev);
@@ -476,8 +476,6 @@ skip:
 
                         udev_device_unref(dev);
                         dev = NULL;
-
-                        udev_event_unref(udev_event);
 
                         /* wait for more device messages from main udevd, or term signal */
                         while (dev == NULL) {
