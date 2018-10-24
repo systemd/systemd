@@ -65,7 +65,7 @@ static void test_parse_sec_fix_0(void) {
         assert_se(parse_sec_fix_0("5s", &u) >= 0);
         assert_se(u == 5 * USEC_PER_SEC);
         assert_se(parse_sec_fix_0("0s", &u) >= 0);
-        assert_se(u == 0 * USEC_PER_SEC);
+        assert_se(u == USEC_INFINITY);
         assert_se(parse_sec_fix_0("0", &u) >= 0);
         assert_se(u == USEC_INFINITY);
         assert_se(parse_sec_fix_0(" 0", &u) >= 0);
