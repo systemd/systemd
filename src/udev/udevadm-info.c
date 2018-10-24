@@ -331,8 +331,8 @@ int info_main(int argc, char *argv[], void *userdata) {
                         break;
                 case 'd':
                         action = ACTION_DEVICE_ID_FILE;
-                        name = strdup(optarg);
-                        if (!name)
+                        r = free_and_strdup(&name, optarg);
+                        if (r < 0)
                                 return log_oom();
                         break;
                 case 'a':

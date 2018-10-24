@@ -37,7 +37,7 @@ static int send_on_socket(int fd, const char *socket_name, const void *packet, s
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *packet = NULL;
         _cleanup_close_ int fd = -1;
-        size_t length;
+        size_t length = 0;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);

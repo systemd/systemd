@@ -2207,7 +2207,7 @@ static int unit_log_resources(Unit *u) {
 
                 /* Format the CPU time for inclusion in the human language message string */
                 format_timespan(buf, sizeof(buf), nsec / NSEC_PER_USEC, USEC_PER_MSEC);
-                t = strjoin(n_message_parts > 0 ? "consumed " : "Consumed ", buf, " CPU time");
+                t = strjoin("consumed ", buf, " CPU time");
                 if (!t) {
                         r = log_oom();
                         goto finish;
@@ -2239,18 +2239,14 @@ static int unit_log_resources(Unit *u) {
                  * bytes counters (and not for the packets counters) */
                 if (m == CGROUP_IP_INGRESS_BYTES) {
                         assert(!igress);
-                        igress = strjoin(n_message_parts > 0 ? "received " : "Received ",
-                                         format_bytes(buf, sizeof(buf), value),
-                                         " IP traffic");
+                        igress = strjoin("received ", format_bytes(buf, sizeof(buf), value), " IP traffic");
                         if (!igress) {
                                 r = log_oom();
                                 goto finish;
                         }
                 } else if (m == CGROUP_IP_EGRESS_BYTES) {
                         assert(!egress);
-                        egress = strjoin(igress || n_message_parts > 0 ? "sent " : "Sent ",
-                                         format_bytes(buf, sizeof(buf), value),
-                                         " IP traffic");
+                        egress = strjoin("sent ", format_bytes(buf, sizeof(buf), value), " IP traffic");
                         if (!egress) {
                                 r = log_oom();
                                 goto finish;
@@ -2266,7 +2262,7 @@ static int unit_log_resources(Unit *u) {
         } else {
                 char *k;
 
-                k = strdup(n_message_parts > 0 ? "no IP traffic" : "No IP traffic");
+                k = strdup("no IP traffic");
                 if (!k) {
                         r = log_oom();
                         goto finish;
@@ -2294,6 +2290,7 @@ static int unit_log_resources(Unit *u) {
                         goto finish;
                 }
 
+                joined[0] = ascii_toupper(joined[0]);
                 t = strjoina("MESSAGE=", u->id, ": ", joined, ".");
         }
 

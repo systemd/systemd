@@ -200,7 +200,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 int monitor_main(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *kernel_monitor = NULL, *udev_monitor = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 
         r = parse_argv(argc, argv);
