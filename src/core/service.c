@@ -195,19 +195,21 @@ static usec_t service_get_watchdog_usec(Service *s) {
 
         if (s->watchdog_override_enable)
                 return s->watchdog_override_usec;
-        else
-                return s->watchdog_usec;
+
+        return s->watchdog_original_usec;
 }
 
 static void service_start_watchdog(Service *s) {
-        int r;
         usec_t watchdog_usec;
+        int r;
 
         assert(s);
 
         watchdog_usec = service_get_watchdog_usec(s);
-        if (IN_SET(watchdog_usec, 0, USEC_INFINITY))
+        if (IN_SET(watchdog_usec, 0, USEC_INFINITY)) {
+                service_stop_watchdog(s);
                 return;
+        }
 
         if (s->watchdog_event_source) {
                 r = sd_event_source_set_time(s->watchdog_event_source, usec_add(s->watchdog_timestamp.monotonic, watchdog_usec));
