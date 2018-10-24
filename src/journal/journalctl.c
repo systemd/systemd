@@ -2038,14 +2038,46 @@ static int sync_journal(void) {
         return send_signal_and_wait(SIGRTMIN+1, "/run/systemd/journal/synced");
 }
 
-int main(int argc, char *argv[]) {
+static int wait_for_change(sd_journal *j, int poll_fd) {
+        struct pollfd pollfds[] = {
+                { .fd = poll_fd, .events = POLLIN },
+                { .fd = STDOUT_FILENO },
+        };
+
+        struct timespec ts;
+        usec_t timeout;
         int r;
+
+        assert(j);
+        assert(poll_fd >= 0);
+
+        /* Much like sd_journal_wait() but also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that,
+         * i.e. when it is closed. */
+
+        r = sd_journal_get_timeout(j, &timeout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine journal waiting time: %m");
+
+        if (ppoll(pollfds, ELEMENTSOF(pollfds), timeout == USEC_INFINITY ? NULL : timespec_store(&ts, timeout), NULL) < 0)
+                return log_error_errno(errno, "Couldn't wait for journal event: %m");
+
+        if (pollfds[1].revents & (POLLHUP|POLLERR)) { /* STDOUT has been closed? */
+                log_debug("Standard output has been closed.");
+                return -ECANCELED;
+        }
+
+        r = sd_journal_process(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to process journal events: %m");
+
+        return 0;
+}
+
+int main(int argc, char *argv[]) {
+        bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        bool need_seek = false;
         sd_id128_t previous_boot_id;
-        bool previous_boot_id_valid = false, first_line = true;
-        int n_shown = 0;
-        bool ellipsized = false;
+        int n_shown = 0, r, poll_fd = -1;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
@@ -2373,15 +2405,15 @@ int main(int argc, char *argv[]) {
 
         /* Opening the fd now means the first sd_journal_wait() will actually wait */
         if (arg_follow) {
-                r = sd_journal_get_fd(j);
-                if (r == -EMFILE) {
-                        log_warning("Insufficent watch descriptors available. Reverting to -n.");
+                poll_fd = sd_journal_get_fd(j);
+                if (poll_fd == -EMFILE) {
+                        log_warning_errno(poll_fd, "Insufficent watch descriptors available. Reverting to -n.");
                         arg_follow = false;
-                } else if (r == -EMEDIUMTYPE) {
-                        log_error_errno(r, "The --follow switch is not supported in conjunction with reading from STDIN.");
+                } else if (poll_fd == -EMEDIUMTYPE) {
+                        log_error_errno(poll_fd, "The --follow switch is not supported in conjunction with reading from STDIN.");
                         goto finish;
-                } else if (r < 0) {
-                        log_error_errno(r, "Failed to get journal fd: %m");
+                } else if (poll_fd < 0) {
+                        log_error_errno(poll_fd, "Failed to get journal fd: %m");
                         goto finish;
                 }
         }
@@ -2603,7 +2635,7 @@ int main(int argc, char *argv[]) {
                         need_seek = true;
                         if (r == -EADDRNOTAVAIL)
                                 break;
-                        else if (r < 0 || ferror(stdout))
+                        else if (r < 0)
                                 goto finish;
 
                         n_shown++;
@@ -2641,11 +2673,10 @@ int main(int argc, char *argv[]) {
                 }
 
                 fflush(stdout);
-                r = sd_journal_wait(j, (uint64_t) -1);
-                if (r < 0) {
-                        log_error_errno(r, "Couldn't wait for journal event: %m");
+
+                r = wait_for_change(j, poll_fd);
+                if (r < 0)
                         goto finish;
-                }
 
                 first_line = false;
         }
