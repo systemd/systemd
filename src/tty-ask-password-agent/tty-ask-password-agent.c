@@ -228,7 +228,7 @@ static int ask_password_plymouth(
         r = 0;
 
 finish:
-        explicit_bzero(buffer, sizeof(buffer));
+        explicit_bzero_safe(buffer, sizeof(buffer));
         return r;
 }
 
@@ -275,7 +275,7 @@ static int send_passwords(const char *socket_name, char **passwords) {
         r = (int) n;
 
 finish:
-        explicit_bzero(packet, packet_length);
+        explicit_bzero_safe(packet, packet_length);
         return r;
 }
 

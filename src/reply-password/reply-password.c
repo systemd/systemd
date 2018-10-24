@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
         r = send_on_socket(fd, argv[2], packet, length);
 
 finish:
-        explicit_bzero(packet, length);
+        explicit_bzero_safe(packet, length);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
