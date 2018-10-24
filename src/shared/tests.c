@@ -1,8 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <libgen.h>
 #include <stdlib.h>
 #include <util.h>
+
+/* When we include libgen.h because we need dirname() we immediately
+ * undefine basename() since libgen.h defines it as a macro to the POSIX
+ * version which is really broken. We prefer GNU basename(). */
+#include <libgen.h>
+#undef basename
 
 #include "alloc-util.h"
 #include "env-util.h"
