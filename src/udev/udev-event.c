@@ -4,18 +4,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <net/if.h>
-#include <poll.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/epoll.h>
-#include <sys/prctl.h>
-#include <sys/signalfd.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
+#include "device-private.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "libudev-device-internal.h"
@@ -32,9 +29,15 @@
 typedef struct Spawn {
         const char *cmd;
         pid_t pid;
-        usec_t timeout_warn;
-        usec_t timeout;
+        usec_t timeout_warn_usec;
+        usec_t timeout_usec;
+        usec_t event_birth_usec;
         bool accept_failure;
+        int fd_stdout;
+        int fd_stderr;
+        char *result;
+        size_t result_size;
+        size_t result_len;
 } Spawn;
 
 struct udev_event *udev_event_new(struct udev_device *dev) {
@@ -405,186 +408,51 @@ out:
         return l;
 }
 
-static int spawn_exec(struct udev_event *event,
-                      const char *cmd, char *const argv[], char **envp,
-                      int fd_stdout, int fd_stderr) {
-        _cleanup_close_ int fd = -1;
-        int r;
+static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Spawn *spawn = userdata;
+        char buf[4096], *p;
+        size_t size;
+        ssize_t l;
 
-        /* discard child output or connect to pipe */
-        fd = open("/dev/null", O_RDWR);
-        if (fd >= 0) {
-                r = dup2(fd, STDIN_FILENO);
-                if (r < 0)
-                        log_warning_errno(errno, "redirecting stdin failed: %m");
+        assert(spawn);
+        assert(fd == spawn->fd_stdout || fd == spawn->fd_stderr);
+        assert(!spawn->result || spawn->result_len < spawn->result_size);
 
-                if (fd_stdout < 0) {
-                        r = dup2(fd, STDOUT_FILENO);
-                        if (r < 0)
-                                log_warning_errno(errno, "redirecting stdout failed: %m");
-                }
-
-                if (fd_stderr < 0) {
-                        r = dup2(fd, STDERR_FILENO);
-                        if (r < 0)
-                                log_warning_errno(errno, "redirecting stderr failed: %m");
-                }
-        } else
-                log_warning_errno(errno, "open /dev/null failed: %m");
-
-        /* connect pipes to std{out,err} */
-        if (fd_stdout >= 0) {
-                r = dup2(fd_stdout, STDOUT_FILENO);
-                if (r < 0)
-                        log_warning_errno(errno, "redirecting stdout failed: %m");
-
-                fd_stdout = safe_close(fd_stdout);
+        if (fd == spawn->fd_stdout && spawn->result) {
+                p = spawn->result + spawn->result_len;
+                size = spawn->result_size - spawn->result_len;
+        } else {
+                p = buf;
+                size = sizeof(buf);
         }
 
-        if (fd_stderr >= 0) {
-                r = dup2(fd_stderr, STDERR_FILENO);
-                if (r < 0)
-                        log_warning_errno(errno, "redirecting stdout failed: %m");
+        l = read(fd, p, size - 1);
+        if (l < 0) {
+                if (errno != EAGAIN)
+                        log_error_errno(errno, "Failed to read stdout of '%s': %m", spawn->cmd);
 
-                fd_stderr = safe_close(fd_stderr);
+                return 0;
         }
 
-        /* terminate child in case parent goes away */
-        prctl(PR_SET_PDEATHSIG, SIGTERM);
+        p[l] = '\0';
+        if (fd == spawn->fd_stdout && spawn->result)
+                spawn->result_len += l;
 
-        /* restore sigmask before exec */
-        (void) reset_signal_mask();
+        /* Log output only if we watch stderr. */
+        if (l > 0 && spawn->fd_stderr >= 0) {
+                _cleanup_strv_free_ char **v = NULL;
+                char **q;
 
-        execve(argv[0], argv, envp);
+                v = strv_split_newlines(p);
+                if (!v)
+                        return 0;
 
-        /* exec failed */
-        return log_error_errno(errno, "failed to execute '%s' '%s': %m", argv[0], cmd);
-}
-
-static void spawn_read(struct udev_event *event,
-                       usec_t timeout_usec,
-                       const char *cmd,
-                       int fd_stdout, int fd_stderr,
-                       char *result, size_t ressize) {
-        _cleanup_close_ int fd_ep = -1;
-        struct epoll_event ep_outpipe = {
-                .events = EPOLLIN,
-                .data.ptr = &fd_stdout,
-        };
-        struct epoll_event ep_errpipe = {
-                .events = EPOLLIN,
-                .data.ptr = &fd_stderr,
-        };
-        size_t respos = 0;
-        int r;
-
-        /* read from child if requested */
-        if (fd_stdout < 0 && fd_stderr < 0)
-                return;
-
-        fd_ep = epoll_create1(EPOLL_CLOEXEC);
-        if (fd_ep < 0) {
-                log_error_errno(errno, "error creating epoll fd: %m");
-                return;
+                STRV_FOREACH(q, v)
+                        log_debug("'%s'(%s) '%s'", spawn->cmd,
+                                  fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
-        if (fd_stdout >= 0) {
-                r = epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stdout, &ep_outpipe);
-                if (r < 0) {
-                        log_error_errno(errno, "fail to add stdout fd to epoll: %m");
-                        return;
-                }
-        }
-
-        if (fd_stderr >= 0) {
-                r = epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stderr, &ep_errpipe);
-                if (r < 0) {
-                        log_error_errno(errno, "fail to add stderr fd to epoll: %m");
-                        return;
-                }
-        }
-
-        /* read child output */
-        while (fd_stdout >= 0 || fd_stderr >= 0) {
-                int timeout;
-                int fdcount;
-                struct epoll_event ev[4];
-                int i;
-
-                if (timeout_usec > 0) {
-                        usec_t age_usec;
-
-                        age_usec = now(CLOCK_MONOTONIC) - event->birth_usec;
-                        if (age_usec >= timeout_usec) {
-                                log_error("timeout '%s'", cmd);
-                                return;
-                        }
-                        timeout = ((timeout_usec - age_usec) / USEC_PER_MSEC) + MSEC_PER_SEC;
-                } else {
-                        timeout = -1;
-                }
-
-                fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), timeout);
-                if (fdcount < 0) {
-                        if (errno == EINTR)
-                                continue;
-                        log_error_errno(errno, "failed to poll: %m");
-                        return;
-                } else if (fdcount == 0) {
-                        log_error("timeout '%s'", cmd);
-                        return;
-                }
-
-                for (i = 0; i < fdcount; i++) {
-                        int *fd = (int *)ev[i].data.ptr;
-
-                        if (*fd < 0)
-                                continue;
-
-                        if (ev[i].events & EPOLLIN) {
-                                ssize_t count;
-                                char buf[4096];
-
-                                count = read(*fd, buf, sizeof(buf)-1);
-                                if (count <= 0)
-                                        continue;
-                                buf[count] = '\0';
-
-                                /* store stdout result */
-                                if (result != NULL && *fd == fd_stdout) {
-                                        if (respos + count < ressize) {
-                                                memcpy(&result[respos], buf, count);
-                                                respos += count;
-                                        } else {
-                                                log_error("'%s' ressize %zu too short", cmd, ressize);
-                                        }
-                                }
-
-                                /* log debug output only if we watch stderr */
-                                if (fd_stderr >= 0) {
-                                        char *pos;
-                                        char *line;
-
-                                        pos = buf;
-                                        while ((line = strsep(&pos, "\n"))) {
-                                                if (pos != NULL || line[0] != '\0')
-                                                        log_debug("'%s'(%s) '%s'", cmd, *fd == fd_stdout ? "out" : "err" , line);
-                                        }
-                                }
-                        } else if (ev[i].events & EPOLLHUP) {
-                                r = epoll_ctl(fd_ep, EPOLL_CTL_DEL, *fd, NULL);
-                                if (r < 0) {
-                                        log_error_errno(errno, "failed to remove fd from epoll: %m");
-                                        return;
-                                }
-                                *fd = -1;
-                        }
-                }
-        }
-
-        /* return the child's stdout string */
-        if (result != NULL)
-                result[respos] = '\0';
+        return 0;
 }
 
 static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -595,8 +463,8 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         kill_and_sigcont(spawn->pid, SIGKILL);
 
-        log_error("spawned process '%s' ["PID_FMT"] timed out after %s, killing", spawn->cmd, spawn->pid,
-                  format_timestamp_relative(timeout, sizeof(timeout), spawn->timeout));
+        log_error("Spawned process '%s' ["PID_FMT"] timed out after %s, killing", spawn->cmd, spawn->pid,
+                  format_timestamp_relative(timeout, sizeof(timeout), spawn->timeout_usec));
 
         return 1;
 }
@@ -607,8 +475,8 @@ static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 
         assert(spawn);
 
-        log_warning("spawned process '%s' ["PID_FMT"] is taking longer than %s to complete", spawn->cmd, spawn->pid,
-                    format_timestamp_relative(timeout, sizeof(timeout), spawn->timeout));
+        log_warning("Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete", spawn->cmd, spawn->pid,
+                    format_timestamp_relative(timeout, sizeof(timeout), spawn->timeout_warn_usec));
 
         return 1;
 }
@@ -625,11 +493,10 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
                         sd_event_exit(sd_event_source_get_event(s), 0);
 
                         return 1;
-                } else if (spawn->accept_failure)
-                        log_debug("Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
-                else
-                        log_warning("Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
+                }
 
+                log_full(spawn->accept_failure ? LOG_DEBUG : LOG_WARNING,
+                         "Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
                 break;
         case CLD_KILLED:
         case CLD_DUMPED:
@@ -645,49 +512,52 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
         return 1;
 }
 
-static int spawn_wait(struct udev_event *event,
-                      usec_t timeout_usec,
-                      usec_t timeout_warn_usec,
-                      const char *cmd, pid_t pid,
-                      bool accept_failure) {
-        Spawn spawn = {
-                .cmd = cmd,
-                .pid = pid,
-                .accept_failure = accept_failure,
-        };
+static int spawn_wait(Spawn *spawn) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r, ret;
+
+        assert(spawn);
 
         r = sd_event_new(&e);
         if (r < 0)
                 return r;
 
-        if (timeout_usec > 0) {
+        if (spawn->timeout_usec > 0) {
                 usec_t usec, age_usec;
 
                 usec = now(CLOCK_MONOTONIC);
-                age_usec = usec - event->birth_usec;
-                if (age_usec < timeout_usec) {
-                        if (timeout_warn_usec > 0 && timeout_warn_usec < timeout_usec && age_usec < timeout_warn_usec) {
-                                spawn.timeout_warn = timeout_warn_usec - age_usec;
+                age_usec = usec - spawn->event_birth_usec;
+                if (age_usec < spawn->timeout_usec) {
+                        if (spawn->timeout_warn_usec > 0 &&
+                            spawn->timeout_warn_usec < spawn->timeout_usec &&
+                            spawn->timeout_warn_usec > age_usec) {
+                                spawn->timeout_warn_usec -= age_usec;
 
                                 r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
-                                                      usec + spawn.timeout_warn, USEC_PER_SEC,
-                                                      on_spawn_timeout_warning, &spawn);
+                                                      usec + spawn->timeout_warn_usec, USEC_PER_SEC,
+                                                      on_spawn_timeout_warning, spawn);
                                 if (r < 0)
                                         return r;
                         }
 
-                        spawn.timeout = timeout_usec - age_usec;
+                        spawn->timeout_usec -= age_usec;
 
                         r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
-                                              usec + spawn.timeout, USEC_PER_SEC, on_spawn_timeout, &spawn);
+                                              usec + spawn->timeout_usec, USEC_PER_SEC, on_spawn_timeout, spawn);
                         if (r < 0)
                                 return r;
                 }
         }
 
-        r = sd_event_add_child(e, NULL, pid, WEXITED, on_spawn_sigchld, &spawn);
+        r = sd_event_add_io(e, NULL, spawn->fd_stdout, EPOLLIN, on_spawn_io, spawn);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_io(e, NULL, spawn->fd_stderr, EPOLLIN, on_spawn_io, spawn);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_child(e, NULL, spawn->pid, WEXITED, on_spawn_sigchld, spawn);
         if (r < 0)
                 return r;
 
@@ -710,16 +580,20 @@ int udev_event_spawn(struct udev_event *event,
                      char *result, size_t ressize) {
         _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
         _cleanup_strv_free_ char **argv = NULL;
+        char **envp = NULL;
+        Spawn spawn;
         pid_t pid;
         int r;
 
+        assert(result || ressize == 0);
+
         /* pipes from child to parent */
-        if (!result || log_get_max_level() >= LOG_INFO)
-                if (pipe2(outpipe, O_NONBLOCK) != 0)
+        if (result || log_get_max_level() >= LOG_INFO)
+                if (pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) != 0)
                         return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
 
         if (log_get_max_level() >= LOG_INFO)
-                if (pipe2(errpipe, O_NONBLOCK) != 0)
+                if (pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) != 0)
                         return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
 
         argv = strv_split_full(cmd, NULL, SPLIT_QUOTES|SPLIT_RELAX);
@@ -737,35 +611,47 @@ int udev_event_spawn(struct udev_event *event,
                 free_and_replace(argv[0], program);
         }
 
-        r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        r = device_get_properties_strv(event->dev->device, &envp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device properties");
+
+        log_debug("Starting '%s'", cmd);
+
+        r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork() to execute command '%s': %m", cmd);
         if (r == 0) {
-                /* child closes parent's ends of pipes */
-                outpipe[READ_END] = safe_close(outpipe[READ_END]);
-                errpipe[READ_END] = safe_close(errpipe[READ_END]);
+                if (rearrange_stdio(-1, outpipe[WRITE_END], errpipe[WRITE_END]) < 0)
+                        _exit(EXIT_FAILURE);
 
-                log_debug("Starting '%s'", cmd);
+                (void) close_all_fds(NULL, 0);
 
-                spawn_exec(event, cmd, argv, udev_device_get_properties_envp(event->dev),
-                           outpipe[WRITE_END], errpipe[WRITE_END]);
-
-                _exit(2);
+                execve(argv[0], argv, envp);
+                _exit(EXIT_FAILURE);
         }
 
         /* parent closed child's ends of pipes */
         outpipe[WRITE_END] = safe_close(outpipe[WRITE_END]);
         errpipe[WRITE_END] = safe_close(errpipe[WRITE_END]);
 
-        spawn_read(event,
-                   timeout_usec,
-                   cmd,
-                   outpipe[READ_END], errpipe[READ_END],
-                   result, ressize);
-
-        r = spawn_wait(event, timeout_usec, timeout_warn_usec, cmd, pid, accept_failure);
+        spawn = (Spawn) {
+                .cmd = cmd,
+                .pid = pid,
+                .accept_failure = accept_failure,
+                .timeout_warn_usec = timeout_warn_usec,
+                .timeout_usec = timeout_usec,
+                .event_birth_usec = event->birth_usec,
+                .fd_stdout = outpipe[READ_END],
+                .fd_stderr = errpipe[READ_END],
+                .result = result,
+                .result_size = ressize,
+        };
+        r = spawn_wait(&spawn);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait spawned command '%s': %m", cmd);
+
+        if (result)
+                result[spawn.result_len] = '\0';
 
         return r;
 }
