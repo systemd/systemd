@@ -107,6 +107,8 @@ static void service_init(Unit *u) {
 
         s->exec_context.keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
                 EXEC_KEYRING_PRIVATE : EXEC_KEYRING_INHERIT;
+
+        s->watchdog_original_usec = USEC_INFINITY;
 }
 
 static void service_unwatch_control_pid(Service *s) {
@@ -2352,8 +2354,9 @@ static int service_start(Unit *u) {
 
         s->notify_state = NOTIFY_UNKNOWN;
 
+        s->watchdog_original_usec = s->watchdog_usec;
         s->watchdog_override_enable = false;
-        s->watchdog_override_usec = 0;
+        s->watchdog_override_usec = USEC_INFINITY;
 
         exec_command_reset_status_list_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         exec_status_reset(&s->main_exec_status);
@@ -2587,6 +2590,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         if (s->watchdog_override_enable)
                 (void) serialize_item_format(f, "watchdog-override-usec", USEC_FMT, s->watchdog_override_usec);
+
+        if (s->watchdog_original_usec != USEC_INFINITY)
+                (void) serialize_item_format(f, "watchdog-original-usec", USEC_FMT, s->watchdog_original_usec);
 
         return 0;
 }
@@ -2895,6 +2901,10 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u, "Failed to parse watchdog_override_usec value: %s", value);
                 else
                         s->watchdog_override_enable = true;
+
+        } else if (streq(key, "watchdog-original-usec")) {
+                if (deserialize_usec(value, &s->watchdog_original_usec) < 0)
+                        log_unit_debug(u, "Failed to parse watchdog_original_usec value: %s", value);
 
         } else if (STR_IN_SET(key, "main-command", "control-command")) {
                 r = service_deserialize_exec_command(u, key, value);
