@@ -350,7 +350,6 @@ static int parse_password(const char *filename, char **wall) {
                 if (arg_plymouth)
                         r = ask_password_plymouth(message, not_after, accept_cached ? ASK_PASSWORD_ACCEPT_CACHED : 0, filename, &passwords);
                 else {
-                        char *password = NULL;
                         int tty_fd = -1;
 
                         if (arg_console) {
@@ -368,18 +367,12 @@ static int parse_password(const char *filename, char **wall) {
                         r = ask_password_tty(tty_fd, message, NULL, not_after,
                                              (echo ? ASK_PASSWORD_ECHO : 0) |
                                              (arg_console ? ASK_PASSWORD_CONSOLE_COLOR : 0),
-                                             filename, &password);
+                                             filename, &passwords);
 
                         if (arg_console) {
                                 tty_fd = safe_close(tty_fd);
                                 release_terminal();
                         }
-
-                        if (r >= 0)
-                                r = strv_push(&passwords, password);
-
-                        if (r < 0)
-                                string_free_erase(password);
                 }
 
                 /* If the query went away, that's OK */

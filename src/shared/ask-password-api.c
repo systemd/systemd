@@ -27,6 +27,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
@@ -133,6 +134,9 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
                    (unsigned long) DIV_ROUND_UP(KEYRING_TIMEOUT_USEC, USEC_PER_SEC), 0, 0) < 0)
                 log_debug_errno(errno, "Failed to adjust timeout: %m");
 
+        /* Tell everyone to check the keyring */
+        (void) touch("/run/systemd/ask-password");
+
         log_debug("Added key to keyring as %" PRIi32 ".", serial);
 
         return 1;
@@ -211,7 +215,7 @@ int ask_password_tty(
                 usec_t until,
                 AskPasswordFlags flags,
                 const char *flag_file,
-                char **ret) {
+                char ***ret) {
 
         enum {
                 POLL_TTY,
@@ -223,6 +227,7 @@ int ask_password_tty(
         _cleanup_close_ int cttyfd = -1, notify = -1;
         struct termios old_termios, new_termios;
         char passphrase[LINE_MAX + 1] = {}, *x;
+        _cleanup_strv_free_erase_ char **l = NULL;
         struct pollfd pollfd[_POLL_MAX];
         size_t p = 0, codepoint = 0;
         int r;
@@ -235,12 +240,23 @@ int ask_password_tty(
         if (!message)
                 message = "Password:";
 
-        if (flag_file) {
+        if (flag_file || ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname)) {
                 notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
                 if (notify < 0)
                         return -errno;
-
+        }
+        if (flag_file) {
                 if (inotify_add_watch(notify, flag_file, IN_ATTRIB /* for the link count */) < 0)
+                        return -errno;
+        }
+        if ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname) {
+                r = ask_password_keyring(keyname, flags, ret);
+                if (r >= 0)
+                        return 0;
+                else if (r != -ENOKEY)
+                        return r;
+
+                if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_ATTRIB /* for mtime */) < 0)
                         return -errno;
         }
 
@@ -324,8 +340,16 @@ int ask_password_tty(
                         goto finish;
                 }
 
-                if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
+                if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0) {
                         (void) flush_fd(notify);
+
+                        r = ask_password_keyring(keyname, flags, ret);
+                        if (r >= 0) {
+                                r = 0;
+                                goto finish;
+                        } else if (r != -ENOKEY)
+                                goto finish;
+                }
 
                 if (pollfd[POLL_TTY].revents == 0)
                         continue;
@@ -436,10 +460,16 @@ int ask_password_tty(
                 goto finish;
         }
 
-        if (keyname)
-                (void) add_to_keyring_and_log(keyname, flags, STRV_MAKE(x));
+        l = strv_new(x, NULL);
+        if (!l) {
+                r = -ENOMEM;
+                goto finish;
+        }
 
-        *ret = x;
+        if (keyname)
+                (void) add_to_keyring_and_log(keyname, flags, l);
+
+        *ret = TAKE_PTR(l);
         r = 0;
 
 finish:
@@ -495,14 +525,15 @@ int ask_password_agent(
         enum {
                 FD_SOCKET,
                 FD_SIGNAL,
+                FD_INOTIFY,
                 _FD_MAX
         };
 
-        _cleanup_close_ int socket_fd = -1, signal_fd = -1, fd = -1;
+        _cleanup_close_ int socket_fd = -1, signal_fd = -1, notify = -1, fd = -1;
         char temp[] = "/run/systemd/ask-password/tmp.XXXXXX";
         char final[sizeof(temp)] = "";
         _cleanup_free_ char *socket_name = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_strv_free_erase_ char **l = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct pollfd pollfd[_FD_MAX];
         sigset_t mask, oldmask;
@@ -518,6 +549,25 @@ int ask_password_agent(
         assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) >= 0);
 
         (void) mkdir_p_label("/run/systemd/ask-password", 0755);
+
+        if ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname) {
+                r = ask_password_keyring(keyname, flags, ret);
+                if (r >= 0) {
+                        r = 0;
+                        goto finish;
+                } else if (r != -ENOKEY)
+                        goto finish;
+
+                notify = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
+                if (notify < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+                if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_ATTRIB /* for mtime */) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+        }
 
         fd = mkostemp_safe(temp);
         if (fd < 0) {
@@ -589,6 +639,8 @@ int ask_password_agent(
         pollfd[FD_SOCKET].events = POLLIN;
         pollfd[FD_SIGNAL].fd = signal_fd;
         pollfd[FD_SIGNAL].events = POLLIN;
+        pollfd[FD_INOTIFY].fd = notify;
+        pollfd[FD_INOTIFY].events = POLLIN;
 
         for (;;) {
                 char passphrase[LINE_MAX+1];
@@ -610,7 +662,7 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                k = poll(pollfd, _FD_MAX, until > 0 ? (int) ((until-t)/USEC_PER_MSEC) : -1);
+                k = poll(pollfd, notify >= 0 ? _FD_MAX : _FD_MAX - 1, until > 0 ? (int) ((until-t)/USEC_PER_MSEC) : -1);
                 if (k < 0) {
                         if (errno == EINTR)
                                 continue;
@@ -628,6 +680,20 @@ int ask_password_agent(
                         r = -EINTR;
                         goto finish;
                 }
+
+                if (notify >= 0 && pollfd[FD_INOTIFY].revents != 0) {
+                        (void) flush_fd(notify);
+
+                        r = ask_password_keyring(keyname, flags, ret);
+                        if (r >= 0) {
+                                r = 0;
+                                goto finish;
+                        } else if (r != -ENOKEY)
+                                goto finish;
+                }
+
+                if (pollfd[FD_SOCKET].revents == 0)
+                        continue;
 
                 if (pollfd[FD_SOCKET].revents != POLLIN) {
                         r = -EIO;
@@ -736,29 +802,17 @@ int ask_password_auto(
 
         assert(ret);
 
-        if ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname) {
+        if ((flags & ASK_PASSWORD_ACCEPT_CACHED) &&
+            keyname &&
+            ((flags & ASK_PASSWORD_NO_TTY) || !isatty(STDIN_FILENO)) &&
+            (flags & ASK_PASSWORD_NO_AGENT)) {
                 r = ask_password_keyring(keyname, flags, ret);
                 if (r != -ENOKEY)
                         return r;
         }
 
-        if (!(flags & ASK_PASSWORD_NO_TTY) && isatty(STDIN_FILENO)) {
-                char *s = NULL, **l = NULL;
-
-                r = ask_password_tty(-1, message, keyname, until, flags, NULL, &s);
-                if (r < 0)
-                        return r;
-
-                r = strv_push(&l, s);
-                if (r < 0) {
-                        string_erase(s);
-                        free(s);
-                        return -ENOMEM;
-                }
-
-                *ret = l;
-                return 0;
-        }
+        if (!(flags & ASK_PASSWORD_NO_TTY) && isatty(STDIN_FILENO))
+                return ask_password_tty(-1, message, keyname, until, flags, NULL, ret);
 
         if (!(flags & ASK_PASSWORD_NO_AGENT))
                 return ask_password_agent(message, icon, id, keyname, until, flags, ret);

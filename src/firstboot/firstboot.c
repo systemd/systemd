@@ -531,13 +531,17 @@ static int prompt_root_password(void) {
         msg2 = strjoina(special_glyph(TRIANGULAR_BULLET), " Please enter new root password again: ");
 
         for (;;) {
-                _cleanup_string_free_erase_ char *a = NULL, *b = NULL;
+                _cleanup_strv_free_erase_ char **a = NULL, **b = NULL;
 
                 r = ask_password_tty(-1, msg1, NULL, 0, 0, NULL, &a);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
+                if (strv_length(a) != 1) {
+                        log_warning("Received multiple passwords, where we expected one.");
+                        return -EINVAL;
+                }
 
-                if (isempty(a)) {
+                if (isempty(*a)) {
                         log_warning("No password entered, skipping.");
                         break;
                 }
@@ -546,12 +550,12 @@ static int prompt_root_password(void) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
 
-                if (!streq(a, b)) {
+                if (!streq(*a, *b)) {
                         log_error("Entered passwords did not match, please try again.");
                         continue;
                 }
 
-                arg_root_password = TAKE_PTR(a);
+                arg_root_password = TAKE_PTR(*a);
                 break;
         }
 
