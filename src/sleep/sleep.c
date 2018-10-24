@@ -194,9 +194,13 @@ static int rtc_read_time(uint64_t *ret_sec) {
 
         r = read_one_line_file("/sys/class/rtc/rtc0/since_epoch", &t);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to read RTC time: %m");
 
-        return safe_atou64(t, ret_sec);
+        r = safe_atou64(t, ret_sec);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse RTC time '%s': %m", t);
+
+        return 0;
 }
 
 static int rtc_write_wake_alarm(uint64_t sec) {
@@ -229,7 +233,7 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
 
         r = rtc_read_time(&original_time);
         if (r < 0)
-                return log_error_errno(r, "Failed to read time: %d", r);
+                return r;
 
         wake_time = original_time + (hibernate_delay_sec / USEC_PER_SEC);
         r = rtc_write_wake_alarm(wake_time);
@@ -244,7 +248,7 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
 
         r = rtc_read_time(&cmp_time);
         if (r < 0)
-                return log_error_errno(r, "Failed to read time: %d", r);
+                return r;
 
         /* reset RTC */
         r = rtc_write_wake_alarm(0);
