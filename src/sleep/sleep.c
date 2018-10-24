@@ -199,12 +199,15 @@ static int rtc_read_time(uint64_t *ret_sec) {
         return safe_atou64(t, ret_sec);
 }
 
-static int write_wakealarm(const char *str) {
+static int rtc_write_wake_alarm(uint64_t sec) {
+        char buf[DECIMAL_STR_MAX(uint64_t)];
         int r;
 
-        r = write_string_file("/sys/class/rtc/rtc0/wakealarm", str, 0);
+        xsprintf(buf, "%" PRIu64, sec);
+
+        r = write_string_file("/sys/class/rtc/rtc0/wakealarm", buf, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to write '%s' to /sys/class/rtc/rtc0/wakealarm: %m", str);
+                return log_error_errno(r, "Failed to write '%s' to /sys/class/rtc/rtc0/wakealarm: %m", buf);
 
         return 0;
 }
@@ -213,8 +216,7 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
 
         _cleanup_strv_free_ char **hibernate_modes = NULL, **hibernate_states = NULL,
                                  **suspend_modes = NULL, **suspend_states = NULL;
-        usec_t orig_time, cmp_time;
-        char time_str[DECIMAL_STR_MAX(uint64_t)];
+        usec_t original_time, wake_time, cmp_time;
         int r;
 
         r = parse_sleep_config("suspend", NULL, &suspend_modes, &suspend_states, NULL);
@@ -225,18 +227,16 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
         if (r < 0)
                 return r;
 
-        r = rtc_read_time(&orig_time);
+        r = rtc_read_time(&original_time);
         if (r < 0)
                 return log_error_errno(r, "Failed to read time: %d", r);
 
-        orig_time += hibernate_delay_sec / USEC_PER_SEC;
-        xsprintf(time_str, "%" PRIu64, orig_time);
-
-        r = write_wakealarm(time_str);
+        wake_time = original_time + (hibernate_delay_sec / USEC_PER_SEC);
+        r = rtc_write_wake_alarm(wake_time);
         if (r < 0)
                 return r;
 
-        log_debug("Set RTC wake alarm for %s", time_str);
+        log_debug("Set RTC wake alarm for %" PRIu64, wake_time);
 
         r = execute(suspend_modes, suspend_states);
         if (r < 0)
@@ -247,14 +247,14 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
                 return log_error_errno(r, "Failed to read time: %d", r);
 
         /* reset RTC */
-        r = write_wakealarm("0");
+        r = rtc_write_wake_alarm(0);
         if (r < 0)
                 return r;
 
         log_debug("Woke up at %"PRIu64, cmp_time);
 
         /* if woken up after alarm time, hibernate */
-        if (cmp_time >= orig_time)
+        if (cmp_time >= wake_time)
                 r = execute(hibernate_modes, hibernate_states);
 
         return r;
