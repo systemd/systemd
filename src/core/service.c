@@ -1539,7 +1539,7 @@ static int service_spawn(
         exec_params.fd_names = fd_names;
         exec_params.n_socket_fds = n_socket_fds;
         exec_params.n_storage_fds = n_storage_fds;
-        exec_params.watchdog_usec = s->watchdog_usec;
+        exec_params.watchdog_usec = service_get_watchdog_usec(s);
         exec_params.selinux_context_net = s->socket_fd_selinux_context_net;
         if (s->type == SERVICE_IDLE)
                 exec_params.idle_pipe = UNIT(s)->manager->idle_pipe;
