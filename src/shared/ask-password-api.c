@@ -79,7 +79,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
                 if (n < m)
                         break;
 
-                explicit_bzero(p, n);
+                explicit_bzero_safe(p, n);
                 free(p);
                 m *= 2;
         }
@@ -88,7 +88,7 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
         if (!l)
                 return -ENOMEM;
 
-        explicit_bzero(p, n);
+        explicit_bzero_safe(p, n);
 
         *ret = l;
         return 0;
@@ -124,7 +124,7 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
                 return r;
 
         serial = add_key("user", keyname, p, n, KEY_SPEC_USER_KEYRING);
-        explicit_bzero(p, n);
+        explicit_bzero_safe(p, n);
         if (serial == -1)
                 return -errno;
 
@@ -349,7 +349,7 @@ int ask_password_tty(
                         if (!(flags & ASK_PASSWORD_SILENT))
                                 backspace_string(ttyfd, passphrase);
 
-                        explicit_bzero(passphrase, sizeof(passphrase));
+                        explicit_bzero_safe(passphrase, sizeof(passphrase));
                         p = codepoint = 0;
 
                 } else if (IN_SET(c, '\b', 127)) {
@@ -379,7 +379,7 @@ int ask_password_tty(
                                 }
 
                                 p = codepoint = q == (size_t) -1 ? p - 1 : q;
-                                explicit_bzero(passphrase + p, sizeof(passphrase) - p);
+                                explicit_bzero_safe(passphrase + p, sizeof(passphrase) - p);
 
                         } else if (!dirty && !(flags & ASK_PASSWORD_SILENT)) {
 
@@ -430,7 +430,7 @@ int ask_password_tty(
         }
 
         x = strndup(passphrase, p);
-        explicit_bzero(passphrase, sizeof(passphrase));
+        explicit_bzero_safe(passphrase, sizeof(passphrase));
         if (!x) {
                 r = -ENOMEM;
                 goto finish;
@@ -681,7 +681,7 @@ int ask_password_agent(
                                 l = strv_new("", NULL);
                         else
                                 l = strv_parse_nulstr(passphrase+1, n-1);
-                        explicit_bzero(passphrase, n);
+                        explicit_bzero_safe(passphrase, n);
                         if (!l) {
                                 r = -ENOMEM;
                                 goto finish;
