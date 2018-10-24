@@ -86,9 +86,10 @@ enum subst_type {
         SUBST_SYS,
 };
 
-static size_t subst_format_var(struct udev_event *event, struct udev_device *dev,
+static size_t subst_format_var(struct udev_event *event,
                                enum subst_type type, char *attr,
                                char *dest, size_t l) {
+        struct udev_device *dev = event->dev;
         char *s = dest;
 
         switch (type) {
@@ -282,7 +283,6 @@ static size_t subst_format_var(struct udev_event *event, struct udev_device *dev
 size_t udev_event_apply_format(struct udev_event *event,
                                const char *src, char *dest, size_t size,
                                bool replace_whitespace) {
-        struct udev_device *dev = event->dev;
         static const struct subst_map {
                 const char *name;
                 const char fmt;
@@ -311,7 +311,11 @@ size_t udev_event_apply_format(struct udev_event *event,
         char *s;
         size_t l;
 
-        assert(dev);
+        assert(event);
+        assert(event->dev);
+        assert(src);
+        assert(dest);
+        assert(size > 0);
 
         from = src;
         s = dest;
@@ -390,7 +394,7 @@ subst:
                         attr = NULL;
                 }
 
-                subst_len = subst_format_var(event, dev, type, attr, s, l);
+                subst_len = subst_format_var(event, type, attr, s, l);
 
                 /* SUBST_RESULT handles spaces itself */
                 if (replace_whitespace && type != SUBST_RESULT)
