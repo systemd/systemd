@@ -174,12 +174,15 @@ static int execute(char **modes, char **states) {
 
         r = write_state(&f, states);
         if (r < 0)
-                return log_error_errno(r, "Failed to write /sys/power/state: %m");
-
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
-                   LOG_MESSAGE("System resumed."),
-                   "SLEEP=%s", arg_verb);
+                log_struct_errno(LOG_ERR, r,
+                                 "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
+                                 LOG_MESSAGE("Failed to suspend system. System resumed again: %m"),
+                                 "SLEEP=%s", arg_verb);
+        else
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
+                           LOG_MESSAGE("System resumed."),
+                           "SLEEP=%s", arg_verb);
 
         arguments[1] = (char*) "post";
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL);
