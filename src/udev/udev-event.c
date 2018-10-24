@@ -586,6 +586,8 @@ int udev_event_spawn(struct udev_event *event,
         pid_t pid;
         int r;
 
+        assert(event);
+        assert(event->dev);
         assert(result || ressize == 0);
 
         /* pipes from child to parent */
@@ -600,6 +602,11 @@ int udev_event_spawn(struct udev_event *event,
         argv = strv_split_full(cmd, NULL, SPLIT_QUOTES|SPLIT_RELAX);
         if (!argv)
                 return log_oom();
+
+        if (isempty(argv[0])) {
+                log_error("Invalid command '%s'", cmd);
+                return -EINVAL;
+        }
 
         /* allow programs in /usr/lib/udev/ to be called without the path */
         if (!path_is_absolute(argv[0])) {
