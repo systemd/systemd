@@ -54,15 +54,14 @@ static int write_hibernate_location_info(void) {
         }
 
         /* Only available in 4.17+ */
-        if (access("/sys/power/resume_offset", F_OK) < 0) {
-                if (errno == ENOENT)
+        if (access("/sys/power/resume_offset", W_OK) < 0) {
+                if (errno == ENOENT) {
+                        log_debug("Kernel too old, can't configure resume offset, ignoring.");
                         return 0;
+                }
 
-                return log_debug_errno(errno, "/sys/power/resume_offset unavailable: %m");
-        }
-
-        if (access("/sys/power/resume_offset", W_OK) < 0)
                 return log_debug_errno(errno, "/sys/power/resume_offset not writeable: %m");
+        }
 
         fd = open(device, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
         if (fd < 0)
