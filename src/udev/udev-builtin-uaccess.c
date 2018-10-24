@@ -29,9 +29,10 @@ static int builtin_uaccess(sd_device *dev, int argc, char *argv[], bool test) {
                 return 0;
 
         r = sd_device_get_devname(dev, &path);
-        if (r < 0)
+        if (r < 0) {
                 log_device_error_errno(dev, r, "Failed to get device name: %m");
                 goto finish;
+        }
 
         if (sd_device_get_property_value(dev, "ID_SEAT", &seat) < 0)
                 seat = "seat0";
