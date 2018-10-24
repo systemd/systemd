@@ -66,6 +66,7 @@ void udev_event_unref(struct udev_event *event) {
         sd_netlink_unref(event->rtnl);
         while ((p = hashmap_steal_first_key(event->run_list)))
                 free(p);
+        hashmap_free(event->run_list);
         hashmap_free_free_free(event->seclabel_list);
         free(event->program_result);
         free(event->name);
