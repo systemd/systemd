@@ -44,11 +44,17 @@ typedef struct Spawn {
 struct udev_event *udev_event_new(struct udev_device *dev) {
         struct udev_event *event;
 
-        event = new0(struct udev_event, 1);
-        if (event == NULL)
+        assert(dev);
+
+        event = new(struct udev_event, 1);
+        if (!event)
                 return NULL;
-        event->dev = dev;
-        event->birth_usec = now(CLOCK_MONOTONIC);
+
+        *event = (struct udev_event) {
+                .dev = dev,
+                .birth_usec = now(CLOCK_MONOTONIC),
+        };
+
         return event;
 }
 
