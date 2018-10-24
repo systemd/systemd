@@ -237,48 +237,53 @@ static void service_start_watchdog(Service *s) {
                  * of living before we consider a service died. */
                 r = sd_event_source_set_priority(s->watchdog_event_source, SD_EVENT_PRIORITY_IDLE);
         }
-
         if (r < 0)
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
 }
 
-static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
+static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
+        usec_t current;
+        int r;
+
         assert(s);
 
-        if (s->timer_event_source) {
-                uint64_t current = 0, extended = 0;
-                int r;
+        /* Extends the specified event source timer to at least the specified time, unless it is already later
+         * anyway. */
 
-                if (IN_SET(extend_timeout_usec, 0, USEC_INFINITY))
-                        return;
+        if (!source)
+                return;
 
-                extended = usec_add(now(CLOCK_MONOTONIC), extend_timeout_usec);
-
-                r = sd_event_source_get_time(s->timer_event_source, &current);
-                if (r < 0)
-                        log_unit_error_errno(UNIT(s), r, "Failed to retrieve timeout timer: %m");
-                else if (extended > current) {
-                        r = sd_event_source_set_time(s->timer_event_source, extended);
-                        if (r < 0)
-                                log_unit_warning_errno(UNIT(s), r, "Failed to set timeout timer: %m");
-                }
-
-                if (s->watchdog_event_source) {
-                        /* extend watchdog if necessary. We've asked for an extended timeout so we
-                         * shouldn't expect a watchdog timeout in the interval in between */
-                        r = sd_event_source_get_time(s->watchdog_event_source, &current);
-                        if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to retrieve watchdog timer: %m");
-                                return;
-                        }
-
-                        if (extended > current) {
-                                r = sd_event_source_set_time(s->watchdog_event_source, extended);
-                                if (r < 0)
-                                        log_unit_warning_errno(UNIT(s), r, "Failed to set watchdog timer: %m");
-                        }
-                }
+        r = sd_event_source_get_time(source, &current);
+        if (r < 0) {
+                const char *desc;
+                (void) sd_event_source_get_description(s->timer_event_source, &desc);
+                log_unit_warning_errno(UNIT(s), r, "Failed to retrieve timeout time for event source '%s', ignoring: %m", strna(desc));
+                return;
         }
+
+        if (current >= extended) /* Current timeout is already longer, ignore this. */
+                return;
+
+        r = sd_event_source_set_time(source, extended);
+        if (r < 0) {
+                const char *desc;
+                (void) sd_event_source_get_description(s->timer_event_source, &desc);
+                log_unit_warning_errno(UNIT(s), r, "Failed to set timeout time for even source '%s', ignoring %m", strna(desc));
+        }
+}
+
+static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
+        usec_t extended;
+
+        assert(s);
+
+        if (IN_SET(extend_timeout_usec, 0, USEC_INFINITY))
+                return;
+
+        extended = usec_add(now(CLOCK_MONOTONIC), extend_timeout_usec);
+
+        service_extend_event_source_timeout(s, s->timer_event_source, extended);
+        service_extend_event_source_timeout(s, s->watchdog_event_source, extended);
 }
 
 static void service_reset_watchdog(Service *s) {
