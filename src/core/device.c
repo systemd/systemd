@@ -431,7 +431,7 @@ static bool device_is_bound_by_mounts(Device *d, sd_device *dev) {
         if (sd_device_get_property_value(dev, "SYSTEMD_MOUNT_DEVICE_BOUND", &bound_by) >= 0) {
                 r = parse_boolean(bound_by);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse SYSTEMD_MOUNT_DEVICE_BOUND='%s' udev property of %s, ignoring: %m", bound_by, strna(d->sysfs));
+                        log_device_warning_errno(dev, r, "Failed to parse SYSTEMD_MOUNT_DEVICE_BOUND='%s' udev property, ignoring: %m", bound_by);
 
                 d->bind_mounts = r > 0;
         } else
@@ -471,14 +471,14 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         if (dev) {
                 r = sd_device_get_syspath(dev, &sysfs);
                 if (r < 0) {
-                        log_debug_errno(r, "Couldn't get syspath from device, ignoring: %m");
+                        log_device_debug_errno(dev, r, "Couldn't get syspath from device, ignoring: %m");
                         return 0;
                 }
         }
 
         r = unit_name_from_path(path, ".device", &e);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate unit name from device path: %m");
+                return log_device_error_errno(dev, r, "Failed to generate unit name from device path: %m");
 
         u = manager_get_unit(m, e);
         if (u) {
@@ -509,7 +509,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
 
                 r = unit_new_for_name(m, sizeof(Device), e, &u);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to allocate device unit %s: %m", e);
+                        log_device_error_errno(dev, r, "Failed to allocate device unit %s: %m", e);
                         goto fail;
                 }
 
@@ -521,7 +521,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         if (sysfs) {
                 r = device_set_sysfs(DEVICE(u), sysfs);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to set sysfs path %s for device unit %s: %m", sysfs, e);
+                        log_unit_error_errno(u, r, "Failed to set sysfs path %s: %m", sysfs);
                         goto fail;
                 }
 
@@ -608,12 +608,12 @@ static int device_process_new(Manager *m, sd_device *dev) {
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to add parse SYSTEMD_ALIAS for %s: %m", sysfs);
+                        return log_device_warning_errno(dev, r, "Failed to add parse SYSTEMD_ALIAS property: %m");
 
                 if (!path_is_absolute(word))
-                        log_warning("SYSTEMD_ALIAS for %s is not an absolute path, ignoring: %s", sysfs, word);
+                        log_device_warning(dev, "SYSTEMD_ALIAS is not an absolute path, ignoring: %s", word);
                 else if (!path_is_normalized(word))
-                        log_warning("SYSTEMD_ALIAS for %s is not a normalized path, ignoring: %s", sysfs, word);
+                        log_device_warning(dev, "SYSTEMD_ALIAS is not a normalized path, ignoring: %s", word);
                 else
                         (void) device_setup_unit(m, dev, word, false);
         }
@@ -874,13 +874,13 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         r = sd_device_get_syspath(dev, &sysfs);
         if (r < 0) {
-                log_error_errno(r, "Failed to get device sys path: %m");
+                log_device_error_errno(dev, r, "Failed to get device sys path: %m");
                 return 0;
         }
 
         r = sd_device_get_property_value(dev, "ACTION", &action);
         if (r < 0) {
-                log_error_errno(r, "Failed to get udev action string: %m");
+                log_device_error_errno(dev, r, "Failed to get udev action string: %m");
                 return 0;
         }
 
@@ -893,7 +893,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
         if (streq(action, "remove"))  {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to process swap device remove event, ignoring: %m");
+                        log_device_warning_errno(dev, r, "Failed to process swap device remove event, ignoring: %m");
 
                 /* If we get notified that a device was removed by
                  * udev, then it's completely gone, hence unset all
@@ -906,7 +906,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
                 r = swap_process_device_new(m, dev);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to process swap device new event, ignoring: %m");
+                        log_device_warning_errno(dev, r, "Failed to process swap device new event, ignoring: %m");
 
                 manager_dispatch_load_queue(m);
 

@@ -268,7 +268,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
                         sn = "seat0";
 
                 if (!seat_name_is_valid(sn)) {
-                        log_warning("Device with invalid seat name %s found, ignoring.", sn);
+                        log_device_warning(d, "Device with invalid seat name %s found, ignoring.", sn);
                         return 0;
                 }
 
