@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "device-private.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "libudev-device-internal.h"
@@ -613,7 +614,7 @@ int udev_event_spawn(struct udev_event *event,
 
         r = device_get_properties_strv(event->dev->device, &envp);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device properties");
+                return log_device_error_errno(event->dev->device, r, "Failed to get device properties");
 
         log_debug("Starting '%s'", cmd);
 
