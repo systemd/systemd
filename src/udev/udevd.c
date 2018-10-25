@@ -1295,12 +1295,12 @@ static int on_post(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-static int listen_fds(int *rctrl, int *rnetlink) {
+static int listen_fds(int *ret_ctrl, int *ret_netlink) {
         int ctrl_fd = -1, netlink_fd = -1;
-        int fd, n, r;
+        int fd, n;
 
-        assert(rctrl);
-        assert(rnetlink);
+        assert(ret_ctrl);
+        assert(ret_netlink);
 
         n = sd_listen_fds(true);
         if (n < 0)
@@ -1324,50 +1324,8 @@ static int listen_fds(int *rctrl, int *rnetlink) {
                 return -EINVAL;
         }
 
-        if (ctrl_fd < 0) {
-                _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *ctrl = NULL;
-
-                ctrl = udev_ctrl_new();
-                if (!ctrl)
-                        return log_error_errno(EINVAL, "error initializing udev control socket");
-
-                r = udev_ctrl_enable_receiving(ctrl);
-                if (r < 0)
-                        return log_error_errno(EINVAL, "error binding udev control socket");
-
-                fd = udev_ctrl_get_fd(ctrl);
-                if (fd < 0)
-                        return log_error_errno(EIO, "could not get ctrl fd");
-
-                ctrl_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                if (ctrl_fd < 0)
-                        return log_error_errno(errno, "could not dup ctrl fd: %m");
-        }
-
-        if (netlink_fd < 0) {
-                _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
-
-                monitor = udev_monitor_new_from_netlink(NULL, "kernel");
-                if (!monitor)
-                        return log_error_errno(EINVAL, "error initializing netlink socket");
-
-                (void) udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
-
-                r = udev_monitor_enable_receiving(monitor);
-                if (r < 0)
-                        return log_error_errno(EINVAL, "error binding netlink socket");
-
-                fd = udev_monitor_get_fd(monitor);
-                if (fd < 0)
-                        return log_error_errno(netlink_fd, "could not get uevent fd: %m");
-
-                netlink_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                if (netlink_fd < 0)
-                        return log_error_errno(errno, "could not dup netlink fd: %m");
-        }
-
-        *rctrl = ctrl_fd;
-        *rnetlink = netlink_fd;
+        *ret_ctrl = ctrl_fd;
+        *ret_netlink = netlink_fd;
 
         return 0;
 }
@@ -1532,8 +1490,6 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         int r, fd_worker;
 
         assert(ret);
-        assert(fd_ctrl >= 0);
-        assert(fd_uevent >= 0);
 
         manager = new0(Manager, 1);
         if (!manager)
@@ -1557,9 +1513,27 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (!manager->ctrl)
                 return log_error_errno(EINVAL, "error taking over udev control socket");
 
+        r = udev_ctrl_enable_receiving(manager->ctrl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind udev control socket: %m");
+
+        fd_ctrl = udev_ctrl_get_fd(manager->ctrl);
+        if (fd_ctrl < 0)
+                return log_error_errno(fd_ctrl, "Failed to get udev control fd: %m");
+
         manager->monitor = udev_monitor_new_from_netlink_fd(NULL, "kernel", fd_uevent);
         if (!manager->monitor)
                 return log_error_errno(EINVAL, "error taking over netlink socket");
+
+        (void) udev_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
+
+        r = udev_monitor_enable_receiving(manager->monitor);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind netlink socket; %m");
+
+        fd_uevent = udev_monitor_get_fd(manager->monitor);
+        if (fd_uevent < 0)
+                return log_error_errno(fd_uevent, "Failed to get uevent fd: %m");
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
