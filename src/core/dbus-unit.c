@@ -434,7 +434,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
                         u,
                         "kill",
                         CAP_KILL,
-                        N_("Authentication is required to kill '$(unit)'."),
+                        N_("Authentication is required to send a UNIX signal to the processes of '$(unit)'."),
                         true,
                         message,
                         error);
