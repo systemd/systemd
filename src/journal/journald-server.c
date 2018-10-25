@@ -459,6 +459,18 @@ static int do_rotate(
         return r;
 }
 
+static void server_process_deferred_closes(Server *s) {
+        JournalFile *f;
+        Iterator i;
+
+        /* Perform any deferred closes which aren't still offlining. */
+        SET_FOREACH(f, s->deferred_closes, i)
+                if (!journal_file_is_offlining(f)) {
+                        (void) set_remove(s->deferred_closes, f);
+                        (void) journal_file_close(f);
+                }
+}
+
 void server_rotate(Server *s) {
         JournalFile *f;
         void *k;
@@ -479,12 +491,7 @@ void server_rotate(Server *s) {
                         ordered_hashmap_remove(s->user_journals, k);
         }
 
-        /* Perform any deferred closes which aren't still offlining. */
-        SET_FOREACH(f, s->deferred_closes, i)
-                if (!journal_file_is_offlining(f)) {
-                        (void) set_remove(s->deferred_closes, f);
-                        (void) journal_file_close(f);
-                }
+        server_process_deferred_closes(s);
 }
 
 void server_sync(Server *s) {
