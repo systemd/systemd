@@ -148,9 +148,9 @@
           <term><option>-a</option></term>
           <term><option>--all</option></term>
 
-          <listitem><para>Show all fields in full, even if they
-          include unprintable characters or are very
-          long.</para></listitem>
+          <listitem><para>Show all fields in full, even if they include unprintable characters or are very long. By
+          default, fields with unprintable characters are abbreviated as "blob data". (Note that the pager may escape
+          unprintable characters again.)</para></listitem>
         </varlistentry>
 
         <varlistentry>
