@@ -252,8 +252,9 @@ static int open_journal(
                 bool seal,
                 JournalMetrics *metrics,
                 JournalFile **ret) {
-        int r;
+
         JournalFile *f;
+        int r;
 
         assert(s);
         assert(fname);
@@ -399,13 +400,15 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (uid_for_system_journal(uid))
                 return s->system_journal;
 
-        r = sd_id128_get_machine(&machine);
-        if (r < 0)
-                return s->system_journal;
-
         f = ordered_hashmap_get(s->user_journals, UID_TO_PTR(uid));
         if (f)
                 return f;
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine machine ID, using system log: %m");
+                return s->system_journal;
+        }
 
         if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/user-"UID_FMT".journal",
                      SD_ID128_FORMAT_VAL(machine), uid) < 0)
