@@ -268,13 +268,14 @@ int journal_directory_vacuum(
                         goto finish;
                 }
 
-                list[n_list].filename = TAKE_PTR(p);
-                list[n_list].usage = size;
-                list[n_list].seqnum = seqnum;
-                list[n_list].realtime = realtime;
-                list[n_list].seqnum_id = seqnum_id;
-                list[n_list].have_seqnum = have_seqnum;
-                n_list++;
+                list[n_list++] = (struct vacuum_info) {
+                        .filename = TAKE_PTR(p),
+                        .usage = size,
+                        .seqnum = seqnum,
+                        .realtime = realtime,
+                        .seqnum_id = seqnum_id,
+                        .have_seqnum = have_seqnum,
+                };
 
                 sum += size;
         }
