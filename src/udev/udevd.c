@@ -1289,17 +1289,17 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                 } else
                         log_warning("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
 
-                if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                        if (worker->event) {
-                                log_error("worker ["PID_FMT"] failed while handling '%s'", pid, worker->event->devpath);
-                                /* delete state from disk */
-                                udev_device_delete_db(worker->event->dev);
-                                udev_device_tag_index(worker->event->dev, NULL, false);
-                                /* forward kernel event without amending it */
-                                r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel->device);
-                                if (r < 0)
-                                        log_device_error_errno(worker->event->dev_kernel->device, r, "Failed to send device: %m");
-                        }
+                if ((!WIFEXITED(status) || WEXITSTATUS(status) != 0) && worker->event) {
+                        log_error("worker ["PID_FMT"] failed while handling '%s'", pid, worker->event->devpath);
+
+                        /* delete state from disk */
+                        udev_device_delete_db(worker->event->dev);
+                        udev_device_tag_index(worker->event->dev, NULL, false);
+
+                        /* forward kernel event without amending it */
+                        r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel->device);
+                        if (r < 0)
+                                log_device_error_errno(worker->event->dev_kernel->device, r, "Failed to send device: %m");
                 }
 
                 worker_free(worker);
