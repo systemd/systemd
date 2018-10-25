@@ -1368,14 +1368,14 @@ static int listen_fds(int *rctrl, int *rnetlink) {
                 return n;
 
         for (fd = SD_LISTEN_FDS_START; fd < n + SD_LISTEN_FDS_START; fd++) {
-                if (sd_is_socket(fd, AF_LOCAL, SOCK_SEQPACKET, -1)) {
+                if (sd_is_socket(fd, AF_LOCAL, SOCK_SEQPACKET, -1) > 0) {
                         if (ctrl_fd >= 0)
                                 return -EINVAL;
                         ctrl_fd = fd;
                         continue;
                 }
 
-                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1)) {
+                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
                         if (netlink_fd >= 0)
                                 return -EINVAL;
                         netlink_fd = fd;
