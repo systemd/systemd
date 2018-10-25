@@ -353,22 +353,22 @@ bool fdname_is_valid(const char *s) {
 }
 
 int fd_get_path(int fd, char **ret) {
-        _cleanup_close_ int dir = -1;
-        char fdname[DECIMAL_STR_MAX(int)];
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         int r;
 
-        dir = open("/proc/self/fd/", O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (dir < 0)
-                /* /proc is not available or not set up properly, we're most likely
-                 * in some chroot environment. */
-                return errno == ENOENT ? -EOPNOTSUPP : -errno;
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+        r = readlink_malloc(procfs_path, ret);
+        if (r == -ENOENT) {
+                /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted. Let's make
+                 * things debuggable and distuingish the two. */
 
-        xsprintf(fdname, "%i", fd);
+                if (access("/proc/self/fd/", F_OK) < 0)
+                        /* /proc is not available or not set up properly, we're most likely in some chroot
+                         * environment. */
+                        return errno == ENOENT ? -EOPNOTSUPP : -errno;
 
-        r = readlinkat_malloc(dir, fdname, ret);
-        if (r == -ENOENT)
-                /* If the file doesn't exist the fd is invalid */
-                return -EBADF;
+                return -EBADF; /* The directory exists, hence it's the fd that doesn't. */
+        }
 
         return r;
 }
