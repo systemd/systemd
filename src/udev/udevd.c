@@ -848,7 +848,7 @@ static void manager_exit(Manager *manager) {
         r = sd_event_add_time(manager->event, NULL, CLOCK_MONOTONIC,
                               usec + 30 * USEC_PER_SEC, USEC_PER_SEC, on_exit_timeout, manager);
         if (r < 0)
-                return;
+                log_warning_errno(r, "Failed to set timeout event for exit: %m");
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
