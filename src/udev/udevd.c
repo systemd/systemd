@@ -327,6 +327,92 @@ static bool shall_lock_device(sd_device *dev) {
                !startswith(sysname, "drbd");
 }
 
+static int worker_process_device(Manager *manager, sd_device *dev, sd_netlink **rtnl) {
+        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
+        _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
+        _cleanup_close_ int fd_lock = -1;
+        const char *seqnum, *action;
+        int r;
+
+        assert(manager);
+        assert(dev);
+        assert(rtnl);
+
+        r = sd_device_get_property_value(dev, "SEQNUM", &seqnum);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get seqnum: %m");
+
+        log_device_debug(dev, "seq %s running", seqnum);
+
+        udev_device = udev_device_new(NULL, dev);
+        if (!udev_device)
+                return -errno;
+
+        udev_event = udev_event_new(udev_device);
+        if (!udev_event)
+                return log_oom();
+
+        udev_event->exec_delay_usec = arg_exec_delay_usec;
+
+        /*
+         * Take a shared lock on the device node; this establishes
+         * a concept of device "ownership" to serialize device
+         * access. External processes holding an exclusive lock will
+         * cause udev to skip the event handling; in the case udev
+         * acquired the lock, the external process can block until
+         * udev has finished its event handling.
+         */
+        if (sd_device_get_property_value(dev, "ACTION", &action) >= 0 &&
+            !streq(action, "remove") &&
+            shall_lock_device(dev)) {
+                const char *devtype, *devname;
+                sd_device *d = dev;
+
+                if (sd_device_get_devtype(dev, &devtype) >= 0 &&
+                    streq(devtype, "partition")) {
+                        r = sd_device_get_parent(dev, &d);
+                        if (r < 0)
+                                return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
+                }
+
+                r = sd_device_get_devname(d, &devname);
+                if (r < 0)
+                        return log_device_warning_errno(d, r, "Failed to get devname: %m");
+
+                fd_lock = open(devname, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0)
+                        return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", devname);
+        }
+
+        /* needed for renaming netifs */
+        udev_event->rtnl = *rtnl;
+
+        /* apply rules, create node, symlinks */
+        udev_event_execute_rules(udev_event,
+                                 arg_event_timeout_usec, arg_event_timeout_warn_usec,
+                                 manager->properties,
+                                 manager->rules);
+
+        udev_event_execute_run(udev_event,
+                               arg_event_timeout_usec, arg_event_timeout_warn_usec);
+
+        if (udev_event->rtnl)
+                /* in case rtnl was initialized */
+                *rtnl = sd_netlink_ref(udev_event->rtnl);
+
+        /* apply/restore inotify watch */
+        if (udev_event->inotify_watch) {
+                udev_watch_begin(dev);
+                r = device_update_db(dev);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
+        }
+
+        log_device_debug(dev, "seq %s processed", seqnum);
+
+        return 0;
+}
+
 static int worker_spawn(Manager *manager, struct event *event) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *worker_monitor = NULL;
         pid_t pid;
@@ -410,112 +496,21 @@ static int worker_spawn(Manager *manager, struct event *event) {
                 write_string_file("/proc/self/oom_score_adj", "0", 0);
 
                 for (;;) {
-                        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
-                        _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
-                        const char *seqnum, *action;
-                        int fd_lock = -1;
-
-                        assert(dev);
-
-                        r = sd_device_get_property_value(dev, "SEQNUM", &seqnum);
-                        if (r < 0) {
-                                log_device_error_errno(dev, r, "Failed to get seqnum, skipping event handling: %m");
-                                goto skip;
-                        }
-
-                        log_device_debug(dev, "seq %s running", seqnum);
-
-                        udev_device = udev_device_new(NULL, dev);
-                        if (!udev_device) {
-                                r = -errno;
-                                goto out;
-                        }
-
-                        udev_event = udev_event_new(udev_device);
-                        if (!udev_event) {
-                                r = log_oom();
-                                goto out;
-                        }
-
-                        udev_event->exec_delay_usec = arg_exec_delay_usec;
-
-                        /*
-                         * Take a shared lock on the device node; this establishes
-                         * a concept of device "ownership" to serialize device
-                         * access. External processes holding an exclusive lock will
-                         * cause udev to skip the event handling; in the case udev
-                         * acquired the lock, the external process can block until
-                         * udev has finished its event handling.
-                         */
-                        if (sd_device_get_property_value(dev, "ACTION", &action) >= 0 &&
-                            !streq(action, "remove") &&
-                            shall_lock_device(dev)) {
-                                const char *devtype, *devname;
-                                sd_device *d = dev;
-
-                                if (sd_device_get_devtype(dev, &devtype) >= 0 &&
-                                    streq(devtype, "partition")) {
-                                        r = sd_device_get_parent(dev, &d);
-                                        if (r < 0) {
-                                                log_device_warning_errno(dev, r, "Failed to get parent device, skipping event handling: %m");
-                                                goto skip;
-                                        }
-                                }
-
-                                r = sd_device_get_devname(d, &devname);
-                                if (r < 0) {
-                                        log_device_warning_errno(d, r, "Failed to get devname, skipping event handling: %m");
-                                        goto skip;
-                                }
-
-                                fd_lock = open(devname, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
-                                if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
-                                        log_device_warning_errno(dev, errno, "Failed to flock(%s), skipping event handling: %m", devname);
-                                        fd_lock = safe_close(fd_lock);
-                                        goto skip;
-                                }
-                        }
-
-                        /* needed for renaming netifs */
-                        udev_event->rtnl = rtnl;
-
-                        /* apply rules, create node, symlinks */
-                        udev_event_execute_rules(udev_event,
-                                                 arg_event_timeout_usec, arg_event_timeout_warn_usec,
-                                                 manager->properties,
-                                                 manager->rules);
-
-                        udev_event_execute_run(udev_event,
-                                               arg_event_timeout_usec, arg_event_timeout_warn_usec);
-
-                        if (udev_event->rtnl)
-                                /* in case rtnl was initialized */
-                                rtnl = sd_netlink_ref(udev_event->rtnl);
-
-                        /* apply/restore inotify watch */
-                        if (udev_event->inotify_watch) {
-                                udev_watch_begin(dev);
-                                r = device_update_db(dev);
-                                if (r < 0)
-                                        log_device_warning_errno(dev, r, "Failed to update database under /run/udev/data/, ignoring: %m");
-                        }
-
-                        safe_close(fd_lock);
+                        r = worker_process_device(manager, dev, &rtnl);
+                        if (r < 0)
+                                log_device_error_errno(dev, r, "Failed to process device: %m");
 
                         /* send processed event back to libudev listeners */
                         r = device_monitor_send_device(worker_monitor, NULL, dev);
                         if (r < 0)
-                                log_device_warning_errno(dev, r, "Failed to send device: %m");
+                                log_device_error_errno(dev, r, "Failed to send device: %m");
 
-                        log_device_debug(dev, "seq %s processed", seqnum);
-
-skip:
                         dev = sd_device_unref(dev);
 
                         /* send udevd the result of the event execution */
                         r = worker_send_message(manager->worker_watch[WRITE_END]);
                         if (r < 0)
-                                log_error_errno(r, "Failed to send result of seq %s to main daemon: %m", seqnum);
+                                log_error_errno(r, "Failed to send signal to main daemon: %m");
 
                         /* wait for more device messages from main udevd, or term signal */
                         while (!dev) {
