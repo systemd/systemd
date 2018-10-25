@@ -1491,23 +1491,21 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         assert(ret);
 
-        manager = new0(Manager, 1);
+        manager = new(Manager, 1);
         if (!manager)
                 return log_oom();
 
-        manager->fd_inotify = -1;
-        manager->worker_watch[WRITE_END] = -1;
-        manager->worker_watch[READ_END] = -1;
+        *manager = (Manager) {
+                .fd_inotify = -1,
+                .worker_watch = { -1, -1 },
+                .cgroup = cgroup,
+        };
 
         udev_builtin_init();
 
         manager->rules = udev_rules_new(arg_resolve_names_timing);
         if (!manager->rules)
                 return log_error_errno(ENOMEM, "error reading rules");
-
-        LIST_HEAD_INIT(manager->events);
-
-        manager->cgroup = cgroup;
 
         manager->ctrl = udev_ctrl_new_from_fd(fd_ctrl);
         if (!manager->ctrl)
