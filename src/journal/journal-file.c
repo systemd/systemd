@@ -3541,6 +3541,41 @@ int journal_file_rotate(
         return r;
 }
 
+int journal_file_dispose(int dir_fd, const char *fname) {
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+
+        assert(fname);
+
+        /* Renames a journal file to *.journal~, i.e. to mark it as corruped or otherwise uncleanly shutdown. Note that
+         * this is done without looking into the file or changing any of its contents. The idea is that this is called
+         * whenever something is suspicious and we want to move the file away and make clear that it is not accessed
+         * for writing anymore. */
+
+        if (!endswith(fname, ".journal"))
+                return -EINVAL;
+
+        if (asprintf(&p, "%.*s@%016" PRIx64 "-%016" PRIx64 ".journal~",
+                     (int) strlen(fname) - 8, fname,
+                     now(CLOCK_REALTIME),
+                     random_u64()) < 0)
+                return -ENOMEM;
+
+        if (renameat(dir_fd, fname, dir_fd, p) < 0)
+                return -errno;
+
+        /* btrfs doesn't cope well with our write pattern and fragments heavily. Let's defrag all files we rotate */
+        fd = openat(dir_fd, p, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0)
+                log_debug_errno(errno, "Failed to open file for defragmentation/FS_NOCOW_FL, ignoring: %m");
+        else {
+                (void) chattr_fd(fd, 0, FS_NOCOW_FL, NULL);
+                (void) btrfs_defrag_fd(fd);
+        }
+
+        return 0;
+}
+
 int journal_file_open_reliably(
                 const char *fname,
                 int flags,
@@ -3554,9 +3589,8 @@ int journal_file_open_reliably(
                 JournalFile *template,
                 JournalFile **ret) {
 
-        int r;
-        size_t l;
         _cleanup_free_ char *p = NULL;
+        int r;
 
         r = journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
                               deferred_closes, template, ret);
@@ -3582,24 +3616,11 @@ int journal_file_open_reliably(
                 return r;
 
         /* The file is corrupted. Rotate it away and try it again (but only once) */
-
-        l = strlen(fname);
-        if (asprintf(&p, "%.*s@%016"PRIx64 "-%016"PRIx64 ".journal~",
-                     (int) l - 8, fname,
-                     now(CLOCK_REALTIME),
-                     random_u64()) < 0)
-                return -ENOMEM;
-
-        if (rename(fname, p) < 0)
-                return -errno;
-
-        /* btrfs doesn't cope well with our write pattern and
-         * fragments heavily. Let's defrag all files we rotate */
-
-        (void) chattr_path(p, 0, FS_NOCOW_FL, NULL);
-        (void) btrfs_defrag(p);
-
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
+
+        r = journal_file_dispose(AT_FDCWD, fname);
+        if (r < 0)
+                return r;
 
         return journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
                                  deferred_closes, template, ret);
