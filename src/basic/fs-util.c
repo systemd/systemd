@@ -132,7 +132,7 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
 }
 
 int readlinkat_malloc(int fd, const char *p, char **ret) {
-        size_t l = 100;
+        size_t l = FILENAME_MAX+1;
         int r;
 
         assert(p);
