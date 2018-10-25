@@ -771,58 +771,119 @@ static int update_devnode(struct udev_event *event) {
         return udev_node_add(dev, apply, event->mode, event->uid, event->gid, event->seclabel_list);
 }
 
-void udev_event_execute_rules(struct udev_event *event,
-                              usec_t timeout_usec, usec_t timeout_warn_usec,
-                              Hashmap *properties_list,
-                              struct udev_rules *rules) {
-        struct udev_device *dev = event->dev;
+static void event_execute_rules_on_remove(
+                struct udev_event *event,
+                usec_t timeout_usec, usec_t timeout_warn_usec,
+                Hashmap *properties_list,
+                struct udev_rules *rules) {
 
-        if (udev_device_get_subsystem(dev) == NULL)
-                return;
+        sd_device *dev = event->dev->device;
+        dev_t devnum;
+        int r;
 
-        if (streq(udev_device_get_action(dev), "remove")) {
-                udev_device_read_db(dev);
-                udev_device_tag_index(dev, NULL, false);
-                udev_device_delete_db(dev);
+        r = device_read_db_force(dev);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to read database under /run/udev/data/: %m");
 
-                if (major(udev_device_get_devnum(dev)) != 0)
-                        udev_watch_end(dev->device);
+        r = device_tag_index(dev, NULL, false);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to remove corresponding tag files under /run/udev/tag/, ignoring: %m");
 
-                udev_rules_apply_to_event(rules, event,
-                                          timeout_usec, timeout_warn_usec,
-                                          properties_list);
+        r = device_delete_db(dev);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
-                if (major(udev_device_get_devnum(dev)) != 0)
-                        udev_node_remove(dev->device);
-        } else {
-                event->dev_db = udev_device_clone_with_db(dev);
-                if (event->dev_db != NULL) {
-                        /* disable watch during event processing */
-                        if (major(udev_device_get_devnum(dev)) != 0)
-                                udev_watch_end(event->dev_db->device);
+        r = sd_device_get_devnum(dev, &devnum);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_device_debug_errno(dev, r, "Failed to get devnum, ignoring: %m");
+        } else
+                (void) udev_watch_end(dev);
 
-                        if (major(udev_device_get_devnum(dev)) == 0 &&
-                            streq(udev_device_get_action(dev), "move"))
-                                udev_device_copy_properties(dev, event->dev_db);
-                }
+        (void) udev_rules_apply_to_event(rules, event,
+                                         timeout_usec, timeout_warn_usec,
+                                         properties_list);
 
-                udev_rules_apply_to_event(rules, event,
-                                          timeout_usec, timeout_warn_usec,
-                                          properties_list);
+        if (major(devnum) > 0)
+                (void) udev_node_remove(dev);
+}
 
-                (void) rename_netif(event);
-                (void) update_devnode(event);
+int udev_event_execute_rules(struct udev_event *event,
+                             usec_t timeout_usec, usec_t timeout_warn_usec,
+                             Hashmap *properties_list,
+                             struct udev_rules *rules) {
+        _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
+        sd_device *dev = event->dev->device;
+        const char *subsystem, *action;
+        dev_t devnum;
+        int r;
 
-                /* preserve old, or get new initialization timestamp */
-                udev_device_ensure_usec_initialized(event->dev, event->dev_db);
+        assert(event);
+        assert(rules);
 
-                /* (re)write database file */
-                udev_device_tag_index(dev, event->dev_db, true);
-                udev_device_update_db(dev);
-                udev_device_set_is_initialized(dev);
+        r = sd_device_get_subsystem(dev, &subsystem);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get subsystem: %m");
 
-                event->dev_db = udev_device_unref(event->dev_db);
+        r = sd_device_get_property_value(dev, "ACTION", &action);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get property 'ACTION': %m");
+
+        if (streq(action, "remove")) {
+                event_execute_rules_on_remove(event, timeout_usec, timeout_warn_usec, properties_list, rules);
+                return 0;
         }
+
+        r = device_clone_with_db(dev, &clone);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to clone sd_device object, ignoring: %m");
+
+        if (clone) {
+                event->dev_db = udev_device_new(NULL, clone);
+                if (!event->dev_db)
+                        return -ENOMEM;
+
+                r = sd_device_get_devnum(dev, &devnum);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_device_debug_errno(dev, r, "Failed to get devnum, ignoring: %m");
+
+                        if (streq(action, "move")) {
+                                r = device_copy_properties(dev, clone);
+                                if (r < 0)
+                                        log_device_debug_errno(dev, r, "Failed to copy properties from cloned device, ignoring: %m");
+                        }
+                } else
+                        /* Disable watch during event processing. */
+                        (void) udev_watch_end(clone);
+        }
+
+        (void) udev_rules_apply_to_event(rules, event,
+                                         timeout_usec, timeout_warn_usec,
+                                         properties_list);
+
+        (void) rename_netif(event);
+        (void) update_devnode(event);
+
+        /* preserve old, or get new initialization timestamp */
+        r = device_ensure_usec_initialized(dev, clone);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to set initialization timestamp, ignoring: %m");
+
+        /* (re)write database file */
+        r = device_tag_index(dev, clone, true);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to update tags under /run/udev/tag/, ignoring: %m");
+
+        r = device_update_db(dev);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/, ignoring: %m");
+
+        device_set_is_initialized(dev);
+
+        event->dev_db = udev_device_unref(event->dev_db);
+
+        return 0;
 }
 
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec) {

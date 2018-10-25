@@ -72,10 +72,10 @@ int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_warn_usec,
                      bool accept_failure,
                      const char *cmd, char *result, size_t ressize);
-void udev_event_execute_rules(struct udev_event *event,
-                              usec_t timeout_usec, usec_t timeout_warn_usec,
-                              Hashmap *properties_list,
-                              struct udev_rules *rules);
+int udev_event_execute_rules(struct udev_event *event,
+                             usec_t timeout_usec, usec_t timeout_warn_usec,
+                             Hashmap *properties_list,
+                             struct udev_rules *rules);
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec);
 
 /* Cleanup functions */
