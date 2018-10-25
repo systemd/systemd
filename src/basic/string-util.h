@@ -206,7 +206,7 @@ static inline void* explicit_bzero_safe(void *p, size_t l) {
         return p;
 }
 #else
-void explicit_bzero_safe(void *p, size_t l);
+void *explicit_bzero_safe(void *p, size_t l);
 #endif
 
 char *string_erase(char *x);
