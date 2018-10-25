@@ -31,7 +31,7 @@ struct udev_event {
         gid_t gid;
         Hashmap *seclabel_list;
         Hashmap *run_list;
-        int exec_delay;
+        usec_t exec_delay_usec;
         usec_t birth_usec;
         sd_netlink *rtnl;
         unsigned builtin_run;

@@ -897,9 +897,9 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
                 if (builtin_cmd >= 0 && builtin_cmd < _UDEV_BUILTIN_MAX)
                         udev_builtin_run(event->dev->device, builtin_cmd, command, false);
                 else {
-                        if (event->exec_delay > 0) {
+                        if (event->exec_delay_usec > 0) {
                                 log_debug("delay execution of '%s'", command);
-                                sleep(event->exec_delay);
+                                (void) sleep(event->exec_delay_usec / USEC_PER_SEC);
                         }
 
                         udev_event_spawn(event, timeout_usec, timeout_warn_usec, false, command, NULL, 0);
