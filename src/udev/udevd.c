@@ -62,8 +62,8 @@
 static bool arg_debug = false;
 static int arg_daemonize = false;
 static int arg_resolve_names = 1;
-static unsigned arg_children_max;
-static int arg_exec_delay;
+static unsigned arg_children_max = 0;
+static int arg_exec_delay = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
 
