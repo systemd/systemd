@@ -2243,9 +2243,9 @@ static int clean_item(Item *i) {
         }
 }
 
-static int process_item_array(ItemArray *array);
+static int process_item_array(ItemArray *array, OperationMask operation);
 
-static int process_item(Item *i) {
+static int process_item(Item *i, OperationMask operation) {
         int r, q, p, t = 0;
         _cleanup_free_ char *prefix = NULL;
 
@@ -2267,7 +2267,7 @@ static int process_item(Item *i) {
                 if (j) {
                         int s;
 
-                        s = process_item_array(j);
+                        s = process_item_array(j, operation);
                         if (s < 0 && t == 0)
                                 t = s;
                 }
@@ -2276,13 +2276,13 @@ static int process_item(Item *i) {
         if (chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS, NULL) == -EREMOTE)
                 return t;
 
-        r = FLAGS_SET(arg_operation, OPERATION_CREATE) ? create_item(i) : 0;
+        r = FLAGS_SET(operation, OPERATION_CREATE) ? create_item(i) : 0;
         /* Failure can only be tolerated for create */
         if (i->allow_failure)
                 r = 0;
 
-        q = FLAGS_SET(arg_operation, OPERATION_REMOVE) ? remove_item(i) : 0;
-        p = FLAGS_SET(arg_operation, OPERATION_CLEAN) ? clean_item(i) : 0;
+        q = FLAGS_SET(operation, OPERATION_REMOVE) ? remove_item(i) : 0;
+        p = FLAGS_SET(operation, OPERATION_CLEAN) ? clean_item(i) : 0;
 
         return t < 0 ? t :
                 r < 0 ? r :
@@ -2290,7 +2290,7 @@ static int process_item(Item *i) {
                 p;
 }
 
-static int process_item_array(ItemArray *array) {
+static int process_item_array(ItemArray *array, OperationMask operation) {
         int r = 0;
         size_t n;
 
@@ -2299,7 +2299,7 @@ static int process_item_array(ItemArray *array) {
         for (n = 0; n < array->n_items; n++) {
                 int k;
 
-                k = process_item(array->items + n);
+                k = process_item(array->items + n, operation);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -3189,7 +3189,7 @@ int main(int argc, char *argv[]) {
         /* The non-globbing ones usually create things, hence we apply
          * them first */
         ORDERED_HASHMAP_FOREACH(a, items, iterator) {
-                k = process_item_array(a);
+                k = process_item_array(a, arg_operation);
                 if (k < 0 && r_process == 0)
                         r_process = k;
         }
@@ -3197,7 +3197,7 @@ int main(int argc, char *argv[]) {
         /* The globbing ones usually alter things, hence we apply them
          * second. */
         ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
-                k = process_item_array(a);
+                k = process_item_array(a, arg_operation);
                 if (k < 0 && r_process == 0)
                         r_process = k;
         }
