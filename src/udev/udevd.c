@@ -1400,11 +1400,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = safe_atou64(value, &arg_event_timeout_usec);
-                if (r >= 0) {
-                        arg_event_timeout_usec *= USEC_PER_SEC;
+                r = parse_sec(value, &arg_event_timeout_usec);
+                if (r >= 0)
                         arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
-                }
 
         } else if (proc_cmdline_key_streq(key, "udev.children_max")) {
 
@@ -1493,13 +1491,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 log_warning_errno(r, "Failed to parse --exec-delay value '%s', ignoring: %m", optarg);
                         break;
                 case 't':
-                        r = safe_atou64(optarg, &arg_event_timeout_usec);
+                        r = parse_sec(optarg, &arg_event_timeout_usec);
                         if (r < 0)
-                                log_warning("Invalid --event-timeout ignored: %s", optarg);
-                        else {
-                                arg_event_timeout_usec *= USEC_PER_SEC;
-                                arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
-                        }
+                                log_warning_errno(r, "Failed to parse --event-timeout value '%s', ignoring: %m", optarg);
+
+                        arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
                         break;
                 case 'D':
                         arg_debug = true;
