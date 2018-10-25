@@ -2471,8 +2471,7 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
 
         log_notice("[%s:%u] Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", fname, line, *path, n);
 
-        free(*path);
-        *path = n;
+        free_and_replace(*path, n);
 
         return 0;
 }
@@ -2709,8 +2708,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 if (!p)
                         return log_oom();
 
-                free(i.path);
-                i.path = p;
+                free_and_replace(i.path, p);
         }
 
         if (!isempty(user) && !streq(user, "-")) {
