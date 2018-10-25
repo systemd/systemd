@@ -15,6 +15,7 @@
 #include "journal-vacuum.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "util.h"
 #include "xattr-util.h"
 
@@ -140,13 +141,8 @@ int journal_directory_vacuum(
         if (max_use <= 0 && max_retention_usec <= 0 && n_max_files <= 0)
                 return 0;
 
-        if (max_retention_usec > 0) {
-                retention_limit = now(CLOCK_REALTIME);
-                if (retention_limit > max_retention_usec)
-                        retention_limit -= max_retention_usec;
-                else
-                        max_retention_usec = retention_limit = 0;
-        }
+        if (max_retention_usec > 0)
+                retention_limit = usec_sub_unsigned(now(CLOCK_REALTIME), max_retention_usec);
 
         d = opendir(directory);
         if (!d)
