@@ -275,29 +275,38 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
                                  usec + arg_event_timeout_usec, USEC_PER_SEC, on_event_timeout, event);
 }
 
+static void manager_clear_for_worker(Manager *manager) {
+        assert(manager);
+
+        manager->ctrl_event = sd_event_source_unref(manager->ctrl_event);
+        manager->uevent_event = sd_event_source_unref(manager->uevent_event);
+        manager->inotify_event = sd_event_source_unref(manager->inotify_event);
+
+        manager->event = sd_event_unref(manager->event);
+
+        manager_workers_free(manager);
+        event_queue_cleanup(manager, EVENT_UNDEF);
+
+        manager->monitor = sd_device_monitor_unref(manager->monitor);
+        manager->ctrl_conn_blocking = udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
+        manager->ctrl = udev_ctrl_unref(manager->ctrl);
+
+        manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
+}
+
 static void manager_free(Manager *manager) {
         if (!manager)
                 return;
 
         udev_builtin_exit();
 
-        sd_event_source_unref(manager->ctrl_event);
-        sd_event_source_unref(manager->uevent_event);
-        sd_event_source_unref(manager->inotify_event);
-
-        sd_event_unref(manager->event);
-        manager_workers_free(manager);
-        event_queue_cleanup(manager, EVENT_UNDEF);
-
-        sd_device_monitor_unref(manager->monitor);
-        udev_ctrl_unref(manager->ctrl);
-        udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
+        manager_clear_for_worker(manager);
 
         hashmap_free_free_free(manager->properties);
         udev_rules_unref(manager->rules);
 
-        safe_close(manager->fd_inotify);
         safe_close_pair(manager->worker_watch);
+        safe_close(manager->fd_inotify);
 
         free(manager);
 }
@@ -447,19 +456,8 @@ static int worker_spawn(Manager *manager, struct event *event) {
 
                 unsetenv("NOTIFY_SOCKET");
 
-                manager_workers_free(manager);
-                event_queue_cleanup(manager, EVENT_UNDEF);
-
-                manager->monitor = sd_device_monitor_unref(manager->monitor);
-                manager->ctrl_conn_blocking = udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
-                manager->ctrl = udev_ctrl_unref(manager->ctrl);
-                manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
-
-                manager->ctrl_event = sd_event_source_unref(manager->ctrl_event);
-                manager->uevent_event = sd_event_source_unref(manager->uevent_event);
-                manager->inotify_event = sd_event_source_unref(manager->inotify_event);
-
-                manager->event = sd_event_unref(manager->event);
+                /* Clear unnecessary data in Manager object.*/
+                manager_clear_for_worker(manager);
 
                 sigfillset(&mask);
                 fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
