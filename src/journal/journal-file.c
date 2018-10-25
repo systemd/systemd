@@ -3224,30 +3224,30 @@ int journal_file_open(
         if (fname && (flags & O_CREAT) && !endswith(fname, ".journal"))
                 return -EINVAL;
 
-        f = new0(JournalFile, 1);
+        f = new(JournalFile, 1);
         if (!f)
                 return -ENOMEM;
 
-        f->fd = fd;
-        f->mode = mode;
+        *f = (JournalFile) {
+                .fd = fd,
+                .mode = mode,
 
-        f->flags = flags;
-        f->prot = prot_from_flags(flags);
-        f->writable = (flags & O_ACCMODE) != O_RDONLY;
+                .flags = flags,
+                .prot = prot_from_flags(flags),
+                .writable = (flags & O_ACCMODE) != O_RDONLY,
+
 #if HAVE_LZ4
-        f->compress_lz4 = compress;
+                .compress_lz4 = compress,
 #elif HAVE_XZ
-        f->compress_xz = compress;
+                .compress_xz = compress,
 #endif
-
-        if (compress_threshold_bytes == (uint64_t) -1)
-                f->compress_threshold_bytes = DEFAULT_COMPRESS_THRESHOLD;
-        else
-                f->compress_threshold_bytes = MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes);
-
+                .compress_threshold_bytes = compress_threshold_bytes == (uint64_t) -1 ?
+                                            DEFAULT_COMPRESS_THRESHOLD :
+                                            MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
 #if HAVE_GCRYPT
-        f->seal = seal;
+                .seal = seal,
 #endif
+        };
 
         log_debug("Journal effective settings seal=%s compress=%s compress_threshold_bytes=%s",
                   yes_no(f->seal), yes_no(JOURNAL_FILE_COMPRESS(f)),
