@@ -32,7 +32,7 @@ static void test_sd_device_basic(void) {
                 assert_se(r >= 0 || r == -ENOENT);
 
                 r = sd_device_get_ifindex(d, &i);
-                assert_se(r >= 0 || r == -ENOENT);
+                assert_se((r >= 0 && i > 0) || r == -ENOENT);
 
                 r = sd_device_get_driver(d, &val);
                 assert_se(r >= 0 || r == -ENOENT);
