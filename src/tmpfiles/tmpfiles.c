@@ -2792,8 +2792,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         return log_oom();
 
                 r = ordered_hashmap_put(h, i.path, existing);
-                if (r < 0)
+                if (r < 0) {
+                        free(existing);
                         return log_oom();
+                }
         }
 
         if (!GREEDY_REALLOC(existing->items, existing->allocated, existing->n_items + 1))
