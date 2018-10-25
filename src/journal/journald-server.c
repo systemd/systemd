@@ -411,8 +411,10 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         }
 
         if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/user-"UID_FMT".journal",
-                     SD_ID128_FORMAT_VAL(machine), uid) < 0)
+                     SD_ID128_FORMAT_VAL(machine), uid) < 0) {
+                log_oom();
                 return s->system_journal;
+        }
 
         while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
                 /* Too many open? Then let's close one */
