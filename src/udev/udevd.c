@@ -1317,22 +1317,24 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         assert(manager);
 
-        if (LIST_IS_EMPTY(manager->events)) {
-                /* no pending events */
-                if (!hashmap_isempty(manager->workers)) {
-                        /* there are idle workers */
-                        log_debug("cleanup idle workers");
-                        manager_kill_workers(manager);
-                } else {
-                        /* we are idle */
-                        if (manager->exit) {
-                                r = sd_event_exit(manager->event, 0);
-                                if (r < 0)
-                                        return r;
-                        } else if (manager->cgroup)
-                                /* cleanup possible left-over processes in our cgroup */
-                                cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
-                }
+        if (!LIST_IS_EMPTY(manager->events))
+                return 1;
+
+        /* There are no pending events. Let's cleanup idle process. */
+
+        if (!hashmap_isempty(manager->workers)) {
+                /* there are idle workers */
+                log_debug("cleanup idle workers");
+                manager_kill_workers(manager);
+        } else {
+                /* we are idle */
+                if (manager->exit) {
+                        r = sd_event_exit(manager->event, 0);
+                        if (r < 0)
+                                return r;
+                } else if (manager->cgroup)
+                        /* cleanup possible left-over processes in our cgroup */
+                        cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
         }
 
         return 1;
