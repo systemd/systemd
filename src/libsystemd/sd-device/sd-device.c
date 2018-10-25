@@ -38,7 +38,6 @@ int device_new_aux(sd_device **ret) {
         *device = (sd_device) {
                 .n_ref = 1,
                 .watch_handle = -1,
-                .ifindex = -1,
                 .devmode = (mode_t) -1,
                 .devuid = (uid_t) -1,
                 .devgid = (gid_t) -1,
@@ -579,7 +578,7 @@ _public_ int sd_device_get_ifindex(sd_device *device, int *ifindex) {
         if (r < 0)
                 return r;
 
-        if (device->ifindex < 0)
+        if (device->ifindex <= 0)
                 return -ENOENT;
 
         *ifindex = device->ifindex;
@@ -1241,9 +1240,9 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                                      major(devnum), minor(devnum));
                         if (r < 0)
                                 return -ENOMEM;
-                } else if (sd_device_get_ifindex(device, &ifindex) >= 0 && ifindex > 0) {
+                } else if (sd_device_get_ifindex(device, &ifindex) >= 0) {
                         /* use netdev ifindex — n3 */
-                        r = asprintf(&id, "n%u", ifindex);
+                        r = asprintf(&id, "n%u", (unsigned) ifindex);
                         if (r < 0)
                                 return -ENOMEM;
                 } else {

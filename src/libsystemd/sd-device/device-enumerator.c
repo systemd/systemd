@@ -497,7 +497,7 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                 if (!enumerator->match_allow_uninitialized &&
                     !initialized &&
                     (sd_device_get_devnum(device, &devnum) >= 0 ||
-                     (sd_device_get_ifindex(device, &ifindex) >= 0 && ifindex > 0)))
+                     sd_device_get_ifindex(device, &ifindex) >= 0))
                         continue;
 
                 if (!match_parent(enumerator, device))
