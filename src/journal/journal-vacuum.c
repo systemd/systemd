@@ -126,11 +126,10 @@ int journal_directory_vacuum(
                 usec_t *oldest_usec,
                 bool verbose) {
 
+        uint64_t sum = 0, freed = 0, n_active_files = 0;
+        size_t n_list = 0, n_allocated = 0, i;
         _cleanup_closedir_ DIR *d = NULL;
         struct vacuum_info *list = NULL;
-        unsigned n_list = 0, i, n_active_files = 0;
-        size_t n_allocated = 0;
-        uint64_t sum = 0, freed = 0;
         usec_t retention_limit = 0;
         char sbytes[FORMAT_BYTES_MAX];
         struct dirent *de;
@@ -283,7 +282,7 @@ int journal_directory_vacuum(
         typesafe_qsort(list, n_list, vacuum_compare);
 
         for (i = 0; i < n_list; i++) {
-                unsigned left;
+                uint64_t left;
 
                 left = n_active_files + n_list - i;
 
