@@ -348,7 +348,7 @@ static int worker_spawn(Manager *manager, struct event *event) {
         pid = fork();
         switch (pid) {
         case 0: {
-                struct udev_device *dev = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                 _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
                 int fd_monitor;
                 _cleanup_close_ int fd_signal = -1, fd_ep = -1;
@@ -357,12 +357,7 @@ static int worker_spawn(Manager *manager, struct event *event) {
                 sigset_t mask;
 
                 /* take initial device from queue */
-                dev = udev_device_new(NULL, event->dev);
-                if (!dev) {
-                        r = -errno;
-                        goto out;
-                }
-                event->dev = sd_device_unref(event->dev);
+                dev = TAKE_PTR(event->dev);
 
                 unsetenv("NOTIFY_SOCKET");
 
@@ -415,15 +410,30 @@ static int worker_spawn(Manager *manager, struct event *event) {
                 write_string_file("/proc/self/oom_score_adj", "0", 0);
 
                 for (;;) {
+                        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
                         _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
+                        const char *seqnum, *action;
                         int fd_lock = -1;
 
                         assert(dev);
 
-                        log_debug("seq %llu running", udev_device_get_seqnum(dev));
-                        udev_event = udev_event_new(dev);
-                        if (udev_event == NULL) {
-                                r = -ENOMEM;
+                        r = sd_device_get_property_value(dev, "SEQNUM", &seqnum);
+                        if (r < 0) {
+                                log_device_error_errno(dev, r, "Failed to get seqnum, skipping event handling: %m");
+                                goto skip;
+                        }
+
+                        log_device_debug(dev, "seq %s running", seqnum);
+
+                        udev_device = udev_device_new(NULL, dev);
+                        if (!udev_device) {
+                                r = -errno;
+                                goto out;
+                        }
+
+                        udev_event = udev_event_new(udev_device);
+                        if (!udev_event) {
+                                r = log_oom();
                                 goto out;
                         }
 
@@ -437,20 +447,32 @@ static int worker_spawn(Manager *manager, struct event *event) {
                          * acquired the lock, the external process can block until
                          * udev has finished its event handling.
                          */
-                        if (!streq_ptr(udev_device_get_action(dev), "remove") &&
-                            shall_lock_device(dev->device)) {
-                                struct udev_device *d = dev;
+                        if (sd_device_get_property_value(dev, "ACTION", &action) >= 0 &&
+                            !streq(action, "remove") &&
+                            shall_lock_device(dev)) {
+                                const char *devtype, *devname;
+                                sd_device *d = dev;
 
-                                if (streq_ptr("partition", udev_device_get_devtype(d)))
-                                        d = udev_device_get_parent(d);
-
-                                if (d) {
-                                        fd_lock = open(udev_device_get_devnode(d), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
-                                        if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
-                                                log_debug_errno(errno, "Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
-                                                fd_lock = safe_close(fd_lock);
+                                if (sd_device_get_devtype(dev, &devtype) >= 0 &&
+                                    streq(devtype, "partition")) {
+                                        r = sd_device_get_parent(dev, &d);
+                                        if (r < 0) {
+                                                log_device_warning_errno(dev, r, "Failed to get parent device, skipping event handling: %m");
                                                 goto skip;
                                         }
+                                }
+
+                                r = sd_device_get_devname(d, &devname);
+                                if (r < 0) {
+                                        log_device_warning_errno(d, r, "Failed to get devname, skipping event handling: %m");
+                                        goto skip;
+                                }
+
+                                fd_lock = open(devname, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                                if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
+                                        log_device_warning_errno(dev, errno, "Failed to flock(%s), skipping event handling: %m", devname);
+                                        fd_lock = safe_close(fd_lock);
+                                        goto skip;
                                 }
                         }
 
@@ -472,31 +494,31 @@ static int worker_spawn(Manager *manager, struct event *event) {
 
                         /* apply/restore inotify watch */
                         if (udev_event->inotify_watch) {
-                                udev_watch_begin(dev->device);
-                                udev_device_update_db(dev);
+                                udev_watch_begin(dev);
+                                r = device_update_db(dev);
+                                if (r < 0)
+                                        log_device_warning_errno(dev, r, "Failed to update database under /run/udev/data/, ignoring: %m");
                         }
 
                         safe_close(fd_lock);
 
                         /* send processed event back to libudev listeners */
-                        r = device_monitor_send_device(worker_monitor, NULL, dev->device);
+                        r = device_monitor_send_device(worker_monitor, NULL, dev);
                         if (r < 0)
-                                log_device_warning_errno(dev->device, r, "Failed to send device: %m");
+                                log_device_warning_errno(dev, r, "Failed to send device: %m");
+
+                        log_device_debug(dev, "seq %s processed", seqnum);
 
 skip:
-                        log_debug("seq %llu processed", udev_device_get_seqnum(dev));
+                        dev = sd_device_unref(dev);
 
                         /* send udevd the result of the event execution */
                         r = worker_send_message(manager->worker_watch[WRITE_END]);
                         if (r < 0)
-                                log_error_errno(r, "failed to send result of seq %llu to main daemon: %m",
-                                                udev_device_get_seqnum(dev));
-
-                        udev_device_unref(dev);
-                        dev = NULL;
+                                log_error_errno(r, "Failed to send result of seq %s to main daemon: %m", seqnum);
 
                         /* wait for more device messages from main udevd, or term signal */
-                        while (dev == NULL) {
+                        while (!dev) {
                                 struct epoll_event ev[4];
                                 int fdcount;
                                 int i;
@@ -511,20 +533,12 @@ skip:
 
                                 for (i = 0; i < fdcount; i++) {
                                         if (ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN) {
-                                                _cleanup_(sd_device_unrefp) sd_device *new_dev = NULL;
-
-                                                r = device_monitor_receive_device(worker_monitor, &new_dev);
+                                                r = device_monitor_receive_device(worker_monitor, &dev);
                                                 if (r <= 0) {
                                                         if (r < 0)
                                                                 log_warning_errno(r, "Failed to receive device, ignoring: %m");
 
                                                         continue;
-                                                }
-
-                                                dev = udev_device_new(NULL, new_dev);
-                                                if (!dev) {
-                                                        log_oom();
-                                                        goto out;
                                                 }
 
                                                 break;
@@ -544,7 +558,6 @@ skip:
                         }
                 }
 out:
-                udev_device_unref(dev);
                 manager_free(manager);
                 log_close();
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
