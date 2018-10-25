@@ -35,6 +35,12 @@ assert_cc(sizeof(JsonValue) == 16U);
 #define JSON_VARIANT_MAGIC_EMPTY_STRING ((JsonVariant*) 7)
 #define JSON_VARIANT_MAGIC_EMPTY_ARRAY ((JsonVariant*) 8)
 #define JSON_VARIANT_MAGIC_EMPTY_OBJECT ((JsonVariant*) 9)
+#define _JSON_VARIANT_MAGIC_MAX ((JsonVariant*) 10)
+
+/* This is only safe as long as we don't define more than 4K magic pointers, i.e. the page size of the simplest
+ * architectures we support. That's because we rely on the fact that malloc() will never allocate from the first memory
+ * page, as it is a faulting page for catching NULL pointer dereferences. */
+assert_cc((uintptr_t) _JSON_VARIANT_MAGIC_MAX < 4096U);
 
 enum { /* JSON tokens */
         JSON_TOKEN_END,

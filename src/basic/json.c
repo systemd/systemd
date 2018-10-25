@@ -24,6 +24,12 @@
 #include "terminal-util.h"
 #include "utf8.h"
 
+/* Refuse putting together variants with a larger depth than 16K by default (as a protection against overflowing stacks
+ * if code processes JSON objects recursively. Note that we store the depth in an uint16_t, hence make sure this
+ * remains under 2^16. */
+#define DEPTH_MAX (16U*1024U)
+assert_cc(DEPTH_MAX <= UINT16_MAX);
+
 typedef struct JsonSource {
         /* When we parse from a file or similar, encodes the filename, to indicate the source of a json variant */
         size_t n_ref;
@@ -45,6 +51,10 @@ struct JsonVariant {
                 JsonVariant *parent;
         };
 
+        /* If this was parsed from some file or buffer, this stores where from, as well as the source line/column */
+        JsonSource *source;
+        unsigned line, column;
+
         JsonVariantType type:5;
 
         /* A marker whether this variant is embedded into in array/object or not. If true, the 'parent' pointer above
@@ -59,9 +69,8 @@ struct JsonVariant {
         /* While comparing two arrays, we use this for marking what we already have seen */
         bool is_marked:1;
 
-        /* If this was parsed from some file or buffer, this stores where from, as well as the source line/column */
-        unsigned line, column;
-        JsonSource *source;
+        /* The current 'depth' of the JsonVariant, i.e. how many levels of member variants this has */
+        uint16_t depth;
 
         union {
                 /* For simple types we store the value in-line. */
@@ -130,16 +139,47 @@ static bool json_source_equal(JsonSource *a, JsonSource *b) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(JsonSource*, json_source_unref);
 
+/* There are four kind of JsonVariant* pointers:
+ *
+ *    1. NULL
+ *    2. A 'regular' one, i.e. pointing to malloc() memory
+ *    3. A 'magic' one, i.e. one of the special JSON_VARIANT_MAGIC_XYZ values, that encode a few very basic values directly in the pointer.
+ *    4. A 'const string' one, i.e. a pointer to a const string.
+ *
+ * The four kinds of pointers can be discerned like this:
+ *
+ *    Detecting #1 is easy, just compare with NULL. Detecting #3 is similarly easy: all magic pointers are below
+ *    _JSON_VARIANT_MAGIC_MAX (which is pretty low, within the first memory page, which is special on Linux and other
+ *    OSes, as it is a faulting page). In order to discern #2 and #4 we check the lowest bit. If it's off it's #2,
+ *    otherwise #4. This makes use of the fact that malloc() will return "maximum aligned" memory, which definitely
+ *    means the pointer is even. This means we can use the uneven pointers to reference static strings, as long as we
+ *    make sure that all static strings used like this are aligned to 2 (or higher), and that we mask the bit on
+ *    access. The JSON_VARIANT_STRING_CONST() macro encodes strings as JsonVariant* pointers, with the bit set. */
+
 static bool json_variant_is_magic(const JsonVariant *v) {
-        return v == JSON_VARIANT_MAGIC_TRUE ||
-                v == JSON_VARIANT_MAGIC_FALSE ||
-                v == JSON_VARIANT_MAGIC_NULL ||
-                v == JSON_VARIANT_MAGIC_ZERO_INTEGER ||
-                v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
-                v == JSON_VARIANT_MAGIC_ZERO_REAL ||
-                v == JSON_VARIANT_MAGIC_EMPTY_STRING ||
-                v == JSON_VARIANT_MAGIC_EMPTY_ARRAY ||
-                v == JSON_VARIANT_MAGIC_EMPTY_OBJECT;
+        if (!v)
+                return false;
+
+        return v < _JSON_VARIANT_MAGIC_MAX;
+}
+
+static bool json_variant_is_const_string(const JsonVariant *v) {
+
+        if (v < _JSON_VARIANT_MAGIC_MAX)
+                return false;
+
+        /* A proper JsonVariant is aligned to whatever malloc() aligns things too, which is definitely not uneven. We
+         * hence use all uneven pointers as indicators for const strings. */
+
+        return (((uintptr_t) v) & 1) != 0;
+}
+
+static bool json_variant_is_regular(const JsonVariant *v) {
+
+        if (v < _JSON_VARIANT_MAGIC_MAX)
+                return false;
+
+        return (((uintptr_t) v) & 1) == 0;
 }
 
 static JsonVariant *json_variant_dereference(JsonVariant *v) {
@@ -149,13 +189,25 @@ static JsonVariant *json_variant_dereference(JsonVariant *v) {
         if (!v)
                 return NULL;
 
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 return v;
 
         if (!v->is_reference)
                 return v;
 
         return json_variant_dereference(v->reference);
+}
+
+static uint16_t json_variant_depth(JsonVariant *v) {
+
+        v = json_variant_dereference(v);
+        if (!v)
+                return 0;
+
+        if (!json_variant_is_regular(v))
+                return 0;
+
+        return v->depth;
 }
 
 static JsonVariant *json_variant_normalize(JsonVariant *v) {
@@ -210,7 +262,7 @@ static JsonVariant *json_variant_conservative_normalize(JsonVariant *v) {
         if (!v)
                 return NULL;
 
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 return v;
 
         if (v->source || v->line > 0 || v->column > 0)
@@ -404,7 +456,7 @@ static void json_variant_copy_source(JsonVariant *v, JsonVariant *from) {
         assert(v);
         assert(from);
 
-        if (json_variant_is_magic(from))
+        if (!json_variant_is_regular(from))
                 return;
 
         v->line = from->line;
@@ -413,8 +465,7 @@ static void json_variant_copy_source(JsonVariant *v, JsonVariant *from) {
 }
 
 int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
-        JsonVariant *v;
-        size_t i;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         assert_return(ret, -EINVAL);
         if (n == 0) {
@@ -430,22 +481,29 @@ int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
         *v = (JsonVariant) {
                 .n_ref = 1,
                 .type = JSON_VARIANT_ARRAY,
-                .n_elements = n,
         };
 
-        for (i = 0; i < n; i++) {
-                JsonVariant *w = v + 1 + i;
+        for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
+                JsonVariant *w = v + 1 + v->n_elements,
+                        *c = array[v->n_elements];
+                uint16_t d;
+
+                d = json_variant_depth(c);
+                if (d >= DEPTH_MAX) /* Refuse too deep nesting */
+                        return -ELNRNG;
+                if (d >= v->depth)
+                        v->depth = d + 1;
 
                 *w = (JsonVariant) {
                         .is_embedded = true,
                         .parent = v,
                 };
 
-                json_variant_set(w, array[i]);
-                json_variant_copy_source(w, array[i]);
+                json_variant_set(w, c);
+                json_variant_copy_source(w, c);
         }
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
@@ -468,6 +526,7 @@ int json_variant_new_array_bytes(JsonVariant **ret, const void *p, size_t n) {
                 .n_ref = 1,
                 .type = JSON_VARIANT_ARRAY,
                 .n_elements = n,
+                .depth = 1,
         };
 
         for (i = 0; i < n; i++) {
@@ -476,10 +535,9 @@ int json_variant_new_array_bytes(JsonVariant **ret, const void *p, size_t n) {
                 *w = (JsonVariant) {
                         .is_embedded = true,
                         .parent = v,
+                        .type = JSON_VARIANT_UNSIGNED,
+                        .value.unsig = ((const uint8_t*) p)[i],
                 };
-
-                w->type = JSON_VARIANT_UNSIGNED;
-                w->value.unsig = ((const uint8_t*) p)[i];
         }
 
         *ret = v;
@@ -499,22 +557,25 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
                 return 0;
         }
 
-        v = new0(JsonVariant, n + 1);
+        v = new(JsonVariant, n + 1);
         if (!v)
                 return -ENOMEM;
 
         *v = (JsonVariant) {
                 .n_ref = 1,
                 .type = JSON_VARIANT_ARRAY,
+                .depth = 1,
         };
 
         for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
                 JsonVariant *w = v + 1 + v->n_elements;
                 size_t k;
 
-                w->is_embedded = true;
-                w->parent = v;
-                w->type = JSON_VARIANT_STRING;
+                *w = (JsonVariant) {
+                        .is_embedded = true,
+                        .parent = v,
+                        .type = JSON_VARIANT_STRING,
+                };
 
                 k = strlen(l[v->n_elements]);
 
@@ -535,8 +596,7 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
 }
 
 int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
-        JsonVariant *v;
-        size_t i;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         assert_return(ret, -EINVAL);
         if (n == 0) {
@@ -553,29 +613,40 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
         *v = (JsonVariant) {
                 .n_ref = 1,
                 .type = JSON_VARIANT_OBJECT,
-                .n_elements = n,
         };
 
-        for (i = 0; i < n; i++) {
-                JsonVariant *w = v + 1 + i;
+        for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
+                JsonVariant *w = v + 1 + v->n_elements,
+                        *c = array[v->n_elements];
+                uint16_t d;
+
+                if ((v->n_elements & 1) == 0 &&
+                    !json_variant_is_string(c))
+                        return -EINVAL; /* Every second one needs to be a string, as it is the key name */
+
+                d = json_variant_depth(c);
+                if (d >= DEPTH_MAX) /* Refuse too deep nesting */
+                        return -ELNRNG;
+                if (d >= v->depth)
+                        v->depth = d + 1;
 
                 *w = (JsonVariant) {
                         .is_embedded = true,
                         .parent = v,
                 };
 
-                json_variant_set(w, array[i]);
-                json_variant_copy_source(w, array[i]);
+                json_variant_set(w, c);
+                json_variant_copy_source(w, c);
         }
 
-        *ret = v;
+        *ret = TAKE_PTR(v);
         return 0;
 }
 
 static void json_variant_free_inner(JsonVariant *v) {
         assert(v);
 
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 return;
 
         json_source_unref(v->source);
@@ -596,7 +667,7 @@ static void json_variant_free_inner(JsonVariant *v) {
 JsonVariant *json_variant_ref(JsonVariant *v) {
         if (!v)
                 return NULL;
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 return v;
 
         if (v->is_embedded)
@@ -612,7 +683,7 @@ JsonVariant *json_variant_ref(JsonVariant *v) {
 JsonVariant *json_variant_unref(JsonVariant *v) {
         if (!v)
                 return NULL;
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 return NULL;
 
         if (v->is_embedded)
@@ -646,6 +717,13 @@ const char *json_variant_string(JsonVariant *v) {
                 return "";
         if (json_variant_is_magic(v))
                 goto mismatch;
+        if (json_variant_is_const_string(v)) {
+                uintptr_t p = (uintptr_t) v;
+
+                assert((p & 1) != 0);
+                return (const char*) (p ^ 1U);
+        }
+
         if (v->is_reference)
                 return json_variant_string(v->reference);
         if (v->type != JSON_VARIANT_STRING)
@@ -665,7 +743,7 @@ bool json_variant_boolean(JsonVariant *v) {
                 return true;
         if (v == JSON_VARIANT_MAGIC_FALSE)
                 return false;
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 goto mismatch;
         if (v->type != JSON_VARIANT_BOOLEAN)
                 goto mismatch;
@@ -686,7 +764,7 @@ intmax_t json_variant_integer(JsonVariant *v) {
             v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
             v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return 0;
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 goto mismatch;
         if (v->is_reference)
                 return json_variant_integer(v->reference);
@@ -734,7 +812,7 @@ uintmax_t json_variant_unsigned(JsonVariant *v) {
             v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
             v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return 0;
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 goto mismatch;
         if (v->is_reference)
                 return json_variant_integer(v->reference);
@@ -782,7 +860,7 @@ long double json_variant_real(JsonVariant *v) {
             v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
             v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return 0.0;
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 goto mismatch;
         if (v->is_reference)
                 return json_variant_real(v->reference);
@@ -822,7 +900,7 @@ long double json_variant_real(JsonVariant *v) {
 
 mismatch:
         log_debug("Non-integer JSON variant requested as integer, returning 0.");
-        return 0;
+        return 0.0;
 }
 
 bool json_variant_is_negative(JsonVariant *v) {
@@ -832,7 +910,7 @@ bool json_variant_is_negative(JsonVariant *v) {
             v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
             v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return false;
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 goto mismatch;
         if (v->is_reference)
                 return json_variant_is_negative(v->reference);
@@ -865,6 +943,9 @@ JsonVariantType json_variant_type(JsonVariant *v) {
 
         if (!v)
                 return _JSON_VARIANT_TYPE_INVALID;
+
+        if (json_variant_is_const_string(v))
+                return JSON_VARIANT_STRING;
 
         if (v == JSON_VARIANT_MAGIC_TRUE || v == JSON_VARIANT_MAGIC_FALSE)
                 return JSON_VARIANT_BOOLEAN;
@@ -901,6 +982,10 @@ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
         rt = json_variant_type(v);
         if (rt == type)
                 return true;
+
+        /* If it's a const string, then it only can be a string, and if it is not, it's not */
+        if (json_variant_is_const_string(v))
+                return false;
 
         /* All three magic zeroes qualify as integer, unsigned and as real */
         if ((v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED || v == JSON_VARIANT_MAGIC_ZERO_REAL) &&
@@ -945,7 +1030,7 @@ size_t json_variant_elements(JsonVariant *v) {
         if (v == JSON_VARIANT_MAGIC_EMPTY_ARRAY ||
             v == JSON_VARIANT_MAGIC_EMPTY_OBJECT)
                 return 0;
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 goto mismatch;
         if (!IN_SET(v->type, JSON_VARIANT_ARRAY, JSON_VARIANT_OBJECT))
                 goto mismatch;
@@ -965,7 +1050,7 @@ JsonVariant *json_variant_by_index(JsonVariant *v, size_t idx) {
         if (v == JSON_VARIANT_MAGIC_EMPTY_ARRAY ||
             v == JSON_VARIANT_MAGIC_EMPTY_OBJECT)
                 return NULL;
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 goto mismatch;
         if (!IN_SET(v->type, JSON_VARIANT_ARRAY, JSON_VARIANT_OBJECT))
                 goto mismatch;
@@ -990,7 +1075,7 @@ JsonVariant *json_variant_by_key_full(JsonVariant *v, const char *key, JsonVaria
                 goto not_found;
         if (v == JSON_VARIANT_MAGIC_EMPTY_OBJECT)
                 goto not_found;
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 goto mismatch;
         if (v->type != JSON_VARIANT_OBJECT)
                 goto mismatch;
@@ -1139,13 +1224,13 @@ int json_variant_get_source(JsonVariant *v, const char **ret_source, unsigned *r
         assert_return(v, -EINVAL);
 
         if (ret_source)
-                *ret_source = json_variant_is_magic(v) || !v->source ? NULL : v->source->name;
+                *ret_source = json_variant_is_regular(v) && v->source ? v->source->name : NULL;
 
         if (ret_line)
-                *ret_line = json_variant_is_magic(v) ? 0 : v->line;
+                *ret_line = json_variant_is_regular(v) ? v->line : 0;
 
         if (ret_column)
-                *ret_column = json_variant_is_magic(v) ? 0 : v->column;
+                *ret_column = json_variant_is_regular(v) ? v->column : 0;
 
         return 0;
 }
@@ -1156,7 +1241,7 @@ static int print_source(FILE *f, JsonVariant *v, unsigned flags, bool whitespace
         if (!FLAGS_SET(flags, JSON_FORMAT_SOURCE|JSON_FORMAT_PRETTY))
                 return 0;
 
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 return 0;
 
         if (!v->source && v->line == 0 && v->column == 0)
@@ -1343,10 +1428,15 @@ static int json_format(FILE *f, JsonVariant *v, unsigned flags, const char *pref
                 if (n == 0)
                         fputs("[]", f);
                 else {
+                        _cleanup_free_ char *joined = NULL;
                         const char *prefix2;
 
                         if (flags & JSON_FORMAT_PRETTY) {
-                                prefix2 = strjoina(strempty(prefix), "\t");
+                                joined = strjoin(strempty(prefix), "\t");
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                prefix2 = joined;
                                 fputs("[\n", f);
                         } else {
                                 prefix2 = strempty(prefix);
@@ -1394,10 +1484,15 @@ static int json_format(FILE *f, JsonVariant *v, unsigned flags, const char *pref
                 if (n == 0)
                         fputs("{}", f);
                 else {
+                        _cleanup_free_ char *joined = NULL;
                         const char *prefix2;
 
                         if (flags & JSON_FORMAT_PRETTY) {
-                                prefix2 = strjoina(strempty(prefix), "\t");
+                                joined = strjoin(strempty(prefix), "\t");
+                                if (!joined)
+                                        return -ENOMEM;
+
+                                prefix2 = joined;
                                 fputs("{\n", f);
                         } else {
                                 prefix2 = strempty(prefix);
@@ -1587,7 +1682,7 @@ static bool json_single_ref(JsonVariant *v) {
 
         /* Checks whether the caller is the single owner of the object, i.e. can get away with changing it */
 
-        if (json_variant_is_magic(v))
+        if (!json_variant_is_regular(v))
                 return false;
 
         if (v->is_embedded)
@@ -1614,7 +1709,7 @@ static int json_variant_set_source(JsonVariant **v, JsonSource *source, unsigned
         if (source && column > source->max_column)
                 source->max_column = column;
 
-        if (json_variant_is_magic(*v)) {
+        if (!json_variant_is_regular(*v)) {
 
                 if (!source && line == 0 && column == 0)
                         return 0;
@@ -1638,7 +1733,7 @@ static int json_variant_set_source(JsonVariant **v, JsonSource *source, unsigned
         if (r < 0)
                 return r;
 
-        assert(!json_variant_is_magic(w));
+        assert(json_variant_is_regular(w));
         assert(!w->is_embedded);
         assert(w->n_ref == 1);
         assert(!w->source);
