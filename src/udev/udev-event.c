@@ -42,7 +42,7 @@ typedef struct Spawn {
         size_t result_len;
 } Spawn;
 
-struct udev_event *udev_event_new(sd_device *dev, int exec_delay, sd_netlink *rtnl) {
+struct udev_event *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl) {
         struct udev_event *event;
 
         assert(dev);
@@ -54,7 +54,7 @@ struct udev_event *udev_event_new(sd_device *dev, int exec_delay, sd_netlink *rt
         *event = (struct udev_event) {
                 .dev = sd_device_ref(dev),
                 .birth_usec = now(CLOCK_MONOTONIC),
-                .exec_delay = exec_delay,
+                .exec_delay_usec = exec_delay_usec,
                 .rtnl = sd_netlink_ref(rtnl),
         };
 
@@ -896,9 +896,9 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
                 if (builtin_cmd >= 0 && builtin_cmd < _UDEV_BUILTIN_MAX)
                         udev_builtin_run(event->dev, builtin_cmd, command, false);
                 else {
-                        if (event->exec_delay > 0) {
+                        if (event->exec_delay_usec > 0) {
                                 log_debug("delay execution of '%s'", command);
-                                sleep(event->exec_delay);
+                                (void) usleep(event->exec_delay_usec);
                         }
 
                         udev_event_spawn(event, timeout_usec, timeout_warn_usec, false, command, NULL, 0);

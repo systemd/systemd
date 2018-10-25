@@ -63,7 +63,7 @@ static bool arg_debug = false;
 static int arg_daemonize = false;
 static int arg_resolve_names = 1;
 static unsigned arg_children_max = 0;
-static int arg_exec_delay = 0;
+static usec_t arg_exec_delay_usec = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
 
@@ -409,7 +409,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         assert(dev);
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
-                        udev_event = udev_event_new(dev->device, arg_exec_delay, rtnl);
+                        udev_event = udev_event_new(dev->device, arg_exec_delay_usec, rtnl);
                         if (!udev_event) {
                                 r = -ENOMEM;
                                 goto out;
@@ -1479,7 +1479,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = safe_atoi(value, &arg_exec_delay);
+                r = parse_sec(value, &arg_exec_delay_usec);
 
         } else if (startswith(key, "udev."))
                 log_warning("Unknown udev kernel command line option \"%s\"", key);
@@ -1549,9 +1549,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 log_warning("Invalid --children-max ignored: %s", optarg);
                         break;
                 case 'e':
-                        r = safe_atoi(optarg, &arg_exec_delay);
+                        r = parse_sec(optarg, &arg_exec_delay_usec);
                         if (r < 0)
-                                log_warning("Invalid --exec-delay ignored: %s", optarg);
+                                log_warning_errno(r, "Failed to parse --exec-delay= value '%s', ignoring: %m", optarg);
                         break;
                 case 't':
                         r = safe_atou64(optarg, &arg_event_timeout_usec);

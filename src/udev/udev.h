@@ -30,7 +30,7 @@ struct udev_event {
         gid_t gid;
         Hashmap *seclabel_list;
         Hashmap *run_list;
-        int exec_delay;
+        usec_t exec_delay_usec;
         usec_t birth_usec;
         sd_netlink *rtnl;
         unsigned builtin_run;
@@ -59,7 +59,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
 /* udev-event.c */
-struct udev_event *udev_event_new(sd_device *dev, int exec_delay, sd_netlink *rtnl);
+struct udev_event *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl);
 struct udev_event *udev_event_free(struct udev_event *event);
 ssize_t udev_event_apply_format(struct udev_event *event,
                                 const char *src, char *dest, size_t size,
