@@ -136,7 +136,7 @@ typedef struct Item {
 typedef struct ItemArray {
         Item *items;
         size_t count;
-        size_t size;
+        size_t allocated;
 } ItemArray;
 
 typedef enum DirectoryType {
@@ -2795,7 +2795,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         return log_oom();
         }
 
-        if (!GREEDY_REALLOC(existing->items, existing->size, existing->count + 1))
+        if (!GREEDY_REALLOC(existing->items, existing->allocated, existing->count + 1))
                 return log_oom();
 
         memcpy(existing->items + existing->count++, &i, sizeof(i));
