@@ -76,7 +76,6 @@ struct udev_event *udev_event_free(struct udev_event *event) {
 }
 
 enum subst_type {
-        SUBST_UNKNOWN,
         SUBST_DEVNODE,
         SUBST_ATTR,
         SUBST_ENV,
@@ -95,13 +94,42 @@ enum subst_type {
         SUBST_SYS,
 };
 
+struct subst_map_entry {
+        const char *name;
+        const char fmt;
+        enum subst_type type;
+};
+
+static const struct subst_map_entry map[] = {
+           { .name = "devnode",  .fmt = 'N', .type = SUBST_DEVNODE },
+           { .name = "tempnode", .fmt = 'N', .type = SUBST_DEVNODE },
+           { .name = "attr",     .fmt = 's', .type = SUBST_ATTR },
+           { .name = "sysfs",    .fmt = 's', .type = SUBST_ATTR },
+           { .name = "env",      .fmt = 'E', .type = SUBST_ENV },
+           { .name = "kernel",   .fmt = 'k', .type = SUBST_KERNEL },
+           { .name = "number",   .fmt = 'n', .type = SUBST_KERNEL_NUMBER },
+           { .name = "driver",   .fmt = 'd', .type = SUBST_DRIVER },
+           { .name = "devpath",  .fmt = 'p', .type = SUBST_DEVPATH },
+           { .name = "id",       .fmt = 'b', .type = SUBST_ID },
+           { .name = "major",    .fmt = 'M', .type = SUBST_MAJOR },
+           { .name = "minor",    .fmt = 'm', .type = SUBST_MINOR },
+           { .name = "result",   .fmt = 'c', .type = SUBST_RESULT },
+           { .name = "parent",   .fmt = 'P', .type = SUBST_PARENT },
+           { .name = "name",     .fmt = 'D', .type = SUBST_NAME },
+           { .name = "links",    .fmt = 'L', .type = SUBST_LINKS },
+           { .name = "root",     .fmt = 'r', .type = SUBST_ROOT },
+           { .name = "sys",      .fmt = 'S', .type = SUBST_SYS },
+};
+
 static size_t subst_format_var(struct udev_event *event,
-                               enum subst_type type, char *attr,
+                               const struct subst_map_entry *entry, char *attr,
                                char *dest, size_t l) {
         struct udev_device *dev = event->dev;
         char *s = dest;
 
-        switch (type) {
+        assert(entry);
+
+        switch (entry->type) {
         case SUBST_DEVPATH:
                 l = strpcpy(&s, l, udev_device_get_devpath(dev));
                 break;
@@ -282,8 +310,7 @@ static size_t subst_format_var(struct udev_event *event,
                         break;
                 }
         default:
-                log_error("unknown substitution type=%i", type);
-                break;
+                assert_not_reached("Unknown format substitution type");
         }
 
         return s - dest;
@@ -292,30 +319,6 @@ static size_t subst_format_var(struct udev_event *event,
 size_t udev_event_apply_format(struct udev_event *event,
                                const char *src, char *dest, size_t size,
                                bool replace_whitespace) {
-        static const struct subst_map {
-                const char *name;
-                const char fmt;
-                enum subst_type type;
-        } map[] = {
-                { .name = "devnode",  .fmt = 'N', .type = SUBST_DEVNODE },
-                { .name = "tempnode", .fmt = 'N', .type = SUBST_DEVNODE },
-                { .name = "attr",     .fmt = 's', .type = SUBST_ATTR },
-                { .name = "sysfs",    .fmt = 's', .type = SUBST_ATTR },
-                { .name = "env",      .fmt = 'E', .type = SUBST_ENV },
-                { .name = "kernel",   .fmt = 'k', .type = SUBST_KERNEL },
-                { .name = "number",   .fmt = 'n', .type = SUBST_KERNEL_NUMBER },
-                { .name = "driver",   .fmt = 'd', .type = SUBST_DRIVER },
-                { .name = "devpath",  .fmt = 'p', .type = SUBST_DEVPATH },
-                { .name = "id",       .fmt = 'b', .type = SUBST_ID },
-                { .name = "major",    .fmt = 'M', .type = SUBST_MAJOR },
-                { .name = "minor",    .fmt = 'm', .type = SUBST_MINOR },
-                { .name = "result",   .fmt = 'c', .type = SUBST_RESULT },
-                { .name = "parent",   .fmt = 'P', .type = SUBST_PARENT },
-                { .name = "name",     .fmt = 'D', .type = SUBST_NAME },
-                { .name = "links",    .fmt = 'L', .type = SUBST_LINKS },
-                { .name = "root",     .fmt = 'r', .type = SUBST_ROOT },
-                { .name = "sys",      .fmt = 'S', .type = SUBST_SYS },
-        };
         const char *from;
         char *s;
         size_t l;
@@ -331,7 +334,7 @@ size_t udev_event_apply_format(struct udev_event *event,
         l = size;
 
         for (;;) {
-                enum subst_type type = SUBST_UNKNOWN;
+                const struct subst_map_entry *entry = NULL;
                 char attrbuf[UTIL_PATH_SIZE];
                 char *attr = NULL;
                 size_t subst_len;
@@ -348,7 +351,7 @@ size_t udev_event_apply_format(struct udev_event *event,
 
                                 for (i = 0; i < ELEMENTSOF(map); i++) {
                                         if (startswith(&from[1], map[i].name)) {
-                                                type = map[i].type;
+                                                entry = &map[i];
                                                 from += strlen(map[i].name)+1;
                                                 goto subst;
                                         }
@@ -364,7 +367,7 @@ size_t udev_event_apply_format(struct udev_event *event,
 
                                 for (i = 0; i < ELEMENTSOF(map); i++) {
                                         if (from[1] == map[i].fmt) {
-                                                type = map[i].type;
+                                                entry = &map[i];
                                                 from += 2;
                                                 goto subst;
                                         }
@@ -403,10 +406,10 @@ subst:
                         attr = NULL;
                 }
 
-                subst_len = subst_format_var(event, type, attr, s, l);
+                subst_len = subst_format_var(event, entry, attr, s, l);
 
                 /* SUBST_RESULT handles spaces itself */
-                if (replace_whitespace && type != SUBST_RESULT)
+                if (replace_whitespace && entry->type != SUBST_RESULT)
                         /* util_replace_whitespace can replace in-place,
                          * and does nothing if subst_len == 0
                          */
