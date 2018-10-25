@@ -2801,12 +2801,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         if (!GREEDY_REALLOC(existing->items, existing->allocated, existing->n_items + 1))
                 return log_oom();
 
-        memcpy(existing->items + existing->n_items++, &i, sizeof(i));
+        existing->items[existing->n_items++] = i;
+        i = (struct Item) {};
 
         /* Sort item array, to enforce stable ordering of application */
         typesafe_qsort(existing->items, existing->n_items, item_compare);
 
-        zero(i);
         return 0;
 }
 
