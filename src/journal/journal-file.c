@@ -3437,71 +3437,107 @@ fail:
         return r;
 }
 
-int journal_file_rotate(JournalFile **f, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes) {
+int journal_file_archive(JournalFile *f) {
         _cleanup_free_ char *p = NULL;
-        size_t l;
-        JournalFile *old_file, *new_file = NULL;
+
+        assert(f);
+
+        if (!f->writable)
+                return -EINVAL;
+
+        /* Is this a journal file that was passed to us as fd? If so, we synthesized a path name for it, and we refuse
+         * rotation, since we don't know the actual path, and couldn't rename the file hence. */
+        if (path_startswith(f->path, "/proc/self/fd"))
+                return -EINVAL;
+
+        if (!endswith(f->path, ".journal"))
+                return -EINVAL;
+
+        if (asprintf(&p, "%.*s@" SD_ID128_FORMAT_STR "-%016"PRIx64"-%016"PRIx64".journal",
+                     (int) strlen(f->path) - 8, f->path,
+                     SD_ID128_FORMAT_VAL(f->header->seqnum_id),
+                     le64toh(f->header->head_entry_seqnum),
+                     le64toh(f->header->head_entry_realtime)) < 0)
+                return -ENOMEM;
+
+        /* Try to rename the file to the archived version. If the file already was deleted, we'll get ENOENT, let's
+         * ignore that case. */
+        if (rename(f->path, p) < 0 && errno != ENOENT)
+                return -errno;
+
+        /* Sync the rename to disk */
+        (void) fsync_directory_of_file(f->fd);
+
+        /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
+         * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,
+         * which would result in the rotated journal never getting fsync() called before closing.  Now we simply queue
+         * the archive state by setting an archive bit, leaving the state as STATE_ONLINE so proper offlining
+         * occurs. */
+        f->archive = true;
+
+        /* Currently, btrfs is not very good with out write patterns and fragments heavily. Let's defrag our journal
+         * files when we archive them */
+        f->defrag_on_close = true;
+
+        return 0;
+}
+
+JournalFile* journal_initiate_close(
+                JournalFile *f,
+                Set *deferred_closes) {
+
+        int r;
+
+        assert(f);
+
+        if (deferred_closes) {
+
+                r = set_put(deferred_closes, f);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add file to deferred close set, closing immediately.");
+                else {
+                        (void) journal_file_set_offline(f, false);
+                        return NULL;
+                }
+        }
+
+        return journal_file_close(f);
+}
+
+int journal_file_rotate(
+                JournalFile **f,
+                bool compress,
+                uint64_t compress_threshold_bytes,
+                bool seal,
+                Set *deferred_closes) {
+
+        JournalFile *new_file = NULL;
         int r;
 
         assert(f);
         assert(*f);
 
-        old_file = *f;
-
-        if (!old_file->writable)
-                return -EINVAL;
-
-        /* Is this a journal file that was passed to us as fd? If so, we synthesized a path name for it, and we refuse
-         * rotation, since we don't know the actual path, and couldn't rename the file hence. */
-        if (path_startswith(old_file->path, "/proc/self/fd"))
-                return -EINVAL;
-
-        if (!endswith(old_file->path, ".journal"))
-                return -EINVAL;
-
-        l = strlen(old_file->path);
-        r = asprintf(&p, "%.*s@" SD_ID128_FORMAT_STR "-%016"PRIx64"-%016"PRIx64".journal",
-                     (int) l - 8, old_file->path,
-                     SD_ID128_FORMAT_VAL(old_file->header->seqnum_id),
-                     le64toh((*f)->header->head_entry_seqnum),
-                     le64toh((*f)->header->head_entry_realtime));
+        r = journal_file_archive(*f);
         if (r < 0)
-                return -ENOMEM;
+                return r;
 
-        /* Try to rename the file to the archived version. If the file
-         * already was deleted, we'll get ENOENT, let's ignore that
-         * case. */
-        r = rename(old_file->path, p);
-        if (r < 0 && errno != ENOENT)
-                return -errno;
+        r = journal_file_open(
+                        -1,
+                        (*f)->path,
+                        (*f)->flags,
+                        (*f)->mode,
+                        compress,
+                        compress_threshold_bytes,
+                        seal,
+                        NULL,            /* metrics */
+                        (*f)->mmap,
+                        deferred_closes,
+                        *f,              /* template */
+                        &new_file);
 
-        /* Sync the rename to disk */
-        (void) fsync_directory_of_file(old_file->fd);
-
-        /* Set as archive so offlining commits w/state=STATE_ARCHIVED.
-         * Previously we would set old_file->header->state to STATE_ARCHIVED directly here,
-         * but journal_file_set_offline() short-circuits when state != STATE_ONLINE, which
-         * would result in the rotated journal never getting fsync() called before closing.
-         * Now we simply queue the archive state by setting an archive bit, leaving the state
-         * as STATE_ONLINE so proper offlining occurs. */
-        old_file->archive = true;
-
-        /* Currently, btrfs is not very good with out write patterns
-         * and fragments heavily. Let's defrag our journal files when
-         * we archive them */
-        old_file->defrag_on_close = true;
-
-        r = journal_file_open(-1, old_file->path, old_file->flags, old_file->mode, compress,
-                              compress_threshold_bytes, seal, NULL, old_file->mmap, deferred_closes,
-                              old_file, &new_file);
-
-        if (deferred_closes &&
-            set_put(deferred_closes, old_file) >= 0)
-                (void) journal_file_set_offline(old_file, false);
-        else
-                (void) journal_file_close(old_file);
-
+        journal_initiate_close(*f, deferred_closes);
         *f = new_file;
+
         return r;
 }
 
