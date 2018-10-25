@@ -65,8 +65,6 @@ struct udev_event *udev_event_free(struct udev_event *event);
 size_t udev_event_apply_format(struct udev_event *event,
                                const char *src, char *dest, size_t size,
                                bool replace_whitespace);
-int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
-                                   char *result, size_t maxsize, int read_value);
 int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_usec,
                      usec_t timeout_warn_usec,
