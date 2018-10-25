@@ -28,6 +28,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "cgroup-util.h"
 #include "clock-util.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
@@ -119,7 +120,7 @@ static nsec_t arg_timer_slack_nsec = NSEC_INFINITY;
 static usec_t arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
 static Set* arg_syscall_archs = NULL;
 static FILE* arg_serialization = NULL;
-static bool arg_default_cpu_accounting = false;
+static int arg_default_cpu_accounting = -1;
 static bool arg_default_io_accounting = false;
 static bool arg_default_ip_accounting = false;
 static bool arg_default_blockio_accounting = false;
@@ -702,7 +703,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultLimitNICE",          config_parse_rlimit,           RLIMIT_NICE, arg_default_rlimit           },
                 { "Manager", "DefaultLimitRTPRIO",        config_parse_rlimit,           RLIMIT_RTPRIO, arg_default_rlimit         },
                 { "Manager", "DefaultLimitRTTIME",        config_parse_rlimit,           RLIMIT_RTTIME, arg_default_rlimit         },
-                { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
+                { "Manager", "DefaultCPUAccounting",      config_parse_tristate,         0, &arg_default_cpu_accounting            },
                 { "Manager", "DefaultIOAccounting",       config_parse_bool,             0, &arg_default_io_accounting             },
                 { "Manager", "DefaultIPAccounting",       config_parse_bool,             0, &arg_default_ip_accounting             },
                 { "Manager", "DefaultBlockIOAccounting",  config_parse_bool,             0, &arg_default_blockio_accounting        },
@@ -751,7 +752,14 @@ static void set_manager_defaults(Manager *m) {
         m->default_restart_usec = arg_default_restart_usec;
         m->default_start_limit_interval = arg_default_start_limit_interval;
         m->default_start_limit_burst = arg_default_start_limit_burst;
-        m->default_cpu_accounting = arg_default_cpu_accounting;
+
+        /* On 4.15+ with unified hierarchy, CPU accounting is essentially free as it doesn't require the CPU
+         * controller to be enabled, so the default is to enable it unless we got told otherwise. */
+        if (arg_default_cpu_accounting >= 0)
+                m->default_cpu_accounting = arg_default_cpu_accounting;
+        else
+                m->default_cpu_accounting = cpu_accounting_is_cheap();
+
         m->default_io_accounting = arg_default_io_accounting;
         m->default_ip_accounting = arg_default_ip_accounting;
         m->default_blockio_accounting = arg_default_blockio_accounting;
