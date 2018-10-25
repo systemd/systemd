@@ -65,6 +65,12 @@
  * properly owned directories beneath /tmp, /var/tmp, /run, which are
  * volatile and hence need to be recreated on bootup. */
 
+typedef enum OperationMask {
+        OPERATION_CREATE = 1 << 0,
+        OPERATION_REMOVE = 1 << 1,
+        OPERATION_CLEAN  = 1 << 2,
+} OperationMask;
+
 typedef enum ItemType {
         /* These ones take file names */
         CREATE_FILE = 'f',
@@ -149,9 +155,7 @@ typedef enum DirectoryType {
 
 static bool arg_cat_config = false;
 static bool arg_user = false;
-static bool arg_create = false;
-static bool arg_clean = false;
-static bool arg_remove = false;
+static OperationMask arg_operation = 0;
 static bool arg_boot = false;
 static bool arg_no_pager = false;
 
@@ -2272,12 +2276,13 @@ static int process_item(Item *i) {
         if (chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS, NULL) == -EREMOTE)
                 return t;
 
-        r = arg_create ? create_item(i) : 0;
-        q = arg_remove ? remove_item(i) : 0;
-        p = arg_clean ? clean_item(i) : 0;
+        r = FLAGS_SET(arg_operation, OPERATION_CREATE) ? create_item(i) : 0;
         /* Failure can only be tolerated for create */
         if (i->allow_failure)
                 r = 0;
+
+        q = FLAGS_SET(arg_operation, OPERATION_REMOVE) ? remove_item(i) : 0;
+        p = FLAGS_SET(arg_operation, OPERATION_CLEAN) ? clean_item(i) : 0;
 
         return t < 0 ? t :
                 r < 0 ? r :
@@ -2910,15 +2915,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CREATE:
-                        arg_create = true;
+                        arg_operation |= OPERATION_CREATE;
                         break;
 
                 case ARG_CLEAN:
-                        arg_clean = true;
+                        arg_operation |= OPERATION_CLEAN;
                         break;
 
                 case ARG_REMOVE:
-                        arg_remove = true;
+                        arg_operation |= OPERATION_REMOVE;
                         break;
 
                 case ARG_BOOT:
@@ -2962,7 +2967,7 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (!arg_clean && !arg_create && !arg_remove && !arg_cat_config) {
+        if (arg_operation == 0 && !arg_cat_config) {
                 log_error("You need to specify at least one of --clean, --create or --remove.");
                 return -EINVAL;
         }
