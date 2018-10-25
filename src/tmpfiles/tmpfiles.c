@@ -135,7 +135,7 @@ typedef struct Item {
 
 typedef struct ItemArray {
         Item *items;
-        size_t count;
+        size_t n_items;
         size_t allocated;
 } ItemArray;
 
@@ -352,9 +352,9 @@ static struct Item* find_glob(OrderedHashmap *h, const char *match) {
         Iterator i;
 
         ORDERED_HASHMAP_FOREACH(j, h, i) {
-                unsigned n;
+                size_t n;
 
-                for (n = 0; n < j->count; n++) {
+                for (n = 0; n < j->n_items; n++) {
                         Item *item = j->items + n;
 
                         if (fnmatch(item->path, match, FNM_PATHNAME|FNM_PERIOD) == 0)
@@ -2286,12 +2286,14 @@ static int process_item(Item *i) {
 }
 
 static int process_item_array(ItemArray *array) {
-        unsigned n;
-        int r = 0, k;
+        int r = 0;
+        size_t n;
 
         assert(array);
 
-        for (n = 0; n < array->count; n++) {
+        for (n = 0; n < array->n_items; n++) {
+                int k;
+
                 k = process_item(array->items + n);
                 if (k < 0 && r == 0)
                         r = k;
@@ -2313,13 +2315,14 @@ static void item_free_contents(Item *i) {
 }
 
 static void item_array_free(ItemArray *a) {
-        unsigned n;
+        size_t n;
 
         if (!a)
                 return;
 
-        for (n = 0; n < a->count; n++)
+        for (n = 0; n < a->n_items; n++)
                 item_free_contents(a->items + n);
+
         free(a->items);
         free(a);
 }
@@ -2776,9 +2779,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
         existing = ordered_hashmap_get(h, i.path);
         if (existing) {
-                unsigned n;
+                size_t n;
 
-                for (n = 0; n < existing->count; n++) {
+                for (n = 0; n < existing->n_items; n++) {
                         if (!item_compatible(existing->items + n, &i)) {
                                 log_notice("[%s:%u] Duplicate line for path \"%s\", ignoring.",
                                            fname, line, i.path);
@@ -2795,13 +2798,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         return log_oom();
         }
 
-        if (!GREEDY_REALLOC(existing->items, existing->allocated, existing->count + 1))
+        if (!GREEDY_REALLOC(existing->items, existing->allocated, existing->n_items + 1))
                 return log_oom();
 
-        memcpy(existing->items + existing->count++, &i, sizeof(i));
+        memcpy(existing->items + existing->n_items++, &i, sizeof(i));
 
         /* Sort item array, to enforce stable ordering of application */
-        typesafe_qsort(existing->items, existing->count, item_compare);
+        typesafe_qsort(existing->items, existing->n_items, item_compare);
 
         zero(i);
         return 0;
