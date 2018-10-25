@@ -720,6 +720,57 @@ static int rename_netif(struct udev_event *event) {
         return 1;
 }
 
+static int update_devnode(struct udev_event *event) {
+        sd_device *dev = event->dev->device;
+        const char *action;
+        dev_t devnum;
+        bool apply;
+        int r;
+
+        r = sd_device_get_devnum(dev, &devnum);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get devnum: %m");
+
+        /* remove/update possible left-over symlinks from old database entry */
+        if (event->dev_db)
+                (void) udev_node_update_old_links(dev, event->dev_db->device);
+
+        if (!event->owner_set) {
+                r = device_get_devnode_uid(dev, &event->uid);
+                if (r < 0 && r != -ENOENT)
+                        return log_device_error_errno(dev, r, "Failed to get devnode UID: %m");
+        }
+
+        if (!event->group_set) {
+                r = device_get_devnode_gid(dev, &event->gid);
+                if (r < 0 && r != -ENOENT)
+                        return log_device_error_errno(dev, r, "Failed to get devnode GID: %m");
+        }
+
+        if (!event->mode_set) {
+                r = device_get_devnode_mode(dev, &event->mode);
+                if (r < 0 && r != -ENOENT)
+                        return log_device_error_errno(dev, r, "Failed to get devnode mode: %m");
+                if (r == -ENOENT) {
+                        if (event->gid > 0)
+                                /* default 0660 if a group is assigned */
+                                event->mode = 0660;
+                        else
+                                /* default 0600 */
+                                event->mode = 0600;
+                }
+        }
+
+        r = sd_device_get_property_value(dev, "ACTION", &action);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get property 'ACTION': %m");
+
+        apply = streq(action, "add") || event->owner_set || event->group_set || event->mode_set;
+        return udev_node_add(dev, apply, event->mode, event->uid, event->gid, event->seclabel_list);
+}
+
 void udev_event_execute_rules(struct udev_event *event,
                               usec_t timeout_usec, usec_t timeout_warn_usec,
                               Hashmap *properties_list,
@@ -760,36 +811,7 @@ void udev_event_execute_rules(struct udev_event *event,
                                           properties_list);
 
                 (void) rename_netif(event);
-
-                if (major(udev_device_get_devnum(dev)) > 0) {
-                        bool apply;
-
-                        /* remove/update possible left-over symlinks from old database entry */
-                        if (event->dev_db != NULL)
-                                udev_node_update_old_links(dev->device, event->dev_db->device);
-
-                        if (!event->owner_set)
-                                event->uid = udev_device_get_devnode_uid(dev);
-
-                        if (!event->group_set)
-                                event->gid = udev_device_get_devnode_gid(dev);
-
-                        if (!event->mode_set) {
-                                if (udev_device_get_devnode_mode(dev) > 0) {
-                                        /* kernel supplied value */
-                                        event->mode = udev_device_get_devnode_mode(dev);
-                                } else if (event->gid > 0) {
-                                        /* default 0660 if a group is assigned */
-                                        event->mode = 0660;
-                                } else {
-                                        /* default 0600 */
-                                        event->mode = 0600;
-                                }
-                        }
-
-                        apply = streq(udev_device_get_action(dev), "add") || event->owner_set || event->group_set || event->mode_set;
-                        udev_node_add(dev->device, apply, event->mode, event->uid, event->gid, event->seclabel_list);
-                }
+                (void) update_devnode(event);
 
                 /* preserve old, or get new initialization timestamp */
                 udev_device_ensure_usec_initialized(event->dev, event->dev_db);
