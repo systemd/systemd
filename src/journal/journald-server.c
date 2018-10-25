@@ -74,6 +74,8 @@
  * for a bit of additional metadata. */
 #define DEFAULT_LINE_MAX (48*1024)
 
+#define DEFERRED_CLOSES_MAX (4096)
+
 static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used, uint64_t *ret_free) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -469,24 +471,76 @@ static void server_process_deferred_closes(Server *s) {
         Iterator i;
 
         /* Perform any deferred closes which aren't still offlining. */
-        SET_FOREACH(f, s->deferred_closes, i)
-                if (!journal_file_is_offlining(f)) {
-                        (void) set_remove(s->deferred_closes, f);
-                        (void) journal_file_close(f);
-                }
+        SET_FOREACH(f, s->deferred_closes, i) {
+                if (journal_file_is_offlining(f))
+                        continue;
+
+                (void) set_remove(s->deferred_closes, f);
+                (void) journal_file_close(f);
+        }
+}
+
+static void server_vacuum_deferred_closes(Server *s) {
+        assert(s);
+
+        /* Make some room in the deferred closes list, so that it doesn't grow without bounds */
+        if (set_size(s->deferred_closes) < DEFERRED_CLOSES_MAX)
+                return;
+
+        /* Let's first remove all journal files that might already have completed closing */
+        server_process_deferred_closes(s);
+
+        /* And now, let's close some more until we reach the limit again. */
+        while (set_size(s->deferred_closes) >= DEFERRED_CLOSES_MAX) {
+                JournalFile *f;
+
+                assert_se(f = set_steal_first(s->deferred_closes));
+                journal_file_close(f);
+        }
+}
+
+static int open_user_journal_directory(Server *s, DIR **ret_dir, char **ret_path) {
+        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_free_ char *path = NULL;
+        sd_id128_t machine;
+        int r;
+
+        assert(s);
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine machine ID, ignoring: %m");
+
+        if (asprintf(&path, "/var/log/journal/" SD_ID128_FORMAT_STR "/", SD_ID128_FORMAT_VAL(machine)) < 0)
+                return log_oom();
+
+        dir = opendir(path);
+        if (!dir)
+                return log_error_errno(errno, "Failed to open user journal directory '%s': %m", path);
+
+        if (ret_dir)
+                *ret_dir = TAKE_PTR(dir);
+        if (ret_path)
+                *ret_path = TAKE_PTR(path);
+
+        return 0;
 }
 
 void server_rotate(Server *s) {
+        _cleanup_free_ char *path = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         JournalFile *f;
-        void *k;
         Iterator i;
+        void *k;
         int r;
 
         log_debug("Rotating...");
 
+        /* First, rotate the system journal (either in its runtime flavour or in its runtime flavour) */
         (void) do_rotate(s, &s->runtime_journal, "runtime", false, 0);
         (void) do_rotate(s, &s->system_journal, "system", s->seal, 0);
 
+        /* Then, rotate all user journals we have open (keeping them open) */
         ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
                 r = do_rotate(s, &f, "user", s->seal, PTR_TO_UID(k));
                 if (r >= 0)
@@ -494,6 +548,91 @@ void server_rotate(Server *s) {
                 else if (!f)
                         /* Old file has been closed and deallocated */
                         ordered_hashmap_remove(s->user_journals, k);
+        }
+
+        /* Finally, also rotate all user journals we currently do not have open. */
+        r = open_user_journal_directory(s, &d, &path);
+        if (r >= 0) {
+                struct dirent *de;
+
+                FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to enumerate %s, ignoring: %m", path)) {
+                        _cleanup_free_ char *u = NULL, *full = NULL;
+                        _cleanup_close_ int fd = -1;
+                        const char *a, *b;
+                        uid_t uid;
+
+                        a = startswith(de->d_name, "user-");
+                        if (!a)
+                                continue;
+                        b = endswith(de->d_name, ".journal");
+                        if (!b)
+                                continue;
+
+                        u = strndup(a, b-a);
+                        if (!u) {
+                                log_oom();
+                                break;
+                        }
+
+                        r = parse_uid(u, &uid);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
+                                continue;
+                        }
+
+                        /* Already rotated in the above loop? i.e. is it an open user journal? */
+                        if (ordered_hashmap_contains(s->user_journals, UID_TO_PTR(uid)))
+                                continue;
+
+                        full = strjoin(path, de->d_name);
+                        if (!full) {
+                                log_oom();
+                                break;
+                        }
+
+                        fd = openat(dirfd(d), de->d_name, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
+                        if (fd < 0) {
+                                log_full_errno(IN_SET(errno, ELOOP, ENOENT) ? LOG_DEBUG : LOG_WARNING, errno,
+                                               "Failed to open journal file '%s' for rotation: %m", full);
+                                continue;
+                        }
+
+                        /* Make some room in the set of deferred close()s */
+                        server_vacuum_deferred_closes(s);
+
+                        /* Open the file briefly, so that we can archive it */
+                        r = journal_file_open(fd,
+                                              full,
+                                              O_RDWR,
+                                              0640,
+                                              s->compress.enabled,
+                                              s->compress.threshold_bytes,
+                                              s->seal,
+                                              &s->system_storage.metrics,
+                                              s->mmap,
+                                              s->deferred_closes,
+                                              NULL,
+                                              &f);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to read journal file %s for rotation, trying to move it out of the way: %m", full);
+
+                                r = journal_file_dispose(dirfd(d), de->d_name);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to move %s out of the way, ignoring: %m", full);
+                                else
+                                        log_debug("Successfully moved %s out of the way.", full);
+
+                                continue;
+                        }
+
+                        TAKE_FD(fd); /* Donated to journal_file_open() */
+
+                        r = journal_file_archive(f);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
+
+                        f = journal_initiate_close(f, s->deferred_closes);
+                }
         }
 
         server_process_deferred_closes(s);
