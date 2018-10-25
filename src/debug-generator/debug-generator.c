@@ -24,6 +24,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         if (streq(key, "systemd.mask")) {
                 char *n;
 
+                if (in_initrd())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
@@ -37,6 +40,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "systemd.wants")) {
                 char *n;
+
+                if (in_initrd())
+                        return 0;
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -62,6 +68,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "systemd.unit")) {
 
+                if (in_initrd())
+                        return 0;
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
@@ -71,6 +80,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (!value) {
                 const char *target;
+
+                if (in_initrd())
+                        return 0;
 
                 target = runlevel_to_target(key);
                 if (target) {
