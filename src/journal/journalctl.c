@@ -1971,7 +1971,7 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
                 /* See if a sync happened by now. */
                 r = read_timestamp_file(watch_path, &tstamp);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(errno, "Failed to read %s: %m", watch_path);
+                        return log_error_errno(r, "Failed to read %s: %m", watch_path);
                 if (r >= 0 && tstamp >= start)
                         return 0;
 
