@@ -18,7 +18,7 @@
 #include "udevadm.h"
 
 static const char *arg_action = "add";
-static int arg_resolve_names = 1;
+static ResolveNamesTiming arg_resolve_names_timing = RESOLVE_NAMES_EARLY;
 static char arg_syspath[UTIL_PATH_SIZE] = {};
 
 static int help(void) {
@@ -51,13 +51,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = optarg;
                         break;
                 case 'N':
-                        if (streq (optarg, "early")) {
-                                arg_resolve_names = 1;
-                        } else if (streq (optarg, "late")) {
-                                arg_resolve_names = 0;
-                        } else if (streq (optarg, "never")) {
-                                arg_resolve_names = -1;
-                        } else {
+                        arg_resolve_names_timing = resolve_names_timing_from_string(optarg);
+                        if (arg_resolve_names_timing < 0) {
                                 log_error("resolve-names must be early, late or never");
                                 return -EINVAL;
                         }
@@ -112,7 +107,7 @@ int test_main(int argc, char *argv[], void *userdata) {
 
         udev_builtin_init();
 
-        rules = udev_rules_new(arg_resolve_names);
+        rules = udev_rules_new(arg_resolve_names_timing);
         if (!rules) {
                 log_error("Failed to read udev rules.");
                 r = -ENOMEM;

@@ -28,6 +28,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "strbuf.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
@@ -55,7 +56,7 @@ static const char* const rules_dirs[] = {
 
 struct udev_rules {
         usec_t dirs_ts_usec;
-        int resolve_names;
+        ResolveNamesTiming resolve_names_timing;
 
         /* every key in the rules file becomes a token */
         struct token *tokens;
@@ -1338,10 +1339,10 @@ static void add_rule(struct udev_rules *rules, char *line,
                         uid = strtoul(value, &endptr, 10);
                         if (endptr[0] == '\0')
                                 rule_add_key(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
-                        else if (rules->resolve_names > 0 && strchr("$%", value[0]) == NULL) {
+                        else if (rules->resolve_names_timing == RESOLVE_NAMES_EARLY && strchr("$%", value[0]) == NULL) {
                                 uid = add_uid(rules, value);
                                 rule_add_key(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
-                        } else if (rules->resolve_names >= 0)
+                        } else if (rules->resolve_names_timing != RESOLVE_NAMES_NEVER)
                                 rule_add_key(&rule_tmp, TK_A_OWNER, op, value, NULL);
 
                         rule_tmp.rule.rule.can_set_name = true;
@@ -1356,10 +1357,10 @@ static void add_rule(struct udev_rules *rules, char *line,
                         gid = strtoul(value, &endptr, 10);
                         if (endptr[0] == '\0')
                                 rule_add_key(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
-                        else if ((rules->resolve_names > 0) && strchr("$%", value[0]) == NULL) {
+                        else if ((rules->resolve_names_timing == RESOLVE_NAMES_EARLY) && strchr("$%", value[0]) == NULL) {
                                 gid = add_gid(rules, value);
                                 rule_add_key(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
-                        } else if (rules->resolve_names >= 0)
+                        } else if (rules->resolve_names_timing != RESOLVE_NAMES_NEVER)
                                 rule_add_key(&rule_tmp, TK_A_GROUP, op, value, NULL);
 
                         rule_tmp.rule.rule.can_set_name = true;
@@ -1515,17 +1516,23 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
         return 0;
 }
 
-struct udev_rules *udev_rules_new(int resolve_names) {
+struct udev_rules *udev_rules_new(ResolveNamesTiming resolve_names_timing) {
         struct udev_rules *rules;
         struct udev_list file_list;
         struct token end_token;
         char **files, **f;
         int r;
 
-        rules = new0(struct udev_rules, 1);
-        if (rules == NULL)
+        assert(resolve_names_timing >= 0 && resolve_names_timing < _RESOLVE_NAMES_TIMING_MAX);
+
+        rules = new(struct udev_rules, 1);
+        if (!rules)
                 return NULL;
-        rules->resolve_names = resolve_names;
+
+        *rules = (struct udev_rules) {
+                .resolve_names_timing = resolve_names_timing,
+        };
+
         udev_list_init(NULL, &file_list, true);
 
         /* init token array and string buffer */
@@ -2591,3 +2598,11 @@ finish:
 
         return 0;
 }
+
+static const char* const resolve_names_timing_table[_RESOLVE_NAMES_TIMING_MAX] = {
+        [RESOLVE_NAMES_NEVER] = "never",
+        [RESOLVE_NAMES_LATE] = "late",
+        [RESOLVE_NAMES_EARLY] = "early",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(resolve_names_timing, ResolveNamesTiming);

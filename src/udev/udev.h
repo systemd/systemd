@@ -49,15 +49,26 @@ struct udev_event {
         bool run_final;
 };
 
+typedef enum ResolveNamesTiming {
+        RESOLVE_NAMES_NEVER,
+        RESOLVE_NAMES_LATE,
+        RESOLVE_NAMES_EARLY,
+        _RESOLVE_NAMES_TIMING_MAX,
+        _RESOLVE_NAMES_TIMING_INVALID = -1,
+} ResolveNamesTiming;
+
 /* udev-rules.c */
 struct udev_rules;
-struct udev_rules *udev_rules_new(int resolve_names);
+struct udev_rules *udev_rules_new(ResolveNamesTiming resolve_names_timing);
 struct udev_rules *udev_rules_unref(struct udev_rules *rules);
 bool udev_rules_check_timestamp(struct udev_rules *rules);
 int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event,
                               usec_t timeout_usec, usec_t timeout_warn_usec,
                               Hashmap *properties_list);
 int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
+
+ResolveNamesTiming resolve_names_timing_from_string(const char *s) _pure_;
+const char *resolve_names_timing_to_string(ResolveNamesTiming i) _const_;
 
 /* udev-event.c */
 struct udev_event *udev_event_new(struct udev_device *dev);

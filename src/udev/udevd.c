@@ -61,7 +61,7 @@
 
 static bool arg_debug = false;
 static int arg_daemonize = false;
-static int arg_resolve_names = 1;
+static ResolveNamesTiming arg_resolve_names_timing = RESOLVE_NAMES_EARLY;
 static unsigned arg_children_max = 0;
 static usec_t arg_exec_delay_usec = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
@@ -788,7 +788,7 @@ static void event_queue_start(Manager *manager) {
         udev_builtin_init();
 
         if (!manager->rules) {
-                manager->rules = udev_rules_new(arg_resolve_names);
+                manager->rules = udev_rules_new(arg_resolve_names_timing);
                 if (!manager->rules)
                         return;
         }
@@ -1504,18 +1504,16 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'D':
                         arg_debug = true;
                         break;
-                case 'N':
-                        if (streq(optarg, "early")) {
-                                arg_resolve_names = 1;
-                        } else if (streq(optarg, "late")) {
-                                arg_resolve_names = 0;
-                        } else if (streq(optarg, "never")) {
-                                arg_resolve_names = -1;
-                        } else {
-                                log_error("resolve-names must be early, late or never");
-                                return 0;
-                        }
+                case 'N': {
+                        ResolveNamesTiming t;
+
+                        t = resolve_names_timing_from_string(optarg);
+                        if (t < 0)
+                                log_warning("Invalid --resolve-names value '%s', ignoring.", optarg);
+                        else
+                                arg_resolve_names_timing = t;
                         break;
+                }
                 case 'h':
                         return help();
                 case 'V':
@@ -1550,7 +1548,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         udev_builtin_init();
 
-        manager->rules = udev_rules_new(arg_resolve_names);
+        manager->rules = udev_rules_new(arg_resolve_names_timing);
         if (!manager->rules)
                 return log_error_errno(ENOMEM, "error reading rules");
 
