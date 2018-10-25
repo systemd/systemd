@@ -920,19 +920,12 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
-static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *manager = userdata;
         int r;
 
+        assert(dev);
         assert(manager);
-
-        r = device_monitor_receive_device(manager->monitor, &dev);
-        if (r <= 0) {
-                if (r < 0)
-                        log_error_errno(r, "Failed to receive device: %m");
-                return 1;
-        }
 
         r = device_ensure_usec_initialized(dev, NULL);
         if (r < 0) {
@@ -1219,6 +1212,8 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
 
                 log_debug("inotify event: %x for %s", e->mask, devnode);
                 if (e->mask & IN_CLOSE_WRITE) {
+                        _cleanup_(sd_device_unrefp) sd_device *new_dev = NULL;
+
                         synthesize_change(dev);
 
                         /* settle might be waiting on us to determine the queue
@@ -1226,7 +1221,10 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                          * generated a "change" event, but we won't have queued up
                          * the resultant uevent yet. Do that.
                          */
-                        on_uevent(NULL, -1, 0, manager);
+
+                        if (device_monitor_receive_device(manager->monitor, &new_dev) > 0)
+                                (void) on_uevent(manager->monitor, new_dev, manager);
+
                 } else if (e->mask & IN_IGNORED)
                         udev_watch_end(dev);
         }
@@ -1570,14 +1568,6 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         (void) sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
 
-        r = device_monitor_enable_receiving(manager->monitor);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind netlink socket; %m");
-
-        fd_uevent = device_monitor_get_fd(manager->monitor);
-        if (fd_uevent < 0)
-                return log_error_errno(fd_uevent, "Failed to get uevent fd: %m");
-
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
         if (r < 0)
@@ -1638,9 +1628,13 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "error creating inotify event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->uevent_event, fd_uevent, EPOLLIN, on_uevent, manager);
+        r = sd_device_monitor_attach_event(manager->monitor, manager->event, 0);
         if (r < 0)
-                return log_error_errno(r, "error creating uevent event source: %m");
+                return log_error_errno(r, "Failed to attach event to device monitor: %m");
+
+        r = sd_device_monitor_start(manager->monitor, on_uevent, manager, "device-monitor");
+        if (r < 0)
+                return log_error_errno(r, "Failed to start device monitor: %m");
 
         r = sd_event_add_io(manager->event, NULL, fd_worker, EPOLLIN, on_worker, manager);
         if (r < 0)
