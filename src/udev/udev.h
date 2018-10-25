@@ -62,9 +62,9 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 /* udev-event.c */
 struct udev_event *udev_event_new(struct udev_device *dev);
 struct udev_event *udev_event_free(struct udev_event *event);
-size_t udev_event_apply_format(struct udev_event *event,
-                               const char *src, char *dest, size_t size,
-                               bool replace_whitespace);
+ssize_t udev_event_apply_format(struct udev_event *event,
+                                const char *src, char *dest, size_t size,
+                                bool replace_whitespace);
 int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_usec,
                      usec_t timeout_warn_usec,
