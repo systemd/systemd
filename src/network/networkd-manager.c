@@ -197,8 +197,8 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
                 return 0;
 
         r = sd_device_get_ifindex(device, &ifindex);
-        if (r < 0 || ifindex <= 0) {
-                log_debug("Ignoring udev ADD event for device with invalid ifindex");
+        if (r < 0) {
+                log_debug_errno(r, "Ignoring udev ADD event for device without ifindex or with invalid ifindex: %m");
                 return 0;
         }
 

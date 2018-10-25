@@ -412,8 +412,6 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0)
                 return log_device_warning_errno(device, r, "Could not find ifindex: %m");
-        if (ifindex <= 0)
-                return log_device_warning_errno(device, EINVAL, "Invalid ifindex '%d'", ifindex);
 
         if (ctx->enable_name_policy && config->name_policy) {
                 NamePolicy *policy;
