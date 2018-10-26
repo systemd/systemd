@@ -1632,9 +1632,10 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "could not enable SO_PASSCRED: %m");
 
-        manager->fd_inotify = udev_watch_init();
-        if (manager->fd_inotify < 0)
-                return log_error_errno(ENOMEM, "error initializing inotify");
+        r = udev_watch_init();
+        if (r < 0)
+                return log_error_errno(r, "Failed to create inotify descriptor: %m");
+        manager->fd_inotify = r;
 
         udev_watch_restore();
 
