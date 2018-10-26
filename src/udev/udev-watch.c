@@ -36,18 +36,18 @@ int udev_watch_restore(void) {
         int r;
 
         if (inotify_fd < 0)
-                return log_error_errno(EINVAL, "Invalid inotify descriptor.");
+                return log_debug_errno(EINVAL, "Invalid inotify descriptor.");
 
         if (rename("/run/udev/watch", "/run/udev/watch.old") < 0) {
                 if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to move watches directory /run/udev/watch. Old watches will not be restored: %m");
+                        return log_warning_errno(errno, "Failed to move watches directory /run/udev/watch. Old watches will not be restored: %m");
 
                 return 0;
         }
 
         dir = opendir("/run/udev/watch.old");
         if (!dir)
-                return log_error_errno(errno, "Failed to open old watches directory /run/udev/watch.old. Old watches will not be restored: %m");
+                return log_warning_errno(errno, "Failed to open old watches directory /run/udev/watch.old. Old watches will not be restored: %m");
 
         FOREACH_DIRENT_ALL(ent, dir, break) {
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -58,13 +58,13 @@ int udev_watch_restore(void) {
 
                 r = readlinkat_malloc(dirfd(dir), ent->d_name, &device);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to read link '/run/udev/watch.old/%s', ignoring: %m", ent->d_name);
+                        log_debug_errno(r, "Failed to read link '/run/udev/watch.old/%s', ignoring: %m", ent->d_name);
                         goto unlink;
                 }
 
                 r = sd_device_new_from_device_id(&dev, device);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to create sd_device object for '%s', ignoring: %m", device);
+                        log_debug_errno(r, "Failed to create sd_device object for '%s', ignoring: %m", device);
                         goto unlink;
                 }
 
@@ -86,7 +86,7 @@ int udev_watch_begin(sd_device *dev) {
         int wd, r;
 
         if (inotify_fd < 0)
-                return log_error_errno(EINVAL, "Invalid inotify descriptor.");
+                return log_debug_errno(EINVAL, "Invalid inotify descriptor.");
 
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
@@ -120,13 +120,13 @@ int udev_watch_end(sd_device *dev) {
         int wd, r;
 
         if (inotify_fd < 0)
-                return log_error_errno(EINVAL, "Invalid inotify descriptor.");
+                return log_debug_errno(EINVAL, "Invalid inotify descriptor.");
 
         r = device_get_watch_handle(dev, &wd);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get watch handle, ignoring: %m");
+                return log_device_debug_errno(dev, r, "Failed to get watch handle, ignoring: %m");
 
         log_device_debug(dev, "Removing watch");
         (void) inotify_rm_watch(inotify_fd, wd);
