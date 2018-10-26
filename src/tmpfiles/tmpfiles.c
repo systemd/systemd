@@ -3162,11 +3162,11 @@ static int link_parent(ItemArray *a) {
 }
 
 int main(int argc, char *argv[]) {
-        int r, k, r_process = 0;
-        ItemArray *a;
-        Iterator iterator;
         _cleanup_strv_free_ char **config_dirs = NULL;
+        int r, k, r_process = 0, phase;
         bool invalid_config = false;
+        Iterator iterator;
+        ItemArray *a;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -3242,20 +3242,34 @@ int main(int argc, char *argv[]) {
                         goto finish;
         }
 
-        /* The non-globbing ones usually create things, hence we apply
-         * them first */
-        ORDERED_HASHMAP_FOREACH(a, items, iterator) {
-                k = process_item_array(a, arg_operation);
-                if (k < 0 && r_process == 0)
-                        r_process = k;
-        }
+        /* If multiple operations are requested, let's first run the remove/clean operations, and only then the create
+         * operations. i.e. that we first clean out the platform we then build on. */
+        for (phase = 0; phase < 2; phase++) {
+                OperationMask op;
 
-        /* The globbing ones usually alter things, hence we apply them
-         * second. */
-        ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
-                k = process_item_array(a, arg_operation);
-                if (k < 0 && r_process == 0)
-                        r_process = k;
+                if (phase == 0)
+                        op = arg_operation & (OPERATION_REMOVE|OPERATION_CLEAN);
+                else if (phase == 1)
+                        op = arg_operation & OPERATION_CREATE;
+                else
+                        assert_not_reached("unexpected phase");
+
+                if (op == 0) /* Nothing requested in this phase */
+                        continue;
+
+                /* The non-globbing ones usually create things, hence we apply them first */
+                ORDERED_HASHMAP_FOREACH(a, items, iterator) {
+                        k = process_item_array(a, op);
+                        if (k < 0 && r_process == 0)
+                                r_process = k;
+                }
+
+                /* The globbing ones usually alter things, hence we apply them second. */
+                ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
+                        k = process_item_array(a, op);
+                        if (k < 0 && r_process == 0)
+                                r_process = k;
+                }
         }
 
 finish:
