@@ -10,11 +10,7 @@
 #include "strv.h"
 #include "tests.h"
 
-#define sixteen(x) x x x x x x x x x x x x x x x x
-#define million(x) sixteen(sixteen(sixteen(sixteen(sixteen(x)))))
-
-#define long_string million("x")
-assert_cc(STRLEN(long_string) == LONG_LINE_MAX);
+char long_string[LONG_LINE_MAX+1];
 
 static void test_serialize_item(void) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-serialize.XXXXXX";
@@ -139,6 +135,9 @@ static void test_serialize_strv(void) {
 
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
+
+        memset(long_string, 'x', sizeof(long_string)-1);
+        char_array_0(long_string);
 
         test_serialize_item();
         test_serialize_item_escaped();
