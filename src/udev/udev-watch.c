@@ -147,22 +147,23 @@ int udev_watch_lookup(int wd, sd_device **ret) {
         assert(ret);
 
         if (inotify_fd < 0)
-                return log_error_errno(EINVAL, "Invalid inotify descriptor.");
+                return log_debug_errno(EINVAL, "Invalid inotify descriptor.");
 
         if (wd < 0)
-                return log_error_errno(EINVAL, "Invalid watch handle.");
+                return log_debug_errno(EINVAL, "Invalid watch handle.");
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
         r = readlink_malloc(filename, &device);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        return log_error_errno(errno, "Failed to read link '%s': %m", filename);
+        if (r == -ENOENT)
                 return 0;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read link '%s': %m", filename);
 
         r = sd_device_new_from_device_id(ret, device);
+        if (r == -ENODEV)
+                return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to create sd_device object for '%s': %m", device);
+                return log_debug_errno(r, "Failed to create sd_device object for '%s': %m", device);
 
-        return 0;
+        return 1;
 }
