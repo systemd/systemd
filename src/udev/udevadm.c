@@ -112,6 +112,7 @@ int main(int argc, char *argv[]) {
         udev_parse_config();
         log_parse_environment();
         log_open();
+        log_set_max_level_realm(LOG_REALM_SYSTEMD, log_get_max_level());
         mac_selinux_init();
 
         r = parse_argv(argc, argv);
