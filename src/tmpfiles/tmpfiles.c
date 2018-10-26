@@ -136,13 +136,16 @@ typedef struct Item {
 
         bool allow_failure:1;
 
-        bool done:1;
+        OperationMask done;
 } Item;
 
 typedef struct ItemArray {
         Item *items;
         size_t n_items;
         size_t allocated;
+
+        struct ItemArray *parent;
+        Set *children;
 } ItemArray;
 
 typedef enum DirectoryType {
@@ -2243,38 +2246,20 @@ static int clean_item(Item *i) {
         }
 }
 
-static int process_item_array(ItemArray *array, OperationMask operation);
-
 static int process_item(Item *i, OperationMask operation) {
-        int r, q, p, t = 0;
-        _cleanup_free_ char *prefix = NULL;
+        OperationMask todo;
+        int r, q, p;
 
         assert(i);
 
-        if (i->done)
+        todo = operation & ~i->done;
+        if (todo == 0) /* Everything already done? */
                 return 0;
 
-        i->done = true;
-
-        prefix = malloc(strlen(i->path) + 1);
-        if (!prefix)
-                return log_oom();
-
-        PATH_FOREACH_PREFIX(prefix, i->path) {
-                ItemArray *j;
-
-                j = ordered_hashmap_get(items, prefix);
-                if (j) {
-                        int s;
-
-                        s = process_item_array(j, operation);
-                        if (s < 0 && t == 0)
-                                t = s;
-                }
-        }
+        i->done |= operation;
 
         if (chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS, NULL) == -EREMOTE)
-                return t;
+                return 0;
 
         r = FLAGS_SET(operation, OPERATION_CREATE) ? create_item(i) : 0;
         /* Failure can only be tolerated for create */
@@ -2284,8 +2269,7 @@ static int process_item(Item *i, OperationMask operation) {
         q = FLAGS_SET(operation, OPERATION_REMOVE) ? remove_item(i) : 0;
         p = FLAGS_SET(operation, OPERATION_CLEAN) ? clean_item(i) : 0;
 
-        return t < 0 ? t :
-                r < 0 ? r :
+        return r < 0 ? r :
                 q < 0 ? q :
                 p;
 }
@@ -2295,6 +2279,24 @@ static int process_item_array(ItemArray *array, OperationMask operation) {
         size_t n;
 
         assert(array);
+
+        /* Create any parent first. */
+        if (FLAGS_SET(operation, OPERATION_CREATE) && array->parent)
+                r = process_item_array(array->parent, operation & OPERATION_CREATE);
+
+        /* Clean up all children first */
+        if ((operation & (OPERATION_REMOVE|OPERATION_CLEAN)) && !set_isempty(array->children)) {
+                Iterator i;
+                ItemArray *c;
+
+                SET_FOREACH(c, array->children, i) {
+                        int k;
+
+                        k = process_item_array(c, operation & (OPERATION_REMOVE|OPERATION_CLEAN));
+                        if (k < 0 && r == 0)
+                                r = k;
+                }
+        }
 
         for (n = 0; n < array->n_items; n++) {
                 int k;
@@ -2328,6 +2330,7 @@ static void item_array_free(ItemArray *a) {
         for (n = 0; n < a->n_items; n++)
                 item_free_contents(a->items + n);
 
+        set_free(a->children);
         free(a->items);
         free(a);
 }
@@ -3117,6 +3120,43 @@ static int read_config_files(char **config_dirs, char **args, bool *invalid_conf
         return 0;
 }
 
+static int link_parent(ItemArray *a) {
+        const char *path;
+        char *prefix;
+        int r;
+
+        assert(a);
+
+        /* Finds the closestq "parent" item array for the specified item array. Then registers the specified item array
+         * as child of it, and fills the parent in, linking them both ways. This allows us to later create parents
+         * before their children, and clean up/remove children before their parents. */
+
+        if (a->n_items <= 0)
+                return 0;
+
+        path = a->items[0].path;
+        prefix = alloca(strlen(path) + 1);
+        PATH_FOREACH_PREFIX(prefix, path) {
+                ItemArray *j;
+
+                j = ordered_hashmap_get(items, prefix);
+                if (j) {
+                        r = set_ensure_allocated(&j->children, NULL);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = set_put(j->children, a);
+                        if (r < 0)
+                                return log_oom();
+
+                        a->parent = j;
+                        return 1;
+                }
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r, k, r_process = 0;
         ItemArray *a;
@@ -3185,6 +3225,18 @@ int main(int argc, char *argv[]) {
                 r = parse_arguments(config_dirs, argv + optind, &invalid_config);
         if (r < 0)
                 goto finish;
+
+        /* Let's now link up all child/parent relationships */
+        ORDERED_HASHMAP_FOREACH(a, items, iterator) {
+                r = link_parent(a);
+                if (r < 0)
+                        goto finish;
+        }
+        ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
+                r = link_parent(a);
+                if (r < 0)
+                        goto finish;
+        }
 
         /* The non-globbing ones usually create things, hence we apply
          * them first */
