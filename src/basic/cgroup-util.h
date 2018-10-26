@@ -36,7 +36,7 @@ typedef enum CGroupController {
         _CGROUP_CONTROLLER_INVALID = -1,
 } CGroupController;
 
-#define CGROUP_CONTROLLER_TO_MASK(c) (1 << (c))
+#define CGROUP_CONTROLLER_TO_MASK(c) (1U << (c))
 
 /* A bit mask of well known cgroup controllers */
 typedef enum CGroupMask {
