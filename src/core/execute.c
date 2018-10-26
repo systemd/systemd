@@ -4659,8 +4659,7 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
                 return -ENOMEM;
         }
 
-        free(c->path);
-        c->path = p;
+        free_and_replace(c->path, p);
 
         return strv_free_and_replace(c->argv, l);
 }
