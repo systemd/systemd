@@ -91,7 +91,7 @@ _public_ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, siz
         int r, n = (int) size;
 
         assert_return(m, -EINVAL);
-        assert_return((size_t) n != size, -EINVAL);
+        assert_return((size_t) n == size, -EINVAL);
 
         if (setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUF, n) < 0) {
                 r = setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUFFORCE, n);
