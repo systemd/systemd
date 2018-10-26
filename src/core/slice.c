@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "dbus-slice.h"
 #include "log.h"
+#include "serialize.h"
 #include "slice.h"
 #include "special.h"
 #include "string-util.h"
@@ -256,7 +257,8 @@ static int slice_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", slice_state_to_string(s->state));
+        (void) serialize_item(f, "state", slice_state_to_string(s->state));
+
         return 0;
 }
 

@@ -752,36 +752,3 @@ int getenv_bool_secure(const char *p) {
 
         return parse_boolean(e);
 }
-
-int serialize_environment(FILE *f, char **environment) {
-        char **e;
-
-        STRV_FOREACH(e, environment) {
-                _cleanup_free_ char *ce;
-
-                ce = cescape(*e);
-                if (!ce)
-                        return -ENOMEM;
-
-                fprintf(f, "env=%s\n", ce);
-        }
-
-        /* caller should call ferror() */
-
-        return 0;
-}
-
-int deserialize_environment(char ***environment, const char *line) {
-        char *uce;
-        int r;
-
-        assert(line);
-        assert(environment);
-
-        assert(startswith(line, "env="));
-        r = cunescape(line + 4, 0, &uce);
-        if (r < 0)
-                return r;
-
-        return strv_env_replace(environment, uce);
-}

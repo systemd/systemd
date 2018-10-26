@@ -12,6 +12,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "serialize.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "swap.h"
@@ -225,10 +226,10 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", device_state_to_string(d->state));
+        (void) serialize_item(f, "state", device_state_to_string(d->state));
 
         if (device_found_to_string_many(d->found, &s) >= 0)
-                unit_serialize_item(u, f, "found", s);
+                (void) serialize_item(f, "found", s);
 
         return 0;
 }

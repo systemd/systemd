@@ -24,6 +24,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "serialize.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -528,64 +529,6 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         *p = 0;
 
         return buf;
-}
-
-void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t) {
-
-        assert(f);
-        assert(name);
-        assert(t);
-
-        if (!dual_timestamp_is_set(t))
-                return;
-
-        fprintf(f, "%s="USEC_FMT" "USEC_FMT"\n",
-                name,
-                t->realtime,
-                t->monotonic);
-}
-
-int dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
-        uint64_t a, b;
-        int r, pos;
-
-        assert(value);
-        assert(t);
-
-        pos = strspn(value, WHITESPACE);
-        if (value[pos] == '-')
-                return -EINVAL;
-        pos += strspn(value + pos, DIGITS);
-        pos += strspn(value + pos, WHITESPACE);
-        if (value[pos] == '-')
-                return -EINVAL;
-
-        r = sscanf(value, "%" PRIu64 "%" PRIu64 "%n", &a, &b, &pos);
-        if (r != 2) {
-                log_debug("Failed to parse dual timestamp value \"%s\".", value);
-                return -EINVAL;
-        }
-
-        if (value[pos] != '\0')
-                /* trailing garbage */
-                return -EINVAL;
-
-        t->realtime = a;
-        t->monotonic = b;
-
-        return 0;
-}
-
-int timestamp_deserialize(const char *value, usec_t *timestamp) {
-        int r;
-
-        assert(value);
-
-        r = safe_atou64(value, timestamp);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse timestamp value \"%s\": %m", value);
-
-        return r;
 }
 
 static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {

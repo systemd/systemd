@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "random-util.h"
+#include "serialize.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -340,40 +341,40 @@ static void test_format_timestamp_utc(void) {
         test_format_timestamp_utc_one(USEC_INFINITY, NULL);
 }
 
-static void test_dual_timestamp_deserialize(void) {
+static void test_deserialize_dual_timestamp(void) {
         int r;
         dual_timestamp t;
 
         log_info("/* %s */", __func__);
 
-        r = dual_timestamp_deserialize("1234 5678", &t);
+        r = deserialize_dual_timestamp("1234 5678", &t);
         assert_se(r == 0);
         assert_se(t.realtime == 1234);
         assert_se(t.monotonic == 5678);
 
-        r = dual_timestamp_deserialize("1234x 5678", &t);
+        r = deserialize_dual_timestamp("1234x 5678", &t);
         assert_se(r == -EINVAL);
 
-        r = dual_timestamp_deserialize("1234 5678y", &t);
+        r = deserialize_dual_timestamp("1234 5678y", &t);
         assert_se(r == -EINVAL);
 
-        r = dual_timestamp_deserialize("-1234 5678", &t);
+        r = deserialize_dual_timestamp("-1234 5678", &t);
         assert_se(r == -EINVAL);
 
-        r = dual_timestamp_deserialize("1234 -5678", &t);
+        r = deserialize_dual_timestamp("1234 -5678", &t);
         assert_se(r == -EINVAL);
 
         /* Check that output wasn't modified. */
         assert_se(t.realtime == 1234);
         assert_se(t.monotonic == 5678);
 
-        r = dual_timestamp_deserialize("+123 567", &t);
+        r = deserialize_dual_timestamp("+123 567", &t);
         assert_se(r == 0);
         assert_se(t.realtime == 123);
         assert_se(t.monotonic == 567);
 
         /* Check that we get "infinity" on overflow. */
-        r = dual_timestamp_deserialize("18446744073709551617 0", &t);
+        r = deserialize_dual_timestamp("18446744073709551617 0", &t);
         assert_se(r == 0);
         assert_se(t.realtime == USEC_INFINITY);
         assert_se(t.monotonic == 0);
@@ -461,7 +462,7 @@ int main(int argc, char *argv[]) {
         test_usec_sub_unsigned();
         test_format_timestamp();
         test_format_timestamp_utc();
-        test_dual_timestamp_deserialize();
+        test_deserialize_dual_timestamp();
         test_usec_shift_clock();
         test_in_utc_timezone();
 

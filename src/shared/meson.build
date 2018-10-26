@@ -52,10 +52,10 @@ shared_sources = files('''
         import-util.c
         import-util.h
         initreq.h
-        install.c
-        install.h
         install-printf.c
         install-printf.h
+        install.c
+        install.h
         journal-util.c
         journal-util.h
         logs-show.c
@@ -78,6 +78,8 @@ shared_sources = files('''
         resolve-util.c
         resolve-util.h
         seccomp-util.h
+        serialize.c
+        serialize.h
         sleep-config.c
         sleep-config.h
         spawn-ask-password-agent.c
@@ -92,8 +94,8 @@ shared_sources = files('''
         sysctl-util.h
         tomoyo-util.c
         tomoyo-util.h
-        udev-util.h
         udev-util.c
+        udev-util.h
         uid-range.c
         uid-range.h
         utmp-wtmp.h

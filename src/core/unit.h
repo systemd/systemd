@@ -682,12 +682,7 @@ bool unit_can_serialize(Unit *u) _pure_;
 
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
-void unit_deserialize_skip(FILE *f);
-
-int unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value);
-int unit_serialize_item_escaped(Unit *u, FILE *f, const char *key, const char *value);
-int unit_serialize_item_fd(Unit *u, FILE *f, FDSet *fds, const char *key, int fd);
-void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_(4,5);
+int unit_deserialize_skip(FILE *f);
 
 int unit_add_node_dependency(Unit *u, const char *what, bool wants, UnitDependency d, UnitDependencyMask mask);
 

@@ -32,10 +32,11 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
+#include "serialize.h"
 #include "signal-util.h"
 #include "smack-util.h"
-#include "socket.h"
 #include "socket-protocol-list.h"
+#include "socket.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -2499,16 +2500,16 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", socket_state_to_string(s->state));
-        unit_serialize_item(u, f, "result", socket_result_to_string(s->result));
-        unit_serialize_item_format(u, f, "n-accepted", "%u", s->n_accepted);
-        unit_serialize_item_format(u, f, "n-refused", "%u", s->n_refused);
+        (void) serialize_item(f, "state", socket_state_to_string(s->state));
+        (void) serialize_item(f, "result", socket_result_to_string(s->result));
+        (void) serialize_item_format(f, "n-accepted", "%u", s->n_accepted);
+        (void) serialize_item_format(f, "n-refused", "%u", s->n_refused);
 
         if (s->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", PID_FMT, s->control_pid);
+                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid);
 
         if (s->control_command_id >= 0)
-                unit_serialize_item(u, f, "control-command", socket_exec_command_to_string(s->control_command_id));
+                (void) serialize_item(f, "control-command", socket_exec_command_to_string(s->control_command_id));
 
         LIST_FOREACH(port, p, s->ports) {
                 int copy;
@@ -2518,29 +2519,28 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
 
                 copy = fdset_put_dup(fds, p->fd);
                 if (copy < 0)
-                        return copy;
+                        return log_warning_errno(copy, "Failed to serialize socket fd: %m");
 
                 if (p->type == SOCKET_SOCKET) {
                         _cleanup_free_ char *t = NULL;
 
                         r = socket_address_print(&p->address, &t);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to format socket address: %m");
 
                         if (socket_address_family(&p->address) == AF_NETLINK)
-                                unit_serialize_item_format(u, f, "netlink", "%i %s", copy, t);
+                                (void) serialize_item_format(f, "netlink", "%i %s", copy, t);
                         else
-                                unit_serialize_item_format(u, f, "socket", "%i %i %s", copy, p->address.type, t);
-
+                                (void) serialize_item_format(f, "socket", "%i %i %s", copy, p->address.type, t);
                 } else if (p->type == SOCKET_SPECIAL)
-                        unit_serialize_item_format(u, f, "special", "%i %s", copy, p->path);
+                        (void) serialize_item_format(f, "special", "%i %s", copy, p->path);
                 else if (p->type == SOCKET_MQUEUE)
-                        unit_serialize_item_format(u, f, "mqueue", "%i %s", copy, p->path);
+                        (void) serialize_item_format(f, "mqueue", "%i %s", copy, p->path);
                 else if (p->type == SOCKET_USB_FUNCTION)
-                        unit_serialize_item_format(u, f, "ffs", "%i %s", copy, p->path);
+                        (void) serialize_item_format(f, "ffs", "%i %s", copy, p->path);
                 else {
                         assert(p->type == SOCKET_FIFO);
-                        unit_serialize_item_format(u, f, "fifo", "%i %s", copy, p->path);
+                        (void) serialize_item_format(f, "fifo", "%i %s", copy, p->path);
                 }
         }
 
@@ -2548,6 +2548,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
 }
 
 static void socket_port_take_fd(SocketPort *p, FDSet *fds, int fd) {
+        assert(p);
+
         safe_close(p->fd);
         p->fd = fdset_remove(fds, fd);
 }

@@ -9,6 +9,7 @@
 #include "fs-util.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "serialize.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -661,21 +662,20 @@ static int timer_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", timer_state_to_string(t->state));
-        unit_serialize_item(u, f, "result", timer_result_to_string(t->result));
+        (void) serialize_item(f, "state", timer_state_to_string(t->state));
+        (void) serialize_item(f, "result", timer_result_to_string(t->result));
 
         if (t->last_trigger.realtime > 0)
-                unit_serialize_item_format(u, f, "last-trigger-realtime", "%" PRIu64, t->last_trigger.realtime);
+                (void) serialize_usec(f, "last-trigger-realtime", t->last_trigger.realtime);
 
         if (t->last_trigger.monotonic > 0)
-                unit_serialize_item_format(u, f, "last-trigger-monotonic", "%" PRIu64, t->last_trigger.monotonic);
+                (void) serialize_usec(f, "last-trigger-monotonic", t->last_trigger.monotonic);
 
         return 0;
 }
 
 static int timer_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Timer *t = TIMER(u);
-        int r;
 
         assert(u);
         assert(key);
@@ -690,6 +690,7 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
                         log_unit_debug(u, "Failed to parse state value: %s", value);
                 else
                         t->deserialized_state = state;
+
         } else if (streq(key, "result")) {
                 TimerResult f;
 
@@ -698,19 +699,12 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
                         log_unit_debug(u, "Failed to parse result value: %s", value);
                 else if (f != TIMER_SUCCESS)
                         t->result = f;
-        } else if (streq(key, "last-trigger-realtime")) {
 
-                r = safe_atou64(value, &t->last_trigger.realtime);
-                if (r < 0)
-                        log_unit_debug(u, "Failed to parse last-trigger-realtime value: %s", value);
-
-        } else if (streq(key, "last-trigger-monotonic")) {
-
-                r = safe_atou64(value, &t->last_trigger.monotonic);
-                if (r < 0)
-                        log_unit_debug(u, "Failed to parse last-trigger-monotonic value: %s", value);
-
-        } else
+        } else if (streq(key, "last-trigger-realtime"))
+                (void) deserialize_usec(value, &t->last_trigger.realtime);
+        else if (streq(key, "last-trigger-monotonic"))
+                (void) deserialize_usec(value, &t->last_trigger.monotonic);
+        else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;

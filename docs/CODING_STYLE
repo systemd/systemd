@@ -458,3 +458,7 @@
 - When referring to a file system path that is a directory, please always
   suffix it with "/", to indicate that it is a directory, not a regular file
   (or other file system object).
+
+- Don't use fgets(), it's too hard to properly handle errors such as overly
+  long lines. Use read_line() instead, which is our own function that handles
+  this much nicer.

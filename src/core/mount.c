@@ -25,6 +25,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "serialize.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -1140,15 +1141,15 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        unit_serialize_item(u, f, "state", mount_state_to_string(m->state));
-        unit_serialize_item(u, f, "result", mount_result_to_string(m->result));
-        unit_serialize_item(u, f, "reload-result", mount_result_to_string(m->reload_result));
+        (void) serialize_item(f, "state", mount_state_to_string(m->state));
+        (void) serialize_item(f, "result", mount_result_to_string(m->result));
+        (void) serialize_item(f, "reload-result", mount_result_to_string(m->reload_result));
 
         if (m->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", PID_FMT, m->control_pid);
+                (void) serialize_item_format(f, "control-pid", PID_FMT, m->control_pid);
 
         if (m->control_command_id >= 0)
-                unit_serialize_item(u, f, "control-command", mount_exec_command_to_string(m->control_command_id));
+                (void) serialize_item(f, "control-command", mount_exec_command_to_string(m->control_command_id));
 
         return 0;
 }

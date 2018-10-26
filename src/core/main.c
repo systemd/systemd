@@ -1145,7 +1145,7 @@ static int prepare_reexecute(
 
         r = manager_serialize(m, f, fds, switching_root);
         if (r < 0)
-                return log_error_errno(r, "Failed to serialize state: %m");
+                return r;
 
         if (fseeko(f, 0, SEEK_SET) == (off_t) -1)
                 return log_error_errno(errno, "Failed to rewind serialization fd: %m");

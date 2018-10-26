@@ -2,9 +2,11 @@
 
 #include <string.h>
 
+#include "def.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "serialize.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
@@ -304,52 +306,59 @@ static void test_env_assignment_is_valid(void) {
 }
 
 static void test_deserialize_environment(void) {
-        _cleanup_strv_free_ char **env = strv_new("A=1", NULL);
+        _cleanup_strv_free_ char **env;
 
-        assert_se(deserialize_environment(&env, "env=B=2") >= 0);
-        assert_se(deserialize_environment(&env, "env=FOO%%=a\\177b\\nc\\td e") >= 0);
+        assert_se(env = strv_new("A=1", NULL));
+
+        assert_se(deserialize_environment("B=2", &env) >= 0);
+        assert_se(deserialize_environment("FOO%%=a\\177b\\nc\\td e", &env) >= 0);
 
         assert_se(strv_equal(env, STRV_MAKE("A=1", "B=2", "FOO%%=a\177b\nc\td e")));
 
-        assert_se(deserialize_environment(&env, "env=foo\\") < 0);
-        assert_se(deserialize_environment(&env, "env=bar\\_baz") < 0);
+        assert_se(deserialize_environment("foo\\", &env) < 0);
+        assert_se(deserialize_environment("bar\\_baz", &env) < 0);
 }
 
 static void test_serialize_environment(void) {
+        _cleanup_strv_free_ char **env = NULL, **env2 = NULL;
         char fn[] = "/tmp/test-env-util.XXXXXXX";
-        int fd, r;
         _cleanup_fclose_ FILE *f = NULL;
+        int fd, r;
 
-        _cleanup_strv_free_ char **env = strv_new("A=1",
-                                                  "B=2",
-                                                  "C=ąęółń",
-                                                  "D=D=a\\x0Ab",
-                                                  "FOO%%=a\177b\nc\td e",
-                                                  NULL);
-        _cleanup_strv_free_ char **env2 = NULL;
+
+        assert_se(env = strv_new("A=1",
+                                 "B=2",
+                                 "C=ąęółń",
+                                 "D=D=a\\x0Ab",
+                                 "FOO%%=a\177b\nc\td e",
+                                 NULL));
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
 
         assert_se(f = fdopen(fd, "r+"));
 
-        assert_se(serialize_environment(f, env) == 0);
+        assert_se(serialize_strv(f, "env", env) > 0);
         assert_se(fflush_and_check(f) == 0);
 
         rewind(f);
 
         for (;;) {
-                char line[LINE_MAX];
+                _cleanup_free_ char *line = NULL;
                 const char *l;
 
-                if (!fgets(line, sizeof line, f))
+                r = read_line(f, LONG_LINE_MAX, &line);
+                assert_se(r >= 0);
+
+                if (r == 0)
                         break;
 
-                char_array_0(line);
                 l = strstrip(line);
 
-                r = deserialize_environment(&env2, l);
-                assert_se(r == 1);
+                assert_se(startswith(l, "env="));
+
+                r = deserialize_environment(l+4, &env2);
+                assert_se(r >= 0);
         }
         assert_se(feof(f));
 
