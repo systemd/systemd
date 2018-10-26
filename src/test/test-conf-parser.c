@@ -311,9 +311,9 @@ static const char* const config_file[] = {
 
 static void test_config_parse(unsigned i, const char *s) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-conf-parser.XXXXXX";
-        int fd, r;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *setting1 = NULL;
+        int r;
 
         const ConfigTableItem items[] = {
                 { "Section", "setting1",  config_parse_string,   0, &setting1},
@@ -322,12 +322,9 @@ static void test_config_parse(unsigned i, const char *s) {
 
         log_info("== %s[%i] ==", __func__, i);
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se((size_t) write(fd, s, strlen(s)) == strlen(s));
-
-        assert_se(lseek(fd, 0, SEEK_SET) == 0);
-        assert_se(f = fdopen(fd, "r"));
+        assert_se(fmkostemp_safe(name, "r+", &f) == 0);
+        assert_se(fwrite(s, strlen(s), 1, f) == 1);
+        rewind(f);
 
         /*
         int config_parse(const char *unit,

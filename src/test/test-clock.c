@@ -9,12 +9,12 @@
 #include "clock-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "macro.h"
 
 static void test_clock_is_localtime(void) {
-        char adjtime[] = "/tmp/test-adjtime.XXXXXX";
-        int fd = -1;
+        _cleanup_(unlink_tempfilep) char adjtime[] = "/tmp/test-adjtime.XXXXXX";
         _cleanup_fclose_ FILE* f = NULL;
 
         static const struct scenario {
@@ -41,22 +41,17 @@ static void test_clock_is_localtime(void) {
         /* without an adjtime file we default to UTC */
         assert_se(clock_is_localtime("/nonexisting/adjtime") == 0);
 
-        fd = mkostemp_safe(adjtime);
-        assert_se(fd >= 0);
+        assert_se(fmkostemp_safe(adjtime, "w", &f) == 0);
         log_info("adjtime test file: %s", adjtime);
-        f = fdopen(fd, "w");
-        assert_se(f);
 
         for (size_t i = 0; i < ELEMENTSOF(scenarios); ++i) {
                 log_info("scenario #%zu:, expected result %i", i, scenarios[i].expected_result);
                 log_info("%s", scenarios[i].contents);
                 rewind(f);
-                ftruncate(fd, 0);
+                ftruncate(fileno(f), 0);
                 assert_se(write_string_stream(f, scenarios[i].contents, WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
                 assert_se(clock_is_localtime(adjtime) == scenarios[i].expected_result);
         }
-
-        unlink(adjtime);
 }
 
 /* Test with the real /etc/adjtime */

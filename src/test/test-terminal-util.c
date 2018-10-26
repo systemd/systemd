@@ -32,15 +32,11 @@ static void test_read_one_char(void) {
         char r;
         bool need_nl;
         char name[] = "/tmp/test-read_one_char.XXXXXX";
-        int fd;
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        file = fdopen(fd, "r+");
-        assert_se(file);
+        assert(fmkostemp_safe(name, "r+", &file) == 0);
+
         assert_se(fputs("c\n", file) >= 0);
         rewind(file);
-
         assert_se(read_one_char(file, &r, 1000000, &need_nl) >= 0);
         assert_se(!need_nl);
         assert_se(r == 'c');
