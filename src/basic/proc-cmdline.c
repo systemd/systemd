@@ -66,7 +66,8 @@ int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, 
 
                         if (flags & PROC_CMDLINE_STRIP_RD_PREFIX)
                                 key = q;
-                }
+                } else if (in_initrd() && flags & PROC_CMDLINE_RD_STRICT)
+                        continue;
 
                 value = strchr(key, '=');
                 if (value)
