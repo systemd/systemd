@@ -2144,9 +2144,9 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
 
                 n = cgroup_controller_to_string(c);
 
-                if (mask & bit)
+                if (FLAGS_SET(mask, bit))
                         (void) cg_create(n, path);
-                else if (supported & bit)
+                else if (FLAGS_SET(supported, bit))
                         (void) cg_trim(n, path, true);
         }
 
@@ -2174,7 +2174,7 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_m
                 if (!FLAGS_SET(CGROUP_MASK_V1, bit))
                         continue;
 
-                if (!(supported & bit))
+                if (!FLAGS_SET(supported, bit))
                         continue;
 
                 if (path_callback)
@@ -2229,7 +2229,7 @@ int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to
                 if (!FLAGS_SET(CGROUP_MASK_V1, bit))
                         continue;
 
-                if (!(supported & bit))
+                if (!FLAGS_SET(supported, bit))
                         continue;
 
                 if (to_callback)
@@ -2264,7 +2264,7 @@ int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root)
                 if (!FLAGS_SET(CGROUP_MASK_V1, bit))
                         continue;
 
-                if (!(supported & bit))
+                if (!FLAGS_SET(supported, bit))
                         continue;
 
                 (void) cg_trim(cgroup_controller_to_string(c), path, delete_root);
@@ -2290,7 +2290,7 @@ int cg_mask_to_string(CGroupMask mask, char **ret) {
                 const char *k;
                 size_t l;
 
-                if (!(mask & CGROUP_CONTROLLER_TO_MASK(c)))
+                if (!FLAGS_SET(mask, CGROUP_CONTROLLER_TO_MASK(c)))
                         continue;
 
                 k = cgroup_controller_to_string(c);
@@ -2603,14 +2603,14 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
                 if (!FLAGS_SET(CGROUP_MASK_V2, bit))
                         continue;
 
-                if (!(supported & bit))
+                if (!FLAGS_SET(supported, bit))
                         continue;
 
                 n = cgroup_controller_to_string(c);
                 {
                         char s[1 + strlen(n) + 1];
 
-                        s[0] = mask & bit ? '+' : '-';
+                        s[0] = FLAGS_SET(mask, bit) ? '+' : '-';
                         strcpy(s + 1, n);
 
                         if (!f) {
