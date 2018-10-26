@@ -306,61 +306,6 @@ static void test_env_assignment_is_valid(void) {
         assert_se(!env_assignment_is_valid("głąb=printf \"\x1b]0;<mock-chroot>\x07<mock-chroot>\""));
 }
 
-static void test_deserialize_environment(void) {
-        _cleanup_strv_free_ char **env;
-
-        assert_se(env = strv_new("A=1", NULL));
-
-        assert_se(deserialize_environment("B=2", &env) >= 0);
-        assert_se(deserialize_environment("FOO%%=a\\177b\\nc\\td e", &env) >= 0);
-
-        assert_se(strv_equal(env, STRV_MAKE("A=1", "B=2", "FOO%%=a\177b\nc\td e")));
-
-        assert_se(deserialize_environment("foo\\", &env) < 0);
-        assert_se(deserialize_environment("bar\\_baz", &env) < 0);
-}
-
-static void test_serialize_environment(void) {
-        _cleanup_strv_free_ char **env = NULL, **env2 = NULL;
-        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-env-util.XXXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
-        int r;
-
-        assert_se(env = strv_new("A=1",
-                                 "B=2",
-                                 "C=ąęółń",
-                                 "D=D=a\\x0Ab",
-                                 "FOO%%=a\177b\nc\td e",
-                                 NULL));
-
-        assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
-        assert_se(serialize_strv(f, "env", env) == 1);
-        assert_se(fflush_and_check(f) == 0);
-
-        rewind(f);
-
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-                const char *l;
-
-                r = read_line(f, LONG_LINE_MAX, &line);
-                assert_se(r >= 0);
-
-                if (r == 0)
-                        break;
-
-                l = strstrip(line);
-
-                assert_se(startswith(l, "env="));
-
-                r = deserialize_environment(l+4, &env2);
-                assert_se(r >= 0);
-        }
-        assert_se(feof(f));
-
-        assert_se(strv_equal(env, env2));
-}
-
 int main(int argc, char *argv[]) {
         test_strv_env_delete();
         test_strv_env_get();
@@ -377,8 +322,6 @@ int main(int argc, char *argv[]) {
         test_env_name_is_valid();
         test_env_value_is_valid();
         test_env_assignment_is_valid();
-        test_deserialize_environment();
-        test_serialize_environment();
 
         return 0;
 }
