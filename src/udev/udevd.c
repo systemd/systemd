@@ -425,42 +425,61 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         return 0;
 }
 
-static int worker_main(Manager *_manager, sd_device_monitor *worker_monitor, sd_device *first_device) {
+static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
+        Manager *manager = userdata;
+        int r;
+
+        assert(dev);
+        assert(manager);
+
+        r = worker_process_device(manager, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
+
+        /* send processed event back to libudev listeners */
+        r = device_monitor_send_device(monitor, NULL, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to send device, ignoring: %m");
+
+        /* send udevd the result of the event execution */
+        r = worker_send_message(manager->worker_watch[WRITE_END]);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send signal to main daemon, ignoring: %m");
+
+        return 1;
+}
+
+static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device *first_device) {
         _cleanup_(manager_freep) Manager *manager = _manager;
         _cleanup_(sd_device_unrefp) sd_device *dev = first_device;
-        _cleanup_close_ int fd_signal = -1, fd_ep = -1;
-        struct epoll_event ep_signal = { .events = EPOLLIN };
-        struct epoll_event ep_monitor = { .events = EPOLLIN };
-        int fd_monitor, r;
-        sigset_t mask;
+        int ret, r;
 
         assert(manager);
-        assert(worker_monitor);
+        assert(monitor);
         assert(dev);
 
         unsetenv("NOTIFY_SOCKET");
 
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, -1) >= 0);
+
         /* Clear unnecessary data in Manager object.*/
         manager_clear_for_worker(manager);
 
-        sigfillset(&mask);
-        fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
-        if (fd_signal < 0)
-                return log_error_errno(errno, "Failed to create signal fd: %m");
-        ep_signal.data.fd = fd_signal;
+        r = sd_event_new(&manager->event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        fd_monitor = device_monitor_get_fd(worker_monitor);
-        if (fd_monitor < 0)
-                return log_error_errno(r, "Failed to get monitor fd: %m");
-        ep_monitor.data.fd = fd_monitor;
+        r = sd_event_add_signal(manager->event, NULL, SIGTERM, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set SIGTERM event: %m");
 
-        fd_ep = epoll_create1(EPOLL_CLOEXEC);
-        if (fd_ep < 0)
-                return log_error_errno(errno, "Failed to create epoll fd: %m");
+        r = sd_device_monitor_attach_event(monitor, manager->event, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach event loop to device monitor: %m");
 
-        if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
-            epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0)
-                return log_error_errno(errno, "Failed to add fds to epoll: %m");
+        r = sd_device_monitor_start(monitor, worker_device_monitor_handler, manager, "worker-device-monitor");
+        if (r < 0)
+                return log_error_errno(r, "Failed to start device monitor: %m");
 
         /* Request TERM signal if parent exits.
          * Ignore error, not much we can do in that case. */
@@ -469,61 +488,18 @@ static int worker_main(Manager *_manager, sd_device_monitor *worker_monitor, sd_
         /* Reset OOM score, we only protect the main daemon. */
         (void) write_string_file("/proc/self/oom_score_adj", "0", 0);
 
-        for (;;) {
-                r = worker_process_device(manager, dev);
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
+        /* Process first device */
+        (void) worker_device_monitor_handler(monitor, dev, manager);
 
-                /* send processed event back to libudev listeners */
-                r = device_monitor_send_device(worker_monitor, NULL, dev);
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to send device, ignoring: %m");
+        r = sd_event_loop(manager->event);
+        if (r < 0)
+                return log_error_errno(r, "Event loop failed: %m");
 
-                dev = sd_device_unref(dev);
+        r = sd_event_get_exit_code(manager->event, &ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get exit code: %m");
 
-                /* send udevd the result of the event execution */
-                r = worker_send_message(manager->worker_watch[WRITE_END]);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send signal to main daemon, ignoring: %m");
-
-                /* wait for more device messages from main udevd, or term signal */
-                while (!dev) {
-                        struct epoll_event ev[4];
-                        int fdcount;
-                        int i;
-
-                        fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), -1);
-                        if (fdcount < 0) {
-                                if (errno == EINTR)
-                                        continue;
-                                return log_error_errno(errno, "Failed to poll: %m");
-                        }
-
-                        for (i = 0; i < fdcount; i++) {
-                                if (ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN) {
-                                        r = device_monitor_receive_device(worker_monitor, &dev);
-                                        if (r <= 0) {
-                                                if (r < 0)
-                                                        log_warning_errno(r, "Failed to receive device, ignoring: %m");
-
-                                                continue;
-                                        }
-                                        break;
-
-                                } else if (ev[i].data.fd == fd_signal && ev[i].events & EPOLLIN) {
-                                        struct signalfd_siginfo fdsi;
-                                        ssize_t size;
-
-                                        size = read(fd_signal, &fdsi, sizeof(struct signalfd_siginfo));
-                                        if (size != sizeof(struct signalfd_siginfo))
-                                                continue;
-
-                                        if (fdsi.ssi_signo == SIGTERM)
-                                                return 0;
-                                }
-                        }
-                }
-        }
+        return ret;
 }
 
 static int worker_spawn(Manager *manager, struct event *event) {
