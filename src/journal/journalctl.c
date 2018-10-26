@@ -167,6 +167,7 @@ static enum {
         ACTION_SYNC,
         ACTION_ROTATE,
         ACTION_VACUUM,
+        ACTION_ROTATE_AND_VACUUM,
         ACTION_LIST_FIELDS,
         ACTION_LIST_FIELD_NAMES,
 } arg_action = ACTION_SHOW;
@@ -687,7 +688,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
-                        arg_action = ACTION_VACUUM;
+                        arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
                         break;
 
                 case ARG_VACUUM_FILES:
@@ -697,7 +698,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
-                        arg_action = ACTION_VACUUM;
+                        arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
                         break;
 
                 case ARG_VACUUM_TIME:
@@ -707,7 +708,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
-                        arg_action = ACTION_VACUUM;
+                        arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
                         break;
 
 #if HAVE_GCRYPT
@@ -896,7 +897,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROTATE:
-                        arg_action = ACTION_ROTATE;
+                        arg_action = arg_action == ACTION_VACUUM ? ACTION_ROTATE_AND_VACUUM : ACTION_ROTATE;
                         break;
 
                 case ARG_SYNC:
@@ -1970,7 +1971,7 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
                 /* See if a sync happened by now. */
                 r = read_timestamp_file(watch_path, &tstamp);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(errno, "Failed to read %s: %m", watch_path);
+                        return log_error_errno(r, "Failed to read %s: %m", watch_path);
                 if (r >= 0 && tstamp >= start)
                         return 0;
 
@@ -2120,6 +2121,7 @@ int main(int argc, char *argv[]) {
         case ACTION_DISK_USAGE:
         case ACTION_LIST_BOOTS:
         case ACTION_VACUUM:
+        case ACTION_ROTATE_AND_VACUUM:
         case ACTION_LIST_FIELDS:
         case ACTION_LIST_FIELD_NAMES:
                 /* These ones require access to the journal files, continue below. */
@@ -2236,6 +2238,14 @@ int main(int argc, char *argv[]) {
         case ACTION_LIST_BOOTS:
                 r = list_boots(j);
                 goto finish;
+
+        case ACTION_ROTATE_AND_VACUUM:
+
+                r = rotate();
+                if (r < 0)
+                        goto finish;
+
+                _fallthrough_;
 
         case ACTION_VACUUM: {
                 Directory *d;

@@ -749,32 +749,28 @@
         <term><option>--vacuum-time=</option></term>
         <term><option>--vacuum-files=</option></term>
 
-        <listitem><para>Removes the oldest archived journal files until the disk
-        space they use falls below the specified size (specified with
-        the usual <literal>K</literal>, <literal>M</literal>,
-        <literal>G</literal> and <literal>T</literal> suffixes), or all
-        archived journal files contain no data older than the specified
-        timespan (specified with the usual <literal>s</literal>,
-        <literal>m</literal>, <literal>h</literal>,
-        <literal>days</literal>, <literal>months</literal>,
-        <literal>weeks</literal> and <literal>years</literal> suffixes),
-        or no more than the specified number of separate journal files
-        remain. Note that running <option>--vacuum-size=</option> has
-        only an indirect effect on the output shown by
-        <option>--disk-usage</option>, as the latter includes active
-        journal files, while the vacuuming operation only operates
-        on archived journal files. Similarly,
-        <option>--vacuum-files=</option> might not actually reduce the
-        number of journal files to below the specified number, as it
-        will not remove active journal
-        files. <option>--vacuum-size=</option>,
-        <option>--vacuum-time=</option> and
-        <option>--vacuum-files=</option> may be combined in a single
-        invocation to enforce any combination of a size, a time and a
-        number of files limit on the archived journal
-        files. Specifying any of these three parameters as zero is
-        equivalent to not enforcing the specific limit, and is thus
-        redundant.</para></listitem>
+        <listitem><para>Removes the oldest archived journal files until the disk space they use falls below the
+        specified size (specified with the usual <literal>K</literal>, <literal>M</literal>, <literal>G</literal> and
+        <literal>T</literal> suffixes), or all archived journal files contain no data older than the specified timespan
+        (specified with the usual <literal>s</literal>, <literal>m</literal>, <literal>h</literal>,
+        <literal>days</literal>, <literal>months</literal>, <literal>weeks</literal> and <literal>years</literal>
+        suffixes), or no more than the specified number of separate journal files remain. Note that running
+        <option>--vacuum-size=</option> has only an indirect effect on the output shown by
+        <option>--disk-usage</option>, as the latter includes active journal files, while the vacuuming operation only
+        operates on archived journal files. Similarly, <option>--vacuum-files=</option> might not actually reduce the
+        number of journal files to below the specified number, as it will not remove active journal
+        files.</para>
+
+        <para><option>--vacuum-size=</option>, <option>--vacuum-time=</option> and <option>--vacuum-files=</option>
+        may be combined in a single invocation to enforce any combination of a size, a time and a number of files limit
+        on the archived journal files. Specifying any of these three parameters as zero is equivalent to not enforcing
+        the specific limit, and is thus redundant.</para>
+
+        <para>These three switches may also be combined with <option>--rotate</option> into one command. If so, all
+        active files are rotated first, and the requested vacuuming operation is executed right after. The rotation has
+        the effect that all currently active files are archived (and potentially new, empty journal files opened as
+        replacement), and hence the vacuuming operation has the greatest effect as it can take all log data written so
+        far into account.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -896,9 +892,12 @@
       <varlistentry>
         <term><option>--rotate</option></term>
 
-        <listitem><para>Asks the journal daemon to rotate journal
-        files. This call does not return until the rotation operation
-        is complete.</para></listitem>
+        <listitem><para>Asks the journal daemon to rotate journal files. This call does not return until the rotation
+        operation is complete. Journal file rotation has the effect that all currently active journal files are marked
+        as archived and renamed, so that they are never written to in future. New (empty) journal files are then
+        created in their place. This operation may be combined with <option>--vacuum-size=</option>,
+        <option>--vacuum-time=</option> and <option>--vacuum-file=</option> into a single command, see
+        above.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
