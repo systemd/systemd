@@ -750,6 +750,9 @@ const char *last_path_component(const char *path) {
 
         unsigned l, k;
 
+        if (!path)
+                return NULL;
+
         l = k = strlen(path);
         if (l == 0) /* special case — an empty string */
                 return path;

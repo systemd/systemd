@@ -406,6 +406,7 @@ static void test_file_in_same_dir(void) {
 }
 
 static void test_last_path_component(void) {
+        assert_se(last_path_component(NULL) == NULL);
         assert_se(streq(last_path_component("a/b/c"), "c"));
         assert_se(streq(last_path_component("a/b/c/"), "c/"));
         assert_se(streq(last_path_component("/"), "/"));
