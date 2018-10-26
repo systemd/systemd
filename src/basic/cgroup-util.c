@@ -129,10 +129,12 @@ bool cg_ns_supported(void) {
         if (enabled >= 0)
                 return enabled;
 
-        if (access("/proc/self/ns/cgroup", F_OK) == 0)
-                enabled = 1;
-        else
-                enabled = 0;
+        if (access("/proc/self/ns/cgroup", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to check whether /proc/self/ns/cgroup is available, assuming not: %m");
+                enabled = false;
+        } else
+                enabled = true;
 
         return enabled;
 }
@@ -817,7 +819,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
 
         xsprintf(c, PID_FMT "\n", pid);
 
-        r = write_string_file(fs, c, 0);
+        r = write_string_file(fs, c, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return r;
 
@@ -1099,7 +1101,7 @@ int cg_install_release_agent(const char *controller, const char *agent) {
 
         sc = strstrip(contents);
         if (isempty(sc)) {
-                r = write_string_file(fs, agent, 0);
+                r = write_string_file(fs, agent, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0)
                         return r;
         } else if (!path_equal(sc, agent))
@@ -1117,7 +1119,7 @@ int cg_install_release_agent(const char *controller, const char *agent) {
 
         sc = strstrip(contents);
         if (streq(sc, "0")) {
-                r = write_string_file(fs, "1", 0);
+                r = write_string_file(fs, "1", WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0)
                         return r;
 
@@ -1144,7 +1146,7 @@ int cg_uninstall_release_agent(const char *controller) {
         if (r < 0)
                 return r;
 
-        r = write_string_file(fs, "0", 0);
+        r = write_string_file(fs, "0", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return r;
 
@@ -1154,7 +1156,7 @@ int cg_uninstall_release_agent(const char *controller) {
         if (r < 0)
                 return r;
 
-        r = write_string_file(fs, "", 0);
+        r = write_string_file(fs, "", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return r;
 
@@ -2013,7 +2015,7 @@ int cg_set_attribute(const char *controller, const char *path, const char *attri
         if (r < 0)
                 return r;
 
-        return write_string_file(p, value, 0);
+        return write_string_file(p, value, WRITE_STRING_FILE_DISABLE_BUFFER);
 }
 
 int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret) {
@@ -2137,11 +2139,14 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                 const char *n;
 
+                if (!FLAGS_SET(CGROUP_MASK_V1, bit))
+                        continue;
+
                 n = cgroup_controller_to_string(c);
 
-                if (mask & bit)
+                if (FLAGS_SET(mask, bit))
                         (void) cg_create(n, path);
-                else if (supported & bit)
+                else if (FLAGS_SET(supported, bit))
                         (void) cg_trim(n, path, true);
         }
 
@@ -2166,7 +2171,10 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_m
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                 const char *p = NULL;
 
-                if (!(supported & bit))
+                if (!FLAGS_SET(CGROUP_MASK_V1, bit))
+                        continue;
+
+                if (!FLAGS_SET(supported, bit))
                         continue;
 
                 if (path_callback)
@@ -2218,7 +2226,10 @@ int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                 const char *p = NULL;
 
-                if (!(supported & bit))
+                if (!FLAGS_SET(CGROUP_MASK_V1, bit))
+                        continue;
+
+                if (!FLAGS_SET(supported, bit))
                         continue;
 
                 if (to_callback)
@@ -2250,7 +2261,10 @@ int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root)
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
 
-                if (!(supported & bit))
+                if (!FLAGS_SET(CGROUP_MASK_V1, bit))
+                        continue;
+
+                if (!FLAGS_SET(supported, bit))
                         continue;
 
                 (void) cg_trim(cgroup_controller_to_string(c), path, delete_root);
@@ -2276,7 +2290,7 @@ int cg_mask_to_string(CGroupMask mask, char **ret) {
                 const char *k;
                 size_t l;
 
-                if (!(mask & CGROUP_CONTROLLER_TO_MASK(c)))
+                if (!FLAGS_SET(mask, CGROUP_CONTROLLER_TO_MASK(c)))
                         continue;
 
                 k = cgroup_controller_to_string(c);
@@ -2301,8 +2315,10 @@ int cg_mask_to_string(CGroupMask mask, char **ret) {
         return 0;
 }
 
-int cg_mask_from_string(const char *value, CGroupMask *mask) {
-        assert(mask);
+int cg_mask_from_string(const char *value, CGroupMask *ret) {
+        CGroupMask m = 0;
+
+        assert(ret);
         assert(value);
 
         for (;;) {
@@ -2320,13 +2336,15 @@ int cg_mask_from_string(const char *value, CGroupMask *mask) {
                 if (v < 0)
                         continue;
 
-                *mask |= CGROUP_CONTROLLER_TO_MASK(v);
+                m |= CGROUP_CONTROLLER_TO_MASK(v);
         }
+
+        *ret = m;
         return 0;
 }
 
 int cg_mask_supported(CGroupMask *ret) {
-        CGroupMask mask = 0;
+        CGroupMask mask;
         int r;
 
         /* Determines the mask of supported cgroup controllers. Only
@@ -2359,23 +2377,26 @@ int cg_mask_supported(CGroupMask *ret) {
                 if (r < 0)
                         return r;
 
-                /* Currently, we support the cpu, memory, io and pids
-                 * controller in the unified hierarchy, mask
+                /* Currently, we support the cpu, memory, io and pids controller in the unified hierarchy, mask
                  * everything else off. */
-                mask &= CGROUP_MASK_CPU | CGROUP_MASK_MEMORY | CGROUP_MASK_IO | CGROUP_MASK_PIDS;
+                mask &= CGROUP_MASK_V2;
 
         } else {
                 CGroupController c;
 
-                /* In the legacy hierarchy, we check whether which
-                 * hierarchies are mounted. */
+                /* In the legacy hierarchy, we check which hierarchies are mounted. */
 
+                mask = 0;
                 for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+                        CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                         const char *n;
+
+                        if (!FLAGS_SET(CGROUP_MASK_V1, bit))
+                                continue;
 
                         n = cgroup_controller_to_string(c);
                         if (controller_is_accessible(n) >= 0)
-                                mask |= CGROUP_CONTROLLER_TO_MASK(c);
+                                mask |= bit;
                 }
         }
 
@@ -2579,14 +2600,17 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                 const char *n;
 
-                if (!(supported & bit))
+                if (!FLAGS_SET(CGROUP_MASK_V2, bit))
+                        continue;
+
+                if (!FLAGS_SET(supported, bit))
                         continue;
 
                 n = cgroup_controller_to_string(c);
                 {
                         char s[1 + strlen(n) + 1];
 
-                        s[0] = mask & bit ? '+' : '-';
+                        s[0] = FLAGS_SET(mask, bit) ? '+' : '-';
                         strcpy(s + 1, n);
 
                         if (!f) {
@@ -2597,7 +2621,7 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
                                 }
                         }
 
-                        r = write_string_stream(f, s, 0);
+                        r = write_string_stream(f, s, WRITE_STRING_FILE_DISABLE_BUFFER);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to enable controller %s for %s (%s): %m", n, p, fs);
                                 clearerr(f);
