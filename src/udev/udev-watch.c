@@ -24,7 +24,7 @@ static int inotify_fd = -1;
 int udev_watch_init(void) {
         inotify_fd = inotify_init1(IN_CLOEXEC);
         if (inotify_fd < 0)
-                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
+                return -errno;
 
         return inotify_fd;
 }
