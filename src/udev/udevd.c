@@ -80,6 +80,8 @@ typedef struct Manager {
         struct udev_rules *rules;
         Hashmap *properties;
 
+        sd_netlink *rtnl;
+
         sd_device_monitor *monitor;
         struct udev_ctrl *ctrl;
         struct udev_ctrl_connection *ctrl_conn_blocking;
@@ -302,6 +304,8 @@ static void manager_free(Manager *manager) {
 
         manager_clear_for_worker(manager);
 
+        sd_netlink_unref(manager->rtnl);
+
         hashmap_free_free_free(manager->properties);
         udev_rules_unref(manager->rules);
 
@@ -336,7 +340,7 @@ static bool shall_lock_device(sd_device *dev) {
                !startswith(sysname, "drbd");
 }
 
-static int worker_process_device(Manager *manager, sd_device *dev, sd_netlink **rtnl) {
+static int worker_process_device(Manager *manager, sd_device *dev) {
         _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
         _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
@@ -345,7 +349,6 @@ static int worker_process_device(Manager *manager, sd_device *dev, sd_netlink **
 
         assert(manager);
         assert(dev);
-        assert(rtnl);
 
         r = sd_device_get_property_value(dev, "SEQNUM", &seqnum);
         if (r < 0)
@@ -394,7 +397,7 @@ static int worker_process_device(Manager *manager, sd_device *dev, sd_netlink **
         }
 
         /* needed for renaming netifs */
-        udev_event->rtnl = *rtnl;
+        udev_event->rtnl = manager->rtnl;
 
         /* apply rules, create node, symlinks */
         udev_event_execute_rules(udev_event,
@@ -407,7 +410,7 @@ static int worker_process_device(Manager *manager, sd_device *dev, sd_netlink **
 
         if (udev_event->rtnl)
                 /* in case rtnl was initialized */
-                *rtnl = sd_netlink_ref(udev_event->rtnl);
+                manager->rtnl = sd_netlink_ref(udev_event->rtnl);
 
         /* apply/restore inotify watch */
         if (udev_event->inotify_watch) {
@@ -425,7 +428,6 @@ static int worker_process_device(Manager *manager, sd_device *dev, sd_netlink **
 static int worker_main(Manager *_manager, sd_device_monitor *worker_monitor, sd_device *first_device) {
         _cleanup_(manager_freep) Manager *manager = _manager;
         _cleanup_(sd_device_unrefp) sd_device *dev = first_device;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_close_ int fd_signal = -1, fd_ep = -1;
         struct epoll_event ep_signal = { .events = EPOLLIN };
         struct epoll_event ep_monitor = { .events = EPOLLIN };
@@ -468,7 +470,7 @@ static int worker_main(Manager *_manager, sd_device_monitor *worker_monitor, sd_
         (void) write_string_file("/proc/self/oom_score_adj", "0", 0);
 
         for (;;) {
-                r = worker_process_device(manager, dev, &rtnl);
+                r = worker_process_device(manager, dev);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
 
