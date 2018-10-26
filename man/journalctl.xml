@@ -564,6 +564,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--unit-dbus=<replaceable>UNIT</replaceable></option></term>
+
+        <listitem><para>Show logs from journald of the specifies unit(s) over dbus interface.
+        The result is the same as by <command>journalctl -u <replaceable>UNIT</replaceable></command>.
+        This option is designed for enabled MAC systems, like SELinux,
+        when the usage of plain journalctl -u is forbidden.</para>
+
+        <para>This parameter can be specified multiple times.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--priority=</option></term>
 

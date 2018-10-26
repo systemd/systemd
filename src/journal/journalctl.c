@@ -103,6 +103,7 @@ enum {
 };
 
 static OutputMode arg_output = OUTPUT_SHORT;
+static const char *arg_output_str = "short";
 static bool arg_utc = false;
 static bool arg_pager_end = false;
 static bool arg_follow = false;
@@ -135,6 +136,7 @@ static bool arg_since_set = false, arg_until_set = false;
 static char **arg_syslog_identifier = NULL;
 static char **arg_system_units = NULL;
 static char **arg_user_units = NULL;
+static char **arg_unit_dbus_units = NULL;
 static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
@@ -170,6 +172,7 @@ static enum {
         ACTION_ROTATE_AND_VACUUM,
         ACTION_LIST_FIELDS,
         ACTION_LIST_FIELD_NAMES,
+        ACTION_SHOW_DBUS,
 } arg_action = ACTION_SHOW;
 
 typedef struct BootId {
@@ -320,6 +323,7 @@ static int help(void) {
                "  -k --dmesg                 Show kernel message log from the current boot\n"
                "  -u --unit=UNIT             Show logs from the specified unit\n"
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
+               "     --unit-dbus=UNIT        Show logs from the specified unit over dbus\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
                "  -p --priority=RANGE        Show entries with the specified priority\n"
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
@@ -398,6 +402,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AFTER_CURSOR,
                 ARG_SHOW_CURSOR,
                 ARG_USER_UNIT,
+                ARG_UNIT_DBUS,
                 ARG_LIST_CATALOG,
                 ARG_DUMP_CATALOG,
                 ARG_UPDATE_CATALOG,
@@ -456,6 +461,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "until",          required_argument, NULL, 'U'                },
                 { "unit",           required_argument, NULL, 'u'                },
                 { "user-unit",      required_argument, NULL, ARG_USER_UNIT      },
+                { "unit-dbus",      required_argument, NULL, ARG_UNIT_DBUS      },
                 { "field",          required_argument, NULL, 'F'                },
                 { "fields",         no_argument,       NULL, 'N'                },
                 { "catalog",        no_argument,       NULL, 'x'                },
@@ -513,6 +519,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         }
 
+                        arg_output_str = optarg;
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0) {
                                 log_error("Unknown output format '%s'.", optarg);
@@ -851,6 +858,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_USER_UNIT:
                         r = strv_extend(&arg_user_units, optarg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                case ARG_UNIT_DBUS:
+                        arg_action = ACTION_SHOW_DBUS;
+                        r = strv_extend(&arg_unit_dbus_units, optarg);
                         if (r < 0)
                                 return log_oom();
                         break;
@@ -2038,6 +2052,91 @@ static int sync_journal(void) {
         return send_signal_and_wait(SIGRTMIN+1, "/run/systemd/journal/synced");
 }
 
+static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret) {
+        _cleanup_strv_free_ char **mangled = NULL;
+        char **name;
+        int r;
+
+        assert(bus);
+        assert(ret);
+
+        STRV_FOREACH(name, names) {
+                char *t;
+                UnitNameMangle options = UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN);
+
+                if (suffix)
+                        r = unit_name_mangle_with_suffix(*name, options, suffix, &t);
+                else
+                        r = unit_name_mangle(*name, options, &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mangle name: %m");
+
+                if (string_is_glob(t)) {
+                        return log_error("Globs are not supported: %s", t);
+                        return -ENOTSUP;
+                } else
+                        r = strv_consume(&mangled, t);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(mangled);
+
+        return 0;
+}
+
+static int show_dbus(void) {
+        _cleanup_strv_free_ char **names = NULL;
+        char **name;
+        sd_bus *bus;
+        int r, q;
+        const char *log;
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return r;
+
+        r = expand_names(bus, arg_unit_dbus_units, NULL, &names);
+        if (r < 0)
+                return log_error_errno(r, "Failed to expand names: %m");
+
+        if (arg_lines == ARG_LINES_DEFAULT)
+                arg_lines = 10;
+
+        if (arg_lines == ARG_LINES_ALL) {
+                log_error("Lines argument 'all' not supported in dbus mode");
+                return -ENOTSUP;
+        }
+
+        STRV_FOREACH(name, names) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                q = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "ShowLogUnit",
+                                &error,
+                                &reply,
+                                "ssi", *name, arg_output_str, arg_lines);
+                if (q < 0) {
+                        log_error_errno(q, "Failed to show log of unit %s: %s", *name, bus_error_message(&error, q));
+                        if (r == 0)
+                                r = q;
+                } else {
+                        q = sd_bus_message_read(reply, "s", &log);
+                        if (q < 0) {
+                                bus_log_parse_error(q);
+                                if(r == 0)
+                                        r = q;
+                        } else
+                                printf("%s\n", log);
+                }
+        }
+        return r;
+}
+
 int main(int argc, char *argv[]) {
         int r;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2113,6 +2212,10 @@ int main(int argc, char *argv[]) {
 
         case ACTION_ROTATE:
                 r = rotate();
+                goto finish;
+
+        case ACTION_SHOW_DBUS:
+                r = show_dbus();
                 goto finish;
 
         case ACTION_SHOW:
@@ -2211,6 +2314,7 @@ int main(int argc, char *argv[]) {
         case ACTION_FLUSH:
         case ACTION_SYNC:
         case ACTION_ROTATE:
+        case ACTION_SHOW_DBUS:
                 assert_not_reached("Unexpected action.");
 
         case ACTION_PRINT_HEADER:
@@ -2659,6 +2763,7 @@ finish:
         strv_free(arg_syslog_identifier);
         strv_free(arg_system_units);
         strv_free(arg_user_units);
+        strv_free(arg_unit_dbus_units);
         strv_free(arg_output_fields);
 
         free(arg_root);

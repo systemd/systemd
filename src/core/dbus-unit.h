@@ -15,6 +15,7 @@ void bus_unit_send_removed_signal(Unit *u);
 
 int bus_unit_method_start_generic(sd_bus_message *message, Unit *u, JobType job_type, bool reload_if_possible, sd_bus_error *error);
 int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_unit_method_showlog(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 int bus_unit_set_properties(Unit *u, sd_bus_message *message, UnitWriteFlags flags, bool commit, sd_bus_error *error);
