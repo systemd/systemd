@@ -80,8 +80,6 @@ static int parse_argv(int argc, char *argv[]) {
 int hwdb_main(int argc, char *argv[], void *userdata) {
         int r;
 
-        log_set_max_level_realm(LOG_REALM_SYSTEMD, log_get_max_level());
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
