@@ -769,6 +769,37 @@ const char *last_path_component(const char *path) {
         return path + k;
 }
 
+int path_extract_filename(const char *p, char **ret) {
+        _cleanup_free_ char *a = NULL;
+        const char *c, *e = NULL, *q;
+
+        /* Extracts the filename part (i.e. right-most component) from a path, i.e. string that passes
+         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing slashes. */
+
+        if (!p)
+                return -EINVAL;
+
+        c = last_path_component(p);
+
+        for (q = c; *q != 0; q++)
+                if (*q != '/')
+                        e = q + 1;
+
+        if (!e) /* no valid character? */
+                return -EINVAL;
+
+        a = strndup(c, e - c);
+        if (!a)
+                return -ENOMEM;
+
+        if (!filename_is_valid(a))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(a);
+
+        return 0;
+}
+
 bool filename_is_valid(const char *p) {
         const char *e;
 
