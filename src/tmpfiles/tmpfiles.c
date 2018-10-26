@@ -146,7 +146,7 @@ typedef struct ItemArray {
 } ItemArray;
 
 typedef enum DirectoryType {
-        DIRECTORY_RUNTIME = 0,
+        DIRECTORY_RUNTIME,
         DIRECTORY_STATE,
         DIRECTORY_CACHE,
         DIRECTORY_LOGS,
