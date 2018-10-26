@@ -64,10 +64,11 @@ int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, 
                         if (!in_initrd())
                                 continue;
 
-                        if (flags & PROC_CMDLINE_STRIP_RD_PREFIX)
+                        if (FLAGS_SET(flags, PROC_CMDLINE_STRIP_RD_PREFIX))
                                 key = q;
-                } else if (in_initrd() && flags & PROC_CMDLINE_RD_STRICT)
-                        continue;
+
+                } else if (FLAGS_SET(flags, PROC_CMDLINE_RD_STRICT) && in_initrd())
+                        continue; /* And optionally filter out arguments that are intended only for the host */
 
                 value = strchr(key, '=');
                 if (value)
@@ -148,7 +149,7 @@ int proc_cmdline_get_key(const char *key, unsigned flags, char **value) {
         if (isempty(key))
                 return -EINVAL;
 
-        if ((flags & PROC_CMDLINE_VALUE_OPTIONAL) && !value)
+        if (FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL) && !value)
                 return -EINVAL;
 
         r = proc_cmdline(&line);
@@ -183,7 +184,7 @@ int proc_cmdline_get_key(const char *key, unsigned flags, char **value) {
 
                                 found = true;
 
-                        } else if (*e == 0 && (flags & PROC_CMDLINE_VALUE_OPTIONAL))
+                        } else if (*e == 0 && FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL))
                                 found = true;
 
                 } else {
