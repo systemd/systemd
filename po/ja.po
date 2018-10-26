@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2018-08-24 22:39+0900\n"
-"PO-Revision-Date: 2018-08-24 22:42+0900\n"
+"POT-Creation-Date: 2018-10-27 07:32+0900\n"
+"PO-Revision-Date: 2018-10-27 07:41+0900\n"
 "Last-Translator: Yu Watanabe <watanabe.yu+github@gmail.com>\n"
 "Language-Team: \n"
 "Language: ja\n"
@@ -588,8 +588,10 @@ msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)'を再起動するには認証が必要です。"
 
 #: src/core/dbus-unit.c:437
-msgid "Authentication is required to kill '$(unit)'."
-msgstr "'$(unit)'を強制停止するには認証が必要です。"
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必要です。"
 
 #: src/core/dbus-unit.c:468
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
