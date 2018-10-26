@@ -175,6 +175,8 @@ static int tar_import_finish(TarImport *i) {
                 i->tar_pid = 0;
                 if (r < 0)
                         return r;
+                if (r != EXIT_SUCCESS)
+                        return -EPROTO;
         }
 
         r = import_mangle_os_tree(i->temp_path);
