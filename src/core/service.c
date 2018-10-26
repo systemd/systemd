@@ -107,6 +107,8 @@ static void service_init(Unit *u) {
 
         s->exec_context.keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
                 EXEC_KEYRING_PRIVATE : EXEC_KEYRING_INHERIT;
+
+        s->watchdog_original_usec = USEC_INFINITY;
 }
 
 static void service_unwatch_control_pid(Service *s) {
@@ -195,19 +197,21 @@ static usec_t service_get_watchdog_usec(Service *s) {
 
         if (s->watchdog_override_enable)
                 return s->watchdog_override_usec;
-        else
-                return s->watchdog_usec;
+
+        return s->watchdog_original_usec;
 }
 
 static void service_start_watchdog(Service *s) {
-        int r;
         usec_t watchdog_usec;
+        int r;
 
         assert(s);
 
         watchdog_usec = service_get_watchdog_usec(s);
-        if (IN_SET(watchdog_usec, 0, USEC_INFINITY))
+        if (IN_SET(watchdog_usec, 0, USEC_INFINITY)) {
+                service_stop_watchdog(s);
                 return;
+        }
 
         if (s->watchdog_event_source) {
                 r = sd_event_source_set_time(s->watchdog_event_source, usec_add(s->watchdog_timestamp.monotonic, watchdog_usec));
@@ -235,48 +239,53 @@ static void service_start_watchdog(Service *s) {
                  * of living before we consider a service died. */
                 r = sd_event_source_set_priority(s->watchdog_event_source, SD_EVENT_PRIORITY_IDLE);
         }
-
         if (r < 0)
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
 }
 
-static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
+static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
+        usec_t current;
+        int r;
+
         assert(s);
 
-        if (s->timer_event_source) {
-                uint64_t current = 0, extended = 0;
-                int r;
+        /* Extends the specified event source timer to at least the specified time, unless it is already later
+         * anyway. */
 
-                if (IN_SET(extend_timeout_usec, 0, USEC_INFINITY))
-                        return;
+        if (!source)
+                return;
 
-                extended = usec_add(now(CLOCK_MONOTONIC), extend_timeout_usec);
-
-                r = sd_event_source_get_time(s->timer_event_source, &current);
-                if (r < 0)
-                        log_unit_error_errno(UNIT(s), r, "Failed to retrieve timeout timer: %m");
-                else if (extended > current) {
-                        r = sd_event_source_set_time(s->timer_event_source, extended);
-                        if (r < 0)
-                                log_unit_warning_errno(UNIT(s), r, "Failed to set timeout timer: %m");
-                }
-
-                if (s->watchdog_event_source) {
-                        /* extend watchdog if necessary. We've asked for an extended timeout so we
-                         * shouldn't expect a watchdog timeout in the interval in between */
-                        r = sd_event_source_get_time(s->watchdog_event_source, &current);
-                        if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to retrieve watchdog timer: %m");
-                                return;
-                        }
-
-                        if (extended > current) {
-                                r = sd_event_source_set_time(s->watchdog_event_source, extended);
-                                if (r < 0)
-                                        log_unit_warning_errno(UNIT(s), r, "Failed to set watchdog timer: %m");
-                        }
-                }
+        r = sd_event_source_get_time(source, &current);
+        if (r < 0) {
+                const char *desc;
+                (void) sd_event_source_get_description(s->timer_event_source, &desc);
+                log_unit_warning_errno(UNIT(s), r, "Failed to retrieve timeout time for event source '%s', ignoring: %m", strna(desc));
+                return;
         }
+
+        if (current >= extended) /* Current timeout is already longer, ignore this. */
+                return;
+
+        r = sd_event_source_set_time(source, extended);
+        if (r < 0) {
+                const char *desc;
+                (void) sd_event_source_get_description(s->timer_event_source, &desc);
+                log_unit_warning_errno(UNIT(s), r, "Failed to set timeout time for even source '%s', ignoring %m", strna(desc));
+        }
+}
+
+static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
+        usec_t extended;
+
+        assert(s);
+
+        if (IN_SET(extend_timeout_usec, 0, USEC_INFINITY))
+                return;
+
+        extended = usec_add(now(CLOCK_MONOTONIC), extend_timeout_usec);
+
+        service_extend_event_source_timeout(s, s->timer_event_source, extended);
+        service_extend_event_source_timeout(s, s->watchdog_event_source, extended);
 }
 
 static void service_reset_watchdog(Service *s) {
@@ -286,7 +295,7 @@ static void service_reset_watchdog(Service *s) {
         service_start_watchdog(s);
 }
 
-static void service_reset_watchdog_timeout(Service *s, usec_t watchdog_override_usec) {
+static void service_override_watchdog_timeout(Service *s, usec_t watchdog_override_usec) {
         assert(s);
 
         s->watchdog_override_enable = true;
@@ -1532,7 +1541,7 @@ static int service_spawn(
         exec_params.fd_names = fd_names;
         exec_params.n_socket_fds = n_socket_fds;
         exec_params.n_storage_fds = n_storage_fds;
-        exec_params.watchdog_usec = s->watchdog_usec;
+        exec_params.watchdog_usec = service_get_watchdog_usec(s);
         exec_params.selinux_context_net = s->socket_fd_selinux_context_net;
         if (s->type == SERVICE_IDLE)
                 exec_params.idle_pipe = UNIT(s)->manager->idle_pipe;
@@ -2345,8 +2354,9 @@ static int service_start(Unit *u) {
 
         s->notify_state = NOTIFY_UNKNOWN;
 
+        s->watchdog_original_usec = s->watchdog_usec;
         s->watchdog_override_enable = false;
-        s->watchdog_override_usec = 0;
+        s->watchdog_override_usec = USEC_INFINITY;
 
         exec_command_reset_status_list_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         exec_status_reset(&s->main_exec_status);
@@ -2580,6 +2590,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         if (s->watchdog_override_enable)
                 (void) serialize_item_format(f, "watchdog-override-usec", USEC_FMT, s->watchdog_override_usec);
+
+        if (s->watchdog_original_usec != USEC_INFINITY)
+                (void) serialize_item_format(f, "watchdog-original-usec", USEC_FMT, s->watchdog_original_usec);
 
         return 0;
 }
@@ -2888,6 +2901,10 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u, "Failed to parse watchdog_override_usec value: %s", value);
                 else
                         s->watchdog_override_enable = true;
+
+        } else if (streq(key, "watchdog-original-usec")) {
+                if (deserialize_usec(value, &s->watchdog_original_usec) < 0)
+                        log_unit_debug(u, "Failed to parse watchdog_original_usec value: %s", value);
 
         } else if (STR_IN_SET(key, "main-command", "control-command")) {
                 r = service_deserialize_exec_command(u, key, value);
@@ -3767,7 +3784,7 @@ static void service_notify_message(
                 if (safe_atou64(e, &watchdog_override_usec) < 0)
                         log_unit_warning(u, "Failed to parse WATCHDOG_USEC=%s", e);
                 else
-                        service_reset_watchdog_timeout(s, watchdog_override_usec);
+                        service_override_watchdog_timeout(s, watchdog_override_usec);
         }
 
         /* Process FD store messages. Either FDSTOREREMOVE=1 for removal, or FDSTORE=1 for addition. In both cases,

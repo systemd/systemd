@@ -99,8 +99,9 @@ struct Service {
         usec_t runtime_max_usec;
 
         dual_timestamp watchdog_timestamp;
-        usec_t watchdog_usec;
-        usec_t watchdog_override_usec;
+        usec_t watchdog_usec;            /* the requested watchdog timeout in the unit file */
+        usec_t watchdog_original_usec;   /* the watchdog timeout that was in effect when the unit was started, i.e. the timeout the forked off processes currently see */
+        usec_t watchdog_override_usec;   /* the watchdog timeout requested by the service itself through sd_notify() */
         bool watchdog_override_enable;
         sd_event_source *watchdog_event_source;
 
