@@ -163,8 +163,6 @@ int copy_bytes_full(
                                                 return 1; /* we copied only some number of bytes, which worked, but this means we didn't hit EOF, return 1 */
                                         }
                                 }
-
-                                log_debug_errno(r, "Reflinking didn't work, falling back to non-reflink copying: %m");
                         }
                 }
         }
