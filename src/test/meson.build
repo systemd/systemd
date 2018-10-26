@@ -68,6 +68,11 @@ tests += [
           libshared],
          []],
 
+        [['src/test/test-chown-rec.c'],
+         [libcore,
+          libshared],
+         []],
+
         [['src/test/test-job-type.c'],
          [libcore,
           libshared],
