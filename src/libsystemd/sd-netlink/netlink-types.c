@@ -224,6 +224,9 @@ static const NLType rtnl_link_info_data_bond_types[] = {
         [IFLA_BOND_AD_LACP_RATE]        = { .type = NETLINK_TYPE_U8 },
         [IFLA_BOND_AD_SELECT]           = { .type = NETLINK_TYPE_U8 },
         [IFLA_BOND_AD_INFO]             = { .type = NETLINK_TYPE_NESTED },
+        [IFLA_BOND_AD_ACTOR_SYS_PRIO]   = { .type = NETLINK_TYPE_U16 },
+        [IFLA_BOND_AD_USER_PORT_KEY]    = { .type = NETLINK_TYPE_U16 },
+        [IFLA_BOND_AD_ACTOR_SYSTEM]     = { .type = NETLINK_TYPE_ETHER_ADDR },
 };
 
 static const NLType rtnl_link_info_data_iptun_types[] = {

@@ -1269,6 +1269,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AdActorSysPrio=</varname></term>
+        <listitem>
+          <para>Specifies the 802.3ad system priority. Ranges [1-65535].</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AdUserPortKey=</varname></term>
+        <listitem>
+          <para>Specifies the 802.3ad user defined portion of the port key. Ranges [0-1023].</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AdActorSystem=</varname></term>
+        <listitem>
+          <para>Specifies the 802.3ad system mac address. This can not be either NULL or Multicast.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>FailOverMACPolicy=</varname></term>
         <listitem>
           <para>Specifies whether the active-backup mode should set all slaves to
