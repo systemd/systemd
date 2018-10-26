@@ -10,12 +10,10 @@
  */
 import cpp
 
-
 predicate dangerousFunction(Function function) {
   exists (string name | name = function.getQualifiedName() |
     name = "fgets")
 }
-
 
 from FunctionCall call, Function target
 where call.getTarget() = target
