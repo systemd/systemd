@@ -22,6 +22,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -716,6 +717,10 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
         if (!machine_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
 
@@ -777,6 +782,10 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
                 return 1; /* Will call us back */
 
         r = sd_bus_message_read(msg, "hsbb", &fd, &local, &force, &read_only);
+        if (r < 0)
+                return r;
+
+        r = fd_verify_directory(fd);
         if (r < 0)
                 return r;
 
@@ -845,6 +854,10 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         if (!machine_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
 
         type = streq_ptr(sd_bus_message_get_member(msg), "ExportTar") ? TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
 
