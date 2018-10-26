@@ -296,3 +296,26 @@ int fd_verify_regular(int fd) {
 
         return stat_verify_regular(&st);
 }
+
+int stat_verify_directory(const struct stat *st) {
+        assert(st);
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISDIR(st->st_mode))
+                return -ENOTDIR;
+
+        return 0;
+}
+
+int fd_verify_directory(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return stat_verify_directory(&st);
+}

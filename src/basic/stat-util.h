@@ -59,3 +59,6 @@ int path_is_temporary_fs(const char *path);
 
 int stat_verify_regular(const struct stat *st);
 int fd_verify_regular(int fd);
+
+int stat_verify_directory(const struct stat *st);
+int fd_verify_directory(int fd);
