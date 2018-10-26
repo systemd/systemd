@@ -2000,28 +2000,38 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         return -r;
 }
 
+static const char *nullify_dash(const char *p) {
+        if (isempty(p))
+                return NULL;
+
+        if (streq(p, "-"))
+                return NULL;
+
+        return p;
+}
+
 static int import_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_free_ char *ll = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
+        _cleanup_close_ int fd = -1;
         sd_bus *bus = userdata;
         int r;
 
         assert(bus);
 
         if (argc >= 2)
-                path = argv[1];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+                path = nullify_dash(argv[1]);
 
         if (argc >= 3)
-                local = argv[2];
-        else if (path)
-                local = basename(path);
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
+                local = nullify_dash(argv[2]);
+        else if (path) {
+                r = path_extract_filename(path, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot extract container name from filename: %m");
 
+                local = fn;
+        }
         if (!local) {
                 log_error("Need either path or local name.");
                 return -EINVAL;
@@ -2069,26 +2079,26 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 
 static int import_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_free_ char *ll = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
+        _cleanup_close_ int fd = -1;
         sd_bus *bus = userdata;
         int r;
 
         assert(bus);
 
         if (argc >= 2)
-                path = argv[1];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+                path = nullify_dash(argv[1]);
 
         if (argc >= 3)
-                local = argv[2];
-        else if (path)
-                local = basename(path);
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
+                local = nullify_dash(argv[2]);
+        else if (path) {
+                r = path_extract_filename(path, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot extract container name from filename: %m");
 
+                local = fn;
+        }
         if (!local) {
                 log_error("Need either path or local name.");
                 return -EINVAL;
@@ -2136,25 +2146,26 @@ static int import_raw(int argc, char *argv[], void *userdata) {
 
 static int import_fs(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_close_ int fd = -1;
         const char *local = NULL, *path = NULL;
+        _cleanup_free_ char *fn = NULL;
+        _cleanup_close_ int fd = -1;
         sd_bus *bus = userdata;
         int r;
 
         assert(bus);
 
         if (argc >= 2)
-                path = argv[1];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+                path = nullify_dash(argv[1]);
 
         if (argc >= 3)
-                local = argv[2];
-        else if (path)
-                local = basename(path);
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
+                local = nullify_dash(argv[2]);
+        else if (path) {
+                r = path_extract_filename(path, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot extract container name from filename: %m");
 
+                local = fn;
+        }
         if (!local) {
                 log_error("Need either path or local name.");
                 return -EINVAL;
