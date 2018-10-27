@@ -41,7 +41,7 @@ static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *u
         else
                 action = 0;
 
-        if (curl_multi_socket_action(g->curl, translated_fd, action, &k) < 0) {
+        if (curl_multi_socket_action(g->curl, translated_fd, action, &k) != CURLM_OK) {
                 log_debug("Failed to propagate IO event.");
                 return -EINVAL;
         }
