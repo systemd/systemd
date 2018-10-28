@@ -323,28 +323,76 @@ static int worker_send_message(int fd) {
         return loop_write(fd, &message, sizeof(message), false);
 }
 
-static bool shall_lock_device(sd_device *dev) {
-        const char *sysname, *subsystem;
+static int lock_block_device(sd_device *dev, int *ret_fd) {
+        const char *action, *sysname, *subsystem, *devtype, *devname;
+        _cleanup_close_ int fd = -1;
+        int r;
 
-        if (sd_device_get_subsystem(dev, &subsystem) < 0)
-                return false;
+        assert(dev);
+        assert(ret_fd);
+
+        /*
+         * Take a shared lock on the device node; this establishes
+         * a concept of device "ownership" to serialize device
+         * access. External processes holding an exclusive lock will
+         * cause udev to skip the event handling; in the case udev
+         * acquired the lock, the external process can block until
+         * udev has finished its event handling.
+         */
+
+        if (sd_device_get_property_value(dev, "ACTION", &action) >= 0 &&
+            streq(action, "remove"))
+                return 0;
+
+        r = sd_device_get_subsystem(dev, &subsystem);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to get subsystem, ignoring: %m");
+                return 0;
+        }
 
         if (!streq(subsystem, "block"))
-                return false;
+                return 0;
 
-        if (sd_device_get_sysname(dev, &sysname) < 0)
-                return false;
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
 
-        return !startswith(sysname, "dm-") &&
-               !startswith(sysname, "md") &&
-               !startswith(sysname, "drbd");
+        if (startswith(sysname, "dm-") ||
+            startswith(sysname, "md") ||
+            startswith(sysname, "drbd"))
+                return 0;
+
+        if (sd_device_get_devtype(dev, &devtype) >= 0 &&
+            streq(devtype, "partition")) {
+                r = sd_device_get_parent(dev, &dev);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
+        }
+
+        r = sd_device_get_devname(dev, &devname);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to get devname, ignoring: %m");
+                return 0;
+        }
+
+        fd = open(devname, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+        if (fd < 0) {
+                log_device_debug_errno(dev, r, "Failed to open '%s', ignoring: %m", devname);
+                return 0;
+        }
+
+        if (flock(fd, LOCK_SH|LOCK_NB) < 0)
+                return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", devname);
+
+        *ret_fd = TAKE_FD(fd);
+        return 1;
 }
 
 static int worker_process_device(Manager *manager, sd_device *dev) {
         _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
         _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
-        const char *seqnum, *action;
+        const char *seqnum;
         int r;
 
         assert(manager);
@@ -366,35 +414,9 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
 
         udev_event->exec_delay_usec = arg_exec_delay_usec;
 
-        /*
-         * Take a shared lock on the device node; this establishes
-         * a concept of device "ownership" to serialize device
-         * access. External processes holding an exclusive lock will
-         * cause udev to skip the event handling; in the case udev
-         * acquired the lock, the external process can block until
-         * udev has finished its event handling.
-         */
-        if (sd_device_get_property_value(dev, "ACTION", &action) >= 0 &&
-            !streq(action, "remove") &&
-            shall_lock_device(dev)) {
-                const char *devtype, *devname;
-                sd_device *d = dev;
-
-                if (sd_device_get_devtype(dev, &devtype) >= 0 &&
-                    streq(devtype, "partition")) {
-                        r = sd_device_get_parent(dev, &d);
-                        if (r < 0)
-                                return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
-                }
-
-                r = sd_device_get_devname(d, &devname);
-                if (r < 0)
-                        return log_device_warning_errno(d, r, "Failed to get devname: %m");
-
-                fd_lock = open(devname, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
-                if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0)
-                        return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", devname);
-        }
+        r = lock_block_device(dev, &fd_lock);
+        if (r < 0)
+                return r;
 
         /* needed for renaming netifs */
         udev_event->rtnl = manager->rtnl;
