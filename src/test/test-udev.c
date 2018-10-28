@@ -52,7 +52,7 @@ static int fake_filesystems(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
+        _cleanup_(udev_event_freep) struct udev_event *event = NULL;
         _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
         const char *devpath, *action;

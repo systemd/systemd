@@ -61,23 +61,21 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
 /* udev-event.c */
 struct udev_event *udev_event_new(struct udev_device *dev);
-void udev_event_unref(struct udev_event *event);
-size_t udev_event_apply_format(struct udev_event *event,
-                               const char *src, char *dest, size_t size,
-                               bool replace_whitespace);
-int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
-                                   char *result, size_t maxsize, int read_value);
+struct udev_event *udev_event_free(struct udev_event *event);
+ssize_t udev_event_apply_format(struct udev_event *event,
+                                const char *src, char *dest, size_t size,
+                                bool replace_whitespace);
 int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_usec,
                      usec_t timeout_warn_usec,
                      bool accept_failure,
                      const char *cmd, char *result, size_t ressize);
-void udev_event_execute_rules(struct udev_event *event,
-                              usec_t timeout_usec, usec_t timeout_warn_usec,
-                              Hashmap *properties_list,
-                              struct udev_rules *rules);
+int udev_event_execute_rules(struct udev_event *event,
+                             usec_t timeout_usec, usec_t timeout_warn_usec,
+                             Hashmap *properties_list,
+                             struct udev_rules *rules);
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec);
 
 /* Cleanup functions */
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_event*, udev_event_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_event*, udev_event_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_rules*, udev_rules_unref);

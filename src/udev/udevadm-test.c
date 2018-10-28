@@ -89,7 +89,7 @@ static int parse_argv(int argc, char *argv[]) {
 int test_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
         _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
-        _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
+        _cleanup_(udev_event_freep) struct udev_event *event = NULL;
         struct udev_list_entry *entry;
         sigset_t mask, sigmask_orig;
         const char *cmd;
