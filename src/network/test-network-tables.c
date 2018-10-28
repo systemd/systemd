@@ -35,7 +35,6 @@ int main(int argc, char **argv) {
         test_table(nl_union_link_info_data, NL_UNION_LINK_INFO_DATA);
         test_table(wol, WOL);
 
-        test_table_sparse(dhcp6_message_type, DHCP6_MESSAGE);
         test_table_sparse(ipvlan_mode, NETDEV_IPVLAN_MODE);
         test_table_sparse(macvlan_mode, NETDEV_MACVLAN_MODE);
 
