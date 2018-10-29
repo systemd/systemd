@@ -46,7 +46,7 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev) {
         struct udev_queue *udev_queue;
 
         udev_queue = new(struct udev_queue, 1);
-        if (udev_queue == NULL) {
+        if (!udev_queue) {
                 errno = ENOMEM;
                 return NULL;
         }
