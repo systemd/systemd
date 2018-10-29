@@ -224,13 +224,13 @@ static void test_compress_stream(int compression,
 
 #if HAVE_LZ4
 static void test_lz4_decompress_partial(void) {
-        char buf[20000];
+        char buf[20000], buf2[100];
         size_t buf_size = sizeof(buf), compressed;
         int r;
         _cleanup_free_ char *huge = NULL;
 
 #define HUGE_SIZE (4096*1024)
-        huge = malloc(HUGE_SIZE);
+        assert_se(huge = malloc(HUGE_SIZE));
         memset(huge, 'x', HUGE_SIZE);
         memcpy(huge, "HUGE=", 5);
 
@@ -249,14 +249,15 @@ static void test_lz4_decompress_partial(void) {
         assert_se(r >= 0);
         log_info("Decompressed partial %i/%i → %i", 12, HUGE_SIZE, r);
 
-        /* We expect this to fail, because that's how current lz4 works. If this
-         * call succeeds, then lz4 has been fixed, and we need to change our code.
-         */
-        r = LZ4_decompress_safe_partial(buf, huge,
-                                        compressed,
-                                        12, HUGE_SIZE-1);
-        assert_se(r < 0);
-        log_info("Decompressed partial %i/%i → %i", 12, HUGE_SIZE-1, r);
+        for (size_t size = 1; size < sizeof(buf2); size++) {
+                /* This failed in older lz4s but works in newer ones. */
+                r = LZ4_decompress_safe_partial(buf, buf2, compressed, size, size);
+                log_info("Decompressed partial %zu/%zu → %i (%s)", size, size, r,
+                                                                   r < 0 ? "bad" : "good");
+                if (r >= 0 && LZ4_versionNumber() >= 10803)
+                        /* lz4 <= 1.8.2 should fail that test, let's only check for newer ones */
+                        assert_se(memcmp(buf2, huge, r) == 0);
+        }
 }
 #endif
 
