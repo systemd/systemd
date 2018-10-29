@@ -1767,18 +1767,15 @@ int udev_rules_apply_to_event(
                                 goto nomatch;
                         break;
                 case TK_M_DEVLINK: {
-                        struct udev_list_entry *list_entry;
+                        const char *devlink;
                         bool match = false;
 
-                        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(event->dev)) {
-                                const char *devlink;
-
-                                devlink = udev_list_entry_get_name(list_entry) + STRLEN("/dev/");
-                                if (match_key(rules, cur, devlink) == 0) {
+                        FOREACH_DEVICE_DEVLINK(event->dev->device, devlink)
+                                if (match_key(rules, cur, devlink + STRLEN("/dev/")) == 0) {
                                         match = true;
                                         break;
                                 }
-                        }
+
                         if (!match)
                                 goto nomatch;
                         break;
@@ -1802,15 +1799,15 @@ int udev_rules_apply_to_event(
                         break;
                 }
                 case TK_M_TAG: {
-                        struct udev_list_entry *list_entry;
                         bool match = false;
+                        const char *tag;
 
-                        udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(event->dev)) {
-                                if (streq(rules_str(rules, cur->key.value_off), udev_list_entry_get_name(list_entry))) {
+                        FOREACH_DEVICE_TAG(event->dev->device, tag)
+                                if (streq(rules_str(rules, cur->key.value_off), tag)) {
                                         match = true;
                                         break;
                                 }
-                        }
+
                         if ((!match && (cur->key.op != OP_NOMATCH)) ||
                             (match && (cur->key.op == OP_NOMATCH)))
                                 goto nomatch;
