@@ -665,24 +665,21 @@ static int import_program_into_properties(struct udev_event *event,
         return 0;
 }
 
-static int import_parent_into_properties(struct udev_device *dev, const char *filter) {
-        struct udev_device *dev_parent;
-        struct udev_list_entry *list_entry;
+static int import_parent_into_properties(sd_device *dev, const char *filter) {
+        const char *key, *val;
+        sd_device *parent;
+        int r;
 
         assert(dev);
         assert(filter);
 
-        dev_parent = udev_device_get_parent(dev);
-        if (dev_parent == NULL)
-                return -1;
+        r = sd_device_get_parent(dev, &parent);
+        if (r < 0)
+                return r;
 
-        udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(dev_parent)) {
-                const char *key = udev_list_entry_get_name(list_entry);
-                const char *val = udev_list_entry_get_value(list_entry);
-
+        FOREACH_DEVICE_PROPERTY(parent, key, val)
                 if (fnmatch(filter, key, 0) == 0)
-                        udev_device_add_property(dev, key, val);
-        }
+                        device_add_property(dev, key, val);
         return 0;
 }
 
@@ -2069,7 +2066,7 @@ int udev_rules_apply_to_event(
                         char import[UTIL_PATH_SIZE];
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), import, sizeof(import), false);
-                        if (import_parent_into_properties(event->dev, import) != 0)
+                        if (import_parent_into_properties(event->dev->device, import) != 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
