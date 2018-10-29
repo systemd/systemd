@@ -19,9 +19,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "libudev-private.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "syslog-util.h"
 #include "time-util.h"
 #include "udevadm.h"
 #include "udev-ctrl.h"
@@ -84,18 +84,15 @@ int control_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
                         break;
-                case 'l': {
-                        int i;
+                case 'l':
+                        r = log_level_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse log priority '%s': %m", optarg);
 
-                        i = util_log_priority(optarg);
-                        if (i < 0)
-                                return log_error_errno(i, "invalid number '%s'", optarg);
-
-                        r = udev_ctrl_send_set_log_level(uctrl, i, timeout);
+                        r = udev_ctrl_send_set_log_level(uctrl, r, timeout);
                         if (r < 0)
                                 return r;
                         break;
-                }
                 case 's':
                         r = udev_ctrl_send_stop_exec_queue(uctrl, timeout);
                         if (r < 0)

@@ -99,7 +99,6 @@ void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num);
 #define UTIL_NAME_SIZE                       512
 #define UTIL_LINE_SIZE                     16384
 #define UDEV_ALLOWED_CHARS_INPUT        "/ $%?,"
-int util_log_priority(const char *priority);
 size_t util_path_encode(const char *src, char *dest, size_t size);
 int util_replace_whitespace(const char *str, char *to, size_t len);
 int util_replace_chars(char *str, const char *white);

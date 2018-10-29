@@ -51,6 +51,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "syslog-util.h"
 #include "terminal-util.h"
 #include "udev-builtin.h"
 #include "udev-ctrl.h"
@@ -1452,7 +1453,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = util_log_priority(value);
+                r = log_level_from_string(value);
                 if (r >= 0)
                         log_set_max_level(r);
 
