@@ -208,11 +208,7 @@ static void test_lz4_decompress_partial(void) {
         memset(huge, 'x', HUGE_SIZE);
         memcpy(huge, "HUGE=", 5);
 
-#if LZ4_VERSION_NUMBER >= 10700
         r = LZ4_compress_default(huge, buf, HUGE_SIZE, buf_size);
-#else
-        r = LZ4_compress_limitedOutput(huge, buf, HUGE_SIZE, buf_size);
-#endif
         assert_se(r >= 0);
         compressed = r;
         log_info("Compressed %i → %zu", HUGE_SIZE, compressed);
