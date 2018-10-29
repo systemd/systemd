@@ -86,6 +86,9 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnARCHOS:pnARCHOS80Cesium:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100CHI*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
+sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT300CHI*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
+
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TA*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
