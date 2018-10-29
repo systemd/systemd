@@ -22,7 +22,7 @@
 
 struct udev_event {
         struct udev_device *dev;
-        struct udev_device *dev_parent;
+        sd_device *dev_parent;
         sd_device *dev_db_clone;
         char *name;
         char *program_result;
