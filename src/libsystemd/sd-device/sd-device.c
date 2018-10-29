@@ -572,7 +572,6 @@ _public_ int sd_device_get_ifindex(sd_device *device, int *ifindex) {
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(ifindex, -EINVAL);
 
         r = device_read_uevent_file(device);
         if (r < 0)
@@ -581,7 +580,8 @@ _public_ int sd_device_get_ifindex(sd_device *device, int *ifindex) {
         if (device->ifindex <= 0)
                 return -ENOENT;
 
-        *ifindex = device->ifindex;
+        if (ifindex)
+                *ifindex = device->ifindex;
 
         return 0;
 }
@@ -889,7 +889,6 @@ _public_ int sd_device_get_devnum(sd_device *device, dev_t *devnum) {
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(devnum, -EINVAL);
 
         r = device_read_uevent_file(device);
         if (r < 0)
@@ -898,7 +897,8 @@ _public_ int sd_device_get_devnum(sd_device *device, dev_t *devnum) {
         if (major(device->devnum) <= 0)
                 return -ENOENT;
 
-        *devnum = device->devnum;
+        if (devnum)
+                *devnum = device->devnum;
 
         return 0;
 }
@@ -1677,7 +1677,6 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
 
         assert_return(device, -EINVAL);
         assert_return(key, -EINVAL);
-        assert_return(_value, -EINVAL);
 
         r = device_properties_prepare(device);
         if (r < 0)
@@ -1687,7 +1686,8 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
         if (!value)
                 return -ENOENT;
 
-        *_value = value;
+        if (_value)
+                *_value = value;
 
         return 0;
 }
