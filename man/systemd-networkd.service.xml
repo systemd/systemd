@@ -59,7 +59,7 @@
 
     <para>When <filename>systemd-networkd</filename> exits, it generally leaves
     existing network devices and configuration intact. This makes it possible to
-    transition from the initrams and to restart the service without breaking
+    transition from the initramfs and to restart the service without breaking
     connectivity. This also means that when configuration is updated and
     <filename>systemd-networkd</filename> is restarted, netdev interfaces for
     which configuration was removed will not be dropped, and may need to be
