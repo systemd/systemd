@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "def.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "escape.h"
@@ -557,7 +558,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
         return gid;
 }
 
-static int import_property_from_string(struct udev_device *dev, char *line) {
+static int import_property_from_string(sd_device *dev, char *line) {
         char *key;
         char *val;
         size_t len;
@@ -569,12 +570,12 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
 
         /* comment or empty line */
         if (IN_SET(key[0], '#', '\0'))
-                return -1;
+                return 0;
 
         /* split key/value */
         val = strchr(key, '=');
-        if (val == NULL)
-                return -1;
+        if (!val)
+                return -EINVAL;
         val[0] = '\0';
         val++;
 
@@ -585,7 +586,7 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
         /* terminate key */
         len = strlen(key);
         if (len == 0)
-                return -1;
+                return -EINVAL;
         while (isspace(key[len-1]))
                 len--;
         key[len] = '\0';
@@ -593,27 +594,25 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
         /* terminate value */
         len = strlen(val);
         if (len == 0)
-                return -1;
+                return -EINVAL;
         while (isspace(val[len-1]))
                 len--;
         val[len] = '\0';
 
         if (len == 0)
-                return -1;
+                return -EINVAL;
 
         /* unquote */
         if (IN_SET(val[0], '"', '\'')) {
                 if (len == 1 || val[len-1] != val[0]) {
                         log_debug("inconsistent quoting: '%s', skip", line);
-                        return -1;
+                        return -EINVAL;
                 }
                 val[len-1] = '\0';
                 val++;
         }
 
-        udev_device_add_property(dev, key, val);
-
-        return 0;
+        return device_add_property(dev, key, val);
 }
 
 static int import_file_into_properties(struct udev_device *dev, const char *filename) {
@@ -633,7 +632,7 @@ static int import_file_into_properties(struct udev_device *dev, const char *file
                 if (r == 0)
                         break;
 
-                (void) import_property_from_string(dev, line);
+                (void) import_property_from_string(dev->device, line);
         }
 
         return 0;
@@ -660,7 +659,7 @@ static int import_program_into_properties(struct udev_event *event,
                         pos[0] = '\0';
                         pos = &pos[1];
                 }
-                (void) import_property_from_string(event->dev, line);
+                (void) import_property_from_string(event->dev->device, line);
                 line = pos;
         }
         return 0;
