@@ -782,7 +782,6 @@ static void event_execute_rules_on_remove(
                 struct udev_rules *rules) {
 
         sd_device *dev = event->dev->device;
-        dev_t devnum;
         int r;
 
         r = device_read_db_force(dev);
@@ -797,18 +796,14 @@ static void event_execute_rules_on_remove(
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
-        r = sd_device_get_devnum(dev, &devnum);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        log_device_debug_errno(dev, r, "Failed to get devnum, ignoring: %m");
-        } else
+        if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_watch_end(dev);
 
         (void) udev_rules_apply_to_event(rules, event,
                                          timeout_usec, timeout_warn_usec,
                                          properties_list);
 
-        if (major(devnum) > 0)
+        if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_node_remove(dev);
 }
 
