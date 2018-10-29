@@ -131,6 +131,32 @@ static void test_decompress_startswith(int compression,
         assert_se(r > 0);
 }
 
+static void test_decompress_startswith_short(int compression,
+                                             compress_blob_t compress,
+                                             decompress_sw_t decompress_sw) {
+
+#define TEXT "HUGE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+        char buf[1024];
+        size_t i, csize;
+        int r;
+
+        log_info("/* %s with %s */", __func__, object_compressed_to_string(compression));
+
+        r = compress(TEXT, sizeof TEXT, buf, sizeof buf, &csize);
+        assert_se(r == 0);
+
+        for (i = 1; i < strlen(TEXT); i++) {
+                size_t alloc_size = i;
+                _cleanup_free_ void *buf2 = NULL;
+
+                assert_se(buf2 = malloc(i));
+
+                assert_se(decompress_sw(buf, csize, &buf2, &alloc_size, TEXT, i, TEXT[i]) == 1);
+                assert_se(decompress_sw(buf, csize, &buf2, &alloc_size, TEXT, i, 'y') == 0);
+        }
+}
+
 static void test_compress_stream(int compression,
                                  const char* cat,
                                  compress_stream_t compress,
@@ -271,6 +297,9 @@ int main(int argc, char *argv[]) {
 
         test_compress_stream(OBJECT_COMPRESSED_XZ, "xzcat",
                              compress_stream_xz, decompress_stream_xz, srcfile);
+
+        test_decompress_startswith_short(OBJECT_COMPRESSED_XZ, compress_blob_xz, decompress_startswith_xz);
+
 #else
         log_info("/* XZ test skipped */");
 #endif
@@ -295,6 +324,9 @@ int main(int argc, char *argv[]) {
                              compress_stream_lz4, decompress_stream_lz4, srcfile);
 
         test_lz4_decompress_partial();
+
+        test_decompress_startswith_short(OBJECT_COMPRESSED_LZ4, compress_blob_lz4, decompress_startswith_lz4);
+
 #else
         log_info("/* LZ4 test skipped */");
 #endif
