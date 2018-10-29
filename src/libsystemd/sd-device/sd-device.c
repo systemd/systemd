@@ -1374,19 +1374,16 @@ static int device_read_db(sd_device *device) {
         return device_read_db_aux(device, false);
 }
 
-_public_ int sd_device_get_is_initialized(sd_device *device, int *initialized) {
+_public_ int sd_device_get_is_initialized(sd_device *device) {
         int r;
 
         assert_return(device, -EINVAL);
-        assert_return(initialized, -EINVAL);
 
         r = device_read_db(device);
         if (r < 0)
                 return r;
 
-        *initialized = device->is_initialized;
-
-        return 0;
+        return device->is_initialized;
 }
 
 _public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *usec) {

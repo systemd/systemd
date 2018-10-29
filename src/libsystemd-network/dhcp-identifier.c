@@ -158,14 +158,14 @@ int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_i
         if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
                 char ifindex_str[2 + DECIMAL_STR_MAX(int)];
-                int initialized, r;
+                int r;
 
                 sprintf(ifindex_str, "n%d", ifindex);
                 if (sd_device_new_from_device_id(&device, ifindex_str) >= 0) {
-                        r = sd_device_get_is_initialized(device, &initialized);
+                        r = sd_device_get_is_initialized(device);
                         if (r < 0)
                                 return r;
-                        if (!initialized)
+                        if (r == 0)
                                 /* not yet ready */
                                 return -EBUSY;
 

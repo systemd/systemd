@@ -3333,8 +3333,8 @@ ipv4ll_address_fail:
 int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         char ifindex_str[2 + DECIMAL_STR_MAX(int)];
-        int initialized, r;
         Link *link;
+        int r;
 
         assert(m);
         assert(m->rtnl);
@@ -3362,12 +3362,12 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
                         goto failed;
                 }
 
-                r = sd_device_get_is_initialized(device, &initialized);
+                r = sd_device_get_is_initialized(device);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not determine whether the device is initialized or not: %m");
                         goto failed;
                 }
-                if (!initialized) {
+                if (r == 0) {
                         /* not yet ready */
                         log_link_debug(link, "link pending udev initialization...");
                         return 0;

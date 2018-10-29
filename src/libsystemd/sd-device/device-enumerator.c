@@ -458,8 +458,7 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
         FOREACH_DIRENT_ALL(dent, dir, return -errno) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
                 char syspath[strlen(path) + 1 + strlen(dent->d_name) + 1];
-                dev_t devnum;
-                int ifindex, initialized, k;
+                int initialized, k;
 
                 if (dent->d_name[0] == '.')
                         continue;
@@ -478,9 +477,9 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                         continue;
                 }
 
-                k = sd_device_get_is_initialized(device, &initialized);
-                if (k < 0) {
-                        r = k;
+                initialized = sd_device_get_is_initialized(device);
+                if (initialized < 0) {
+                        r = initialized;
                         continue;
                 }
 
@@ -496,8 +495,8 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                  */
                 if (!enumerator->match_allow_uninitialized &&
                     !initialized &&
-                    (sd_device_get_devnum(device, &devnum) >= 0 ||
-                     sd_device_get_ifindex(device, &ifindex) >= 0))
+                    (sd_device_get_devnum(device, NULL) >= 0 ||
+                     sd_device_get_ifindex(device, NULL) >= 0))
                         continue;
 
                 if (!match_parent(enumerator, device))

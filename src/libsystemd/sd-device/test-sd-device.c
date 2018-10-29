@@ -29,7 +29,7 @@ static void test_sd_device_basic(void) {
                 assert_se(r >= 0 || r == -ENOENT);
 
                 r = sd_device_get_devnum(d, &devnum);
-                assert_se(r >= 0 || r == -ENOENT);
+                assert_se((r >= 0 && major(devnum) > 0) || r == -ENOENT);
 
                 r = sd_device_get_ifindex(d, &i);
                 assert_se((r >= 0 && i > 0) || r == -ENOENT);
@@ -47,9 +47,9 @@ static void test_sd_device_basic(void) {
                 r = sd_device_get_sysnum(d, &val);
                 assert_se(r >= 0 || r == -ENOENT);
 
-                i = 0;
-                assert_se(sd_device_get_is_initialized(d, &i) >= 0);
-                if (i > 0) {
+                r = sd_device_get_is_initialized(d);
+                assert_se(r >= 0);
+                if (r > 0) {
                         r = sd_device_get_usec_since_initialized(d, &usec);
                         assert_se(r >= 0 || r == -ENODATA);
                 }
