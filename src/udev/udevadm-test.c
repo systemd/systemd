@@ -12,6 +12,7 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 
+#include "libudev-device-internal.h"
 #include "string-util.h"
 #include "udev-builtin.h"
 #include "udev.h"
@@ -128,7 +129,7 @@ int test_main(int argc, char *argv[], void *userdata) {
         /* don't read info from the db */
         udev_device_set_info_loaded(dev);
 
-        event = udev_event_new(dev, 0, NULL);
+        event = udev_event_new(dev->device, 0, NULL);
 
         sigfillset(&mask);
         sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);

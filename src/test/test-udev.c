@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "fs-util.h"
+#include "libudev-device-internal.h"
 #include "log.h"
 #include "missing.h"
 #include "selinux-util.h"
@@ -82,7 +83,7 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        assert_se(event = udev_event_new(dev, 0, NULL));
+        assert_se(event = udev_event_new(dev->device, 0, NULL));
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
 

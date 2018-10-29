@@ -342,7 +342,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
         pid = fork();
         switch (pid) {
         case 0: {
-                struct udev_device *dev = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
                 _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
                 int fd_monitor;
                 _cleanup_close_ int fd_signal = -1, fd_ep = -1;
@@ -409,7 +409,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         assert(dev);
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
-                        udev_event = udev_event_new(dev, arg_exec_delay, rtnl);
+                        udev_event = udev_event_new(dev->device, arg_exec_delay, rtnl);
                         if (!udev_event) {
                                 r = -ENOMEM;
                                 goto out;
@@ -473,8 +473,7 @@ skip:
                                 log_error_errno(r, "failed to send result of seq %llu to main daemon: %m",
                                                 udev_device_get_seqnum(dev));
 
-                        udev_device_unref(dev);
-                        dev = NULL;
+                        dev = udev_device_unref(dev);
 
                         /* wait for more device messages from main udevd, or term signal */
                         while (dev == NULL) {
