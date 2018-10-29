@@ -228,8 +228,12 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnINSYDECorp.:bvrBYT70A.YNCHENG.WIN.007:*:sv
 #########################################
 # HP
 #########################################
-sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pn*HPEliteBook8540w*
-sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*pn*HPEliteBook8560w*
+
+# Laptops using the lis3lv02d device should have a first quirk applied
+# to them in the drivers/platform/x86/hp_accel.c in the kernel. The
+# quirk from "can play neverball" to "matches Windows 8 orientation"
+# is then applied below.
+sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*
   ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 0, -1; 0, 1, 0
 
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
