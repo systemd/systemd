@@ -420,7 +420,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         udev_event_execute_run(udev_event,
                                arg_event_timeout_usec, arg_event_timeout_warn_usec);
 
-        if (udev_event->rtnl)
+        if (!manager->rtnl && udev_event->rtnl)
                 /* in case rtnl was initialized */
                 manager->rtnl = sd_netlink_ref(udev_event->rtnl);
 

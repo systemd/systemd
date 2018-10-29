@@ -61,7 +61,7 @@ struct udev_event *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_net
                 .dev = TAKE_PTR(udev_device),
                 .birth_usec = now(CLOCK_MONOTONIC),
                 .exec_delay_usec = exec_delay_usec,
-                .rtnl = rtnl,
+                .rtnl = sd_netlink_ref(rtnl),
         };
 
         return event;
