@@ -74,6 +74,7 @@ struct udev_event *udev_event_free(struct udev_event *event) {
                 return NULL;
 
         udev_device_unref(event->dev);
+        sd_device_unref(event->dev_db_clone);
         sd_netlink_unref(event->rtnl);
         while ((p = hashmap_steal_first_key(event->run_list)))
                 free(p);
@@ -746,8 +747,8 @@ static int update_devnode(struct udev_event *event) {
                 return log_device_error_errno(dev, r, "Failed to get devnum: %m");
 
         /* remove/update possible left-over symlinks from old database entry */
-        if (event->dev_db)
-                (void) udev_node_update_old_links(dev, event->dev_db->device);
+        if (event->dev_db_clone)
+                (void) udev_node_update_old_links(dev, event->dev_db_clone);
 
         if (!event->owner_set) {
                 r = device_get_devnode_uid(dev, &event->uid);
@@ -819,7 +820,6 @@ int udev_event_execute_rules(struct udev_event *event,
                              usec_t timeout_usec, usec_t timeout_warn_usec,
                              Hashmap *properties_list,
                              struct udev_rules *rules) {
-        _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
         sd_device *dev = event->dev->device;
         const char *subsystem, *action;
         int r;
@@ -840,28 +840,24 @@ int udev_event_execute_rules(struct udev_event *event,
                 return 0;
         }
 
-        r = device_clone_with_db(dev, &clone);
+        r = device_clone_with_db(dev, &event->dev_db_clone);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to clone sd_device object, ignoring: %m");
 
-        if (clone) {
-                event->dev_db = udev_device_new(NULL, clone);
-                if (!event->dev_db)
-                        return -ENOMEM;
-
+        if (event->dev_db_clone) {
                 r = sd_device_get_devnum(dev, NULL);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_device_debug_errno(dev, r, "Failed to get devnum, ignoring: %m");
 
                         if (streq(action, "move")) {
-                                r = device_copy_properties(dev, clone);
+                                r = device_copy_properties(dev, event->dev_db_clone);
                                 if (r < 0)
                                         log_device_debug_errno(dev, r, "Failed to copy properties from cloned device, ignoring: %m");
                         }
                 } else
                         /* Disable watch during event processing. */
-                        (void) udev_watch_end(clone);
+                        (void) udev_watch_end(event->dev_db_clone);
         }
 
         (void) udev_rules_apply_to_event(rules, event,
@@ -872,12 +868,12 @@ int udev_event_execute_rules(struct udev_event *event,
         (void) update_devnode(event);
 
         /* preserve old, or get new initialization timestamp */
-        r = device_ensure_usec_initialized(dev, clone);
+        r = device_ensure_usec_initialized(dev, event->dev_db_clone);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to set initialization timestamp, ignoring: %m");
 
         /* (re)write database file */
-        r = device_tag_index(dev, clone, true);
+        r = device_tag_index(dev, event->dev_db_clone, true);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to update tags under /run/udev/tag/, ignoring: %m");
 
@@ -887,7 +883,7 @@ int udev_event_execute_rules(struct udev_event *event,
 
         device_set_is_initialized(dev);
 
-        event->dev_db = udev_device_unref(event->dev_db);
+        event->dev_db_clone = sd_device_unref(event->dev_db_clone);
 
         return 0;
 }
