@@ -46,12 +46,9 @@
     directories which usually reside in directories such as
     <filename>/run</filename> or <filename>/tmp</filename>.</para>
 
-    <para>Volatile and temporary files and directories are those
-    located in <filename>/run</filename> (and its alias
-    <filename>/var/run</filename>), <filename>/tmp</filename>,
-    <filename>/var/tmp</filename>, the API file systems such as
-    <filename>/sys</filename> or <filename>/proc</filename>, as well
-    as some other directories below <filename>/var</filename>.</para>
+    <para>Volatile and temporary files and directories are those located in <filename>/run</filename>,
+    <filename>/tmp</filename>, <filename>/var/tmp</filename>, the API file systems such as <filename>/sys</filename> or
+    <filename>/proc</filename>, as well as some other directories below <filename>/var</filename>.</para>
 
     <para>System daemons frequently require private runtime
     directories below <filename>/run</filename> to place communication
