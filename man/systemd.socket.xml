@@ -94,6 +94,18 @@
     socket passing (i.e. sockets passed in via standard input and
     output, using <varname>StandardInput=socket</varname> in the
     service file).</para>
+
+    <para>All network sockets allocated through <filename>.socket</filename> units are allocated in the host's network
+    namespace (see <citerefentry
+    project='man-pages'><refentrytitle>network_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>). This
+    does not mean however that the service activated by a configured socket unit has to be part of the host's network
+    namespace as well.  It is supported and even good practice to run services in their own network namespace (for
+    example through <varname>PrivateNetwork=</varname>, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>), receiving only
+    the sockets configured through socket-activation from the host's namespace. In such a set-up communication within
+    the host's network namespace is only permitted through the activation sockets passed in while all sockets allocated
+    from the service code itself will be associated with the service's own namespace, and thus possibly subject to a a
+    much more restrictive configuration.</para>
   </refsect1>
 
   <refsect1>
