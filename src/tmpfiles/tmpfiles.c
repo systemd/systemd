@@ -2138,12 +2138,10 @@ static int remove_item_instance(Item *i, const char *instance) {
 
                 break;
 
-        case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
-                /* FIXME: we probably should use dir_cleanup() here
-                 * instead of rm_rf() so that 'x' is honoured. */
+                /* FIXME: we probably should use dir_cleanup() here instead of rm_rf() so that 'x' is honoured. */
                 log_debug("rm -rf \"%s\"", instance);
-                r = rm_rf(instance, (i->type == RECURSIVE_REMOVE_PATH ? REMOVE_ROOT|REMOVE_SUBVOLUME : 0) | REMOVE_PHYSICAL);
+                r = rm_rf(instance, REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "rm_rf(%s): %m", instance);
 
@@ -2157,14 +2155,24 @@ static int remove_item_instance(Item *i, const char *instance) {
 }
 
 static int remove_item(Item *i) {
+        int r;
+
         assert(i);
 
         log_debug("Running remove action for entry %c %s", (char) i->type, i->path);
 
         switch (i->type) {
 
-        case REMOVE_PATH:
         case TRUNCATE_DIRECTORY:
+                /* FIXME: we probably should use dir_cleanup() here instead of rm_rf() so that 'x' is honoured. */
+                log_debug("rm -rf \"%s\"", i->path);
+                r = rm_rf(i->path, REMOVE_PHYSICAL);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "rm_rf(%s): %m", i->path);
+
+                return 0;
+
+        case REMOVE_PATH:
         case RECURSIVE_REMOVE_PATH:
                 return glob_item(i, remove_item_instance);
 
