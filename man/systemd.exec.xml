@@ -781,9 +781,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         recommended to enable this setting for all long-running services, unless they are involved with system updates
         or need to modify the operating system in other ways. If this option is used,
         <varname>ReadWritePaths=</varname> may be used to exclude specific directories from being made read-only. This
-        setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same restrictions regarding
-        mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see
-        below. Defaults to off.</para></listitem>
+        setting is implied if <varname>DynamicUser=</varname> is set. This setting cannot ensure protection in all
+        cases. In general it has the same limitations as <varname>ReadOnlyPaths=</varname>, see below. Defaults to
+        off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -802,11 +802,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>ReadOnlyPaths=</varname>, and <literal>tmpfs</literal> is mostly equivalent to
         <varname>TemporaryFileSystem=</varname>.</para>
 
-        <para> It is recommended to enable this setting for all long-running services (in particular network-facing ones),
-        to ensure they cannot get access to private user data, unless the services actually require access to the user's
-        private data. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same
-        restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related
-        calls, see below.</para></listitem>
+        <para> It is recommended to enable this setting for all long-running services (in particular network-facing
+        ones), to ensure they cannot get access to private user data, unless the services actually require access to
+        the user's private data. This setting is implied if <varname>DynamicUser=</varname> is set. This setting cannot
+        ensure protection in all cases. In general it has the same limitations as <varname>ReadOnlyPaths=</varname>,
+        see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -974,8 +974,7 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <varname>BindPaths=</varname>, or <varname>BindReadOnlyPaths=</varname> inside it. For a more flexible option,
         see <varname>TemporaryFileSystem=</varname>.</para>
 
-        <para>Note that restricting access with these options does not extend to submounts of a directory that are
-        created later on.  Non-directory paths may be specified as well. These options may be specified more than once,
+        <para>Non-directory paths may be specified as well. These options may be specified more than once,
         in which case all paths listed will have limited access from within the namespace. If the empty string is
         assigned to this option, the specific list is reset, and all prior assignments have no effect.</para>
 
@@ -987,11 +986,19 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <literal>+</literal> on the same path make sure to specify <literal>-</literal> first, and <literal>+</literal>
         second.</para>
 
-        <para>Note that using this setting will disconnect propagation of mounts from the service to the host
-        (propagation in the opposite direction continues to work). This means that this setting may not be used for
-        services which shall be able to install mount points in the main mount namespace. Note that the effect of these
-        settings may be undone by privileged processes. In order to set up an effective sandboxed environment for a
-        unit it is thus recommended to combine these settings with either
+        <para>Note that these settings will disconnect propagation of mounts from the unit's processes to the
+        host. This means that this setting may not be used for services which shall be able to install mount points in
+        the main mount namespace. For <varname>ReadWritePaths=</varname> and <varname>ReadOnlyPaths=</varname>
+        propagation in the other direction is not affected, i.e. mounts created on the host generally appear in the
+        unit processes' namespace, and mounts removed on the host also disappear there too. In particular, note that
+        mount propagation from host to unit will result in unmodified mounts to be created in the unit's namespace,
+        i.e. writable mounts appearing on the host will be writable in the unit's namespace too, even when propagated
+        below a path marked with <varname>ReadOnlyPaths=</varname>! Restricting access with these options hence does
+        not extend to submounts of a directory that are created later on. This means the lock-down offered by that
+        setting is not complete, and does not offer full protection. </para>
+
+        <para>Note that the effect of these settings may be undone by privileged processes. In order to set up an
+        effective sandboxed environment for a unit it is thus recommended to combine these settings with either
         <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or
         <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
       </varlistentry>
