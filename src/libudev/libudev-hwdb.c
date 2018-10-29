@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "hwdb-util.h"
+#include "libudev-list-internal.h"
 #include "libudev-private.h"
 
 /**

@@ -4,6 +4,7 @@
 #include "libudev.h"
 #include "sd-device.h"
 
+#include "libudev-list-internal.h"
 #include "libudev-private.h"
 
 /**

@@ -1,48 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include <stdbool.h>
 #include <sys/types.h>
 
 #include "libudev.h"
 
 #include "macro.h"
-
-/* libudev-list.c */
-struct udev_list_node {
-        struct udev_list_node *next, *prev;
-};
-struct udev_list {
-        struct udev *udev;
-        struct udev_list_node node;
-        struct udev_list_entry **entries;
-        unsigned entries_cur;
-        unsigned entries_max;
-        bool unique;
-};
-void udev_list_node_init(struct udev_list_node *list);
-int udev_list_node_is_empty(struct udev_list_node *list);
-void udev_list_node_append(struct udev_list_node *new, struct udev_list_node *list);
-void udev_list_node_remove(struct udev_list_node *entry);
-#define udev_list_node_foreach(node, list) \
-        for (node = (list)->next; \
-             node != list; \
-             node = (node)->next)
-#define udev_list_node_foreach_safe(node, tmp, list) \
-        for (node = (list)->next, tmp = (node)->next; \
-             node != list; \
-             node = tmp, tmp = (tmp)->next)
-void udev_list_init(struct udev *udev, struct udev_list *list, bool unique);
-void udev_list_cleanup(struct udev_list *list);
-struct udev_list_entry *udev_list_get_entry(struct udev_list *list);
-struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *name, const char *value);
-void udev_list_entry_delete(struct udev_list_entry *entry);
-int udev_list_entry_get_num(struct udev_list_entry *list_entry);
-void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num);
-#define udev_list_entry_foreach_safe(entry, tmp, first) \
-        for (entry = first, tmp = udev_list_entry_get_next(entry); \
-             entry != NULL; \
-             entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
 /* libudev-util.c */
 #define UTIL_PATH_SIZE                      1024
