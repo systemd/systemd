@@ -392,6 +392,25 @@
     <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for details about these target units.</para>
 
+    <para>systemd only keeps a minimal set of units loaded into memory. Specifically, the only units that are kept
+    loaded into memory are those for which at least one of the following conditions is true:</para>
+
+    <orderedlist>
+      <listitem><para>It is in an active, activating, deactivating or failed state (i.e. in any unit state except for <literal>dead</literal>)</para></listitem>
+      <listitem><para>It has a job queued for it</para></listitem>
+      <listitem><para>It is a dependency of some sort of at least one other unit that is loaded into memory</para></listitem>
+      <listitem><para>It has some form of resource still allocated (e.g. a service unit that is inactive but for which
+      a process is still lingering that ignored the request to be terminated)</para></listitem>
+      <listitem><para>It has been pinned into memory programmatically by a D-Bus call</para></listitem>
+    </orderedlist>
+
+    <para>systemd will automatically and implicitly load units from disk — if they are not loaded yet — as soon as
+    operations are requested for them. Thus, in many respects, the fact whether a unit is loaded or not is invisible to
+    clients. Use <command>systemctl list-units --all</command> to comprehensively list all units currently loaded. Any
+    unit for which none of the conditions above applies is promptly unloaded. Note that when a unit is unloaded from
+    memory its accounting data is flushed out too. However, this data is generally not lost, as a journal log record
+    is generated declaring the consumed resources whenever a unit shuts down.</para>
+
     <para>Processes systemd spawns are placed in individual Linux
     control groups named after the unit which they belong to in the
     private systemd hierarchy. (see <ulink
