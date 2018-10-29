@@ -147,9 +147,7 @@ static void test_chown_recursive(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         if (geteuid() != 0)
                 return log_tests_skipped("not running as root");
