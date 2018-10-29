@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-#  Copyright © 2014-2017 Piotr Drąg
+#  Copyright © 2014-2018 Piotr Drąg
 
 # Message catalog for systemd's own messages
 # Polish translation
@@ -56,7 +56,9 @@ Nie ma to wpływu na komunikaty innych usług.
 
 Ograniczenia kontrolujące pomijanie komunikatów mogą być konfigurowane
 za pomocą opcji RateLimitIntervalSec= i RateLimitBurst= w pliku
-/etc/systemd/journald.conf. Strona journald.conf(5) zawiera więcej informacji.
+/etc/systemd/journald.conf lub LogRateLimitIntervalSec= i LogRateLimitBurst=
+w pliku jednostki. Strony journald.conf(5) i systemd.exec(5) zawierają więcej
+informacji.
 
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: Utracono komunikaty dziennika
