@@ -493,10 +493,6 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        /* Request TERM signal if parent exits.
-         * Ignore error, not much we can do in that case. */
-        (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
-
         /* Reset OOM score, we only protect the main daemon. */
         (void) write_string_file("/proc/self/oom_score_adj", "0", 0);
 
@@ -516,8 +512,9 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
 
 static int worker_spawn(Manager *manager, struct event *event) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *worker_monitor = NULL;
+        struct worker *worker;
         pid_t pid;
-        int r = 0;
+        int r;
 
         /* listen for new events */
         r = device_monitor_new_full(&worker_monitor, MONITOR_GROUP_NONE, -1);
@@ -533,31 +530,25 @@ static int worker_spawn(Manager *manager, struct event *event) {
         if (r < 0)
                 return log_error_errno(r, "worker: Failed to enable receiving of devices: %m");
 
-        pid = fork();
-        switch (pid) {
-        case 0: {
+        r = safe_fork(NULL, FORK_DEATHSIG, &pid);
+        if (r < 0) {
+                event->state = EVENT_QUEUED;
+                return log_error_errno(r, "Failed to fork() worker: %m");
+        }
+        if (r == 0) {
+                /* Worker process */
                 r = worker_main(manager, worker_monitor, TAKE_PTR(event->dev));
                 log_close();
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
-        case -1:
-                event->state = EVENT_QUEUED;
-                return log_error_errno(errno, "Failed to fork() worker: %m");
-        default:
-        {
-                struct worker *worker;
 
-                r = worker_new(&worker, manager, worker_monitor, pid);
-                if (r < 0)
-                        return r;
+        r = worker_new(&worker, manager, worker_monitor, pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create worker object: %m");
 
-                worker_attach_event(worker, event);
+        worker_attach_event(worker, event);
 
-                log_device_debug(event->dev, "seq %"PRIu64" forked new worker ["PID_FMT"]", event->seqnum, pid);
-                break;
-        }
-        }
-
+        log_device_debug(event->dev, "seq %"PRIu64" forked new worker ["PID_FMT"]", event->seqnum, pid);
         return 0;
 }
 
