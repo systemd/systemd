@@ -56,8 +56,6 @@ void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num);
 size_t util_path_encode(const char *src, char *dest, size_t size);
 int util_replace_whitespace(const char *str, char *to, size_t len);
 int util_replace_chars(char *str, const char *white);
-uint32_t util_string_hash32(const char *key);
-uint64_t util_string_bloom64(const char *str);
 int util_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, int read_value);
 
 /* Cleanup functions */
