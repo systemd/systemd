@@ -1515,7 +1515,6 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
 
 struct udev_rules *udev_rules_new(ResolveNamesTiming resolve_names_timing) {
         struct udev_rules *rules;
-        struct udev_list file_list;
         struct token end_token;
         char **files, **f;
         int r;
@@ -1529,8 +1528,6 @@ struct udev_rules *udev_rules_new(ResolveNamesTiming resolve_names_timing) {
         *rules = (struct udev_rules) {
                 .resolve_names_timing = resolve_names_timing,
         };
-
-        udev_list_init(NULL, &file_list, true);
 
         /* init token array and string buffer */
         rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
