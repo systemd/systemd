@@ -281,9 +281,7 @@ int dissect_image(
                 /* Count the partitions enumerated by the kernel */
                 n = 0;
                 FOREACH_DEVICE(e, q) {
-                        dev_t qn;
-
-                        if (sd_device_get_devnum(q, &qn) < 0)
+                        if (sd_device_get_devnum(q, NULL) < 0)
                                 continue;
 
                         if (!device_is_block(q))
