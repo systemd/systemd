@@ -727,11 +727,10 @@ static int rename_netif(struct udev_event *event) {
 static int update_devnode(struct udev_event *event) {
         sd_device *dev = event->dev->device;
         const char *action;
-        dev_t devnum;
         bool apply;
         int r;
 
-        r = sd_device_get_devnum(dev, &devnum);
+        r = sd_device_get_devnum(dev, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -814,7 +813,6 @@ int udev_event_execute_rules(struct udev_event *event,
         _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
         sd_device *dev = event->dev->device;
         const char *subsystem, *action;
-        dev_t devnum;
         int r;
 
         assert(event);
@@ -842,7 +840,7 @@ int udev_event_execute_rules(struct udev_event *event,
                 if (!event->dev_db)
                         return -ENOMEM;
 
-                r = sd_device_get_devnum(dev, &devnum);
+                r = sd_device_get_devnum(dev, NULL);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_device_debug_errno(dev, r, "Failed to get devnum, ignoring: %m");
