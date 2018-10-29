@@ -327,6 +327,8 @@ mouse:usb:v17efp6045:name:Lenovo USB Laser Mouse:
 # Logitech Anywhere MX
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:1017:
 mouse:usb:v046dp1017:name:Logitech Anywhere MX:
+# Logitech Anywhere MX 2S
+mouse:usb:v046dp406a:name:Logitech MX Anywhere 2S:
  MOUSE_WHEEL_CLICK_ANGLE=20
 
 # Logitech M-BJ58 Optical Mouse
