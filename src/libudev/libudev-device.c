@@ -25,6 +25,7 @@
 #include "libudev-device-internal.h"
 #include "libudev-private.h"
 #include "parse-util.h"
+#include "time-util.h"
 
 /**
  * SECTION:libudev-device

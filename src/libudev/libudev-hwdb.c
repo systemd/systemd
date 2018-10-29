@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <errno.h>
+
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"

@@ -22,6 +22,7 @@
 #include "libudev-private.h"
 #include "scsi_id.h"
 #include "string-util.h"
+#include "strxcpyx.h"
 #include "udev-util.h"
 
 static const struct option options[] = {

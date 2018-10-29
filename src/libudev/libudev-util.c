@@ -9,9 +9,9 @@
 
 #include "libudev.h"
 
-#include "MurmurHash2.h"
 #include "device-nodes.h"
 #include "libudev-private.h"
+#include "strxcpyx.h"
 #include "utf8.h"
 
 /**

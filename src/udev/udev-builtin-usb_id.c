@@ -20,6 +20,7 @@
 #include "fd-util.h"
 #include "libudev-private.h"
 #include "string-util.h"
+#include "strxcpyx.h"
 #include "udev-builtin.h"
 
 static void set_usb_iftype(char *to, int if_class_num, size_t len) {

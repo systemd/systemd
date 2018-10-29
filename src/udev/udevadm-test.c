@@ -16,6 +16,7 @@
 #include "device-util.h"
 #include "libudev-private.h"
 #include "string-util.h"
+#include "strxcpyx.h"
 #include "udev-builtin.h"
 #include "udev.h"
 #include "udevadm.h"

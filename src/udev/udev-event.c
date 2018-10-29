@@ -24,6 +24,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "strxcpyx.h"
 #include "udev-builtin.h"
 #include "udev-node.h"
 #include "udev-watch.h"

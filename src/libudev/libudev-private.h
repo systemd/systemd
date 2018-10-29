@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include <signal.h>
 #include <stdbool.h>
-#include <stdint.h>
+#include <sys/types.h>
 
 #include "libudev.h"
 
 #include "macro.h"
-#include "mkdir.h"
-#include "strxcpyx.h"
-#include "util.h"
 
 /* libudev-list.c */
 struct udev_list_node {
