@@ -759,6 +759,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     <varname>RestrictRealtime=</varname> has no effect on systems that lack support for SECCOMP system call filtering,
     or in containers where support for this is turned off.</para>
 
+    <para>Also note that some sandboxing functionality is generally not available in user services (i.e. services run
+    by the per-user service manager). Specifically, the various settings requiring file system namespacing support
+    (such as <varname>ProtectSystem=</varname>) are not available, as the underlying kernel functionality is only
+    accessible to privileged processes.</para>
+
     <variablelist>
 
       <varlistentry>
