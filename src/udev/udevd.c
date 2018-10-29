@@ -43,7 +43,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
-#include "libudev-device-internal.h"
+#include "libudev-private.h"
 #include "list.h"
 #include "netlink-util.h"
 #include "parse-util.h"
@@ -389,7 +389,6 @@ static int lock_block_device(sd_device *dev, int *ret_fd) {
 }
 
 static int worker_process_device(Manager *manager, sd_device *dev) {
-        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
         _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
         const char *seqnum;
@@ -404,22 +403,13 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
 
         log_device_debug(dev, "seq %s running", seqnum);
 
-        udev_device = udev_device_new(NULL, dev);
-        if (!udev_device)
-                return -errno;
-
-        udev_event = udev_event_new(udev_device);
-        if (!udev_event)
-                return log_oom();
-
-        udev_event->exec_delay_usec = arg_exec_delay_usec;
-
         r = lock_block_device(dev, &fd_lock);
         if (r < 0)
                 return r;
 
-        /* needed for renaming netifs */
-        udev_event->rtnl = manager->rtnl;
+        udev_event = udev_event_new(dev, arg_exec_delay_usec, manager->rtnl);
+        if (!udev_event)
+                return log_oom();
 
         /* apply rules, create node, symlinks */
         udev_event_execute_rules(udev_event,

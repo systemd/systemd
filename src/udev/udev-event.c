@@ -23,6 +23,7 @@
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-builtin.h"
 #include "udev-node.h"
 #include "udev-watch.h"
@@ -42,18 +43,25 @@ typedef struct Spawn {
         size_t result_len;
 } Spawn;
 
-struct udev_event *udev_event_new(struct udev_device *dev) {
+struct udev_event *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl) {
+        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
         struct udev_event *event;
 
         assert(dev);
+
+        udev_device = udev_device_new(NULL, dev);
+        if (!udev_device)
+                return NULL;
 
         event = new(struct udev_event, 1);
         if (!event)
                 return NULL;
 
         *event = (struct udev_event) {
-                .dev = dev,
+                .dev = TAKE_PTR(udev_device),
                 .birth_usec = now(CLOCK_MONOTONIC),
+                .exec_delay_usec = exec_delay_usec,
+                .rtnl = rtnl,
         };
 
         return event;
@@ -65,6 +73,7 @@ struct udev_event *udev_event_free(struct udev_event *event) {
         if (!event)
                 return NULL;
 
+        udev_device_unref(event->dev);
         sd_netlink_unref(event->rtnl);
         while ((p = hashmap_steal_first_key(event->run_list)))
                 free(p);

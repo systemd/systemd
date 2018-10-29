@@ -14,11 +14,8 @@
 #include "sd-netlink.h"
 
 #include "hashmap.h"
-#include "label.h"
-#include "libudev-private.h"
 #include "macro.h"
-#include "strv.h"
-#include "util.h"
+#include "time-util.h"
 
 struct udev_event {
         struct udev_device *dev;
@@ -71,7 +68,7 @@ ResolveNamesTiming resolve_names_timing_from_string(const char *s) _pure_;
 const char *resolve_names_timing_to_string(ResolveNamesTiming i) _const_;
 
 /* udev-event.c */
-struct udev_event *udev_event_new(struct udev_device *dev);
+struct udev_event *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl);
 struct udev_event *udev_event_free(struct udev_event *event);
 ssize_t udev_event_apply_format(struct udev_event *event,
                                 const char *src, char *dest, size_t size,
