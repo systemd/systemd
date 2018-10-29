@@ -16,6 +16,9 @@
 #include "macro.h"
 #include "time-util.h"
 
+#define READ_END  0
+#define WRITE_END 1
+
 struct udev_event {
         sd_device *dev;
         sd_device *dev_parent;
