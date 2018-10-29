@@ -189,7 +189,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
 }
 
 static void udev_list_entry_delete(struct udev_list_entry *entry) {
-        if (entry->list->entries != NULL) {
+        if (entry->list->entries) {
                 int i;
                 struct udev_list *list = entry->list;
 
@@ -241,7 +241,7 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
 _public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry) {
         struct udev_list_node *next;
 
-        if (list_entry == NULL)
+        if (!list_entry)
                 return NULL;
         next = list_entry->node.next;
         /* empty list or no more entries */
@@ -262,7 +262,7 @@ _public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry
 _public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name) {
         int i;
 
-        if (list_entry == NULL)
+        if (!list_entry)
                 return NULL;
 
         if (!list_entry->list->unique)
@@ -283,7 +283,7 @@ _public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_en
  * Returns: the name string of this entry.
  */
 _public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry) {
-        if (list_entry == NULL)
+        if (!list_entry)
                 return NULL;
         return list_entry->name;
 }
@@ -297,19 +297,19 @@ _public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry
  * Returns: the value string of this entry.
  */
 _public_ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry) {
-        if (list_entry == NULL)
+        if (!list_entry)
                 return NULL;
         return list_entry->value;
 }
 
 int udev_list_entry_get_num(struct udev_list_entry *list_entry) {
-        if (list_entry == NULL)
+        if (!list_entry)
                 return -EINVAL;
         return list_entry->num;
 }
 
 void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num) {
-        if (list_entry == NULL)
+        if (!list_entry)
                 return;
         list_entry->num = num;
 }
