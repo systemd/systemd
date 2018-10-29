@@ -67,28 +67,20 @@
     The second variant should be used when it is desirable to make it
     easy to override just this part of configuration.</para>
 
-    <para>Files in <filename>/etc/tmpfiles.d</filename> override files
-    with the same name in <filename>/usr/lib/tmpfiles.d</filename> and
-    <filename>/run/tmpfiles.d</filename>. Files in
-    <filename>/run/tmpfiles.d</filename> override files with the same
-    name in <filename>/usr/lib/tmpfiles.d</filename>. Packages should
-    install their configuration files in
-    <filename>/usr/lib/tmpfiles.d</filename>. Files in
-    <filename>/etc/tmpfiles.d</filename> are reserved for the local
-    administrator, who may use this logic to override the
-    configuration files installed by vendor packages. All
-    configuration files are sorted by their filename in lexicographic
-    order, regardless of which of the directories they reside in. If
-    multiple files specify the same path, the entry in the file with
-    the lexicographically earliest name will be applied.  All other
-    conflicting entries will be logged as errors. When two lines are
-    prefix and suffix of each other, then the prefix is always
-    processed first, the suffix later. Lines that take globs are
-    applied after those accepting no globs. If multiple operations
-    shall be applied on the same file, (such as ACL, xattr, file
-    attribute adjustments), these are always done in the same fixed
-    order. Otherwise, the files/directories are processed in the order
-    they are listed.</para>
+    <para>Files in <filename>/etc/tmpfiles.d</filename> override files with the same name in
+    <filename>/usr/lib/tmpfiles.d</filename> and <filename>/run/tmpfiles.d</filename>. Files in
+    <filename>/run/tmpfiles.d</filename> override files with the same name in
+    <filename>/usr/lib/tmpfiles.d</filename>. Packages should install their configuration files in
+    <filename>/usr/lib/tmpfiles.d</filename>. Files in <filename>/etc/tmpfiles.d</filename> are reserved for the local
+    administrator, who may use this logic to override the configuration files installed by vendor packages. All
+    configuration files are sorted by their filename in lexicographic order, regardless of which of the directories
+    they reside in. If multiple files specify the same path, the entry in the file with the lexicographically earliest
+    name will be applied.  All other conflicting entries will be logged as errors. When two lines are prefix path and
+    suffix path of each other, then the prefix line is always created first, the suffix later (and if removal applies
+    to the line, the order is reversed: the suffix is removed first, the prefix later). Lines that take globs are
+    applied after those accepting no globs. If multiple operations shall be applied on the same file, (such as ACL,
+    xattr, file attribute adjustments), these are always done in the same fixed order. Otherwise, the files/directories
+    are processed in the order they are listed.</para>
 
     <para>If the administrator wants to disable a configuration file
     supplied by the vendor, the recommended way is to place a symlink
