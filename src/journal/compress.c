@@ -314,11 +314,13 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
         if (r >= 0)
                 size = (unsigned) r;
         else {
+#if LZ4_VERSION_NUMBER < 10803
                 /* lz4 always tries to decode full "sequence", so in
                  * pathological cases might need to decompress the
                  * full field. */
                 r = decompress_blob_lz4(src, src_size, buffer, buffer_size, &size, 0);
                 if (r < 0)
+#endif
                         return r;
         }
 
