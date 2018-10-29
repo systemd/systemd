@@ -616,7 +616,7 @@ static int import_property_from_string(sd_device *dev, char *line) {
         return device_add_property(dev, key, val);
 }
 
-static int import_file_into_properties(struct udev_device *dev, const char *filename) {
+static int import_file_into_properties(sd_device *dev, const char *filename) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -633,7 +633,7 @@ static int import_file_into_properties(struct udev_device *dev, const char *file
                 if (r == 0)
                         break;
 
-                (void) import_property_from_string(dev->device, line);
+                (void) import_property_from_string(dev, line);
         }
 
         return 0;
@@ -1982,7 +1982,7 @@ int udev_rules_apply_to_event(
                         char import[UTIL_PATH_SIZE];
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), import, sizeof(import), false);
-                        if (import_file_into_properties(event->dev, import) != 0)
+                        if (import_file_into_properties(event->dev->device, import) != 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
