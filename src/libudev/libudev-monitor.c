@@ -41,39 +41,6 @@ static MonitorNetlinkGroup monitor_netlink_group_from_string(const char *name) {
         return _MONITOR_NETLINK_GROUP_INVALID;
 }
 
-struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
-        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor = NULL;
-        MonitorNetlinkGroup g;
-        int r;
-
-        g = monitor_netlink_group_from_string(name);
-        if (g < 0) {
-                errno = EINVAL;
-                return NULL;
-        }
-
-        r = device_monitor_new_full(&m, g, fd);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
-
-        udev_monitor = new(struct udev_monitor, 1);
-        if (!udev_monitor) {
-                errno = ENOMEM;
-                return NULL;
-        }
-
-        *udev_monitor = (struct udev_monitor) {
-                .udev = udev,
-                .n_ref = 1,
-                .monitor = TAKE_PTR(m),
-        };
-
-        return TAKE_PTR(udev_monitor);
-}
-
 /**
  * udev_monitor_new_from_netlink:
  * @udev: udev library context
@@ -97,7 +64,36 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
  * Returns: a new udev monitor, or #NULL, in case of an error
  **/
 _public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name) {
-        return udev_monitor_new_from_netlink_fd(udev, name, -1);
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor = NULL;
+        MonitorNetlinkGroup g;
+        int r;
+
+        g = monitor_netlink_group_from_string(name);
+        if (g < 0) {
+                errno = EINVAL;
+                return NULL;
+        }
+
+        r = device_monitor_new_full(&m, g, -1);
+        if (r < 0) {
+                errno = -r;
+                return NULL;
+        }
+
+        udev_monitor = new(struct udev_monitor, 1);
+        if (!udev_monitor) {
+                errno = ENOMEM;
+                return NULL;
+        }
+
+        *udev_monitor = (struct udev_monitor) {
+                .udev = udev,
+                .n_ref = 1,
+                .monitor = TAKE_PTR(m),
+        };
+
+        return TAKE_PTR(udev_monitor);
 }
 
 /**
@@ -113,13 +109,6 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor) {
         assert_return(udev_monitor, -EINVAL);
 
         return sd_device_monitor_filter_update(udev_monitor->monitor);
-}
-
-int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender) {
-        assert_return(udev_monitor, -EINVAL);
-        assert_return(sender, -EINVAL);
-
-        return device_monitor_allow_unicast_sender(udev_monitor->monitor, sender->monitor);
 }
 
 /**
@@ -150,12 +139,6 @@ _public_ int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_moni
         assert_return(udev_monitor, -EINVAL);
 
         return sd_device_monitor_set_receive_buffer_size(udev_monitor->monitor, (size_t) size);
-}
-
-int udev_monitor_disconnect(struct udev_monitor *udev_monitor) {
-        assert(udev_monitor);
-
-        return device_monitor_disconnect(udev_monitor->monitor);
 }
 
 static struct udev_monitor *udev_monitor_free(struct udev_monitor *udev_monitor) {
@@ -214,7 +197,7 @@ _public_ int udev_monitor_get_fd(struct udev_monitor *udev_monitor) {
         return device_monitor_get_fd(udev_monitor->monitor);
 }
 
-int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_device **ret) {
+static int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_device **ret) {
         struct pollfd pfd;
         int r;
 
@@ -281,18 +264,6 @@ _public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *ud
         }
 
         return udev_device_new(udev_monitor->udev, device);
-}
-
-int udev_monitor_send_device(
-                struct udev_monitor *udev_monitor,
-                struct udev_monitor *destination,
-                struct udev_device *udev_device) {
-        assert(udev_monitor);
-        assert(udev_device);
-
-        return device_monitor_send_device(udev_monitor->monitor,
-                                          destination ? destination->monitor : NULL,
-                                          udev_device->device);
 }
 
 /**
