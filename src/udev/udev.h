@@ -23,7 +23,7 @@
 struct udev_event {
         struct udev_device *dev;
         struct udev_device *dev_parent;
-        struct udev_device *dev_db;
+        sd_device *dev_db_clone;
         char *name;
         char *program_result;
         mode_t mode;

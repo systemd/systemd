@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "def.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -2030,13 +2031,10 @@ int udev_rules_apply_to_event(
                         const char *key = rules_str(rules, cur->key.value_off);
                         const char *value;
 
-                        value = udev_device_get_property_value(event->dev_db, key);
-                        if (value != NULL)
+                        if (sd_device_get_property_value(event->dev_db_clone, key, &value) >= 0)
                                 udev_device_add_property(event->dev, key, value);
-                        else {
-                                if (cur->key.op != OP_NOMATCH)
-                                        goto nomatch;
-                        }
+                        else if (cur->key.op != OP_NOMATCH)
+                                goto nomatch;
                         break;
                 }
                 case TK_M_IMPORT_CMDLINE: {
