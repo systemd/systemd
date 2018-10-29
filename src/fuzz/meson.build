@@ -27,6 +27,11 @@ fuzzers += [
           libshared],
          []],
 
+        [['src/fuzz/fuzz-lldp.c'],
+         [libshared,
+          libsystemd_network],
+         []],
+
         [['src/fuzz/fuzz-ndisc-rs.c',
           'src/libsystemd-network/dhcp-identifier.h',
           'src/libsystemd-network/dhcp-identifier.c',

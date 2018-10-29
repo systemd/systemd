@@ -3589,7 +3589,6 @@ int journal_file_open_reliably(
                 JournalFile *template,
                 JournalFile **ret) {
 
-        _cleanup_free_ char *p = NULL;
         int r;
 
         r = journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
