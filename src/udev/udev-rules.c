@@ -1680,11 +1680,9 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
         return -1;
 }
 
-static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct udev_event *event, struct token *cur) {
-        const char *name;
-        char nbuf[UTIL_NAME_SIZE];
-        const char *value;
-        char vbuf[UTIL_NAME_SIZE];
+static int match_attr(struct udev_rules *rules, sd_device *dev, struct udev_event *event, struct token *cur) {
+        char nbuf[UTIL_NAME_SIZE], vbuf[UTIL_NAME_SIZE];
+        const char *name, *value;
         size_t len;
 
         name = rules_str(rules, cur->key.attr_off);
@@ -1694,8 +1692,7 @@ static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct 
                 name = nbuf;
                 _fallthrough_;
         case SB_NONE:
-                value = udev_device_get_sysattr_value(dev, name);
-                if (value == NULL)
+                if (sd_device_get_sysattr_value(dev, name, &value) < 0)
                         return -1;
                 break;
         case SB_SUBSYS:
@@ -1838,7 +1835,7 @@ int udev_rules_apply_to_event(
                                 goto nomatch;
                         break;
                 case TK_M_ATTR:
-                        if (match_attr(rules, event->dev, event, cur) != 0)
+                        if (match_attr(rules, event->dev->device, event, cur) != 0)
                                 goto nomatch;
                         break;
                 case TK_M_SYSCTL: {
@@ -1892,7 +1889,7 @@ int udev_rules_apply_to_event(
                                                         goto try_parent;
                                                 break;
                                         case TK_M_ATTRS:
-                                                if (match_attr(rules, event->dev_parent, event, key) != 0)
+                                                if (match_attr(rules, event->dev_parent->device, event, key) != 0)
                                                         goto try_parent;
                                                 break;
                                         case TK_M_TAGS: {
