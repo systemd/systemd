@@ -1868,32 +1868,39 @@ int udev_rules_apply_to_event(
                                 next++;
 
                         /* loop over parents */
-                        event->dev_parent = event->dev;
+                        event->dev_parent = event->dev->device;
                         for (;;) {
                                 struct token *key;
+                                const char *val;
 
                                 /* loop over sequence of parent match keys */
                                 for (key = cur; key < next; key++ ) {
                                         dump_token(rules, key);
                                         switch(key->type) {
                                         case TK_M_KERNELS:
-                                                if (match_key(rules, key, udev_device_get_sysname(event->dev_parent)) != 0)
+                                                if (sd_device_get_sysname(event->dev_parent, &val) < 0)
+                                                        goto try_parent;
+                                                if (match_key(rules, key, val) != 0)
                                                         goto try_parent;
                                                 break;
                                         case TK_M_SUBSYSTEMS:
-                                                if (match_key(rules, key, udev_device_get_subsystem(event->dev_parent)) != 0)
+                                                if (sd_device_get_subsystem(event->dev_parent, &val) < 0)
+                                                        goto try_parent;
+                                                if (match_key(rules, key, val) != 0)
                                                         goto try_parent;
                                                 break;
                                         case TK_M_DRIVERS:
-                                                if (match_key(rules, key, udev_device_get_driver(event->dev_parent)) != 0)
+                                                if (sd_device_get_driver(event->dev_parent, &val) < 0)
+                                                        goto try_parent;
+                                                if (match_key(rules, key, val) != 0)
                                                         goto try_parent;
                                                 break;
                                         case TK_M_ATTRS:
-                                                if (match_attr(rules, event->dev_parent->device, event, key) != 0)
+                                                if (match_attr(rules, event->dev_parent, event, key) != 0)
                                                         goto try_parent;
                                                 break;
                                         case TK_M_TAGS: {
-                                                bool match = udev_device_has_tag(event->dev_parent, rules_str(rules, cur->key.value_off));
+                                                bool match = sd_device_has_tag(event->dev_parent, rules_str(rules, cur->key.value_off));
 
                                                 if (match && key->key.op == OP_NOMATCH)
                                                         goto try_parent;
@@ -1908,9 +1915,10 @@ int udev_rules_apply_to_event(
                                 break;
 
                         try_parent:
-                                event->dev_parent = udev_device_get_parent(event->dev_parent);
-                                if (event->dev_parent == NULL)
+                                if (sd_device_get_parent(event->dev_parent, &event->dev_parent) < 0) {
+                                        event->dev_parent = NULL;
                                         goto nomatch;
+                                }
                         }
                         /* move behind our sequence of parent match keys */
                         cur = next;

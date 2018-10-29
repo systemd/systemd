@@ -165,7 +165,7 @@ static ssize_t subst_format_var(struct udev_event *event,
         case SUBST_ID:
                 if (!event->dev_parent)
                         return 0;
-                r = sd_device_get_sysname(event->dev_parent->device, &val);
+                r = sd_device_get_sysname(event->dev_parent, &val);
                 if (r < 0)
                         return r;
                 l = strpcpy(&s, l, val);
@@ -173,7 +173,7 @@ static ssize_t subst_format_var(struct udev_event *event,
         case SUBST_DRIVER:
                 if (!event->dev_parent)
                         return 0;
-                r = sd_device_get_driver(event->dev_parent->device, &val);
+                r = sd_device_get_driver(event->dev_parent, &val);
                 if (r < 0)
                         return r == -ENOENT ? 0 : r;
                 l = strpcpy(&s, l, val);
@@ -246,8 +246,8 @@ static ssize_t subst_format_var(struct udev_event *event,
                         (void) sd_device_get_sysattr_value(dev, attr, &val);
 
                 /* try to read the attribute of the parent device, other matches have selected */
-                if (!val && event->dev_parent && event->dev_parent->device != dev)
-                        (void) sd_device_get_sysattr_value(event->dev_parent->device, attr, &val);
+                if (!val && event->dev_parent && event->dev_parent != dev)
+                        (void) sd_device_get_sysattr_value(event->dev_parent, attr, &val);
 
                 if (!val)
                         return 0;
