@@ -16,7 +16,7 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "libudev-device-internal.h"
+#include "libudev-private.h"
 #include "netlink-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -44,21 +44,16 @@ typedef struct Spawn {
 } Spawn;
 
 struct udev_event *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl) {
-        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
         struct udev_event *event;
 
         assert(dev);
-
-        udev_device = udev_device_new(NULL, dev);
-        if (!udev_device)
-                return NULL;
 
         event = new(struct udev_event, 1);
         if (!event)
                 return NULL;
 
         *event = (struct udev_event) {
-                .dev = TAKE_PTR(udev_device),
+                .dev = sd_device_ref(dev),
                 .birth_usec = now(CLOCK_MONOTONIC),
                 .exec_delay_usec = exec_delay_usec,
                 .rtnl = sd_netlink_ref(rtnl),
@@ -73,7 +68,7 @@ struct udev_event *udev_event_free(struct udev_event *event) {
         if (!event)
                 return NULL;
 
-        udev_device_unref(event->dev);
+        sd_device_unref(event->dev);
         sd_device_unref(event->dev_db_clone);
         sd_netlink_unref(event->rtnl);
         while ((p = hashmap_steal_first_key(event->run_list)))
@@ -135,7 +130,7 @@ static const struct subst_map_entry map[] = {
 static ssize_t subst_format_var(struct udev_event *event,
                                 const struct subst_map_entry *entry, char *attr,
                                 char *dest, size_t l) {
-        sd_device *parent, *dev = event->dev->device;
+        sd_device *parent, *dev = event->dev;
         const char *val = NULL;
         char *s = dest;
         dev_t devnum;
@@ -412,9 +407,9 @@ subst:
                 subst_len = subst_format_var(event, entry, attr, s, l);
                 if (subst_len < 0) {
                         if (format_dollar)
-                                log_device_warning_errno(event->dev->device, subst_len, "Failed to substitute variable '$%s', ignoring: %m", entry->name);
+                                log_device_warning_errno(event->dev, subst_len, "Failed to substitute variable '$%s', ignoring: %m", entry->name);
                         else
-                                log_device_warning_errno(event->dev->device, subst_len, "Failed to apply format '%%%c', ignoring: %m", entry->fmt);
+                                log_device_warning_errno(event->dev, subst_len, "Failed to apply format '%%%c', ignoring: %m", entry->fmt);
 
                         continue;
                 }
@@ -646,9 +641,9 @@ int udev_event_spawn(struct udev_event *event,
                 free_and_replace(argv[0], program);
         }
 
-        r = device_get_properties_strv(event->dev->device, &envp);
+        r = device_get_properties_strv(event->dev, &envp);
         if (r < 0)
-                return log_device_error_errno(event->dev->device, r, "Failed to get device properties");
+                return log_device_error_errno(event->dev, r, "Failed to get device properties");
 
         log_debug("Starting '%s'", cmd);
 
@@ -692,7 +687,7 @@ int udev_event_spawn(struct udev_event *event,
 }
 
 static int rename_netif(struct udev_event *event) {
-        sd_device *dev = event->dev->device;
+        sd_device *dev = event->dev;
         const char *action, *oldname;
         char name[IFNAMSIZ];
         int ifindex, r;
@@ -735,7 +730,7 @@ static int rename_netif(struct udev_event *event) {
 }
 
 static int update_devnode(struct udev_event *event) {
-        sd_device *dev = event->dev->device;
+        sd_device *dev = event->dev;
         const char *action;
         bool apply;
         int r;
@@ -790,7 +785,7 @@ static void event_execute_rules_on_remove(
                 Hashmap *properties_list,
                 struct udev_rules *rules) {
 
-        sd_device *dev = event->dev->device;
+        sd_device *dev = event->dev;
         int r;
 
         r = device_read_db_force(dev);
@@ -820,7 +815,7 @@ int udev_event_execute_rules(struct udev_event *event,
                              usec_t timeout_usec, usec_t timeout_warn_usec,
                              Hashmap *properties_list,
                              struct udev_rules *rules) {
-        sd_device *dev = event->dev->device;
+        sd_device *dev = event->dev;
         const char *subsystem, *action;
         int r;
 
@@ -900,7 +895,7 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
                 udev_event_apply_format(event, cmd, command, sizeof(command), false);
 
                 if (builtin_cmd >= 0 && builtin_cmd < _UDEV_BUILTIN_MAX)
-                        udev_builtin_run(event->dev->device, builtin_cmd, command, false);
+                        udev_builtin_run(event->dev, builtin_cmd, command, false);
                 else {
                         if (event->exec_delay_usec > 0) {
                                 log_debug("delay execution of '%s'", command);

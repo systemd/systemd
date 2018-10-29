@@ -24,7 +24,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"
-#include "libudev-device-internal.h"
+#include "libudev-private.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "stat-util.h"
@@ -660,7 +660,7 @@ static int import_program_into_properties(struct udev_event *event,
                         pos[0] = '\0';
                         pos = &pos[1];
                 }
-                (void) import_property_from_string(event->dev->device, line);
+                (void) import_property_from_string(event->dev, line);
                 line = pos;
         }
         return 0;
@@ -1730,7 +1730,7 @@ int udev_rules_apply_to_event(
                 usec_t timeout_usec,
                 usec_t timeout_warn_usec,
                 Hashmap *properties_list) {
-        sd_device *dev = event->dev->device;
+        sd_device *dev = event->dev;
         enum escape_type esc = ESCAPE_UNSET;
         struct token *cur, *rule;
         const char *action, *val;

@@ -9,7 +9,6 @@
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 
-#include "libudev.h"
 #include "sd-device.h"
 #include "sd-netlink.h"
 
@@ -18,7 +17,7 @@
 #include "time-util.h"
 
 struct udev_event {
-        struct udev_device *dev;
+        sd_device *dev;
         sd_device *dev_parent;
         sd_device *dev_db_clone;
         char *name;
