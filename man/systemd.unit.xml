@@ -990,12 +990,13 @@
 
         <listitem><para>Before starting a unit, verify that the specified condition is true. If it is not true, the
         starting of the unit will be (mostly silently) skipped, however all ordering dependencies of it are still
-        respected. A failing condition will not result in the unit being moved into a failure state. The condition is
-        checked at the time the queued start job is to be executed. Use condition expressions in order to silently skip
-        units that do not apply to the local running system, for example because the kernel or runtime environment
-        doesn't require its functionality. Use the various <varname>AssertArchitecture=</varname>,
-        <varname>AssertVirtualization=</varname>, … options for a similar mechanism that puts the unit in a failure
-        state and logs about the failed check (see below).</para>
+        respected. A failing condition will not result in the unit being moved into the <literal>failed</literal>
+        state. The condition is checked at the time the queued start job is to be executed. Use condition expressions
+        in order to silently skip units that do not apply to the local running system, for example because the kernel
+        or runtime environment doesn't require their functionality. Use the various
+        <varname>AssertArchitecture=</varname>, <varname>AssertVirtualization=</varname>, … options for a similar
+        mechanism that causes the job to fail (instead of being skipped) and results in logging about the failed check
+        (instead of being silently processed). For details about assertion conditions see below.</para>
 
         <para><varname>ConditionArchitecture=</varname> may be used to
         check whether the system is running on a specific
@@ -1276,9 +1277,16 @@
         <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
         <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings add
         assertion checks to the start-up of the unit. However, unlike the conditions settings, any assertion setting
-        that is not met results in failure of the start job (which means this is logged loudly). Use assertion
-        expressions for units that cannot operate when specific requirements are not met, and when this is something
-        the administrator or user should look into.</para></listitem>
+        that is not met results in failure of the start job (which means this is logged loudly). Note that hitting a
+        configured assertion does not cause the unit to enter the <literal>failed</literal> state (or in fact result in
+        any state change of the unit), it affects only the job queued for it. Use assertion expressions for units that
+        cannot operate when specific requirements are not met, and when this is something the administrator or user
+        should look into.</para>
+
+        <para>Note that neither assertion nor condition expressions result in unit state changes. Also note that both
+        are checked at the time the job is to be executed, i.e. long after depending jobs and it itself were
+        queued. Thus, neither condition nor assertion expressions are suitable for conditionalizing unit
+        dependencies.</para></listitem>
       </varlistentry>
 
       <varlistentry>

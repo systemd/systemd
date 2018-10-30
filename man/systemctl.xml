@@ -1058,6 +1058,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             terminating abnormally or timing out), it will automatically enter the <literal>failed</literal> state and
             its exit code and status is recorded for introspection by the administrator until the service is
             stopped/re-started or reset with this command.</para>
+
+            <para>In addition to resetting the <literal>failed</literal> state of a unit it also resets various other
+            per-unit properties: the start rate limit counter of all unit types is reset to zero, as is the restart
+            counter of service units. Thus, if a unit's start limit (as configured with
+            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
+            to be started again, use this command to make it startable again.</para>
           </listitem>
         </varlistentry>
 
@@ -1085,6 +1091,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <option>--after</option>, <option>--before</option>
             may be used to change what types of dependencies
             are shown.</para>
+
+            <para>Note that this command only lists units currently loaded into memory by the service manager. In
+            particular, this command is not suitable to get a comprehensive list at all reverse dependencies on a
+            specific unit, as it won't list the dependencies declared by units currently not loaded.</para>
           </listitem>
         </varlistentry>
       </variablelist>
