@@ -555,14 +555,12 @@ int device_monitor_send_device(
         smsg.msg_namelen = sizeof(struct sockaddr_nl);
         count = sendmsg(m->sock, &smsg, 0);
         if (count < 0) {
-                if (!destination && errno == ECONNREFUSED) {
-                        log_device_debug(device, "Passed to netlink monitor");
+                if (!destination && errno == ECONNREFUSED)
                         return 0;
-                } else
+                else
                         return log_device_debug_errno(device, errno, "Failed to send device to netlink monitor: %m");
         }
 
-        log_device_debug(device, "Passed %zi byte to netlink monitor", count);
         return count;
 }
 
