@@ -3196,11 +3196,6 @@ static int exec_child(
                 }
         }
 
-        /* Apply just after mount namespace setup */
-        r = apply_working_directory(context, params, home, needs_mount_namespace, exit_status);
-        if (r < 0)
-                return log_unit_error_errno(unit, r, "Changing to the requested working directory failed: %m");
-
         /* Drop groups as early as possbile */
         if (needs_setuid) {
                 r = enforce_groups(gid, supplementary_gids, ngids);
@@ -3374,6 +3369,12 @@ static int exec_child(
                         }
                 }
         }
+
+        /* Apply working directory here, because the working directory might be on NFS and only the user running
+         * this service might have the correct privilege to change to the working directory */
+        r = apply_working_directory(context, params, home, needs_mount_namespace, exit_status);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Changing to the requested working directory failed: %m");
 
         if (needs_sandboxing) {
                 /* Apply other MAC contexts late, but before seccomp syscall filtering, as those should really be last to
