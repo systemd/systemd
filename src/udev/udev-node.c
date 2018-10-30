@@ -73,6 +73,8 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 } while (r == -ENOENT);
                 if (r == 0)
                         return 0;
+                if (r < 0)
+                        log_device_debug(dev, "Failed to create symlink '%s' to '%s', trying to replace '%s': %m", slink, target, slink);
         }
 
         log_device_debug(dev, "Atomically replace '%s'", slink);
