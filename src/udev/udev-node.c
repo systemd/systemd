@@ -211,10 +211,8 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 log_device_debug(dev, "No reference left, removing '%s'", slink);
                 if (unlink(slink) == 0)
                         (void) rmdir_parents(slink, "/");
-        } else {
-                log_device_debug(dev, "Creating link '%s' to '%s'", slink, target);
+        } else
                 (void) node_symlink(dev, target, slink);
-        }
 
         if (add)
                 do {
