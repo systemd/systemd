@@ -111,12 +111,12 @@ static int wait_for_initialized(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         struct DeviceMonitorData data = {};
-        int initialized, r;
+        int r;
 
         assert(device);
         assert(ret);
 
-        if (sd_device_get_is_initialized(device, &initialized) >= 0 && initialized) {
+        if (sd_device_get_is_initialized(device) > 0) {
                 *ret = sd_device_ref(device);
                 return 0;
         }
@@ -152,7 +152,7 @@ static int wait_for_initialized(
                 return log_full_errno(IN_SET(r, -ENOENT, -ENXIO, -ENODEV) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to open device '%s': %m", data.sysname);
 
-        if (sd_device_get_is_initialized(d, &initialized) >= 0 && initialized) {
+        if (sd_device_get_is_initialized(d) > 0) {
                 *ret = TAKE_PTR(d);
                 return 0;
         }

@@ -271,7 +271,6 @@ int device_get_devnode_mode(sd_device *device, mode_t *mode) {
         int r;
 
         assert(device);
-        assert(mode);
 
         r = device_read_db(device);
         if (r < 0)
@@ -280,7 +279,8 @@ int device_get_devnode_mode(sd_device *device, mode_t *mode) {
         if (device->devmode == (mode_t) -1)
                 return -ENOENT;
 
-        *mode = device->devmode;
+        if (mode)
+                *mode = device->devmode;
 
         return 0;
 }
@@ -289,7 +289,6 @@ int device_get_devnode_uid(sd_device *device, uid_t *uid) {
         int r;
 
         assert(device);
-        assert(uid);
 
         r = device_read_db(device);
         if (r < 0)
@@ -298,7 +297,8 @@ int device_get_devnode_uid(sd_device *device, uid_t *uid) {
         if (device->devuid == (uid_t) -1)
                 return -ENOENT;
 
-        *uid = device->devuid;
+        if (uid)
+                *uid = device->devuid;
 
         return 0;
 }
@@ -327,7 +327,6 @@ int device_get_devnode_gid(sd_device *device, gid_t *gid) {
         int r;
 
         assert(device);
-        assert(gid);
 
         r = device_read_db(device);
         if (r < 0)
@@ -336,7 +335,8 @@ int device_get_devnode_gid(sd_device *device, gid_t *gid) {
         if (device->devgid == (gid_t) -1)
                 return -ENOENT;
 
-        *gid = device->devgid;
+        if (gid)
+                *gid = device->devgid;
 
         return 0;
 }
@@ -726,7 +726,6 @@ int device_get_watch_handle(sd_device *device, int *handle) {
         int r;
 
         assert(device);
-        assert(handle);
 
         r = device_read_db(device);
         if (r < 0)
@@ -735,7 +734,8 @@ int device_get_watch_handle(sd_device *device, int *handle) {
         if (device->watch_handle < 0)
                 return -ENOENT;
 
-        *handle = device->watch_handle;
+        if (handle)
+                *handle = device->watch_handle;
 
         return 0;
 }

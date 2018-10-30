@@ -819,17 +819,17 @@ _public_ struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_
  * Returns: 1 if the device is set up. 0 otherwise.
  **/
 _public_ int udev_device_get_is_initialized(struct udev_device *udev_device) {
-        int r, initialized;
+        int r;
 
         assert_return(udev_device, -EINVAL);
 
-        r = sd_device_get_is_initialized(udev_device->device, &initialized);
+        r = sd_device_get_is_initialized(udev_device->device);
         if (r < 0) {
                 errno = -r;
                 return 0;
         }
 
-        return initialized;
+        return r;
 }
 
 /**

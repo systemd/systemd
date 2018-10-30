@@ -395,7 +395,7 @@ int remove_bridge(const char *bridge_name) {
 static int parse_interface(const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         char ifi_str[2 + DECIMAL_STR_MAX(int)];
-        int ifi, initialized, r;
+        int ifi, r;
 
         ifi = (int) if_nametoindex(name);
         if (ifi <= 0)
@@ -406,11 +406,10 @@ static int parse_interface(const char *name) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get device for interface %s: %m", name);
 
-        r = sd_device_get_is_initialized(d, &initialized);
+        r = sd_device_get_is_initialized(d);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether interface %s is initialized or not: %m", name);
-
-        if (!initialized) {
+        if (r == 0) {
                 log_error("Network interface %s is not initialized yet.", name);
                 return -EBUSY;
         }
