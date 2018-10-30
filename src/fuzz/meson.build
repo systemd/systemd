@@ -67,4 +67,8 @@ fuzzers += [
          [libsystemd_journal_remote,
           libshared],
          []],
+
+        [['src/fuzz/fuzz-compress.c'],
+         [libshared],
+         []],
 ]

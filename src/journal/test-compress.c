@@ -132,6 +132,32 @@ static void test_decompress_startswith(int compression,
         assert_se(r > 0);
 }
 
+static void test_decompress_startswith_short(int compression,
+                                             compress_blob_t compress,
+                                             decompress_sw_t decompress_sw) {
+
+#define TEXT "HUGE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+        char buf[1024];
+        size_t i, csize;
+        int r;
+
+        log_info("/* %s with %s */", __func__, object_compressed_to_string(compression));
+
+        r = compress(TEXT, sizeof TEXT, buf, sizeof buf, &csize);
+        assert_se(r == 0);
+
+        for (i = 1; i < strlen(TEXT); i++) {
+                size_t alloc_size = i;
+                _cleanup_free_ void *buf2 = NULL;
+
+                assert_se(buf2 = malloc(i));
+
+                assert_se(decompress_sw(buf, csize, &buf2, &alloc_size, TEXT, i, TEXT[i]) == 1);
+                assert_se(decompress_sw(buf, csize, &buf2, &alloc_size, TEXT, i, 'y') == 0);
+        }
+}
+
 static void test_compress_stream(int compression,
                                  const char* cat,
                                  compress_stream_t compress,
@@ -198,21 +224,17 @@ static void test_compress_stream(int compression,
 
 #if HAVE_LZ4
 static void test_lz4_decompress_partial(void) {
-        char buf[20000];
+        char buf[20000], buf2[100];
         size_t buf_size = sizeof(buf), compressed;
         int r;
         _cleanup_free_ char *huge = NULL;
 
 #define HUGE_SIZE (4096*1024)
-        huge = malloc(HUGE_SIZE);
+        assert_se(huge = malloc(HUGE_SIZE));
         memset(huge, 'x', HUGE_SIZE);
         memcpy(huge, "HUGE=", 5);
 
-#if LZ4_VERSION_NUMBER >= 10700
         r = LZ4_compress_default(huge, buf, HUGE_SIZE, buf_size);
-#else
-        r = LZ4_compress_limitedOutput(huge, buf, HUGE_SIZE, buf_size);
-#endif
         assert_se(r >= 0);
         compressed = r;
         log_info("Compressed %i → %zu", HUGE_SIZE, compressed);
@@ -227,14 +249,15 @@ static void test_lz4_decompress_partial(void) {
         assert_se(r >= 0);
         log_info("Decompressed partial %i/%i → %i", 12, HUGE_SIZE, r);
 
-        /* We expect this to fail, because that's how current lz4 works. If this
-         * call succeeds, then lz4 has been fixed, and we need to change our code.
-         */
-        r = LZ4_decompress_safe_partial(buf, huge,
-                                        compressed,
-                                        12, HUGE_SIZE-1);
-        assert_se(r < 0);
-        log_info("Decompressed partial %i/%i → %i", 12, HUGE_SIZE-1, r);
+        for (size_t size = 1; size < sizeof(buf2); size++) {
+                /* This failed in older lz4s but works in newer ones. */
+                r = LZ4_decompress_safe_partial(buf, buf2, compressed, size, size);
+                log_info("Decompressed partial %zu/%zu → %i (%s)", size, size, r,
+                                                                   r < 0 ? "bad" : "good");
+                if (r >= 0 && LZ4_versionNumber() >= 10803)
+                        /* lz4 <= 1.8.2 should fail that test, let's only check for newer ones */
+                        assert_se(memcmp(buf2, huge, r) == 0);
+        }
 }
 #endif
 
@@ -276,6 +299,9 @@ int main(int argc, char *argv[]) {
 
         test_compress_stream(OBJECT_COMPRESSED_XZ, "xzcat",
                              compress_stream_xz, decompress_stream_xz, srcfile);
+
+        test_decompress_startswith_short(OBJECT_COMPRESSED_XZ, compress_blob_xz, decompress_startswith_xz);
+
 #else
         log_info("/* XZ test skipped */");
 #endif
@@ -300,6 +326,9 @@ int main(int argc, char *argv[]) {
                              compress_stream_lz4, decompress_stream_lz4, srcfile);
 
         test_lz4_decompress_partial();
+
+        test_decompress_startswith_short(OBJECT_COMPRESSED_LZ4, compress_blob_lz4, decompress_startswith_lz4);
+
 #else
         log_info("/* LZ4 test skipped */");
 #endif
