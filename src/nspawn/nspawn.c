@@ -3701,10 +3701,12 @@ static int run(int master,
                         return log_error_errno(errno, "Cannot open file %s: %m", arg_network_namespace_path);
 
                 r = fd_is_network_ns(netns_fd);
-                if (r < 0 && r != -ENOTTY)
+                if (r == -EUCLEAN)
+                        log_debug_errno(r, "Cannot determine if passed network namespace path '%s' really refers to a network namespace, assuming it does.", arg_network_namespace_path);
+                else if (r < 0)
                         return log_error_errno(r, "Failed to check %s fs type: %m", arg_network_namespace_path);
-                if (r == 0) {
-                        log_error("Path %s doesn't refer to a network namespace", arg_network_namespace_path);
+                else if (r == 0) {
+                        log_error("Path %s doesn't refer to a network namespace, refusing.", arg_network_namespace_path);
                         return -EINVAL;
                 }
         }
