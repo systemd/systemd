@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1+
 # Ukrainian translation for systemd.
-# This file is distributed under the same license as the systemd package.
 # Eugene Melnik <jeka7js@gmail.com>, 2014.
 # Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2016, 2018.
 msgid ""

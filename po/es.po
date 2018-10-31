@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Spanish translation for systemd.
-# This file is distributed under the same license as the systemd package.
 # Alex Puchades <alex94puchades@gmail.com>, 2015.
 # Daniel Mustieles <daniel.mustieles@gmail.com>, 2015.
 # Álex Puchades <alex94puchades@gmail.com>, 2015.

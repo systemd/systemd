@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Turkish translation for systemd.
-# This file is distributed under the same license as the systemd package.
 # Necdet Yücel <necdetyucel@gmail.com>, 2014.
 # Gökhan Gurbetoğlu <ggurbet@gmail.com>, 2015.
 # Muhammet Kara <muhammetk@gnome.org>, 2015, 2016, 2017, 2018.

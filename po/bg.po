@@ -2,7 +2,6 @@
 #
 # Bulgarian translation of systemd po-file.
 # Copyright © 2016 Alexander Shopov <ash@kambanaria.org>
-# This file is distributed under the same license as the systemd package.
 # Alexander Shopov <ash@kambanaria.org>, 2016.
 #
 msgid ""
