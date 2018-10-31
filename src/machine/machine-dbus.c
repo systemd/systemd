@@ -605,7 +605,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 if (strv_isempty(args)) {
                         args = strv_free(args);
 
-                        args = strv_new(path, NULL);
+                        args = strv_new(path);
                         if (!args)
                                 return -ENOMEM;
                 }

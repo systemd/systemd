@@ -169,7 +169,7 @@ char **strv_new_ap(const char *x, va_list ap) {
         return TAKE_PTR(a);
 }
 
-char **strv_new(const char *x, ...) {
+char **strv_new_internal(const char *x, ...) {
         char **r;
         va_list ap;
 
@@ -658,7 +658,7 @@ char **strv_split_nulstr(const char *s) {
                 }
 
         if (!r)
-                return strv_new(NULL, NULL);
+                return strv_new(NULL);
 
         return r;
 }

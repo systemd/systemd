@@ -54,8 +54,9 @@ bool strv_equal(char **a, char **b);
 
 #define strv_contains(l, s) (!!strv_find((l), (s)))
 
-char **strv_new(const char *x, ...) _sentinel_;
+char **strv_new_internal(const char *x, ...) _sentinel_;
 char **strv_new_ap(const char *x, va_list ap);
+#define strv_new(...) strv_new_internal(__VA_ARGS__, NULL)
 
 #define STRV_IGNORE ((const char *) -1)
 

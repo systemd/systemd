@@ -50,14 +50,14 @@ static int test_fiemap(const char *path) {
 
 static void test_sleep(void) {
         _cleanup_strv_free_ char
-                **standby = strv_new("standby", NULL),
-                **mem = strv_new("mem", NULL),
-                **disk = strv_new("disk", NULL),
-                **suspend = strv_new("suspend", NULL),
-                **reboot = strv_new("reboot", NULL),
-                **platform = strv_new("platform", NULL),
-                **shutdown = strv_new("shutdown", NULL),
-                **freez = strv_new("freeze", NULL);
+                **standby = strv_new("standby"),
+                **mem = strv_new("mem"),
+                **disk = strv_new("disk"),
+                **suspend = strv_new("suspend"),
+                **reboot = strv_new("reboot"),
+                **platform = strv_new("platform"),
+                **shutdown = strv_new("shutdown"),
+                **freez = strv_new("freeze");
         int r;
 
         log_info("/* %s */", __func__);

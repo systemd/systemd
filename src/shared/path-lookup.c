@@ -137,8 +137,7 @@ int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
                 data_dirs = strv_split(e, ":");
         else
                 data_dirs = strv_new("/usr/local/share",
-                                     "/usr/share",
-                                     NULL);
+                                     "/usr/share");
         if (!data_dirs)
                 return -ENOMEM;
 
@@ -616,8 +615,7 @@ int lookup_paths_init(
                                         SYSTEM_DATA_UNIT_PATH,
                                         "/usr/lib/systemd/system",
                                         STRV_IFNOTNULL(flags & LOOKUP_PATHS_SPLIT_USR ? "/lib/systemd/system" : NULL),
-                                        STRV_IFNOTNULL(generator_late),
-                                        NULL);
+                                        STRV_IFNOTNULL(generator_late));
                         break;
 
                 case UNIT_FILE_GLOBAL:
@@ -640,8 +638,7 @@ int lookup_paths_init(
                                         "/usr/local/lib/systemd/user",
                                         USER_DATA_UNIT_PATH,
                                         "/usr/lib/systemd/user",
-                                        STRV_IFNOTNULL(generator_late),
-                                        NULL);
+                                        STRV_IFNOTNULL(generator_late));
                         break;
 
                 case UNIT_FILE_USER:
@@ -891,16 +888,14 @@ char **generator_binary_paths(UnitFileScope scope) {
                 return strv_new("/run/systemd/system-generators",
                                 "/etc/systemd/system-generators",
                                 "/usr/local/lib/systemd/system-generators",
-                                SYSTEM_GENERATOR_PATH,
-                                NULL);
+                                SYSTEM_GENERATOR_PATH);
 
         case UNIT_FILE_GLOBAL:
         case UNIT_FILE_USER:
                 return strv_new("/run/systemd/user-generators",
                                 "/etc/systemd/user-generators",
                                 "/usr/local/lib/systemd/user-generators",
-                                USER_GENERATOR_PATH,
-                                NULL);
+                                USER_GENERATOR_PATH);
 
         default:
                 assert_not_reached("Hmm, unexpected scope.");

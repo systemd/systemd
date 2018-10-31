@@ -717,7 +717,7 @@ static int acquire_search_path(const char *def, const char *envvar, char ***ret)
         if (strv_isempty(l)) {
                 strv_free(l);
 
-                l = strv_new(def, NULL);
+                l = strv_new(def);
                 if (!l)
                         return log_oom();
         }

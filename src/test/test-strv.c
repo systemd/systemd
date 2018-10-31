@@ -441,8 +441,8 @@ static void test_strv_sort(void) {
 static void test_strv_extend_strv_concat(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
-        a = strv_new("without", "suffix", NULL);
-        b = strv_new("with", "suffix", NULL);
+        a = strv_new("without", "suffix");
+        b = strv_new("with", "suffix");
         assert_se(a);
         assert_se(b);
 
@@ -457,8 +457,8 @@ static void test_strv_extend_strv_concat(void) {
 static void test_strv_extend_strv(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **n = NULL;
 
-        a = strv_new("abc", "def", "ghi", NULL);
-        b = strv_new("jkl", "mno", "abc", "pqr", NULL);
+        a = strv_new("abc", "def", "ghi");
+        b = strv_new("jkl", "mno", "abc", "pqr");
         assert_se(a);
         assert_se(b);
 
@@ -483,7 +483,7 @@ static void test_strv_extend_strv(void) {
 static void test_strv_extend(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
-        a = strv_new("test", "test1", NULL);
+        a = strv_new("test", "test1");
         assert_se(a);
         assert_se(strv_extend(&a, "test2") >= 0);
         assert_se(strv_extend(&b, "test3") >= 0);
@@ -497,7 +497,7 @@ static void test_strv_extend(void) {
 static void test_strv_extendf(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
-        a = strv_new("test", "test1", NULL);
+        a = strv_new("test", "test1");
         assert_se(a);
         assert_se(strv_extendf(&a, "test2 %s %d %s", "foo", 128, "bar") >= 0);
         assert_se(strv_extendf(&b, "test3 %s %s %d", "bar", "foo", 128) >= 0);
@@ -513,7 +513,7 @@ static void test_strv_foreach(void) {
         unsigned i = 0;
         char **check;
 
-        a = strv_new("one", "two", "three", NULL);
+        a = strv_new("one", "two", "three");
 
         assert_se(a);
 
@@ -527,7 +527,7 @@ static void test_strv_foreach_backwards(void) {
         unsigned i = 2;
         char **check;
 
-        a = strv_new("one", "two", "three", NULL);
+        a = strv_new("one", "two", "three");
 
         assert_se(a);
 
@@ -547,8 +547,7 @@ static void test_strv_foreach_pair(void) {
 
         a = strv_new("pair_one",   "pair_one",
                      "pair_two",   "pair_two",
-                     "pair_three", "pair_three",
-                     NULL);
+                     "pair_three", "pair_three");
 
         STRV_FOREACH_PAIR(x, y, a) {
                 assert_se(streq(*x, *y));
@@ -608,7 +607,7 @@ static void test_strv_insert(void) {
 static void test_strv_push_prepend(void) {
         _cleanup_strv_free_ char **a = NULL;
 
-        a = strv_new("foo", "bar", "three", NULL);
+        a = strv_new("foo", "bar", "three");
 
         assert_se(strv_push_prepend(&a, strdup("first")) >= 0);
         assert_se(streq(a[0], "first"));
@@ -648,11 +647,11 @@ static void test_strv_equal(void) {
         _cleanup_strv_free_ char **b = NULL;
         _cleanup_strv_free_ char **c = NULL;
 
-        a = strv_new("one", "two", "three", NULL);
+        a = strv_new("one", "two", "three");
         assert_se(a);
-        b = strv_new("one", "two", "three", NULL);
+        b = strv_new("one", "two", "three");
         assert_se(a);
-        c = strv_new("one", "two", "three", "four", NULL);
+        c = strv_new("one", "two", "three", "four");
         assert_se(a);
 
         assert_se(strv_equal(a, a));
@@ -667,19 +666,19 @@ static void test_strv_equal(void) {
 static void test_strv_is_uniq(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
 
-        a = strv_new(NULL, NULL);
+        a = strv_new(NULL);
         assert_se(a);
         assert_se(strv_is_uniq(a));
 
-        b = strv_new("foo", NULL);
+        b = strv_new("foo");
         assert_se(b);
         assert_se(strv_is_uniq(b));
 
-        c = strv_new("foo", "bar", NULL);
+        c = strv_new("foo", "bar");
         assert_se(c);
         assert_se(strv_is_uniq(c));
 
-        d = strv_new("foo", "bar", "waldo", "bar", "piep", NULL);
+        d = strv_new("foo", "bar", "waldo", "bar", "piep");
         assert_se(d);
         assert_se(!strv_is_uniq(d));
 }
@@ -687,26 +686,26 @@ static void test_strv_is_uniq(void) {
 static void test_strv_reverse(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
 
-        a = strv_new(NULL, NULL);
+        a = strv_new(NULL);
         assert_se(a);
 
         strv_reverse(a);
         assert_se(strv_isempty(a));
 
-        b = strv_new("foo", NULL);
+        b = strv_new("foo");
         assert_se(b);
         strv_reverse(b);
         assert_se(streq_ptr(b[0], "foo"));
         assert_se(streq_ptr(b[1], NULL));
 
-        c = strv_new("foo", "bar", NULL);
+        c = strv_new("foo", "bar");
         assert_se(c);
         strv_reverse(c);
         assert_se(streq_ptr(c[0], "bar"));
         assert_se(streq_ptr(c[1], "foo"));
         assert_se(streq_ptr(c[2], NULL));
 
-        d = strv_new("foo", "bar", "waldo", NULL);
+        d = strv_new("foo", "bar", "waldo");
         assert_se(d);
         strv_reverse(d);
         assert_se(streq_ptr(d[0], "waldo"));
@@ -718,7 +717,7 @@ static void test_strv_reverse(void) {
 static void test_strv_shell_escape(void) {
         _cleanup_strv_free_ char **v = NULL;
 
-        v = strv_new("foo:bar", "bar,baz", "wal\\do", NULL);
+        v = strv_new("foo:bar", "bar,baz", "wal\\do");
         assert_se(v);
         assert_se(strv_shell_escape(v, ",:"));
         assert_se(streq_ptr(v[0], "foo\\:bar"));
@@ -752,7 +751,7 @@ static void test_strv_skip(void) {
 static void test_strv_extend_n(void) {
         _cleanup_strv_free_ char **v = NULL;
 
-        v = strv_new("foo", "bar", NULL);
+        v = strv_new("foo", "bar");
         assert_se(v);
 
         assert_se(strv_extend_n(&v, "waldo", 3) >= 0);
@@ -808,8 +807,8 @@ static void test_strv_free_free(void) {
         char ***t;
 
         assert_se(t = new(char**, 3));
-        assert_se(t[0] = strv_new("a", "b", NULL));
-        assert_se(t[1] = strv_new("c", "d", "e", NULL));
+        assert_se(t[0] = strv_new("a", "b"));
+        assert_se(t[1] = strv_new("c", "d", "e"));
         t[2] = NULL;
 
         t = strv_free_free(t);
@@ -839,7 +838,7 @@ static void test_strv_fnmatch(void) {
 
         assert_se(!strv_fnmatch(STRV_MAKE_EMPTY, "a", 0));
 
-        v = strv_new("*\\*", NULL);
+        v = strv_new("*\\*");
         assert_se(!strv_fnmatch(v, "\\", 0));
         assert_se(strv_fnmatch(v, "\\", FNM_NOESCAPE));
 }

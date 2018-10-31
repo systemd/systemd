@@ -293,7 +293,7 @@ static void test_strv_resolve(void) {
 
         assert_se(mkdtemp(tmp_dir) != NULL);
 
-        search_dirs = strv_new("/dir1", "/dir2", "/dir3", NULL);
+        search_dirs = strv_new("/dir1", "/dir2", "/dir3");
         assert_se(search_dirs);
         STRV_FOREACH(d, search_dirs) {
                 char *p = strappend(tmp_dir, *d);

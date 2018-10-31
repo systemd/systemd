@@ -678,7 +678,7 @@ int ask_password_agent(
                 if (passphrase[0] == '+') {
                         /* An empty message refers to the empty password */
                         if (n == 1)
-                                l = strv_new("", NULL);
+                                l = strv_new("");
                         else
                                 l = strv_parse_nulstr(passphrase+1, n-1);
                         explicit_bzero_safe(passphrase, n);
