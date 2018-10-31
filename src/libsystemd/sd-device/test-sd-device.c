@@ -12,6 +12,8 @@ static void test_sd_device_basic(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *d;
 
+        log_info("/* %s */", __func__);
+
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
         FOREACH_DEVICE(e, d) {
@@ -90,6 +92,8 @@ static void test_sd_device_enumerator_filter_subsystem(void) {
         sd_device *d;
         Hashmap *h;
         char *s;
+
+        log_info("/* %s */", __func__);
 
         assert_se(subsystems = hashmap_new(&string_hash_ops));
         assert_se(sd_device_enumerator_new(&e) >= 0);
