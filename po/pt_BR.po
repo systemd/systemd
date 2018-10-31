@@ -4,7 +4,6 @@
 # This file is distributed under the same license as the systemd package.
 # Enrico Nicoletto <liverig@gmail.com>, 2014.
 # Rafael Fontenelle <rafaelff@gnome.org>, 2015, 2017.
-# Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>, 2018. #zanata
 # Filipe Brandenburger <filbranden@gmail.com>, 2018.
 msgid ""
 msgstr ""

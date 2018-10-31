@@ -2,8 +2,6 @@
 #
 # Polish translation for systemd.
 # This file is distributed under the same license as the systemd package.
-# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013-2018.
-# Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>, 2011.
 #
 msgid ""
 msgstr ""
