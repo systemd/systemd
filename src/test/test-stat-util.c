@@ -67,11 +67,26 @@ static void test_path_is_temporary_fs(void) {
         assert_se(path_is_temporary_fs("/i-dont-exist") == -ENOENT);
 }
 
+static void test_fd_is_network_ns(void) {
+        _cleanup_close_ int fd = -1;
+        assert_se(fd_is_network_ns(STDIN_FILENO) == 0);
+        assert_se(fd_is_network_ns(STDERR_FILENO) == 0);
+        assert_se(fd_is_network_ns(STDOUT_FILENO) == 0);
+
+        assert_se((fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY)) >= 0);
+        assert_se(IN_SET(fd_is_network_ns(fd), 0, -EUCLEAN));
+        fd = safe_close(fd);
+
+        assert_se((fd = open("/proc/self/ns/net", O_CLOEXEC|O_RDONLY)) >= 0);
+        assert_se(IN_SET(fd_is_network_ns(fd), 1, -EUCLEAN));
+}
+
 int main(int argc, char *argv[]) {
         test_files_same();
         test_is_symlink();
         test_path_is_fs_type();
         test_path_is_temporary_fs();
+        test_fd_is_network_ns();
 
         return 0;
 }
