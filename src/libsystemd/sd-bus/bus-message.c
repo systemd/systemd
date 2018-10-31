@@ -2004,6 +2004,7 @@ _public_ int sd_bus_message_open_container(
         w = m->containers + m->n_containers++;
         w->enclosing = type;
         w->signature = TAKE_PTR(signature);
+        w->peeked_signature = NULL;
         w->index = 0;
         w->array_size = array_size;
         w->before = before;
