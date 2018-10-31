@@ -475,26 +475,26 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
 
 static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         Spawn *spawn = userdata;
-        char timeout[FORMAT_TIMESTAMP_RELATIVE_MAX];
+        char timeout[FORMAT_TIMESPAN_MAX];
 
         assert(spawn);
 
         kill_and_sigcont(spawn->pid, SIGKILL);
 
         log_error("Spawned process '%s' ["PID_FMT"] timed out after %s, killing", spawn->cmd, spawn->pid,
-                  format_timestamp_relative(timeout, sizeof(timeout), spawn->timeout_usec));
+                  format_timespan(timeout, sizeof(timeout), spawn->timeout_usec, USEC_PER_SEC));
 
         return 1;
 }
 
 static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
         Spawn *spawn = userdata;
-        char timeout[FORMAT_TIMESTAMP_RELATIVE_MAX];
+        char timeout[FORMAT_TIMESPAN_MAX];
 
         assert(spawn);
 
         log_warning("Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete", spawn->cmd, spawn->pid,
-                    format_timestamp_relative(timeout, sizeof(timeout), spawn->timeout_warn_usec));
+                    format_timespan(timeout, sizeof(timeout), spawn->timeout_warn_usec, USEC_PER_SEC));
 
         return 1;
 }
@@ -727,11 +727,10 @@ static int rename_netif(struct udev_event *event) {
 static int update_devnode(struct udev_event *event) {
         sd_device *dev = event->dev->device;
         const char *action;
-        dev_t devnum;
         bool apply;
         int r;
 
-        r = sd_device_get_devnum(dev, &devnum);
+        r = sd_device_get_devnum(dev, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -782,7 +781,6 @@ static void event_execute_rules_on_remove(
                 struct udev_rules *rules) {
 
         sd_device *dev = event->dev->device;
-        dev_t devnum;
         int r;
 
         r = device_read_db_force(dev);
@@ -797,18 +795,14 @@ static void event_execute_rules_on_remove(
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
-        r = sd_device_get_devnum(dev, &devnum);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        log_device_debug_errno(dev, r, "Failed to get devnum, ignoring: %m");
-        } else
+        if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_watch_end(dev);
 
         (void) udev_rules_apply_to_event(rules, event,
                                          timeout_usec, timeout_warn_usec,
                                          properties_list);
 
-        if (major(devnum) > 0)
+        if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_node_remove(dev);
 }
 
@@ -819,7 +813,6 @@ int udev_event_execute_rules(struct udev_event *event,
         _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
         sd_device *dev = event->dev->device;
         const char *subsystem, *action;
-        dev_t devnum;
         int r;
 
         assert(event);
@@ -847,7 +840,7 @@ int udev_event_execute_rules(struct udev_event *event,
                 if (!event->dev_db)
                         return -ENOMEM;
 
-                r = sd_device_get_devnum(dev, &devnum);
+                r = sd_device_get_devnum(dev, NULL);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_device_debug_errno(dev, r, "Failed to get devnum, ignoring: %m");
