@@ -1523,7 +1523,9 @@ static int service_spawn(
                 }
         }
 
-        unit_set_exec_params(UNIT(s), &exec_params);
+        r = unit_set_exec_params(UNIT(s), &exec_params);
+        if (r < 0)
+                return r;
 
         final_env = strv_env_merge(2, exec_params.environment, our_env, NULL);
         if (!final_env)

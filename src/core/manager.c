@@ -572,12 +572,11 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
-static void manager_sanitize_environment(Manager *m) {
-        assert(m);
+static char** sanitize_environment(char **l) {
 
         /* Let's remove some environment variables that we need ourselves to communicate with our clients */
         strv_env_unset_many(
-                        m->environment,
+                        l,
                         "EXIT_CODE",
                         "EXIT_STATUS",
                         "INVOCATION_ID",
@@ -596,11 +595,15 @@ static void manager_sanitize_environment(Manager *m) {
                         NULL);
 
         /* Let's order the environment alphabetically, just to make it pretty */
-        strv_sort(m->environment);
+        strv_sort(l);
+
+        return l;
 }
 
 static int manager_default_environment(Manager *m) {
         assert(m);
+
+        m->transient_environment = strv_free(m->transient_environment);
 
         if (MANAGER_IS_SYSTEM(m)) {
                 /* The system manager always starts with a clean
@@ -610,20 +613,19 @@ static int manager_default_environment(Manager *m) {
                  * The initial passed environment is untouched to keep
                  * /proc/self/environ valid; it is used for tagging
                  * the init process inside containers. */
-                m->environment = strv_new("PATH=" DEFAULT_PATH,
-                                          NULL);
+                m->transient_environment = strv_new("PATH=" DEFAULT_PATH);
 
                 /* Import locale variables LC_*= from configuration */
-                locale_setup(&m->environment);
+                (void) locale_setup(&m->transient_environment);
         } else
                 /* The user manager passes its own environment
                  * along to its children. */
-                m->environment = strv_copy(environ);
+                m->transient_environment = strv_copy(environ);
 
-        if (!m->environment)
+        if (!m->transient_environment)
                 return -ENOMEM;
 
-        manager_sanitize_environment(m);
+        sanitize_environment(m->transient_environment);
 
         return 0;
 }
@@ -1346,7 +1348,8 @@ Manager* manager_free(Manager *m) {
         free(m->notify_socket);
 
         lookup_paths_free(&m->lookup_paths);
-        strv_free(m->environment);
+        strv_free(m->transient_environment);
+        strv_free(m->client_environment);
 
         hashmap_free(m->cgroup_unit);
         set_free_free(m->unit_path_cache);
@@ -3145,7 +3148,7 @@ int manager_serialize(
         }
 
         if (!switching_root)
-                (void) serialize_strv(f, "env", m->environment);
+                (void) serialize_strv(f, "env", m->client_environment);
 
         if (m->notify_fd >= 0) {
                 r = serialize_fd(f, fds, "notify-fd", m->notify_fd);
@@ -3378,7 +3381,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 manager_override_log_target(m, target);
 
                 } else if (startswith(l, "env=")) {
-                        r = deserialize_environment(l + 4, &m->environment);
+                        r = deserialize_environment(l + 4, &m->client_environment);
                         if (r < 0)
                                 log_notice_errno(r, "Failed to parse environment entry: \"%s\", ignoring: %m", l);
 
@@ -3801,7 +3804,11 @@ static const char* user_env_generator_binary_paths[] = {
 static int manager_run_environment_generators(Manager *m) {
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
         const char **paths;
-        void* args[] = {&tmp, &tmp, &m->environment};
+        void* args[] = {
+                [STDOUT_GENERATE] = &tmp,
+                [STDOUT_COLLECT] = &tmp,
+                [STDOUT_CONSUME] = &m->transient_environment,
+        };
 
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
@@ -3811,7 +3818,7 @@ static int manager_run_environment_generators(Manager *m) {
         if (!generator_path_any(paths))
                 return 0;
 
-        return execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, m->environment);
+        return execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, m->transient_environment);
 }
 
 static int manager_run_generators(Manager *m) {
@@ -3845,7 +3852,7 @@ static int manager_run_generators(Manager *m) {
 
         RUN_WITH_UMASK(0022)
                 (void) execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC,
-                                           NULL, NULL, (char**) argv, m->environment);
+                                           NULL, NULL, (char**) argv, m->transient_environment);
 
         r = 0;
 
@@ -3854,11 +3861,36 @@ finish:
         return r;
 }
 
-int manager_environment_add(Manager *m, char **minus, char **plus) {
-        char **a = NULL, **b = NULL, **l;
+int manager_transient_environment_add(Manager *m, char **plus) {
+        char **a;
+
         assert(m);
 
-        l = m->environment;
+        if (strv_isempty(plus))
+                return 0;
+
+        a = strv_env_merge(2, m->transient_environment, plus);
+        if (!a)
+                return -ENOMEM;
+
+        sanitize_environment(a);
+
+        return strv_free_and_replace(m->transient_environment, a);
+}
+
+int manager_client_environment_modify(
+                Manager *m,
+                char **minus,
+                char **plus) {
+
+        char **a = NULL, **b = NULL, **l;
+
+        assert(m);
+
+        if (strv_isempty(minus) && strv_isempty(plus))
+                return 0;
+
+        l = m->client_environment;
 
         if (!strv_isempty(minus)) {
                 a = strv_env_delete(l, 1, minus);
@@ -3878,16 +3910,29 @@ int manager_environment_add(Manager *m, char **minus, char **plus) {
                 l = b;
         }
 
-        if (m->environment != l)
-                strv_free(m->environment);
+        if (m->client_environment != l)
+                strv_free(m->client_environment);
+
         if (a != l)
                 strv_free(a);
         if (b != l)
                 strv_free(b);
 
-        m->environment = l;
-        manager_sanitize_environment(m);
+        m->client_environment = sanitize_environment(l);
+        return 0;
+}
 
+int manager_get_effective_environment(Manager *m, char ***ret) {
+        char **l;
+
+        assert(m);
+        assert(ret);
+
+        l = strv_env_merge(2, m->transient_environment, m->client_environment);
+        if (!l)
+                return -ENOMEM;
+
+        *ret = l;
         return 0;
 }
 
