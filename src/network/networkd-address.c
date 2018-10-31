@@ -428,6 +428,7 @@ int address_remove(
                 sd_netlink_message_handler_t callback) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_free_ char *b = NULL;
         int r;
 
         assert(address);
@@ -436,6 +437,11 @@ int address_remove(
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
+
+        if (DEBUG_LOGGING) {
+                if (in_addr_to_string(address->family, &address->in_addr, &b) >= 0)
+                        log_link_debug(link, "Removing address %s", b);
+        }
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR,
                                      link->ifindex, address->family);

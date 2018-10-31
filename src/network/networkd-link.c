@@ -2618,6 +2618,22 @@ static int link_set_ipv6_mtu(Link *link) {
         return 0;
 }
 
+static bool link_is_static_address_configured(Link *link, Address *address) {
+        Address *net_address;
+
+        assert(link);
+        assert(address);
+
+        if (!link->network)
+                return false;
+
+        LIST_FOREACH(addresses, net_address, link->network->static_addresses)
+                if (address_equal(net_address, address))
+                        return true;
+
+        return false;
+}
+
 static int link_drop_foreign_config(Link *link) {
         Address *address;
         Route *route;
@@ -2629,9 +2645,15 @@ static int link_drop_foreign_config(Link *link) {
                 if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1)
                         continue;
 
-                r = address_remove(address, link, link_address_remove_handler);
-                if (r < 0)
-                        return r;
+                if (link_is_static_address_configured(link, address)) {
+                        r = address_add(link, address->family, &address->in_addr, address->prefixlen, NULL);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to add address: %m");
+                } else {
+                        r = address_remove(address, link, link_address_remove_handler);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         SET_FOREACH(route, link->routes_foreign, i) {
