@@ -1266,22 +1266,10 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                         continue;
 
                 log_device_debug(dev, "Inotify event: %x for %s", e->mask, devnode);
-                if (e->mask & IN_CLOSE_WRITE) {
-                        _cleanup_(sd_device_unrefp) sd_device *new_dev = NULL;
-
-                        synthesize_change(dev);
-
-                        /* settle might be waiting on us to determine the queue
-                         * state. If we just handled an inotify event, we might have
-                         * generated a "change" event, but we won't have queued up
-                         * the resultant uevent yet. Do that.
-                         */
-
-                        if (device_monitor_receive_device(manager->monitor, &new_dev) > 0)
-                                (void) on_uevent(manager->monitor, new_dev, manager);
-
-                } else if (e->mask & IN_IGNORED)
-                        udev_watch_end(dev);
+                if (e->mask & IN_CLOSE_WRITE)
+                        (void) synthesize_change(dev);
+                else if (e->mask & IN_IGNORED)
+                        (void) udev_watch_end(dev);
         }
 
         return 1;
