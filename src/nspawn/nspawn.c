@@ -3148,7 +3148,7 @@ static int outer_child(
                 if (arg_network_namespace_path) {
                         r = namespace_enter(-1, -1, netns_fd, -1, -1);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
                 r = inner_child(barrier, directory, secondary, kmsg_socket, rtnl_socket, fds);
