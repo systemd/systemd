@@ -12,6 +12,7 @@
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "device-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -21,6 +22,7 @@
 #include "ordered-set.h"
 #include "path-util.h"
 #include "set.h"
+#include "strv.h"
 #include "virt.h"
 
 /* use 8 MB for receive socket kernel queue. */
@@ -193,12 +195,19 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
         assert(device);
 
         r = sd_device_get_property_value(device, "ACTION", &action);
-        if (r < 0 || !streq_ptr(action, "add"))
+        if (r < 0) {
+                log_device_debug_errno(device, r, "Failed to get 'ACTION' property, ignoring device: %m");
                 return 0;
+        }
+
+        if (!STR_IN_SET(action, "add", "change")) {
+                log_device_debug(device, "Ignoring udev %s event for device: %m", action);
+                return 0;
+        }
 
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0) {
-                log_debug_errno(r, "Ignoring udev ADD event for device without ifindex or with invalid ifindex: %m");
+                log_device_debug_errno(device, r, "Ignoring udev ADD event for device without ifindex or with invalid ifindex: %m");
                 return 0;
         }
 
