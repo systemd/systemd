@@ -2,7 +2,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/random.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -21,9 +23,9 @@
 #define POOL_SIZE_MAX (10*1024*1024)
 
 static int run(int argc, char *argv[]) {
+        _cleanup_free_ struct rand_pool_info *info = NULL;
         _cleanup_close_ int seed_fd = -1, random_fd = -1;
         bool read_seed_file, write_seed_file;
-        _cleanup_free_ void* buf = NULL;
         size_t buf_size = 0;
         struct stat st;
         ssize_t k;
@@ -114,24 +116,30 @@ static int run(int argc, char *argv[]) {
         if ((uint64_t) st.st_size > buf_size)
                 buf_size = MIN(st.st_size, POOL_SIZE_MAX);
 
-        buf = malloc(buf_size);
-        if (!buf)
+        info = malloc(sizeof(*info) + buf_size);
+        if (!info)
                 return log_oom();
 
         if (read_seed_file) {
                 sd_id128_t mid;
                 int z;
 
-                k = loop_read(seed_fd, buf, buf_size, false);
+                k = loop_read(seed_fd, info->buf, buf_size, false);
                 if (k < 0)
                         r = log_error_errno(k, "Failed to read seed from " RANDOM_SEED ": %m");
                 else if (k == 0) {
                         r = 0;
                         log_debug("Seed file " RANDOM_SEED " not yet initialized, proceeding.");
                 } else {
-                        (void) lseek(seed_fd, 0, SEEK_SET);
+                        int entropy_count;
 
-                        r = loop_write(random_fd, buf, (size_t) k, false);
+                        (void) lseek(seed_fd, 0, SEEK_SET);
+                        entropy_count = 0;
+                        entropy_count = MIN(entropy_count, 8*k);
+
+                        info->buf_size = k;
+                        info->entropy_count = entropy_count;
+                        r = ioctl(random_fd, RNDADDENTROPY, info);
                         if (r < 0)
                                 log_error_errno(r, "Failed to write seed to /dev/urandom: %m");
                 }
@@ -159,14 +167,14 @@ static int run(int argc, char *argv[]) {
                 (void) fchmod(seed_fd, 0600);
                 (void) fchown(seed_fd, 0, 0);
 
-                k = loop_read(random_fd, buf, buf_size, false);
+                k = loop_read(random_fd, info->buf, buf_size, false);
                 if (k < 0)
                         return log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
                 if (k == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Got EOF while reading from /dev/urandom.");
 
-                r = loop_write(seed_fd, buf, (size_t) k, false);
+                r = loop_write(seed_fd, info->buf, (size_t) k, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write new random seed file: %m");
         }
