@@ -2,7 +2,6 @@
 #
 # Hungarian translation of systemd
 # Copyright © 2015, 2016. Free Software Foundation, Inc.
-# This file is distributed under the same license as the systemd package.
 #
 # Gabor Kelemen <kelemeng at gnome dot hu>, 2015, 2016.
 # Balázs Úr <urbalazs at gmail dot com>, 2016.

@@ -2,7 +2,6 @@
 #
 # Italian translation for systemd package
 # Traduzione in italiano per il pacchetto systemd
-# This file is distributed under the same license as the systemd package.
 # Daniele Medri <dmedri@gmail.com>, 2013-2018.
 #
 msgid ""

@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2013 Marius Vollmer
-***/
 
 #include <fcntl.h>
 #include <unistd.h>
