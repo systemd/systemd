@@ -53,7 +53,7 @@ static void test_sd_device_basic(void) {
                 assert_se(i >= 0);
                 if (i > 0) {
                         r = sd_device_get_usec_since_initialized(d, &usec);
-                        assert_se(r >= 0 || r == -ENODATA);
+                        assert_se((r >= 0 && usec > 0) || r == -ENODATA);
                 }
 
                 r = sd_device_get_sysattr_value(d, "name_assign_type", &val);
