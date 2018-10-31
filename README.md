@@ -12,15 +12,15 @@
 
 General information about systemd can be found in the [systemd Wiki](https://www.freedesktop.org/wiki/Software/systemd).
 
-Information about build requirements are provided in the [README file](../master/README).
+Information about build requirements is provided in the [README file](README).
 
-Consult our [NEWS file](../master/NEWS) for information about what's new in the most recent systemd versions.
+Consult our [NEWS file](NEWS) for information about what's new in the most recent systemd versions.
 
-Please see the [HACKING file](../master/docs/HACKING) for information how to hack on systemd and test your modifications.
+Please see the [Hacking guide](docs/HACKING.md) for information on how to hack on systemd and test your modifications.
 
-Please see our [Contribution Guidelines](../master/docs/CONTRIBUTING.md) for more information about filing GitHub Issues and posting GitHub Pull Requests.
+Please see our [Contribution Guidelines](docs/CONTRIBUTING.md) for more information about filing GitHub Issues and posting GitHub Pull Requests.
 
-When preparing patches for systemd, please follow our [Coding Style Guidelines](../master/docs/CODING_STYLE).
+When preparing patches for systemd, please follow our [Coding Style Guidelines](docs/CODING_STYLE.md).
 
 If you are looking for support, please contact our [mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel) or join our [IRC channel](irc://irc.freenode.org/%23systemd).
 
