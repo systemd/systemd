@@ -607,14 +607,17 @@ int config_parse_netdev(const char *unit,
 
         switch (kind) {
         case NETDEV_KIND_BRIDGE:
+                network->bridge = netdev_unref(network->bridge);
                 network->bridge = netdev;
 
                 break;
         case NETDEV_KIND_BOND:
+                network->bond = netdev_unref(network->bond);
                 network->bond = netdev;
 
                 break;
         case NETDEV_KIND_VRF:
+                network->vrf = netdev_unref(network->vrf);
                 network->vrf = netdev;
 
                 break;
