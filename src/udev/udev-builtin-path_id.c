@@ -19,6 +19,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "libudev-private.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysexits.h"
@@ -156,6 +157,7 @@ static sd_device *handle_scsi_sas(sd_device *parent, char **path) {
         const char *sas_address = NULL;
         const char *phy_id;
         const char *phy_count, *sysname;
+        char phyname[UTIL_NAME_SIZE];
         _cleanup_free_ char *lun = NULL;
 
         assert(parent);
@@ -185,10 +187,6 @@ static sd_device *handle_scsi_sas(sd_device *parent, char **path) {
         if (strncmp(phy_count, "1", 2) != 0)
                 return handle_scsi_sas_wide_port(parent, path);
 
-        /* Get connected phy */
-        if (sd_device_get_sysattr_value(target_sasdev, "phy_identifier", &phy_id) < 0)
-                return NULL;
-
         /* The port's parent is either hba or expander */
         if (sd_device_get_parent(port, &expander) < 0)
                 return NULL;
@@ -203,10 +201,25 @@ static sd_device *handle_scsi_sas(sd_device *parent, char **path) {
         }
 
         format_lun_number(parent, &lun);
-        if (sas_address)
+        if (sas_address) {
+                /* Use expander-side phy id */
+                if (sd_device_get_sysname(port, &sysname) < 0)
+                        return NULL;
+                if (!strneq(sysname, "port-", STRLEN("port-")))
+                        return NULL;
+                if (!snprintf_ok(phyname, sizeof phyname, "phy-%s", sysname + STRLEN("port-")))
+                        return NULL;
+                if (sd_device_new_from_subsystem_sysname(&port_sasdev, "sas_phy", phyname) < 0)
+                        return NULL;
+                if (sd_device_get_sysattr_value(port_sasdev, "phy_identifier", &phy_id) < 0)
+                        return NULL;
                  path_prepend(path, "sas-exp%s-phy%s-%s", sas_address, phy_id, lun);
-        else
-                 path_prepend(path, "sas-phy%s-%s", phy_id, lun);
+        } else {
+                /* Get connected phy */
+                if (sd_device_get_sysattr_value(target_sasdev, "phy_identifier", &phy_id) < 0)
+                        return NULL;
+                path_prepend(path, "sas-phy%s-%s", phy_id, lun);
+        }
 
         return parent;
 }
