@@ -850,5 +850,4 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.*')
 
 if __name__ == '__main__':
-    unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
-                                                     verbosity=3))
+    unittest.main(verbosity=3)
