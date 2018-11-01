@@ -1518,10 +1518,13 @@ struct udev_rules *udev_rules_new(int resolve_names) {
         char **files, **f;
         int r;
 
-        rules = new0(struct udev_rules, 1);
-        if (rules == NULL)
+        rules = new(struct udev_rules, 1);
+        if (!rules)
                 return NULL;
-        rules->resolve_names = resolve_names;
+
+        *rules = (struct udev_rules) {
+                .resolve_names = resolve_names,
+        };
 
         /* init token array and string buffer */
         rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
