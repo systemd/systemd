@@ -42,7 +42,7 @@ typedef struct Spawn {
         size_t result_len;
 } Spawn;
 
-struct udev_event *udev_event_new(struct udev_device *dev, int exec_delay) {
+struct udev_event *udev_event_new(struct udev_device *dev, int exec_delay, sd_netlink *rtnl) {
         struct udev_event *event;
 
         assert(dev);
@@ -55,6 +55,7 @@ struct udev_event *udev_event_new(struct udev_device *dev, int exec_delay) {
                 .dev = dev,
                 .birth_usec = now(CLOCK_MONOTONIC),
                 .exec_delay = exec_delay,
+                .rtnl = sd_netlink_ref(rtnl),
         };
 
         return event;

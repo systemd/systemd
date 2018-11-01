@@ -409,7 +409,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         assert(dev);
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
-                        udev_event = udev_event_new(dev, arg_exec_delay);
+                        udev_event = udev_event_new(dev, arg_exec_delay, rtnl);
                         if (!udev_event) {
                                 r = -ENOMEM;
                                 goto out;
@@ -440,9 +440,6 @@ static void worker_spawn(Manager *manager, struct event *event) {
                                 }
                         }
 
-                        /* needed for renaming netifs */
-                        udev_event->rtnl = rtnl;
-
                         /* apply rules, create node, symlinks */
                         udev_event_execute_rules(udev_event,
                                                  arg_event_timeout_usec, arg_event_timeout_warn_usec,
@@ -452,7 +449,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         udev_event_execute_run(udev_event,
                                                arg_event_timeout_usec, arg_event_timeout_warn_usec);
 
-                        if (udev_event->rtnl)
+                        if (!rtnl)
                                 /* in case rtnl was initialized */
                                 rtnl = sd_netlink_ref(udev_event->rtnl);
 
