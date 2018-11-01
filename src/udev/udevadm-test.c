@@ -12,7 +12,10 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 
-#include "libudev-device-internal.h"
+#include "sd-device.h"
+
+#include "device-private.h"
+#include "device-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
 #include "udev.h"
@@ -89,11 +92,10 @@ static int parse_argv(int argc, char *argv[]) {
 
 int test_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
-        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         _cleanup_(udev_event_freep) struct udev_event *event = NULL;
-        struct udev_list_entry *entry;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *cmd, *key, *value;
         sigset_t mask, sigmask_orig;
-        const char *cmd;
         Iterator i;
         void *val;
         int r;
@@ -120,16 +122,16 @@ int test_main(int argc, char *argv[], void *userdata) {
                 goto out;
         }
 
-        dev = udev_device_new_from_synthetic_event(NULL, arg_syspath, arg_action);
-        if (dev == NULL) {
-                r = log_error_errno(errno, "Failed to open device '%s': %m", arg_syspath);
+        r = device_new_from_synthetic_event(&dev, arg_syspath, arg_action);
+        if (r < 0) {
+                log_error_errno(r, "Failed to open device '%s': %m", arg_syspath);
                 goto out;
         }
 
         /* don't read info from the db */
-        udev_device_set_info_loaded(dev);
+        device_seal(dev);
 
-        event = udev_event_new(dev->device, 0, NULL);
+        event = udev_event_new(dev, 0, NULL);
 
         sigfillset(&mask);
         sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
@@ -139,8 +141,8 @@ int test_main(int argc, char *argv[], void *userdata) {
                                  NULL,
                                  rules);
 
-        udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev))
-                printf("%s=%s\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
+        FOREACH_DEVICE_PROPERTY(dev, key, value)
+                printf("%s=%s\n", key, value);
 
         HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
                 char program[UTIL_PATH_SIZE];
