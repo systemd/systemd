@@ -550,7 +550,7 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, sd_netlin
         r = routing_policy_rule_add(link->manager, rule->family, &rule->from, rule->from_prefixlen, &rule->to,
                                     rule->to_prefixlen, rule->tos, rule->fwmark, rule->table, rule->iif, rule->oif, NULL);
         if (r < 0)
-                return log_error_errno(r, "Could not add rule : %m");
+                return log_error_errno(r, "Could not add rule: %m");
 
         return 0;
 }
