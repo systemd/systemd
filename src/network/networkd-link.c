@@ -785,7 +785,7 @@ static int link_set_routing_policy_rule(Link *link) {
         LIST_FOREACH(rules, rule, link->network->rules) {
                 r = routing_policy_rule_get(link->manager, rule->family, &rule->from, rule->from_prefixlen, &rule->to,
                                             rule->to_prefixlen, rule->tos, rule->fwmark, rule->table, rule->iif, rule->oif, &rrule);
-                if (r == 1) {
+                if (r == 0) {
                         (void) routing_policy_rule_make_local(link->manager, rrule);
                         continue;
                 }
