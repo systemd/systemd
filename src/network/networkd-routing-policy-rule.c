@@ -79,10 +79,10 @@ static void routing_policy_rule_hash_func(const void *b, struct siphash *state) 
                 siphash24_compress(&rule->table, sizeof(rule->table), state);
 
                 if (rule->iif)
-                        siphash24_compress(&rule->iif, strlen(rule->iif), state);
+                        siphash24_compress(rule->iif, strlen(rule->iif), state);
 
                 if (rule->oif)
-                        siphash24_compress(&rule->oif, strlen(rule->oif), state);
+                        siphash24_compress(rule->oif, strlen(rule->oif), state);
 
                 break;
         default:
@@ -188,7 +188,7 @@ int routing_policy_rule_get(Manager *m,
         if (existing) {
                 if (ret)
                         *ret = existing;
-                return 1;
+                return 0;
         }
 
         return -ENOENT;
@@ -257,8 +257,8 @@ static int routing_policy_rule_add_internal(Manager *m,
         rule->tos = tos;
         rule->fwmark = fwmark;
         rule->table = table;
-        rule->iif = TAKE_PTR(iif);
-        rule->oif = TAKE_PTR(oif);
+        rule->iif = iif;
+        rule->oif = oif;
 
         r = set_ensure_allocated(rules, &routing_policy_rule_hash_ops);
         if (r < 0)
@@ -272,6 +272,7 @@ static int routing_policy_rule_add_internal(Manager *m,
                 *ret = rule;
 
         rule = NULL;
+        iif = oif = NULL;
 
         return 0;
 }
@@ -549,7 +550,7 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, sd_netlin
         r = routing_policy_rule_add(link->manager, rule->family, &rule->from, rule->from_prefixlen, &rule->to,
                                     rule->to_prefixlen, rule->tos, rule->fwmark, rule->table, rule->iif, rule->oif, NULL);
         if (r < 0)
-                return log_error_errno(r, "Could not add rule : %m");
+                return log_error_errno(r, "Could not add rule: %m");
 
         return 0;
 }

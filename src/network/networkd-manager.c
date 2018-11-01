@@ -1451,8 +1451,10 @@ void manager_free(Manager *m) {
         while ((pool = m->address_pools))
                 address_pool_free(pool);
 
-        set_free_with_destructor(m->rules, routing_policy_rule_free);
-        set_free_with_destructor(m->rules_foreign, routing_policy_rule_free);
+        /* routing_policy_rule_free() access m->rules and m->rules_foreign.
+         * So, it is necessary to set NULL after the sets are freed. */
+        m->rules = set_free_with_destructor(m->rules, routing_policy_rule_free);
+        m->rules_foreign = set_free_with_destructor(m->rules_foreign, routing_policy_rule_free);
         set_free_with_destructor(m->rules_saved, routing_policy_rule_free);
 
         sd_event_unref(m->event);
