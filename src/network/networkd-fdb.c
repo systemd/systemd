@@ -200,7 +200,7 @@ int config_parse_fdb_hwaddr(
                    &fdb_entry->mac_addr->ether_addr_octet[4],
                    &fdb_entry->mac_addr->ether_addr_octet[5]);
 
-        if (ETHER_ADDR_LEN != r) {
+        if (r != ETHER_ADDR_LEN) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 return 0;
         }
