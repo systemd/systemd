@@ -79,10 +79,10 @@ static void routing_policy_rule_hash_func(const void *b, struct siphash *state) 
                 siphash24_compress(&rule->table, sizeof(rule->table), state);
 
                 if (rule->iif)
-                        siphash24_compress(&rule->iif, strlen(rule->iif), state);
+                        siphash24_compress(rule->iif, strlen(rule->iif), state);
 
                 if (rule->oif)
-                        siphash24_compress(&rule->oif, strlen(rule->oif), state);
+                        siphash24_compress(rule->oif, strlen(rule->oif), state);
 
                 break;
         default:
