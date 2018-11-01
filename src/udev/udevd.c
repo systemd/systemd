@@ -92,6 +92,7 @@ typedef struct Manager {
         sd_event_source *ctrl_event;
         sd_event_source *uevent_event;
         sd_event_source *inotify_event;
+        sd_event_source *kill_workers_event;
 
         usec_t last_usec;
 
@@ -284,6 +285,7 @@ static void manager_clear_for_worker(Manager *manager) {
         manager->ctrl_event = sd_event_source_unref(manager->ctrl_event);
         manager->uevent_event = sd_event_source_unref(manager->uevent_event);
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
+        manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
 
         manager->event = sd_event_unref(manager->event);
 
@@ -872,6 +874,8 @@ static void event_queue_start(Manager *manager) {
                 manager->last_usec = usec;
         }
 
+        manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
+
         udev_builtin_init();
 
         if (!manager->rules) {
@@ -1247,6 +1251,8 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         assert(manager);
 
+        manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
+
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
                 if (IN_SET(errno, EAGAIN, EINTR))
@@ -1354,6 +1360,18 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
         return 1;
 }
 
+static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *manager = userdata;
+
+        assert(manager);
+
+        log_debug("Cleanup idle workers");
+        manager_kill_workers(manager);
+
+        return 1;
+}
+
+
 static int on_post(sd_event_source *s, void *userdata) {
         Manager *manager = userdata;
         int r;
@@ -1367,8 +1385,12 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (!hashmap_isempty(manager->workers)) {
                 /* there are idle workers */
-                log_debug("cleanup idle workers");
-                manager_kill_workers(manager);
+                if (!manager->kill_workers_event) {
+                        r = sd_event_add_time(manager->event, &manager->kill_workers_event, CLOCK_MONOTONIC,
+                                              now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC, USEC_PER_SEC, on_kill_workers_event, manager);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add timer event: %m");
+                }
         } else {
                 /* we are idle */
                 if (manager->exit) {
