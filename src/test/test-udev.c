@@ -11,8 +11,8 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 
+#include "device-private.h"
 #include "fs-util.h"
-#include "libudev-device-internal.h"
 #include "log.h"
 #include "missing.h"
 #include "selinux-util.h"
@@ -53,10 +53,11 @@ static int fake_filesystems(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(udev_event_freep) struct udev_event *event = NULL;
-        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
-        const char *devpath, *action;
+        _cleanup_(udev_event_freep) struct udev_event *event = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *devpath, *devname, *action;
+        int r;
 
         test_setup_logging(LOG_INFO);
 
@@ -77,31 +78,35 @@ int main(int argc, char *argv[]) {
         rules = udev_rules_new(1);
 
         const char *syspath = strjoina("/sys", devpath);
-        dev = udev_device_new_from_synthetic_event(NULL, syspath, action);
-        if (!dev) {
-                log_debug("unknown device '%s'", devpath);
+        r = device_new_from_synthetic_event(&dev, syspath, action);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to open device '%s'", devpath);
                 goto out;
         }
 
-        assert_se(event = udev_event_new(dev->device, 0, NULL));
+        assert_se(event = udev_event_new(dev, 0, NULL));
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
 
         /* do what devtmpfs usually provides us */
-        if (udev_device_get_devnode(dev)) {
+        if (sd_device_get_devname(dev, &devname) >= 0) {
+                const char *subsystem;
                 mode_t mode = 0600;
 
-                if (streq(udev_device_get_subsystem(dev), "block"))
+                if (sd_device_get_subsystem(dev, &subsystem) >= 0 && streq(subsystem, "block"))
                         mode |= S_IFBLK;
                 else
                         mode |= S_IFCHR;
 
                 if (!streq(action, "remove")) {
-                        (void) mkdir_parents_label(udev_device_get_devnode(dev), 0755);
-                        assert_se(mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev)) == 0);
+                        dev_t devnum = makedev(0, 0);
+
+                        (void) mkdir_parents_label(devname, 0755);
+                        (void) sd_device_get_devnum(dev, &devnum);
+                        assert_se(mknod(devname, mode, devnum) == 0);
                 } else {
-                        assert_se(unlink(udev_device_get_devnode(dev)) == 0);
-                        (void) rmdir_parents(udev_device_get_devnode(dev), "/");
+                        assert_se(unlink(devname) == 0);
+                        (void) rmdir_parents(devname, "/");
                 }
         }
 
