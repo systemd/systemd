@@ -42,7 +42,7 @@ typedef struct Spawn {
         size_t result_len;
 } Spawn;
 
-struct udev_event *udev_event_new(struct udev_device *dev) {
+struct udev_event *udev_event_new(struct udev_device *dev, int exec_delay) {
         struct udev_event *event;
 
         assert(dev);
@@ -54,6 +54,7 @@ struct udev_event *udev_event_new(struct udev_device *dev) {
         *event = (struct udev_event) {
                 .dev = dev,
                 .birth_usec = now(CLOCK_MONOTONIC),
+                .exec_delay = exec_delay,
         };
 
         return event;

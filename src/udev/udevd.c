@@ -409,14 +409,11 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         assert(dev);
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
-                        udev_event = udev_event_new(dev);
-                        if (udev_event == NULL) {
+                        udev_event = udev_event_new(dev, arg_exec_delay);
+                        if (!udev_event) {
                                 r = -ENOMEM;
                                 goto out;
                         }
-
-                        if (arg_exec_delay > 0)
-                                udev_event->exec_delay = arg_exec_delay;
 
                         /*
                          * Take a shared lock on the device node; this establishes

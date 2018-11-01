@@ -128,7 +128,7 @@ int test_main(int argc, char *argv[], void *userdata) {
         /* don't read info from the db */
         udev_device_set_info_loaded(dev);
 
-        event = udev_event_new(dev);
+        event = udev_event_new(dev, 0);
 
         sigfillset(&mask);
         sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);

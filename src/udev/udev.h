@@ -60,7 +60,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
 /* udev-event.c */
-struct udev_event *udev_event_new(struct udev_device *dev);
+struct udev_event *udev_event_new(struct udev_device *dev, int exec_delay);
 struct udev_event *udev_event_free(struct udev_event *event);
 ssize_t udev_event_apply_format(struct udev_event *event,
                                 const char *src, char *dest, size_t size,
