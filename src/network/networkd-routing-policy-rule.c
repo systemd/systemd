@@ -257,8 +257,8 @@ static int routing_policy_rule_add_internal(Manager *m,
         rule->tos = tos;
         rule->fwmark = fwmark;
         rule->table = table;
-        rule->iif = TAKE_PTR(iif);
-        rule->oif = TAKE_PTR(oif);
+        rule->iif = iif;
+        rule->oif = oif;
 
         r = set_ensure_allocated(rules, &routing_policy_rule_hash_ops);
         if (r < 0)
@@ -272,6 +272,7 @@ static int routing_policy_rule_add_internal(Manager *m,
                 *ret = rule;
 
         rule = NULL;
+        iif = oif = NULL;
 
         return 0;
 }
