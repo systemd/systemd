@@ -345,9 +345,6 @@ static int node_permissions_apply(sd_device *dev, bool apply,
                         (void) mac_smack_apply(devnode, SMACK_ATTR_ACCESS, NULL);
         }
 
-        /* always update timestamp when we re-use the node, like on media change events */
-        (void) utimensat(AT_FDCWD, devnode, NULL, 0);
-
         return r;
 }
 
