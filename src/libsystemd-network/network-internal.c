@@ -293,7 +293,7 @@ int config_parse_hwaddr(const char *unit,
                 return 0;
         }
 
-        *hwaddr = TAKE_PTR(n);
+        free_and_replace(*hwaddr, n);
 
         return 0;
 }
