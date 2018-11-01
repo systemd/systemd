@@ -20,6 +20,14 @@ test_setup() {
         setup_basic_environment
         dracut_install busybox chmod rmdir unshare ip
 
+        # mask some services that we do not want to run in these tests
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
+        ln -fs /dev/null $initdir/etc/systemd/system/systemd-machined.service
+
         cp create-busybox-container $initdir/
 
         ./create-busybox-container $initdir/nc-container
