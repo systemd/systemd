@@ -255,11 +255,10 @@ int config_parse_ifalias(const char *unit,
                 return 0;
         }
 
-        free(*s);
-        if (*n)
-                *s = TAKE_PTR(n);
+        if (isempty(n))
+                *s = mfree(*s);
         else
-                *s = NULL;
+                free_and_replace(*s, n);
 
         return 0;
 }
