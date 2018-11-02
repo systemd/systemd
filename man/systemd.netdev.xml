@@ -1486,7 +1486,6 @@ Protocol=4
     <example>
       <title>/etc/systemd/network/25-fou-ipip.netdev</title>
       <programlisting>[NetDev]
-[NetDev]
 Name=ipip-tun
 Kind=ipip
 
