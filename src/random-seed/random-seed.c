@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <linux/random.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -16,11 +17,87 @@
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "util.h"
 
+static enum {
+        ACTION_NONE,
+        ACTION_LOAD,
+        ACTION_SAVE,
+} arg_action = ACTION_NONE;
+
 #define POOL_SIZE_MIN 512
 #define POOL_SIZE_MAX (10*1024*1024)
+
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-random-seed", "8", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("systemd-random-seed [OPTIONS...] load\n"
+               "systemd-random-seed save\n\n"
+               "Load and save the system random seed at boot and shutdown\n\n"
+               "  -h --help                       Show this help\n"
+               "     --version                    Show package version\n"
+               "\nSee the %s for details.\n"
+               , link
+        );
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_VERSION = 0x100,
+        };
+
+        static const struct option options[] = {
+                { "help",               no_argument,       NULL, 'h'                    },
+                { "version",            no_argument,       NULL, ARG_VERSION            },
+                {},
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+
+                switch (c) {
+
+                case 'h':
+                        return help();
+
+                case ARG_VERSION:
+                        return version();
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option");
+                }
+
+        if (optind + 1 != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program requires one argument.");
+
+        if (streq(argv[optind], "load"))
+                arg_action = ACTION_LOAD;
+        else if (streq(argv[optind], "save"))
+                arg_action = ACTION_SAVE;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown verb '%s'.", argv[1]);
+
+        return 1;
+}
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ struct rand_pool_info *info = NULL;
@@ -34,9 +111,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        if (argc != 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program requires one argument.");
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
@@ -60,7 +137,7 @@ static int run(int argc, char *argv[]) {
         /* When we load the seed we read it and write it to the device and then immediately update the saved seed with
          * new data, to make sure the next boot gets seeded differently. */
 
-        if (streq(argv[1], "load")) {
+        if (arg_action == ACTION_LOAD) {
                 int open_rw_error;
 
                 seed_fd = open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
@@ -92,7 +169,7 @@ static int run(int argc, char *argv[]) {
 
                 read_seed_file = true;
 
-        } else if (streq(argv[1], "save")) {
+        } else if (arg_action == ACTION_SAVE) {
 
                 random_fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (random_fd < 0)
@@ -106,8 +183,7 @@ static int run(int argc, char *argv[]) {
                 write_seed_file = true;
 
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unknown verb '%s'.", argv[1]);
+                assert_not_reached("Unexpected action.");
 
         if (fstat(seed_fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat() seed file " RANDOM_SEED ": %m");
