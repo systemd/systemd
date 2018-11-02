@@ -2,14 +2,13 @@
 #
 # French translations for systemd package
 # Traductions françaises du paquet systemd.
-# Sylvain Plantefève <sylvain.plantefeve@gmail.com>, 2013-2018
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-08-28 21:32+0200\n"
-"PO-Revision-Date: 2018-08-28 21:40+0200\n"
+"POT-Creation-Date: 2018-11-02 14:28+0100\n"
+"PO-Revision-Date: 2018-11-02 14:32+0100\n"
 "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
 "Language-Team: French\n"
 "Language: fr\n"
@@ -695,8 +694,12 @@ msgid "Authentication is required to restart '$(unit)'."
 msgstr "Authentification requise pour redémarrer « $(unit) »."
 
 #: src/core/dbus-unit.c:437
-msgid "Authentication is required to kill '$(unit)'."
-msgstr "Authentification requise pour tuer « $(unit) »."
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr ""
+"Authentification requise pour envoyer un signal UNIX aux processus de "
+"« $(unit) »."
 
 #: src/core/dbus-unit.c:468
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -707,6 +710,9 @@ msgstr ""
 #: src/core/dbus-unit.c:501
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Authentification requise pour définir des propriétés de « $(unit) »."
+
+#~ msgid "Authentication is required to kill '$(unit)'."
+#~ msgstr "Authentification requise pour tuer « $(unit) »."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
 #~ msgstr ""
