@@ -513,6 +513,11 @@ tests += [
          [],
          '', 'manual'],
 
+        [['src/test/test-cgroup-cpu.c'],
+         [libcore,
+          libshared],
+         []],
+
         [['src/test/test-cgroup-mask.c',
           'src/test/test-helper.c'],
          [libcore,

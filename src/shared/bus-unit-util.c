@@ -480,6 +480,20 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
+        if (streq(field, "CPUQuotaPeriodSec")) {
+                usec_t u = USEC_INFINITY;
+
+                r = parse_sec_def_infinity(eq, &u);
+                if (r < 0)
+                        return log_error_errno(r, "CPU quota period '%s' invalid.", eq);
+
+                r = sd_bus_message_append(m, "(sv)", "CPUQuotaPeriodUSec", "t", u);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         if (streq(field, "DeviceAllow")) {
 
                 if (isempty(eq))

@@ -232,6 +232,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CPUQuotaPeriodSec=</varname></term>
+
+        <listitem>
+          <para>Assign the duration over which the CPU time quota specified by <varname>CPUQuota=</varname> is measured.
+          Takes a time duration value in seconds, with an optional suffix such as "ms" for milliseconds (or "s" for seconds.)
+          The default setting is 100ms. The period is clamped to the range supported by the kernel, which is [1ms, 1000ms].
+          Additionally, the period is adjusted up so that the quota interval is also at least 1ms.
+          Setting <varname>CPUQuotaPeriodSec=</varname> to an empty value resets it to the default.</para>
+
+          <para>This controls the second field of <literal>cpu.max</literal> attribute on the unified control group hierarchy
+          and <literal>cpu.cfs_period_us</literal> on legacy. For details about these control group attributes, see
+          <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and
+          <ulink url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
+
+          <para>Example: <varname>CPUQuotaPeriodSec=10ms</varname> to request that the CPU quota is measured in periods of 10ms.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MemoryAccounting=</varname></term>
 
         <listitem>

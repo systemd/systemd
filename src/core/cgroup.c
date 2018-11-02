@@ -23,7 +23,7 @@
 #include "string-util.h"
 #include "virt.h"
 
-#define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
+#define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
 bool manager_owns_root_cgroup(Manager *m) {
         assert(m);
@@ -77,6 +77,7 @@ void cgroup_context_init(CGroupContext *c) {
                 .cpu_weight = CGROUP_WEIGHT_INVALID,
                 .startup_cpu_weight = CGROUP_WEIGHT_INVALID,
                 .cpu_quota_per_sec_usec = USEC_INFINITY,
+                .cpu_quota_period_usec = USEC_INFINITY,
 
                 .cpu_shares = CGROUP_CPU_SHARES_INVALID,
                 .startup_cpu_shares = CGROUP_CPU_SHARES_INVALID,
@@ -190,6 +191,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         CGroupDeviceAllow *a;
         IPAddressAccessItem *iaai;
         char u[FORMAT_TIMESPAN_MAX];
+        char v[FORMAT_TIMESPAN_MAX];
 
         assert(c);
         assert(f);
@@ -211,6 +213,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sCPUShares=%" PRIu64 "\n"
                 "%sStartupCPUShares=%" PRIu64 "\n"
                 "%sCPUQuotaPerSecSec=%s\n"
+                "%sCPUQuotaPeriodSec=%s\n"
                 "%sAllowedCPUs=%s\n"
                 "%sAllowedMemoryNodes=%s\n"
                 "%sIOWeight=%" PRIu64 "\n"
@@ -236,6 +239,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->cpu_shares,
                 prefix, c->startup_cpu_shares,
                 prefix, format_timespan(u, sizeof(u), c->cpu_quota_per_sec_usec, 1),
+                prefix, format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1),
                 prefix, cpuset_cpus,
                 prefix, cpuset_mems,
                 prefix, c->io_weight,
@@ -515,7 +519,40 @@ static uint64_t cgroup_context_cpu_shares(CGroupContext *c, ManagerState state) 
                 return CGROUP_CPU_SHARES_DEFAULT;
 }
 
-static void cgroup_apply_unified_cpu_config(Unit *u, uint64_t weight, uint64_t quota) {
+usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, usec_t max_period) {
+        /* kernel uses a minimum resolution of 1ms, so both period and (quota * period)
+         * need to be higher than that boundary. quota is specified in USecPerSec.
+         * Additionally, period must be at most max_period. */
+        assert(quota > 0);
+
+        return MIN(MAX3(period, resolution, resolution * USEC_PER_SEC / quota), max_period);
+}
+
+static usec_t cgroup_cpu_adjust_period_and_log(Unit *u, usec_t period, usec_t quota) {
+        usec_t new_period;
+
+        if (quota == USEC_INFINITY)
+                /* Always use default period for infinity quota. */
+                return CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC;
+
+        if (period == USEC_INFINITY)
+                /* Default period was requested. */
+                period = CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC;
+
+        /* Clamp to interval [1ms, 1s] */
+        new_period = cgroup_cpu_adjust_period(period, quota, USEC_PER_MSEC, USEC_PER_SEC);
+
+        if (new_period != period) {
+                char v[FORMAT_TIMESPAN_MAX];
+                log_unit_full(u, LOG_WARNING, 0,
+                              "Clamping CPU interval for cpu.max: period is now %s",
+                              format_timespan(v, sizeof(v), new_period, 1));
+        }
+
+        return new_period;
+}
+
+static void cgroup_apply_unified_cpu_config(Unit *u, uint64_t weight, uint64_t quota, usec_t period) {
         char buf[MAX(DECIMAL_STR_MAX(uint64_t) + 1, (DECIMAL_STR_MAX(usec_t) + 1) * 2)];
         int r;
 
@@ -525,11 +562,12 @@ static void cgroup_apply_unified_cpu_config(Unit *u, uint64_t weight, uint64_t q
                 log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                               "Failed to set cpu.weight: %m");
 
+        period = cgroup_cpu_adjust_period_and_log(u, period, quota);
         if (quota != USEC_INFINITY)
                 xsprintf(buf, USEC_FMT " " USEC_FMT "\n",
-                         quota * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC, CGROUP_CPU_QUOTA_PERIOD_USEC);
+                         MAX(quota * period / USEC_PER_SEC, USEC_PER_MSEC), period);
         else
-                xsprintf(buf, "max " USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
+                xsprintf(buf, "max " USEC_FMT "\n", period);
 
         r = cg_set_attribute("cpu", u->cgroup_path, "cpu.max", buf);
 
@@ -538,7 +576,7 @@ static void cgroup_apply_unified_cpu_config(Unit *u, uint64_t weight, uint64_t q
                               "Failed to set cpu.max: %m");
 }
 
-static void cgroup_apply_legacy_cpu_config(Unit *u, uint64_t shares, uint64_t quota) {
+static void cgroup_apply_legacy_cpu_config(Unit *u, uint64_t shares, uint64_t quota, usec_t period) {
         char buf[MAX(DECIMAL_STR_MAX(uint64_t), DECIMAL_STR_MAX(usec_t)) + 1];
         int r;
 
@@ -548,20 +586,21 @@ static void cgroup_apply_legacy_cpu_config(Unit *u, uint64_t shares, uint64_t qu
                 log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                               "Failed to set cpu.shares: %m");
 
-        xsprintf(buf, USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
+        period = cgroup_cpu_adjust_period_and_log(u, period, quota);
+
+        xsprintf(buf, USEC_FMT "\n", period);
         r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_period_us", buf);
         if (r < 0)
                 log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                               "Failed to set cpu.cfs_period_us: %m");
 
         if (quota != USEC_INFINITY) {
-                xsprintf(buf, USEC_FMT "\n", quota * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC);
-                r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_quota_us", buf);
-        } else
+                xsprintf(buf, USEC_FMT "\n", MAX(quota * period / USEC_PER_SEC, USEC_PER_MSEC));
                 r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_quota_us", "-1");
         if (r < 0)
                 log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                               "Failed to set cpu.cfs_quota_us: %m");
+        }
 }
 
 static uint64_t cgroup_cpu_shares_to_weight(uint64_t shares) {
@@ -815,7 +854,7 @@ static void cgroup_context_apply(
                         } else
                                 weight = CGROUP_WEIGHT_DEFAULT;
 
-                        cgroup_apply_unified_cpu_config(u, weight, c->cpu_quota_per_sec_usec);
+                        cgroup_apply_unified_cpu_config(u, weight, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
                 } else {
                         uint64_t shares;
 
@@ -831,7 +870,7 @@ static void cgroup_context_apply(
                         else
                                 shares = CGROUP_CPU_SHARES_DEFAULT;
 
-                        cgroup_apply_legacy_cpu_config(u, shares, c->cpu_quota_per_sec_usec);
+                        cgroup_apply_legacy_cpu_config(u, shares, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
                 }
         }
 
