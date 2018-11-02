@@ -425,7 +425,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '111')
         self.assertRegex(output, 'from 192.168.100.18')
-        self.assertRegex(output, 'tos 0x08')
+        self.assertRegex(output, r'tos (?:0x08|throughput)\s')
         self.assertRegex(output, 'iif test1')
         self.assertRegex(output, 'oif test1')
         self.assertRegex(output, 'lookup 7')
