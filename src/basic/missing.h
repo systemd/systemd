@@ -752,7 +752,7 @@ struct input_mask {
 #define IFLA_MAX (__IFLA_MAX - 1)
 #endif
 
-#if !HAVE_IFLA_BOND_AD_INFO
+#if !HAVE_IFLA_BOND_AD_ACTOR_SYSTEM
 #define IFLA_BOND_UNSPEC 0
 #define IFLA_BOND_MODE 1
 #define IFLA_BOND_ACTIVE_SLAVE 2
@@ -777,7 +777,10 @@ struct input_mask {
 #define IFLA_BOND_AD_LACP_RATE 21
 #define IFLA_BOND_AD_SELECT 22
 #define IFLA_BOND_AD_INFO 23
-#define __IFLA_BOND_MAX 24
+#define IFLA_BOND_AD_ACTOR_SYS_PRIO 24
+#define IFLA_BOND_AD_USER_PORT_KEY 25
+#define IFLA_BOND_AD_ACTOR_SYSTEM 26
+#define __IFLA_BOND_MAX 27
 
 #define IFLA_BOND_MAX   (__IFLA_BOND_MAX - 1)
 #endif

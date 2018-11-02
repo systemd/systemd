@@ -173,14 +173,17 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('bond99'))
 
-        self.assertEqual('802.3ad 4',  self.read_link_attr('bond99', 'bonding', 'mode'))
-        self.assertEqual('layer3+4 1', self.read_link_attr('bond99', 'bonding', 'xmit_hash_policy'))
-        self.assertEqual('1000',       self.read_link_attr('bond99', 'bonding', 'miimon'))
-        self.assertEqual('fast 1',     self.read_link_attr('bond99', 'bonding', 'lacp_rate'))
-        self.assertEqual('2000',       self.read_link_attr('bond99', 'bonding', 'updelay'))
-        self.assertEqual('2000',       self.read_link_attr('bond99', 'bonding', 'downdelay'))
-        self.assertEqual('4',          self.read_link_attr('bond99', 'bonding', 'resend_igmp'))
-        self.assertEqual('1',          self.read_link_attr('bond99', 'bonding', 'min_links'))
+        self.assertEqual('802.3ad 4',         self.read_link_attr('bond99', 'bonding', 'mode'))
+        self.assertEqual('layer3+4 1',        self.read_link_attr('bond99', 'bonding', 'xmit_hash_policy'))
+        self.assertEqual('1000',              self.read_link_attr('bond99', 'bonding', 'miimon'))
+        self.assertEqual('fast 1',            self.read_link_attr('bond99', 'bonding', 'lacp_rate'))
+        self.assertEqual('2000',              self.read_link_attr('bond99', 'bonding', 'updelay'))
+        self.assertEqual('2000',              self.read_link_attr('bond99', 'bonding', 'downdelay'))
+        self.assertEqual('4',                 self.read_link_attr('bond99', 'bonding', 'resend_igmp'))
+        self.assertEqual('1',                 self.read_link_attr('bond99', 'bonding', 'min_links'))
+        self.assertEqual('1218',              self.read_link_attr('bond99', 'bonding', 'ad_actor_sys_prio'))
+        self.assertEqual('811',               self.read_link_attr('bond99', 'bonding', 'ad_user_port_key'))
+        self.assertEqual('00:11:22:33:44:55', self.read_link_attr('bond99', 'bonding', 'ad_actor_system'))
 
     def test_vlan(self):
         self.copy_unit_to_networkd_unit_path('21-vlan.netdev', '11-dummy.netdev', '21-vlan.network')

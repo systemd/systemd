@@ -106,6 +106,10 @@ typedef struct Bond {
         unsigned num_grat_arp;
         unsigned min_links;
 
+        uint16_t ad_actor_sys_prio;
+        uint16_t ad_user_port_key;
+        struct ether_addr *ad_actor_system;
+
         usec_t miimon;
         usec_t updelay;
         usec_t downdelay;
@@ -152,3 +156,6 @@ int config_parse_bond_arp_validate(const char *unit, const char *filename, unsig
 int config_parse_bond_arp_all_targets(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_bond_primary_reselect(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_arp_ip_target_address(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_ad_actor_sys_prio(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_ad_user_port_key(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_ad_actor_system(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
