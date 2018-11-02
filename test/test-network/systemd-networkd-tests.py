@@ -22,6 +22,17 @@ dnsmasq_config_file='/var/run/networkd-ci/test-dnsmasq.conf'
 dnsmasq_pid_file='/var/run/networkd-ci/test-test-dnsmasq.pid'
 dnsmasq_log_file='/var/run/networkd-ci/test-dnsmasq-log-file'
 
+def is_module_available(module_name):
+    return not subprocess.call(["modprobe", module_name])
+
+def expectedFailureIfModuleIsNotAvailable(module_name):
+    def f(func):
+        if not is_module_available(module_name):
+            return unittest.expectedFailure(func)
+        return func
+
+    return f
+
 def setUpModule():
 
     os.makedirs(network_unit_file_path, exist_ok=True)
@@ -213,6 +224,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('macvlan99'))
 
+    @expectedFailureIfModuleIsNotAvailable('ipvlan')
     def test_ipvlan(self):
         self.copy_unit_to_networkd_unit_path('25-ipvlan.netdev', '11-dummy.netdev', 'ipvlan.network')
 
@@ -248,6 +260,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('tap99'))
 
+    @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_vrf(self):
         self.copy_unit_to_networkd_unit_path('25-vrf.netdev')
 
@@ -255,6 +268,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('vrf99'))
 
+    @expectedFailureIfModuleIsNotAvailable('vcan')
     def test_vcan(self):
         self.copy_unit_to_networkd_unit_path('25-vcan.netdev')
 
