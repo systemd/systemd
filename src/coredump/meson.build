@@ -13,8 +13,10 @@ endif
 
 coredumpctl_sources = files('coredumpctl.c')
 
-install_data('coredump.conf',
-             install_dir : pkgsysconfdir)
+if conf.get('ENABLE_COREDUMP') == 1
+        install_data('coredump.conf',
+                     install_dir : pkgsysconfdir)
+endif
 
 tests += [
         [['src/coredump/test-coredump-vacuum.c',
