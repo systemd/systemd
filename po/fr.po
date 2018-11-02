@@ -2,7 +2,6 @@
 #
 # French translations for systemd package
 # Traductions françaises du paquet systemd.
-# Sylvain Plantefève <sylvain.plantefeve@gmail.com>, 2013-2018
 #
 msgid ""
 msgstr ""
