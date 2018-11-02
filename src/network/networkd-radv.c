@@ -98,13 +98,12 @@ void prefix_free(Prefix *prefix) {
                 assert(prefix->network->n_static_prefixes > 0);
                 prefix->network->n_static_prefixes--;
 
-                if (prefix->section) {
+                if (prefix->section)
                         hashmap_remove(prefix->network->prefixes_by_section,
                                        prefix->section);
-                        network_config_section_free(prefix->section);
-                }
         }
 
+        network_config_section_free(prefix->section);
         prefix->radv_prefix = sd_radv_prefix_unref(prefix->radv_prefix);
 
         free(prefix);
