@@ -37,7 +37,6 @@ test_setup() {
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
 [Unit]
 Description=Testsuite service
-After=multi-user.target
 
 [Service]
 ExecStart=/test-nspawn.sh

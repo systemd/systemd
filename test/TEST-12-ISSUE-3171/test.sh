@@ -39,7 +39,6 @@ ExecStart=/test-socket-group.sh
 Type=oneshot
 EOF
 
-
         cat >$initdir/test-socket-group.sh <<'EOF'
 #!/bin/bash
 set -x
