@@ -25,7 +25,7 @@
 #include "string-util.h"
 #include "virt.h"
 
-#define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
+#define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
 /* Returns the log level to use when cgroup attribute writes fail. When an attribute is missing or we have access
  * problems we downgrade to LOG_DEBUG. This is supposed to be nice to container managers and kernels which want to mask
@@ -98,6 +98,7 @@ void cgroup_context_init(CGroupContext *c) {
                 .cpu_weight = CGROUP_WEIGHT_INVALID,
                 .startup_cpu_weight = CGROUP_WEIGHT_INVALID,
                 .cpu_quota_per_sec_usec = USEC_INFINITY,
+                .cpu_quota_period_usec = USEC_INFINITY,
 
                 .cpu_shares = CGROUP_CPU_SHARES_INVALID,
                 .startup_cpu_shares = CGROUP_CPU_SHARES_INVALID,
@@ -206,6 +207,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         CGroupDeviceAllow *a;
         IPAddressAccessItem *iaai;
         char u[FORMAT_TIMESPAN_MAX];
+        char v[FORMAT_TIMESPAN_MAX];
 
         assert(c);
         assert(f);
@@ -224,6 +226,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sCPUShares=%" PRIu64 "\n"
                 "%sStartupCPUShares=%" PRIu64 "\n"
                 "%sCPUQuotaPerSecSec=%s\n"
+                "%sCPUQuotaPeriodSec=%s\n"
                 "%sIOWeight=%" PRIu64 "\n"
                 "%sStartupIOWeight=%" PRIu64 "\n"
                 "%sBlockIOWeight=%" PRIu64 "\n"
@@ -248,6 +251,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->cpu_shares,
                 prefix, c->startup_cpu_shares,
                 prefix, format_timespan(u, sizeof(u), c->cpu_quota_per_sec_usec, 1),
+                prefix, format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1),
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
@@ -656,6 +660,39 @@ static uint64_t cgroup_context_cpu_shares(CGroupContext *c, ManagerState state) 
                 return CGROUP_CPU_SHARES_DEFAULT;
 }
 
+usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, usec_t max_period) {
+        /* kernel uses a minimum resolution of 1ms, so both period and (quota * period)
+         * need to be higher than that boundary. quota is specified in USecPerSec.
+         * Additionally, period must be at most max_period. */
+        assert(quota > 0);
+
+        return MIN(MAX3(period, resolution, resolution * USEC_PER_SEC / quota), max_period);
+}
+
+static usec_t cgroup_cpu_adjust_period_and_log(Unit *u, usec_t period, usec_t quota) {
+        usec_t new_period;
+
+        if (quota == USEC_INFINITY)
+                /* Always use default period for infinity quota. */
+                return CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC;
+
+        if (period == USEC_INFINITY)
+                /* Default period was requested. */
+                period = CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC;
+
+        /* Clamp to interval [1ms, 1s] */
+        new_period = cgroup_cpu_adjust_period(period, quota, USEC_PER_MSEC, USEC_PER_SEC);
+
+        if (new_period != period) {
+                char v[FORMAT_TIMESPAN_MAX];
+                log_unit_full(u, LOG_WARNING, 0,
+                              "Clamping CPU interval for cpu.max: period is now %s",
+                              format_timespan(v, sizeof(v), new_period, 1));
+        }
+
+        return new_period;
+}
+
 static void cgroup_apply_unified_cpu_weight(Unit *u, uint64_t weight) {
         char buf[DECIMAL_STR_MAX(uint64_t) + 2];
 
@@ -663,14 +700,15 @@ static void cgroup_apply_unified_cpu_weight(Unit *u, uint64_t weight) {
         (void) set_attribute_and_warn(u, "cpu", "cpu.weight", buf);
 }
 
-static void cgroup_apply_unified_cpu_quota(Unit *u, usec_t quota) {
+static void cgroup_apply_unified_cpu_quota(Unit *u, usec_t quota, usec_t period) {
         char buf[(DECIMAL_STR_MAX(usec_t) + 1) * 2 + 1];
 
+        period = cgroup_cpu_adjust_period_and_log(u, period, quota);
         if (quota != USEC_INFINITY)
                 xsprintf(buf, USEC_FMT " " USEC_FMT "\n",
-                         quota * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC, CGROUP_CPU_QUOTA_PERIOD_USEC);
+                         MAX(quota * period / USEC_PER_SEC, USEC_PER_MSEC), period);
         else
-                xsprintf(buf, "max " USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
+                xsprintf(buf, "max " USEC_FMT "\n", period);
         (void) set_attribute_and_warn(u, "cpu", "cpu.max", buf);
 }
 
@@ -681,14 +719,16 @@ static void cgroup_apply_legacy_cpu_shares(Unit *u, uint64_t shares) {
         (void) set_attribute_and_warn(u, "cpu", "cpu.shares", buf);
 }
 
-static void cgroup_apply_legacy_cpu_quota(Unit *u, usec_t quota) {
+static void cgroup_apply_legacy_cpu_quota(Unit *u, usec_t quota, usec_t period) {
         char buf[DECIMAL_STR_MAX(usec_t) + 2];
 
-        xsprintf(buf, USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
+        period = cgroup_cpu_adjust_period_and_log(u, period, quota);
+
+        xsprintf(buf, USEC_FMT "\n", period);
         (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_period_us", buf);
 
         if (quota != USEC_INFINITY) {
-                xsprintf(buf, USEC_FMT "\n", quota * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC);
+                xsprintf(buf, USEC_FMT "\n", MAX(quota * period / USEC_PER_SEC, USEC_PER_MSEC));
                 (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_quota_us", buf);
         } else
                 (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_quota_us", "-1\n");
@@ -911,7 +951,7 @@ static void cgroup_context_apply(
                                 weight = CGROUP_WEIGHT_DEFAULT;
 
                         cgroup_apply_unified_cpu_weight(u, weight);
-                        cgroup_apply_unified_cpu_quota(u, c->cpu_quota_per_sec_usec);
+                        cgroup_apply_unified_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
 
                 } else {
                         uint64_t shares;
@@ -930,7 +970,7 @@ static void cgroup_context_apply(
                                 shares = CGROUP_CPU_SHARES_DEFAULT;
 
                         cgroup_apply_legacy_cpu_shares(u, shares);
-                        cgroup_apply_legacy_cpu_quota(u, c->cpu_quota_per_sec_usec);
+                        cgroup_apply_legacy_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
                 }
         }
 
