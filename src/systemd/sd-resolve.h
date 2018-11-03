@@ -42,6 +42,7 @@ typedef struct sd_resolve_query sd_resolve_query;
 /* A callback on completion */
 typedef int (*sd_resolve_getaddrinfo_handler_t)(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata);
 typedef int (*sd_resolve_getnameinfo_handler_t)(sd_resolve_query *q, int ret, const char *host, const char *serv, void *userdata);
+typedef void (*sd_resolve_destroy_t)(void *userdata);
 
 enum {
         SD_RESOLVE_GET_HOST    = 1 << 0,
@@ -108,6 +109,8 @@ int sd_resolve_query_is_done(sd_resolve_query*q);
 
 void *sd_resolve_query_get_userdata(sd_resolve_query *q);
 void *sd_resolve_query_set_userdata(sd_resolve_query *q, void *userdata);
+int sd_resolve_query_get_destroy_callback(sd_resolve_query *q, sd_resolve_destroy_t *destroy_callback);
+int sd_resolve_query_set_destroy_callback(sd_resolve_query *q, sd_resolve_destroy_t destroy_callback);
 
 sd_resolve *sd_resolve_query_get_resolve(sd_resolve_query *q);
 

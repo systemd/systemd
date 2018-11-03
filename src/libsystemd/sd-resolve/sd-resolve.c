@@ -94,6 +94,7 @@ struct sd_resolve_query {
         };
 
         void *userdata;
+        sd_resolve_destroy_t destroy_callback;
 
         LIST_FIELDS(sd_resolve_query, queries);
 };
@@ -1095,6 +1096,9 @@ static sd_resolve_query *resolve_query_free(sd_resolve_query *q) {
 
         resolve_query_disconnect(q);
 
+        if (q->destroy_callback)
+                q->destroy_callback(q->userdata);
+
         resolve_freeaddrinfo(q->addrinfo);
         free(q->host);
         free(q->serv);
@@ -1135,6 +1139,22 @@ _public_ sd_resolve *sd_resolve_query_get_resolve(sd_resolve_query *q) {
         assert_return(!resolve_pid_changed(q->resolve), NULL);
 
         return q->resolve;
+}
+
+_public_ int sd_resolve_query_get_destroy_callback(sd_resolve_query *q, sd_resolve_destroy_t *destroy_callback) {
+        assert_return(q, -EINVAL);
+
+        if (destroy_callback)
+                *destroy_callback = q->destroy_callback;
+
+        return !!q->destroy_callback;
+}
+
+_public_ int sd_resolve_query_set_destroy_callback(sd_resolve_query *q, sd_resolve_destroy_t destroy_callback) {
+        assert_return(q, -EINVAL);
+
+        q->destroy_callback = destroy_callback;
+        return 0;
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
