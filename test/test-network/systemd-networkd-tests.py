@@ -7,6 +7,7 @@ import sys
 import unittest
 import subprocess
 import time
+import re
 import shutil
 import signal
 import socket
@@ -23,7 +24,9 @@ dnsmasq_pid_file='/var/run/networkd-ci/test-test-dnsmasq.pid'
 dnsmasq_log_file='/var/run/networkd-ci/test-dnsmasq-log-file'
 
 def is_module_available(module_name):
-    return not subprocess.call(["modprobe", module_name])
+    lsmod_output = subprocess.check_output('lsmod', universal_newlines=True)
+    module_re = re.compile(r'^{0}\b'.format(re.escape(module_name)), re.MULTILINE)
+    return module_re.search(lsmod_output) or not subprocess.call(["modprobe", module_name])
 
 def expectedFailureIfModuleIsNotAvailable(module_name):
     def f(func):
