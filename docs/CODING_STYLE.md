@@ -6,7 +6,7 @@
 - We prefer `/* comments */` over `// comments` in code you commit, please. This
   way `// comments` are left for developers to use for local, temporary
   commenting of code for debug purposes (i.e. uncommittable stuff), making such
-  comments easily discernable from explanatory, documenting code comments
+  comments easily discernible from explanatory, documenting code comments
   (i.e. committable stuff).
 
 - Don't break code lines too eagerly. We do **not** force line breaks at 80ch,
