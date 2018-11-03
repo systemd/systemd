@@ -111,6 +111,8 @@ void *sd_resolve_query_get_userdata(sd_resolve_query *q);
 void *sd_resolve_query_set_userdata(sd_resolve_query *q, void *userdata);
 int sd_resolve_query_get_destroy_callback(sd_resolve_query *q, sd_resolve_destroy_t *destroy_callback);
 int sd_resolve_query_set_destroy_callback(sd_resolve_query *q, sd_resolve_destroy_t destroy_callback);
+int sd_resolve_query_get_floating(sd_resolve_query *q);
+int sd_resolve_query_set_floating(sd_resolve_query *q, int b);
 
 sd_resolve *sd_resolve_query_get_resolve(sd_resolve_query *q);
 

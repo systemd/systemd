@@ -1157,6 +1157,34 @@ _public_ int sd_resolve_query_set_destroy_callback(sd_resolve_query *q, sd_resol
         return 0;
 }
 
+_public_ int sd_resolve_query_get_floating(sd_resolve_query *q) {
+        assert_return(q, -EINVAL);
+
+        return q->floating;
+}
+
+_public_ int sd_resolve_query_set_floating(sd_resolve_query *q, int b) {
+        assert_return(q, -EINVAL);
+
+        if (q->floating == !!b)
+                return 0;
+
+        if (!q->resolve) /* Already disconnected */
+                return -ESTALE;
+
+        q->floating = b;
+
+        if (b) {
+                sd_resolve_query_ref(q);
+                sd_resolve_unref(q->resolve);
+        } else {
+                sd_resolve_ref(q->resolve);
+                sd_resolve_query_unref(q);
+        }
+
+        return 1;
+}
+
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         sd_resolve *resolve = userdata;
         int r;
