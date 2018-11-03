@@ -717,10 +717,11 @@ static void wireguard_done(NetDev *netdev) {
         Wireguard *w;
         WireguardPeer *peer;
         WireguardIPmask *mask;
+        WireguardEndpoint *e;
 
         assert(netdev);
         w = WIREGUARD(netdev);
-        assert(!w->unresolved_endpoints);
+        assert(w);
 
         while ((peer = w->peers)) {
                 LIST_REMOVE(peers, w->peers, peer);
@@ -729,6 +730,16 @@ static void wireguard_done(NetDev *netdev) {
                         free(mask);
                 }
                 free(peer);
+        }
+
+        while ((e = w->unresolved_endpoints)) {
+                LIST_REMOVE(endpoints, w->unresolved_endpoints, e);
+                wireguard_endpoint_free(e);
+        }
+
+        while ((e = w->failed_endpoints)) {
+                LIST_REMOVE(endpoints, w->failed_endpoints, e);
+                wireguard_endpoint_free(e);
         }
 }
 
