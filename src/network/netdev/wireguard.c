@@ -28,10 +28,13 @@ static WireguardPeer *wireguard_peer_new(Wireguard *w, unsigned section) {
         if (w->last_peer_section == section && w->peers)
                 return w->peers;
 
-        peer = new0(WireguardPeer, 1);
+        peer = new(WireguardPeer, 1);
         if (!peer)
                 return NULL;
-        peer->flags = WGPEER_F_REPLACE_ALLOWEDIPS;
+
+        *peer = (WireguardPeer) {
+                .flags = WGPEER_F_REPLACE_ALLOWEDIPS,
+        };
 
         LIST_PREPEND(peers, w->peers, peer);
         w->last_peer_section = section;
@@ -530,12 +533,15 @@ int config_parse_wireguard_allowed_ips(const char *unit,
                         return 0;
                 }
 
-                ipmask = new0(WireguardIPmask, 1);
+                ipmask = new(WireguardIPmask, 1);
                 if (!ipmask)
                         return log_oom();
-                ipmask->family = family;
-                ipmask->ip.in6 = addr.in6;
-                ipmask->cidr = prefixlen;
+
+                *ipmask = (WireguardIPmask) {
+                        .family = family,
+                        .ip.in6 = addr.in6,
+                        .cidr = prefixlen,
+                };
 
                 LIST_PREPEND(ipmasks, peer->ipmasks, ipmask);
         }
@@ -571,7 +577,7 @@ int config_parse_wireguard_endpoint(const char *unit,
         if (!peer)
                 return log_oom();
 
-        endpoint = new0(WireguardEndpoint, 1);
+        endpoint = new(WireguardEndpoint, 1);
         if (!endpoint)
                 return log_oom();
 
@@ -608,10 +614,12 @@ int config_parse_wireguard_endpoint(const char *unit,
         if (!port)
                 return log_oom();
 
-        endpoint->peer = TAKE_PTR(peer);
-        endpoint->host = TAKE_PTR(host);
-        endpoint->port = TAKE_PTR(port);
-        endpoint->netdev = data;
+        *endpoint = (WireguardEndpoint) {
+                .peer = TAKE_PTR(peer),
+                .host = TAKE_PTR(host),
+                .port = TAKE_PTR(port),
+                .netdev = data,
+        };
         LIST_PREPEND(endpoints, w->unresolved_endpoints, TAKE_PTR(endpoint));
 
         return 0;
