@@ -677,7 +677,8 @@ static void wireguard_done(NetDev *netdev) {
         w = WIREGUARD(netdev);
         assert(w);
 
-        w->resolve_retry_event_source = sd_event_source_unref(w->resolve_retry_event_source);
+        sd_event_source_unref(w->resolve_retry_event_source);
+        sd_resolve_query_unref(w->resolve_query);
 
         while ((peer = w->peers)) {
                 LIST_REMOVE(peers, w->peers, peer);
