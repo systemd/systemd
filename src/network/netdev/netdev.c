@@ -155,7 +155,7 @@ static NetDev *netdev_free(NetDev *netdev) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(NetDev, netdev, netdev_free);
 
-void netdev_netlink_destroy_callback(void *userdata) {
+void netdev_destroy_callback(void *userdata) {
         NetDev *netdev = userdata;
 
         assert(userdata);
@@ -550,7 +550,7 @@ static int netdev_create(NetDev *netdev, Link *link,
                         link_ref(link);
                 } else {
                         r = sd_netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
-                                                  netdev_netlink_destroy_callback, netdev, 0, __func__);
+                                                  netdev_destroy_callback, netdev, 0, __func__);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 

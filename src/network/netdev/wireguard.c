@@ -222,8 +222,11 @@ static int on_resolve_retry(sd_event_source *s, usec_t usec, void *userdata) {
         w = WIREGUARD(netdev);
         assert(w);
 
-        w->resolve_retry_event_source = sd_event_source_unref(w->resolve_retry_event_source);
+        if (!netdev->manager)
+                /* The netdev is detached. */
+                return 0;
 
+        assert(!w->unresolved_endpoints);
         w->unresolved_endpoints = TAKE_PTR(w->failed_endpoints);
 
         resolve_endpoints(netdev);
@@ -279,16 +282,29 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
 
         set_wireguard_interface(netdev);
         if (w->failed_endpoints) {
+                _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+
                 w->n_retries++;
                 r = sd_event_add_time(netdev->manager->event,
-                                      &w->resolve_retry_event_source,
+                                      &s,
                                       CLOCK_MONOTONIC,
                                       now(CLOCK_MONOTONIC) + exponential_backoff_milliseconds(w->n_retries),
                                       0,
                                       on_resolve_retry,
                                       netdev);
-                if (r < 0)
+                if (r < 0) {
                         log_netdev_warning_errno(netdev, r, "Could not arm resolve retry handler: %m");
+                        return 0;
+                }
+
+                r = sd_event_source_set_destroy_callback(s, netdev_destroy_callback);
+                if (r < 0) {
+                        log_netdev_warning_errno(netdev, r, "Failed to set destroy callback to event source: %m");
+                        return 0;
+                }
+
+                (void) sd_event_source_set_floating(s, true);
+                netdev_ref(netdev);
         }
 
         return 0;
@@ -705,7 +721,6 @@ static void wireguard_done(NetDev *netdev) {
         assert(netdev);
         w = WIREGUARD(netdev);
         assert(!w->unresolved_endpoints);
-        w->resolve_retry_event_source = sd_event_source_unref(w->resolve_retry_event_source);
 
         while ((peer = w->peers)) {
                 LIST_REMOVE(peers, w->peers, peer);

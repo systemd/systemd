@@ -150,7 +150,7 @@ void netdev_drop(NetDev *netdev);
 
 NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);
-void netdev_netlink_destroy_callback(void *userdata);
+void netdev_destroy_callback(void *userdata);
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);

@@ -58,7 +58,6 @@ struct Wireguard {
 
         LIST_HEAD(WireguardPeer, peers);
         size_t allocation_size;
-        sd_event_source *resolve_retry_event_source;
 
         LIST_HEAD(WireguardEndpoint, unresolved_endpoints);
         LIST_HEAD(WireguardEndpoint, failed_endpoints);
