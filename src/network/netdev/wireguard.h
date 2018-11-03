@@ -2,11 +2,10 @@
 
 typedef struct Wireguard Wireguard;
 
-#include "netdev.h"
-#include "sd-resolve.h"
-#include "wireguard-netlink.h"
-#include "socket-util.h"
 #include "in-addr-util.h"
+#include "netdev.h"
+#include "socket-util.h"
+#include "wireguard-netlink.h"
 
 #ifndef IFNAMSIZ
 #define IFNAMSIZ 16
