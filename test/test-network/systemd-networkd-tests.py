@@ -145,7 +145,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     links =['bridge99', 'bond99', 'bond99', 'vlan99', 'test1', 'macvtap99',
             'macvlan99', 'ipvlan99', 'vxlan99', 'veth99', 'vrf99', 'tun99',
             'tap99', 'vcan99', 'geneve99', 'dummy98', 'ipiptun99', 'sittun99',
-            'gretap99', 'vtitun99', 'vti6tun99','ip6tnl99', 'gretun99', 'ip6gretap99']
+            'gretap99', 'vtitun99', 'vti6tun99','ip6tnl99', 'gretun99', 'ip6gretap99', 'wg99']
 
     units = ['25-bridge.netdev', '25-bond.netdev', '21-vlan.netdev', '11-dummy.netdev', '21-vlan.network',
              '21-macvtap.netdev', 'macvtap.network', '21-macvlan.netdev', 'macvlan.network', 'vxlan.network',
@@ -154,7 +154,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
              '25-ip6tnl-tunnel.netdev', '25-ip6gre-tunnel.netdev','25-sit-tunnel.netdev', '25-gre-tunnel.netdev',
              '25-gretap-tunnel.netdev', '25-vti-tunnel.netdev', '25-vti6-tunnel.netdev', '12-dummy.netdev',
              'gre.network', 'ipip.network', 'ip6gretap.network', 'gretun.network', 'ip6tnl.network', '25-tap.netdev',
-             'vti6.network', 'vti.network', 'gretap.network', 'sit.network', '25-ipip-tunnel-independent.netdev']
+             'vti6.network', 'vti.network', 'gretap.network', 'sit.network', '25-ipip-tunnel-independent.netdev',
+             '25-wireguard.netdev']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -275,6 +276,17 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd()
 
         self.assertTrue(self.link_exits('vcan99'))
+
+    @expectedFailureIfModuleIsNotAvailable('wireguard')
+    def test_wireguard(self):
+        self.copy_unit_to_networkd_unit_path('25-wireguard.netdev')
+
+        self.start_networkd()
+
+        if shutil.which('wg'):
+            subprocess.call('wg')
+
+        self.assertTrue(self.link_exits('wg99'))
 
     def test_geneve(self):
         self.copy_unit_to_networkd_unit_path('25-geneve.netdev')
