@@ -91,10 +91,8 @@ void address_free(Address *address) {
                 assert(address->network->n_static_addresses > 0);
                 address->network->n_static_addresses--;
 
-                if (address->section) {
+                if (address->section)
                         hashmap_remove(address->network->addresses_by_section, address->section);
-                        network_config_section_free(address->section);
-                }
         }
 
         if (address->link) {
@@ -105,6 +103,8 @@ void address_free(Address *address) {
                         memzero(&address->link->ipv6ll_address, sizeof(struct in6_addr));
         }
 
+        network_config_section_free(address->section);
+        free(address->label);
         free(address);
 }
 
