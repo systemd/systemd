@@ -112,13 +112,19 @@ static void netdev_callbacks_clear(NetDev *netdev) {
         }
 }
 
+static void netdev_detach_from_manager(NetDev *netdev) {
+        if (netdev->ifname && netdev->manager)
+                hashmap_remove(netdev->manager->netdevs, netdev->ifname);
+
+        netdev->manager = NULL;
+}
+
 static NetDev *netdev_free(NetDev *netdev) {
         assert(netdev);
 
         netdev_callbacks_clear(netdev);
 
-        if (netdev->ifname && netdev->manager)
-                hashmap_remove(netdev->manager->netdevs, netdev->ifname);
+        netdev_detach_from_manager(netdev);
 
         free(netdev->filename);
 
@@ -166,6 +172,8 @@ void netdev_drop(NetDev *netdev) {
         log_netdev_debug(netdev, "netdev removed");
 
         netdev_callbacks_clear(netdev);
+
+        netdev_detach_from_manager(netdev);
 
         netdev_unref(netdev);
 

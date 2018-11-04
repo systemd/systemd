@@ -503,6 +503,17 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         return 0;
 }
 
+static void link_detach_from_manager(Link *link) {
+        if (!link || !link->manager)
+                return;
+
+        hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex));
+        set_remove(link->manager->links_requesting_uuid, link);
+        link_clean(link);
+
+        link->manager = NULL;
+}
+
 static Link *link_free(Link *link) {
         Address *address;
         Link *carrier;
@@ -552,11 +563,7 @@ static Link *link_free(Link *link) {
         sd_ndisc_unref(link->ndisc);
         sd_radv_unref(link->radv);
 
-        if (link->manager) {
-                hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex));
-                set_remove(link->manager->links_requesting_uuid, link);
-                link_clean(link);
-        }
+        link_detach_from_manager(link);
 
         free(link->ifname);
 
@@ -2265,6 +2272,9 @@ void link_drop(Link *link) {
         log_link_debug(link, "Link removed");
 
         (void) unlink(link->state_file);
+
+        link_detach_from_manager(link);
+
         link_unref(link);
 
         return;
