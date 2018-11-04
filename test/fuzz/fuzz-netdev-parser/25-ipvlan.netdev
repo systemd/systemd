@@ -1,0 +1,6 @@
+[NetDev]
+Name=ipvlan99
+Kind=ipvlan
+
+[IPVLAN]
+Mode=L2

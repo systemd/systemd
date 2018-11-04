@@ -1,0 +1,7 @@
+[NetDev]
+Name=gretap99
+Kind=gretap
+
+[Tunnel]
+Local=10.65.223.238
+Remote=10.65.223.239
