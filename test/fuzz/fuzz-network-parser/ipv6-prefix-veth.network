@@ -1,0 +1,5 @@
+[Match]
+Name=veth99
+
+[Network]
+IPv6AcceptRA=true
