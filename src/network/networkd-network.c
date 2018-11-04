@@ -181,8 +181,6 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!d)
                 return -EINVAL;
 
-        assert(streq(d, ".network"));
-
         *d = '\0';
 
         network->required_for_online = true;
