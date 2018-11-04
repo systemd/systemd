@@ -63,7 +63,6 @@ struct Wireguard {
         LIST_HEAD(WireguardEndpoint, unresolved_endpoints);
         LIST_HEAD(WireguardEndpoint, failed_endpoints);
         unsigned n_retries;
-        sd_resolve_query *resolve_query;
 };
 
 DEFINE_NETDEV_CAST(WIREGUARD, Wireguard);

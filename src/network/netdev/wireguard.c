@@ -6,6 +6,8 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 
+#include "sd-resolve.h"
+
 #include "alloc-util.h"
 #include "parse-util.h"
 #include "fd-util.h"
@@ -195,10 +197,19 @@ static int set_wireguard_interface(NetDev *netdev) {
 static WireguardEndpoint* wireguard_endpoint_free(WireguardEndpoint *e) {
         if (!e)
                 return NULL;
-        netdev_unref(e->netdev);
         e->host = mfree(e->host);
         e->port = mfree(e->port);
         return mfree(e);
+}
+
+static void wireguard_endpoint_destroy_callback(void *userdata) {
+        WireguardEndpoint *e = userdata;
+
+        assert(e);
+        assert(e->netdev);
+
+        netdev_unref(e->netdev);
+        wireguard_endpoint_free(e);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(WireguardEndpoint*, wireguard_endpoint_free);
@@ -232,9 +243,10 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
                                      int ret,
                                      const struct addrinfo *ai,
                                      void *userdata) {
-        NetDev *netdev;
+        _cleanup_(netdev_unrefp) NetDev *netdev_will_unrefed = NULL;
+        NetDev *netdev = NULL;
+        WireguardEndpoint *e;
         Wireguard *w;
-        _cleanup_(wireguard_endpoint_freep) WireguardEndpoint *e;
         int r;
 
         assert(userdata);
@@ -245,14 +257,17 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
         w = WIREGUARD(netdev);
         assert(w);
 
-        w->resolve_query = sd_resolve_query_unref(w->resolve_query);
+        if (!netdev->manager)
+                /* The netdev is detached. */
+                return 0;
 
         if (ret != 0) {
                 log_netdev_error(netdev, "Failed to resolve host '%s:%s': %s", e->host, e->port, gai_strerror(ret));
                 LIST_PREPEND(endpoints, w->failed_endpoints, e);
-                e = NULL;
+                (void) sd_resolve_query_set_destroy_callback(q, NULL); /* Avoid freeing endpoint by destroy callback. */
+                netdev_will_unrefed = netdev; /* But netdev needs to be unrefed. */
         } else if ((ai->ai_family == AF_INET && ai->ai_addrlen == sizeof(struct sockaddr_in)) ||
-                        (ai->ai_family == AF_INET6 && ai->ai_addrlen == sizeof(struct sockaddr_in6)))
+                   (ai->ai_family == AF_INET6 && ai->ai_addrlen == sizeof(struct sockaddr_in6)))
                 memcpy(&e->peer->endpoint, ai->ai_addr, ai->ai_addrlen);
         else
                 log_netdev_error(netdev, "Neither IPv4 nor IPv6 address found for peer endpoint: %s:%s", e->host, e->port);
@@ -280,22 +295,24 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
 }
 
 static void resolve_endpoints(NetDev *netdev) {
-        int r = 0;
-        Wireguard *w;
-        WireguardEndpoint *endpoint;
         static const struct addrinfo hints = {
                 .ai_family = AF_UNSPEC,
                 .ai_socktype = SOCK_DGRAM,
                 .ai_protocol = IPPROTO_UDP
         };
+        WireguardEndpoint *endpoint;
+        Wireguard *w;
+        int r = 0;
 
         assert(netdev);
         w = WIREGUARD(netdev);
         assert(w);
 
         LIST_FOREACH(endpoints, endpoint, w->unresolved_endpoints) {
+                _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q = NULL;
+
                 r = sd_resolve_getaddrinfo(netdev->manager->resolve,
-                                           &w->resolve_query,
+                                           &q,
                                            endpoint->host,
                                            endpoint->port,
                                            &hints,
@@ -304,11 +321,23 @@ static void resolve_endpoints(NetDev *netdev) {
 
                 if (r == -ENOBUFS)
                         break;
+                if (r < 0) {
+                        log_netdev_error_errno(netdev, r, "Failed to create resolver: %m");
+                        continue;
+                }
+
+                r = sd_resolve_query_set_destroy_callback(q, wireguard_endpoint_destroy_callback);
+                if (r < 0) {
+                        log_netdev_error_errno(netdev, r, "Failed to set destroy callback to resolving query: %m");
+                        continue;
+                }
+
+                (void) sd_resolve_query_set_floating(q, true);
+
+                /* Avoid freeing netdev. It will be unrefed by the destroy callback. */
+                netdev_ref(netdev);
 
                 LIST_REMOVE(endpoints, w->unresolved_endpoints, endpoint);
-
-                if (r < 0)
-                        log_netdev_error_errno(netdev, r, "Failed create resolver: %m");
         }
 }
 
@@ -612,9 +641,8 @@ int config_parse_wireguard_endpoint(const char *unit,
         endpoint->peer = TAKE_PTR(peer);
         endpoint->host = TAKE_PTR(host);
         endpoint->port = TAKE_PTR(port);
-        endpoint->netdev = netdev_ref(data);
-        LIST_PREPEND(endpoints, w->unresolved_endpoints, endpoint);
-        endpoint = NULL;
+        endpoint->netdev = data;
+        LIST_PREPEND(endpoints, w->unresolved_endpoints, TAKE_PTR(endpoint));
 
         return 0;
 }
