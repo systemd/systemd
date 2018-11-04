@@ -144,6 +144,14 @@ if conf.get('ENABLE_NETWORKD') == 1
       libsystemd_network,
       libshared],
      [threads]],
+
+    [['src/network/fuzz-network-parser.c',
+      'src/fuzz/fuzz.h'],
+     [libnetworkd_core,
+      libudev_static,
+      libsystemd_network,
+      libshared],
+     [threads]]
     ]
 
         tests += [
