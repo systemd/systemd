@@ -706,8 +706,8 @@ int config_parse_address(const char *unit,
 
         Network *network = userdata;
         _cleanup_(address_freep) Address *n = NULL;
-        const char *address, *e;
         union in_addr_union buffer;
+        unsigned char prefixlen;
         int r, f;
 
         assert(filename);
@@ -727,44 +727,19 @@ int config_parse_address(const char *unit,
                 return r;
 
         /* Address=address/prefixlen */
-
-        /* prefixlen */
-        e = strchr(rvalue, '/');
-        if (e) {
-                unsigned i;
-
-                r = safe_atou(e + 1, &i);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length is invalid, ignoring assignment: %s", e + 1);
-                        return 0;
-                }
-
-                n->prefixlen = (unsigned char) i;
-
-                address = strndupa(rvalue, e - rvalue);
-        } else
-                address = rvalue;
-
-        r = in_addr_from_string_auto(address, &f, &buffer);
+        r = in_addr_default_prefix_from_string_auto(rvalue, &f, &buffer, &prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Address is invalid, ignoring assignment: %s", address);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid address '%s', ignoring assignment: %m", rvalue);
                 return 0;
         }
 
-        if (!e && f == AF_INET) {
-                r = in4_addr_default_prefixlen(&buffer.in, &n->prefixlen);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length not specified, and a default one cannot be deduced for '%s', ignoring assignment", address);
-                        return 0;
-                }
-        }
-
         if (n->family != AF_UNSPEC && f != n->family) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Address is incompatible, ignoring assignment: %s", address);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Address is incompatible, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
         n->family = f;
+        n->prefixlen = prefixlen;
 
         if (streq(lvalue, "Address"))
                 n->in_addr = buffer;
