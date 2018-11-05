@@ -1,6 +1,5 @@
 [Unit]
 Description=Testsuite service
-After=multi-user.target
 
 [Service]
 ExecStart=/test-dropin.sh

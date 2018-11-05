@@ -1,6 +1,6 @@
 [Unit]
 Description=Testsuite service
-After=multi-user.target
+After=systemd-tmpfiles-setup.service
 
 [Service]
 WorkingDirectory=/testsuite

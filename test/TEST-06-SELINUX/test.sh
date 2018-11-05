@@ -33,7 +33,6 @@ test_setup() {
         cat <<EOF >$initdir/etc/systemd/system/testsuite.service
 [Unit]
 Description=Testsuite service
-After=multi-user.target
 
 [Service]
 ExecStart=/test-selinux-checks.sh

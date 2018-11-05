@@ -65,11 +65,11 @@ if cxx.found()
         endif
 endif
 
-foreach header : _systemd_headers + _not_installed_headers
+foreach header : _systemd_headers + _not_installed_headers + ['../libudev/libudev.h']
         foreach opt : opts
-                name = ''.join([header, ':'] + opt)
+                name = ''.join(['cc-', header.split('/')[-1], ':'] + opt)
                 if want_tests != 'false'
-                        test('cc-' + name,
+                        test(name,
                              check_compilation_sh,
                              args : cc.cmd_array() + ['-c', '-x'] + opt +
                                     ['-Werror', '-include',
