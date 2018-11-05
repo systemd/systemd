@@ -314,6 +314,7 @@ int in_addr_from_string_auto(const char *s, int *ret_family, union in_addr_union
 }
 
 int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex) {
+        _cleanup_free_ char *buf = NULL;
         const char *suffix;
         int r, ifi = 0;
 
@@ -341,7 +342,11 @@ int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_u
                         }
                 }
 
-                s = strndupa(s, suffix - s);
+                buf = strndup(s, suffix - s);
+                if (!buf)
+                        return -ENOMEM;
+
+                s = buf;
         }
 
         r = in_addr_from_string_auto(s, family, ret);
@@ -496,6 +501,7 @@ int in_addr_prefix_from_string(
                 union in_addr_union *ret_prefix,
                 unsigned char *ret_prefixlen) {
 
+        _cleanup_free_ char *str = NULL;
         union in_addr_union buffer;
         const char *e, *l;
         unsigned char k;
@@ -507,9 +513,13 @@ int in_addr_prefix_from_string(
                 return -EAFNOSUPPORT;
 
         e = strchr(p, '/');
-        if (e)
-                l = strndupa(p, e - p);
-        else
+        if (e) {
+                str = strndup(p, e - p);
+                if (!str)
+                        return -ENOMEM;
+
+                l = str;
+        } else
                 l = p;
 
         r = in_addr_from_string(family, l, &buffer);
@@ -537,6 +547,7 @@ int in_addr_prefix_from_string_auto(
                 union in_addr_union *ret_prefix,
                 unsigned char *ret_prefixlen) {
 
+        _cleanup_free_ char *str = NULL;
         union in_addr_union buffer;
         const char *e, *l;
         unsigned char k;
@@ -545,9 +556,13 @@ int in_addr_prefix_from_string_auto(
         assert(p);
 
         e = strchr(p, '/');
-        if (e)
-                l = strndupa(p, e - p);
-        else
+        if (e) {
+                str = strndup(p, e - p);
+                if (!str)
+                        return -ENOMEM;
+
+                l = str;
+        } else
                 l = p;
 
         r = in_addr_from_string_auto(l, &family, &buffer);
