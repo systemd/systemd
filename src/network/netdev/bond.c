@@ -376,10 +376,8 @@ int config_parse_arp_ip_target_address(const char *unit,
                         return 0;
                 }
 
-                LIST_PREPEND(arp_ip_target, b->arp_ip_targets, buffer);
+                LIST_PREPEND(arp_ip_target, b->arp_ip_targets, TAKE_PTR(buffer));
                 b->n_arp_ip_targets++;
-
-                buffer = NULL;
         }
 
         if (b->n_arp_ip_targets > NETDEV_BOND_ARP_TARGETS_MAX)

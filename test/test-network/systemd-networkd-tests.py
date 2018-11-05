@@ -61,6 +61,7 @@ class Utilities():
         for link in links:
             if os.path.exists(os.path.join('/sys/class/net', link)):
                 subprocess.call(['ip', 'link', 'del', 'dev', link])
+        time.sleep(1)
 
     def read_ipv6_sysctl_attr(self, link, attribute):
         with open(os.path.join(os.path.join(network_sysctl_ipv6_path, link), attribute)) as f:

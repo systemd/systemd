@@ -88,16 +88,16 @@ void ipv6_proxy_ndp_address_free(IPv6ProxyNDPAddress *ipv6_proxy_ndp_address) {
 }
 
 int config_parse_ipv6_proxy_ndp_address(
-        const char *unit,
-        const char *filename,
-        unsigned line,
-        const char *section,
-        unsigned section_line,
-        const char *lvalue,
-        int ltype,
-        const char *rvalue,
-        void *data,
-        void *userdata) {
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Network *network = userdata;
         _cleanup_(ipv6_proxy_ndp_address_freep) IPv6ProxyNDPAddress *ipv6_proxy_ndp_address = NULL;

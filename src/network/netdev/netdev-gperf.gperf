@@ -108,7 +108,9 @@ GENEVE.TOS,                        config_parse_uint8,                   0,     
 GENEVE.TTL,                        config_parse_uint8,                   0,                             offsetof(Geneve, ttl)
 GENEVE.UDPChecksum,                config_parse_bool,                    0,                             offsetof(Geneve, udpcsum)
 GENEVE.UDP6ZeroCheckSumRx,         config_parse_bool,                    0,                             offsetof(Geneve, udp6zerocsumrx)
+GENEVE.UDP6ZeroChecksumRx,         config_parse_bool,                    0,                             offsetof(Geneve, udp6zerocsumrx)
 GENEVE.UDP6ZeroCheckSumTx,         config_parse_bool,                    0,                             offsetof(Geneve, udp6zerocsumtx)
+GENEVE.UDP6ZeroChecksumTx,         config_parse_bool,                    0,                             offsetof(Geneve, udp6zerocsumtx)
 GENEVE.DestinationPort,            config_parse_ip_port,                 0,                             offsetof(Geneve, dest_port)
 GENEVE.FlowLabel,                  config_parse_geneve_flow_label,       0,                             0
 Tun.OneQueue,                      config_parse_bool,                    0,                             offsetof(TunTap, one_queue)

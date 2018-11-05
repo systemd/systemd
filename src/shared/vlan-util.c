@@ -9,6 +9,9 @@ int parse_vlanid(const char *p, uint16_t *ret) {
         uint16_t id;
         int r;
 
+        assert(p);
+        assert(ret);
+
         r = safe_atou16(p, &id);
         if (r < 0)
                 return r;

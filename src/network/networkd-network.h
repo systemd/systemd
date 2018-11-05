@@ -78,6 +78,8 @@ typedef enum RADVPrefixDelegation {
         RADV_PREFIX_DELEGATION_STATIC,
         RADV_PREFIX_DELEGATION_DHCP6,
         RADV_PREFIX_DELEGATION_BOTH,
+        _RADV_PREFIX_DELEGATION_MAX,
+        _RADV_PREFIX_DELEGATION_INVALID = -1,
 } RADVPrefixDelegation;
 
 typedef struct NetworkConfigSection {
@@ -316,3 +318,6 @@ DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
 
 const char* lldp_mode_to_string(LLDPMode m) _const_;
 LLDPMode lldp_mode_from_string(const char *s) _pure_;
+
+const char* radv_prefix_delegation_to_string(RADVPrefixDelegation i) _const_;
+RADVPrefixDelegation radv_prefix_delegation_from_string(const char *s) _pure_;

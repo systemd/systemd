@@ -38,8 +38,8 @@ Link.AllMulticast,                      config_parse_tristate,                  
 Link.Unmanaged,                         config_parse_bool,                              0,                             offsetof(Network, unmanaged)
 Link.RequiredForOnline,                 config_parse_bool,                              0,                             offsetof(Network, required_for_online)
 Network.Description,                    config_parse_string,                            0,                             offsetof(Network, description)
-Network.Bridge,                         config_parse_netdev,                            0,                             offsetof(Network, bridge)
-Network.Bond,                           config_parse_netdev,                            0,                             offsetof(Network, bond)
+Network.Bridge,                         config_parse_netdev,                            0,                             0
+Network.Bond,                           config_parse_netdev,                            0,                             0
 Network.VLAN,                           config_parse_netdev,                            0,                             0
 Network.MACVLAN,                        config_parse_netdev,                            0,                             0
 Network.MACVTAP,                        config_parse_netdev,                            0,                             0

@@ -12,7 +12,20 @@
 #include "parse-util.h"
 #include "sd-radv.h"
 #include "string-util.h"
+#include "string-table.h"
 #include "strv.h"
+
+static const char * const radv_prefix_delegation_table[_RADV_PREFIX_DELEGATION_MAX] = {
+        [RADV_PREFIX_DELEGATION_NONE] = "no",
+        [RADV_PREFIX_DELEGATION_STATIC] = "static",
+        [RADV_PREFIX_DELEGATION_DHCP6] = "dhcpv6",
+        [RADV_PREFIX_DELEGATION_BOTH] = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(
+                radv_prefix_delegation,
+                RADVPrefixDelegation,
+                RADV_PREFIX_DELEGATION_BOTH);
 
 int config_parse_router_prefix_delegation(
                 const char *unit,
@@ -27,7 +40,7 @@ int config_parse_router_prefix_delegation(
                 void *userdata) {
 
         Network *network = userdata;
-        int d;
+        RADVPrefixDelegation d;
 
         assert(filename);
         assert(section);
@@ -35,20 +48,13 @@ int config_parse_router_prefix_delegation(
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "static"))
-                network->router_prefix_delegation = RADV_PREFIX_DELEGATION_STATIC;
-        else if (streq(rvalue, "dhcpv6"))
-                network->router_prefix_delegation = RADV_PREFIX_DELEGATION_DHCP6;
-        else {
-                d = parse_boolean(rvalue);
-                if (d > 0)
-                        network->router_prefix_delegation = RADV_PREFIX_DELEGATION_BOTH;
-                else
-                        network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
-
-                if (d < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Router prefix delegation '%s' is invalid, ignoring assignment: %m", rvalue);
+        d = radv_prefix_delegation_from_string(rvalue);
+        if (d < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Invalid router prefix delegation '%s', ignoring assignment.", rvalue);
+                return 0;
         }
+
+        network->router_prefix_delegation = d;
 
         return 0;
 }
@@ -92,13 +98,12 @@ void prefix_free(Prefix *prefix) {
                 assert(prefix->network->n_static_prefixes > 0);
                 prefix->network->n_static_prefixes--;
 
-                if (prefix->section) {
+                if (prefix->section)
                         hashmap_remove(prefix->network->prefixes_by_section,
                                        prefix->section);
-                        network_config_section_free(prefix->section);
-                }
         }
 
+        network_config_section_free(prefix->section);
         prefix->radv_prefix = sd_radv_prefix_unref(prefix->radv_prefix);
 
         free(prefix);
