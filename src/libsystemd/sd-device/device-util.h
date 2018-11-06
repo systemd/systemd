@@ -33,17 +33,15 @@
 
 #define log_device_full(device, level, error, ...)                      \
         ({                                                              \
-                const char *_sysname = NULL, *_subsystem = NULL;        \
+                const char *_sysname = NULL;                            \
                 sd_device *_d = (device);                               \
                 int _level = (level), _error = (error);                 \
                                                                         \
-                if (_d && _unlikely_(log_get_max_level() >= _level)) {  \
+                if (_d && _unlikely_(log_get_max_level() >= _level))    \
                         (void) sd_device_get_sysname(_d, &_sysname);    \
-                        (void) sd_device_get_subsystem(_d, &_subsystem); \
-                }                                                       \
                 log_object_internal(_level, _error, __FILE__, __LINE__, __func__, \
                                     _sysname ? "DEVICE=" : NULL, _sysname, \
-                                    _subsystem ? "SUBSYSTEM=" : NULL, _subsystem, ##__VA_ARGS__); \
+                                    NULL, NULL, ##__VA_ARGS__);         \
         })
 
 #define log_device_debug(device, ...)   log_device_full(device, LOG_DEBUG, 0, ##__VA_ARGS__)

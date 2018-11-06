@@ -1705,6 +1705,8 @@ int main(int argc, char *argv[]) {
                 log_set_max_level(LOG_DEBUG);
         }
 
+        log_set_max_level_realm(LOG_REALM_SYSTEMD, log_get_max_level());
+
         r = must_be_root();
         if (r < 0)
                 goto exit;

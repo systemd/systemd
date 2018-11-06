@@ -138,7 +138,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
         /* must be a subdirectory of /sys */
         if (!path_startswith(_syspath, "/sys/")) {
-                log_debug("sd-device: syspath '%s' is not a subdirectory of /sys", _syspath);
+                log_debug("sd-device: Syspath '%s' is not a subdirectory of /sys", _syspath);
                 return -EINVAL;
         }
 
@@ -147,7 +147,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                 if (r == -ENOENT)
                         return -ENODEV; /* the device does not exist (any more?) */
                 if (r < 0)
-                        return log_debug_errno(r, "sd-device: could not get target of '%s': %m", _syspath);
+                        return log_debug_errno(r, "sd-device: Failed to get target of '%s': %m", _syspath);
 
                 if (!path_startswith(syspath, "/sys")) {
                         _cleanup_free_ char *real_sys = NULL, *new_syspath = NULL;
@@ -156,17 +156,17 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         /* /sys is a symlink to somewhere sysfs is mounted on? In that case, we convert the path to real sysfs to "/sys". */
                         r = chase_symlinks("/sys", NULL, 0, &real_sys);
                         if (r < 0)
-                                return log_debug_errno(r, "sd-device: could not chase symlink /sys: %m");
+                                return log_debug_errno(r, "sd-device: Failed to chase symlink /sys: %m");
 
                         p = path_startswith(syspath, real_sys);
                         if (!p) {
-                                log_debug("sd-device: canonicalized path '%s' does not starts with sysfs mount point '%s'", syspath, real_sys);
+                                log_debug("sd-device: Canonicalized path '%s' does not starts with sysfs mount point '%s'", syspath, real_sys);
                                 return -ENODEV;
                         }
 
                         new_syspath = strjoin("/sys/", p);
                         if (!new_syspath)
-                                return log_oom();
+                                return -ENOMEM;
 
                         free_and_replace(syspath, new_syspath);
                         path_simplify(syspath, false);
@@ -513,7 +513,7 @@ int device_read_uevent_file(sd_device *device) {
                 /* some devices may not have uevent files, see set_syspath() */
                 return 0;
         else if (r < 0)
-                return log_debug_errno(r, "sd-device: failed to read uevent file '%s': %m", path);
+                return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file '%s': %m", path);
 
         for (i = 0; i < uevent_len; i++)
                 switch (state) {
@@ -532,7 +532,7 @@ int device_read_uevent_file(sd_device *device) {
                                 state = PRE_VALUE;
                         } else if (strchr(NEWLINE, uevent[i])) {
                                 uevent[i] = '\0';
-                                log_debug("sd-device: ignoring invalid uevent line '%s'", key);
+                                log_device_debug(device, "sd-device: Invalid uevent line '%s', ignoring", key);
 
                                 state = PRE_KEY;
                         }
@@ -549,20 +549,20 @@ int device_read_uevent_file(sd_device *device) {
 
                                 r = handle_uevent_line(device, key, value, &major, &minor);
                                 if (r < 0)
-                                        log_debug_errno(r, "sd-device: failed to handle uevent entry '%s=%s': %m", key, value);
+                                        log_device_debug_errno(device, r, "sd-device: Failed to handle uevent entry '%s=%s', ignoring: %m", key, value);
 
                                 state = PRE_KEY;
                         }
 
                         break;
                 default:
-                        assert_not_reached("invalid state when parsing uevent file");
+                        assert_not_reached("Invalid state when parsing uevent file");
                 }
 
         if (major) {
                 r = device_set_devnum(device, major, minor);
                 if (r < 0)
-                        log_debug_errno(r, "sd-device: could not set 'MAJOR=%s' or 'MINOR=%s' from '%s': %m", major, minor, path);
+                        log_device_debug_errno(device, r, "sd-device: Failed to set 'MAJOR=%s' or 'MINOR=%s' from '%s', ignoring: %m", major, minor, path);
         }
 
         return 0;
@@ -798,7 +798,7 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                           path_startswith(device->devpath, "/bus/")))
                         r = device_set_subsystem(device, "subsystem");
                 if (r < 0 && r != -ENOENT)
-                        return log_debug_errno(r, "sd-device: could not set subsystem for %s: %m", device->devpath);
+                        return log_device_debug_errno(device, r, "sd-device: Failed to set subsystem for %s: %m", device->devpath);
 
                 device->subsystem_set = true;
         } else if (!device->driver_subsystem_set)
@@ -821,7 +821,7 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                                         r = device_set_drivers_subsystem(device, subsys + 1);
                         }
                         if (r < 0 && r != -ENOENT)
-                                return log_debug_errno(r, "sd-device: could not set subsystem for driver %s: %m", device->devpath);
+                                return log_device_debug_errno(device, r, "sd-device: Failed to set subsystem for driver %s: %m", device->devpath);
                 }
 
                 device->driver_subsystem_set = true;
@@ -944,11 +944,11 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
                 if (r >= 0) {
                         r = device_set_driver(device, driver);
                         if (r < 0)
-                                return log_debug_errno(r, "sd-device: could not set driver for %s: %m", device->devpath);
+                                return log_device_debug_errno(device, r, "sd-device: Failed to set driver for %s: %m", device->devpath);
                 } else if (r == -ENOENT)
                         device->driver_set = true;
                 else
-                        return log_debug_errno(r, "sd-device: could not set driver for %s: %m", device->devpath);
+                        return log_device_debug_errno(device, r, "sd-device: Failed to set driver for %s: %m", device->devpath);
         }
 
         if (!device->driver)
@@ -1211,7 +1211,7 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
 
                 break;
         default:
-                log_debug("device db: unknown key '%c'", key);
+                log_device_debug(device, "sd-device: Unknown key '%c' in device db, ignoring", key);
         }
 
         return 0;
@@ -1312,7 +1312,7 @@ int device_read_db_aux(sd_device *device, bool force) {
                 if (r == -ENOENT)
                         return 0;
                 else
-                        return log_debug_errno(r, "sd-device: failed to read db '%s': %m", path);
+                        return log_device_debug_errno(device, r, "sd-device: Failed to read db '%s': %m", path);
         }
 
         /* devices with a database entry are initialized */
@@ -1330,7 +1330,7 @@ int device_read_db_aux(sd_device *device, bool force) {
                         break;
                 case KEY:
                         if (db[i] != ':') {
-                                log_debug("sd-device: ignoring invalid db entry with key '%c'", key);
+                                log_device_debug(device, "sd-device: Invalid db entry with key '%c', ignoring", key);
 
                                 state = INVALID_LINE;
                         } else {
@@ -1356,14 +1356,14 @@ int device_read_db_aux(sd_device *device, bool force) {
                                 db[i] = '\0';
                                 r = handle_db_line(device, key, value);
                                 if (r < 0)
-                                        log_debug_errno(r, "sd-device: failed to handle db entry '%c:%s': %m", key, value);
+                                        log_device_debug_errno(device, r, "sd-device: Failed to handle db entry '%c:%s', ignoring: %m", key, value);
 
                                 state = PRE_KEY;
                         }
 
                         break;
                 default:
-                        assert_not_reached("invalid state when parsing db");
+                        assert_not_reached("Invalid state when parsing db");
                 }
         }
 

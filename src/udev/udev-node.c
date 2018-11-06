@@ -73,6 +73,8 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 } while (r == -ENOENT);
                 if (r == 0)
                         return 0;
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s', trying to replace '%s': %m", slink, target, slink);
         }
 
         log_device_debug(dev, "Atomically replace '%s'", slink);
@@ -211,10 +213,8 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 log_device_debug(dev, "No reference left, removing '%s'", slink);
                 if (unlink(slink) == 0)
                         (void) rmdir_parents(slink, "/");
-        } else {
-                log_device_debug(dev, "Creating link '%s' to '%s'", slink, target);
+        } else
                 (void) node_symlink(dev, target, slink);
-        }
 
         if (add)
                 do {
