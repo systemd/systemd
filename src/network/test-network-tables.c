@@ -1,6 +1,8 @@
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
 #include "ethtool-util.h"
+#include "lldp-internal.h"
+#include "ndisc-internal.h"
 #include "netdev/bond.h"
 #include "netdev/ipvlan.h"
 #include "netdev/macvlan.h"
@@ -35,6 +37,8 @@ int main(int argc, char **argv) {
         test_table(nl_union_link_info_data, NL_UNION_LINK_INFO_DATA);
         test_table(radv_prefix_delegation, RADV_PREFIX_DELEGATION);
         test_table(wol, WOL);
+        test_table(lldp_event, SD_LLDP_EVENT);
+        test_table(ndisc_event, SD_NDISC_EVENT);
 
         test_table_sparse(ipvlan_mode, NETDEV_IPVLAN_MODE);
         test_table_sparse(macvlan_mode, NETDEV_MACVLAN_MODE);
