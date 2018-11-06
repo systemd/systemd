@@ -474,10 +474,6 @@ static int worker_main(Manager *_manager, struct udev_monitor *monitor, struct u
             epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0)
                 return log_error_errno(errno, "fail to add fds to epoll: %m");
 
-        /* Request TERM signal if parent exits.
-         * Ignore error, not much we can do in that case. */
-        (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
-
         /* Reset OOM score, we only protect the main daemon. */
         r = set_oom_score_adjust(0);
         if (r < 0)
@@ -535,46 +531,43 @@ static int worker_main(Manager *_manager, struct udev_monitor *monitor, struct u
         }
 }
 
-static void worker_spawn(Manager *manager, struct event *event) {
+static int worker_spawn(Manager *manager, struct event *event) {
         _cleanup_(udev_monitor_unrefp) struct udev_monitor *worker_monitor = NULL;
+        struct worker *worker;
         pid_t pid;
-        int r = 0;
+        int r;
 
         /* listen for new events */
         worker_monitor = udev_monitor_new_from_netlink(NULL, NULL);
-        if (worker_monitor == NULL)
-                return;
+        if (!worker_monitor)
+                return -errno;
+
         /* allow the main daemon netlink address to send devices to the worker */
         udev_monitor_allow_unicast_sender(worker_monitor, manager->monitor);
         r = udev_monitor_enable_receiving(worker_monitor);
         if (r < 0)
-                log_error_errno(r, "worker: could not enable receiving of device: %m");
+                return log_error_errno(r, "Worker: could not enable receiving of device: %m");
 
-        pid = fork();
-        switch (pid) {
-        case 0: {
+        r = safe_fork(NULL, FORK_DEATHSIG, &pid);
+        if (r < 0) {
+                event->state = EVENT_QUEUED;
+                return log_error_errno(r, "Failed to fork() worker: %m");
+        }
+        if (r == 0) {
+                /* Worker process */
                 r = worker_main(manager, worker_monitor, TAKE_PTR(event->dev));
                 log_close();
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
-        case -1:
-                event->state = EVENT_QUEUED;
-                log_error_errno(errno, "fork of child failed: %m");
-                break;
-        default:
-        {
-                struct worker *worker;
 
-                r = worker_new(&worker, manager, worker_monitor, pid);
-                if (r < 0)
-                        return;
+        r = worker_new(&worker, manager, worker_monitor, pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create worker object: %m");
 
-                worker_attach_event(worker, event);
+        worker_attach_event(worker, event);
 
-                log_debug("seq %llu forked new worker ["PID_FMT"]", udev_device_get_seqnum(event->dev), pid);
-                break;
-        }
-        }
+        log_device_debug(event->dev->device, "seq %llu forked new worker ["PID_FMT"]", event->seqnum, pid);
+        return 0;
 }
 
 static void event_run(Manager *manager, struct event *event) {
