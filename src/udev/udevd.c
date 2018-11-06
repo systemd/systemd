@@ -326,10 +326,10 @@ static int worker_send_message(int fd) {
         return loop_write(fd, &message, sizeof(message), false);
 }
 
-static int worker_lock_block_device(struct udev_device *dev, int *ret_fd) {
+static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
         _cleanup_close_ int fd = -1;
-        struct udev_device *d = dev;
-        const char *sysname;
+        const char *val;
+        int r;
 
         assert(dev);
         assert(ret_fd);
@@ -343,30 +343,52 @@ static int worker_lock_block_device(struct udev_device *dev, int *ret_fd) {
          * udev has finished its event handling.
          */
 
-        if (streq_ptr(udev_device_get_action(dev), "remove"))
+        r = sd_device_get_property_value(dev, "ACTION", &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get the value of property 'ACTION': %m");
+
+        if (streq(val, "remove"))
                 return 0;
 
-        if (!streq_ptr("block", udev_device_get_subsystem(dev)))
+        r = sd_device_get_subsystem(dev, &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get subsystem: %m");
+
+        if (!streq(val, "block"))
                 return 0;
 
-        sysname = udev_device_get_sysname(dev);
-        if (startswith(sysname, "dm-") ||
-            startswith(sysname, "md") ||
-            startswith(sysname, "drbd"))
+        r = sd_device_get_sysname(dev, &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
+
+        if (startswith(val, "dm-") ||
+            startswith(val, "md") ||
+            startswith(val, "drbd"))
                 return 0;
 
-        if (streq_ptr("partition", udev_device_get_devtype(d)))
-                d = udev_device_get_parent(d);
+        r = sd_device_get_devtype(dev, &val);
+        if (r < 0 && r != -ENOENT)
+                return log_device_debug_errno(dev, r, "Failed to get devtype: %m");
+        if (r >= 0 && streq(val, "partition")) {
+                r = sd_device_get_parent(dev, &dev);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
+        }
 
-        if (!d)
+        r = sd_device_get_devname(dev, &val);
+        if (r == -ENOENT)
                 return 0;
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get devname: %m");
 
-        fd = open(udev_device_get_devnode(d), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
-        if (fd < 0)
+        fd = open(val, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+        if (fd < 0) {
+                log_device_debug_errno(dev, errno, "Failed to open '%s', ignoring: %m", val);
                 return 0;
+        }
 
         if (flock(fd, LOCK_SH|LOCK_NB) < 0)
-                return log_debug_errno(errno, "Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
+                return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", val);
 
         *ret_fd = TAKE_FD(fd);
         return 1;
@@ -385,7 +407,7 @@ static int worker_process_device(Manager *manager, struct udev_device *dev) {
         if (!udev_event)
                 return -ENOMEM;
 
-        r = worker_lock_block_device(dev, &fd_lock);
+        r = worker_lock_block_device(dev->device, &fd_lock);
         if (r < 0)
                 return r;
 
