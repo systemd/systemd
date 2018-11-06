@@ -1270,27 +1270,29 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
 static int on_post(sd_event_source *s, void *userdata) {
         Manager *manager = userdata;
-        int r;
 
         assert(manager);
 
-        if (LIST_IS_EMPTY(manager->events)) {
-                /* no pending events */
-                if (!hashmap_isempty(manager->workers)) {
-                        /* there are idle workers */
-                        log_debug("cleanup idle workers");
-                        manager_kill_workers(manager);
-                } else {
-                        /* we are idle */
-                        if (manager->exit) {
-                                r = sd_event_exit(manager->event, 0);
-                                if (r < 0)
-                                        return r;
-                        } else if (manager->cgroup)
-                                /* cleanup possible left-over processes in our cgroup */
-                                cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
-                }
+        if (!LIST_IS_EMPTY(manager->events))
+                return 1;
+
+        /* There are no pending events. Let's cleanup idle process. */
+
+        if (!hashmap_isempty(manager->workers)) {
+                /* There are idle workers */
+                log_debug("Cleanup idle workers");
+                manager_kill_workers(manager);
+                return 1;
         }
+
+        /* There are no idle workers. */
+
+        if (manager->exit)
+                return sd_event_exit(manager->event, 0);
+
+        if (manager->cgroup)
+                /* cleanup possible left-over processes in our cgroup */
+                (void) cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
 
         return 1;
 }
