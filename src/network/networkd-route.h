@@ -52,6 +52,7 @@ int route_get(Link *link, int family, const union in_addr_union *dst, unsigned c
 int route_add(Link *link, int family, const union in_addr_union *dst, unsigned char dst_prefixlen, unsigned char tos, uint32_t priority, uint32_t table, Route **ret);
 int route_add_foreign(Link *link, int family, const union in_addr_union *dst, unsigned char dst_prefixlen, unsigned char tos, uint32_t priority, uint32_t table, Route **ret);
 void route_update(Route *route, const union in_addr_union *src, unsigned char src_prefixlen, const union in_addr_union *gw, const union in_addr_union *prefsrc, unsigned char scope, unsigned char protocol, unsigned char type);
+bool route_equal(Route *r1, Route *r2);
 
 int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata);
 
