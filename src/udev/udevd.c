@@ -1123,7 +1123,7 @@ static int synthesize_change(sd_device *dev) {
                  */
                 log_debug("Device '%s' is closed, synthesising 'change'", devname);
                 strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
-                write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
+                write_string_file(filename, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
 
                 FOREACH_DEVICE(e, d) {
                         const char *t, *n, *s;
@@ -1138,7 +1138,7 @@ static int synthesize_change(sd_device *dev) {
 
                         log_debug("Device '%s' is closed, synthesising partition '%s' 'change'", devname, n);
                         strscpyl(filename, sizeof(filename), s, "/uevent", NULL);
-                        write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
+                        write_string_file(filename, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
                 }
 
                 return 0;
@@ -1146,7 +1146,7 @@ static int synthesize_change(sd_device *dev) {
 
         log_debug("Device %s is closed, synthesising 'change'", devname);
         strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
-        write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
+        write_string_file(filename, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
 
         return 0;
 }

@@ -115,7 +115,7 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
                 return 0;
 
         p = procfs_file_alloca(pid, "attr/current");
-        r = write_string_file(p, label, 0);
+        r = write_string_file(p, label, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return r;
 

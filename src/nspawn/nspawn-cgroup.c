@@ -122,7 +122,7 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
         (void) mkdir_parents(fn, 0755);
 
         sprintf(pid_string, PID_FMT, pid);
-        r = write_string_file(fn, pid_string, 0);
+        r = write_string_file(fn, pid_string, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0) {
                 log_error_errno(r, "Failed to move process: %m");
                 goto finish;
