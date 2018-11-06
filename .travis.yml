@@ -42,7 +42,7 @@ jobs:
         - stage: Coverity
           language: bash
           env:
-              - FEDORA_RELEASE="rawhide"
+              - FEDORA_RELEASE="latest"
               - CONT_NAME="coverity-fedora-$FEDORA_RELEASE"
               - DOCKER_EXEC="docker exec -ti $CONT_NAME"
               - DOCKER_RUN="docker run --env-file .cov-env"
