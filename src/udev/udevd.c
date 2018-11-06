@@ -34,6 +34,7 @@
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -394,20 +395,26 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
         return 1;
 }
 
-static int worker_process_device(Manager *manager, struct udev_device *dev) {
+static int worker_process_device(Manager *manager, sd_device *dev) {
         _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
+        const char *seqnum;
         int r;
 
         assert(manager);
         assert(dev);
 
-        log_debug("seq %llu running", udev_device_get_seqnum(dev));
-        udev_event = udev_event_new(dev->device, arg_exec_delay_usec, manager->rtnl);
+        r = sd_device_get_property_value(dev, "SEQNUM", &seqnum);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to get SEQNUM: %m");
+
+        log_device_debug(dev, "Processing device (SEQNUM=%s)", seqnum);
+
+        udev_event = udev_event_new(dev, arg_exec_delay_usec, manager->rtnl);
         if (!udev_event)
                 return -ENOMEM;
 
-        r = worker_lock_block_device(dev->device, &fd_lock);
+        r = worker_lock_block_device(dev, &fd_lock);
         if (r < 0)
                 return r;
 
@@ -421,11 +428,13 @@ static int worker_process_device(Manager *manager, struct udev_device *dev) {
 
         /* apply/restore inotify watch */
         if (udev_event->inotify_watch) {
-                (void) udev_watch_begin(dev->device);
-                udev_device_update_db(dev);
+                (void) udev_watch_begin(dev);
+                r = device_update_db(dev);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
         }
 
-        log_debug("seq %llu processed", udev_device_get_seqnum(dev));
+        log_device_debug(dev, "Device (SEQNUM=%s) processed", seqnum);
 
         return 0;
 }
@@ -475,7 +484,7 @@ static int worker_main(Manager *_manager, struct udev_monitor *monitor, struct u
                 log_debug_errno(r, "Failed to reset OOM score, ignoring: %m");
 
         for (;;) {
-                r = worker_process_device(manager, dev);
+                r = worker_process_device(manager, dev->device);
                 if (r < 0)
                         log_device_warning_errno(dev->device, r, "Failed to process device, ignoring: %m");
 
