@@ -1407,10 +1407,9 @@ int manager_new(Manager **ret) {
 }
 
 void manager_free(Manager *m) {
-        Network *network;
-        NetDev *netdev;
-        Link *link;
         AddressPool *pool;
+        Network *network;
+        Link *link;
 
         if (!m)
                 return;
@@ -1419,6 +1418,7 @@ void manager_free(Manager *m) {
 
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
+        sd_resolve_unref(m->resolve);
 
         while ((network = m->networks))
                 network_free(network);
@@ -1437,16 +1437,14 @@ void manager_free(Manager *m) {
                 link_unref(link);
         }
 
-        set_free_with_destructor(m->dirty_links, link_unref);
-        hashmap_free(m->links);
-        set_free(m->links_requesting_uuid);
+        m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
+        m->links = hashmap_free(m->links);
+        m->links_requesting_uuid = set_free(m->links_requesting_uuid);
         set_free(m->duids_requesting_uuid);
 
         hashmap_free(m->networks_by_name);
 
-        while ((netdev = hashmap_first(m->netdevs)))
-                netdev_unref(netdev);
-        hashmap_free(m->netdevs);
+        m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
 
         while ((pool = m->address_pools))
                 address_pool_free(pool);
@@ -1458,8 +1456,6 @@ void manager_free(Manager *m) {
         set_free_with_destructor(m->rules_saved, routing_policy_rule_free);
 
         sd_event_unref(m->event);
-
-        sd_resolve_unref(m->resolve);
 
         sd_device_monitor_unref(m->device_monitor);
 

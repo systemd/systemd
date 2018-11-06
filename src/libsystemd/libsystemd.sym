@@ -663,4 +663,7 @@ global:
         sd_device_monitor_filter_add_match_tag;
         sd_device_monitor_filter_update;
         sd_device_monitor_filter_remove;
+
+        sd_event_source_get_floating;
+        sd_event_source_set_floating;
 } LIBSYSTEMD_239;

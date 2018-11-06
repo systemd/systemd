@@ -3702,3 +3702,31 @@ _public_ int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_d
 
         return !!s->destroy_callback;
 }
+
+_public_ int sd_event_source_get_floating(sd_event_source *s) {
+        assert_return(s, -EINVAL);
+
+        return s->floating;
+}
+
+_public_ int sd_event_source_set_floating(sd_event_source *s, int b) {
+        assert_return(s, -EINVAL);
+
+        if (s->floating == !!b)
+                return 0;
+
+        if (!s->event) /* Already disconnected */
+                return -ESTALE;
+
+        s->floating = b;
+
+        if (b) {
+                sd_event_source_ref(s);
+                sd_event_unref(s->event);
+        } else {
+                sd_event_ref(s->event);
+                sd_event_source_unref(s);
+        }
+
+        return 1;
+}

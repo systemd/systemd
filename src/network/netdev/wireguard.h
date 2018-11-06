@@ -2,11 +2,10 @@
 
 typedef struct Wireguard Wireguard;
 
-#include "netdev.h"
-#include "sd-resolve.h"
-#include "wireguard-netlink.h"
-#include "socket-util.h"
 #include "in-addr-util.h"
+#include "netdev.h"
+#include "socket-util.h"
+#include "wireguard-netlink.h"
 
 #ifndef IFNAMSIZ
 #define IFNAMSIZ 16
@@ -58,12 +57,10 @@ struct Wireguard {
 
         LIST_HEAD(WireguardPeer, peers);
         size_t allocation_size;
-        sd_event_source *resolve_retry_event_source;
 
         LIST_HEAD(WireguardEndpoint, unresolved_endpoints);
         LIST_HEAD(WireguardEndpoint, failed_endpoints);
         unsigned n_retries;
-        sd_resolve_query *resolve_query;
 };
 
 DEFINE_NETDEV_CAST(WIREGUARD, Wireguard);
