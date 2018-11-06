@@ -1340,15 +1340,16 @@ static int dump(int argc, char *argv[], void *userdata) {
 }
 
 static int cat_config(int argc, char *argv[], void *userdata) {
-        char **arg;
+        char **arg, **list;
         int r;
 
         (void) pager_open(arg_pager_flags);
 
-        STRV_FOREACH(arg, argv + 1) {
+        list = strv_skip(argv, 1);
+        STRV_FOREACH(arg, list) {
                 const char *t = NULL;
 
-                if (arg != argv + 1)
+                if (arg != list)
                         print_separator();
 
                 if (path_is_absolute(*arg)) {
