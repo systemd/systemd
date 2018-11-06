@@ -144,6 +144,7 @@ void initialize_srand(void) {
 #if HAVE_SYS_AUXV_H
         const void *auxv;
 #endif
+        uint64_t k;
 
         if (srand_called)
                 return;
@@ -163,6 +164,9 @@ void initialize_srand(void) {
 
         x ^= (unsigned) now(CLOCK_REALTIME);
         x ^= (unsigned) gettid();
+
+        if (rdrand64(&k) >= 0)
+                x ^= (unsigned) k;
 
         srand(x);
         srand_called = true;
