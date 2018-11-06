@@ -1269,9 +1269,9 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>AdActorSysPrio=</varname></term>
+        <term><varname>AdActorSystemPriority=</varname></term>
         <listitem>
-          <para>Specifies the 802.3ad system priority. Ranges [1-65535].</para>
+          <para>Specifies the 802.3ad actor system priority. Ranges [1-65535].</para>
         </listitem>
       </varlistentry>
 

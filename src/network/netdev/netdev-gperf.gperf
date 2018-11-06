@@ -143,7 +143,7 @@ Bond.UpDelaySec,                   config_parse_sec,                     0,     
 Bond.DownDelaySec,                 config_parse_sec,                     0,                             offsetof(Bond, downdelay)
 Bond.ARPIntervalSec,               config_parse_sec,                     0,                             offsetof(Bond, arp_interval)
 Bond.LearnPacketIntervalSec,       config_parse_sec,                     0,                             offsetof(Bond, lp_interval)
-Bond.AdActorSysPrio,               config_parse_ad_actor_sys_prio,       0,                             offsetof(Bond, ad_actor_sys_prio)
+Bond.AdActorSystemPriority,        config_parse_ad_actor_sys_prio,       0,                             offsetof(Bond, ad_actor_sys_prio)
 Bond.AdUserPortKey,                config_parse_ad_user_port_key,        0,                             offsetof(Bond, ad_user_port_key)
 Bond.AdActorSystem,                config_parse_ad_actor_system,         0,                             offsetof(Bond, ad_actor_system)
 Bridge.HelloTimeSec,               config_parse_sec,                     0,                             offsetof(Bridge, hello_time)

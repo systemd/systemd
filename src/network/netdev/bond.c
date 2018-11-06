@@ -414,7 +414,7 @@ int config_parse_ad_actor_sys_prio(const char *unit,
         }
 
         if (v == 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse actor system priority '%s'. Range is [1,65535], ignoring: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse actor system priority '%s'. Range is [1,65535], ignoring.", rvalue);
                 return 0;
         }
 
@@ -449,7 +449,7 @@ int config_parse_ad_user_port_key(const char *unit,
         }
 
         if (v > 1023) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse user port key '%s'. Range is [0,1023], ignoring: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse user port key '%s'. Range is [0,1023], ignoring.", rvalue);
                 return 0;
         }
 
@@ -488,7 +488,7 @@ int config_parse_ad_actor_system(const char *unit,
         }
 
         if (ether_addr_is_null(n) || (n->ether_addr_octet[0] & 0x01)) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Not a valid MAC address %s, can not be null or multicast. Ignoring assignment: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address %s, can not be null or multicast. Ignoring assignment.", rvalue);
                 return 0;
         }
 
