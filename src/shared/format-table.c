@@ -1209,13 +1209,13 @@ int table_print(Table *t, FILE *f) {
                         if (j > 0)
                                 fputc(' ', f); /* column separator */
 
-                        if (d->color)
+                        if (d->color && colors_enabled())
                                 fputs(d->color, f);
 
                         fputs(field, f);
 
-                        if (d->color)
-                                fputs(ansi_normal(), f);
+                        if (d->color && colors_enabled())
+                                fputs(ANSI_NORMAL, f);
                 }
 
                 fputc('\n', f);
