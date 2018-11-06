@@ -1,0 +1,12 @@
+[NetDev]
+Name=wg99
+Kind=wireguard
+
+[WireGuard]
+PrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=
+ListenPort=51820
+
+[WireGuardPeer]
+PublicKey=RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=
+AllowedIPs=fd31:bf08:57cb::/48,192.168.26.0/24
+Endpoint=wireguard.example.com:51820

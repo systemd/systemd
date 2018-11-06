@@ -594,7 +594,7 @@ int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t callbac
         return 0;
 }
 
-static int netdev_load_one(Manager *manager, const char *filename) {
+int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;

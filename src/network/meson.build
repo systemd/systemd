@@ -136,6 +136,24 @@ if conf.get('ENABLE_NETWORKD') == 1
         install_data('networkd.conf',
                      install_dir : pkgsysconfdir)
 
+        fuzzers += [
+    [['src/network/fuzz-netdev-parser.c',
+      'src/fuzz/fuzz.h'],
+     [libnetworkd_core,
+      libudev_static,
+      libsystemd_network,
+      libshared],
+     [threads]],
+
+    [['src/network/fuzz-network-parser.c',
+      'src/fuzz/fuzz.h'],
+     [libnetworkd_core,
+      libudev_static,
+      libsystemd_network,
+      libshared],
+     [threads]]
+    ]
+
         tests += [
     [['src/network/test-networkd-conf.c'],
      [libnetworkd_core,

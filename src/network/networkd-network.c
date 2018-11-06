@@ -102,7 +102,7 @@ void network_apply_anonymize_if_set(Network *network) {
         network->dhcp_use_timezone = false;
 }
 
-static int network_load_one(Manager *manager, const char *filename) {
+int network_load_one(Manager *manager, const char *filename) {
         _cleanup_(network_freep) Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         char *d;
@@ -180,8 +180,6 @@ static int network_load_one(Manager *manager, const char *filename) {
         d = strrchr(network->name, '.');
         if (!d)
                 return -EINVAL;
-
-        assert(streq(d, ".network"));
 
         *d = '\0';
 

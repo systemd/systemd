@@ -1,0 +1,16 @@
+[NetDev]
+Name=vxlan99
+Kind=vxlan
+
+[VXLAN]
+Id=999
+L2MissNotification=true
+L3MissNotification=true
+RouteShortCircuit=true
+UDPChecksum=true
+UDP6ZeroChecksumTx=true
+UDP6ZeroChecksumRx=true
+RemoteChecksumTx=true
+RemoteChecksumRx=true
+GroupPolicyExtension=true
+DestinationPort=5555

@@ -272,6 +272,7 @@ void network_free(Network *network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_free);
 
 int network_load(Manager *manager);
+int network_load_one(Manager *manager, const char *filename);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
 int network_get(Manager *manager, sd_device *device, const char *ifname, const struct ether_addr *mac, Network **ret);
