@@ -9,6 +9,7 @@
 #include "gunicode.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -58,6 +59,7 @@ typedef struct TableData {
         unsigned align_percent;     /* 0 … 100, where to pad with spaces when expanding is needed. 0: left-aligned, 100: right-aligned */
 
         const char *color;          /* ANSI color string to use for this cell. When written to terminal should not move cursor. Will automatically be reset after the cell */
+        char *url;                  /* A URL to use for a clickable hyperlink */
         char *formatted;            /* A cached textual representation of the cell data, before ellipsation/alignment */
 
         union {
@@ -175,6 +177,8 @@ static TableData *table_data_free(TableData *d) {
         assert(d);
 
         free(d->formatted);
+        free(d->url);
+
         return mfree(d);
 }
 
@@ -376,6 +380,7 @@ int table_dup_cell(Table *t, TableCell *cell) {
 }
 
 static int table_dedup_cell(Table *t, TableCell *cell) {
+        _cleanup_free_ char *curl = NULL;
         TableData *nd, *od;
         size_t i;
 
@@ -394,11 +399,25 @@ static int table_dedup_cell(Table *t, TableCell *cell) {
 
         assert(od->n_ref > 1);
 
-        nd = table_data_new(od->type, od->data, od->minimum_width, od->maximum_width, od->weight, od->align_percent, od->ellipsize_percent);
+        if (od->url) {
+                curl = strdup(od->url);
+                if (!curl)
+                        return -ENOMEM;
+        }
+
+        nd = table_data_new(
+                        od->type,
+                        od->data,
+                        od->minimum_width,
+                        od->maximum_width,
+                        od->weight,
+                        od->align_percent,
+                        od->ellipsize_percent);
         if (!nd)
                 return -ENOMEM;
 
         nd->color = od->color;
+        nd->url = TAKE_PTR(curl);
 
         table_data_unref(od);
         t->data[i] = nd;
@@ -524,6 +543,26 @@ int table_set_color(Table *t, TableCell *cell, const char *color) {
 
         table_get_data(t, cell)->color = empty_to_null(color);
         return 0;
+}
+
+int table_set_url(Table *t, TableCell *cell, const char *url) {
+        _cleanup_free_ char *copy = NULL;
+        int r;
+
+        assert(t);
+        assert(cell);
+
+        if (url) {
+                copy = strdup(url);
+                if (!copy)
+                        return -ENOMEM;
+        }
+
+        r = table_dedup_cell(t, cell);
+        if (r < 0)
+                return r;
+
+        return free_and_replace(table_get_data(t, cell)->url, copy);
 }
 
 int table_add_many_internal(Table *t, TableDataType first_type, ...) {
@@ -840,11 +879,13 @@ static int table_data_requested_width(TableData *d, size_t *ret) {
         return 0;
 }
 
-static char *align_string_mem(const char *str, size_t new_length, unsigned percent) {
-        size_t w = 0, space, lspace, old_length;
+static char *align_string_mem(const char *str, const char *url, size_t new_length, unsigned percent) {
+        size_t w = 0, space, lspace, old_length, clickable_length;
+        _cleanup_free_ char *clickable = NULL;
         const char *p;
         char *ret;
         size_t i;
+        int r;
 
         /* As with ellipsize_mem(), 'old_length' is a byte size while 'new_length' is a width in character cells */
 
@@ -852,6 +893,15 @@ static char *align_string_mem(const char *str, size_t new_length, unsigned perce
         assert(percent <= 100);
 
         old_length = strlen(str);
+
+        if (url) {
+                r = terminal_urlify(url, str, &clickable);
+                if (r < 0)
+                        return NULL;
+
+                clickable_length = strlen(clickable);
+        } else
+                clickable_length = old_length;
 
         /* Determine current width on screen */
         p = str;
@@ -869,23 +919,23 @@ static char *align_string_mem(const char *str, size_t new_length, unsigned perce
 
         /* Already wider than the target, if so, don't do anything */
         if (w >= new_length)
-                return strndup(str, old_length);
+                return clickable ? TAKE_PTR(clickable) : strdup(str);
 
         /* How much spaces shall we add? An how much on the left side? */
         space = new_length - w;
         lspace = space * percent / 100U;
 
-        ret = new(char, space + old_length + 1);
+        ret = new(char, space + clickable_length + 1);
         if (!ret)
                 return NULL;
 
         for (i = 0; i < lspace; i++)
                 ret[i] = ' ';
-        memcpy(ret + lspace, str, old_length);
-        for (i = lspace + old_length; i < space + old_length; i++)
+        memcpy(ret + lspace, clickable ?: str, clickable_length);
+        for (i = lspace + clickable_length; i < space + clickable_length; i++)
                 ret[i] = ' ';
 
-        ret[space + old_length] = 0;
+        ret[space + clickable_length] = 0;
         return ret;
 }
 
@@ -1138,10 +1188,21 @@ int table_print(Table *t, FILE *f) {
                         } else if (l < width[j]) {
                                 /* Field is shorter than allocated space. Let's align with spaces */
 
-                                buffer = align_string_mem(field, width[j], d->align_percent);
+                                buffer = align_string_mem(field, d->url, width[j], d->align_percent);
                                 if (!buffer)
                                         return -ENOMEM;
 
+                                field = buffer;
+                        }
+
+                        if (l >= width[j] && d->url) {
+                                _cleanup_free_ char *clickable = NULL;
+
+                                r = terminal_urlify(d->url, field, &clickable);
+                                if (r < 0)
+                                        return r;
+
+                                free_and_replace(buffer, clickable);
                                 field = buffer;
                         }
 
