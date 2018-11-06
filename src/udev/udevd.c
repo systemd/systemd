@@ -1169,13 +1169,13 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                 const char *devnode;
 
-                if (udev_watch_lookup(e->wd, &dev) < 0)
+                if (udev_watch_lookup(e->wd, &dev) <= 0)
                         continue;
 
                 if (sd_device_get_devname(dev, &devnode) < 0)
                         continue;
 
-                log_debug("inotify event: %x for %s", e->mask, devnode);
+                log_device_debug(dev, "Inotify event: %x for %s", e->mask, devnode);
                 if (e->mask & IN_CLOSE_WRITE) {
                         synthesize_change(dev);
 
@@ -1578,9 +1578,10 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "could not enable SO_PASSCRED: %m");
 
-        manager->fd_inotify = udev_watch_init();
-        if (manager->fd_inotify < 0)
-                return log_error_errno(ENOMEM, "error initializing inotify");
+        r = udev_watch_init();
+        if (r < 0)
+                return log_error_errno(r, "Failed to create inotify descriptor: %m");
+        manager->fd_inotify = r;
 
         udev_watch_restore();
 
