@@ -86,6 +86,7 @@ typedef struct Manager {
         sd_event_source *ctrl_event;
         sd_event_source *uevent_event;
         sd_event_source *inotify_event;
+        sd_event_source *kill_workers_event;
 
         usec_t last_usec;
 
@@ -284,6 +285,7 @@ static void manager_free(Manager *manager) {
         sd_event_source_unref(manager->ctrl_event);
         sd_event_source_unref(manager->uevent_event);
         sd_event_source_unref(manager->inotify_event);
+        sd_event_source_unref(manager->kill_workers_event);
 
         sd_event_unref(manager->event);
         manager_workers_free(manager);
@@ -364,6 +366,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 manager->ctrl_event = sd_event_source_unref(manager->ctrl_event);
                 manager->uevent_event = sd_event_source_unref(manager->uevent_event);
                 manager->inotify_event = sd_event_source_unref(manager->inotify_event);
+                manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
 
                 manager->event = sd_event_unref(manager->event);
 
@@ -767,6 +770,73 @@ static void manager_reload(Manager *manager) {
                    "STATUS=Processing with %u children at max", arg_children_max);
 }
 
+static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *manager = userdata;
+
+        assert(manager);
+
+        log_debug("Cleanup idle workers");
+        manager_kill_workers(manager);
+
+        return 1;
+}
+
+static int manager_enable_kill_workers_event(Manager *manager) {
+        int enabled, r;
+
+        assert(manager);
+
+        if (!manager->kill_workers_event)
+                goto create_new;
+
+        r = sd_event_source_get_enabled(manager->kill_workers_event, &enabled);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to query whether event source for killing idle workers is enabled or not, trying to create new event source: %m");
+                manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
+                goto create_new;
+        }
+
+        if (enabled == SD_EVENT_ONESHOT)
+                return 0;
+
+        r = sd_event_source_set_time(manager->kill_workers_event, now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to set time to event source for killing idle workers, trying to create new event source: %m");
+                manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
+                goto create_new;
+        }
+
+        r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_ONESHOT);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to enable event source for killing idle workers, trying to create new event source: %m");
+                manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
+                goto create_new;
+        }
+
+        return 0;
+
+create_new:
+        r = sd_event_add_time(manager->event, &manager->kill_workers_event, CLOCK_MONOTONIC,
+                              now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC, USEC_PER_SEC, on_kill_workers_event, manager);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to create timer event for killing idle workers: %m");
+
+        return 0;
+}
+
+static int manager_disable_kill_workers_event(Manager *manager) {
+        int r;
+
+        if (!manager->kill_workers_event)
+                return 0;
+
+        r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
+
+        return 0;
+}
+
 static void event_queue_start(Manager *manager) {
         struct event *event;
         usec_t usec;
@@ -787,6 +857,8 @@ static void event_queue_start(Manager *manager) {
 
                 manager->last_usec = usec;
         }
+
+        (void) manager_disable_kill_workers_event(manager);
 
         udev_builtin_init();
 
@@ -1159,6 +1231,8 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         assert(manager);
 
+        (void) manager_disable_kill_workers_event(manager);
+
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
                 if (IN_SET(errno, EAGAIN, EINTR))
@@ -1178,16 +1252,9 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                         continue;
 
                 log_device_debug(dev, "Inotify event: %x for %s", e->mask, devnode);
-                if (e->mask & IN_CLOSE_WRITE) {
+                if (e->mask & IN_CLOSE_WRITE)
                         synthesize_change(dev);
-
-                        /* settle might be waiting on us to determine the queue
-                         * state. If we just handled an inotify event, we might have
-                         * generated a "change" event, but we won't have queued up
-                         * the resultant uevent yet. Do that.
-                         */
-                        on_uevent(NULL, -1, 0, manager);
-                } else if (e->mask & IN_IGNORED)
+                else if (e->mask & IN_IGNORED)
                         udev_watch_end(dev);
         }
 
@@ -1250,15 +1317,13 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                 } else
                         log_warning("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
 
-                if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                        if (worker->event) {
-                                log_error("worker ["PID_FMT"] failed while handling '%s'", pid, worker->event->devpath);
-                                /* delete state from disk */
-                                udev_device_delete_db(worker->event->dev);
-                                udev_device_tag_index(worker->event->dev, NULL, false);
-                                /* forward kernel event without amending it */
-                                udev_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
-                        }
+                if ((!WIFEXITED(status) || WEXITSTATUS(status) != 0) && worker->event) {
+                        log_error("worker ["PID_FMT"] failed while handling '%s'", pid, worker->event->devpath);
+                        /* delete state from disk */
+                        udev_device_delete_db(worker->event->dev);
+                        udev_device_tag_index(worker->event->dev, NULL, false);
+                        /* forward kernel event without amending it */
+                        udev_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
                 }
 
                 worker_free(worker);
@@ -1267,32 +1332,37 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
         /* we can start new workers, try to schedule events */
         event_queue_start(manager);
 
+        /* Disable unnecessary cleanup event */
+        if (hashmap_isempty(manager->workers) && manager->kill_workers_event)
+                (void) sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
+
         return 1;
 }
 
 static int on_post(sd_event_source *s, void *userdata) {
         Manager *manager = userdata;
-        int r;
 
         assert(manager);
 
-        if (LIST_IS_EMPTY(manager->events)) {
-                /* no pending events */
-                if (!hashmap_isempty(manager->workers)) {
-                        /* there are idle workers */
-                        log_debug("cleanup idle workers");
-                        manager_kill_workers(manager);
-                } else {
-                        /* we are idle */
-                        if (manager->exit) {
-                                r = sd_event_exit(manager->event, 0);
-                                if (r < 0)
-                                        return r;
-                        } else if (manager->cgroup)
-                                /* cleanup possible left-over processes in our cgroup */
-                                cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
-                }
+        if (!LIST_IS_EMPTY(manager->events))
+                return 1;
+
+        /* There are no pending events. Let's cleanup idle process. */
+
+        if (!hashmap_isempty(manager->workers)) {
+                /* There are idle workers */
+                (void) manager_enable_kill_workers_event(manager);
+                return 1;
         }
+
+        /* There are no idle workers. */
+
+        if (manager->exit)
+                return sd_event_exit(manager->event, 0);
+
+        if (manager->cgroup)
+                /* cleanup possible left-over processes in our cgroup */
+                (void) cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
 
         return 1;
 }
@@ -1718,7 +1788,7 @@ int main(int argc, char *argv[]) {
                 arg_children_max = 8;
 
                 if (sched_getaffinity(0, sizeof(cpu_set), &cpu_set) == 0)
-                        arg_children_max += CPU_COUNT(&cpu_set) * 2;
+                        arg_children_max += CPU_COUNT(&cpu_set) * 8;
 
                 mem_limit = physical_memory() / (128LU*1024*1024);
                 arg_children_max = MAX(10U, MIN(arg_children_max, mem_limit));
