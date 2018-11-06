@@ -142,7 +142,7 @@ void initialize_srand(void) {
         static bool srand_called = false;
         unsigned x;
 #if HAVE_SYS_AUXV_H
-        void *auxv;
+        const void *auxv;
 #endif
 
         if (srand_called)
@@ -153,7 +153,7 @@ void initialize_srand(void) {
          * try to make use of that to seed the pseudo-random generator. It's
          * better than nothing... */
 
-        auxv = (void*) getauxval(AT_RANDOM);
+        auxv = (const void*) getauxval(AT_RANDOM);
         if (auxv) {
                 assert_cc(sizeof(x) <= 16);
                 memcpy(&x, auxv, sizeof(x));
