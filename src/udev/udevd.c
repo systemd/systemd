@@ -395,7 +395,9 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
 
                 /* Reset OOM score, we only protect the main daemon. */
-                write_string_file("/proc/self/oom_score_adj", "0", 0);
+                r = set_oom_score_adjust(0);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reset OOM score, ignoring: %m");
 
                 for (;;) {
                         _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
@@ -1791,7 +1793,9 @@ int main(int argc, char *argv[]) {
 
                 setsid();
 
-                write_string_file("/proc/self/oom_score_adj", "-1000", 0);
+                r = set_oom_score_adjust(-1000);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to adjust OOM score, ignoring: %m");
         }
 
         r = run(fd_ctrl, fd_uevent, cgroup);
