@@ -16,19 +16,30 @@
 #include "ndisc-router.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 
 #define NDISC_TIMEOUT_NO_RA_USEC (NDISC_ROUTER_SOLICITATION_INTERVAL * NDISC_MAX_ROUTER_SOLICITATIONS)
 
+static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
+        [SD_NDISC_EVENT_TIMEOUT] = "timeout",
+        [SD_NDISC_EVENT_ROUTER] = "router",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event);
+
 static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event event, sd_ndisc_router *rt) {
         assert(ndisc);
+        assert(event >= 0 && event < _SD_NDISC_EVENT_MAX);
 
-        log_ndisc("Invoking callback for '%c'.", event);
 
-        if (!ndisc->callback)
+        if (!ndisc->callback) {
+                log_ndisc("Received '%s' event.", ndisc_event_to_string(event));
                 return;
+        }
 
+        log_ndisc("Invoking callback for '%s' event.", ndisc_event_to_string(event));
         ndisc->callback(ndisc, event, rt, ndisc->userdata);
 }
 
