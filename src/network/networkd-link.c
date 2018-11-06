@@ -270,7 +270,7 @@ static int link_enable_ipv6(Link *link) {
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/disable_ipv6");
 
-        r = write_string_file(p, one_zero(disabled), WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file(p, one_zero(disabled), WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot %s IPv6 for interface %s: %m",
                                        enable_disable(!disabled), link->ifname);
@@ -1256,7 +1256,7 @@ static int link_set_proxy_arp(Link *link) {
 
         p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/proxy_arp");
 
-        r = write_string_file(p, one_zero(link->network->proxy_arp), WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file(p, one_zero(link->network->proxy_arp), WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure proxy ARP for interface: %m");
 
@@ -2463,7 +2463,7 @@ static int link_set_ipv4_forward(Link *link) {
          * primarily to keep IPv4 and IPv6 packet forwarding behaviour
          * somewhat in sync (see below). */
 
-        r = write_string_file("/proc/sys/net/ipv4/ip_forward", "1", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file("/proc/sys/net/ipv4/ip_forward", "1", WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot turn on IPv4 packet forwarding, ignoring: %m");
 
@@ -2485,7 +2485,7 @@ static int link_set_ipv6_forward(Link *link) {
          * same behaviour there and also propagate the setting from
          * one to all, to keep things simple (see above). */
 
-        r = write_string_file("/proc/sys/net/ipv6/conf/all/forwarding", "1", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file("/proc/sys/net/ipv6/conf/all/forwarding", "1", WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv6 packet forwarding, ignoring: %m");
 
@@ -2505,7 +2505,7 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/use_tempaddr");
         xsprintf(buf, "%u", (unsigned) link->network->ipv6_privacy_extensions);
 
-        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extension for interface: %m");
 
@@ -2529,7 +2529,7 @@ static int link_set_ipv6_accept_ra(Link *link) {
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
 
         /* We handle router advertisements ourselves, tell the kernel to GTFO */
-        r = write_string_file(p, "0", WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file(p, "0", WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
 
@@ -2557,7 +2557,7 @@ static int link_set_ipv6_dad_transmits(Link *link) {
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/dad_transmits");
         xsprintf(buf, "%i", link->network->ipv6_dad_transmits);
 
-        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 dad transmits for interface: %m");
 
@@ -2585,7 +2585,7 @@ static int link_set_ipv6_hop_limit(Link *link) {
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/hop_limit");
         xsprintf(buf, "%i", link->network->ipv6_hop_limit);
 
-        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 hop limit for interface: %m");
 
@@ -2611,7 +2611,7 @@ static int link_set_ipv6_mtu(Link *link) {
 
         xsprintf(buf, "%" PRIu32, link->network->ipv6_mtu);
 
-        r = write_string_file(p, buf, 0);
+        r = write_string_file(p, buf, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 MTU for interface: %m");
 

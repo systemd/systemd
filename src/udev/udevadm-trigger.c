@@ -8,6 +8,7 @@
 
 #include "device-enumerator-private.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "path-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -24,7 +25,6 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
                 _cleanup_free_ char *filename = NULL;
-                _cleanup_close_ int fd = -1;
                 const char *syspath;
 
                 if (sd_device_get_syspath(d, &syspath) < 0)
@@ -39,18 +39,17 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
                 if (!filename)
                         return log_oom();
 
-                fd = open(filename, O_WRONLY|O_CLOEXEC);
-                if (fd < 0)
+                r = write_string_file(filename, action, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to write '%s' to '%s', ignoring: %m", action, filename);
                         continue;
+                }
 
                 if (settle_set) {
                         r = set_put_strdup(settle_set, syspath);
                         if (r < 0)
                                 return log_oom();
                 }
-
-                if (write(fd, action, strlen(action)) < 0)
-                        log_debug_errno(errno, "Failed to write '%s' to '%s', ignoring: %m", action, filename);
         }
 
         return 0;

@@ -42,7 +42,7 @@ static int write_hibernate_location_info(void) {
 
         /* if it's a swap partition, we just write the disk to /sys/power/resume */
         if (streq(type, "partition")) {
-                r = write_string_file("/sys/power/resume", device, 0);
+                r = write_string_file("/sys/power/resume", device, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0)
                         return log_debug_errno(r, "Faileed to write partitoin device to /sys/power/resume: %m");
 
@@ -80,12 +80,12 @@ static int write_hibernate_location_info(void) {
 
         offset = fiemap->fm_extents[0].fe_physical / page_size();
         xsprintf(offset_str, "%" PRIu64, offset);
-        r = write_string_file("/sys/power/resume_offset", offset_str, 0);
+        r = write_string_file("/sys/power/resume_offset", offset_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write offset '%s': %m", offset_str);
 
         xsprintf(device_str, "%lx", (unsigned long)stb.st_dev);
-        r = write_string_file("/sys/power/resume", device_str, 0);
+        r = write_string_file("/sys/power/resume", device_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write device '%s': %m", device_str);
 
@@ -99,7 +99,7 @@ static int write_mode(char **modes) {
         STRV_FOREACH(mode, modes) {
                 int k;
 
-                k = write_string_file("/sys/power/disk", *mode, 0);
+                k = write_string_file("/sys/power/disk", *mode, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (k >= 0)
                         return 0;
 
@@ -118,7 +118,7 @@ static int write_state(FILE **f, char **states) {
         STRV_FOREACH(state, states) {
                 int k;
 
-                k = write_string_stream(*f, *state, 0);
+                k = write_string_stream(*f, *state, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (k >= 0)
                         return 0;
                 log_debug_errno(k, "Failed to write '%s' to /sys/power/state: %m", *state);
@@ -154,6 +154,8 @@ static int execute(char **modes, char **states) {
         f = fopen("/sys/power/state", "we");
         if (!f)
                 return log_error_errno(errno, "Failed to open /sys/power/state: %m");
+
+        setvbuf(f, NULL, _IONBF, 0);
 
         /* Configure the hibernation mode */
         if (!strv_isempty(modes)) {
@@ -211,7 +213,7 @@ static int rtc_write_wake_alarm(uint64_t sec) {
 
         xsprintf(buf, "%" PRIu64, sec);
 
-        r = write_string_file("/sys/class/rtc/rtc0/wakealarm", buf, 0);
+        r = write_string_file("/sys/class/rtc/rtc0/wakealarm", buf, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s' to /sys/class/rtc/rtc0/wakealarm: %m", buf);
 

@@ -606,7 +606,7 @@ void disable_coredumps(void) {
         if (detect_container() > 0)
                 return;
 
-        r = write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
+        r = write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_debug_errno(r, "Failed to turn off coredumps, ignoring: %m");
 }

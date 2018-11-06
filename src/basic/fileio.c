@@ -160,7 +160,7 @@ int write_string_file_ts(
 
                 /* We manually build our own version of fopen(..., "we") that
                  * works without O_CREAT */
-                fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY);
+                fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY | ((flags & WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (fd < 0) {
                         r = -errno;
                         goto fail;

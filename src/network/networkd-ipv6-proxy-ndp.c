@@ -43,7 +43,7 @@ static int ipv6_proxy_ndp_set(Link *link) {
         v = ipv6_proxy_ndp_is_needed(link);
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/proxy_ndp");
 
-        r = write_string_file(p, one_zero(v), WRITE_STRING_FILE_VERIFY_ON_FAILURE);
+        r = write_string_file(p, one_zero(v), WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure proxy NDP for interface: %m");
 
