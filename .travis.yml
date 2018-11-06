@@ -5,7 +5,9 @@ services:
 env:
     global:
         - AUTHOR_EMAIL="$(git log -1 $TRAVIS_COMMIT --pretty=\"%aE\")"
+        - CI_MANAGERS="$TRAVIS_BUILD_DIR/travis-ci/managers"
         - CI_TOOLS="$TRAVIS_BUILD_DIR/travis-ci/tools"
+        - REPO_ROOT="$TRAVIS_BUILD_DIR"
 
 stages:
     # Run Coverity periodically instead of for each commit/PR
@@ -20,21 +22,12 @@ jobs:
           env:
               - FEDORA_RELEASE="rawhide"
               - CONT_NAME="systemd-fedora-$FEDORA_RELEASE"
-              - BUILD_REQS_FILE="$TRAVIS_BUILD_DIR/travis-ci/fedora-build.reqs"
               - DOCKER_EXEC="docker exec -ti $CONT_NAME"
           before_install:
               - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
               - docker --version
           install:
-              # Pull a Docker image and start a new container
-              - docker pull fedora:$FEDORA_RELEASE
-              - docker run -v $TRAVIS_BUILD_DIR:/build:rw
-                           -v /var/lib/dbus/machine-id:/etc/machine-id:ro
-                           -w /build --privileged=true --name $CONT_NAME
-                           -dit --net=host fedora:$FEDORA_RELEASE /sbin/init
-              # Upgrade system and install necessary build/test requirements
-              - $DOCKER_EXEC dnf -y --refresh upgrade
-              - $DOCKER_EXEC dnf -y install $(cat $BUILD_REQS_FILE)
+              - $CI_MANAGERS/fedora.sh SETUP
           script:
               - set -e
               # Build systemd
@@ -43,14 +36,16 @@ jobs:
               # Run 'make check'
               - $DOCKER_EXEC ninja -C build test
               - set +e
+          after_script:
+              - $CI_MANAGERS/fedora.sh CLEANUP
 
         - stage: Coverity
           language: bash
           env:
               - FEDORA_RELEASE="rawhide"
               - CONT_NAME="coverity-fedora-$FEDORA_RELEASE"
-              - BUILD_REQS_FILE="$TRAVIS_BUILD_DIR/travis-ci/fedora-build.reqs"
               - DOCKER_EXEC="docker exec -ti $CONT_NAME"
+              - DOCKER_RUN="docker run --env-file .cov-env"
               # Coverity env variables
               - PLATFORM="$(uname)"
               - TOOL_BASE="/var/tmp/coverity-scan-analysis"
@@ -60,8 +55,9 @@ jobs:
               - COVERITY_SCAN_PROJECT_NAME="$TRAVIS_REPO_SLUG"
               - COVERITY_SCAN_NOTIFICATION_EMAIL="${AUTHOR_EMAIL}"
               - COVERITY_SCAN_BRANCH_PATTERN="$TRAVIS_BRANCH"
-              # Encrypted COVERITY_SCAN_TOKEN env variable (travis encrypt)
-              - secure: "UNQLspT89GYWuVKFqW5W5RyqqnYg5RvX20IrNraOddhpdV9nhKBtozrfmhGXDGZwfHGWHt6g7YROlD/NIMvDvThVJIEYvSQiXCoo2zRrwkl2siET5MjPfRG8numiLq0KX47KGmyBJISJZCgDUdNGqqGwgf7AhDN78I3XtgqjFT1z0mGl8n0wiFpKPi7i3nECvF4Mk7xCCHqwByaq0z5G9NkVlOvP1EyCxwv3B6I5Umfch7ibp7iH44YnVXILK+yEry5dMuctYwYkDouR80ChEPQQ5fhhpO4++HJmFuSpfMTeCHpucAd2xwSUijejYeN/GNQ177GxSSk/8hRBGcuSK8T/WJ+KiuJPhZObV8mw+a6+qdQssWY4F9jya5ZKbZ/yTbxjtQ0m4AgtL28P9bEze8pLh16zFMX+hIEuoFSNmJqmtNttfbD5TKyYVZml59s9wvhlvMnlNpRSQva88OAOjXtiA41g+XtTxxpfW9mgd7HYhzSBs1efNiK7PfkANgve7KIYMAmCAqasgb1IIAyX7stOlJH06QOFXNH55PmJLkkKyL3SMQzgryMDWegU+XbS8t43r0x14WLuE7sc9JtnOr/G8hthFaMRp8xLy9aCBwyEIkEsyWa50VMoZDa3Spdb4r1CKBwcGdCbyE4rCehwEIznbfrsSovhwiUds7bbhBU="
+              # Encrypted COVERITY_SCAN_TOKEN env variable
+              # Generated using `travis encrypt -r systemd/systemd COVERITY_SCAN_TOKEN=xxxx`
+              - secure: "jKSz+Y1Mv8xMpQHh7g5lzW7E6HQGndFz/vKDJQ1CVShwFoyjV3Zu+MFS3UYKlh1236zL0Z4dvsYFx/b3Hq8nxZWCrWeZs2NdXgy/wh8LZhxwzcGYigp3sIA/cYdP5rDjFJO0MasNkl25/rml8+eZWz+8/xQic98UQHjSco/EOWtssoRcg0J0c4eDM7bGLfIQWE73NNY1Q1UtWjKmx1kekVrM8dPmHXJ9aERka7bmcbJAcKd6vabs6DQ5AfWccUPIn/EsRYqIJTRxJrFYU6XizANZ1a7Vwk/DWHZUEn2msxcZw5BbAMDTMx0TbfrNkKSHMHuvQUCu6KCBAq414i+LgkMfmQ2SWwKiIUsud1kxXX3ZPl9bxDv1HkvVdcniC/EM7lNEEVwm4meOnjuhI2lhOyOjmP3FTSlMHGP7xlK8DS2k9fqL58vn0BaSjwWgd+2+HuL2+nJmxcK1eLGzKqaostFxrk2Xs2vPZkUdV2nWY/asUrcWHml6YlWDn2eP83pfwxHYsMiEHY/rTKvxeVY+iirO/AphoO+eaYu7LvjKZU1Yx5Z4u/SnGWAiCH0yhMis0bWmgi7SCbw+sDd2uya+aoiLIGiB2ChW7hXHXCue/dif6/gLU7b+L8R00pQwnWdvKUPoIJCmZJYCluTeib4jpW+EmARB2+nR8wms2K9FGKM="
           before_install:
               - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
               - docker --version
@@ -71,16 +67,7 @@ jobs:
               # Export necessary env variables for Coverity
               - env | grep -E "TRAVIS|COV|TOOL|URL" > .cov-env
               # Pull a Docker image and start a new container
-              - docker pull fedora:$FEDORA_RELEASE
-              - docker run -v $TRAVIS_BUILD_DIR:/build:rw
-                           -v /var/lib/dbus/machine-id:/etc/machine-id:ro
-                           -v $TOOL_BASE:$TOOL_BASE:rw
-                           -w /build --privileged=true --name $CONT_NAME
-                           --env-file .cov-env
-                           -dit --net=host fedora:$FEDORA_RELEASE /sbin/init
-              # Upgrade system and install necessary build/test requirements
-              - $DOCKER_EXEC dnf -y --refresh upgrade
-              - $DOCKER_EXEC dnf -y install $(cat $BUILD_REQS_FILE)
+              - $CI_MANAGERS/fedora.sh SETUP
           script:
               - set -e
               # Preconfigure with meson to prevent Coverity from capturing meson metadata
@@ -91,3 +78,5 @@ jobs:
               - $DOCKER_EXEC tools/coverity.sh upload
 
               - set +e
+          after_script:
+              - $CI_MANAGERS/fedora.sh CLEANUP
