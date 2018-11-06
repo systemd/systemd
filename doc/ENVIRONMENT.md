@@ -37,6 +37,11 @@ All tools:
   useful for debugging, in order to test generators and other code against
   specific kernel command lines.
 
+* `$SYSTEMD_EMOJI=0` — if set, tools such as "systemd-analyze security" will
+  not output graphical smiley emojis, but ASCII alternatives instead. Note that
+  this only controls use of Unicode emoji glyphs, and has no effect on other
+  Unicode glyphs.
+
 systemctl:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus
