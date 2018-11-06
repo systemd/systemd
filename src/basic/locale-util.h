@@ -52,6 +52,14 @@ typedef enum {
         MU,
         CHECK_MARK,
         CROSS_MARK,
+        _SPECIAL_GLYPH_FIRST_SMILEY,
+        ECSTATIC_SMILEY = _SPECIAL_GLYPH_FIRST_SMILEY,
+        HAPPY_SMILEY,
+        SLIGHTLY_HAPPY_SMILEY,
+        NEUTRAL_SMILEY,
+        SLIGHTLY_UNHAPPY_SMILEY,
+        UNHAPPY_SMILEY,
+        DEPRESSED_SMILEY,
         _SPECIAL_GLYPH_MAX
 } SpecialGlyph;
 

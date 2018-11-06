@@ -46,8 +46,13 @@ All tools:
   are understood, too (us, ms, s, min, h, d, w, month, y). If it is not set or set
   to 0, then the built-in default is used.
 
-* `$SYSTEMD_MEMPOOL=0` — if set the internal memory caching logic employed by
+* `$SYSTEMD_MEMPOOL=0` — if set, the internal memory caching logic employed by
   hash tables is turned off, and libc malloc() is used for all allocations.
+
+* `$SYSTEMD_EMOJI=0` — if set, tools such as "systemd-analyze security" will
+  not output graphical smiley emojis, but ASCII alternatives instead. Note that
+  this only controls use of Unicode emoji glyphs, and has no effect on other
+  Unicode glyphs.
 
 systemctl:
 
