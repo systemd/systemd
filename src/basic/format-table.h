@@ -42,6 +42,7 @@ int table_set_weight(Table *t, TableCell *cell, unsigned weight);
 int table_set_align_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_ellipsize_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_color(Table *t, TableCell *cell, const char *color);
+int table_set_url(Table *t, TableCell *cell, const char *color);
 
 int table_add_many_internal(Table *t, TableDataType first_type, ...);
 #define table_add_many(t, ...) table_add_many_internal(t, __VA_ARGS__, _TABLE_DATA_TYPE_MAX)
