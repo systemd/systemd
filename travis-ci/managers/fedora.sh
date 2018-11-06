@@ -34,9 +34,11 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_RUN -v $REPO_ROOT:/build:rw \
                         -w /build --privileged=true --name $CONT_NAME \
                         -dit --net=host fedora:$FEDORA_RELEASE /sbin/init
+            # Beautiful workaround for Fedora's version of Docker
+            sleep 1
             $DOCKER_EXEC dnf makecache
             # Install necessary build/test requirements
-            $DOCKER_EXEC dnf -y upgrade
+            $DOCKER_EXEC dnf -y --exclude selinux-policy\* upgrade
             $DOCKER_EXEC dnf -y install "${ADDITIONAL_DEPS[@]}"
             $DOCKER_EXEC dnf -y builddep systemd
             ;;
