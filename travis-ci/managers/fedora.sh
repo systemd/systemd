@@ -4,8 +4,7 @@
 # or set REPO_ROOT to a correct path.
 #
 # Example execution on Fedora:
-# dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-# dnf install -y docker-ce
+# dnf install docker
 # systemctl start docker
 # export CONT_NAME="my-fancy-container"
 # travis-ci/managers/fedora.sh SETUP RUN CLEANUP
@@ -29,19 +28,15 @@ for phase in "${PHASES[@]}"; do
         SETUP)
             info "Setup phase"
             info "Using Fedora $FEDORA_RELEASE"
-            MACHINE_ID="/etc/machine-id"
-            if [ ! -f $MACHINE_ID ]; then
-                MACHINE_ID="/var/lib/dbus/machine-id"
-            fi
             # Pull a Docker image and start a new container
             docker pull fedora:$FEDORA_RELEASE
             info "Starting container $CONT_NAME"
             $DOCKER_RUN -v $REPO_ROOT:/build:rw \
-                        -v $MACHINE_ID:/etc/machine-id:ro \
                         -w /build --privileged=true --name $CONT_NAME \
                         -dit --net=host fedora:$FEDORA_RELEASE /sbin/init
             $DOCKER_EXEC dnf makecache
             # Install necessary build/test requirements
+            $DOCKER_EXEC dnf -y upgrade
             $DOCKER_EXEC dnf -y install "${ADDITIONAL_DEPS[@]}"
             $DOCKER_EXEC dnf -y builddep systemd
             ;;
