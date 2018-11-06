@@ -11,7 +11,7 @@ UpDelaySec=2s
 DownDelaySec=2s
 ResendIGMP=4
 MinLinks=1
-AdActorSysPrio=1218
+AdActorSystemPriority=1218
 AdUserPortKey=811
 AdActorSystem=00:11:22:33:44:55
 # feed the sanitizer
