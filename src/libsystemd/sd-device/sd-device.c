@@ -1827,12 +1827,9 @@ static void device_remove_sysattr_value(sd_device *device, const char *_key) {
 /* set the attribute and save it in the cache. If a NULL value is passed the
  * attribute is cleared from the cache */
 _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr, const char *_value) {
-        _cleanup_close_ int fd = -1;
         _cleanup_free_ char *value = NULL;
-        const char *syspath;
-        char *path;
-        size_t len = 0;
-        ssize_t size;
+        const char *syspath, *path;
+        size_t len;
         int r;
 
         assert_return(device, -EINVAL);
@@ -1850,25 +1847,6 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
 
         path = strjoina(syspath, "/", sysattr);
 
-        fd = open(path, O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
-        if (fd < 0) {
-                if (errno == ELOOP)
-                        return -EINVAL;
-                if (errno == EISDIR)
-                        return -EISDIR;
-
-                value = strdup("");
-                if (!value)
-                        return -ENOMEM;
-
-                r = device_add_sysattr_value(device, sysattr, value);
-                if (r < 0)
-                        return r;
-                value = NULL;
-
-                return -ENXIO;
-        }
-
         len = strlen(_value);
 
         /* drop trailing newlines */
@@ -1883,17 +1861,30 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
         if (!value)
                 return -ENOMEM;
 
-        size = write(fd, value, len);
-        if (size < 0)
-                return -errno;
+        r = write_string_file(path, value, WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_NOFOLLOW);
+        if (r < 0) {
+                if (r == -ELOOP)
+                        return -EINVAL;
+                if (r == -EISDIR)
+                        return r;
 
-        if ((size_t)size != len)
-                return -EIO;
+                free(value);
+                value = strdup("");
+                if (!value)
+                        return -ENOMEM;
+
+                r = device_add_sysattr_value(device, sysattr, value);
+                if (r < 0)
+                        return r;
+
+                value = NULL;
+                return -ENXIO;
+        }
 
         r = device_add_sysattr_value(device, sysattr, value);
         if (r < 0)
                 return r;
-        value = NULL;
 
+        value = NULL;
         return 0;
 }
