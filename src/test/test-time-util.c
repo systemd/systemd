@@ -39,6 +39,14 @@ static void test_parse_sec(void) {
         assert_se(u == USEC_INFINITY);
         assert_se(parse_sec("+3.1s", &u) >= 0);
         assert_se(u == 3100 * USEC_PER_MSEC);
+        assert_se(parse_sec("3.1s.2", &u) >= 0);
+        assert_se(u == 3300 * USEC_PER_MSEC);
+        assert_se(parse_sec("3.1 .2", &u) >= 0);
+        assert_se(u == 3300 * USEC_PER_MSEC);
+        assert_se(parse_sec("3.1 sec .2 sec", &u) >= 0);
+        assert_se(u == 3300 * USEC_PER_MSEC);
+        assert_se(parse_sec("3.1 sec 1.2 sec", &u) >= 0);
+        assert_se(u == 4300 * USEC_PER_MSEC);
 
         assert_se(parse_sec(" xyz ", &u) < 0);
         assert_se(parse_sec("", &u) < 0);
@@ -56,6 +64,10 @@ static void test_parse_sec(void) {
         assert_se(parse_sec("3.+1s", &u) < 0);
         assert_se(parse_sec("3. 1s", &u) < 0);
         assert_se(parse_sec("3.s", &u) < 0);
+        assert_se(parse_sec("12.34.56", &u) < 0);
+        assert_se(parse_sec("12..34", &u) < 0);
+        assert_se(parse_sec("..1234", &u) < 0);
+        assert_se(parse_sec("1234..", &u) < 0);
 }
 
 static void test_parse_sec_fix_0(void) {
@@ -97,7 +109,7 @@ static void test_parse_time(void) {
         assert_se(u == 5 * USEC_PER_SEC);
 
         assert_se(parse_time("11111111111111y", &u, 1) == -ERANGE);
-        assert_se(parse_time("1.1111111111111y", &u, 1) == -ERANGE);
+        assert_se(parse_time("1.1111111111111y", &u, 1) >= 0);
 }
 
 static void test_parse_nsec(void) {
@@ -129,6 +141,14 @@ static void test_parse_nsec(void) {
         assert_se(u == NSEC_INFINITY);
         assert_se(parse_nsec("+3.1s", &u) >= 0);
         assert_se(u == 3100 * NSEC_PER_MSEC);
+        assert_se(parse_nsec("3.1s.2", &u) >= 0);
+        assert_se(u == 3100 * NSEC_PER_MSEC);
+        assert_se(parse_nsec("3.1 .2s", &u) >= 0);
+        assert_se(u == 200 * NSEC_PER_MSEC + 3);
+        assert_se(parse_nsec("3.1 sec .2 sec", &u) >= 0);
+        assert_se(u == 3300 * NSEC_PER_MSEC);
+        assert_se(parse_nsec("3.1 sec 1.2 sec", &u) >= 0);
+        assert_se(u == 4300 * NSEC_PER_MSEC);
 
         assert_se(parse_nsec(" xyz ", &u) < 0);
         assert_se(parse_nsec("", &u) < 0);
@@ -148,8 +168,12 @@ static void test_parse_nsec(void) {
         assert_se(parse_nsec("3.+1s", &u) < 0);
         assert_se(parse_nsec("3. 1s", &u) < 0);
         assert_se(parse_nsec("3.s", &u) < 0);
+        assert_se(parse_nsec("12.34.56", &u) < 0);
+        assert_se(parse_nsec("12..34", &u) < 0);
+        assert_se(parse_nsec("..1234", &u) < 0);
+        assert_se(parse_nsec("1234..", &u) < 0);
         assert_se(parse_nsec("1111111111111y", &u) == -ERANGE);
-        assert_se(parse_nsec("1.111111111111y", &u) == -ERANGE);
+        assert_se(parse_nsec("1.111111111111y", &u) >= 0);
 }
 
 static void test_format_timespan_one(usec_t x, usec_t accuracy) {
