@@ -109,10 +109,12 @@ typedef struct sd_lldp sd_lldp;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
 typedef enum sd_lldp_event {
-        SD_LLDP_EVENT_ADDED     = 'a',
-        SD_LLDP_EVENT_REMOVED   = 'r',
-        SD_LLDP_EVENT_UPDATED   = 'u',
-        SD_LLDP_EVENT_REFRESHED = 'f',
+        SD_LLDP_EVENT_ADDED,
+        SD_LLDP_EVENT_REMOVED,
+        SD_LLDP_EVENT_UPDATED,
+        SD_LLDP_EVENT_REFRESHED,
+        _SD_LLDP_EVENT_MAX,
+        _SD_LLDP_EVENT_INVALID = -1,
 } sd_lldp_event;
 
 typedef void (*sd_lldp_callback_t)(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n, void *userdata);
