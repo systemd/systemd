@@ -460,11 +460,9 @@ int ask_password_tty(
                 goto finish;
         }
 
-        l = strv_new(x, NULL);
-        if (!l) {
-                r = -ENOMEM;
+        r = strv_consume(&l, x);
+        if (r < 0)
                 goto finish;
-        }
 
         if (keyname)
                 (void) add_to_keyring_and_log(keyname, flags, l);
