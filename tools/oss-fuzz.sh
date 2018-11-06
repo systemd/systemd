@@ -52,4 +52,5 @@ wget -O $OUT/fuzz-json_seed_corpus.zip https://storage.googleapis.com/skia-fuzze
 wget -O $OUT/fuzz-json.dict https://raw.githubusercontent.com/rc0r/afl-fuzz/master/dictionaries/json.dict
 
 find $build -maxdepth 1 -type f -executable -name "fuzz-*" -exec mv {} $OUT \;
+find src -type f -name "fuzz-*.dict" -exec cp {} $OUT \;
 cp src/fuzz/*.options $OUT
