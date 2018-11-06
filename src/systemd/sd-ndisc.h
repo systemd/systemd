@@ -55,8 +55,10 @@ typedef struct sd_ndisc sd_ndisc;
 typedef struct sd_ndisc_router sd_ndisc_router;
 
 typedef enum sd_ndisc_event {
-        SD_NDISC_EVENT_TIMEOUT = 't',
-        SD_NDISC_EVENT_ROUTER  = 'r',
+        SD_NDISC_EVENT_TIMEOUT,
+        SD_NDISC_EVENT_ROUTER,
+        _SD_NDISC_EVENT_MAX,
+        _SD_NDISC_EVENT_INVALID = -1,
 } sd_ndisc_event;
 
 typedef void (*sd_ndisc_callback_t)(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *rt, void *userdata);

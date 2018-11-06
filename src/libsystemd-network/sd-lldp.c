@@ -6,14 +6,24 @@
 #include "sd-lldp.h"
 
 #include "alloc-util.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "lldp-internal.h"
 #include "lldp-neighbor.h"
 #include "lldp-network.h"
 #include "socket-util.h"
-#include "ether-addr-util.h"
+#include "string-table.h"
 
 #define LLDP_DEFAULT_NEIGHBORS_MAX 128U
+
+static const char * const lldp_event_table[_SD_LLDP_EVENT_MAX] = {
+        [SD_LLDP_EVENT_ADDED]   = "added",
+        [SD_LLDP_EVENT_REMOVED] = "removed",
+        [SD_LLDP_EVENT_UPDATED]   = "updated",
+        [SD_LLDP_EVENT_REFRESHED] = "refreshed",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(lldp_event, sd_lldp_event);
 
 static void lldp_flush_neighbors(sd_lldp *lldp) {
         sd_lldp_neighbor *n;
@@ -26,12 +36,14 @@ static void lldp_flush_neighbors(sd_lldp *lldp) {
 
 static void lldp_callback(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n) {
         assert(lldp);
+        assert(event >= 0 && event < _SD_LLDP_EVENT_MAX);
 
-        log_lldp("Invoking callback for '%c'.", event);
-
-        if (!lldp->callback)
+        if (!lldp->callback) {
+                log_lldp("Received '%s' event.", lldp_event_to_string(event));
                 return;
+        }
 
+        log_lldp("Invoking callback for '%s' event.", lldp_event_to_string(event));
         lldp->callback(lldp, event, n, lldp->userdata);
 }
 
