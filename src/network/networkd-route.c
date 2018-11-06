@@ -201,6 +201,16 @@ static const struct hash_ops route_hash_ops = {
         .compare = route_compare_func
 };
 
+bool route_equal(Route *r1, Route *r2) {
+        if (r1 == r2)
+                return true;
+
+        if (!r1 || !r2)
+                return false;
+
+        return route_compare_func(r1, r2) == 0;
+}
+
 int route_get(Link *link,
               int family,
               const union in_addr_union *dst,
