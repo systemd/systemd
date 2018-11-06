@@ -868,7 +868,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
         return tmp.return_value;
 }
 
-static char* extract_multiplier(char *p, usec_t *multiplier) {
+static const char* extract_multiplier(const char *p, usec_t *multiplier) {
         static const struct {
                 const char *suffix;
                 usec_t usec;
@@ -942,8 +942,7 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
 
         for (;;) {
                 usec_t multiplier = default_unit, k;
-                long long l, z = 0;
-                unsigned n = 0;
+                long long l;
                 char *e;
 
                 p += strspn(p, WHITESPACE);
@@ -966,46 +965,47 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                         return -ERANGE;
 
                 if (*e == '.') {
-                        char *b = e + 1;
-
-                        /* Don't allow "0.-0", "3.+1" or "3. 1" */
-                        if (IN_SET(*b, '-', '+') || isspace(*b))
-                                return -EINVAL;
-
-                        errno = 0;
-                        z = strtoll(b, &e, 10);
-                        if (errno > 0)
-                                return -errno;
-                        if (z < 0)
-                                return -ERANGE;
-                        if (e == b)
-                                return -EINVAL;
-
-                        n = e - b;
-
+                        p = e + 1;
+                        p += strspn(p, DIGITS);
                 } else if (e == p)
                         return -EINVAL;
+                else
+                        p = e;
 
-                e += strspn(e, WHITESPACE);
-                p = extract_multiplier(e, &multiplier);
+                s = extract_multiplier(p + strspn(p, WHITESPACE), &multiplier);
+                if (s == p && *s != '\0')
+                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56'*/
+                        return -EINVAL;
 
-                something = true;
+                p = s;
 
-
-                k = ((usec_t) -1) / multiplier;
-                if ((usec_t) l + 1 >= k || (usec_t) z >= k)
+                if ((usec_t) l >= USEC_INFINITY / multiplier)
                         return -ERANGE;
 
-                k = (usec_t) z * multiplier;
-
-                for (; n > 0; n--)
-                        k /= 10;
-
-                k += (usec_t) l * multiplier;
-                if (k >= ((usec_t) -1) - r)
+                k = (usec_t) l * multiplier;
+                if (k >= USEC_INFINITY - r)
                         return -ERANGE;
 
                 r += k;
+
+                something = true;
+
+                if (*e == '.') {
+                        usec_t m = multiplier / 10;
+                        const char *b;
+
+                        for (b = e + 1; *b >= '0' && *b <= '9'; b++, m /= 10) {
+                                k = (usec_t) (*b - '0') * m;
+                                if (k >= USEC_INFINITY - r)
+                                        return -ERANGE;
+
+                                r += k;
+                        }
+
+                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge"*/
+                        if (b == e + 1)
+                                return -EINVAL;
+                }
         }
 
         *usec = r;
@@ -1032,44 +1032,60 @@ int parse_sec_fix_0(const char *t, usec_t *ret) {
         return r;
 }
 
-int parse_nsec(const char *t, nsec_t *nsec) {
+static const char* extract_nsec_multiplier(const char *p, nsec_t *multiplier) {
         static const struct {
                 const char *suffix;
                 nsec_t nsec;
         } table[] = {
-                { "seconds", NSEC_PER_SEC },
-                { "second", NSEC_PER_SEC },
-                { "sec", NSEC_PER_SEC },
-                { "s", NSEC_PER_SEC },
+                { "seconds", NSEC_PER_SEC    },
+                { "second",  NSEC_PER_SEC    },
+                { "sec",     NSEC_PER_SEC    },
+                { "s",       NSEC_PER_SEC    },
                 { "minutes", NSEC_PER_MINUTE },
-                { "minute", NSEC_PER_MINUTE },
-                { "min", NSEC_PER_MINUTE },
-                { "months", NSEC_PER_MONTH },
-                { "month", NSEC_PER_MONTH },
-                { "msec", NSEC_PER_MSEC },
-                { "ms", NSEC_PER_MSEC },
-                { "m", NSEC_PER_MINUTE },
-                { "hours", NSEC_PER_HOUR },
-                { "hour", NSEC_PER_HOUR },
-                { "hr", NSEC_PER_HOUR },
-                { "h", NSEC_PER_HOUR },
-                { "days", NSEC_PER_DAY },
-                { "day", NSEC_PER_DAY },
-                { "d", NSEC_PER_DAY },
-                { "weeks", NSEC_PER_WEEK },
-                { "week", NSEC_PER_WEEK },
-                { "w", NSEC_PER_WEEK },
-                { "years", NSEC_PER_YEAR },
-                { "year", NSEC_PER_YEAR },
-                { "y", NSEC_PER_YEAR },
-                { "usec", NSEC_PER_USEC },
-                { "us", NSEC_PER_USEC },
-                { "µs", NSEC_PER_USEC },
-                { "nsec", 1ULL },
-                { "ns", 1ULL },
-                { "", 1ULL }, /* default is nsec */
+                { "minute",  NSEC_PER_MINUTE },
+                { "min",     NSEC_PER_MINUTE },
+                { "months",  NSEC_PER_MONTH  },
+                { "month",   NSEC_PER_MONTH  },
+                { "M",       NSEC_PER_MONTH  },
+                { "msec",    NSEC_PER_MSEC   },
+                { "ms",      NSEC_PER_MSEC   },
+                { "m",       NSEC_PER_MINUTE },
+                { "hours",   NSEC_PER_HOUR   },
+                { "hour",    NSEC_PER_HOUR   },
+                { "hr",      NSEC_PER_HOUR   },
+                { "h",       NSEC_PER_HOUR   },
+                { "days",    NSEC_PER_DAY    },
+                { "day",     NSEC_PER_DAY    },
+                { "d",       NSEC_PER_DAY    },
+                { "weeks",   NSEC_PER_WEEK   },
+                { "week",    NSEC_PER_WEEK   },
+                { "w",       NSEC_PER_WEEK   },
+                { "years",   NSEC_PER_YEAR   },
+                { "year",    NSEC_PER_YEAR   },
+                { "y",       NSEC_PER_YEAR   },
+                { "usec",    NSEC_PER_USEC   },
+                { "us",      NSEC_PER_USEC   },
+                { "µs",      NSEC_PER_USEC   },
+                { "nsec",    1ULL            },
+                { "ns",      1ULL            },
+                { "",        1ULL            }, /* default is nsec */
         };
+        size_t i;
 
+        for (i = 0; i < ELEMENTSOF(table); i++) {
+                char *e;
+
+                e = startswith(p, table[i].suffix);
+                if (e) {
+                        *multiplier = table[i].nsec;
+                        return e;
+                }
+        }
+
+        return p;
+}
+
+int parse_nsec(const char *t, nsec_t *nsec) {
         const char *p, *s;
         nsec_t r = 0;
         bool something = false;
@@ -1091,8 +1107,8 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         }
 
         for (;;) {
-                long long l, z = 0;
-                size_t n = 0, i;
+                nsec_t multiplier = 1, k;
+                long long l;
                 char *e;
 
                 p += strspn(p, WHITESPACE);
@@ -1104,7 +1120,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                         break;
                 }
 
-                if (*p == '-')
+                if (*p == '-') /* Don't allow "-0" */
                         return -ERANGE;
 
                 errno = 0;
@@ -1115,54 +1131,47 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                         return -ERANGE;
 
                 if (*e == '.') {
-                        char *b = e + 1;
-
-                        if (IN_SET(*b, '-', '+') || isspace(*b))
-                                return -EINVAL;
-
-                        errno = 0;
-                        z = strtoll(b, &e, 10);
-                        if (errno > 0)
-                                return -errno;
-                        if (z < 0)
-                                return -ERANGE;
-                        if (e == b)
-                                return -EINVAL;
-
-                        n = e - b;
-
+                        p = e + 1;
+                        p += strspn(p, DIGITS);
                 } else if (e == p)
                         return -EINVAL;
+                else
+                        p = e;
 
-                e += strspn(e, WHITESPACE);
+                s = extract_nsec_multiplier(p + strspn(p, WHITESPACE), &multiplier);
+                if (s == p && *s != '\0')
+                        /* Don't allow '12.34.56', but accept '12.34 .56' or '12.34s.56'*/
+                        return -EINVAL;
 
-                for (i = 0; i < ELEMENTSOF(table); i++)
-                        if (startswith(e, table[i].suffix)) {
-                                nsec_t k;
+                p = s;
 
-                                k = ((nsec_t) -1) / table[i].nsec;
-                                if ((nsec_t) l + 1 >= k || (nsec_t) z >= k)
-                                        return -ERANGE;
+                if ((nsec_t) l >= NSEC_INFINITY / multiplier)
+                        return -ERANGE;
 
-                                k = (nsec_t) z * table[i].nsec;
+                k = (nsec_t) l * multiplier;
+                if (k >= NSEC_INFINITY - r)
+                        return -ERANGE;
 
-                                for (; n > 0; n--)
-                                        k /= 10;
+                r += k;
 
-                                k += (nsec_t) l * table[i].nsec;
-                                if (k >= ((nsec_t) -1) - r)
+                something = true;
+
+                if (*e == '.') {
+                        nsec_t m = multiplier / 10;
+                        const char *b;
+
+                        for (b = e + 1; *b >= '0' && *b <= '9'; b++, m /= 10) {
+                                k = (nsec_t) (*b - '0') * m;
+                                if (k >= NSEC_INFINITY - r)
                                         return -ERANGE;
 
                                 r += k;
-                                p = e + strlen(table[i].suffix);
-
-                                something = true;
-                                break;
                         }
 
-                if (i >= ELEMENTSOF(table))
-                        return -EINVAL;
-
+                        /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge"*/
+                        if (b == e + 1)
+                                return -EINVAL;
+                }
         }
 
         *nsec = r;
