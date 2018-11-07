@@ -531,10 +531,13 @@ int in_addr_prefix_from_string_internal(
                 r = in_addr_parse_prefixlen(family, e+1, &k);
                 if (r < 0)
                         return r;
-        } else if (family == AF_INET && use_default_prefixlen) {
-                r = in4_addr_default_prefixlen(&buffer.in, &k);
-                if (r < 0)
-                        return r;
+        } else if (use_default_prefixlen) {
+                if (family == AF_INET) {
+                        r = in4_addr_default_prefixlen(&buffer.in, &k);
+                        if (r < 0)
+                                return r;
+                } else
+                        k = 0;
         } else
                 k = FAMILY_ADDRESS_SIZE(family) * 8;
 
@@ -579,10 +582,13 @@ int in_addr_prefix_from_string_auto_internal(
                 r = in_addr_parse_prefixlen(family, e+1, &k);
                 if (r < 0)
                         return r;
-        } else if (family == AF_INET && use_default_prefixlen) {
-                r = in4_addr_default_prefixlen(&buffer.in, &k);
-                if (r < 0)
-                        return r;
+        } else if (use_default_prefixlen) {
+                if (family == AF_INET) {
+                        r = in4_addr_default_prefixlen(&buffer.in, &k);
+                        if (r < 0)
+                                return r;
+                } else
+                        k = 0;
         } else
                 k = FAMILY_ADDRESS_SIZE(family) * 8;
 
