@@ -1225,7 +1225,7 @@ static int service_collect_fds(
                         return -ENOMEM;
                 rfds[0] = s->socket_fd;
 
-                rfd_names = strv_new("connection", NULL);
+                rfd_names = strv_new("connection");
                 if (!rfd_names)
                         return -ENOMEM;
 
@@ -1523,7 +1523,9 @@ static int service_spawn(
                 }
         }
 
-        unit_set_exec_params(UNIT(s), &exec_params);
+        r = unit_set_exec_params(UNIT(s), &exec_params);
+        if (r < 0)
+                return r;
 
         final_env = strv_env_merge(2, exec_params.environment, our_env, NULL);
         if (!final_env)

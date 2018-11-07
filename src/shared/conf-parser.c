@@ -1113,7 +1113,7 @@ int config_parse_join_controllers(
                 controllers = new(char**, 2);
                 if (!controllers)
                         return log_oom();
-                controllers[0] = strv_new(NULL, NULL);
+                controllers[0] = strv_new(NULL);
                 if (!controllers[0])
                         return log_oom();
                 controllers[1] = NULL;

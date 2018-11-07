@@ -3071,7 +3071,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (one_name) {
-                names = strv_new(one_name, NULL);
+                names = strv_new(one_name);
                 if (!names)
                         return log_oom();
         } else {

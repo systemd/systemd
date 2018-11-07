@@ -216,6 +216,30 @@ static int property_get_progress(
         return sd_bus_message_append(reply, "d", d);
 }
 
+static int property_get_environment(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_strv_free_ char **l = NULL;
+        Manager *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(m);
+
+        r = manager_get_effective_environment(m, &l);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_append_strv(reply, l);
+}
+
 static int property_get_show_status(
                 sd_bus *bus,
                 const char *path,
@@ -1578,7 +1602,7 @@ static int method_set_environment(sd_bus_message *message, void *userdata, sd_bu
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = manager_environment_add(m, NULL, plus);
+        r = manager_client_environment_modify(m, NULL, plus);
         if (r < 0)
                 return r;
 
@@ -1610,7 +1634,7 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = manager_environment_add(m, minus, NULL);
+        r = manager_client_environment_modify(m, minus, NULL);
         if (r < 0)
                 return r;
 
@@ -1648,7 +1672,7 @@ static int method_unset_and_set_environment(sd_bus_message *message, void *userd
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = manager_environment_add(m, minus, plus);
+        r = manager_client_environment_modify(m, minus, plus);
         if (r < 0)
                 return r;
 
@@ -2432,7 +2456,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("NInstalledJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_installed_jobs), 0),
         SD_BUS_PROPERTY("NFailedJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_failed_jobs), 0),
         SD_BUS_PROPERTY("Progress", "d", property_get_progress, 0, 0),
-        SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(Manager, environment), 0),
+        SD_BUS_PROPERTY("Environment", "as", property_get_environment, 0, 0),
         SD_BUS_PROPERTY("ConfirmSpawn", "b", bus_property_get_bool, offsetof(Manager, confirm_spawn), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ShowStatus", "b", property_get_show_status, 0, 0),
         SD_BUS_PROPERTY("UnitPath", "as", NULL, offsetof(Manager, lookup_paths.search_path), SD_BUS_VTABLE_PROPERTY_CONST),

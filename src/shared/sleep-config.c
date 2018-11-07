@@ -73,7 +73,7 @@ int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, cha
                 if (suspend_state)
                         states = TAKE_PTR(suspend_state);
                 else
-                        states = strv_new("mem", "standby", "freeze", NULL);
+                        states = strv_new("mem", "standby", "freeze");
 
         } else if (streq(verb, "hibernate")) {
                 allow = allow_hibernate != 0;
@@ -81,12 +81,12 @@ int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, cha
                 if (hibernate_mode)
                         modes = TAKE_PTR(hibernate_mode);
                 else
-                        modes = strv_new("platform", "shutdown", NULL);
+                        modes = strv_new("platform", "shutdown");
 
                 if (hibernate_state)
                         states = TAKE_PTR(hibernate_state);
                 else
-                        states = strv_new("disk", NULL);
+                        states = strv_new("disk");
 
         } else if (streq(verb, "hybrid-sleep")) {
                 allow = allow_hybrid_sleep > 0 ||
@@ -95,12 +95,12 @@ int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, cha
                 if (hybrid_mode)
                         modes = TAKE_PTR(hybrid_mode);
                 else
-                        modes = strv_new("suspend", "platform", "shutdown", NULL);
+                        modes = strv_new("suspend", "platform", "shutdown");
 
                 if (hybrid_state)
                         states = TAKE_PTR(hybrid_state);
                 else
-                        states = strv_new("disk", NULL);
+                        states = strv_new("disk");
 
         } else if (streq(verb, "suspend-then-hibernate")) {
                 allow = allow_s2h > 0 ||

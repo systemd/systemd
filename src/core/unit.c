@@ -5023,12 +5023,17 @@ int unit_acquire_invocation_id(Unit *u) {
         return 0;
 }
 
-void unit_set_exec_params(Unit *u, ExecParameters *p) {
+int unit_set_exec_params(Unit *u, ExecParameters *p) {
+        int r;
+
         assert(u);
         assert(p);
 
         /* Copy parameters from manager */
-        p->environment = u->manager->environment;
+        r = manager_get_effective_environment(u->manager, &p->environment);
+        if (r < 0)
+                return r;
+
         p->confirm_spawn = manager_get_confirm_spawn(u->manager);
         p->cgroup_supported = u->manager->cgroup_supported;
         p->prefix = u->manager->prefix;
@@ -5037,6 +5042,8 @@ void unit_set_exec_params(Unit *u, ExecParameters *p) {
         /* Copy paramaters from unit */
         p->cgroup_path = u->cgroup_path;
         SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, unit_cgroup_delegate(u));
+
+        return 0;
 }
 
 int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {

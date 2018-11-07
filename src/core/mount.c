@@ -769,7 +769,9 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        unit_set_exec_params(UNIT(m), &exec_params);
+        r = unit_set_exec_params(UNIT(m), &exec_params);
+        if (r < 0)
+                return r;
 
         r = exec_spawn(UNIT(m),
                        c,

@@ -346,7 +346,8 @@ static void test_environment_gathering(void) {
         /* now retest with "default" path passed in, as created by
          * manager_default_environment */
         env = strv_free(env);
-        env = strv_new("PATH=" DEFAULT_PATH, NULL);
+        env = strv_new("PATH=" DEFAULT_PATH);
+        assert_se(env);
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env);
         assert_se(r >= 0);

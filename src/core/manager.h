@@ -212,7 +212,8 @@ struct Manager {
         LookupPaths lookup_paths;
         Set *unit_path_cache;
 
-        char **environment;
+        char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
+        char **client_environment;     /* Environment variables created by clients through the bus API */
 
         usec_t runtime_watchdog;
         usec_t shutdown_watchdog;
@@ -442,7 +443,10 @@ void manager_clear_jobs(Manager *m);
 
 unsigned manager_dispatch_load_queue(Manager *m);
 
-int manager_environment_add(Manager *m, char **minus, char **plus);
+int manager_transient_environment_add(Manager *m, char **plus);
+int manager_client_environment_modify(Manager *m, char **minus, char **plus);
+int manager_get_effective_environment(Manager *m, char ***ret);
+
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
 
 int manager_loop(Manager *m);
