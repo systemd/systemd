@@ -5,9 +5,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-int acquire_random_bytes(void *p, size_t n, bool high_quality_required);
-void pseudorandom_bytes(void *p, size_t n);
-void random_bytes(void *p, size_t n);
+int genuine_random_bytes(void *p, size_t n, bool high_quality_required); /* returns "genuine" randomness, optionally filled upwith pseudo random, if not enough is available */
+void pseudo_random_bytes(void *p, size_t n);                             /* returns only pseudo-randommess (but possibly seeded from something better) */
+void random_bytes(void *p, size_t n);                                    /* returns genuine randomness if cheaply available, and pseudo randomness if not. */
+
 void initialize_srand(void);
 
 static inline uint64_t random_u64(void) {

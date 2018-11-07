@@ -65,7 +65,7 @@ int rdrand64(uint64_t *ret) {
 #endif
 }
 
-int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
+int genuine_random_bytes(void *p, size_t n, bool high_quality_required) {
         static int have_syscall = -1;
 
         _cleanup_close_ int fd = -1;
@@ -88,7 +88,7 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
                                 return 0;
                         if (!high_quality_required) {
                                 /* Fill in the remaining bytes using pseudorandom values */
-                                pseudorandom_bytes((uint8_t*) p + r, n - r);
+                                pseudo_random_bytes((uint8_t*) p + r, n - r);
                                 return 0;
                         }
 
@@ -124,7 +124,7 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
                                 memcpy(p, &u, k);
 
                                 /* We only get 64bit out of RDRAND, the rest let's fill up with pseudo-random crap. */
-                                pseudorandom_bytes((uint8_t*) p + k, n - k);
+                                pseudo_random_bytes((uint8_t*) p + k, n - k);
                                 return 0;
                         }
                 } else
@@ -180,7 +180,7 @@ void initialize_srand(void) {
 #  define RAND_STEP 1
 #endif
 
-void pseudorandom_bytes(void *p, size_t n) {
+void pseudo_random_bytes(void *p, size_t n) {
         uint8_t *q;
 
         initialize_srand();
@@ -203,13 +203,10 @@ void pseudorandom_bytes(void *p, size_t n) {
 }
 
 void random_bytes(void *p, size_t n) {
-        int r;
 
-        r = acquire_random_bytes(p, n, false);
-        if (r >= 0)
+        if (genuine_random_bytes(p, n, false) >= 0)
                 return;
 
-        /* If some idiot made /dev/urandom unavailable to us, or the
-         * kernel has no entropy, use a PRNG instead. */
-        return pseudorandom_bytes(p, n);
+        /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */
+        pseudo_random_bytes(p, n);
 }
