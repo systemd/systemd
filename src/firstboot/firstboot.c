@@ -647,7 +647,8 @@ static int process_root_password(void) {
         if (!arg_root_password)
                 return 0;
 
-        r = genuine_random_bytes(raw, 16, 0);
+        /* Insist on the best randomness by setting RANDOM_BLOCK, this is about keeping passwords secret after all. */
+        r = genuine_random_bytes(raw, 16, RANDOM_BLOCK);
         if (r < 0)
                 return log_error_errno(r, "Failed to get salt: %m");
 

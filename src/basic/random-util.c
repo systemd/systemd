@@ -69,74 +69,94 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         static int have_syscall = -1;
 
         _cleanup_close_ int fd = -1;
-        size_t already_done = 0;
         int r;
 
-        /* Gathers some randomness from the kernel. This call will never block. If RANDOM_EXTEND_WITH_PSEUDO is unset,
-         * it will always return some data from the kernel, regardless of whether the random pool is fully initialized
-         * or not.  Otherwise, it will return success if at least some random bytes were successfully acquired, and an
-         * error if the kernel has no entropy whatsover for us. */
+        /* Gathers some randomness from the kernel. This call won't block, unless the RANDOM_BLOCK flag is set. If
+         * RANDOM_EXTEND_WITH_PSEUDO is unset, it will always return some data from the kernel, regardless of whether
+         * the random pool is fully initialized or not.  Otherwise, it will return success if at least some random
+         * bytes were successfully acquired, and an error if the kernel has no entropy whatsover for us. */
 
         /* Use the getrandom() syscall unless we know we don't have it. */
         if (have_syscall != 0 && !HAS_FEATURE_MEMORY_SANITIZER) {
-                r = getrandom(p, n, GRND_NONBLOCK);
-                if (r > 0) {
-                        have_syscall = true;
-                        if ((size_t) r == n)
-                                return 0;
-                        if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
-                                /* Fill in the remaining bytes using pseudorandom values */
-                                pseudo_random_bytes((uint8_t*) p + r, n - r);
-                                return 0;
-                        }
 
-                        already_done = r;
-                } else if (r == 0) {
-                        have_syscall = true;
-                        return -EIO;
-                } else if (errno == ENOSYS)
-                        /* We lack the syscall, continue with reading from /dev/urandom. */
-                        have_syscall = false;
-                else if (errno == EAGAIN) {
-                        /* The kernel has no entropy whatsoever. Let's remember to
-                         * use the syscall the next time again though.
-                         *
-                         * If high_quality_required is false, return an error so that
-                         * random_bytes() can produce some pseudorandom
-                         * bytes. Otherwise, fall back to /dev/urandom, which we know
-                         * is empty, but the kernel will produce some bytes for us on
-                         * a best-effort basis. */
-                        have_syscall = true;
+                for (;;) {
+                        r = getrandom(p, n, FLAGS_SET(flags, RANDOM_BLOCK) ? 0 : GRND_NONBLOCK);
+                        if (r > 0) {
+                                have_syscall = true;
 
-                        if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
-                                uint64_t u;
-                                size_t k;
+                                if ((size_t) r == n)
+                                        return 0; /* Yay, success! */
 
-                                /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality
-                                 * randomness is not required, as we don't trust it (who does?). Note that we only do a
-                                 * single iteration of RDRAND here, even though the Intel docs suggest calling this in
-                                 * a tight loop of 10 invocatins or so. That's because we don't really care about the
-                                 * quality here. */
+                                assert((size_t) r < n);
+                                p = (uint8_t*) p + r;
+                                n -= r;
 
-                                if (rdrand64(&u) < 0)
-                                        return -ENODATA;
+                                if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
+                                        /* Fill in the remaining bytes using pseudo-random values */
+                                        pseudo_random_bytes(p, n);
+                                        return 0;
+                                }
 
-                                k = MIN(n, sizeof(u));
-                                memcpy(p, &u, k);
+                                /* Hmm, we didn't get enough good data but the caller insists on good data? Then try again */
+                                if (FLAGS_SET(flags, RANDOM_BLOCK))
+                                        continue;
 
-                                /* We only get 64bit out of RDRAND, the rest let's fill up with pseudo-random crap. */
-                                pseudo_random_bytes((uint8_t*) p + k, n - k);
-                                return 0;
-                        }
-                } else
-                        return -errno;
+                                /* Fill in the rest with /dev/urandom */
+                                break;
+
+                        } else if (r == 0) {
+                                have_syscall = true;
+                                return -EIO;
+
+                        } else if (errno == ENOSYS) {
+                                /* We lack the syscall, continue with reading from /dev/urandom. */
+                                have_syscall = false;
+                                break;
+
+                        } else if (errno == EAGAIN) {
+                                /* The kernel has no entropy whatsoever. Let's remember to
+                                 * use the syscall the next time again though.
+                                 *
+                                 * If high_quality_required is false, return an error so that
+                                 * random_bytes() can produce some pseudorandom
+                                 * bytes. Otherwise, fall back to /dev/urandom, which we know
+                                 * is empty, but the kernel will produce some bytes for us on
+                                 * a best-effort basis. */
+                                have_syscall = true;
+
+                                if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
+                                        uint64_t u;
+                                        size_t k;
+
+                                        /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality
+                                         * randomness is not required, as we don't trust it (who does?). Note that we only do a
+                                         * single iteration of RDRAND here, even though the Intel docs suggest calling this in
+                                         * a tight loop of 10 invocatins or so. That's because we don't really care about the
+                                         * quality here. */
+
+                                        if (rdrand64(&u) < 0)
+                                                return -ENODATA;
+
+                                        k = MIN(n, sizeof(u));
+                                        memcpy(p, &u, k);
+
+                                        /* We only get 64bit out of RDRAND, the rest let's fill up with pseudo-random crap. */
+                                        pseudo_random_bytes((uint8_t*) p + k, n - k);
+                                        return 0;
+                                }
+
+                                /* Use /dev/urandom instead */
+                                break;
+                        } else
+                                return -errno;
+                }
         }
 
         fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return errno == ENOENT ? -ENOSYS : -errno;
 
-        return loop_read_exact(fd, (uint8_t*) p + already_done, n - already_done, true);
+        return loop_read_exact(fd, p, n, true);
 }
 
 void initialize_srand(void) {
