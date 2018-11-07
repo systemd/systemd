@@ -60,10 +60,38 @@ int terminal_urlify(const char *url, const char *text, char **ret) {
         return 0;
 }
 
-int terminal_urlify_path(const char *path, const char *text, char **ret) {
+int file_url_from_path(const char *path, char **ret) {
         _cleanup_free_ char *absolute = NULL;
         struct utsname u;
-        const char *url;
+        char *url = NULL;
+        int r;
+
+        if (uname(&u) < 0)
+                return -errno;
+
+        if (!path_is_absolute(path)) {
+                r = path_make_absolute_cwd(path, &absolute);
+                if (r < 0)
+                        return r;
+
+                path = absolute;
+        }
+
+        /* As suggested by https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda, let's include the local
+         * hostname here. Note that we don't use gethostname_malloc() or gethostname_strict() since we are interested
+         * in the raw string the kernel has set, whatever it may be, under the assumption that terminals are not overly
+         * careful with validating the strings either. */
+
+        url = strjoin("file://", u.nodename, path);
+        if (!url)
+                return -ENOMEM;
+
+        *ret = url;
+        return 0;
+}
+
+int terminal_urlify_path(const char *path, const char *text, char **ret) {
+        _cleanup_free_ char *url = NULL;
         int r;
 
         assert(path);
@@ -88,23 +116,9 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
                 return 0;
         }
 
-        if (uname(&u) < 0)
-                return -errno;
-
-        if (!path_is_absolute(path)) {
-                r = path_make_absolute_cwd(path, &absolute);
-                if (r < 0)
-                        return r;
-
-                path = absolute;
-        }
-
-        /* As suggested by https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda, let's include the local
-         * hostname here. Note that we don't use gethostname_malloc() or gethostname_strict() since we are interested
-         * in the raw string the kernel has set, whatever it may be, under the assumption that terminals are not overly
-         * careful with validating the strings either. */
-
-        url = strjoina("file://", u.nodename, path);
+        r = file_url_from_path(path, &url);
+        if (r < 0)
+                return r;
 
         return terminal_urlify(url, text, ret);
 }
