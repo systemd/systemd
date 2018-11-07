@@ -199,7 +199,7 @@ static void test_config_parse_address(void) {
         test_config_parse_address_one("", AF_INET6, 0, NULL, 0);
         test_config_parse_address_one("/", AF_INET6, 0, NULL, 0);
         test_config_parse_address_one("/8", AF_INET6, 0, NULL, 0);
-        test_config_parse_address_one("::1", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128);
+        test_config_parse_address_one("::1", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0);
         test_config_parse_address_one("::1/0", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0);
         test_config_parse_address_one("::1/1", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 1);
         test_config_parse_address_one("::1/2", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 2);

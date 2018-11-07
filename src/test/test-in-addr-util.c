@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
         test_in_addr_prefix_from_string("", AF_INET6, -EINVAL, NULL, 0, true);
         test_in_addr_prefix_from_string("/", AF_INET6, -EINVAL, NULL, 0, true);
         test_in_addr_prefix_from_string("/8", AF_INET6, -EINVAL, NULL, 0, true);
-        test_in_addr_prefix_from_string("::1", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128, true);
+        test_in_addr_prefix_from_string("::1", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0, true);
         test_in_addr_prefix_from_string("::1/0", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0, true);
         test_in_addr_prefix_from_string("::1/1", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 1, true);
         test_in_addr_prefix_from_string("::1/2", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 2, true);
