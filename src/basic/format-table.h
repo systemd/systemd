@@ -15,6 +15,8 @@ typedef enum TableDataType {
         TABLE_TIMESPAN,
         TABLE_SIZE,
         TABLE_UINT32,
+        TABLE_UINT64,
+        TABLE_PERCENT,
         _TABLE_DATA_TYPE_MAX,
         _TABLE_DATA_TYPE_INVALID = -1,
 } TableDataType;
