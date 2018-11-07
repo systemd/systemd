@@ -72,9 +72,9 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         int r;
 
         /* Gathers some randomness from the kernel. This call won't block, unless the RANDOM_BLOCK flag is set. If
-         * RANDOM_EXTEND_WITH_PSEUDO is unset, it will always return some data from the kernel, regardless of whether
-         * the random pool is fully initialized or not.  Otherwise, it will return success if at least some random
-         * bytes were successfully acquired, and an error if the kernel has no entropy whatsover for us. */
+         * RANDOM_DONT_DRAIN is set, an error is returned if the random pool is not initialized. Otherwise it will
+         * always return some data from the kernel, regardless of whether the random pool is fully initialized or
+         * not. */
 
         if (n == 0)
                 return 0;
@@ -117,15 +117,16 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                 break;
 
                         } else if (errno == EAGAIN) {
-                                /* The kernel has no entropy whatsoever. Let's remember to
-                                 * use the syscall the next time again though.
+                                /* The kernel has no entropy whatsoever. Let's remember to use the syscall the next
+                                 * time again though.
                                  *
-                                 * If high_quality_required is false, return an error so that
-                                 * random_bytes() can produce some pseudorandom
-                                 * bytes. Otherwise, fall back to /dev/urandom, which we know
-                                 * is empty, but the kernel will produce some bytes for us on
-                                 * a best-effort basis. */
+                                 * If RANDOM_DONT_DRAIN is set, return an error so that random_bytes() can produce some
+                                 * pseudo-random bytes instead. Otherwise, fall back to /dev/urandom, which we know is empty,
+                                 * but the kernel will produce some bytes for us on a best-effort basis. */
                                 have_syscall = true;
+
+                                if (FLAGS_SET(flags, RANDOM_DONT_DRAIN))
+                                        return -ENODATA;
 
                                 if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
                                         uint64_t u;
@@ -228,7 +229,7 @@ void pseudo_random_bytes(void *p, size_t n) {
 
 void random_bytes(void *p, size_t n) {
 
-        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO) >= 0)
+        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO|RANDOM_DONT_DRAIN) >= 0)
                 return;
 
         /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */
