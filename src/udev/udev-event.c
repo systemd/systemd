@@ -16,7 +16,7 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "libudev-device-internal.h"
+#include "libudev-private.h"
 #include "netlink-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -42,7 +42,7 @@ typedef struct Spawn {
         size_t result_len;
 } Spawn;
 
-struct udev_event *udev_event_new(struct udev_device *dev) {
+struct udev_event *udev_event_new(sd_device *dev, int exec_delay, sd_netlink *rtnl) {
         struct udev_event *event;
 
         assert(dev);
@@ -52,8 +52,10 @@ struct udev_event *udev_event_new(struct udev_device *dev) {
                 return NULL;
 
         *event = (struct udev_event) {
-                .dev = dev,
+                .dev = sd_device_ref(dev),
                 .birth_usec = now(CLOCK_MONOTONIC),
+                .exec_delay = exec_delay,
+                .rtnl = sd_netlink_ref(rtnl),
         };
 
         return event;
@@ -65,6 +67,8 @@ struct udev_event *udev_event_free(struct udev_event *event) {
         if (!event)
                 return NULL;
 
+        sd_device_unref(event->dev);
+        sd_device_unref(event->dev_db_clone);
         sd_netlink_unref(event->rtnl);
         while ((p = hashmap_steal_first_key(event->run_list)))
                 free(p);
@@ -125,7 +129,7 @@ static const struct subst_map_entry map[] = {
 static ssize_t subst_format_var(struct udev_event *event,
                                 const struct subst_map_entry *entry, char *attr,
                                 char *dest, size_t l) {
-        sd_device *parent, *dev = event->dev->device;
+        sd_device *parent, *dev = event->dev;
         const char *val = NULL;
         char *s = dest;
         dev_t devnum;
@@ -155,7 +159,7 @@ static ssize_t subst_format_var(struct udev_event *event,
         case SUBST_ID:
                 if (!event->dev_parent)
                         return 0;
-                r = sd_device_get_sysname(event->dev_parent->device, &val);
+                r = sd_device_get_sysname(event->dev_parent, &val);
                 if (r < 0)
                         return r;
                 l = strpcpy(&s, l, val);
@@ -163,7 +167,7 @@ static ssize_t subst_format_var(struct udev_event *event,
         case SUBST_DRIVER:
                 if (!event->dev_parent)
                         return 0;
-                r = sd_device_get_driver(event->dev_parent->device, &val);
+                r = sd_device_get_driver(event->dev_parent, &val);
                 if (r < 0)
                         return r == -ENOENT ? 0 : r;
                 l = strpcpy(&s, l, val);
@@ -236,8 +240,8 @@ static ssize_t subst_format_var(struct udev_event *event,
                         (void) sd_device_get_sysattr_value(dev, attr, &val);
 
                 /* try to read the attribute of the parent device, other matches have selected */
-                if (!val && event->dev_parent && event->dev_parent->device != dev)
-                        (void) sd_device_get_sysattr_value(event->dev_parent->device, attr, &val);
+                if (!val && event->dev_parent && event->dev_parent != dev)
+                        (void) sd_device_get_sysattr_value(event->dev_parent, attr, &val);
 
                 if (!val)
                         return 0;
@@ -402,9 +406,9 @@ subst:
                 subst_len = subst_format_var(event, entry, attr, s, l);
                 if (subst_len < 0) {
                         if (format_dollar)
-                                log_device_warning_errno(event->dev->device, subst_len, "Failed to substitute variable '$%s', ignoring: %m", entry->name);
+                                log_device_warning_errno(event->dev, subst_len, "Failed to substitute variable '$%s', ignoring: %m", entry->name);
                         else
-                                log_device_warning_errno(event->dev->device, subst_len, "Failed to apply format '%%%c', ignoring: %m", entry->fmt);
+                                log_device_warning_errno(event->dev, subst_len, "Failed to apply format '%%%c', ignoring: %m", entry->fmt);
 
                         continue;
                 }
@@ -636,9 +640,9 @@ int udev_event_spawn(struct udev_event *event,
                 free_and_replace(argv[0], program);
         }
 
-        r = device_get_properties_strv(event->dev->device, &envp);
+        r = device_get_properties_strv(event->dev, &envp);
         if (r < 0)
-                return log_device_error_errno(event->dev->device, r, "Failed to get device properties");
+                return log_device_error_errno(event->dev, r, "Failed to get device properties");
 
         log_debug("Starting '%s'", cmd);
 
@@ -682,7 +686,7 @@ int udev_event_spawn(struct udev_event *event,
 }
 
 static int rename_netif(struct udev_event *event) {
-        sd_device *dev = event->dev->device;
+        sd_device *dev = event->dev;
         const char *action, *oldname;
         char name[IFNAMSIZ];
         int ifindex, r;
@@ -725,7 +729,7 @@ static int rename_netif(struct udev_event *event) {
 }
 
 static int update_devnode(struct udev_event *event) {
-        sd_device *dev = event->dev->device;
+        sd_device *dev = event->dev;
         const char *action;
         bool apply;
         int r;
@@ -737,8 +741,8 @@ static int update_devnode(struct udev_event *event) {
                 return log_device_error_errno(dev, r, "Failed to get devnum: %m");
 
         /* remove/update possible left-over symlinks from old database entry */
-        if (event->dev_db)
-                (void) udev_node_update_old_links(dev, event->dev_db->device);
+        if (event->dev_db_clone)
+                (void) udev_node_update_old_links(dev, event->dev_db_clone);
 
         if (!event->owner_set) {
                 r = device_get_devnode_uid(dev, &event->uid);
@@ -780,7 +784,7 @@ static void event_execute_rules_on_remove(
                 Hashmap *properties_list,
                 struct udev_rules *rules) {
 
-        sd_device *dev = event->dev->device;
+        sd_device *dev = event->dev;
         int r;
 
         r = device_read_db_force(dev);
@@ -810,8 +814,7 @@ int udev_event_execute_rules(struct udev_event *event,
                              usec_t timeout_usec, usec_t timeout_warn_usec,
                              Hashmap *properties_list,
                              struct udev_rules *rules) {
-        _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
-        sd_device *dev = event->dev->device;
+        sd_device *dev = event->dev;
         const char *subsystem, *action;
         int r;
 
@@ -831,28 +834,24 @@ int udev_event_execute_rules(struct udev_event *event,
                 return 0;
         }
 
-        r = device_clone_with_db(dev, &clone);
+        r = device_clone_with_db(dev, &event->dev_db_clone);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to clone sd_device object, ignoring: %m");
 
-        if (clone) {
-                event->dev_db = udev_device_new(NULL, clone);
-                if (!event->dev_db)
-                        return -ENOMEM;
-
+        if (event->dev_db_clone) {
                 r = sd_device_get_devnum(dev, NULL);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_device_debug_errno(dev, r, "Failed to get devnum, ignoring: %m");
 
                         if (streq(action, "move")) {
-                                r = device_copy_properties(dev, clone);
+                                r = device_copy_properties(dev, event->dev_db_clone);
                                 if (r < 0)
                                         log_device_debug_errno(dev, r, "Failed to copy properties from cloned device, ignoring: %m");
                         }
                 } else
                         /* Disable watch during event processing. */
-                        (void) udev_watch_end(clone);
+                        (void) udev_watch_end(event->dev_db_clone);
         }
 
         (void) udev_rules_apply_to_event(rules, event,
@@ -863,12 +862,12 @@ int udev_event_execute_rules(struct udev_event *event,
         (void) update_devnode(event);
 
         /* preserve old, or get new initialization timestamp */
-        r = device_ensure_usec_initialized(dev, clone);
+        r = device_ensure_usec_initialized(dev, event->dev_db_clone);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to set initialization timestamp, ignoring: %m");
 
         /* (re)write database file */
-        r = device_tag_index(dev, clone, true);
+        r = device_tag_index(dev, event->dev_db_clone, true);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to update tags under /run/udev/tag/, ignoring: %m");
 
@@ -878,7 +877,7 @@ int udev_event_execute_rules(struct udev_event *event,
 
         device_set_is_initialized(dev);
 
-        event->dev_db = udev_device_unref(event->dev_db);
+        event->dev_db_clone = sd_device_unref(event->dev_db_clone);
 
         return 0;
 }
@@ -895,7 +894,7 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
                 udev_event_apply_format(event, cmd, command, sizeof(command), false);
 
                 if (builtin_cmd >= 0 && builtin_cmd < _UDEV_BUILTIN_MAX)
-                        udev_builtin_run(event->dev->device, builtin_cmd, command, false);
+                        udev_builtin_run(event->dev, builtin_cmd, command, false);
                 else {
                         if (event->exec_delay > 0) {
                                 log_debug("delay execution of '%s'", command);

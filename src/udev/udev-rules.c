@@ -16,13 +16,15 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "def.h"
+#include "device-private.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"
-#include "libudev-device-internal.h"
+#include "libudev-private.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "stat-util.h"
@@ -556,7 +558,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
         return gid;
 }
 
-static int import_property_from_string(struct udev_device *dev, char *line) {
+static int import_property_from_string(sd_device *dev, char *line) {
         char *key;
         char *val;
         size_t len;
@@ -568,12 +570,12 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
 
         /* comment or empty line */
         if (IN_SET(key[0], '#', '\0'))
-                return -1;
+                return 0;
 
         /* split key/value */
         val = strchr(key, '=');
-        if (val == NULL)
-                return -1;
+        if (!val)
+                return -EINVAL;
         val[0] = '\0';
         val++;
 
@@ -584,7 +586,7 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
         /* terminate key */
         len = strlen(key);
         if (len == 0)
-                return -1;
+                return -EINVAL;
         while (isspace(key[len-1]))
                 len--;
         key[len] = '\0';
@@ -592,30 +594,28 @@ static int import_property_from_string(struct udev_device *dev, char *line) {
         /* terminate value */
         len = strlen(val);
         if (len == 0)
-                return -1;
+                return -EINVAL;
         while (isspace(val[len-1]))
                 len--;
         val[len] = '\0';
 
         if (len == 0)
-                return -1;
+                return -EINVAL;
 
         /* unquote */
         if (IN_SET(val[0], '"', '\'')) {
                 if (len == 1 || val[len-1] != val[0]) {
                         log_debug("inconsistent quoting: '%s', skip", line);
-                        return -1;
+                        return -EINVAL;
                 }
                 val[len-1] = '\0';
                 val++;
         }
 
-        udev_device_add_property(dev, key, val);
-
-        return 0;
+        return device_add_property(dev, key, val);
 }
 
-static int import_file_into_properties(struct udev_device *dev, const char *filename) {
+static int import_file_into_properties(sd_device *dev, const char *filename) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -665,24 +665,21 @@ static int import_program_into_properties(struct udev_event *event,
         return 0;
 }
 
-static int import_parent_into_properties(struct udev_device *dev, const char *filter) {
-        struct udev_device *dev_parent;
-        struct udev_list_entry *list_entry;
+static int import_parent_into_properties(sd_device *dev, const char *filter) {
+        const char *key, *val;
+        sd_device *parent;
+        int r;
 
         assert(dev);
         assert(filter);
 
-        dev_parent = udev_device_get_parent(dev);
-        if (dev_parent == NULL)
-                return -1;
+        r = sd_device_get_parent(dev, &parent);
+        if (r < 0)
+                return r;
 
-        udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(dev_parent)) {
-                const char *key = udev_list_entry_get_name(list_entry);
-                const char *val = udev_list_entry_get_value(list_entry);
-
+        FOREACH_DEVICE_PROPERTY(parent, key, val)
                 if (fnmatch(filter, key, 0) == 0)
-                        udev_device_add_property(dev, key, val);
-        }
+                        device_add_property(dev, key, val);
         return 0;
 }
 
@@ -1517,16 +1514,17 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
 
 struct udev_rules *udev_rules_new(int resolve_names) {
         struct udev_rules *rules;
-        struct udev_list file_list;
         struct token end_token;
         char **files, **f;
         int r;
 
-        rules = new0(struct udev_rules, 1);
-        if (rules == NULL)
+        rules = new(struct udev_rules, 1);
+        if (!rules)
                 return NULL;
-        rules->resolve_names = resolve_names;
-        udev_list_init(NULL, &file_list, true);
+
+        *rules = (struct udev_rules) {
+                .resolve_names = resolve_names,
+        };
 
         /* init token array and string buffer */
         rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
@@ -1672,11 +1670,9 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
         return -1;
 }
 
-static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct udev_event *event, struct token *cur) {
-        const char *name;
-        char nbuf[UTIL_NAME_SIZE];
-        const char *value;
-        char vbuf[UTIL_NAME_SIZE];
+static int match_attr(struct udev_rules *rules, sd_device *dev, struct udev_event *event, struct token *cur) {
+        char nbuf[UTIL_NAME_SIZE], vbuf[UTIL_NAME_SIZE];
+        const char *name, *value;
         size_t len;
 
         name = rules_str(rules, cur->key.attr_off);
@@ -1686,8 +1682,7 @@ static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct 
                 name = nbuf;
                 _fallthrough_;
         case SB_NONE:
-                value = udev_device_get_sysattr_value(dev, name);
-                if (value == NULL)
+                if (sd_device_get_sysattr_value(dev, name, &value) < 0)
                         return -1;
                 break;
         case SB_SUBSYS:
@@ -1732,18 +1727,23 @@ int udev_rules_apply_to_event(
                 usec_t timeout_usec,
                 usec_t timeout_warn_usec,
                 Hashmap *properties_list) {
-        struct token *cur;
-        struct token *rule;
+        sd_device *dev = event->dev;
         enum escape_type esc = ESCAPE_UNSET;
+        struct token *cur, *rule;
+        const char *action, *val;
         bool can_set_name;
         int r;
 
         if (!rules->tokens)
                 return 0;
 
-        can_set_name = ((!streq(udev_device_get_action(event->dev), "remove")) &&
-                        (major(udev_device_get_devnum(event->dev)) > 0 ||
-                         udev_device_get_ifindex(event->dev) > 0));
+        r = sd_device_get_property_value(dev, "ACTION", &action);
+        if (r < 0)
+                return r;
+
+        can_set_name = (!streq(action, "remove") &&
+                        (sd_device_get_devnum(dev, NULL) >= 0 ||
+                         sd_device_get_ifindex(dev, NULL) >= 0));
 
         /* loop through token list, match, run actions or forward to next rule */
         cur = &rules->tokens[0];
@@ -1760,30 +1760,31 @@ int udev_rules_apply_to_event(
                         esc = ESCAPE_UNSET;
                         break;
                 case TK_M_ACTION:
-                        if (match_key(rules, cur, udev_device_get_action(event->dev)) != 0)
+                        if (match_key(rules, cur, action) != 0)
                                 goto nomatch;
                         break;
                 case TK_M_DEVPATH:
-                        if (match_key(rules, cur, udev_device_get_devpath(event->dev)) != 0)
+                        if (sd_device_get_devpath(dev, &val) < 0)
+                                goto nomatch;
+                        if (match_key(rules, cur, val) != 0)
                                 goto nomatch;
                         break;
                 case TK_M_KERNEL:
-                        if (match_key(rules, cur, udev_device_get_sysname(event->dev)) != 0)
+                        if (sd_device_get_sysname(dev, &val) < 0)
+                                goto nomatch;
+                        if (match_key(rules, cur, val) != 0)
                                 goto nomatch;
                         break;
                 case TK_M_DEVLINK: {
-                        struct udev_list_entry *list_entry;
+                        const char *devlink;
                         bool match = false;
 
-                        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(event->dev)) {
-                                const char *devlink;
-
-                                devlink = udev_list_entry_get_name(list_entry) + STRLEN("/dev/");
-                                if (match_key(rules, cur, devlink) == 0) {
+                        FOREACH_DEVICE_DEVLINK(dev, devlink)
+                                if (match_key(rules, cur, devlink + STRLEN("/dev/")) == 0) {
                                         match = true;
                                         break;
                                 }
-                        }
+
                         if (!match)
                                 goto nomatch;
                         break;
@@ -1794,43 +1795,48 @@ int udev_rules_apply_to_event(
                         break;
                 case TK_M_ENV: {
                         const char *key_name = rules_str(rules, cur->key.attr_off);
-                        const char *value;
 
-                        value = udev_device_get_property_value(event->dev, key_name);
+                        if (sd_device_get_property_value(dev, key_name, &val) < 0) {
+                                /* check global properties */
+                                if (properties_list)
+                                        val = hashmap_get(properties_list, key_name);
+                                else
+                                        val = NULL;
+                        }
 
-                        /* check global properties */
-                        if (!value && properties_list)
-                                value = hashmap_get(properties_list, key_name);
-
-                        if (match_key(rules, cur, strempty(value)))
+                        if (match_key(rules, cur, strempty(val)))
                                 goto nomatch;
                         break;
                 }
                 case TK_M_TAG: {
-                        struct udev_list_entry *list_entry;
                         bool match = false;
+                        const char *tag;
 
-                        udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(event->dev)) {
-                                if (streq(rules_str(rules, cur->key.value_off), udev_list_entry_get_name(list_entry))) {
+                        FOREACH_DEVICE_TAG(dev, tag)
+                                if (streq(rules_str(rules, cur->key.value_off), tag)) {
                                         match = true;
                                         break;
                                 }
-                        }
+
                         if ((!match && (cur->key.op != OP_NOMATCH)) ||
                             (match && (cur->key.op == OP_NOMATCH)))
                                 goto nomatch;
                         break;
                 }
                 case TK_M_SUBSYSTEM:
-                        if (match_key(rules, cur, udev_device_get_subsystem(event->dev)) != 0)
+                        if (sd_device_get_subsystem(dev, &val) < 0)
+                                goto nomatch;
+                        if (match_key(rules, cur, val) != 0)
                                 goto nomatch;
                         break;
                 case TK_M_DRIVER:
-                        if (match_key(rules, cur, udev_device_get_driver(event->dev)) != 0)
+                        if (sd_device_get_driver(dev, &val) < 0)
+                                goto nomatch;
+                        if (match_key(rules, cur, val) != 0)
                                 goto nomatch;
                         break;
                 case TK_M_ATTR:
-                        if (match_attr(rules, event->dev, event, cur) != 0)
+                        if (match_attr(rules, dev, event, cur) != 0)
                                 goto nomatch;
                         break;
                 case TK_M_SYSCTL: {
@@ -1863,7 +1869,7 @@ int udev_rules_apply_to_event(
                                 next++;
 
                         /* loop over parents */
-                        event->dev_parent = event->dev;
+                        event->dev_parent = dev;
                         for (;;) {
                                 struct token *key;
 
@@ -1872,15 +1878,21 @@ int udev_rules_apply_to_event(
                                         dump_token(rules, key);
                                         switch(key->type) {
                                         case TK_M_KERNELS:
-                                                if (match_key(rules, key, udev_device_get_sysname(event->dev_parent)) != 0)
+                                                if (sd_device_get_sysname(event->dev_parent, &val) < 0)
+                                                        goto try_parent;
+                                                if (match_key(rules, key, val) != 0)
                                                         goto try_parent;
                                                 break;
                                         case TK_M_SUBSYSTEMS:
-                                                if (match_key(rules, key, udev_device_get_subsystem(event->dev_parent)) != 0)
+                                                if (sd_device_get_subsystem(event->dev_parent, &val) < 0)
+                                                        goto try_parent;
+                                                if (match_key(rules, key, val) != 0)
                                                         goto try_parent;
                                                 break;
                                         case TK_M_DRIVERS:
-                                                if (match_key(rules, key, udev_device_get_driver(event->dev_parent)) != 0)
+                                                if (sd_device_get_driver(event->dev_parent, &val) < 0)
+                                                        goto try_parent;
+                                                if (match_key(rules, key, val) != 0)
                                                         goto try_parent;
                                                 break;
                                         case TK_M_ATTRS:
@@ -1888,7 +1900,7 @@ int udev_rules_apply_to_event(
                                                         goto try_parent;
                                                 break;
                                         case TK_M_TAGS: {
-                                                bool match = udev_device_has_tag(event->dev_parent, rules_str(rules, cur->key.value_off));
+                                                bool match = sd_device_has_tag(event->dev_parent, rules_str(rules, cur->key.value_off));
 
                                                 if (match && key->key.op == OP_NOMATCH)
                                                         goto try_parent;
@@ -1903,9 +1915,10 @@ int udev_rules_apply_to_event(
                                 break;
 
                         try_parent:
-                                event->dev_parent = udev_device_get_parent(event->dev_parent);
-                                if (event->dev_parent == NULL)
+                                if (sd_device_get_parent(event->dev_parent, &event->dev_parent) < 0) {
+                                        event->dev_parent = NULL;
                                         goto nomatch;
+                                }
                         }
                         /* move behind our sequence of parent match keys */
                         cur = next;
@@ -1921,9 +1934,11 @@ int udev_rules_apply_to_event(
                                 if (filename[0] != '/') {
                                         char tmp[UTIL_PATH_SIZE];
 
+                                        if (sd_device_get_syspath(dev, &val) < 0)
+                                                goto nomatch;
+
                                         strscpy(tmp, sizeof(tmp), filename);
-                                        strscpyl(filename, sizeof(filename),
-                                                      udev_device_get_syspath(event->dev), "/", tmp, NULL);
+                                        strscpyl(filename, sizeof(filename), val, "/", tmp, NULL);
                                 }
                         }
                         attr_subst_subdir(filename, sizeof(filename));
@@ -1938,8 +1953,7 @@ int udev_rules_apply_to_event(
                         break;
                 }
                 case TK_M_PROGRAM: {
-                        char program[UTIL_PATH_SIZE];
-                        char result[UTIL_LINE_SIZE];
+                        char program[UTIL_PATH_SIZE], result[UTIL_LINE_SIZE];
 
                         event->program_result = mfree(event->program_result);
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), program, sizeof(program), false);
@@ -1970,7 +1984,7 @@ int udev_rules_apply_to_event(
                         char import[UTIL_PATH_SIZE];
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), import, sizeof(import), false);
-                        if (import_file_into_properties(event->dev, import) != 0)
+                        if (import_file_into_properties(dev, import) != 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
@@ -2015,7 +2029,7 @@ int udev_rules_apply_to_event(
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
 
-                        r = udev_builtin_run(event->dev->device, cur->key.builtin_cmd, command, false);
+                        r = udev_builtin_run(dev, cur->key.builtin_cmd, command, false);
                         if (r < 0) {
                                 /* remember failure */
                                 log_debug_errno(r, "IMPORT builtin '%s' fails: %m",
@@ -2027,16 +2041,13 @@ int udev_rules_apply_to_event(
                         break;
                 }
                 case TK_M_IMPORT_DB: {
-                        const char *key = rules_str(rules, cur->key.value_off);
-                        const char *value;
+                        const char *key;
 
-                        value = udev_device_get_property_value(event->dev_db, key);
-                        if (value != NULL)
-                                udev_device_add_property(event->dev, key, value);
-                        else {
-                                if (cur->key.op != OP_NOMATCH)
-                                        goto nomatch;
-                        }
+                        key = rules_str(rules, cur->key.value_off);
+                        if (sd_device_get_property_value(event->dev_db_clone, key, &val) >= 0)
+                                device_add_property(dev, key, val);
+                        else if (cur->key.op != OP_NOMATCH)
+                                goto nomatch;
                         break;
                 }
                 case TK_M_IMPORT_CMDLINE: {
@@ -2045,7 +2056,6 @@ int udev_rules_apply_to_event(
                         const char *key;
 
                         key = rules_str(rules, cur->key.value_off);
-
                         r = proc_cmdline_get_key(key, PROC_CMDLINE_VALUE_OPTIONAL, &value);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to read %s from /proc/cmdline, ignoring: %m", key);
@@ -2053,10 +2063,10 @@ int udev_rules_apply_to_event(
                                 imported = true;
 
                                 if (value)
-                                        udev_device_add_property(event->dev, key, value);
+                                        device_add_property(dev, key, value);
                                 else
                                         /* we import simple flags as 'FLAG=1' */
-                                        udev_device_add_property(event->dev, key, "1");
+                                        device_add_property(dev, key, "1");
                         }
 
                         if (!imported && cur->key.op != OP_NOMATCH)
@@ -2067,7 +2077,7 @@ int udev_rules_apply_to_event(
                         char import[UTIL_PATH_SIZE];
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), import, sizeof(import), false);
-                        if (import_parent_into_properties(event->dev, import) != 0)
+                        if (import_parent_into_properties(dev, import) != 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
@@ -2083,7 +2093,7 @@ int udev_rules_apply_to_event(
                         esc = ESCAPE_REPLACE;
                         break;
                 case TK_A_DB_PERSIST:
-                        udev_device_set_db_persist(event->dev);
+                        device_set_db_persist(dev);
                         break;
                 case TK_A_INOTIFY_WATCH:
                         if (event->inotify_watch_final)
@@ -2093,7 +2103,7 @@ int udev_rules_apply_to_event(
                         event->inotify_watch = cur->key.watch;
                         break;
                 case TK_A_DEVLINK_PRIO:
-                        udev_device_set_devlink_priority(event->dev, cur->key.devlink_prio);
+                        device_set_devlink_priority(dev, cur->key.devlink_prio);
                         break;
                 case TK_A_OWNER: {
                         char owner[UTIL_NAME_SIZE];
@@ -2138,9 +2148,8 @@ int udev_rules_apply_to_event(
                         break;
                 }
                 case TK_A_MODE: {
-                        char mode_str[UTIL_NAME_SIZE];
+                        char mode_str[UTIL_NAME_SIZE], *endptr;
                         mode_t mode;
-                        char *endptr;
 
                         if (event->mode_final)
                                 break;
@@ -2232,30 +2241,29 @@ int udev_rules_apply_to_event(
                         break;
                 }
                 case TK_A_ENV: {
-                        const char *name = rules_str(rules, cur->key.attr_off);
-                        char *value = rules_str(rules, cur->key.value_off);
                         char value_new[UTIL_NAME_SIZE];
-                        const char *value_old = NULL;
+                        const char *name, *value_old;
 
-                        if (value[0] == '\0') {
+                        name = rules_str(rules, cur->key.attr_off);
+                        val = rules_str(rules, cur->key.value_off);
+                        if (val[0] == '\0') {
                                 if (cur->key.op == OP_ADD)
                                         break;
-                                udev_device_add_property(event->dev, name, NULL);
+                                device_add_property(dev, name, NULL);
                                 break;
                         }
 
-                        if (cur->key.op == OP_ADD)
-                                value_old = udev_device_get_property_value(event->dev, name);
-                        if (value_old) {
+                        if (cur->key.op == OP_ADD &&
+                            sd_device_get_property_value(dev, name, &value_old) >= 0) {
                                 char temp[UTIL_NAME_SIZE];
 
                                 /* append value separated by space */
-                                udev_event_apply_format(event, value, temp, sizeof(temp), false);
+                                udev_event_apply_format(event, val, temp, sizeof(temp), false);
                                 strscpyl(value_new, sizeof(value_new), value_old, " ", temp, NULL);
                         } else
-                                udev_event_apply_format(event, value, value_new, sizeof(value_new), false);
+                                udev_event_apply_format(event, val, value_new, sizeof(value_new), false);
 
-                        udev_device_add_property(event->dev, name, value_new);
+                        device_add_property(dev, name, value_new);
                         break;
                 }
                 case TK_A_TAG: {
@@ -2264,7 +2272,7 @@ int udev_rules_apply_to_event(
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), tag, sizeof(tag), false);
                         if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
-                                udev_device_cleanup_tags_list(event->dev);
+                                device_cleanup_tags(dev);
                         for (p = tag; *p != '\0'; p++) {
                                 if ((*p >= 'a' && *p <= 'z') ||
                                     (*p >= 'A' && *p <= 'Z') ||
@@ -2275,17 +2283,17 @@ int udev_rules_apply_to_event(
                                 break;
                         }
                         if (cur->key.op == OP_REMOVE)
-                                udev_device_remove_tag(event->dev, tag);
+                                device_remove_tag(dev, tag);
                         else
-                                udev_device_add_tag(event->dev, tag);
+                                device_add_tag(dev, tag);
                         break;
                 }
                 case TK_A_NAME: {
-                        const char *name  = rules_str(rules, cur->key.value_off);
-
                         char name_str[UTIL_PATH_SIZE];
+                        const char *name;
                         int count;
 
+                        name = rules_str(rules, cur->key.value_off);
                         if (event->name_final)
                                 break;
                         if (cur->key.op == OP_ASSIGN_FINAL)
@@ -2296,8 +2304,9 @@ int udev_rules_apply_to_event(
                                 if (count > 0)
                                         log_debug("%i character(s) replaced", count);
                         }
-                        if (major(udev_device_get_devnum(event->dev)) &&
-                            !streq(name_str, udev_device_get_devnode(event->dev) + STRLEN("/dev/"))) {
+                        if (sd_device_get_devnum(dev, NULL) >= 0 &&
+                            (sd_device_get_devname(dev, &val) < 0 ||
+                             !streq(name_str, val + STRLEN("/dev/")))) {
                                 log_error("NAME=\"%s\" ignored, kernel device nodes cannot be renamed; please fix it in %s:%u\n",
                                           name,
                                           rules_str(rules, rule->rule.filename_off),
@@ -2314,19 +2323,17 @@ int udev_rules_apply_to_event(
                         break;
                 }
                 case TK_A_DEVLINK: {
-                        char temp[UTIL_PATH_SIZE];
-                        char filename[UTIL_PATH_SIZE];
-                        char *pos, *next;
+                        char temp[UTIL_PATH_SIZE], filename[UTIL_PATH_SIZE], *pos, *next;
                         int count = 0;
 
                         if (event->devlink_final)
                                 break;
-                        if (major(udev_device_get_devnum(event->dev)) == 0)
+                        if (sd_device_get_devnum(dev, NULL) < 0)
                                 break;
                         if (cur->key.op == OP_ASSIGN_FINAL)
                                 event->devlink_final = true;
                         if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
-                                udev_device_cleanup_devlinks_list(event->dev);
+                                device_cleanup_devlinks(dev);
 
                         /* allow  multiple symlinks separated by spaces */
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), temp, sizeof(temp), esc != ESCAPE_NONE);
@@ -2340,12 +2347,12 @@ int udev_rules_apply_to_event(
                         while (isspace(pos[0]))
                                 pos++;
                         next = strchr(pos, ' ');
-                        while (next != NULL) {
+                        while (next) {
                                 next[0] = '\0';
                                 log_debug("LINK '%s' %s:%u", pos,
                                           rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
                                 strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
-                                udev_device_add_devlink(event->dev, filename);
+                                device_add_devlink(dev, filename);
                                 while (isspace(next[1]))
                                         next++;
                                 pos = &next[1];
@@ -2355,18 +2362,19 @@ int udev_rules_apply_to_event(
                                 log_debug("LINK '%s' %s:%u", pos,
                                           rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
                                 strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
-                                udev_device_add_devlink(event->dev, filename);
+                                device_add_devlink(dev, filename);
                         }
                         break;
                 }
                 case TK_A_ATTR: {
-                        const char *key_name = rules_str(rules, cur->key.attr_off);
-                        char attr[UTIL_PATH_SIZE];
-                        char value[UTIL_NAME_SIZE];
+                        char attr[UTIL_PATH_SIZE], value[UTIL_NAME_SIZE];
                         _cleanup_fclose_ FILE *f = NULL;
+                        const char *key_name;
 
-                        if (util_resolve_subsys_kernel(key_name, attr, sizeof(attr), 0) != 0)
-                                strscpyl(attr, sizeof(attr), udev_device_get_syspath(event->dev), "/", key_name, NULL);
+                        key_name = rules_str(rules, cur->key.attr_off);
+                        if (util_resolve_subsys_kernel(key_name, attr, sizeof(attr), 0) != 0 &&
+                            sd_device_get_syspath(dev, &val) >= 0)
+                                strscpyl(attr, sizeof(attr), val, "/", key_name, NULL);
                         attr_subst_subdir(attr, sizeof(attr));
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), value, sizeof(value), false);
@@ -2381,8 +2389,7 @@ int udev_rules_apply_to_event(
                         break;
                 }
                 case TK_A_SYSCTL: {
-                        char filename[UTIL_PATH_SIZE];
-                        char value[UTIL_NAME_SIZE];
+                        char filename[UTIL_PATH_SIZE], value[UTIL_NAME_SIZE];
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.attr_off), filename, sizeof(filename), false);
                         sysctl_normalize(filename);

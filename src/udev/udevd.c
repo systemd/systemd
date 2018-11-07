@@ -342,7 +342,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
         pid = fork();
         switch (pid) {
         case 0: {
-                struct udev_device *dev = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
                 _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
                 int fd_monitor;
                 _cleanup_close_ int fd_signal = -1, fd_ep = -1;
@@ -409,14 +409,11 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         assert(dev);
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
-                        udev_event = udev_event_new(dev);
-                        if (udev_event == NULL) {
+                        udev_event = udev_event_new(dev->device, arg_exec_delay, rtnl);
+                        if (!udev_event) {
                                 r = -ENOMEM;
                                 goto out;
                         }
-
-                        if (arg_exec_delay > 0)
-                                udev_event->exec_delay = arg_exec_delay;
 
                         /*
                          * Take a shared lock on the device node; this establishes
@@ -443,9 +440,6 @@ static void worker_spawn(Manager *manager, struct event *event) {
                                 }
                         }
 
-                        /* needed for renaming netifs */
-                        udev_event->rtnl = rtnl;
-
                         /* apply rules, create node, symlinks */
                         udev_event_execute_rules(udev_event,
                                                  arg_event_timeout_usec, arg_event_timeout_warn_usec,
@@ -455,7 +449,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         udev_event_execute_run(udev_event,
                                                arg_event_timeout_usec, arg_event_timeout_warn_usec);
 
-                        if (udev_event->rtnl)
+                        if (!rtnl)
                                 /* in case rtnl was initialized */
                                 rtnl = sd_netlink_ref(udev_event->rtnl);
 
@@ -479,8 +473,7 @@ skip:
                                 log_error_errno(r, "failed to send result of seq %llu to main daemon: %m",
                                                 udev_device_get_seqnum(dev));
 
-                        udev_device_unref(dev);
-                        dev = NULL;
+                        dev = udev_device_unref(dev);
 
                         /* wait for more device messages from main udevd, or term signal */
                         while (dev == NULL) {
