@@ -31,10 +31,7 @@ jobs:
           script:
               - set -e
               # Build systemd
-              - $DOCKER_EXEC meson build
-              - $DOCKER_EXEC ninja -C build
-              # Run 'make check'
-              - $DOCKER_EXEC ninja -C build test
+              - $CI_MANAGERS/fedora.sh RUN
               - set +e
           after_script:
               - $CI_MANAGERS/fedora.sh CLEANUP
