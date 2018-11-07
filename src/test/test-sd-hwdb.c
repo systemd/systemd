@@ -5,7 +5,7 @@
 #include "tests.h"
 
 static int test_failed_enumerate(void) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         const char *key, *value;
         int r;
 
@@ -29,7 +29,7 @@ static int test_failed_enumerate(void) {
         "evdev:atkbd:dmi:bvnXXX:bvrYYY:bdZZZ:svnDellXXX:pnYYY"
 
 static void test_basic_enumerate(void) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb;
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         const char *key, *value;
         size_t len1 = 0, len2 = 0;
         int r;
