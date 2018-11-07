@@ -67,17 +67,51 @@ int rdrand64(uint64_t *ret) {
 
 int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         static int have_syscall = -1;
-
         _cleanup_close_ int fd = -1;
+        bool got_some = false;
         int r;
 
-        /* Gathers some randomness from the kernel. This call won't block, unless the RANDOM_BLOCK flag is set. If
-         * RANDOM_DONT_DRAIN is set, an error is returned if the random pool is not initialized. Otherwise it will
-         * always return some data from the kernel, regardless of whether the random pool is fully initialized or
-         * not. */
+        /* Gathers some randomness from the kernel (or the CPU if the RANDOM_ALLOW_RDRAND flag is set). This call won't
+         * block, unless the RANDOM_BLOCK flag is set. If RANDOM_DONT_DRAIN is set, an error is returned if the random
+         * pool is not initialized. Otherwise it will always return some data from the kernel, regardless of whether
+         * the random pool is fully initialized or not. */
 
         if (n == 0)
                 return 0;
+
+        if (FLAGS_SET(flags, RANDOM_ALLOW_RDRAND))
+                /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality randomness is not
+                 * required, as we don't trust it (who does?). Note that we only do a single iteration of RDRAND here,
+                 * even though the Intel docs suggest calling this in a tight loop of 10 invocations or so. That's
+                 * because we don't really care about the quality here. We generally prefer using RDRAND if the caller
+                 * allows us too, since this way we won't drain the kernel randomness pool if we don't need it, as the
+                 * pool's entropy is scarce. */
+                for (;;) {
+                        uint64_t u;
+                        size_t m;
+
+                        if (rdrand64(&u) < 0) {
+                                if (got_some && FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
+                                        /* Fill in the remaining bytes using pseudo-random values */
+                                        pseudo_random_bytes(p, n);
+                                        return 0;
+                                }
+
+                                /* OK, this didn't work, let's go to getrandom() + /dev/urandom instead */
+                                break;
+                        }
+
+                        m = MIN(sizeof(u), n);
+                        memcpy(p, &u, m);
+
+                        p = (uint8_t*) p + m;
+                        n -= m;
+
+                        if (n == 0)
+                                return 0; /* Yay, success! */
+
+                        got_some = true;
+                }
 
         /* Use the getrandom() syscall unless we know we don't have it. */
         if (have_syscall != 0 && !HAS_FEATURE_MEMORY_SANITIZER) {
@@ -99,6 +133,8 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                         pseudo_random_bytes(p, n);
                                         return 0;
                                 }
+
+                                got_some = true;
 
                                 /* Hmm, we didn't get enough good data but the caller insists on good data? Then try again */
                                 if (FLAGS_SET(flags, RANDOM_BLOCK))
@@ -125,29 +161,14 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                  * but the kernel will produce some bytes for us on a best-effort basis. */
                                 have_syscall = true;
 
-                                if (FLAGS_SET(flags, RANDOM_DONT_DRAIN))
-                                        return -ENODATA;
-
-                                if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
-                                        uint64_t u;
-                                        size_t k;
-
-                                        /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality
-                                         * randomness is not required, as we don't trust it (who does?). Note that we only do a
-                                         * single iteration of RDRAND here, even though the Intel docs suggest calling this in
-                                         * a tight loop of 10 invocatins or so. That's because we don't really care about the
-                                         * quality here. */
-
-                                        if (rdrand64(&u) < 0)
-                                                return -ENODATA;
-
-                                        k = MIN(n, sizeof(u));
-                                        memcpy(p, &u, k);
-
-                                        /* We only get 64bit out of RDRAND, the rest let's fill up with pseudo-random crap. */
-                                        pseudo_random_bytes((uint8_t*) p + k, n - k);
+                                if (got_some && FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
+                                        /* Fill in the remaining bytes using pseudorandom values */
+                                        pseudo_random_bytes(p, n);
                                         return 0;
                                 }
+
+                                if (FLAGS_SET(flags, RANDOM_DONT_DRAIN))
+                                        return -ENODATA;
 
                                 /* Use /dev/urandom instead */
                                 break;
@@ -229,7 +250,7 @@ void pseudo_random_bytes(void *p, size_t n) {
 
 void random_bytes(void *p, size_t n) {
 
-        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO|RANDOM_DONT_DRAIN) >= 0)
+        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO|RANDOM_DONT_DRAIN|RANDOM_ALLOW_RDRAND) >= 0)
                 return;
 
         /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */

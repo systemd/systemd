@@ -272,7 +272,9 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
 
         assert_return(ret, -EINVAL);
 
-        r = genuine_random_bytes(&t, sizeof t, 0);
+        /* We allow usage if x86-64 RDRAND here. It might not be trusted enough for keeping secrets, but it should be
+         * fine for UUIDS. */
+        r = genuine_random_bytes(&t, sizeof t, RANDOM_ALLOW_RDRAND);
         if (r < 0)
                 return r;
 
