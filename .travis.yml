@@ -36,6 +36,25 @@ jobs:
           after_script:
               - $CI_MANAGERS/fedora.sh CLEANUP
 
+        - stage: Build & test with ASan
+          name: Fedora Rawhide
+          language: bash
+          env:
+              - FEDORA_RELEASE="rawhide"
+              - CONT_NAME="systemd-fedora-$FEDORA_RELEASE"
+              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
+          before_install:
+              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+              - docker --version
+          install:
+              - $CI_MANAGERS/fedora.sh SETUP
+          script:
+              - set -e
+              - $CI_MANAGERS/fedora.sh RUN_ASAN
+              - set +e
+          after_script:
+              - $CI_MANAGERS/fedora.sh CLEANUP
+
         - stage: Coverity
           language: bash
           env:
