@@ -93,6 +93,9 @@ int genuine_random_bytes(void *p, size_t n, bool high_quality_required) {
                         }
 
                         already_done = r;
+                } else if (r == 0) {
+                        have_syscall = true;
+                        return -EIO;
                 } else if (errno == ENOSYS)
                           /* We lack the syscall, continue with reading from /dev/urandom. */
                           have_syscall = false;
