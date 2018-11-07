@@ -65,19 +65,17 @@ int rdrand64(uint64_t *ret) {
 #endif
 }
 
-int genuine_random_bytes(void *p, size_t n, bool high_quality_required) {
+int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         static int have_syscall = -1;
 
         _cleanup_close_ int fd = -1;
         size_t already_done = 0;
         int r;
 
-        /* Gathers some randomness from the kernel. This call will never block. If
-         * high_quality_required, it will always return some data from the kernel,
-         * regardless of whether the random pool is fully initialized or not.
-         * Otherwise, it will return success if at least some random bytes were
-         * successfully acquired, and an error if the kernel has no entropy whatsover
-         * for us. */
+        /* Gathers some randomness from the kernel. This call will never block. If RANDOM_EXTEND_WITH_PSEUDO is unset,
+         * it will always return some data from the kernel, regardless of whether the random pool is fully initialized
+         * or not.  Otherwise, it will return success if at least some random bytes were successfully acquired, and an
+         * error if the kernel has no entropy whatsover for us. */
 
         /* Use the getrandom() syscall unless we know we don't have it. */
         if (have_syscall != 0 && !HAS_FEATURE_MEMORY_SANITIZER) {
@@ -86,7 +84,7 @@ int genuine_random_bytes(void *p, size_t n, bool high_quality_required) {
                         have_syscall = true;
                         if ((size_t) r == n)
                                 return 0;
-                        if (!high_quality_required) {
+                        if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
                                 /* Fill in the remaining bytes using pseudorandom values */
                                 pseudo_random_bytes((uint8_t*) p + r, n - r);
                                 return 0;
@@ -110,7 +108,7 @@ int genuine_random_bytes(void *p, size_t n, bool high_quality_required) {
                          * a best-effort basis. */
                         have_syscall = true;
 
-                        if (!high_quality_required) {
+                        if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
                                 uint64_t u;
                                 size_t k;
 
@@ -207,7 +205,7 @@ void pseudo_random_bytes(void *p, size_t n) {
 
 void random_bytes(void *p, size_t n) {
 
-        if (genuine_random_bytes(p, n, false) >= 0)
+        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO) >= 0)
                 return;
 
         /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */

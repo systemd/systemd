@@ -647,7 +647,7 @@ static int process_root_password(void) {
         if (!arg_root_password)
                 return 0;
 
-        r = genuine_random_bytes(raw, 16, true);
+        r = genuine_random_bytes(raw, 16, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to get salt: %m");
 

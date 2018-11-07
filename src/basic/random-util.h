@@ -5,9 +5,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-int genuine_random_bytes(void *p, size_t n, bool high_quality_required); /* returns "genuine" randomness, optionally filled upwith pseudo random, if not enough is available */
-void pseudo_random_bytes(void *p, size_t n);                             /* returns only pseudo-randommess (but possibly seeded from something better) */
-void random_bytes(void *p, size_t n);                                    /* returns genuine randomness if cheaply available, and pseudo randomness if not. */
+typedef enum RandomFlags {
+        RANDOM_EXTEND_WITH_PSEUDO = 1 << 0, /* If we can't get enough genuine randomness, but some, fill up the rest with pseudo-randomness */
+} RandomFlags;
+
+int genuine_random_bytes(void *p, size_t n, RandomFlags flags); /* returns "genuine" randomness, optionally filled upwith pseudo random, if not enough is available */
+void pseudo_random_bytes(void *p, size_t n);                    /* returns only pseudo-randommess (but possibly seeded from something better) */
+void random_bytes(void *p, size_t n);                           /* returns genuine randomness if cheaply available, and pseudo randomness if not. */
 
 void initialize_srand(void);
 

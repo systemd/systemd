@@ -5,14 +5,14 @@
 #include "log.h"
 #include "tests.h"
 
-static void test_genuine_random_bytes(bool high_quality_required) {
+static void test_genuine_random_bytes(RandomFlags flags) {
         uint8_t buf[16] = {};
         unsigned i;
 
         log_info("/* %s */", __func__);
 
         for (i = 1; i < sizeof buf; i++) {
-                assert_se(genuine_random_bytes(buf, i, high_quality_required) == 0);
+                assert_se(genuine_random_bytes(buf, i, flags) == 0);
                 if (i + 1 < sizeof buf)
                         assert_se(buf[i] == 0);
 
@@ -54,8 +54,8 @@ static void test_rdrand64(void) {
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
-        test_genuine_random_bytes(false);
-        test_genuine_random_bytes(true);
+        test_genuine_random_bytes(RANDOM_EXTEND_WITH_PSEUDO);
+        test_genuine_random_bytes(0);
 
         test_pseudo_random_bytes();
 
