@@ -76,6 +76,9 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
          * the random pool is fully initialized or not.  Otherwise, it will return success if at least some random
          * bytes were successfully acquired, and an error if the kernel has no entropy whatsover for us. */
 
+        if (n == 0)
+                return 0;
+
         /* Use the getrandom() syscall unless we know we don't have it. */
         if (have_syscall != 0 && !HAS_FEATURE_MEMORY_SANITIZER) {
 
