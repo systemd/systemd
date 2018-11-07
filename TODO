@@ -25,6 +25,10 @@ Features:
 
 * when we fork off generators and such, lower LIMIT_NOFILE soft limit to 1K
 
+* rework seccomp/nnp logic that that even if User= is used in combination with
+  a seccomp option we don't have to set NNP. For that, change uid first whil
+  keeping CAP_SYS_ADMIN, then apply seccomp, the drop cap.
+
 * add a concept for automatically loading per-unit secrets off disk and
   inserting them into the kernel keyring. Maybe SecretsDirectory= similar to
   ConfigurationDirectory=.
@@ -48,6 +52,9 @@ Features:
   fileio.h and elsewhere!) into a new util file of its own.
 
 * set memory.oom.group in cgroupsv2 for all leaf cgroups (kernel v4.19+)
+
+* add a new syscall group "@esoteric" for more esoteric stuff such as bpf() and
+  usefaultd() and make systemd-analyze check for it.
 
 * drop umask() calls and suchlike from our generators, pid1 should set things up correctly anyway
 
@@ -289,9 +296,6 @@ Features:
 
 * beef up pam_systemd to take unit file settings such as cgroups properties as
   parameters
-
-* a new "systemd-analyze security" tool outputting a checklist of security
-  features a service does and does not implement
 
 * maybe hook of xfs/ext4 quotactl() with services? i.e. automatically manage
   the quota of a the user indicated in User= via unit file settings, like the
