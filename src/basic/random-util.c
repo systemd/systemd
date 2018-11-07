@@ -97,8 +97,8 @@ int genuine_random_bytes(void *p, size_t n, bool high_quality_required) {
                         have_syscall = true;
                         return -EIO;
                 } else if (errno == ENOSYS)
-                          /* We lack the syscall, continue with reading from /dev/urandom. */
-                          have_syscall = false;
+                        /* We lack the syscall, continue with reading from /dev/urandom. */
+                        have_syscall = false;
                 else if (errno == EAGAIN) {
                         /* The kernel has no entropy whatsoever. Let's remember to
                          * use the syscall the next time again though.
