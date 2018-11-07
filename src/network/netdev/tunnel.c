@@ -114,6 +114,18 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
 
+        if (t->sixrd_prefixlen > 0) {
+                r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, &t->sixrd_prefix);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_6RD_PREFIX attribute: %m");
+                /* u16 is deliberate here, even though we're passing a netmask that can never be >128. The kernel is
+                 * expecting to receive the prefixlen as a u16.
+                 */
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, t->sixrd_prefixlen);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_6RD_PREFIXLEN attribute: %m");
+        }
+
         return r;
 }
 
@@ -613,6 +625,42 @@ int config_parse_encap_limit(const char* unit,
                         t->flags &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;
                 }
         }
+
+        return 0;
+}
+
+int config_parse_6rd_prefix(const char* unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
+        Tunnel *t = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        union in_addr_union p;
+        uint8_t l;
+        int r;
+
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, &p, &l);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse 6rd prefix \"%s\", ignoring: %m", rvalue);
+                return 0;
+        }
+        if (l == 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "6rd prefix length of \"%s\" must be greater than zero, ignoring", rvalue);
+                return 0;
+        }
+
+        t->sixrd_prefix = p.in6;
+        t->sixrd_prefixlen = l;
 
         return 0;
 }

@@ -70,6 +70,7 @@ Tunnel.FooOverUDP,                 config_parse_bool,                    0,     
 Tunnel.FOUDestinationPort,         config_parse_ip_port,                 0,                             offsetof(Tunnel, fou_destination_port)
 Tunnel.FOUSourcePort,              config_parse_ip_port,                 0,                             offsetof(Tunnel, encap_src_port)
 Tunnel.Encapsulation,              config_parse_fou_encap_type,          0,                             offsetof(Tunnel, fou_encap_type)
+Tunnel.IPv6RapidDeploymentPrefix,  config_parse_6rd_prefix,              0,                             0
 FooOverUDP.Protocol,               config_parse_uint8,                   0,                             offsetof(FouTunnel, fou_protocol)
 FooOverUDP.Encapsulation,          config_parse_fou_encap_type,          0,                             offsetof(FouTunnel, fou_encap_type)
 FooOverUDP.Port,                   config_parse_ip_port,                 0,                             offsetof(FouTunnel, port)
