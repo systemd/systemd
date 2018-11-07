@@ -46,17 +46,14 @@ struct Wireguard {
         NetDev meta;
         unsigned last_peer_section;
 
-        char interface[IFNAMSIZ];
         uint32_t flags;
 
-        uint8_t public_key[WG_KEY_LEN];
         uint8_t private_key[WG_KEY_LEN];
         uint32_t fwmark;
 
         uint16_t port;
 
         LIST_HEAD(WireguardPeer, peers);
-        size_t allocation_size;
 
         LIST_HEAD(WireguardEndpoint, unresolved_endpoints);
         LIST_HEAD(WireguardEndpoint, failed_endpoints);
