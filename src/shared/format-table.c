@@ -70,6 +70,8 @@ typedef struct TableData {
                 uint64_t size;
                 char string[0];
                 uint32_t uint32;
+                uint64_t uint64;
+                int percent;        /* we use 'int' as datatype for percent values in order to match the result of parse_percent() */
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -219,10 +221,14 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return sizeof(usec_t);
 
         case TABLE_SIZE:
+        case TABLE_UINT64:
                 return sizeof(uint64_t);
 
         case TABLE_UINT32:
                 return sizeof(uint32_t);
+
+        case TABLE_PERCENT:
+                return sizeof(int);
 
         default:
                 assert_not_reached("Uh? Unexpected cell type");
@@ -583,6 +589,8 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         uint64_t size;
                         usec_t usec;
                         uint32_t uint32;
+                        uint64_t uint64;
+                        int percent;
                         bool b;
                 } buffer;
 
@@ -615,6 +623,16 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_UINT32:
                         buffer.uint32 = va_arg(ap, uint32_t);
                         data = &buffer.uint32;
+                        break;
+
+                case TABLE_UINT64:
+                        buffer.uint64 = va_arg(ap, uint64_t);
+                        data = &buffer.uint64;
+                        break;
+
+                case TABLE_PERCENT:
+                        buffer.percent = va_arg(ap, int);
+                        data = &buffer.percent;
                         break;
 
                 case _TABLE_DATA_TYPE_MAX:
@@ -740,6 +758,12 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_UINT32:
                         return CMP(a->uint32, b->uint32);
 
+                case TABLE_UINT64:
+                        return CMP(a->uint64, b->uint64);
+
+                case TABLE_PERCENT:
+                        return CMP(a->percent, b->percent);
+
                 default:
                         ;
                 }
@@ -846,6 +870,30 @@ static const char *table_data_format(TableData *d) {
                         return NULL;
 
                 sprintf(p, "%" PRIu32, d->uint32);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_UINT64: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->uint64) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%" PRIu64, d->uint64);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_PERCENT: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->percent) + 2);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%i%%" , d->percent);
                 d->formatted = TAKE_PTR(p);
                 break;
         }
