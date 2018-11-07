@@ -42,10 +42,10 @@ jobs:
               - FEDORA_RELEASE="latest"
               - CONT_NAME="coverity-fedora-$FEDORA_RELEASE"
               - DOCKER_EXEC="docker exec -ti $CONT_NAME"
-              - DOCKER_RUN="docker run --env-file .cov-env"
+              - TOOL_BASE="/var/tmp/coverity-scan-analysis"
+              - DOCKER_RUN="docker run -v $TOOL_BASE:$TOOL_BASE:rw --env-file .cov-env"
               # Coverity env variables
               - PLATFORM="$(uname)"
-              - TOOL_BASE="/var/tmp/coverity-scan-analysis"
               - TOOL_ARCHIVE="/var/tmp/cov-analysis-$PLATFORM.tgz
               - SCAN_URL="https://scan.coverity.com"
               - UPLOAD_URL="https://scan.coverity.com/builds"
