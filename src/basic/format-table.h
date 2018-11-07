@@ -53,6 +53,7 @@ void table_set_header(Table *table, bool b);
 void table_set_width(Table *t, size_t width);
 int table_set_display(Table *t, size_t first_column, ...);
 int table_set_sort(Table *t, size_t first_column, ...);
+int table_set_reverse(Table *t, size_t column, bool b);
 
 int table_print(Table *t, FILE *f);
 int table_format(Table *t, char **ret);

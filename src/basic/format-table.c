@@ -107,6 +107,8 @@ struct Table {
 
         size_t *sort_map;     /* The columns to order rows by, in order of preference. */
         size_t n_sort_map;
+
+        bool *reverse_map;
 };
 
 Table *table_new_raw(size_t n_columns) {
@@ -215,6 +217,7 @@ Table *table_unref(Table *t) {
         free(t->data);
         free(t->display_map);
         free(t->sort_map);
+        free(t->reverse_map);
 
         return mfree(t);
 }
@@ -836,7 +839,7 @@ static int table_data_compare(const void *x, const void *y, void *userdata) {
 
                 r = cell_data_compare(d, *a, dd, *b);
                 if (r != 0)
-                        return r;
+                        return t->reverse_map && t->reverse_map[t->sort_map[i]] ? -r : r;
         }
 
         /* Order identical lines by the order there were originally added in */
@@ -1355,4 +1358,21 @@ size_t table_get_columns(Table *t) {
 
         assert(t->n_columns > 0);
         return t->n_columns;
+}
+
+int table_set_reverse(Table *t, size_t column, bool b) {
+        assert(t);
+        assert(column < t->n_columns);
+
+        if (!t->reverse_map) {
+                if (!b)
+                        return 0;
+
+                t->reverse_map = new0(bool, t->n_columns);
+                if (!t->reverse_map)
+                        return -ENOMEM;
+        }
+
+        t->reverse_map[column] = b;
+        return 0;
 }
