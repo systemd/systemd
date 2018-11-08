@@ -73,7 +73,8 @@
     backslash is replaced by a space character. This may be used to wrap long lines. The limit on
     line length is very large (currently 1 MB), but it is recommended to avoid such long lines and
     use multiple directives, variable substitution, or other mechanism as appropriate for the given
-    file type.</para>
+    file type. When a comment line or lines follow a line ending with a backslash, the comment block
+    is ignored, so the continued line is concatenated with whatever follows the comment block.</para>
 
     <example><programlisting>[Section A]
 KeyOne=value 1
@@ -84,6 +85,12 @@ KeyTwo=value 2
 [Section B]
 Setting="something" "some thing" "…"
 KeyTwo=value 2 \
+       value 2 continued
+
+[Section C]
+KeyThree=value 2\
+# this line is ignored
+; this line is ignored too
        value 2 continued
 </programlisting></example>
 
