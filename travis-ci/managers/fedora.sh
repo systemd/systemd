@@ -15,7 +15,7 @@ CONT_NAME="${CONT_NAME:-fedora-$FEDORA_RELEASE-$RANDOM}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(dnf-plugins-core python2 iputils hostname libasan python3-pyparsing python3-evdev)
+ADDITIONAL_DEPS=(dnf-plugins-core python2 iputils hostname libasan python3-pyparsing python3-evdev libubsan)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
@@ -51,9 +51,11 @@ for phase in "${PHASES[@]}"; do
             ;;
         RUN_ASAN)
             $DOCKER_EXEC git clean -dxff
-            $DOCKER_EXEC meson -Db_sanitize=address build
+            $DOCKER_EXEC meson -Db_sanitize=address,undefined build
             $DOCKER_EXEC ninja -v -C build
-            $DOCKER_EXEC ninja -C build test
+
+            # Never remove halt_on_error from UBSAN_OPTIONS. See https://github.com/systemd/systemd/commit/2614d83aa06592aedb.
+            $DOCKER_EXEC sh -c "UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1 ninja -C build test"
             ;;
         CLEANUP)
             info "Cleanup phase"
