@@ -1399,7 +1399,7 @@ static int service_spawn(
                 ExecFlags flags,
                 pid_t *_pid) {
 
-        ExecParameters exec_params = {
+        _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags      = flags,
                 .stdin_fd   = -1,
                 .stdout_fd  = -1,
@@ -1538,7 +1538,7 @@ static int service_spawn(
         SET_FLAG(exec_params.flags, EXEC_NSS_BYPASS_BUS,
                  MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
 
-        exec_params.environment = final_env;
+        strv_free_and_replace(exec_params.environment, final_env);
         exec_params.fds = fds;
         exec_params.fd_names = fd_names;
         exec_params.n_socket_fds = n_socket_fds;

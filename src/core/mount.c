@@ -747,7 +747,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 
 static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
 
-        ExecParameters exec_params = {
+        _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
                 .stdin_fd  = -1,
                 .stdout_fd = -1,
