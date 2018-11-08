@@ -11,6 +11,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "analyze-security.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
@@ -1659,6 +1660,19 @@ static int do_verify(int argc, char *argv[], void *userdata) {
         return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
 }
 
+static int do_security(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
+
+        (void) pager_open(arg_no_pager, false);
+
+        return analyze_security(bus, strv_skip(argv, 1), 0);
+}
+
 static int help(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_no_pager, false);
@@ -1696,6 +1710,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  verify FILE...           Check unit files for correctness\n"
                "  calendar SPEC...         Validate repetitive calendar time events\n"
                "  service-watchdogs [BOOL] Get/set service watchdog state\n"
+               "  security [UNIT...]       Analyze security of unit\n"
                , program_invocation_short_name);
 
         /* When updating this list, including descriptions, apply
@@ -1884,6 +1899,7 @@ int main(int argc, char *argv[]) {
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
                 { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
+                { "security",          VERB_ANY, VERB_ANY, 0,            do_security            },
                 {}
         };
 

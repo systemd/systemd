@@ -10,7 +10,6 @@
 #include "gunicode.h"
 #include "pager.h"
 #include "parse-util.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
