@@ -180,8 +180,6 @@ static void test_update_inherited_set(void) {
 
         caps = cap_get_proc();
         assert_se(caps);
-        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert(fv == CAP_CLEAR);
 
         set = (UINT64_C(1) << CAP_CHOWN);
 
@@ -196,12 +194,6 @@ static void test_set_ambient_caps(void) {
         cap_t caps;
         uint64_t set = 0;
         cap_flag_value_t fv;
-
-        caps = cap_get_proc();
-        assert_se(caps);
-        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert(fv == CAP_CLEAR);
-        cap_free(caps);
 
         assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
 
