@@ -36,8 +36,7 @@ jobs:
           after_script:
               - $CI_MANAGERS/fedora.sh CLEANUP
 
-        - stage: Build & test with ASan
-          name: Fedora Rawhide
+        - name: Fedora Rawhide (ASan+UBSan)
           language: bash
           env:
               - FEDORA_RELEASE="rawhide"
