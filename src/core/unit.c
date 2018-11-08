@@ -1715,6 +1715,8 @@ void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
 }
 
 int unit_start_limit_test(Unit *u) {
+        const char *reason;
+
         assert(u);
 
         if (ratelimit_below(&u->start_limit)) {
@@ -1725,9 +1727,11 @@ int unit_start_limit_test(Unit *u) {
         log_unit_warning(u, "Start request repeated too quickly.");
         u->start_limit_hit = true;
 
+        reason = strjoina("unit ", u->id, " failed");
+
         return emergency_action(u->manager, u->start_limit_action,
                                 EMERGENCY_ACTION_IS_WATCHDOG|EMERGENCY_ACTION_WARN,
-                                u->reboot_arg, "unit failed");
+                                u->reboot_arg, reason);
 }
 
 bool unit_shall_confirm_spawn(Unit *u) {
@@ -2338,6 +2342,7 @@ static void unit_update_on_console(Unit *u) {
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags) {
         bool unexpected;
+        const char *reason;
         Manager *m;
 
         assert(u);
@@ -2520,12 +2525,15 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                  * without ever entering started.) */
                 unit_check_binds_to(u);
 
-                if (os != UNIT_FAILED && ns == UNIT_FAILED)
+                if (os != UNIT_FAILED && ns == UNIT_FAILED) {
+                        reason = strjoina("unit ", u->id, " failed");
                         (void) emergency_action(u->manager, u->failure_action, 0,
-                                                u->reboot_arg, "unit failed");
-                else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && ns == UNIT_INACTIVE)
+                                                u->reboot_arg, reason);
+                } else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && ns == UNIT_INACTIVE) {
+                        reason = strjoina("unit ", u->id, " succeeded");
                         (void) emergency_action(u->manager, u->success_action, 0,
-                                                u->reboot_arg, "unit succeeded");
+                                                u->reboot_arg, reason);
+                }
         }
 
         unit_add_to_dbus_queue(u);
