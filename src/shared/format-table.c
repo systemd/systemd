@@ -1370,3 +1370,18 @@ int table_set_reverse(Table *t, size_t column, bool b) {
         t->reverse_map[column] = b;
         return 0;
 }
+
+TableCell *table_get_cell(Table *t, size_t row, size_t column) {
+        size_t i;
+
+        assert(t);
+
+        if (column >= t->n_columns)
+                return NULL;
+
+        i = row * t->n_columns + column;
+        if (i >= t->n_cells)
+                return NULL;
+
+        return TABLE_INDEX_TO_CELL(i);
+}
