@@ -20,7 +20,7 @@ jobs:
           name: Fedora Rawhide
           language: bash
           env:
-              - FEDORA_RELEASE="rawhide"
+              - FEDORA_RELEASE="27"
               - CONT_NAME="systemd-fedora-$FEDORA_RELEASE"
               - DOCKER_EXEC="docker exec -ti $CONT_NAME"
           before_install:
@@ -39,7 +39,7 @@ jobs:
         - name: Fedora Rawhide (ASan+UBSan)
           language: bash
           env:
-              - FEDORA_RELEASE="rawhide"
+              - FEDORA_RELEASE="27"
               - CONT_NAME="systemd-fedora-$FEDORA_RELEASE"
               - DOCKER_EXEC="docker exec -ti $CONT_NAME"
           before_install:
