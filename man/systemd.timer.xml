@@ -58,23 +58,17 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
-
-    <para>The following dependencies are implicitly added:</para>
-
-    <itemizedlist>
-      <listitem><para>Timer units automatically gain a <varname>Before=</varname>
-      dependency on the service they are supposed to activate.</para></listitem>
-    </itemizedlist>
-  </refsect1>
-
-  <refsect1>
     <title>Automatic Dependencies</title>
 
     <refsect2>
       <title>Implicit Dependencies</title>
 
-      <para>There are no implicit dependencies for timer units.</para>
+      <para>The following dependencies are implicitly added:</para>
+
+      <itemizedlist>
+        <listitem><para>Timer units automatically gain a <varname>Before=</varname>
+        dependency on the service they are supposed to activate.</para></listitem>
+      </itemizedlist>
     </refsect2>
 
     <refsect2>
