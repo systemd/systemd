@@ -382,7 +382,9 @@ typedef enum UnitWriteFlags {
 } UnitWriteFlags;
 
 /* Returns true if neither persistent, nor runtime storage is requested, i.e. this is a check invocation only */
-#define UNIT_WRITE_FLAGS_NOOP(flags) (((flags) & (UNIT_RUNTIME|UNIT_PERSISTENT)) == 0)
+static inline bool UNIT_WRITE_FLAGS_NOOP(UnitWriteFlags flags) {
+        return (flags & (UNIT_RUNTIME|UNIT_PERSISTENT)) == 0;
+}
 
 #include "kill.h"
 
@@ -570,7 +572,9 @@ typedef struct UnitVTable {
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
-#define UNIT_VTABLE(u) unit_vtable[(u)->type]
+static inline const UnitVTable* UNIT_VTABLE(Unit *u) {
+        return unit_vtable[u->type];
+}
 
 /* For casting a unit into the various unit types */
 #define DEFINE_CAST(UPPERCASE, MixedCase)                               \
@@ -593,7 +597,9 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 #define UNIT_HAS_CGROUP_CONTEXT(u) (UNIT_VTABLE(u)->cgroup_context_offset > 0)
 #define UNIT_HAS_KILL_CONTEXT(u) (UNIT_VTABLE(u)->kill_context_offset > 0)
 
-#define UNIT_TRIGGER(u) ((Unit*) hashmap_first_key((u)->dependencies[UNIT_TRIGGERS]))
+static inline Unit* UNIT_TRIGGER(Unit *u) {
+        return hashmap_first_key(u->dependencies[UNIT_TRIGGERS]);
+}
 
 Unit *unit_new(Manager *m, size_t size);
 void unit_free(Unit *u);
