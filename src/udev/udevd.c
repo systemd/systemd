@@ -936,17 +936,12 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
-static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         Manager *manager = userdata;
         int r;
 
         assert(manager);
-
-        r = device_monitor_receive_device(manager->monitor, &dev);
-        if (r <= 0)
-                return 1;
 
         device_ensure_usec_initialized(dev, NULL);
 
@@ -1584,14 +1579,6 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         (void) sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
 
-        r = device_monitor_enable_receiving(manager->monitor);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind netlink socket; %m");
-
-        fd_uevent = device_monitor_get_fd(manager->monitor);
-        if (fd_uevent < 0)
-                return log_error_errno(fd_uevent, "Failed to get uevent fd: %m");
-
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
         if (r < 0)
@@ -1653,9 +1640,15 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "error creating inotify event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->uevent_event, fd_uevent, EPOLLIN, on_uevent, manager);
+        r = sd_device_monitor_attach_event(manager->monitor, manager->event);
         if (r < 0)
-                return log_error_errno(r, "error creating uevent event source: %m");
+                return log_error_errno(r, "Failed to attach event to device monitor: %m");
+
+        r = sd_device_monitor_start(manager->monitor, on_uevent, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start device monitor: %m");
+
+        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(manager->monitor), "device-monitor");
 
         r = sd_event_add_io(manager->event, NULL, fd_worker, EPOLLIN, on_worker, manager);
         if (r < 0)
