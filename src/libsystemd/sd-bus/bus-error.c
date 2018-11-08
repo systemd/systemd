@@ -205,8 +205,7 @@ _public_ void sd_bus_error_free(sd_bus_error *e) {
                 free((void*) e->message);
         }
 
-        e->name = e->message = NULL;
-        e->_need_free = 0;
+        *e = (sd_bus_error) {};
 }
 
 _public_ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message) {
