@@ -78,6 +78,8 @@ typedef struct Manager {
         struct udev_rules *rules;
         Hashmap *properties;
 
+        sd_netlink *rtnl;
+
         struct udev_monitor *monitor;
         struct udev_ctrl *ctrl;
         struct udev_ctrl_connection *ctrl_conn_blocking;
@@ -277,24 +279,35 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
                                  usec + arg_event_timeout_usec, USEC_PER_SEC, on_event_timeout, event);
 }
 
+static void manager_clear_for_worker(Manager *manager) {
+        assert(manager);
+
+        manager->ctrl_event = sd_event_source_unref(manager->ctrl_event);
+        manager->uevent_event = sd_event_source_unref(manager->uevent_event);
+        manager->inotify_event = sd_event_source_unref(manager->inotify_event);
+        manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
+
+        manager->event = sd_event_unref(manager->event);
+
+        manager_workers_free(manager);
+        event_queue_cleanup(manager, EVENT_UNDEF);
+
+        manager->monitor = udev_monitor_unref(manager->monitor);
+        manager->ctrl_conn_blocking = udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
+        manager->ctrl = udev_ctrl_unref(manager->ctrl);
+
+        manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
+}
+
 static void manager_free(Manager *manager) {
         if (!manager)
                 return;
 
         udev_builtin_exit();
 
-        sd_event_source_unref(manager->ctrl_event);
-        sd_event_source_unref(manager->uevent_event);
-        sd_event_source_unref(manager->inotify_event);
-        sd_event_source_unref(manager->kill_workers_event);
+        manager_clear_for_worker(manager);
 
-        sd_event_unref(manager->event);
-        manager_workers_free(manager);
-        event_queue_cleanup(manager, EVENT_UNDEF);
-
-        udev_monitor_unref(manager->monitor);
-        udev_ctrl_unref(manager->ctrl);
-        udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
+        sd_netlink_unref(manager->rtnl);
 
         hashmap_free_free_free(manager->properties);
         udev_rules_unref(manager->rules);
@@ -313,16 +326,182 @@ static int worker_send_message(int fd) {
         return loop_write(fd, &message, sizeof(message), false);
 }
 
-static bool shall_lock_device(struct udev_device *dev) {
+static int worker_lock_block_device(struct udev_device *dev, int *ret_fd) {
+        _cleanup_close_ int fd = -1;
+        struct udev_device *d = dev;
         const char *sysname;
 
+        assert(dev);
+        assert(ret_fd);
+
+        /*
+         * Take a shared lock on the device node; this establishes
+         * a concept of device "ownership" to serialize device
+         * access. External processes holding an exclusive lock will
+         * cause udev to skip the event handling; in the case udev
+         * acquired the lock, the external process can block until
+         * udev has finished its event handling.
+         */
+
+        if (streq_ptr(udev_device_get_action(dev), "remove"))
+                return 0;
+
         if (!streq_ptr("block", udev_device_get_subsystem(dev)))
-                return false;
+                return 0;
 
         sysname = udev_device_get_sysname(dev);
-        return !startswith(sysname, "dm-") &&
-               !startswith(sysname, "md") &&
-               !startswith(sysname, "drbd");
+        if (startswith(sysname, "dm-") ||
+            startswith(sysname, "md") ||
+            startswith(sysname, "drbd"))
+                return 0;
+
+        if (streq_ptr("partition", udev_device_get_devtype(d)))
+                d = udev_device_get_parent(d);
+
+        if (!d)
+                return 0;
+
+        fd = open(udev_device_get_devnode(d), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+        if (fd < 0)
+                return 0;
+
+        if (flock(fd, LOCK_SH|LOCK_NB) < 0)
+                return log_debug_errno(errno, "Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
+
+        *ret_fd = TAKE_FD(fd);
+        return 1;
+}
+
+static int worker_process_device(Manager *manager, struct udev_device *dev) {
+        _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
+        _cleanup_close_ int fd_lock = -1;
+        int r;
+
+        assert(manager);
+        assert(dev);
+
+        log_debug("seq %llu running", udev_device_get_seqnum(dev));
+        udev_event = udev_event_new(dev->device, arg_exec_delay_usec, manager->rtnl);
+        if (!udev_event)
+                return -ENOMEM;
+
+        r = worker_lock_block_device(dev, &fd_lock);
+        if (r < 0)
+                return r;
+
+        /* apply rules, create node, symlinks */
+        udev_event_execute_rules(udev_event, arg_event_timeout_usec, manager->properties, manager->rules);
+        udev_event_execute_run(udev_event, arg_event_timeout_usec);
+
+        if (!manager->rtnl)
+                /* in case rtnl was initialized */
+                manager->rtnl = sd_netlink_ref(udev_event->rtnl);
+
+        /* apply/restore inotify watch */
+        if (udev_event->inotify_watch) {
+                (void) udev_watch_begin(dev->device);
+                udev_device_update_db(dev);
+        }
+
+        log_debug("seq %llu processed", udev_device_get_seqnum(dev));
+
+        return 0;
+}
+
+static int worker_main(Manager *_manager, struct udev_monitor *monitor, struct udev_device *first_device) {
+        _cleanup_(udev_device_unrefp) struct udev_device *dev = first_device;
+        _cleanup_(manager_freep) Manager *manager = _manager;
+        _cleanup_close_ int fd_signal = -1, fd_ep = -1;
+        struct epoll_event ep_signal = { .events = EPOLLIN };
+        struct epoll_event ep_monitor = { .events = EPOLLIN };
+        int fd_monitor, r;
+        sigset_t mask;
+
+        assert(manager);
+        assert(monitor);
+        assert(dev);
+
+        unsetenv("NOTIFY_SOCKET");
+
+        /* Clear unnecessary data form worker in Manager object.*/
+        manager_clear_for_worker(manager);
+
+        sigfillset(&mask);
+        fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (fd_signal < 0)
+                return log_error_errno(errno, "error creating signalfd %m");
+        ep_signal.data.fd = fd_signal;
+
+        fd_monitor = udev_monitor_get_fd(monitor);
+        ep_monitor.data.fd = fd_monitor;
+
+        fd_ep = epoll_create1(EPOLL_CLOEXEC);
+        if (fd_ep < 0)
+                return log_error_errno(errno, "error creating epoll fd: %m");
+
+        if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
+            epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0)
+                return log_error_errno(errno, "fail to add fds to epoll: %m");
+
+        /* Request TERM signal if parent exits.
+         * Ignore error, not much we can do in that case. */
+        (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
+
+        /* Reset OOM score, we only protect the main daemon. */
+        r = set_oom_score_adjust(0);
+        if (r < 0)
+                log_debug_errno(r, "Failed to reset OOM score, ignoring: %m");
+
+        for (;;) {
+                r = worker_process_device(manager, dev);
+                if (r < 0)
+                        log_device_warning_errno(dev->device, r, "Failed to process device, ignoring: %m");
+
+                /* send processed event back to libudev listeners */
+                r = udev_monitor_send_device(monitor, NULL, dev);
+                if (r < 0)
+                        log_device_warning_errno(dev->device, r, "Failed to send device to udev event listeners, ignoring: %m");
+
+                /* send udevd the result of the event execution */
+                r = worker_send_message(manager->worker_watch[WRITE_END]);
+                if (r < 0)
+                        log_device_warning_errno(dev->device, r, "Failed to send result of seq %llu to main daemon: %m",
+                                                 udev_device_get_seqnum(dev));
+
+                dev = udev_device_unref(dev);
+
+                /* wait for more device messages from main udevd, or term signal */
+                while (!dev) {
+                        struct epoll_event ev[4];
+                        int fdcount;
+                        int i;
+
+                        fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), -1);
+                        if (fdcount < 0) {
+                                if (errno == EINTR)
+                                        continue;
+                                return log_error_errno(errno, "failed to poll: %m");
+                        }
+
+                        for (i = 0; i < fdcount; i++) {
+                                if (ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN) {
+                                        dev = udev_monitor_receive_device(monitor);
+                                        break;
+                                } else if (ev[i].data.fd == fd_signal && ev[i].events & EPOLLIN) {
+                                        struct signalfd_siginfo fdsi;
+                                        ssize_t size;
+
+                                        size = read(fd_signal, &fdsi, sizeof(struct signalfd_siginfo));
+                                        if (size != sizeof(struct signalfd_siginfo))
+                                                continue;
+                                        switch (fdsi.ssi_signo) {
+                                        case SIGTERM:
+                                                return 0;
+                                        }
+                                }
+                        }
+                }
+        }
 }
 
 static void worker_spawn(Manager *manager, struct event *event) {
@@ -343,170 +522,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
         pid = fork();
         switch (pid) {
         case 0: {
-                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
-                _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-                int fd_monitor;
-                _cleanup_close_ int fd_signal = -1, fd_ep = -1;
-                struct epoll_event ep_signal = { .events = EPOLLIN };
-                struct epoll_event ep_monitor = { .events = EPOLLIN };
-                sigset_t mask;
-
-                /* take initial device from queue */
-                dev = TAKE_PTR(event->dev);
-
-                unsetenv("NOTIFY_SOCKET");
-
-                manager_workers_free(manager);
-                event_queue_cleanup(manager, EVENT_UNDEF);
-
-                manager->monitor = udev_monitor_unref(manager->monitor);
-                manager->ctrl_conn_blocking = udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
-                manager->ctrl = udev_ctrl_unref(manager->ctrl);
-                manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
-
-                manager->ctrl_event = sd_event_source_unref(manager->ctrl_event);
-                manager->uevent_event = sd_event_source_unref(manager->uevent_event);
-                manager->inotify_event = sd_event_source_unref(manager->inotify_event);
-                manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
-
-                manager->event = sd_event_unref(manager->event);
-
-                sigfillset(&mask);
-                fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
-                if (fd_signal < 0) {
-                        r = log_error_errno(errno, "error creating signalfd %m");
-                        goto out;
-                }
-                ep_signal.data.fd = fd_signal;
-
-                fd_monitor = udev_monitor_get_fd(worker_monitor);
-                ep_monitor.data.fd = fd_monitor;
-
-                fd_ep = epoll_create1(EPOLL_CLOEXEC);
-                if (fd_ep < 0) {
-                        r = log_error_errno(errno, "error creating epoll fd: %m");
-                        goto out;
-                }
-
-                if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
-                    epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0) {
-                        r = log_error_errno(errno, "fail to add fds to epoll: %m");
-                        goto out;
-                }
-
-                /* Request TERM signal if parent exits.
-                   Ignore error, not much we can do in that case. */
-                (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
-
-                /* Reset OOM score, we only protect the main daemon. */
-                r = set_oom_score_adjust(0);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to reset OOM score, ignoring: %m");
-
-                for (;;) {
-                        _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
-                        int fd_lock = -1;
-
-                        assert(dev);
-
-                        log_debug("seq %llu running", udev_device_get_seqnum(dev));
-                        udev_event = udev_event_new(dev->device, arg_exec_delay_usec, rtnl);
-                        if (!udev_event) {
-                                r = -ENOMEM;
-                                goto out;
-                        }
-
-                        /*
-                         * Take a shared lock on the device node; this establishes
-                         * a concept of device "ownership" to serialize device
-                         * access. External processes holding an exclusive lock will
-                         * cause udev to skip the event handling; in the case udev
-                         * acquired the lock, the external process can block until
-                         * udev has finished its event handling.
-                         */
-                        if (!streq_ptr(udev_device_get_action(dev), "remove") &&
-                            shall_lock_device(dev)) {
-                                struct udev_device *d = dev;
-
-                                if (streq_ptr("partition", udev_device_get_devtype(d)))
-                                        d = udev_device_get_parent(d);
-
-                                if (d) {
-                                        fd_lock = open(udev_device_get_devnode(d), O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
-                                        if (fd_lock >= 0 && flock(fd_lock, LOCK_SH|LOCK_NB) < 0) {
-                                                log_debug_errno(errno, "Unable to flock(%s), skipping event handling: %m", udev_device_get_devnode(d));
-                                                fd_lock = safe_close(fd_lock);
-                                                goto skip;
-                                        }
-                                }
-                        }
-
-                        /* apply rules, create node, symlinks */
-                        udev_event_execute_rules(udev_event, arg_event_timeout_usec, manager->properties, manager->rules);
-                        udev_event_execute_run(udev_event, arg_event_timeout_usec);
-
-                        if (!rtnl)
-                                /* in case rtnl was initialized */
-                                rtnl = sd_netlink_ref(udev_event->rtnl);
-
-                        /* apply/restore inotify watch */
-                        if (udev_event->inotify_watch) {
-                                (void) udev_watch_begin(dev->device);
-                                udev_device_update_db(dev);
-                        }
-
-                        safe_close(fd_lock);
-
-                        /* send processed event back to libudev listeners */
-                        udev_monitor_send_device(worker_monitor, NULL, dev);
-
-skip:
-                        log_debug("seq %llu processed", udev_device_get_seqnum(dev));
-
-                        /* send udevd the result of the event execution */
-                        r = worker_send_message(manager->worker_watch[WRITE_END]);
-                        if (r < 0)
-                                log_error_errno(r, "failed to send result of seq %llu to main daemon: %m",
-                                                udev_device_get_seqnum(dev));
-
-                        dev = udev_device_unref(dev);
-
-                        /* wait for more device messages from main udevd, or term signal */
-                        while (dev == NULL) {
-                                struct epoll_event ev[4];
-                                int fdcount;
-                                int i;
-
-                                fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), -1);
-                                if (fdcount < 0) {
-                                        if (errno == EINTR)
-                                                continue;
-                                        r = log_error_errno(errno, "failed to poll: %m");
-                                        goto out;
-                                }
-
-                                for (i = 0; i < fdcount; i++) {
-                                        if (ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN) {
-                                                dev = udev_monitor_receive_device(worker_monitor);
-                                                break;
-                                        } else if (ev[i].data.fd == fd_signal && ev[i].events & EPOLLIN) {
-                                                struct signalfd_siginfo fdsi;
-                                                ssize_t size;
-
-                                                size = read(fd_signal, &fdsi, sizeof(struct signalfd_siginfo));
-                                                if (size != sizeof(struct signalfd_siginfo))
-                                                        continue;
-                                                switch (fdsi.ssi_signo) {
-                                                case SIGTERM:
-                                                        goto out;
-                                                }
-                                        }
-                                }
-                        }
-                }
-out:
-                udev_device_unref(dev);
-                manager_free(manager);
+                r = worker_main(manager, worker_monitor, TAKE_PTR(event->dev));
                 log_close();
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
