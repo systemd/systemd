@@ -120,8 +120,9 @@ struct event {
         dev_t devnum;
         int ifindex;
         bool is_block;
-        sd_event_source *timeout_warning;
-        sd_event_source *timeout;
+
+        sd_event_source *timeout_warning_event;
+        sd_event_source *timeout_event;
 };
 
 static void event_queue_cleanup(Manager *manager, enum event_state type);
@@ -156,8 +157,8 @@ static void event_free(struct event *event) {
         udev_device_unref(event->dev);
         udev_device_unref(event->dev_kernel);
 
-        sd_event_source_unref(event->timeout_warning);
-        sd_event_source_unref(event->timeout);
+        sd_event_source_unref(event->timeout_warning_event);
+        sd_event_source_unref(event->timeout_event);
 
         if (event->worker)
                 event->worker->event = NULL;
@@ -274,10 +275,10 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
 
         assert_se(sd_event_now(e, CLOCK_MONOTONIC, &usec) >= 0);
 
-        (void) sd_event_add_time(e, &event->timeout_warning, CLOCK_MONOTONIC,
+        (void) sd_event_add_time(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
                                  usec + udev_warn_timeout(arg_event_timeout_usec), USEC_PER_SEC, on_event_timeout_warning, event);
 
-        (void) sd_event_add_time(e, &event->timeout, CLOCK_MONOTONIC,
+        (void) sd_event_add_time(e, &event->timeout_event, CLOCK_MONOTONIC,
                                  usec + arg_event_timeout_usec, USEC_PER_SEC, on_event_timeout, event);
 }
 
