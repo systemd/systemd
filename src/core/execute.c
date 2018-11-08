@@ -5112,6 +5112,13 @@ void exec_runtime_vacuum(Manager *m) {
         }
 }
 
+void exec_params_clear(ExecParameters *p) {
+        if (!p)
+                return;
+
+        strv_free(p->environment);
+}
+
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
         [EXEC_INPUT_NULL] = "null",
         [EXEC_INPUT_TTY] = "tty",

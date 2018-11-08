@@ -383,6 +383,8 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
 void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void exec_runtime_vacuum(Manager *m);
 
+void exec_params_clear(ExecParameters *p);
+
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;
 

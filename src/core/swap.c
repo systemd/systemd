@@ -596,7 +596,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 
 static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
 
-        ExecParameters exec_params = {
+        _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
                 .stdin_fd  = -1,
                 .stdout_fd = -1,
