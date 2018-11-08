@@ -106,23 +106,20 @@ enum event_state {
 };
 
 struct event {
-        LIST_FIELDS(struct event, event);
         Manager *manager;
-        struct udev_device *dev;
-        struct udev_device *dev_kernel;
         struct worker *worker;
         enum event_state state;
-        unsigned long long int delaying_seqnum;
-        unsigned long long int seqnum;
-        const char *devpath;
-        size_t devpath_len;
-        const char *devpath_old;
-        dev_t devnum;
-        int ifindex;
-        bool is_block;
+
+        sd_device *dev;
+        sd_device *dev_kernel; /* clone of originally received device */
+
+        uint64_t seqnum;
+        uint64_t delaying_seqnum;
 
         sd_event_source *timeout_warning_event;
         sd_event_source *timeout_event;
+
+        LIST_FIELDS(struct event, event);
 };
 
 static void event_queue_cleanup(Manager *manager, enum event_state type);
@@ -153,8 +150,8 @@ static void event_free(struct event *event) {
         assert(event->manager);
 
         LIST_REMOVE(event, event->manager->events, event);
-        udev_device_unref(event->dev);
-        udev_device_unref(event->dev_kernel);
+        sd_device_unref(event->dev);
+        sd_device_unref(event->dev_kernel);
 
         sd_event_source_unref(event->timeout_warning_event);
         sd_event_source_unref(event->timeout_event);
@@ -237,7 +234,7 @@ static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         kill_and_sigcont(event->worker->pid, SIGKILL);
         event->worker->state = WORKER_KILLED;
 
-        log_device_error(event->dev->device, "Worker ["PID_FMT"] processing SEQNUM=%llu killed", event->worker->pid, event->seqnum);
+        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed", event->worker->pid, event->seqnum);
 
         return 1;
 }
@@ -248,7 +245,7 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
         assert(event);
         assert(event->worker);
 
-        log_device_warning(event->dev->device, "Worker ["PID_FMT"] processing SEQNUM=%llu is taking a long time", event->worker->pid, event->seqnum);
+        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time", event->worker->pid, event->seqnum);
 
         return 1;
 }
@@ -542,7 +539,7 @@ static int worker_spawn(Manager *manager, struct event *event) {
         }
         if (r == 0) {
                 /* Worker process */
-                r = worker_main(manager, worker_monitor, sd_device_ref(event->dev->device));
+                r = worker_main(manager, worker_monitor, sd_device_ref(event->dev));
                 log_close();
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
@@ -553,7 +550,7 @@ static int worker_spawn(Manager *manager, struct event *event) {
 
         worker_attach_event(worker, event);
 
-        log_device_debug(event->dev->device, "Worker ["PID_FMT"] is forked for processing SEQNUM=%llu.", pid, event->seqnum);
+        log_device_debug(event->dev, "Worker ["PID_FMT"] is forked for processing SEQNUM=%"PRIu64".", pid, event->seqnum);
         return 0;
 }
 
@@ -569,9 +566,9 @@ static void event_run(Manager *manager, struct event *event) {
                 if (worker->state != WORKER_IDLE)
                         continue;
 
-                r = device_monitor_send_device(manager->monitor, worker->monitor, event->dev->device);
+                r = device_monitor_send_device(manager->monitor, worker->monitor, event->dev);
                 if (r < 0) {
-                        log_device_error_errno(event->dev->device, r, "Worker ["PID_FMT"] did not accept message, killing the worker: %m",
+                        log_device_error_errno(event->dev, r, "Worker ["PID_FMT"] did not accept message, killing the worker: %m",
                                                worker->pid);
                         (void) kill(worker->pid, SIGKILL);
                         worker->state = WORKER_KILLED;
@@ -591,8 +588,11 @@ static void event_run(Manager *manager, struct event *event) {
         worker_spawn(manager, event);
 }
 
-static int event_queue_insert(Manager *manager, struct udev_device *dev) {
+static int event_queue_insert(Manager *manager, sd_device *dev) {
+        _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
         struct event *event;
+        const char *val;
+        uint64_t seqnum;
         int r;
 
         assert(manager);
@@ -604,26 +604,38 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
 
         assert(manager->pid == getpid_cached());
 
-        event = new0(struct event, 1);
+        /* We only accepts devices received by device monitor. */
+        r = sd_device_get_property_value(dev, "SEQNUM", &val);
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(val, &seqnum);
+        if (r < 0)
+                return r;
+
+        if (seqnum == 0)
+                return -EINVAL;
+
+        /* Save original device to restore the state on failures. */
+        r = device_shallow_clone(dev, &clone);
+        if (r < 0)
+                return r;
+
+        r = device_copy_properties(clone, dev);
+        if (r < 0)
+                return r;
+
+        event = new(struct event, 1);
         if (!event)
                 return -ENOMEM;
 
-        event->manager = manager;
-        event->dev = dev;
-        event->dev_kernel = udev_device_shallow_clone(dev);
-        udev_device_copy_properties(event->dev_kernel, dev);
-        event->seqnum = udev_device_get_seqnum(dev);
-        event->devpath = udev_device_get_devpath(dev);
-        event->devpath_len = strlen(event->devpath);
-        event->devpath_old = udev_device_get_devpath_old(dev);
-        event->devnum = udev_device_get_devnum(dev);
-        event->is_block = streq("block", udev_device_get_subsystem(dev));
-        event->ifindex = udev_device_get_ifindex(dev);
-
-        log_debug("seq %llu queued, '%s' '%s'", udev_device_get_seqnum(dev),
-             udev_device_get_action(dev), udev_device_get_subsystem(dev));
-
-        event->state = EVENT_QUEUED;
+        *event = (struct event) {
+                .manager = manager,
+                .dev = sd_device_ref(dev),
+                .dev_kernel = TAKE_PTR(clone),
+                .seqnum = seqnum,
+                .state = EVENT_QUEUED,
+        };
 
         if (LIST_IS_EMPTY(manager->events)) {
                 r = touch("/run/udev/queue");
@@ -632,6 +644,13 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
         }
 
         LIST_APPEND(event, manager->events, event);
+
+        if (DEBUG_LOGGING) {
+                if (sd_device_get_property_value(dev, "ACTION", &val) < 0)
+                        val = NULL;
+
+                log_device_debug(dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) is queued", seqnum, strnull(val));
+        }
 
         return 0;
 }
@@ -652,12 +671,43 @@ static void manager_kill_workers(Manager *manager) {
 }
 
 /* lookup event for identical, parent, child device */
-static bool is_devpath_busy(Manager *manager, struct event *event) {
+static int is_device_busy(Manager *manager, struct event *event) {
+        const char *subsystem, *devpath, *devpath_old = NULL;
+        dev_t devnum = makedev(0, 0);
         struct event *loop_event;
-        size_t common;
+        size_t devpath_len;
+        int r, ifindex = 0;
+        bool is_block;
+
+        r = sd_device_get_subsystem(event->dev, &subsystem);
+        if (r < 0)
+                return r;
+
+        is_block = streq(subsystem, "block");
+
+        r = sd_device_get_devpath(event->dev, &devpath);
+        if (r < 0)
+                return r;
+
+        devpath_len = strlen(devpath);
+
+        r = sd_device_get_property_value(event->dev, "DEVPATH_OLD", &devpath_old);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        r = sd_device_get_devnum(event->dev, &devnum);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        r = sd_device_get_ifindex(event->dev, &ifindex);
+        if (r < 0 && r != -ENOENT)
+                return r;
 
         /* check if queue contains events we depend on */
         LIST_FOREACH(event, loop_event, manager->events) {
+                size_t loop_devpath_len, common;
+                const char *loop_devpath;
+
                 /* we already found a later event, earlier cannot block us, no need to check again */
                 if (loop_event->seqnum < event->delaying_seqnum)
                         continue;
@@ -671,43 +721,62 @@ static bool is_devpath_busy(Manager *manager, struct event *event) {
                         break;
 
                 /* check major/minor */
-                if (major(event->devnum) != 0 && event->devnum == loop_event->devnum && event->is_block == loop_event->is_block)
-                        return true;
+                if (major(devnum) != 0) {
+                        const char *s;
+                        dev_t d;
+
+                        if (sd_device_get_subsystem(loop_event->dev, &s) < 0)
+                                continue;
+
+                        if (sd_device_get_devnum(loop_event->dev, &d) >= 0 &&
+                            devnum == d && is_block == streq(s, "block"))
+                                return true;
+                }
 
                 /* check network device ifindex */
-                if (event->ifindex > 0 && event->ifindex == loop_event->ifindex)
-                        return true;
+                if (ifindex > 0) {
+                        int i;
+
+                        if (sd_device_get_ifindex(loop_event->dev, &i) >= 0 &&
+                            ifindex == i)
+                                return true;
+                }
+
+                if (sd_device_get_devpath(loop_event->dev, &loop_devpath) < 0)
+                        continue;
 
                 /* check our old name */
-                if (event->devpath_old && streq(loop_event->devpath, event->devpath_old)) {
+                if (devpath_old && streq(devpath_old, loop_devpath)) {
                         event->delaying_seqnum = loop_event->seqnum;
                         return true;
                 }
 
+                loop_devpath_len = strlen(loop_devpath);
+
                 /* compare devpath */
-                common = MIN(loop_event->devpath_len, event->devpath_len);
+                common = MIN(devpath_len, loop_devpath_len);
 
                 /* one devpath is contained in the other? */
-                if (memcmp(loop_event->devpath, event->devpath, common) != 0)
+                if (!strneq(devpath, loop_devpath, common))
                         continue;
 
                 /* identical device event found */
-                if (loop_event->devpath_len == event->devpath_len) {
+                if (devpath_len == loop_devpath_len) {
                         /* devices names might have changed/swapped in the meantime */
-                        if (major(event->devnum) != 0 || event->ifindex > 0)
+                        if (major(devnum) != 0 || ifindex > 0)
                                 continue;
                         event->delaying_seqnum = loop_event->seqnum;
                         return true;
                 }
 
                 /* parent device event found */
-                if (event->devpath[common] == '/') {
+                if (devpath[common] == '/') {
                         event->delaying_seqnum = loop_event->seqnum;
                         return true;
                 }
 
                 /* child device event found */
-                if (loop_event->devpath[common] == '/') {
+                if (loop_devpath[common] == '/') {
                         event->delaying_seqnum = loop_event->seqnum;
                         return true;
                 }
@@ -825,12 +894,12 @@ static void event_queue_start(Manager *manager) {
                         return;
         }
 
-        LIST_FOREACH(event,event,manager->events) {
+        LIST_FOREACH(event, event, manager->events) {
                 if (event->state != EVENT_QUEUED)
                         continue;
 
                 /* do not start event if parent or child event is still running */
-                if (is_devpath_busy(manager, event))
+                if (is_device_busy(manager, event) != 0)
                         continue;
 
                 event_run(manager, event);
@@ -921,7 +990,6 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 }
 
 static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
-        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
         Manager *manager = userdata;
         int r;
 
@@ -929,15 +997,11 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 
         device_ensure_usec_initialized(dev, NULL);
 
-        udev_device = udev_device_new(NULL, dev);
-        if (!udev_device)
+        r = event_queue_insert(manager, dev);
+        if (r < 0) {
+                log_device_error_errno(dev, r, "Failed to insert device into event queue: %m");
                 return 1;
-
-        r = event_queue_insert(manager, udev_device);
-        if (r < 0)
-                return 1;
-
-        udev_device = NULL;
+        }
 
         /* we have fresh events, try to schedule them */
         event_queue_start(manager);
@@ -1283,16 +1347,16 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         log_warning("Worker ["PID_FMT"] exit with status 0x%04x", pid, status);
 
                 if ((!WIFEXITED(status) || WEXITSTATUS(status) != 0) && worker->event) {
-                        log_device_error(worker->event->dev->device, "Worker ["PID_FMT"] failed", pid);
+                        log_device_error(worker->event->dev, "Worker ["PID_FMT"] failed", pid);
 
                         /* delete state from disk */
-                        udev_device_delete_db(worker->event->dev);
-                        udev_device_tag_index(worker->event->dev, NULL, false);
+                        device_delete_db(worker->event->dev);
+                        device_tag_index(worker->event->dev, NULL, false);
 
                         /* forward kernel event without amending it */
-                        r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel->device);
+                        r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
                         if (r < 0)
-                                log_device_error_errno(worker->event->dev_kernel->device, r, "Failed to send back device to kernel: %m");
+                                log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
                 }
 
                 worker_free(worker);
