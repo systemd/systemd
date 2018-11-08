@@ -4,4 +4,6 @@ systemd_analyze_sources = files('''
         analyze.c
         analyze-verify.c
         analyze-verify.h
+        analyze-security.c
+        analyze-security.h
 '''.split())

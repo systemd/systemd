@@ -12,6 +12,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "analyze-security.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
@@ -1784,6 +1785,19 @@ static int do_verify(int argc, char *argv[], void *userdata) {
         return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
 }
 
+static int do_security(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
+
+        (void) pager_open(arg_pager_flags);
+
+        return analyze_security(bus, strv_skip(argv, 1), 0);
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1828,6 +1842,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  calendar SPEC...         Validate repetitive calendar time events\n"
                "  service-watchdogs [BOOL] Get/set service watchdog state\n"
                "  timespan SPAN...         Validate a time span\n"
+               "  security [UNIT...]       Analyze security of unit\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -2015,6 +2030,7 @@ static int run(int argc, char *argv[]) {
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
                 { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
                 { "timespan",          2,        VERB_ANY, 0,            dump_timespan          },
+                { "security",          VERB_ANY, VERB_ANY, 0,            do_security            },
                 {}
         };
 
