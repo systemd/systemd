@@ -147,10 +147,9 @@ struct worker_message {
 };
 
 static void event_free(struct event *event) {
-        int r;
-
         if (!event)
                 return;
+
         assert(event->manager);
 
         LIST_REMOVE(event, event->manager->events, event);
@@ -163,14 +162,11 @@ static void event_free(struct event *event) {
         if (event->worker)
                 event->worker->event = NULL;
 
-        if (LIST_IS_EMPTY(event->manager->events)) {
-                /* only clean up the queue from the process that created it */
-                if (event->manager->pid == getpid_cached()) {
-                        r = unlink("/run/udev/queue");
-                        if (r < 0)
-                                log_warning_errno(errno, "could not unlink /run/udev/queue: %m");
-                }
-        }
+        /* only clean up the queue from the process that created it */
+        if (LIST_IS_EMPTY(event->manager->events) &&
+            event->manager->pid == getpid_cached())
+                if (unlink("/run/udev/queue") < 0)
+                        log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
 
         free(event);
 }
