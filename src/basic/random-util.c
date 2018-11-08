@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#ifdef __x86_64__
+#if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
 #endif
 
@@ -34,9 +34,9 @@
 #include <sanitizer/msan_interface.h>
 #endif
 
-int rdrand64(uint64_t *ret) {
+int rdrand(unsigned long *ret) {
 
-#ifdef __x86_64__
+#if defined(__i386__) || defined(__x86_64__)
         static int have_rdrand = -1;
         unsigned char err;
 
@@ -95,10 +95,10 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                  * allows us too, since this way we won't drain the kernel randomness pool if we don't need it, as the
                  * pool's entropy is scarce. */
                 for (;;) {
-                        uint64_t u;
+                        unsigned long u;
                         size_t m;
 
-                        if (rdrand64(&u) < 0) {
+                        if (rdrand(&u) < 0) {
                                 if (got_some && FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
                                         /* Fill in the remaining bytes using pseudo-random values */
                                         pseudo_random_bytes(p, n);
@@ -198,7 +198,7 @@ void initialize_srand(void) {
 #if HAVE_SYS_AUXV_H
         const void *auxv;
 #endif
-        uint64_t k;
+        unsigned long k;
 
         if (srand_called)
                 return;
@@ -219,7 +219,7 @@ void initialize_srand(void) {
         x ^= (unsigned) now(CLOCK_REALTIME);
         x ^= (unsigned) gettid();
 
-        if (rdrand64(&k) >= 0)
+        if (rdrand(&k) >= 0)
                 x ^= (unsigned) k;
 
         srand(x);

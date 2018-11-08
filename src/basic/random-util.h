@@ -30,4 +30,4 @@ static inline uint32_t random_u32(void) {
         return u;
 }
 
-int rdrand64(uint64_t *ret);
+int rdrand(unsigned long *ret);
