@@ -398,6 +398,8 @@ static int table_dedup_cell(Table *t, TableCell *cell) {
         if (!nd)
                 return -ENOMEM;
 
+        nd->color = od->color;
+
         table_data_unref(od);
         t->data[i] = nd;
 
