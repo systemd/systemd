@@ -1297,15 +1297,22 @@ int table_print(Table *t, FILE *f) {
                                 field = buffer;
                         }
 
+                        if (row == t->data) /* underline header line fully, including the column separator */
+                                fputs(ansi_underline(), f);
+
                         if (j > 0)
                                 fputc(' ', f); /* column separator */
 
-                        if (d->color && colors_enabled())
+                        if (d->color && colors_enabled()) {
+                                if (row == t->data) /* first undo header underliner */
+                                        fputs(ANSI_NORMAL, f);
+
                                 fputs(d->color, f);
+                        }
 
                         fputs(field, f);
 
-                        if (d->color && colors_enabled())
+                        if (colors_enabled() && (d->color || row == t->data))
                                 fputs(ANSI_NORMAL, f);
                 }
 
