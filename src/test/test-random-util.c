@@ -35,19 +35,19 @@ static void test_pseudo_random_bytes(void) {
         }
 }
 
-static void test_rdrand64(void) {
+static void test_rdrand(void) {
         int r, i;
 
         for (i = 0; i < 10; i++) {
-                uint64_t x = 0;
+                unsigned long x = 0;
 
-                r = rdrand64(&x);
+                r = rdrand(&x);
                 if (r < 0) {
                         log_error_errno(r, "RDRAND failed: %m");
                         return;
                 }
 
-                printf("%" PRIx64 "\n", x);
+                printf("%lx\n", x);
         }
 }
 
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 
         test_pseudo_random_bytes();
 
-        test_rdrand64();
+        test_rdrand();
 
         return 0;
 }
