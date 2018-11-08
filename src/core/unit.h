@@ -582,7 +582,12 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
         }
 
 /* For casting the various unit types into a unit */
-#define UNIT(u) (&(u)->meta)
+#define UNIT(u)                                         \
+        ({                                              \
+                typeof(u) _u_ = (u);                    \
+                Unit *_w_ = _u_ ? &(_u_)->meta : NULL;  \
+                _w_;                                    \
+        })
 
 #define UNIT_HAS_EXEC_CONTEXT(u) (UNIT_VTABLE(u)->exec_context_offset > 0)
 #define UNIT_HAS_CGROUP_CONTEXT(u) (UNIT_VTABLE(u)->cgroup_context_offset > 0)
