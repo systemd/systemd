@@ -723,11 +723,11 @@ static Unit *device_following(Unit *u) {
                 return NULL;
 
         /* Make everybody follow the unit that's named after the sysfs path */
-        for (other = d->same_sysfs_next; other; other = other->same_sysfs_next)
+        LIST_FOREACH_AFTER(same_sysfs, other, d)
                 if (startswith(UNIT(other)->id, "sys-"))
                         return UNIT(other);
 
-        for (other = d->same_sysfs_prev; other; other = other->same_sysfs_prev) {
+        LIST_FOREACH_BEFORE(same_sysfs, other, d) {
                 if (startswith(UNIT(other)->id, "sys-"))
                         return UNIT(other);
 
