@@ -47,7 +47,6 @@ for phase in "${PHASES[@]}"; do
             # Build systemd
             $DOCKER_EXEC meson -Dslow-tests=true build
             $DOCKER_EXEC ninja -v -C build
-            $DOCKER_EXEC sh -c "printf '#!/bin/sh\necho The test is failing for unknown reason, skipping; exit 77' >/build/build/test-capability"
             # Run 'make check'
             $DOCKER_EXEC ninja -C build test
             ;;
