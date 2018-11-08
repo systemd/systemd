@@ -1264,33 +1264,37 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
                 worker = hashmap_get(manager->workers, PID_TO_PTR(pid));
                 if (!worker) {
-                        log_warning("worker ["PID_FMT"] is unknown, ignoring", pid);
+                        log_warning("Worker ["PID_FMT"] is unknown, ignoring", pid);
                         continue;
                 }
 
                 if (WIFEXITED(status)) {
                         if (WEXITSTATUS(status) == 0)
-                                log_debug("worker ["PID_FMT"] exited", pid);
+                                log_debug("Worker ["PID_FMT"] exited", pid);
                         else
-                                log_warning("worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
+                                log_warning("Worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
                 } else if (WIFSIGNALED(status)) {
-                        log_warning("worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), signal_to_string(WTERMSIG(status)));
+                        log_warning("Worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), signal_to_string(WTERMSIG(status)));
                 } else if (WIFSTOPPED(status)) {
-                        log_info("worker ["PID_FMT"] stopped", pid);
+                        log_info("Worker ["PID_FMT"] stopped", pid);
                         continue;
                 } else if (WIFCONTINUED(status)) {
-                        log_info("worker ["PID_FMT"] continued", pid);
+                        log_info("Worker ["PID_FMT"] continued", pid);
                         continue;
                 } else
-                        log_warning("worker ["PID_FMT"] exit with status 0x%04x", pid, status);
+                        log_warning("Worker ["PID_FMT"] exit with status 0x%04x", pid, status);
 
                 if ((!WIFEXITED(status) || WEXITSTATUS(status) != 0) && worker->event) {
-                        log_error("worker ["PID_FMT"] failed while handling '%s'", pid, worker->event->devpath);
+                        log_device_error(worker->event->dev->device, "Worker ["PID_FMT"] failed", pid);
+
                         /* delete state from disk */
                         udev_device_delete_db(worker->event->dev);
                         udev_device_tag_index(worker->event->dev, NULL, false);
+
                         /* forward kernel event without amending it */
-                        device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel->device);
+                        r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel->device);
+                        if (r < 0)
+                                log_device_error_errno(worker->event->dev_kernel->device, r, "Failed to send back device to kernel: %m");
                 }
 
                 worker_free(worker);
