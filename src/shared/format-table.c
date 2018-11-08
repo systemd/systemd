@@ -574,6 +574,46 @@ int table_set_url(Table *t, TableCell *cell, const char *url) {
         return free_and_replace(table_get_data(t, cell)->url, copy);
 }
 
+int table_update(Table *t, TableCell *cell, TableDataType type, const void *data) {
+        _cleanup_free_ char *curl = NULL;
+        TableData *nd, *od;
+        size_t i;
+
+        assert(t);
+        assert(cell);
+
+        i = TABLE_CELL_TO_INDEX(cell);
+        if (i >= t->n_cells)
+                return -ENXIO;
+
+        assert_se(od = t->data[i]);
+
+        if (od->url) {
+                curl = strdup(od->url);
+                if (!curl)
+                        return -ENOMEM;
+        }
+
+        nd = table_data_new(
+                        type,
+                        data,
+                        od->minimum_width,
+                        od->maximum_width,
+                        od->weight,
+                        od->align_percent,
+                        od->ellipsize_percent);
+        if (!nd)
+                return -ENOMEM;
+
+        nd->color = od->color;
+        nd->url = TAKE_PTR(curl);
+
+        table_data_unref(od);
+        t->data[i] = nd;
+
+        return 0;
+}
+
 int table_add_many_internal(Table *t, TableDataType first_type, ...) {
         TableDataType type;
         va_list ap;
