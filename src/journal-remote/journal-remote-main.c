@@ -1114,9 +1114,11 @@ int main(int argc, char **argv) {
                         return EXIT_FAILURE;
         }
 
-        if (arg_listen_https || https_socket >= 0)
+        if (arg_listen_https || https_socket >= 0) {
                 if (load_certificates(&key, &cert, &trust) < 0)
                         return EXIT_FAILURE;
+                s.check_trust = !(arg_trust_all);
+        }
 
         if (create_remoteserver(&s, key, cert, trust) < 0)
                 return EXIT_FAILURE;
