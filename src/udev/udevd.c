@@ -34,6 +34,7 @@
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
+#include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "event-util.h"
@@ -81,7 +82,7 @@ typedef struct Manager {
 
         sd_netlink *rtnl;
 
-        struct udev_monitor *monitor;
+        sd_device_monitor *monitor;
         struct udev_ctrl *ctrl;
         struct udev_ctrl_connection *ctrl_conn_blocking;
         int fd_inotify;
@@ -135,7 +136,7 @@ enum worker_state {
 struct worker {
         Manager *manager;
         pid_t pid;
-        struct udev_monitor *monitor;
+        sd_device_monitor *monitor;
         enum worker_state state;
         struct event *event;
 };
@@ -180,7 +181,7 @@ static void worker_free(struct worker *worker) {
         assert(worker->manager);
 
         hashmap_remove(worker->manager->workers, PID_TO_PTR(worker->pid));
-        udev_monitor_unref(worker->monitor);
+        sd_device_monitor_unref(worker->monitor);
         event_free(worker->event);
 
         free(worker);
@@ -198,7 +199,7 @@ static void manager_workers_free(Manager *manager) {
         manager->workers = hashmap_free(manager->workers);
 }
 
-static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor *worker_monitor, pid_t pid) {
+static int worker_new(struct worker **ret, Manager *manager, sd_device_monitor *worker_monitor, pid_t pid) {
         _cleanup_free_ struct worker *worker = NULL;
         int r;
 
@@ -213,8 +214,8 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
 
         worker->manager = manager;
         /* close monitor, but keep address around */
-        udev_monitor_disconnect(worker_monitor);
-        worker->monitor = udev_monitor_ref(worker_monitor);
+        device_monitor_disconnect(worker_monitor);
+        worker->monitor = sd_device_monitor_ref(worker_monitor);
         worker->pid = pid;
 
         r = hashmap_ensure_allocated(&manager->workers, NULL);
@@ -293,7 +294,7 @@ static void manager_clear_for_worker(Manager *manager) {
         manager_workers_free(manager);
         event_queue_cleanup(manager, EVENT_UNDEF);
 
-        manager->monitor = udev_monitor_unref(manager->monitor);
+        manager->monitor = sd_device_monitor_unref(manager->monitor);
         manager->ctrl_conn_blocking = udev_ctrl_connection_unref(manager->ctrl_conn_blocking);
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
 
@@ -439,8 +440,8 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         return 0;
 }
 
-static int worker_main(Manager *_manager, struct udev_monitor *monitor, struct udev_device *first_device) {
-        _cleanup_(udev_device_unrefp) struct udev_device *dev = first_device;
+static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device *first_device) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = first_device;
         _cleanup_(manager_freep) Manager *manager = _manager;
         _cleanup_close_ int fd_signal = -1, fd_ep = -1;
         struct epoll_event ep_signal = { .events = EPOLLIN };
@@ -463,7 +464,7 @@ static int worker_main(Manager *_manager, struct udev_monitor *monitor, struct u
                 return log_error_errno(errno, "error creating signalfd %m");
         ep_signal.data.fd = fd_signal;
 
-        fd_monitor = udev_monitor_get_fd(monitor);
+        fd_monitor = device_monitor_get_fd(monitor);
         ep_monitor.data.fd = fd_monitor;
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
@@ -480,22 +481,21 @@ static int worker_main(Manager *_manager, struct udev_monitor *monitor, struct u
                 log_debug_errno(r, "Failed to reset OOM score, ignoring: %m");
 
         for (;;) {
-                r = worker_process_device(manager, dev->device);
+                r = worker_process_device(manager, dev);
                 if (r < 0)
-                        log_device_warning_errno(dev->device, r, "Failed to process device, ignoring: %m");
+                        log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
 
                 /* send processed event back to libudev listeners */
-                r = udev_monitor_send_device(monitor, NULL, dev);
+                r = device_monitor_send_device(monitor, NULL, dev);
                 if (r < 0)
-                        log_device_warning_errno(dev->device, r, "Failed to send device to udev event listeners, ignoring: %m");
+                        log_device_warning_errno(dev, r, "Failed to send device to udev event listeners, ignoring: %m");
 
                 /* send udevd the result of the event execution */
                 r = worker_send_message(manager->worker_watch[WRITE_END]);
                 if (r < 0)
-                        log_device_warning_errno(dev->device, r, "Failed to send result of seq %llu to main daemon: %m",
-                                                 udev_device_get_seqnum(dev));
+                        log_device_warning_errno(dev, r, "Failed to send result to main daemon: %m");
 
-                dev = udev_device_unref(dev);
+                dev = sd_device_unref(dev);
 
                 /* wait for more device messages from main udevd, or term signal */
                 while (!dev) {
@@ -512,7 +512,7 @@ static int worker_main(Manager *_manager, struct udev_monitor *monitor, struct u
 
                         for (i = 0; i < fdcount; i++) {
                                 if (ev[i].data.fd == fd_monitor && ev[i].events & EPOLLIN) {
-                                        dev = udev_monitor_receive_device(monitor);
+                                        (void) device_monitor_receive_device(monitor, &dev);
                                         break;
                                 } else if (ev[i].data.fd == fd_signal && ev[i].events & EPOLLIN) {
                                         struct signalfd_siginfo fdsi;
@@ -532,21 +532,24 @@ static int worker_main(Manager *_manager, struct udev_monitor *monitor, struct u
 }
 
 static int worker_spawn(Manager *manager, struct event *event) {
-        _cleanup_(udev_monitor_unrefp) struct udev_monitor *worker_monitor = NULL;
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *worker_monitor = NULL;
         struct worker *worker;
         pid_t pid;
         int r;
 
         /* listen for new events */
-        worker_monitor = udev_monitor_new_from_netlink(NULL, NULL);
-        if (!worker_monitor)
-                return -errno;
+        r = device_monitor_new_full(&worker_monitor, MONITOR_GROUP_NONE, -1);
+        if (r < 0)
+                return r;
 
         /* allow the main daemon netlink address to send devices to the worker */
-        udev_monitor_allow_unicast_sender(worker_monitor, manager->monitor);
-        r = udev_monitor_enable_receiving(worker_monitor);
+        r = device_monitor_allow_unicast_sender(worker_monitor, manager->monitor);
         if (r < 0)
-                return log_error_errno(r, "Worker: could not enable receiving of device: %m");
+                return log_error_errno(r, "Worker: Failed to set unicast sender: %m");
+
+        r = device_monitor_enable_receiving(worker_monitor);
+        if (r < 0)
+                return log_error_errno(r, "Worker: Failed to enable receiving of device: %m");
 
         r = safe_fork(NULL, FORK_DEATHSIG, &pid);
         if (r < 0) {
@@ -555,7 +558,7 @@ static int worker_spawn(Manager *manager, struct event *event) {
         }
         if (r == 0) {
                 /* Worker process */
-                r = worker_main(manager, worker_monitor, TAKE_PTR(event->dev));
+                r = worker_main(manager, worker_monitor, sd_device_ref(event->dev->device));
                 log_close();
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
@@ -573,20 +576,19 @@ static int worker_spawn(Manager *manager, struct event *event) {
 static void event_run(Manager *manager, struct event *event) {
         struct worker *worker;
         Iterator i;
+        int r;
 
         assert(manager);
         assert(event);
 
         HASHMAP_FOREACH(worker, manager->workers, i) {
-                ssize_t count;
-
                 if (worker->state != WORKER_IDLE)
                         continue;
 
-                count = udev_monitor_send_device(manager->monitor, worker->monitor, event->dev);
-                if (count < 0) {
-                        log_error_errno(errno, "worker ["PID_FMT"] did not accept message %zi (%m), kill it",
-                                        worker->pid, count);
+                r = device_monitor_send_device(manager->monitor, worker->monitor, event->dev->device);
+                if (r < 0) {
+                        log_device_error_errno(event->dev->device, r, "Worker ["PID_FMT"] did not accept message, killing the worker: %m",
+                                               worker->pid);
                         (void) kill(worker->pid, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
@@ -762,7 +764,7 @@ static void manager_exit(Manager *manager) {
         manager->fd_inotify = safe_close(manager->fd_inotify);
 
         manager->uevent_event = sd_event_source_unref(manager->uevent_event);
-        manager->monitor = udev_monitor_unref(manager->monitor);
+        manager->monitor = sd_device_monitor_unref(manager->monitor);
 
         /* discard queued events and kill workers */
         event_queue_cleanup(manager, EVENT_QUEUED);
@@ -935,22 +937,31 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 }
 
 static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(udev_device_unrefp) struct udev_device *udev_device = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         Manager *manager = userdata;
-        struct udev_device *dev;
         int r;
 
         assert(manager);
 
-        dev = udev_monitor_receive_device(manager->monitor);
-        if (dev) {
-                udev_device_ensure_usec_initialized(dev, NULL);
-                r = event_queue_insert(manager, dev);
-                if (r < 0)
-                        udev_device_unref(dev);
-                else
-                        /* we have fresh events, try to schedule them */
-                        event_queue_start(manager);
-        }
+        r = device_monitor_receive_device(manager->monitor, &dev);
+        if (r <= 0)
+                return 1;
+
+        device_ensure_usec_initialized(dev, NULL);
+
+        udev_device = udev_device_new(NULL, dev);
+        if (!udev_device)
+                return 1;
+
+        r = event_queue_insert(manager, udev_device);
+        if (r < 0)
+                return 1;
+
+        udev_device = NULL;
+
+        /* we have fresh events, try to schedule them */
+        event_queue_start(manager);
 
         return 1;
 }
@@ -1298,7 +1309,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         udev_device_delete_db(worker->event->dev);
                         udev_device_tag_index(worker->event->dev, NULL, false);
                         /* forward kernel event without amending it */
-                        udev_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
+                        device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel->device);
                 }
 
                 worker_free(worker);
@@ -1567,17 +1578,17 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (fd_ctrl < 0)
                 return log_error_errno(fd_ctrl, "Failed to get udev control fd: %m");
 
-        manager->monitor = udev_monitor_new_from_netlink_fd(NULL, "kernel", fd_uevent);
-        if (!manager->monitor)
-                return log_error_errno(EINVAL, "error taking over netlink socket");
+        r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd_uevent);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize device monitor: %m");
 
-        (void) udev_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
+        (void) sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
 
-        r = udev_monitor_enable_receiving(manager->monitor);
+        r = device_monitor_enable_receiving(manager->monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind netlink socket; %m");
 
-        fd_uevent = udev_monitor_get_fd(manager->monitor);
+        fd_uevent = device_monitor_get_fd(manager->monitor);
         if (fd_uevent < 0)
                 return log_error_errno(fd_uevent, "Failed to get uevent fd: %m");
 
