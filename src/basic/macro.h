@@ -246,11 +246,12 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
  * computation should be possible in the given type. Therefore, we use
  * [x / y + !!(x % y)]. Note that on "Real CPUs" a division returns both the
  * quotient and the remainder, so both should be equally fast. */
-#define DIV_ROUND_UP(_x, _y)                                            \
+#define DIV_ROUND_UP(x, y) __DIV_ROUND_UP(UNIQ, (x), UNIQ, (y))
+#define __DIV_ROUND_UP(xq, x, yq, y)                                    \
         ({                                                              \
-                const typeof(_x) __x = (_x);                            \
-                const typeof(_y) __y = (_y);                            \
-                (__x / __y + !!(__x % __y));                            \
+                const typeof(x) UNIQ_T(X, xq) = (x);                    \
+                const typeof(y) UNIQ_T(Y, yq) = (y);                    \
+                (UNIQ_T(X, xq) / UNIQ_T(Y, yq) + !!(UNIQ_T(X, xq) % UNIQ_T(Y, yq))); \
         })
 
 #ifdef __COVERITY__
