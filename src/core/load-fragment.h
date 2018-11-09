@@ -104,6 +104,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_job_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_running_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_extra_fields);
 CONFIG_PARSER_PROTOTYPE(config_parse_collect_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_pid_file);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

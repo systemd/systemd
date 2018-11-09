@@ -4235,6 +4235,62 @@ int config_parse_emergency_action(
         return 0;
 }
 
+int config_parse_pid_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *k = NULL, *n = NULL;
+        Unit *u = userdata;
+        char **s = data;
+        const char *e;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(u);
+
+        r = unit_full_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        /* If this is a relative path make it absolute by prefixing the /run */
+        n = path_make_absolute(k, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        if (!n)
+                return log_oom();
+
+        /* Check that the result is a sensible path */
+        r = path_simplify_and_warn(n, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
+                return r;
+
+        e = path_startswith(n, "/var/run/");
+        if (e) {
+                char *z;
+
+                z = strjoin("/run/", e);
+                if (!z)
+                        return log_oom();
+
+                log_syntax(unit, LOG_NOTICE, filename, line, 0, "PIDFile= references path below legacy directory /var/run/, updating %s → %s; please update the unit file accordingly.", n, z);
+
+                free_and_replace(*s, z);
+        } else
+                free_and_replace(*s, n);
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
