@@ -61,13 +61,16 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        if (argc != 3) {
-                log_error("This program needs two arguments, %d given", argc - 1);
+        if (!IN_SET(argc, 2, 3)) {
+                log_error("This program needs one or two arguments, %d given", argc - 1);
                 return EXIT_FAILURE;
         }
 
         if (fake_filesystems() < 0)
                 return EXIT_FAILURE;
+
+        if (argc == 2)
+                return EXIT_SUCCESS;
 
         log_debug("version %s", PACKAGE_VERSION);
         mac_selinux_init();

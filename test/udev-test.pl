@@ -1537,18 +1537,28 @@ sub udev_setup {
         system("umount", $udev_tmpfs);
         rmdir($udev_tmpfs);
         mkdir($udev_tmpfs) || die "unable to create udev_tmpfs: $udev_tmpfs\n";
-        system("mount", "-o", "rw,mode=755,nosuid,noexec", "-t", "tmpfs", "tmpfs", $udev_tmpfs) && die "unable to mount tmpfs";
+
+        if (system("mount", "-o", "rw,mode=755,nosuid,noexec", "-t", "tmpfs", "tmpfs", $udev_tmpfs)) {
+                warn "unable to mount tmpfs";
+                return 0;
+        }
 
         mkdir($udev_dev) || die "unable to create udev_dev: $udev_dev\n";
         # setting group and mode of udev_dev ensures the tests work
         # even if the parent directory has setgid bit enabled.
         chown (0, 0, $udev_dev) || die "unable to chown $udev_dev\n";
         chmod (0755, $udev_dev) || die "unable to chmod $udev_dev\n";
-        system("mknod", $udev_dev . "/null", "c", "1", "3") && die "unable to create $udev_dev/null";
+
+        if (system("mknod", $udev_dev . "/null", "c", "1", "3")) {
+                warn "unable to create $udev_dev/null";
+                return 0;
+        }
 
         system("cp", "-r", "test/sys/", $udev_sys) && die "unable to copy test/sys";
 
         system("rm", "-rf", "$udev_run");
+
+        return 1;
 }
 
 sub run_test {
@@ -1646,7 +1656,15 @@ if ($? >> 8 == 0) {
         exit($EXIT_TEST_SKIP);
 }
 
-udev_setup();
+if (!udev_setup()) {
+        warn "Failed to set up the environment, skipping the test";
+        exit($EXIT_TEST_SKIP);
+}
+
+if (!system($udev_bin, "check")) {
+        warn "$udev_bin failed to set up the environment, skipping the test";
+        exit($EXIT_TEST_SKIP);
+}
 
 my $test_num = 1;
 my @list;
