@@ -65,6 +65,11 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        if (!IN_SET(argc, 2, 3)) {
+                log_error("This program needs one or two arguments, %d given", argc - 1);
+                return EXIT_FAILURE;
+        }
+
         err = fake_filesystems();
         if (err < 0)
                 return EXIT_FAILURE;
@@ -72,6 +77,9 @@ int main(int argc, char *argv[]) {
         udev = udev_new();
         if (udev == NULL)
                 return EXIT_FAILURE;
+
+        if (argc == 2)
+                return EXIT_SUCCESS;
 
         log_debug("version %s", PACKAGE_VERSION);
         mac_selinux_init();
