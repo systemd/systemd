@@ -237,7 +237,7 @@ static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         kill_and_sigcont(event->worker->pid, SIGKILL);
         event->worker->state = WORKER_KILLED;
 
-        log_error("seq %llu '%s' killed", udev_device_get_seqnum(event->dev), event->devpath);
+        log_device_error(event->dev->device, "Worker ["PID_FMT"] processing SEQNUM=%llu killed", event->worker->pid, event->seqnum);
 
         return 1;
 }
@@ -246,8 +246,9 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
         struct event *event = userdata;
 
         assert(event);
+        assert(event->worker);
 
-        log_warning("seq %llu '%s' is taking a long time", udev_device_get_seqnum(event->dev), event->devpath);
+        log_device_warning(event->dev->device, "Worker ["PID_FMT"] processing SEQNUM=%llu is taking a long time", event->worker->pid, event->seqnum);
 
         return 1;
 }
@@ -552,7 +553,7 @@ static int worker_spawn(Manager *manager, struct event *event) {
 
         worker_attach_event(worker, event);
 
-        log_device_debug(event->dev->device, "seq %llu forked new worker ["PID_FMT"]", event->seqnum, pid);
+        log_device_debug(event->dev->device, "Worker ["PID_FMT"] is forked for processing SEQNUM=%llu.", pid, event->seqnum);
         return 0;
 }
 
@@ -582,7 +583,7 @@ static void event_run(Manager *manager, struct event *event) {
 
         if (hashmap_size(manager->workers) >= arg_children_max) {
                 if (arg_children_max > 1)
-                        log_debug("maximum number (%i) of children reached", hashmap_size(manager->workers));
+                        log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
                 return;
         }
 
@@ -627,7 +628,7 @@ static int event_queue_insert(Manager *manager, struct udev_device *dev) {
         if (LIST_IS_EMPTY(manager->events)) {
                 r = touch("/run/udev/queue");
                 if (r < 0)
-                        log_warning_errno(r, "could not touch /run/udev/queue: %m");
+                        log_warning_errno(r, "Failed to touch /run/udev/queue: %m");
         }
 
         LIST_APPEND(event, manager->events, event);
@@ -720,7 +721,7 @@ static int on_exit_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         assert(manager);
 
-        log_error_errno(ETIMEDOUT, "giving up waiting for workers to finish");
+        log_error_errno(ETIMEDOUT, "Giving up waiting for workers to finish.");
 
         sd_event_exit(manager->event, -ETIMEDOUT);
 
@@ -881,9 +882,9 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                                 /* nothing more to read */
                                 break;
 
-                        return log_error_errno(errno, "failed to receive message: %m");
+                        return log_error_errno(errno, "Failed to receive message: %m");
                 } else if (size != sizeof(struct worker_message)) {
-                        log_warning_errno(EIO, "ignoring worker message with invalid size %zi bytes", size);
+                        log_warning_errno(EIO, "Ignoring worker message with invalid size %zi bytes", size);
                         continue;
                 }
 
@@ -895,14 +896,14 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 }
 
                 if (!ucred || ucred->pid <= 0) {
-                        log_warning_errno(EIO, "ignoring worker message without valid PID");
+                        log_warning_errno(EIO, "Ignoring worker message without valid PID");
                         continue;
                 }
 
                 /* lookup worker who sent the signal */
                 worker = hashmap_get(manager->workers, PID_TO_PTR(ucred->pid));
                 if (!worker) {
-                        log_debug("worker ["PID_FMT"] returned, but is no longer tracked", ucred->pid);
+                        log_debug("Worker ["PID_FMT"] returned, but is no longer tracked", ucred->pid);
                         continue;
                 }
 
@@ -964,24 +965,24 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
 
         i = udev_ctrl_get_set_log_level(ctrl_msg);
         if (i >= 0) {
-                log_debug("udevd message (SET_LOG_LEVEL) received, log_priority=%i", i);
+                log_debug("Received udev control message (SET_LOG_LEVEL), setting log_priority=%i", i);
                 log_set_max_level(i);
                 manager_kill_workers(manager);
         }
 
         if (udev_ctrl_get_stop_exec_queue(ctrl_msg) > 0) {
-                log_debug("udevd message (STOP_EXEC_QUEUE) received");
+                log_debug("Received udev control message (STOP_EXEC_QUEUE)");
                 manager->stop_exec_queue = true;
         }
 
         if (udev_ctrl_get_start_exec_queue(ctrl_msg) > 0) {
-                log_debug("udevd message (START_EXEC_QUEUE) received");
+                log_debug("Received udev control message (START_EXEC_QUEUE)");
                 manager->stop_exec_queue = false;
                 event_queue_start(manager);
         }
 
         if (udev_ctrl_get_reload(ctrl_msg) > 0) {
-                log_debug("udevd message (RELOAD) received");
+                log_debug("Received udev control message (RELOAD)");
                 manager_reload(manager);
         }
 
@@ -1012,7 +1013,7 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
 
                 eq++;
                 if (!isempty(eq)) {
-                        log_debug("udevd message (ENV) received, unset '%s'", key);
+                        log_debug("Received udev control message (ENV), unsetting '%s'", key);
 
                         r = hashmap_put(manager->properties, key, NULL);
                         if (r < 0) {
@@ -1026,7 +1027,7 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
                                 return 1;
                         }
 
-                        log_debug("udevd message (ENV) received, set '%s=%s'", key, val);
+                        log_debug("Received udev control message (ENV), setting '%s=%s'", key, val);
 
                         r = hashmap_put(manager->properties, key, val);
                         if (r < 0) {
@@ -1041,7 +1042,7 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
 
         i = udev_ctrl_get_set_children_max(ctrl_msg);
         if (i >= 0) {
-                log_debug("udevd message (SET_MAX_CHILDREN) received, children_max=%i", i);
+                log_debug("Receivd udev control message (SET_MAX_CHILDREN), setting children_max=%i", i);
                 arg_children_max = i;
 
                 (void) sd_notifyf(false,
@@ -1050,10 +1051,10 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
         }
 
         if (udev_ctrl_get_ping(ctrl_msg) > 0)
-                log_debug("udevd message (SYNC) received");
+                log_debug("Received udev control message (SYNC)");
 
         if (udev_ctrl_get_exit(ctrl_msg) > 0) {
-                log_debug("udevd message (EXIT) received");
+                log_debug("Received udev control message (EXIT)");
                 manager_exit(manager);
                 /* keep reference to block the client until we exit
                    TODO: deal with several blocking exit requests */
@@ -1421,7 +1422,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 r = parse_sec(value, &arg_exec_delay_usec);
 
         } else if (startswith(key, "udev."))
-                log_warning("Unknown udev kernel command line option \"%s\"", key);
+                log_warning("Unknown udev kernel command line option \"%s\", ignoring", key);
 
         if (r < 0)
                 log_warning_errno(r, "Failed to parse \"%s=%s\", ignoring: %m", key, value);
@@ -1469,14 +1470,12 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "c:de:Dt:N:hV", options, NULL)) >= 0) {
-                int r;
-
                 switch (c) {
 
                 case 'd':
@@ -1546,11 +1545,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         manager->rules = udev_rules_new(arg_resolve_name_timing);
         if (!manager->rules)
-                return log_error_errno(ENOMEM, "error reading rules");
+                return log_error_errno(ENOMEM, "Failed to read udev rules");
 
         manager->ctrl = udev_ctrl_new_from_fd(fd_ctrl);
         if (!manager->ctrl)
-                return log_error_errno(EINVAL, "error taking over udev control socket");
+                return log_error_errno(EINVAL, "Failed to initialize udev control socket");
 
         r = udev_ctrl_enable_receiving(manager->ctrl);
         if (r < 0)
@@ -1558,7 +1557,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         fd_ctrl = udev_ctrl_get_fd(manager->ctrl);
         if (fd_ctrl < 0)
-                return log_error_errno(fd_ctrl, "Failed to get udev control fd: %m");
+                return log_error_errno(fd_ctrl, "Failed to get udev control socket fd: %m");
 
         r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd_uevent);
         if (r < 0)
@@ -1569,13 +1568,13 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
         if (r < 0)
-                return log_error_errno(errno, "error creating socketpair: %m");
+                return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
 
         fd_worker = manager->worker_watch[READ_END];
 
         r = setsockopt_int(fd_worker, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(r, "could not enable SO_PASSCRED: %m");
+                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
 
         r = udev_watch_init();
         if (r < 0)
@@ -1589,31 +1588,31 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         r = sd_event_default(&manager->event);
         if (r < 0)
-                return log_error_errno(r, "could not allocate event loop: %m");
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
         r = sd_event_add_signal(manager->event, NULL, SIGINT, on_sigterm, manager);
         if (r < 0)
-                return log_error_errno(r, "error creating sigint event source: %m");
+                return log_error_errno(r, "Failed to create SIGINT event source: %m");
 
         r = sd_event_add_signal(manager->event, NULL, SIGTERM, on_sigterm, manager);
         if (r < 0)
-                return log_error_errno(r, "error creating sigterm event source: %m");
+                return log_error_errno(r, "Failed to create SIGTERM event source: %m");
 
         r = sd_event_add_signal(manager->event, NULL, SIGHUP, on_sighup, manager);
         if (r < 0)
-                return log_error_errno(r, "error creating sighup event source: %m");
+                return log_error_errno(r, "Failed to create SIGHUP event source: %m");
 
         r = sd_event_add_signal(manager->event, NULL, SIGCHLD, on_sigchld, manager);
         if (r < 0)
-                return log_error_errno(r, "error creating sigchld event source: %m");
+                return log_error_errno(r, "Failed to create SIGCHLD event source: %m");
 
         r = sd_event_set_watchdog(manager->event, true);
         if (r < 0)
-                return log_error_errno(r, "error creating watchdog event source: %m");
+                return log_error_errno(r, "Failed to create watchdog event source: %m");
 
         r = sd_event_add_io(manager->event, &manager->ctrl_event, fd_ctrl, EPOLLIN, on_ctrl_msg, manager);
         if (r < 0)
-                return log_error_errno(r, "error creating ctrl event source: %m");
+                return log_error_errno(r, "Failed to create udev control event source: %m");
 
         /* This needs to be after the inotify and uevent handling, to make sure
          * that the ping is send back after fully processing the pending uevents
@@ -1621,11 +1620,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
          */
         r = sd_event_source_set_priority(manager->ctrl_event, SD_EVENT_PRIORITY_IDLE);
         if (r < 0)
-                return log_error_errno(r, "cold not set IDLE event priority for ctrl event source: %m");
+                return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
 
         r = sd_event_add_io(manager->event, &manager->inotify_event, manager->fd_inotify, EPOLLIN, on_inotify, manager);
         if (r < 0)
-                return log_error_errno(r, "error creating inotify event source: %m");
+                return log_error_errno(r, "Failed to create inotify event source: %m");
 
         r = sd_device_monitor_attach_event(manager->monitor, manager->event);
         if (r < 0)
@@ -1639,11 +1638,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         r = sd_event_add_io(manager->event, NULL, fd_worker, EPOLLIN, on_worker, manager);
         if (r < 0)
-                return log_error_errno(r, "error creating worker event source: %m");
+                return log_error_errno(r, "Failed to create worker event source: %m");
 
         r = sd_event_add_post(manager->event, NULL, on_post, manager);
         if (r < 0)
-                return log_error_errno(r, "error creating post event source: %m");
+                return log_error_errno(r, "Failed to create post event source: %m");
 
         *ret = TAKE_PTR(manager);
 
@@ -1656,13 +1655,13 @@ static int run(int fd_ctrl, int fd_uevent, const char *cgroup) {
 
         r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
         if (r < 0) {
-                r = log_error_errno(r, "failed to allocate manager object: %m");
+                r = log_error_errno(r, "Failed to allocate manager object: %m");
                 goto exit;
         }
 
         r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
-                log_error_errno(r, "failed to apply permissions on static device nodes: %m");
+                log_error_errno(r, "Failed to apply permissions on static device nodes: %m");
 
         (void) sd_notifyf(false,
                           "READY=1\n"
@@ -1670,7 +1669,7 @@ static int run(int fd_ctrl, int fd_uevent, const char *cgroup) {
 
         r = sd_event_loop(manager->event);
         if (r < 0) {
-                log_error_errno(r, "event loop failed: %m");
+                log_error_errno(r, "Event loop failed: %m");
                 goto exit;
         }
 
@@ -1701,7 +1700,7 @@ int main(int argc, char *argv[]) {
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
-                log_warning_errno(r, "failed to parse kernel command line, ignoring: %m");
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         if (arg_debug) {
                 log_set_target(LOG_TARGET_CONSOLE);
@@ -1726,13 +1725,13 @@ int main(int argc, char *argv[]) {
                 mem_limit = physical_memory() / (128LU*1024*1024);
                 arg_children_max = MAX(10U, MIN(arg_children_max, mem_limit));
 
-                log_debug("set children_max to %u", arg_children_max);
+                log_debug("Set children_max to %u", arg_children_max);
         }
 
         /* set umask before creating any file/directory */
         r = chdir("/");
         if (r < 0) {
-                r = log_error_errno(errno, "could not change dir to /: %m");
+                r = log_error_errno(errno, "Failed to change dir to '/': %m");
                 goto exit;
         }
 
@@ -1746,7 +1745,7 @@ int main(int argc, char *argv[]) {
 
         r = mkdir_errno_wrapper("/run/udev", 0755);
         if (r < 0 && r != -EEXIST) {
-                log_error_errno(r, "could not create /run/udev: %m");
+                log_error_errno(r, "Failed to create /run/udev: %m");
                 goto exit;
         }
 
@@ -1759,15 +1758,15 @@ int main(int argc, char *argv[]) {
                 r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
                 if (r < 0) {
                         if (IN_SET(r, -ENOENT, -ENOMEDIUM))
-                                log_debug_errno(r, "did not find dedicated cgroup: %m");
+                                log_debug_errno(r, "Dedicated cgroup not found: %m");
                         else
-                                log_warning_errno(r, "failed to get cgroup: %m");
+                                log_warning_errno(r, "Failed to get cgroup: %m");
                 }
         }
 
         r = listen_fds(&fd_ctrl, &fd_uevent);
         if (r < 0) {
-                r = log_error_errno(r, "could not listen on fds: %m");
+                r = log_error_errno(r, "Failed to listen on fds: %m");
                 goto exit;
         }
 
@@ -1788,7 +1787,7 @@ int main(int argc, char *argv[]) {
                 case 0:
                         break;
                 case -1:
-                        r = log_error_errno(errno, "fork of daemon failed: %m");
+                        r = log_error_errno(errno, "Failed to fork daemon: %m");
                         goto exit;
                 default:
                         mac_selinux_finish();
