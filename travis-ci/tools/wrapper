@@ -1,0 +1,8 @@
+#!/bin/bash
+
+echo -- "$@" >&2
+if [[ "$1" =~ 'test-execute' ]]; then
+	"$@"
+else
+	"$@" >& /dev/null
+fi
