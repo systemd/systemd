@@ -72,7 +72,7 @@ Network.IPv6AcceptRouterAdvertisements, config_parse_tristate,                  
 Network.IPv6DuplicateAddressDetection,  config_parse_int,                               0,                             offsetof(Network, ipv6_dad_transmits)
 Network.IPv6HopLimit,                   config_parse_int,                               0,                             offsetof(Network, ipv6_hop_limit)
 Network.IPv6ProxyNDP,                   config_parse_tristate,                          0,                             offsetof(Network, ipv6_proxy_ndp)
-Network.IPv6MTUBytes,                   config_parse_mtu,                               AF_INET6,                      0
+Network.IPv6MTUBytes,                   config_parse_mtu,                               AF_INET6,                      offsetof(Network, ipv6_mtu)
 Network.ActiveSlave,                    config_parse_bool,                              0,                             offsetof(Network, active_slave)
 Network.PrimarySlave,                   config_parse_bool,                              0,                             offsetof(Network, primary_slave)
 Network.IPv4ProxyARP,                   config_parse_tristate,                          0,                             offsetof(Network, proxy_arp)
