@@ -325,7 +325,7 @@
           <row>
             <entry><filename>/run/systemd/generator.early</filename></entry>
             <entry>Generated units with high priority (see <replaceable>early-dir</replaceable> in <citerefentry
-            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+            ><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
           <row>
             <entry><filename>/etc/systemd/system</filename></entry>
@@ -338,7 +338,7 @@
           <row>
             <entry><filename>/run/systemd/generator</filename></entry>
             <entry>Generated units with medium priority (see <replaceable>normal-dir</replaceable> in <citerefentry
-            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+            ><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
           <row>
             <entry><filename>/usr/local/lib/systemd/system</filename></entry>
@@ -350,7 +350,7 @@
           <row>
             <entry><filename>/run/systemd/generator.late</filename></entry>
             <entry>Generated units with low priority (see <replaceable>late-dir</replaceable> in <citerefentry
-            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+            ><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
         </tbody>
       </tgroup>
@@ -386,7 +386,7 @@
           <row>
             <entry><filename>/run/systemd/generator.early</filename></entry>
             <entry>Generated units with high priority (see <replaceable>early-dir</replaceable> in <citerefentry
-            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+            ><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
           <row>
             <entry><filename>$XDG_CONFIG_HOME/systemd/user</filename> or <filename>$HOME/.config/systemd/user</filename></entry>
@@ -407,7 +407,7 @@
           <row>
             <entry><filename>$XDG_RUNTIME_DIR/systemd/generator</filename></entry>
             <entry>Generated units with medium priority (see <replaceable>normal-dir</replaceable> in <citerefentry
-            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+            ><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
           <row>
             <entry><filename>$XDG_DATA_HOME/systemd/user</filename> or <filename>$HOME/.local/share/systemd/user</filename></entry>
@@ -427,7 +427,7 @@
           <row>
             <entry><filename>$XDG_RUNTIME_DIR/systemd/generator.late</filename></entry>
             <entry>Generated units with low priority (see <replaceable>late-dir</replaceable> in <citerefentry
-            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+            ><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
         </tbody>
       </tgroup>
