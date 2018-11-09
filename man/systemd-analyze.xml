@@ -112,6 +112,12 @@
       <arg choice="plain">timespan</arg>
       <arg choice="plain" rep="repeat"><replaceable>SPAN</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">security</arg>
+      <arg choice="plain" rep="repeat"><replaceable>UNIT</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -262,6 +268,29 @@ NAutoVTs=8
     <para><command>systemd-analyze timespan</command> parses a time span and outputs the equivalent value in microseconds, and as a reformatted timespan.
     The time span should adhere to the same syntax documented in <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     Values without associated magnitudes are parsed as seconds.</para>
+
+    <para><command>systemd-analyze security</command> analyzes the security and sandboxing settings of one or more
+    specified service units. If at least one unit name is specified the security settings of the specified service
+    units are inspected and a detailed analysis is shown. If no unit name is specified, all currently loaded,
+    long-running service units are inspected and a terse table with results shown. The command checks for various
+    security-related service settings, assigning each a numeric "exposure level" value, depending on how important a
+    setting is. It then calculates an overall exposure level for the whole unit, which is an estimation in the range
+    0.0…10.0 indicating how exposed a service is security-wise. High exposure levels indicate very little applied
+    sandboxing. Low exposure levels indicate tight sandboxing and strongest security restrictions. Note that this only
+    analyzes the per-service security features systemd itself implements. This means that any additional security
+    mechanisms applied by the service code itself are not accounted for. The exposure level determined this way should
+    not be misunderstood: a high exposure level neither means that there is no effective sandboxing applied by the
+    service code itself, nor that the service is actually vulnerable to remote or local attacks. High exposure levels
+    do indicate however that most likely the service might benefit from additional settings applied to them. Please
+    note that many of the security and sandboxing settings individually can be circumvented — unless combined with
+    others. For example, if a service retains the privilege to establish or undo mount points many of the sandboxing
+    options can be undone by the service code itself. Due to that is essential that each service uses the most
+    comprehensive and strict sandboxing and security settings possible. The tool will take into account some of these
+    combinations and relationships between the settings, but not all. Also note that the security and sandboxing
+    settings analyzed here only apply to the operations executed by the service code itself. If a service has access to
+    an IPC system (such as D-Bus) it might request operations from other services that are not subject to the same
+    restrictions. Any comprehensive security and sandboxing analysis is hence incomplete if the IPC access policy is
+    not validated too.</para>
 
     <para>If no command is passed, <command>systemd-analyze
     time</command> is implied.</para>
