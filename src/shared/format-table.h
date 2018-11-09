@@ -68,3 +68,6 @@ size_t table_get_rows(Table *t);
 size_t table_get_columns(Table *t);
 
 TableCell *table_get_cell(Table *t, size_t row, size_t column);
+
+const void *table_get(Table *t, TableCell *cell);
+const void *table_get_at(Table *t, size_t row, size_t column);

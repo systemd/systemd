@@ -1392,3 +1392,25 @@ TableCell *table_get_cell(Table *t, size_t row, size_t column) {
 
         return TABLE_INDEX_TO_CELL(i);
 }
+
+const void *table_get(Table *t, TableCell *cell) {
+        TableData *d;
+
+        assert(t);
+
+        d = table_get_data(t, cell);
+        if (!d)
+                return NULL;
+
+        return d->data;
+}
+
+const void* table_get_at(Table *t, size_t row, size_t column) {
+        TableCell *cell;
+
+        cell = table_get_cell(t, row, column);
+        if (!cell)
+                return NULL;
+
+        return table_get(t, cell);
+}
