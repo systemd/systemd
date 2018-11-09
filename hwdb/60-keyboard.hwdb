@@ -349,6 +349,10 @@ evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*
  KEYBOARD_KEY_100150=f20                                   # Mic mute toggle, should be micmute
 
+# Inspiron 3138 airplaine mode has duplicated key events
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*3138:pvr*
+ KEYBOARD_KEY_88=unknown # There is also an "DELL Wireless hotkeys" input device sending events
+
 ###########################################################
 # Everex
 ###########################################################
