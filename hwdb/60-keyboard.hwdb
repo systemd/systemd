@@ -272,7 +272,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*
  KEYBOARD_KEY_85=brightnessdown                         # Fn+Down Brightness Down
  KEYBOARD_KEY_86=brightnessup                           # Fn+Up Brightness Up
  KEYBOARD_KEY_87=battery                                # Fn+F3 battery icon
- KEYBOARD_KEY_88=!wlan                                  # Fn+(F2|PrtScr|Home) Turn On/Off Wireless
+ KEYBOARD_KEY_88=unknown                                # Fn+F2 Turn On/Off Wireless - handled in hardware
  KEYBOARD_KEY_89=ejectclosecd                           # Fn+F10 Eject CD
  KEYBOARD_KEY_8a=suspend                                # Fn+F1 hibernate
  KEYBOARD_KEY_8b=switchvideomode                        # Fn+F8 CRT/LCD (high keycode: "displaytoggle")
@@ -308,6 +308,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*2110:pvr*
  KEYBOARD_KEY_85=unknown  # Brightness Down, also emitted by acpi-video, ignore
  KEYBOARD_KEY_86=unknown  # Brightness Up, also emitted by acpi-video, ignore
 
+# Dell Inspiron 537*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron537*:pvr*
+ KEYBOARD_KEY_88=!wlan                                  # Fn-PrtScr rfkill
+
 # Latitude XT2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*XT2:pvr*
  KEYBOARD_KEY_9b=up                                     # tablet rocker up
@@ -323,6 +327,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnStudio*155[78]:pvr*
 # Dell Touchpad
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:pvr*
+ KEYBOARD_KEY_88=!                                      # wireless switch
  KEYBOARD_KEY_9e=!f21
 
 # Dell Latitude E7*
