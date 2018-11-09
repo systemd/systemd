@@ -272,14 +272,15 @@
       <varlistentry>
         <term><varname>PIDFile=</varname></term>
 
-        <listitem><para>Takes an absolute path referring to the PID file of the service. Usage of this option is
-        recommended for services where <varname>Type=</varname> is set to <option>forking</option>. The service manager
-        will read the PID of the main process of the service from this file after start-up of the service. The service
-        manager will not write to the file configured here, although it will remove the file after the service has shut
-        down if it still exists. The PID file does not need to be owned by a privileged user, but if it is owned by an
-        unprivileged user additional safety restrictions are enforced: the file may not be a symlink to a file owned by
-        a different user (neither directly nor indirectly), and the PID file must refer to a process already belonging
-        to the service.</para></listitem>
+        <listitem><para>Takes a path referring to the PID file of the service. Usage of this option is recommended for
+        services where <varname>Type=</varname> is set to <option>forking</option>. The path specified typically points
+        to a file below <filename>/run/</filename>. If a relative path is specified it is hence prefixed with
+        <filename>/run/</filename>. The service manager will read the PID of the main process of the service from this
+        file after start-up of the service. The service manager will not write to the file configured here, although it
+        will remove the file after the service has shut down if it still exists. The PID file does not need to be owned
+        by a privileged user, but if it is owned by an unprivileged user additional safety restrictions are enforced:
+        the file may not be a symlink to a file owned by a different user (neither directly nor indirectly), and the
+        PID file must refer to a process already belonging to the service.</para></listitem>
       </varlistentry>
 
       <varlistentry>

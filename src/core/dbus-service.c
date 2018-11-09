@@ -312,8 +312,40 @@ static int bus_service_set_transient_property(
         if (streq(name, "NotifyAccess"))
                 return bus_set_transient_notify_access(u, name, &s->notify_access, message, flags, error);
 
-        if (streq(name, "PIDFile"))
-                return bus_set_transient_path(u, name, &s->pid_file, message, flags, error);
+        if (streq(name, "PIDFile")) {
+                _cleanup_free_ char *n = NULL;
+                const char *v, *e;
+
+                r = sd_bus_message_read(message, "s", &v);
+                if (r < 0)
+                        return r;
+
+                n = path_make_absolute(v, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+                if (!n)
+                        return -ENOMEM;
+
+                path_simplify(n, true);
+
+                if (!path_is_normalized(n))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PIDFile= path '%s' is not valid", n);
+
+                e = path_startswith(n, "/var/run/");
+                if (e) {
+                        char *z;
+
+                        z = strjoin("/run/", e);
+                        if (!z)
+                                return log_oom();
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags))
+                                log_unit_notice(u, "Transient unit's PIDFile= property references path below legacy directory /var/run, updating %s → %s; please update client accordingly.", n, z);
+
+                        free_and_replace(s->pid_file, z);
+                } else
+                        free_and_replace(s->pid_file, n);
+
+                return 1;
+        }
 
         if (streq(name, "USBFunctionDescriptors"))
                 return bus_set_transient_path(u, name, &s->usb_function_descriptors, message, flags, error);
