@@ -43,6 +43,9 @@ Features:
 * support the bind/connect/sendmsg cgroup stuff for sandboxing, and possibly
   patching around
 
+* maybe implicitly attach monotonic+realtime timestamps to outgoing messages in
+  log.c and sd-journal-send
+
 * chown() tty a service is attached to after the service goes down
 
 * optionally: turn on cgroup delegation for per-session scope units

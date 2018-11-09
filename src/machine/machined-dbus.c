@@ -1363,17 +1363,14 @@ int manager_start_scope(
                         return r;
         }
 
-        r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, pid);
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
+                                  "PIDs", "au", 1, pid,
+                                  "Delegate", "b", 1,
+                                  "CollectMode", "s", "inactive-or-failed",
+                                  "AddRef", "b", 1,
+                                  "TasksMax", "t", UINT64_C(16384));
         if (r < 0)
                 return r;
-
-        r = sd_bus_message_append(m, "(sv)", "Delegate", "b", 1);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", UINT64_C(16384));
-        if (r < 0)
-                return bus_log_create_error(r);
 
         if (more_properties) {
                 r = sd_bus_message_copy(m, more_properties, true);
@@ -1409,6 +1406,26 @@ int manager_start_scope(
         }
 
         return 1;
+}
+
+int manager_unref_unit(
+                Manager *m,
+                const char *unit,
+                sd_bus_error *error) {
+
+        assert(m);
+        assert(unit);
+
+        return sd_bus_call_method(
+                        m->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "UnrefUnit",
+                        error,
+                        NULL,
+                        "s",
+                        unit);
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {

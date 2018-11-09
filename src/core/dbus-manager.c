@@ -12,6 +12,7 @@
 #include "dbus-execute.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
+#include "dbus-scope.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "env-util.h"
@@ -2422,6 +2423,29 @@ static int method_get_job_waiting(sd_bus_message *message, void *userdata, sd_bu
         return bus_job_method_get_waiting_jobs(message, j, error);
 }
 
+static int method_abandon_scope(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        r = bus_get_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
+
+        if (u->type != UNIT_SCOPE)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit '%s' is not a scope unit, refusing.", name);
+
+        return bus_scope_method_abandon(message, u, error);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -2537,6 +2561,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("StartTransientUnit", "ssa(sv)a(sa(sv))", "o", method_start_transient_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitProcesses", "s", "a(sus)", method_get_unit_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("AttachProcessesToUnit", "ssau", NULL, method_attach_processes_to_unit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("AbandonScope", "s", NULL, method_abandon_scope, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJob", "u", "o", method_get_job, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJobAfter", "u", "a(usssoo)", method_get_job_waiting, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJobBefore", "u", "a(usssoo)", method_get_job_waiting, SD_BUS_VTABLE_UNPRIVILEGED),

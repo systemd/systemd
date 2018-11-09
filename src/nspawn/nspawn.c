@@ -3974,6 +3974,10 @@ static int run(int master,
                 r = sd_bus_default_system(&bus);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open system bus: %m");
+
+                r = sd_bus_set_close_on_exit(bus, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable close-on-exit behaviour: %m");
         }
 
         if (!arg_keep_unit) {
@@ -4125,8 +4129,12 @@ static int run(int master,
                 putc('\n', stdout);
 
         /* Kill if it is not dead yet anyway */
-        if (arg_register && !arg_keep_unit && bus)
-                terminate_machine(bus, *pid);
+        if (bus) {
+                if (arg_register)
+                        terminate_machine(bus, arg_machine);
+                else if (!arg_keep_unit)
+                        terminate_scope(bus, arg_machine);
+        }
 
         /* Normally redundant, but better safe than sorry */
         (void) kill(*pid, SIGKILL);
