@@ -1646,13 +1646,6 @@ if ($? >> 8 == 0) {
         exit($EXIT_TEST_SKIP);
 }
 
-# skip the test when running in a container
-system("systemd-detect-virt", "-c", "-q");
-if ($? >> 8 == 0) {
-        print "Running in a container, skipping the test.\n";
-        exit($EXIT_TEST_SKIP);
-}
-
 udev_setup();
 
 my $test_num = 1;
