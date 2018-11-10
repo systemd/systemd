@@ -933,7 +933,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
         assert(set);
 
         /* The one-stop solution: allocate a seccomp object, add the specified filter to it, and apply it. Once for
-         * earch local arch. */
+         * each local arch. */
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
