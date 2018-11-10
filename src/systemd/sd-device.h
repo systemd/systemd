@@ -106,6 +106,7 @@ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size)
 int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *event, int64_t priority);
 int sd_device_monitor_detach_event(sd_device_monitor *m);
 sd_event *sd_device_monitor_get_event(sd_device_monitor *m);
+sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *m);
 int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_handler_t callback, void *userdata, const char *description);
 int sd_device_monitor_stop(sd_device_monitor *m);
 

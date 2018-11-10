@@ -272,6 +272,12 @@ _public_ sd_event *sd_device_monitor_get_event(sd_device_monitor *m) {
         return m->event;
 }
 
+_public_ sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *m) {
+        assert_return(m, NULL);
+
+        return m->event_source;
+}
+
 int device_monitor_enable_receiving(sd_device_monitor *m) {
         int r;
 
