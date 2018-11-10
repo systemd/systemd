@@ -802,13 +802,13 @@ static void device_enumerate(Manager *m) {
                         goto fail;
                 }
 
-                r = sd_device_monitor_attach_event(m->device_monitor, m->event, 0);
+                r = sd_device_monitor_attach_event(m->device_monitor, m->event);
                 if (r < 0) {
                         log_error_errno(r, "Failed to attach event to device monitor: %m");
                         goto fail;
                 }
 
-                r = sd_device_monitor_start(m->device_monitor, device_dispatch_io, m, "systemd-device-monitor");
+                r = sd_device_monitor_start(m->device_monitor, device_dispatch_io, m);
                 if (r < 0) {
                         log_error_errno(r, "Failed to start device monitor: %m");
                         goto fail;

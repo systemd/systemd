@@ -305,11 +305,11 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create device monitor object: %m");
 
-                r = sd_device_monitor_attach_event(m, event, 0);
+                r = sd_device_monitor_attach_event(m, event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach event to device monitor: %m");
 
-                r = sd_device_monitor_start(m, device_monitor_handler, settle_set, "udevadm-trigger-device-monitor");
+                r = sd_device_monitor_start(m, device_monitor_handler, settle_set);
                 if (r < 0)
                         return log_error_errno(r, "Failed to start device monitor: %m");
         }

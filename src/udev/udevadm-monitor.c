@@ -67,7 +67,7 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
 
         (void) sd_device_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
 
-        r = sd_device_monitor_attach_event(monitor, event, 0);
+        r = sd_device_monitor_attach_event(monitor, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event: %m");
 
@@ -84,9 +84,12 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
                         return log_error_errno(r, "Failed to apply tag filter '%s': %m", tag);
         }
 
-        r = sd_device_monitor_start(monitor, device_monitor_handler, INT_TO_PTR(sender), sender == MONITOR_GROUP_UDEV ? "device-monitor-udev" : "device-monitor-kernel");
+        r = sd_device_monitor_start(monitor, device_monitor_handler, INT_TO_PTR(sender));
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
+
+        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(monitor),
+                                               sender == MONITOR_GROUP_UDEV ? "device-monitor-udev" : "device-monitor-kernel");
 
         *ret = TAKE_PTR(monitor);
         return 0;

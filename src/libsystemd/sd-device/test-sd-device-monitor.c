@@ -39,11 +39,13 @@ static int test_loopback(bool subsystem_filter, bool tag_filter, bool use_bpf) {
         assert_se(device_add_property(loopback, "SEQNUM", "10") >= 0);
 
         assert_se(device_monitor_new_full(&monitor_server, MONITOR_GROUP_NONE, -1) >= 0);
-        assert_se(sd_device_monitor_start(monitor_server, NULL, NULL, NULL) >= 0);
+        assert_se(sd_device_monitor_start(monitor_server, NULL, NULL) >= 0);
+        assert_se(sd_event_source_set_description(sd_device_monitor_get_event_source(monitor_server), "sender") >= 0);
 
         assert_se(device_monitor_new_full(&monitor_client, MONITOR_GROUP_NONE, -1) >= 0);
         assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
-        assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath, "loopback-monitor") >= 0);
+        assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+        assert_se(sd_event_source_set_description(sd_device_monitor_get_event_source(monitor_client), "receiver") >= 0);
 
         if (subsystem_filter) {
                 assert_se(sd_device_get_subsystem(loopback, &subsystem) >= 0);
@@ -82,12 +84,14 @@ static void test_subsystem_filter(void) {
         assert_se(device_add_property(loopback, "SEQNUM", "10") >= 0);
 
         assert_se(device_monitor_new_full(&monitor_server, MONITOR_GROUP_NONE, -1) >= 0);
-        assert_se(sd_device_monitor_start(monitor_server, NULL, NULL, NULL) >= 0);
+        assert_se(sd_device_monitor_start(monitor_server, NULL, NULL) >= 0);
+        assert_se(sd_event_source_set_description(sd_device_monitor_get_event_source(monitor_server), "sender") >= 0);
 
         assert_se(device_monitor_new_full(&monitor_client, MONITOR_GROUP_NONE, -1) >= 0);
         assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
         assert_se(sd_device_monitor_filter_add_match_subsystem_devtype(monitor_client, subsystem, NULL) >= 0);
-        assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath, "subsystem-filter") >= 0);
+        assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+        assert_se(sd_event_source_set_description(sd_device_monitor_get_event_source(monitor_client), "receiver") >= 0);
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_add_match_subsystem(e, subsystem, false) >= 0);

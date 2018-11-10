@@ -138,11 +138,11 @@ static int wait_for_initialized(
         if (r < 0)
                 return log_error_errno(r, "Failed to add rfkill device match to monitor: %m");
 
-        r = sd_device_monitor_attach_event(monitor, event, 0);
+        r = sd_device_monitor_attach_event(monitor, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event to device monitor: %m");
 
-        r = sd_device_monitor_start(monitor, device_monitor_handler, &data, "rfkill-device-monitor");
+        r = sd_device_monitor_start(monitor, device_monitor_handler, &data);
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
