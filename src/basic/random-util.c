@@ -30,6 +30,9 @@
 #include "random-util.h"
 #include "time-util.h"
 
+#if HAS_FEATURE_MEMORY_SANITIZER
+#include <sanitizer/msan_interface.h>
+#endif
 
 int rdrand64(uint64_t *ret) {
 
@@ -56,6 +59,11 @@ int rdrand64(uint64_t *ret) {
                      "setc %1"
                      : "=r" (*ret),
                        "=qm" (err));
+
+#if HAS_FEATURE_MEMORY_SANITIZER
+        __msan_unpoison(&err, sizeof(err));
+#endif
+
         if (!err)
                 return -EAGAIN;
 
