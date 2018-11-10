@@ -550,7 +550,7 @@ int device_new_from_strv(sd_device **ret, char **strv) {
         char **key;
         const char *major = NULL, *minor = NULL;
         DeviceAction action = _DEVICE_ACTION_INVALID;
-        uint64_t seqnum;
+        uint64_t seqnum = 0;
         int r;
 
         assert(ret);
@@ -585,7 +585,7 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *major = NULL, *minor = NULL;
         DeviceAction action = _DEVICE_ACTION_INVALID;
-        uint64_t seqnum;
+        uint64_t seqnum = 0;
         unsigned i = 0;
         int r;
 
