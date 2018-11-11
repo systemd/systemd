@@ -158,7 +158,7 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open \"%s\": %m", path);
+                return log_debug_errno(errno, "Failed to open \"%s\": %m", path);
         }
 
         for (;;) {
@@ -634,7 +634,7 @@ int find_default_boot_entry(
 
         r = boot_entries_load_config(where, config);
         if (r < 0)
-                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m", where);
+                return log_debug_errno(r, "Failed to load bootspec config from \"%s/loader\": %m", where);
 
         if (config->default_entry < 0) {
                 log_error("No entry suitable as default, refusing to guess.");

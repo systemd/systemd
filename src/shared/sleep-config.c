@@ -340,9 +340,9 @@ static int resume_configured(void) {
 
         r = find_default_boot_entry(NULL, NULL, &config, &e);
         if (r == -ENOKEY)
-                log_debug_errno(r, "Cannot find the ESP partition mount point, falling back to other checks.");
+                log_debug("Cannot find the ESP partition mount point, falling back to other checks.");
         else if (r < 0)
-                return log_debug_errno(r, "Cannot read boot configuration from ESP, assuming hibernation is not possible.");
+                log_debug("Cannot read boot configuration from ESP, assuming hibernation is not possible.");
         else {
                 _cleanup_free_ char *options = NULL;
 
@@ -352,9 +352,9 @@ static int resume_configured(void) {
 
                 r = resume_configured_in_options(options);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse kernel options in \"%s\": %m",
-                                               strnull(e->path));
-                return r;
+                        log_error_errno(r, "Failed to parse kernel options in \"%s\": %m", strnull(e->path));
+                else
+                        return r;
         }
 
         /* If we can't figure out the default boot entry, let's fall back to current kernel cmdline */
@@ -363,13 +363,13 @@ static int resume_configured(void) {
         if (IN_SET(r, -EPERM, -EACCES, -ENOENT))
                 log_debug_errno(r, "Cannot access /proc/cmdline: %m");
         else if (r < 0)
-                return log_error_errno(r, "Failed to query /proc/cmdline: %m");
+                log_error_errno(r, "Failed to query /proc/cmdline: %m");
         else {
                 r = resume_configured_in_options(line);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse kernel proc cmdline: %m");
-
-                return r;
+                        log_error_errno(r, "Failed to parse kernel proc cmdline: %m");
+                else
+                        return r;
         }
 
         log_debug("Couldn't detect any resume mechanism, hibernation is disabled.");
