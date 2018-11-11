@@ -52,7 +52,7 @@ static const char have_dropins[] =
         "systemd/system\0"
         "systemd/user\0";
 
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static int arg_diff = -1;
 
 static enum {
@@ -596,7 +596,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case 't': {
@@ -654,7 +654,7 @@ int main(int argc, char *argv[]) {
         else if (arg_diff)
                 arg_flags |= SHOW_OVERRIDDEN;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         if (optind < argc) {
                 int i;

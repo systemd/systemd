@@ -36,7 +36,7 @@ enum {
 } arg_action = ACTION_DEFAULT;
 
 static bool arg_no_block = false;
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static bool arg_ask_password = true;
 static bool arg_quiet = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -177,7 +177,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -1485,7 +1485,7 @@ static int list_devices(void) {
 
         typesafe_qsort(items, n, compare_item);
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         fputs(ansi_underline(), stdout);
         for (c = 0; c < _COLUMN_MAX; c++) {

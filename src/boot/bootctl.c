@@ -45,7 +45,7 @@
 static char *arg_path = NULL;
 static bool arg_print_path = false;
 static bool arg_touch_variables = true;
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 
 static int acquire_esp(
                 bool unprivileged_mode,
@@ -923,7 +923,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case '?':
@@ -965,7 +965,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just show what we
                 * can show */
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         if (is_efi_boot()) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
@@ -1054,7 +1054,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         else {
                 size_t n;
 
-                (void) pager_open(arg_no_pager, false);
+                (void) pager_open(arg_pager_flags);
 
                 printf("Boot Loader Entries:\n");
 

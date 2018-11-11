@@ -43,7 +43,7 @@ static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
 static const char* arg_field = NULL;
 static const char *arg_debugger = NULL;
 static const char *arg_directory = NULL;
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static int arg_no_legend = false;
 static int arg_one = false;
 static FILE* arg_output = NULL;
@@ -211,7 +211,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_NO_LEGEND:
@@ -659,7 +659,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         /* The coredumps are likely to compressed, and for just
          * listing them we don't need to decompress them, so let's

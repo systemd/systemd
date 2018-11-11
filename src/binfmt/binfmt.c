@@ -22,7 +22,7 @@
 #include "util.h"
 
 static bool arg_cat_config = false;
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 
 static int delete_rule(const char *rule) {
         _cleanup_free_ char *x = NULL, *fn = NULL;
@@ -160,7 +160,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case '?':
@@ -212,7 +212,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (arg_cat_config) {
-                        (void) pager_open(arg_no_pager, false);
+                        (void) pager_open(arg_pager_flags);
 
                         r = cat_files(NULL, files, 0);
                         goto finish;

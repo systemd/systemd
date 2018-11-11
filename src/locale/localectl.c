@@ -24,7 +24,7 @@
 #include "verbs.h"
 #include "virt.h"
 
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
@@ -199,7 +199,7 @@ static int list_locales(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read list of locales: %m");
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
         strv_print(l);
 
         return 0;
@@ -241,7 +241,7 @@ static int list_vconsole_keymaps(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read list of keymaps: %m");
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         strv_print(l);
 
@@ -373,7 +373,7 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
         strv_sort(list);
         strv_uniq(list);
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         strv_print(list);
         return 0;
@@ -461,7 +461,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:

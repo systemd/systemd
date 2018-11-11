@@ -113,7 +113,7 @@ static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_wait = false;
 static bool arg_no_block = false;
 static bool arg_no_legend = false;
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static bool arg_no_wtmp = false;
 static bool arg_no_sync = false;
 static bool arg_no_wall = false;
@@ -391,6 +391,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         const UnitInfo *u;
         unsigned n_shown = 0;
         int job_count = 0;
+        bool full = arg_full || FLAGS_SET(arg_pager_flags, PAGER_DISABLE);
 
         max_id_len = STRLEN("UNIT");
         load_len = STRLEN("LOAD");
@@ -476,7 +477,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
                         printf("%-*.*s%s\n",
                                desc_len,
-                               !arg_full && arg_no_pager ? (int) desc_len : -1,
+                               full ? -1 : (int) desc_len,
                                "DESCRIPTION",
                                ansi_normal());
                 }
@@ -534,7 +535,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
                 printf("%-*.*s%s\n",
                        desc_len,
-                       !arg_full && arg_no_pager ? (int) desc_len : -1,
+                       full ? -1 : (int) desc_len,
                        u->description,
                        off_underline);
         }
@@ -749,7 +750,7 @@ static int list_units(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         r = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
         if (r < 0)
@@ -961,7 +962,7 @@ static int list_sockets(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         n = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
         if (n < 0)
@@ -1266,7 +1267,7 @@ static int list_timers(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         n = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
         if (n < 0)
@@ -1551,7 +1552,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                         return bus_log_parse_error(r);
         }
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         typesafe_qsort(units, c, compare_unit_file_list);
         output_unit_file_list(units, c);
@@ -1785,7 +1786,7 @@ static int list_dependencies(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         puts(u);
 
@@ -2025,7 +2026,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         typesafe_qsort(machine_infos, r, compare_machine_info);
         output_machines_list(machine_infos, r);
@@ -2197,7 +2198,7 @@ static void output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned 
                 return;
         }
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         id_len = STRLEN("JOB");
         unit_len = STRLEN("UNIT");
@@ -2312,7 +2313,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         output_jobs_list(bus, jobs, c, skipped);
         return 0;
@@ -5150,7 +5151,7 @@ static int show_all(
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         c = (unsigned) r;
 
@@ -5262,7 +5263,7 @@ static int show(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         /* If no argument is specified inspect the manager itself */
         if (show_mode == SYSTEMCTL_SHOW_PROPERTIES && argc <= 1)
@@ -5367,7 +5368,7 @@ static int cat(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *fragment_path = NULL;
@@ -5644,7 +5645,7 @@ static int show_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         r = sd_bus_get_property(
                         bus,
@@ -7095,7 +7096,7 @@ static int systemctl_help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("systemctl", "1", &link);
         if (r < 0)
@@ -7656,7 +7657,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_NO_WALL:

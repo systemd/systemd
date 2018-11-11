@@ -33,7 +33,7 @@ static enum {
         JSON_SHORT,
         JSON_PRETTY,
 } arg_json = JSON_OFF;
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static const char *arg_address = NULL;
 static bool arg_unique = false;
@@ -155,7 +155,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to list names: %m");
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         names = hashmap_new(&string_hash_ops);
         if (!names)
@@ -470,7 +470,7 @@ static int tree_one(sd_bus *bus, const char *service, const char *prefix, bool m
                 p = NULL;
         }
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         l = set_get_strv(done);
         if (!l)
@@ -504,7 +504,7 @@ static int tree(int argc, char **argv, void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get name list: %m");
 
-                (void) pager_open(arg_no_pager, false);
+                (void) pager_open(arg_pager_flags);
 
                 STRV_FOREACH(i, names) {
                         int q;
@@ -534,7 +534,7 @@ static int tree(int argc, char **argv, void *userdata) {
                                 printf("\n");
 
                         if (argv[2]) {
-                                (void) pager_open(arg_no_pager, false);
+                                (void) pager_open(arg_pager_flags);
                                 printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
                         }
 
@@ -1033,7 +1033,7 @@ static int introspect(int argc, char **argv, void *userdata) {
                         return bus_log_parse_error(r);
         }
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         name_width = STRLEN("NAME");
         type_width = STRLEN("TYPE");
@@ -1967,7 +1967,7 @@ static int call(int argc, char **argv, void *userdata) {
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
                         if (arg_json != JSON_SHORT)
-                                (void) pager_open(arg_no_pager, false);
+                                (void) pager_open(arg_pager_flags);
 
                         r = json_transform_message(reply, &v);
                         if (r < 0)
@@ -1976,7 +1976,7 @@ static int call(int argc, char **argv, void *userdata) {
                         json_dump_with_flags(v, stdout);
 
                 } else if (arg_verbose) {
-                        (void) pager_open(arg_no_pager, false);
+                        (void) pager_open(arg_pager_flags);
 
                         r = bus_message_dump(reply, stdout, 0);
                         if (r < 0)
@@ -2028,7 +2028,7 @@ static int get_property(int argc, char **argv, void *userdata) {
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
                         if (arg_json != JSON_SHORT)
-                                (void) pager_open(arg_no_pager, false);
+                                (void) pager_open(arg_pager_flags);
 
                         r = json_transform_variant(reply, contents, &v);
                         if (r < 0)
@@ -2037,7 +2037,7 @@ static int get_property(int argc, char **argv, void *userdata) {
                         json_dump_with_flags(v, stdout);
 
                 } else if (arg_verbose)  {
-                        (void) pager_open(arg_no_pager, false);
+                        (void) pager_open(arg_pager_flags);
 
                         r = bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_SUBTREE_ONLY);
                         if (r < 0)
@@ -2240,7 +2240,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_NO_LEGEND:

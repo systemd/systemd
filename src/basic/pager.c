@@ -41,13 +41,13 @@ _noreturn_ static void pager_fallback(void) {
         _exit(EXIT_SUCCESS);
 }
 
-int pager_open(bool no_pager, bool jump_to_end) {
+int pager_open(PagerFlags flags) {
         _cleanup_close_pair_ int fd[2] = { -1, -1 };
         _cleanup_strv_free_ char **pager_args = NULL;
         const char *pager;
         int r;
 
-        if (no_pager)
+        if (flags & PAGER_DISABLE)
                 return 0;
 
         if (pager_pid > 0)
@@ -96,7 +96,7 @@ int pager_open(bool no_pager, bool jump_to_end) {
                 less_opts = getenv("SYSTEMD_LESS");
                 if (!less_opts)
                         less_opts = "FRSXMK";
-                if (jump_to_end)
+                if (flags & PAGER_JUMP_TO_END)
                         less_opts = strjoina(less_opts, " +G");
                 if (setenv("LESS", less_opts, 1) < 0)
                         _exit(EXIT_FAILURE);
