@@ -15,7 +15,6 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "def.h"
 #include "dirent-util.h"
 #include "extract-word.h"
 #include "fd-util.h"

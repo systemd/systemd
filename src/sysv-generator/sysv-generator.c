@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "def.h"
 #include "dirent-util.h"
 #include "exit-status.h"
 #include "fd-util.h"

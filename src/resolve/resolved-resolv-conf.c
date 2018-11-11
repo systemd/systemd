@@ -4,7 +4,6 @@
 #include <stdio_ext.h>
 
 #include "alloc-util.h"
-#include "def.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio-label.h"
