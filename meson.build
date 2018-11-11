@@ -2768,6 +2768,7 @@ endif
 
 fuzzer_exes = []
 
+if get_option('tests') != 'false'
 foreach tuple : fuzzers
         sources = tuple[0]
         link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
@@ -2792,6 +2793,7 @@ foreach tuple : fuzzers
                 c_args : defs,
                 install : false)
 endforeach
+endif
 
 run_target('fuzzers',
         depends : fuzzer_exes,
