@@ -590,7 +590,15 @@ install_libnss() {
 
 install_dbus() {
     inst $ROOTLIBDIR/system/dbus.socket
-    inst $ROOTLIBDIR/system/dbus.service
+
+    # Fedora rawhide replaced dbus.service with dbus-daemon.service
+    if [ -f $ROOTLIBDIR/system/dbus-daemon.service ]; then
+        inst $ROOTLIBDIR/system/dbus-daemon.service
+        # Alias symlink
+        inst_symlink /etc/systemd/system/dbus.service
+    else
+        inst $ROOTLIBDIR/system/dbus.service
+    fi
 
     find \
         /etc/dbus-1 /usr/share/dbus-1 -xtype f \
