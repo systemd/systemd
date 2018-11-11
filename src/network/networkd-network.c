@@ -369,7 +369,9 @@ void network_free(Network *network) {
         strv_free(network->search_domains);
         strv_free(network->route_domains);
         strv_free(network->bind_carrier);
+
         strv_free(network->router_search_domains);
+        free(network->router_dns);
 
         netdev_unref(network->bridge);
         netdev_unref(network->bond);
