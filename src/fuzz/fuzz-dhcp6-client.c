@@ -10,7 +10,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 
-static int test_dhcp_fd[2];
+static int test_dhcp_fd[2] = { -1, -1 };
 
 int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
                                   const void *packet, size_t len) {
