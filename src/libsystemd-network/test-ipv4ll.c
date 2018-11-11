@@ -79,7 +79,7 @@ int arp_send_announcement(int fd, int ifindex,
 }
 
 int arp_network_bind_raw_socket(int index, be32_t address, const struct ether_addr *eth_mac) {
-        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0, test_fd) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
                 return -errno;
 
         return test_fd[0];

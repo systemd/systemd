@@ -176,7 +176,7 @@ static int test_rs_hangcheck(sd_event_source *s, uint64_t usec,
 int icmp6_bind_router_solicitation(int index) {
         assert_se(index == 42);
 
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, test_fd) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
                 return -errno;
 
         return test_fd[0];
