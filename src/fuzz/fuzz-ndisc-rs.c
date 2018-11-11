@@ -13,7 +13,7 @@
 static int test_fd[2];
 
 int icmp6_bind_router_solicitation(int index) {
-        assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, test_fd) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, test_fd) >= 0);
         return test_fd[0];
 }
 
