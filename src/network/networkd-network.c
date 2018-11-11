@@ -342,9 +342,7 @@ void network_free(Network *network) {
         AddressLabel *label;
         Prefix *prefix;
         Address *address;
-        NetDev *netdev;
         Route *route;
-        Iterator i;
 
         if (!network)
                 return;
@@ -377,11 +375,7 @@ void network_free(Network *network) {
         netdev_unref(network->bond);
         netdev_unref(network->vrf);
 
-        HASHMAP_FOREACH(netdev, network->stacked_netdevs, i) {
-                hashmap_remove(network->stacked_netdevs, netdev->ifname);
-                netdev_unref(netdev);
-        }
-        hashmap_free(network->stacked_netdevs);
+        hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
 
         while ((route = network->static_routes))
                 route_free(route);
