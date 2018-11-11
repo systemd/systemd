@@ -1188,7 +1188,9 @@ if dns_over_tls != 'false'
         endif
         have = have_gnutls or have_openssl
 else
-        have = have_gnutls = have_openssl = false
+        have = false
+        have_gnutls = false
+        have_openssl = false
 endif
 conf.set10('ENABLE_DNS_OVER_TLS', have)
 conf.set10('DNS_OVER_TLS_USE_GNUTLS', have_gnutls)
