@@ -189,7 +189,7 @@
         domains (TLDs) that are not known by the DNS root server. This
         logic does not work in all private zone setups.</para>
 
-        <para>Defaults to off.</para>
+        <para>Defaults to <literal>allow-downgrade</literal></para>
         </listitem>
       </varlistentry>
 
