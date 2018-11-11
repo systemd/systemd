@@ -24,7 +24,7 @@ static int test_fd[2] = { -1, -1 };
 static int lldp_handler_calls;
 
 int lldp_network_bind_raw_socket(int ifindex) {
-        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0, test_fd) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
                 return -errno;
 
         return test_fd[0];

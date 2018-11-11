@@ -297,7 +297,7 @@ static void test_ra(void) {
 
         printf("* %s\n", __FUNCTION__);
 
-        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET, 0, test_fd) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
 
         assert_se(sd_event_new(&e) >= 0);
 

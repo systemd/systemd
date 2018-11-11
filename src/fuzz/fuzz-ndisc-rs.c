@@ -10,10 +10,10 @@
 #include "socket-util.h"
 #include "ndisc-internal.h"
 
-static int test_fd[2];
+static int test_fd[2] = { -1, -1 };
 
 int icmp6_bind_router_solicitation(int index) {
-        assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, test_fd) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
         return test_fd[0];
 }
 

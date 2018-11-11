@@ -10,7 +10,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 
-static int test_dhcp_fd[2];
+static int test_dhcp_fd[2] = { -1, -1 };
 
 int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
                                   const void *packet, size_t len) {
@@ -18,7 +18,7 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
 }
 
 int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
-        assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, test_dhcp_fd) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_dhcp_fd) >= 0);
         return test_dhcp_fd[0];
 }
 

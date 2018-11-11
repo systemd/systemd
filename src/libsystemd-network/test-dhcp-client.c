@@ -232,7 +232,7 @@ int dhcp_network_bind_raw_socket(
                 const uint8_t *addr, size_t addr_len,
                 uint16_t arp_type, uint16_t port) {
 
-        if (socketpair(AF_UNIX, SOCK_STREAM, 0, test_fd) < 0)
+        if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
                 return -errno;
 
         return test_fd[0];
@@ -241,7 +241,7 @@ int dhcp_network_bind_raw_socket(
 int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         int fd;
 
-        fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
