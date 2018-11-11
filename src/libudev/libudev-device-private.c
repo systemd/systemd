@@ -52,6 +52,8 @@ int udev_device_get_ifindex(struct udev_device *udev_device) {
         assert(udev_device);
 
         r = sd_device_get_ifindex(udev_device->device, &ifindex);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
                 return r;
 
