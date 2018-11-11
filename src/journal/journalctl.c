@@ -2058,8 +2058,13 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine journal waiting time: %m");
 
-        if (ppoll(pollfds, ELEMENTSOF(pollfds), timeout == USEC_INFINITY ? NULL : timespec_store(&ts, timeout), NULL) < 0)
+        if (ppoll(pollfds, ELEMENTSOF(pollfds),
+                  timeout == USEC_INFINITY ? NULL : timespec_store(&ts, timeout), NULL) < 0) {
+                if (errno == EINTR)
+                        return 0;
+
                 return log_error_errno(errno, "Couldn't wait for journal event: %m");
+        }
 
         if (pollfds[1].revents & (POLLHUP|POLLERR)) { /* STDOUT has been closed? */
                 log_debug("Standard output has been closed.");
