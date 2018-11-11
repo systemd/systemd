@@ -832,13 +832,15 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_device_monitor_attach_event(m->device_seat_monitor, m->event, 0);
+        r = sd_device_monitor_attach_event(m->device_seat_monitor, m->event);
         if (r < 0)
                 return r;
 
-        r = sd_device_monitor_start(m->device_seat_monitor, manager_dispatch_seat_udev, m, "logind-seat-monitor");
+        r = sd_device_monitor_start(m->device_seat_monitor, manager_dispatch_seat_udev, m);
         if (r < 0)
                 return r;
+
+        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_seat_monitor), "logind-seat-monitor");
 
         r = sd_device_monitor_new(&m->device_monitor);
         if (r < 0)
@@ -856,13 +858,15 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_device_monitor_attach_event(m->device_monitor, m->event, 0);
+        r = sd_device_monitor_attach_event(m->device_monitor, m->event);
         if (r < 0)
                 return r;
 
-        r = sd_device_monitor_start(m->device_monitor, manager_dispatch_device_udev, m, "logind-device-monitor");
+        r = sd_device_monitor_start(m->device_monitor, manager_dispatch_device_udev, m);
         if (r < 0)
                 return r;
+
+        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_monitor), "logind-device-monitor");
 
         /* Don't watch keys if nobody cares */
         if (!manager_all_buttons_ignored(m)) {
@@ -878,13 +882,15 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                r = sd_device_monitor_attach_event(m->device_button_monitor, m->event, 0);
+                r = sd_device_monitor_attach_event(m->device_button_monitor, m->event);
                 if (r < 0)
                         return r;
 
-                r = sd_device_monitor_start(m->device_button_monitor, manager_dispatch_button_udev, m, "logind-button-monitor");
+                r = sd_device_monitor_start(m->device_button_monitor, manager_dispatch_button_udev, m);
                 if (r < 0)
                         return r;
+
+                (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_button_monitor), "logind-button-monitor");
         }
 
         /* Don't bother watching VCSA devices, if nobody cares */
@@ -898,13 +904,15 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                r = sd_device_monitor_attach_event(m->device_vcsa_monitor, m->event, 0);
+                r = sd_device_monitor_attach_event(m->device_vcsa_monitor, m->event);
                 if (r < 0)
                         return r;
 
-                r = sd_device_monitor_start(m->device_vcsa_monitor, manager_dispatch_vcsa_udev, m, "logind-vcsa-monitor");
+                r = sd_device_monitor_start(m->device_vcsa_monitor, manager_dispatch_vcsa_udev, m);
                 if (r < 0)
                         return r;
+
+                (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_vcsa_monitor), "logind-vcsa-monitor");
         }
 
         return 0;

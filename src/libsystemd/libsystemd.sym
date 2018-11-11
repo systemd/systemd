@@ -659,6 +659,7 @@ global:
         sd_device_monitor_attach_event;
         sd_device_monitor_detach_event;
         sd_device_monitor_get_event;
+        sd_device_monitor_get_event_source;
         sd_device_monitor_start;
         sd_device_monitor_stop;
 

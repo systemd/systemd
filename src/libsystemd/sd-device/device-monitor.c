@@ -37,7 +37,6 @@ struct sd_device_monitor {
 
         sd_event *event;
         sd_event_source *event_source;
-        int64_t event_priority;
         sd_device_monitor_handler_t callback;
         void *userdata;
 };
@@ -200,14 +199,13 @@ static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t rev
         return 0;
 }
 
-_public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_handler_t callback, void *userdata, const char *description) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+_public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_handler_t callback, void *userdata) {
         int r;
 
         assert_return(m, -EINVAL);
 
         if (!m->event) {
-                r = sd_device_monitor_attach_event(m, NULL, 0);
+                r = sd_device_monitor_attach_event(m, NULL);
                 if (r < 0)
                         return r;
         }
@@ -219,21 +217,11 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
         m->callback = callback;
         m->userdata = userdata;
 
-        r = sd_event_add_io(m->event, &s, m->sock, EPOLLIN, device_monitor_event_handler, m);
+        r = sd_event_add_io(m->event, &m->event_source, m->sock, EPOLLIN, device_monitor_event_handler, m);
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(s, m->event_priority);
-        if (r < 0)
-                return r;
-
-        if (description) {
-                r = sd_event_source_set_description(s, description);
-                if (r < 0)
-                        return r;
-        }
-
-        m->event_source = TAKE_PTR(s);
+        (void) sd_event_source_set_description(m->event_source, "sd-device-monitor");
 
         return 0;
 }
@@ -247,7 +235,7 @@ _public_ int sd_device_monitor_detach_event(sd_device_monitor *m) {
         return 0;
 }
 
-_public_ int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *event, int64_t priority) {
+_public_ int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *event) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -261,8 +249,6 @@ _public_ int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *even
                         return 0;
         }
 
-        m->event_priority = priority;
-
         return 0;
 }
 
@@ -270,6 +256,12 @@ _public_ sd_event *sd_device_monitor_get_event(sd_device_monitor *m) {
         assert_return(m, NULL);
 
         return m->event;
+}
+
+_public_ sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *m) {
+        assert_return(m, NULL);
+
+        return m->event_source;
 }
 
 int device_monitor_enable_receiving(sd_device_monitor *m) {

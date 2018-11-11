@@ -240,11 +240,11 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Could not add device monitor filter: %m");
 
-        r = sd_device_monitor_attach_event(m->device_monitor, m->event, 0);
+        r = sd_device_monitor_attach_event(m->device_monitor, m->event);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event to device monitor: %m");
 
-        r = sd_device_monitor_start(m->device_monitor, manager_udev_process_link, m, "networkd-device-monitor");
+        r = sd_device_monitor_start(m->device_monitor, manager_udev_process_link, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
