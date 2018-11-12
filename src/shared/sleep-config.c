@@ -335,8 +335,9 @@ static int resume_configured(void) {
         int r;
 
         /* Check whether a valid resume= option is present. If possible, we query the boot options
-         * for the default kernel. If the system is not using sd-boot, fall back to checking the
-         * current kernel command line. This is not perfect, but should suffice for most cases. */
+         * for the default kernel. If a resume option is not found or the system is not using
+         * sd-boot, fall back to checking the current kernel command line. This is not perfect, but
+         * should suffice for most cases. */
 
         r = find_default_boot_entry(NULL, NULL, &config, &e);
         if (r == -ENOKEY)
@@ -353,11 +354,12 @@ static int resume_configured(void) {
                 r = resume_configured_in_options(options);
                 if (r < 0)
                         log_error_errno(r, "Failed to parse kernel options in \"%s\": %m", strnull(e->path));
-                else
+                else if (r > 0)
                         return r;
         }
 
-        /* If we can't figure out the default boot entry, let's fall back to current kernel cmdline */
+        /* If we can't find resume option in default boot entry,
+         * fall back to current kernel cmdline */
         _cleanup_free_ char *line = NULL;
         r = proc_cmdline(&line);
         if (IN_SET(r, -EPERM, -EACCES, -ENOENT))
