@@ -135,6 +135,24 @@ static void test_proc_cmdline_get_bool(void) {
         assert_se(proc_cmdline_get_bool("quux", &value) == -EINVAL && value == false);
 }
 
+static void test_proc_cmdline_get_key_many(void) {
+        _cleanup_free_ char *value1 = NULL, *value2 = NULL, *value3 = NULL, *value4 = NULL;
+
+        log_info("/* %s */", __func__);
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm") == 0);
+
+        assert_se(proc_cmdline_get_key_many(0,
+                                            "wuff-piep", &value3,
+                                            "foo_bar", &value1,
+                                            "idontexist", &value2,
+                                            "zumm", &value4) == 2);
+
+        assert_se(streq_ptr(value1, "quux"));
+        assert_se(!value2);
+        assert_se(streq_ptr(value3, "tuet"));
+        assert_se(!value4);
+}
+
 static void test_proc_cmdline_key_streq(void) {
         log_info("/* %s */", __func__);
 
@@ -199,6 +217,7 @@ int main(void) {
         test_proc_cmdline_key_startswith();
         test_proc_cmdline_get_key();
         test_proc_cmdline_get_bool();
+        test_proc_cmdline_get_key_many();
         test_runlevel_to_target();
 
         return 0;

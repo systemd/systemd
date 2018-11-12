@@ -251,6 +251,62 @@ int proc_cmdline_get_bool(const char *key, bool *ret) {
         return 1;
 }
 
+int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
+        _cleanup_free_ char *line = NULL;
+        const char *p;
+        va_list ap;
+        int r, ret = 0;
+
+        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_get_key_many(), let's make
+         * this clear. */
+        assert(!FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL));
+
+        /* This call may clobber arguments on failure! */
+
+        r = proc_cmdline(&line);
+        if (r < 0)
+                return r;
+
+        p = line;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = proc_cmdline_extract_first(&p, &word, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                va_start(ap, flags);
+
+                for (;;) {
+                        char **v;
+                        const char *k, *e;
+
+                        k = va_arg(ap, const char*);
+                        if (!k)
+                                break;
+
+                        assert_se(v = va_arg(ap, char**));
+
+                        e = proc_cmdline_key_startswith(word, k);
+                        if (e && *e == '=') {
+                                r = free_and_strdup(v, e + 1);
+                                if (r < 0) {
+                                        va_end(ap);
+                                        return r;
+                                }
+
+                                ret++;
+                        }
+                }
+
+                va_end(ap);
+        }
+
+        return ret;
+}
+
 int shall_restore_state(void) {
         bool ret;
         int r;

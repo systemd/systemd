@@ -21,6 +21,9 @@ int proc_cmdline_parse(const proc_cmdline_parse_t parse, void *userdata, ProcCmd
 int proc_cmdline_get_key(const char *parameter, ProcCmdlineFlags flags, char **value);
 int proc_cmdline_get_bool(const char *key, bool *ret);
 
+int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...);
+#define proc_cmdline_get_key_many(flags, ...) proc_cmdline_get_key_many_internal(flags, __VA_ARGS__, NULL)
+
 char *proc_cmdline_key_startswith(const char *s, const char *prefix);
 bool proc_cmdline_key_streq(const char *x, const char *y);
 
