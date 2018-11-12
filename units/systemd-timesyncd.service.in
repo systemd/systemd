@@ -24,6 +24,7 @@ CapabilityBoundingSet=CAP_SYS_TIME
 ExecStart=!!@rootlibexecdir@/systemd-timesyncd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
 PrivateDevices=yes
 PrivateTmp=yes
 ProtectControlGroups=yes

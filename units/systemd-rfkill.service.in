@@ -18,6 +18,7 @@ Before=shutdown.target
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-rfkill
+NoNewPrivileges=yes
 StateDirectory=systemd/rfkill
 TimeoutSec=30s
 Type=notify

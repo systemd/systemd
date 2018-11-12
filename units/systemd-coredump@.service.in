@@ -22,6 +22,7 @@ IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 Nice=9
+NoNewPrivileges=yes
 OOMScoreAdjust=500
 PrivateDevices=yes
 PrivateNetwork=yes

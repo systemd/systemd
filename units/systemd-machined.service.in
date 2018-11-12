@@ -22,6 +22,7 @@ ExecStart=@rootlibexecdir@/systemd-machined
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 RestrictRealtime=yes
 SystemCallArchitectures=native

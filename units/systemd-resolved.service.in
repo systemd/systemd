@@ -25,6 +25,7 @@ CapabilityBoundingSet=CAP_SETPCAP CAP_NET_RAW CAP_NET_BIND_SERVICE
 ExecStart=!!@rootlibexecdir@/systemd-resolved
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
 PrivateDevices=yes
 PrivateTmp=yes
 ProtectControlGroups=yes

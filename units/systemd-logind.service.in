@@ -27,6 +27,7 @@ FileDescriptorStoreMax=512
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
 Restart=always
 RestartSec=0
 RestrictAddressFamilies=AF_UNIX AF_NETLINK

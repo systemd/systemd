@@ -19,6 +19,7 @@ ExecStart=@rootlibexecdir@/systemd-timedated
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectControlGroups=yes
 ProtectHome=yes

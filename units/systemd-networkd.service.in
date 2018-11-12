@@ -24,6 +24,7 @@ CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_N
 ExecStart=!!@rootlibexecdir@/systemd-networkd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
 ProtectControlGroups=yes
 ProtectHome=yes
 ProtectKernelModules=yes

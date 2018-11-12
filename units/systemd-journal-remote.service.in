@@ -17,6 +17,7 @@ ExecStart=@rootlibexecdir@/systemd-journal-remote --listen-https=-3 --output=/va
 LockPersonality=yes
 LogsDirectory=journal/remote
 MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
 PrivateDevices=yes
 PrivateNetwork=yes
 PrivateTmp=yes
