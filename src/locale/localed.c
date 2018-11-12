@@ -40,11 +40,11 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
 
         l_unset = new0(char*, _VARIABLE_LC_MAX);
         if (!l_unset)
-                return -ENOMEM;
+                return log_oom();
 
         l_set = new0(char*, _VARIABLE_LC_MAX);
         if (!l_set)
-                return -ENOMEM;
+                return log_oom();
 
         for (p = 0, c_set = 0, c_unset = 0; p < _VARIABLE_LC_MAX; p++) {
                 const char *name;
@@ -57,8 +57,9 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
                 else {
                         char *s;
 
-                        if (asprintf(&s, "%s=%s", name, c->locale[p]) < 0)
-                                return -ENOMEM;
+                        s = strjoin(name, "=", c->locale[p]);
+                        if (!s)
+                                return log_oom();
 
                         l_set[c_unset++] = s;
                 }
@@ -71,15 +72,15 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
                         "org.freedesktop.systemd1.Manager",
                         "UnsetAndSetEnvironment");
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append_strv(m, l_unset);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append_strv(m, l_set);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
         if (r < 0)
