@@ -732,12 +732,16 @@ int main(int argc, char *argv[]) {
         (void) sd_event_set_watchdog(event, true);
 
         r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_error_errno(r, "Failed to install SIGINT handler: %m");
+                goto finish;
+        }
 
         r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_error_errno(r, "Failed to install SIGTERM handler: %m");
+                goto finish;
+        }
 
         r = connect_bus(&context, event, &bus);
         if (r < 0)
