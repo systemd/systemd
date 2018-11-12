@@ -356,12 +356,14 @@ static int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler
                 /* the netdev is not yet read, save this request for when it is */
                 netdev_join_callback *cb;
 
-                cb = new0(netdev_join_callback, 1);
+                cb = new(netdev_join_callback, 1);
                 if (!cb)
                         return log_oom();
 
-                cb->callback = callback;
-                cb->link = link_ref(link);
+                *cb = (netdev_join_callback) {
+                        .callback = callback,
+                        .link = link_ref(link),
+                };
 
                 LIST_PREPEND(callbacks, netdev->callbacks, cb);
 
@@ -651,13 +653,15 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        netdev_raw = new0(NetDev, 1);
+        netdev_raw = new(NetDev, 1);
         if (!netdev_raw)
                 return log_oom();
 
-        netdev_raw->n_ref = 1;
-        netdev_raw->kind = _NETDEV_KIND_INVALID;
-        netdev_raw->state = _NETDEV_STATE_INVALID; /* an invalid state means done() of the implementation won't be called on destruction */
+        *netdev_raw = (NetDev) {
+                .n_ref = 1,
+                .kind = _NETDEV_KIND_INVALID,
+                .state = _NETDEV_STATE_INVALID, /* an invalid state means done() of the implementation won't be called on destruction */
+        };
 
         dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(filename, network_dirs, dropin_dirname,
@@ -725,6 +729,10 @@ int netdev_load_one(Manager *manager, const char *filename) {
                         return log_error_errno(r, "Failed to generate predictable MAC address for %s: %m", netdev->ifname);
         }
 
+        r = hashmap_ensure_allocated(&netdev->manager->netdevs, &string_hash_ops);
+        if (r < 0)
+                return r;
+
         r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
         if (r < 0)
                 return r;
@@ -790,14 +798,12 @@ int netdev_load_one(Manager *manager, const char *filename) {
 
 int netdev_load(Manager *manager) {
         _cleanup_strv_free_ char **files = NULL;
-        NetDev *netdev;
         char **f;
         int r;
 
         assert(manager);
 
-        while ((netdev = hashmap_first(manager->netdevs)))
-                netdev_unref(netdev);
+        hashmap_clear_with_destructor(manager->netdevs, netdev_unref);
 
         r = conf_files_list_strv(&files, ".netdev", NULL, 0, network_dirs);
         if (r < 0)

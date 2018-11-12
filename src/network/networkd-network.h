@@ -89,8 +89,8 @@ typedef struct NetworkConfigSection {
 
 int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
 void network_config_section_free(NetworkConfigSection *network);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
+extern const struct hash_ops network_config_hash_ops;
 
 typedef struct Manager Manager;
 

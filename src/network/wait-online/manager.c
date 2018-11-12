@@ -292,14 +292,10 @@ int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout)
 }
 
 void manager_free(Manager *m) {
-        Link *l;
-
         if (!m)
                 return;
 
-        while ((l = hashmap_first(m->links)))
-               link_free(l);
-        hashmap_free(m->links);
+        hashmap_free_with_destructor(m->links, link_free);
         hashmap_free(m->links_by_name);
 
         sd_event_source_unref(m->network_monitor_event_source);

@@ -69,8 +69,14 @@ int main(int argc, char *argv[]) {
         if (fake_filesystems() < 0)
                 return EXIT_FAILURE;
 
-        if (argc == 2)
+        if (argc == 2) {
+                if (!streq(argv[1], "check")) {
+                        log_error("Unknown argument: %s", argv[1]);
+                        return EXIT_FAILURE;
+                }
+
                 return EXIT_SUCCESS;
+        }
 
         log_debug("version %s", PACKAGE_VERSION);
         mac_selinux_init();

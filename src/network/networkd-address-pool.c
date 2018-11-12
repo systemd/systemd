@@ -19,14 +19,16 @@ int address_pool_new(
         assert(ret);
         assert(u);
 
-        p = new0(AddressPool, 1);
+        p = new(AddressPool, 1);
         if (!p)
                 return -ENOMEM;
 
-        p->manager = m;
-        p->family = family;
-        p->prefixlen = prefixlen;
-        p->in_addr = *u;
+        *p = (AddressPool) {
+                .manager = m,
+                .family = family,
+                .prefixlen = prefixlen,
+                .in_addr = *u,
+        };
 
         LIST_PREPEND(address_pools, m->address_pools, p);
 

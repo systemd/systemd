@@ -33,8 +33,4 @@ extern const NetDevVTable foutnl_vtable;
 const char *fou_encap_type_to_string(FooOverUDPEncapType d) _const_;
 FooOverUDPEncapType fou_encap_type_from_string(const char *d) _pure_;
 
-int config_parse_fou_encap_type(const char *unit, const char *filename,
-                                unsigned line, const char *section,
-                                unsigned section_line, const char *lvalue,
-                                int ltype, const char *rvalue, void *data,
-                                void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_fou_encap_type);

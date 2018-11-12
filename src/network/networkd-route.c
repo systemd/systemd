@@ -46,17 +46,19 @@ static unsigned routes_max(void) {
 int route_new(Route **ret) {
         _cleanup_(route_freep) Route *route = NULL;
 
-        route = new0(Route, 1);
+        route = new(Route, 1);
         if (!route)
                 return -ENOMEM;
 
-        route->family = AF_UNSPEC;
-        route->scope = RT_SCOPE_UNIVERSE;
-        route->protocol = RTPROT_UNSPEC;
-        route->type = RTN_UNICAST;
-        route->table = RT_TABLE_MAIN;
-        route->lifetime = USEC_INFINITY;
-        route->quickack = -1;
+        *route = (Route) {
+                .family = AF_UNSPEC,
+                .scope = RT_SCOPE_UNIVERSE,
+                .protocol = RTPROT_UNSPEC,
+                .type = RTN_UNICAST,
+                .table = RT_TABLE_MAIN,
+                .lifetime = USEC_INFINITY,
+                .quickack = -1,
+        };
 
         *ret = TAKE_PTR(route);
 
@@ -93,18 +95,21 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
                 return r;
 
         route->protocol = RTPROT_STATIC;
+        route->network = network;
+        LIST_PREPEND(routes, network->static_routes, route);
+        network->n_static_routes++;
 
         if (filename) {
                 route->section = TAKE_PTR(n);
+
+                r = hashmap_ensure_allocated(&network->routes_by_section, &network_config_hash_ops);
+                if (r < 0)
+                        return r;
 
                 r = hashmap_put(network->routes_by_section, route->section, route);
                 if (r < 0)
                         return r;
         }
-
-        route->network = network;
-        LIST_PREPEND(routes, network->static_routes, route);
-        network->n_static_routes++;
 
         *ret = TAKE_PTR(route);
 

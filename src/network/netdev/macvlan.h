@@ -28,4 +28,4 @@ extern const NetDevVTable macvtap_vtable;
 const char *macvlan_mode_to_string(MacVlanMode d) _const_;
 MacVlanMode macvlan_mode_from_string(const char *d) _pure_;
 
-int config_parse_macvlan_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_macvlan_mode);

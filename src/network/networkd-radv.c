@@ -153,18 +153,21 @@ int prefix_new_static(Network *network, const char *filename,
         if (r < 0)
                 return r;
 
-        if (filename) {
-                prefix->section = TAKE_PTR(n);
-
-                r = hashmap_put(network->prefixes_by_section, prefix->section,
-                                prefix);
-                if (r < 0)
-                        return r;
-        }
-
         prefix->network = network;
         LIST_APPEND(prefixes, network->static_prefixes, prefix);
         network->n_static_prefixes++;
+
+        if (filename) {
+                prefix->section = TAKE_PTR(n);
+
+                r = hashmap_ensure_allocated(&network->prefixes_by_section, &network_config_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_put(network->prefixes_by_section, prefix->section, prefix);
+                if (r < 0)
+                        return r;
+        }
 
         *ret = TAKE_PTR(prefix);
 

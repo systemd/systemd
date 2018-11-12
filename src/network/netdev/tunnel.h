@@ -78,39 +78,9 @@ extern const NetDevVTable ip6tnl_vtable;
 const char *ip6tnl_mode_to_string(Ip6TnlMode d) _const_;
 Ip6TnlMode ip6tnl_mode_from_string(const char *d) _pure_;
 
-int config_parse_ip6tnl_mode(const char *unit, const char *filename,
-                             unsigned line, const char *section,
-                             unsigned section_line, const char *lvalue,
-                             int ltype, const char *rvalue, void *data,
-                             void *userdata);
-
-int config_parse_tunnel_address(const char *unit,
-                                const char *filename,
-                                unsigned line,
-                                const char *section,
-                                unsigned section_line,
-                                const char *lvalue,
-                                int ltype,
-                                const char *rvalue,
-                                void *data,
-                                void *userdata);
-
-int config_parse_ipv6_flowlabel(const char *unit, const char *filename,
-                                unsigned line, const char *section,
-                                unsigned section_line, const char *lvalue,
-                                int ltype, const char *rvalue, void *data,
-                                void *userdata);
-
-int config_parse_encap_limit(const char *unit, const char *filename,
-                             unsigned line, const char *section,
-                             unsigned section_line, const char *lvalue,
-                             int ltype, const char *rvalue, void *data,
-                             void *userdata);
-
-int config_parse_tunnel_key(const char *unit, const char *filename,
-                            unsigned line, const char *section,
-                            unsigned section_line, const char *lvalue,
-                            int ltype, const char *rvalue, void *data,
-                            void *userdata);
-
+CONFIG_PARSER_PROTOTYPE(config_parse_ip6tnl_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_flowlabel);
+CONFIG_PARSER_PROTOTYPE(config_parse_encap_limit);
+CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_key);
 CONFIG_PARSER_PROTOTYPE(config_parse_6rd_prefix);

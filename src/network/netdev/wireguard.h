@@ -63,11 +63,11 @@ struct Wireguard {
 DEFINE_NETDEV_CAST(WIREGUARD, Wireguard);
 extern const NetDevVTable wireguard_vtable;
 
-int config_parse_wireguard_allowed_ips(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_wireguard_endpoint(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_wireguard_listen_port(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_allowed_ips);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_endpoint);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_listen_port);
 
-int config_parse_wireguard_public_key(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_wireguard_private_key(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_wireguard_preshared_key(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_wireguard_keepalive(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_public_key);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_private_key);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_preshared_key);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_keepalive);

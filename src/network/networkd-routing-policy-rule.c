@@ -40,11 +40,8 @@ void routing_policy_rule_free(RoutingPolicyRule *rule) {
                 assert(rule->network->n_rules > 0);
                 rule->network->n_rules--;
 
-                if (rule->section) {
+                if (rule->section)
                         hashmap_remove(rule->network->rules_by_section, rule->section);
-                        network_config_section_free(rule->section);
-                }
-
         }
 
         if (rule->manager) {
@@ -52,6 +49,7 @@ void routing_policy_rule_free(RoutingPolicyRule *rule) {
                 set_remove(rule->manager->rules_foreign, rule);
         }
 
+        network_config_section_free(rule->section);
         free(rule->iif);
         free(rule->oif);
         free(rule);
@@ -390,30 +388,38 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         assert(ret);
         assert(!!filename == (section_line > 0));
 
-        r = network_config_section_new(filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (filename) {
+                r = network_config_section_new(filename, section_line, &n);
+                if (r < 0)
+                        return r;
 
-        rule = hashmap_get(network->rules_by_section, n);
-        if (rule) {
-                *ret = TAKE_PTR(rule);
+                rule = hashmap_get(network->rules_by_section, n);
+                if (rule) {
+                        *ret = TAKE_PTR(rule);
 
-                return 0;
+                        return 0;
+                }
         }
 
         r = routing_policy_rule_new(&rule);
         if (r < 0)
                 return r;
 
-        rule->section = TAKE_PTR(n);
         rule->network = network;
-
-        r = hashmap_put(network->rules_by_section, rule->section, rule);
-        if (r < 0)
-                return r;
-
         LIST_APPEND(rules, network->rules, rule);
         network->n_rules++;
+
+        if (filename) {
+                rule->section = TAKE_PTR(n);
+
+                r = hashmap_ensure_allocated(&network->rules_by_section, &network_config_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_put(network->rules_by_section, rule->section, rule);
+                if (r < 0)
+                        return r;
+        }
 
         *ret = TAKE_PTR(rule);
 

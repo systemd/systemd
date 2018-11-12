@@ -22,14 +22,16 @@
 int address_new(Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;
 
-        address = new0(Address, 1);
+        address = new(Address, 1);
         if (!address)
                 return -ENOMEM;
 
-        address->family = AF_UNSPEC;
-        address->scope = RT_SCOPE_UNIVERSE;
-        address->cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME;
-        address->cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME;
+        *address = (Address) {
+                .family = AF_UNSPEC,
+                .scope = RT_SCOPE_UNIVERSE,
+                .cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME,
+                .cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME,
+        };
 
         *ret = TAKE_PTR(address);
 
@@ -65,17 +67,21 @@ int address_new_static(Network *network, const char *filename, unsigned section_
         if (r < 0)
                 return r;
 
+        address->network = network;
+        LIST_APPEND(addresses, network->static_addresses, address);
+        network->n_static_addresses++;
+
         if (filename) {
                 address->section = TAKE_PTR(n);
+
+                r = hashmap_ensure_allocated(&network->addresses_by_section, &network_config_hash_ops);
+                if (r < 0)
+                        return r;
 
                 r = hashmap_put(network->addresses_by_section, address->section, address);
                 if (r < 0)
                         return r;
         }
-
-        address->network = network;
-        LIST_APPEND(addresses, network->static_addresses, address);
-        network->n_static_addresses++;
 
         *ret = TAKE_PTR(address);
 
