@@ -84,7 +84,7 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to update the manager environment, ignoring: %m");
+                return log_error_errno(r, "Failed to update the manager environment: %s", bus_error_message(&error, r));
 
         return 0;
 }
