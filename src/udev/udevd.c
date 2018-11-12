@@ -51,6 +51,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "syslog-util.h"
 #include "terminal-util.h"
 #include "udev-builtin.h"
 #include "udev-ctrl.h"
@@ -61,9 +62,9 @@
 
 static bool arg_debug = false;
 static int arg_daemonize = false;
-static int arg_resolve_names = 1;
-static unsigned arg_children_max;
-static int arg_exec_delay;
+static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
+static unsigned arg_children_max = 0;
+static usec_t arg_exec_delay_usec = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
 
@@ -409,7 +410,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         assert(dev);
 
                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
-                        udev_event = udev_event_new(dev->device, arg_exec_delay, rtnl);
+                        udev_event = udev_event_new(dev->device, arg_exec_delay_usec, rtnl);
                         if (!udev_event) {
                                 r = -ENOMEM;
                                 goto out;
@@ -851,7 +852,7 @@ static void event_queue_start(Manager *manager) {
         udev_builtin_init();
 
         if (!manager->rules) {
-                manager->rules = udev_rules_new(arg_resolve_names);
+                manager->rules = udev_rules_new(arg_resolve_name_timing);
                 if (!manager->rules)
                         return;
         }
@@ -1355,26 +1356,26 @@ static int on_post(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-static int listen_fds(int *rctrl, int *rnetlink) {
+static int listen_fds(int *ret_ctrl, int *ret_netlink) {
         int ctrl_fd = -1, netlink_fd = -1;
-        int fd, n, r;
+        int fd, n;
 
-        assert(rctrl);
-        assert(rnetlink);
+        assert(ret_ctrl);
+        assert(ret_netlink);
 
         n = sd_listen_fds(true);
         if (n < 0)
                 return n;
 
         for (fd = SD_LISTEN_FDS_START; fd < n + SD_LISTEN_FDS_START; fd++) {
-                if (sd_is_socket(fd, AF_LOCAL, SOCK_SEQPACKET, -1)) {
+                if (sd_is_socket(fd, AF_LOCAL, SOCK_SEQPACKET, -1) > 0) {
                         if (ctrl_fd >= 0)
                                 return -EINVAL;
                         ctrl_fd = fd;
                         continue;
                 }
 
-                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1)) {
+                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
                         if (netlink_fd >= 0)
                                 return -EINVAL;
                         netlink_fd = fd;
@@ -1384,50 +1385,8 @@ static int listen_fds(int *rctrl, int *rnetlink) {
                 return -EINVAL;
         }
 
-        if (ctrl_fd < 0) {
-                _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *ctrl = NULL;
-
-                ctrl = udev_ctrl_new();
-                if (!ctrl)
-                        return log_error_errno(EINVAL, "error initializing udev control socket");
-
-                r = udev_ctrl_enable_receiving(ctrl);
-                if (r < 0)
-                        return log_error_errno(EINVAL, "error binding udev control socket");
-
-                fd = udev_ctrl_get_fd(ctrl);
-                if (fd < 0)
-                        return log_error_errno(EIO, "could not get ctrl fd");
-
-                ctrl_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                if (ctrl_fd < 0)
-                        return log_error_errno(errno, "could not dup ctrl fd: %m");
-        }
-
-        if (netlink_fd < 0) {
-                _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
-
-                monitor = udev_monitor_new_from_netlink(NULL, "kernel");
-                if (!monitor)
-                        return log_error_errno(EINVAL, "error initializing netlink socket");
-
-                (void) udev_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
-
-                r = udev_monitor_enable_receiving(monitor);
-                if (r < 0)
-                        return log_error_errno(EINVAL, "error binding netlink socket");
-
-                fd = udev_monitor_get_fd(monitor);
-                if (fd < 0)
-                        return log_error_errno(netlink_fd, "could not get uevent fd: %m");
-
-                netlink_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                if (netlink_fd < 0)
-                        return log_error_errno(errno, "could not dup netlink fd: %m");
-        }
-
-        *rctrl = ctrl_fd;
-        *rnetlink = netlink_fd;
+        *ret_ctrl = ctrl_fd;
+        *ret_netlink = netlink_fd;
 
         return 0;
 }
@@ -1452,7 +1411,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = util_log_priority(value);
+                r = log_level_from_string(value);
                 if (r >= 0)
                         log_set_max_level(r);
 
@@ -1461,11 +1420,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = safe_atou64(value, &arg_event_timeout_usec);
-                if (r >= 0) {
-                        arg_event_timeout_usec *= USEC_PER_SEC;
-                        arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
-                }
+                r = parse_sec(value, &arg_event_timeout_usec);
+                if (r >= 0)
+                        arg_event_timeout_warn_usec = DIV_ROUND_UP(arg_event_timeout_usec, 3);
 
         } else if (proc_cmdline_key_streq(key, "udev.children_max")) {
 
@@ -1479,7 +1436,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = safe_atoi(value, &arg_exec_delay);
+                r = parse_sec(value, &arg_exec_delay_usec);
 
         } else if (startswith(key, "udev."))
                 log_warning("Unknown udev kernel command line option \"%s\"", key);
@@ -1546,37 +1503,33 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'c':
                         r = safe_atou(optarg, &arg_children_max);
                         if (r < 0)
-                                log_warning("Invalid --children-max ignored: %s", optarg);
+                                log_warning_errno(r, "Failed to parse --children-max= value '%s', ignoring: %m", optarg);
                         break;
                 case 'e':
-                        r = safe_atoi(optarg, &arg_exec_delay);
+                        r = parse_sec(optarg, &arg_exec_delay_usec);
                         if (r < 0)
-                                log_warning("Invalid --exec-delay ignored: %s", optarg);
+                                log_warning_errno(r, "Failed to parse --exec-delay= value '%s', ignoring: %m", optarg);
                         break;
                 case 't':
-                        r = safe_atou64(optarg, &arg_event_timeout_usec);
+                        r = parse_sec(optarg, &arg_event_timeout_usec);
                         if (r < 0)
-                                log_warning("Invalid --event-timeout ignored: %s", optarg);
-                        else {
-                                arg_event_timeout_usec *= USEC_PER_SEC;
-                                arg_event_timeout_warn_usec = (arg_event_timeout_usec / 3) ? : 1;
-                        }
+                                log_warning_errno(r, "Failed to parse --event-timeout= value '%s', ignoring: %m", optarg);
+
+                        arg_event_timeout_warn_usec = DIV_ROUND_UP(arg_event_timeout_usec, 3);
                         break;
                 case 'D':
                         arg_debug = true;
                         break;
-                case 'N':
-                        if (streq(optarg, "early")) {
-                                arg_resolve_names = 1;
-                        } else if (streq(optarg, "late")) {
-                                arg_resolve_names = 0;
-                        } else if (streq(optarg, "never")) {
-                                arg_resolve_names = -1;
-                        } else {
-                                log_error("resolve-names must be early, late or never");
-                                return 0;
-                        }
+                case 'N': {
+                        ResolveNameTiming t;
+
+                        t = resolve_name_timing_from_string(optarg);
+                        if (t < 0)
+                                log_warning("Invalid --resolve-names= value '%s', ignoring.", optarg);
+                        else
+                                arg_resolve_name_timing = t;
                         break;
+                }
                 case 'h':
                         return help();
                 case 'V':
@@ -1598,34 +1551,48 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         int r, fd_worker;
 
         assert(ret);
-        assert(fd_ctrl >= 0);
-        assert(fd_uevent >= 0);
 
-        manager = new0(Manager, 1);
+        manager = new(Manager, 1);
         if (!manager)
                 return log_oom();
 
-        manager->fd_inotify = -1;
-        manager->worker_watch[WRITE_END] = -1;
-        manager->worker_watch[READ_END] = -1;
+        *manager = (Manager) {
+                .fd_inotify = -1,
+                .worker_watch = { -1, -1 },
+                .cgroup = cgroup,
+        };
 
         udev_builtin_init();
 
-        manager->rules = udev_rules_new(arg_resolve_names);
+        manager->rules = udev_rules_new(arg_resolve_name_timing);
         if (!manager->rules)
                 return log_error_errno(ENOMEM, "error reading rules");
-
-        LIST_HEAD_INIT(manager->events);
-
-        manager->cgroup = cgroup;
 
         manager->ctrl = udev_ctrl_new_from_fd(fd_ctrl);
         if (!manager->ctrl)
                 return log_error_errno(EINVAL, "error taking over udev control socket");
 
+        r = udev_ctrl_enable_receiving(manager->ctrl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind udev control socket: %m");
+
+        fd_ctrl = udev_ctrl_get_fd(manager->ctrl);
+        if (fd_ctrl < 0)
+                return log_error_errno(fd_ctrl, "Failed to get udev control fd: %m");
+
         manager->monitor = udev_monitor_new_from_netlink_fd(NULL, "kernel", fd_uevent);
         if (!manager->monitor)
                 return log_error_errno(EINVAL, "error taking over netlink socket");
+
+        (void) udev_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
+
+        r = udev_monitor_enable_receiving(manager->monitor);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind netlink socket; %m");
+
+        fd_uevent = udev_monitor_get_fd(manager->monitor);
+        if (fd_uevent < 0)
+                return log_error_errno(fd_uevent, "Failed to get uevent fd: %m");
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);

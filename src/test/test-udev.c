@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
         action = argv[1];
         devpath = argv[2];
 
-        rules = udev_rules_new(1);
+        rules = udev_rules_new(RESOLVE_NAME_EARLY);
 
         const char *syspath = strjoina("/sys", devpath);
         r = device_new_from_synthetic_event(&dev, syspath, action);

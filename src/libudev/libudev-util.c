@@ -12,7 +12,6 @@
 #include "MurmurHash2.h"
 #include "device-nodes.h"
 #include "libudev-private.h"
-#include "syslog-util.h"
 #include "utf8.h"
 
 /**
@@ -82,21 +81,6 @@ int util_resolve_subsys_kernel(const char *string,
         }
         udev_device_unref(dev);
         return 0;
-}
-
-int util_log_priority(const char *priority) {
-        char *endptr;
-        int prio;
-
-        prio = strtoul(priority, &endptr, 10);
-        if (endptr[0] == '\0' || isspace(endptr[0])) {
-                if (prio >= 0 && prio <= 7)
-                        return prio;
-                else
-                        return -ERANGE;
-        }
-
-        return log_level_from_string(priority);
 }
 
 size_t util_path_encode(const char *src, char *dest, size_t size) {
