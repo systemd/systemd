@@ -58,7 +58,7 @@
 #define JOURNAL_SIZE_MAX ((size_t) (767LU*1024LU*1024LU))
 
 /* Make sure to not make this larger than the maximum journal entry
- * size. See DATA_SIZE_MAX in journald-native.c. */
+ * size. See DATA_SIZE_MAX in journal-importer.h. */
 assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
 enum {
