@@ -12,8 +12,13 @@
 
 /* Make sure not to make this smaller than the maximum coredump size.
  * See JOURNAL_SIZE_MAX in coredump.c */
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 #define ENTRY_SIZE_MAX (1024*1024*770u)
 #define DATA_SIZE_MAX (1024*1024*768u)
+#else
+#define ENTRY_SIZE_MAX (1024*1024*13u)
+#define DATA_SIZE_MAX (1024*1024*11u)
+#endif
 #define LINE_CHUNK 8*1024u
 
 struct iovec_wrapper {
