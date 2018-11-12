@@ -1417,13 +1417,9 @@ void manager_free(Manager *m) {
                 manager_dhcp6_prefix_remove_all(m, link);
         hashmap_free(m->dhcp6_prefixes);
 
-        while ((link = hashmap_first(m->links))) {
+        while ((link = hashmap_steal_first(m->links))) {
                 if (link->dhcp6_client)
-                        (void) dhcp6_lease_pd_prefix_lost(link->dhcp6_client,
-                                                          link);
-
-                hashmap_remove(m->links, INT_TO_PTR(link->ifindex));
-
+                        (void) dhcp6_lease_pd_prefix_lost(link->dhcp6_client, link);
                 link_unref(link);
         }
 
