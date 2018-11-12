@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "locale-util.h"
 #include "pager.h"
+#include "proc-cmdline.h"
 #include "set.h"
 #include "spawn-polkit-agent.h"
 #include "strv.h"
@@ -53,26 +54,25 @@ static void print_overridden_variables(void) {
         LocaleVariable j;
         bool print_warning = true;
 
-        if (detect_container() > 0 || arg_host)
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return;
 
-        r = parse_env_file(NULL, "/proc/cmdline", WHITESPACE,
-                           "locale.LANG",              &variables[VARIABLE_LANG],
-                           "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
-                           "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
-                           "locale.LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
-                           "locale.LC_TIME",           &variables[VARIABLE_LC_TIME],
-                           "locale.LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
-                           "locale.LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
-                           "locale.LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                           "locale.LC_PAPER",          &variables[VARIABLE_LC_PAPER],
-                           "locale.LC_NAME",           &variables[VARIABLE_LC_NAME],
-                           "locale.LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
-                           "locale.LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
-                           "locale.LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
-                           "locale.LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
-                           NULL);
-
+        r = proc_cmdline_get_key_many(
+                        PROC_CMDLINE_STRIP_RD_PREFIX,
+                        "locale.LANG",              &variables[VARIABLE_LANG],
+                        "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
+                        "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
+                        "locale.LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
+                        "locale.LC_TIME",           &variables[VARIABLE_LC_TIME],
+                        "locale.LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
+                        "locale.LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
+                        "locale.LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
+                        "locale.LC_PAPER",          &variables[VARIABLE_LC_PAPER],
+                        "locale.LC_NAME",           &variables[VARIABLE_LC_NAME],
+                        "locale.LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
+                        "locale.LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
+                        "locale.LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
+                        "locale.LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION]);
         if (r < 0 && r != -ENOENT) {
                 log_warning_errno(r, "Failed to read /proc/cmdline: %m");
                 goto finish;
