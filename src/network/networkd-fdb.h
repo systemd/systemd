@@ -12,10 +12,11 @@
 typedef struct Network Network;
 typedef struct FdbEntry FdbEntry;
 typedef struct Link Link;
+typedef struct NetworkConfigSection NetworkConfigSection;
 
 struct FdbEntry {
         Network *network;
-        unsigned section;
+        NetworkConfigSection *section;
 
         struct ether_addr *mac_addr;
         uint16_t vlan_id;
@@ -23,7 +24,7 @@ struct FdbEntry {
         LIST_FIELDS(FdbEntry, static_fdb_entries);
 };
 
-int fdb_entry_new_static(Network *network, unsigned section, FdbEntry **ret);
+int fdb_entry_new_static(Network *network, const char *filename, unsigned section_line, FdbEntry **ret);
 void fdb_entry_free(FdbEntry *fdb_entry);
 int fdb_entry_configure(Link *link, FdbEntry *fdb_entry);
 

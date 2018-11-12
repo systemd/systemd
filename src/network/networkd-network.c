@@ -153,7 +153,7 @@ int network_load_one(Manager *manager, const char *filename) {
         if (!network->routes_by_section)
                 return log_oom();
 
-        network->fdb_entries_by_section = hashmap_new(NULL);
+        network->fdb_entries_by_section = hashmap_new(&network_config_hash_ops);
         if (!network->fdb_entries_by_section)
                 return log_oom();
 

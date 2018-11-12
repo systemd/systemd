@@ -20,18 +20,26 @@
 /* create a new FDB entry or get an existing one. */
 int fdb_entry_new_static(
                 Network *network,
-                unsigned section,
+                const char *filename,
+                unsigned section_line,
                 FdbEntry **ret) {
 
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
-        struct ether_addr *mac_addr = NULL;
+        _cleanup_free_ struct ether_addr *mac_addr = NULL;
+        int r;
 
         assert(network);
         assert(ret);
+        assert(!!filename == (section_line > 0));
 
         /* search entry in hashmap first. */
-        if (section) {
-                fdb_entry = hashmap_get(network->fdb_entries_by_section, UINT_TO_PTR(section));
+        if (filename) {
+                r = network_config_section_new(filename, section_line, &n);
+                if (r < 0)
+                        return r;
+
+                fdb_entry = hashmap_get(network->fdb_entries_by_section, n);
                 if (fdb_entry) {
                         *ret = TAKE_PTR(fdb_entry);
 
@@ -48,24 +56,25 @@ int fdb_entry_new_static(
                 return -ENOMEM;
 
         /* allocate space for and FDB entry. */
-        fdb_entry = new0(FdbEntry, 1);
-        if (!fdb_entry) {
-                /* free previously allocated space for mac_addr. */
-                free(mac_addr);
+        fdb_entry = new(FdbEntry, 1);
+        if (!fdb_entry)
                 return -ENOMEM;
-        }
 
         /* init FDB structure. */
-        fdb_entry->network = network;
-        fdb_entry->mac_addr = mac_addr;
+        *fdb_entry = (FdbEntry) {
+                .network = network,
+                .mac_addr = TAKE_PTR(mac_addr),
+        };
 
         LIST_PREPEND(static_fdb_entries, network->static_fdb_entries, fdb_entry);
         network->n_static_fdb_entries++;
 
-        if (section) {
-                fdb_entry->section = section;
-                hashmap_put(network->fdb_entries_by_section,
-                            UINT_TO_PTR(fdb_entry->section), fdb_entry);
+        if (filename) {
+                fdb_entry->section = TAKE_PTR(n);
+
+                r = hashmap_put(network->fdb_entries_by_section, fdb_entry->section, fdb_entry);
+                if (r < 0)
+                        return r;
         }
 
         /* return allocated FDB structure. */
@@ -151,16 +160,15 @@ void fdb_entry_free(FdbEntry *fdb_entry) {
 
         if (fdb_entry->network) {
                 LIST_REMOVE(static_fdb_entries, fdb_entry->network->static_fdb_entries, fdb_entry);
-
                 assert(fdb_entry->network->n_static_fdb_entries > 0);
                 fdb_entry->network->n_static_fdb_entries--;
 
                 if (fdb_entry->section)
-                        hashmap_remove(fdb_entry->network->fdb_entries_by_section, UINT_TO_PTR(fdb_entry->section));
+                        hashmap_remove(fdb_entry->network->fdb_entries_by_section, fdb_entry->section);
         }
 
+        network_config_section_free(fdb_entry->section);
         free(fdb_entry->mac_addr);
-
         free(fdb_entry);
 }
 
@@ -187,7 +195,7 @@ int config_parse_fdb_hwaddr(
         assert(rvalue);
         assert(data);
 
-        r = fdb_entry_new_static(network, section_line, &fdb_entry);
+        r = fdb_entry_new_static(network, filename, section_line, &fdb_entry);
         if (r < 0)
                 return log_oom();
 
@@ -233,7 +241,7 @@ int config_parse_fdb_vlan_id(
         assert(rvalue);
         assert(data);
 
-        r = fdb_entry_new_static(network, section_line, &fdb_entry);
+        r = fdb_entry_new_static(network, filename, section_line, &fdb_entry);
         if (r < 0)
                 return log_oom();
 
