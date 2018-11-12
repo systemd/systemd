@@ -333,29 +333,27 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 break;
 
         case MACHINE_CONTAINER: {
-                _cleanup_close_ int mntns_fd = -1, root_fd = -1;
+                _cleanup_close_ int mntns_fd = -1, root_fd = -1, pidns_fd = -1;
                 _cleanup_close_pair_ int pair[2] = { -1, -1 };
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t child;
 
-                r = namespace_open(m->leader, NULL, &mntns_fd, NULL, NULL, &root_fd);
+                r = namespace_open(m->leader, &pidns_fd, &mntns_fd, NULL, NULL, &root_fd);
                 if (r < 0)
                         return r;
 
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return -errno;
 
-                r = safe_fork("(sd-osrel)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+                r = namespace_fork("(sd-osrelns)", "(sd-osrel)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                                   pidns_fd, mntns_fd, -1, -1, root_fd,
+                                   &child);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
                 if (r == 0) {
                         int fd = -1;
 
                         pair[0] = safe_close(pair[0]);
-
-                        r = namespace_enter(-1, mntns_fd, -1, -1, root_fd);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
 
                         r = open_os_release(NULL, NULL, &fd);
                         if (r == -ENOENT)
@@ -382,7 +380,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 if (r < 0)
                         return r;
 
-                r = wait_for_terminate_and_check("(sd-osrel)", child, 0);
+                r = wait_for_terminate_and_check("(sd-osrelns)", child, 0);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 if (r == EXIT_NOT_FOUND)
