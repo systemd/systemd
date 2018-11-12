@@ -385,8 +385,6 @@ Features:
   on PID 1 with the relevant signals, and makes relevant files in /sys and
   /proc (such as the sysrq stuff) unavailable
 
-* DeviceAllow= should also generate seccomp filters for mknod()
-
 * make sure the ratelimit object can deal with USEC_INFINITY as way to turn off things
 
 * journalctl: make sure -f ends when the container indicated by -M terminates
