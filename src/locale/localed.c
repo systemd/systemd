@@ -105,7 +105,7 @@ static int vconsole_reload(sd_bus *bus) {
                         "ss", "systemd-vconsole-setup.service", "replace");
 
         if (r < 0)
-                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -459,9 +459,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         log_info("Changed virtual console keymap to '%s' toggle '%s'",
                  strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
 
-        r = vconsole_reload(sd_bus_message_get_bus(m));
-        if (r < 0)
-                log_error_errno(r, "Failed to request keymap reload: %m");
+        (void) vconsole_reload(sd_bus_message_get_bus(m));
 
         (void) sd_bus_emit_properties_changed(
                         sd_bus_message_get_bus(m),
