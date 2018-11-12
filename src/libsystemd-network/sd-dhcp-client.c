@@ -371,6 +371,7 @@ static int dhcp_client_set_iaid_duid_internal(
                 if (iaid == 0) {
                         r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr,
                                                      client->mac_addr_len,
+                                                     true,
                                                      &client->client_id.ns.iaid);
                         if (r < 0)
                                 return r;
@@ -650,7 +651,8 @@ static int client_message_init(
 
                 client->client_id.type = 255;
 
-                r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len, &client->client_id.ns.iaid);
+                r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len,
+                                             true, &client->client_id.ns.iaid);
                 if (r < 0)
                         return r;
 

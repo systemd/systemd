@@ -807,14 +807,14 @@ error:
 
 static int client_ensure_iaid(sd_dhcp6_client *client) {
         int r;
-        be32_t iaid;
+        uint32_t iaid;
 
         assert(client);
 
         if (client->ia_na.ia_na.id)
                 return 0;
 
-        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len, &iaid);
+        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len, true, &iaid);
         if (r < 0)
                 return r;
 

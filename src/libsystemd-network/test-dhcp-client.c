@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <net/if.h>
 
 #include "sd-dhcp-client.h"
 #include "sd-event.h"
@@ -16,6 +17,7 @@
 #include "dhcp-internal.h"
 #include "dhcp-protocol.h"
 #include "fd-util.h"
+#include "random-util.h"
 #include "tests.h"
 #include "util.h"
 
@@ -153,6 +155,35 @@ static void test_checksum(void) {
         assert_se(dhcp_packet_checksum((uint8_t*)&buf, 20) == be16toh(0x78ae));
 }
 
+static void test_dhcp_identifier_set_iaid(void) {
+        uint32_t iaid_legacy;
+        be32_t iaid;
+        int ifindex;
+
+        for (;;) {
+                char ifname[IFNAMSIZ];
+
+                /* try to find an ifindex which does not exist. I causes dhcp_identifier_set_iaid()
+                 * to hash the MAC address. */
+                pseudo_random_bytes(&ifindex, sizeof(ifindex));
+                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
+                        break;
+        }
+
+        assert_se(dhcp_identifier_set_iaid(ifindex, mac_addr, sizeof(mac_addr), true, &iaid_legacy) >= 0);
+        assert_se(dhcp_identifier_set_iaid(ifindex, mac_addr, sizeof(mac_addr), false, &iaid) >= 0);
+
+        /* we expect, that the MAC address was hashed. The legacy value is in native
+         * endianness. */
+        assert_se(iaid_legacy == 0x8dde4ba8u);
+        assert_se(iaid  == htole32(0x8dde4ba8u));
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+        assert_se(iaid == iaid_legacy);
+#else
+        assert_se(iaid == __bswap_32(iaid_legacy));
+#endif
+}
+
 static int check_options(uint8_t code, uint8_t len, const void *option, void *userdata) {
         switch(code) {
         case SD_DHCP_OPTION_CLIENT_IDENTIFIER:
@@ -162,7 +193,7 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
                 size_t duid_len;
 
                 assert_se(dhcp_identifier_set_duid_en(&duid, &duid_len) >= 0);
-                assert_se(dhcp_identifier_set_iaid(42, mac_addr, ETH_ALEN, &iaid) >= 0);
+                assert_se(dhcp_identifier_set_iaid(42, mac_addr, ETH_ALEN, true, &iaid) >= 0);
 
                 assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid_len);
                 assert_se(len == 19);
@@ -532,6 +563,7 @@ int main(int argc, char *argv[]) {
         test_request_basic(e);
         test_request_anonymize(e);
         test_checksum();
+        test_dhcp_identifier_set_iaid();
 
         test_discover_message(e);
         test_addr_acq(e);
