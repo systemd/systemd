@@ -16,7 +16,8 @@
 int locale_setup(char ***environment) {
         char *variables[_VARIABLE_LC_MAX] = {};
         _cleanup_strv_free_ char **add = NULL;
-        int r = 0, i;
+        LocaleVariable i;
+        int r = 0;
 
         if (detect_container() <= 0) {
                 r = parse_env_file(NULL, "/proc/cmdline", WHITESPACE,
