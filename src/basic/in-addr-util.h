@@ -65,7 +65,9 @@ static inline size_t FAMILY_ADDRESS_SIZE(int family) {
         return family == AF_INET6 ? 16 : 4;
 }
 
-#define IN_ADDR_NULL ((union in_addr_union) {})
+/* Workaround for clang, explicitly specify the maximum-size element here.
+ * See also oss-fuzz#11344. */
+#define IN_ADDR_NULL ((union in_addr_union) { .in6 = {} })
 
 void in_addr_data_hash_func(const void *p, struct siphash *state);
 int in_addr_data_compare_func(const void *a, const void *b);

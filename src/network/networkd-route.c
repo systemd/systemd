@@ -364,10 +364,10 @@ void route_update(Route *route,
         assert(route);
         assert(src || src_prefixlen == 0);
 
-        route->src = src ? *src : (union in_addr_union) {};
+        route->src = src ? *src : IN_ADDR_NULL;
         route->src_prefixlen = src_prefixlen;
-        route->gw = gw ? *gw : (union in_addr_union) {};
-        route->prefsrc = prefsrc ? *prefsrc : (union in_addr_union) {};
+        route->gw = gw ? *gw : IN_ADDR_NULL;
+        route->prefsrc = prefsrc ? *prefsrc : IN_ADDR_NULL;
         route->scope = scope;
         route->protocol = protocol;
         route->type = type;
