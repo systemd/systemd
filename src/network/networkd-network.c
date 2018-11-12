@@ -127,19 +127,71 @@ int network_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        network = new0(Network, 1);
+        network = new(Network, 1);
         if (!network)
                 return log_oom();
 
-        network->manager = manager;
+        *network = (Network) {
+                .manager = manager,
 
-        LIST_HEAD_INIT(network->static_addresses);
-        LIST_HEAD_INIT(network->static_routes);
-        LIST_HEAD_INIT(network->static_fdb_entries);
-        LIST_HEAD_INIT(network->ipv6_proxy_ndp_addresses);
-        LIST_HEAD_INIT(network->address_labels);
-        LIST_HEAD_INIT(network->static_prefixes);
-        LIST_HEAD_INIT(network->rules);
+                .required_for_online = true,
+                .dhcp = ADDRESS_FAMILY_NO,
+                .dhcp_use_ntp = true,
+                .dhcp_use_dns = true,
+                .dhcp_use_hostname = true,
+                .dhcp_use_routes = true,
+                /* NOTE: this var might be overwriten by network_apply_anonymize_if_set */
+                .dhcp_send_hostname = true,
+                /* To enable/disable RFC7844 Anonymity Profiles */
+                .dhcp_anonymize = false,
+                .dhcp_route_metric = DHCP_ROUTE_METRIC,
+                /* NOTE: this var might be overwrite by network_apply_anonymize_if_set */
+                .dhcp_client_identifier = DHCP_CLIENT_ID_DUID,
+                .dhcp_route_table = RT_TABLE_MAIN,
+                .dhcp_route_table_set = false,
+                /* NOTE: from man: UseMTU=... Defaults to false*/
+                .dhcp_use_mtu = false,
+                /* NOTE: from man: UseTimezone=... Defaults to "no".*/
+                .dhcp_use_timezone = false,
+                .rapid_commit = true,
+
+                .dhcp_server_emit_dns = true,
+                .dhcp_server_emit_ntp = true,
+                .dhcp_server_emit_router = true,
+                .dhcp_server_emit_timezone = true,
+
+                .router_emit_dns = true,
+                .router_emit_domains = true,
+
+                .use_bpdu = -1,
+                .hairpin = -1,
+                .fast_leave = -1,
+                .allow_port_to_be_root = -1,
+                .unicast_flood = -1,
+                .priority = LINK_BRIDGE_PORT_PRIORITY_INVALID,
+
+                .lldp_mode = LLDP_MODE_ROUTERS_ONLY,
+
+                .llmnr = RESOLVE_SUPPORT_YES,
+                .mdns = RESOLVE_SUPPORT_NO,
+                .dnssec_mode = _DNSSEC_MODE_INVALID,
+                .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+
+                .link_local = ADDRESS_FAMILY_IPV6,
+
+                .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
+                .ipv6_accept_ra = -1,
+                .ipv6_dad_transmits = -1,
+                .ipv6_hop_limit = -1,
+                .ipv6_proxy_ndp = -1,
+                .duid.type = _DUID_TYPE_INVALID,
+                .proxy_arp = -1,
+                .arp = -1,
+                .multicast = -1,
+                .allmulticast = -1,
+                .ipv6_accept_ra_use_dns = true,
+                .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
+        };
 
         network->stacked_netdevs = hashmap_new(&string_hash_ops);
         if (!network->stacked_netdevs)
@@ -182,65 +234,6 @@ int network_load_one(Manager *manager, const char *filename) {
                 return -EINVAL;
 
         *d = '\0';
-
-        network->required_for_online = true;
-        network->dhcp = ADDRESS_FAMILY_NO;
-        network->dhcp_use_ntp = true;
-        network->dhcp_use_dns = true;
-        network->dhcp_use_hostname = true;
-        network->dhcp_use_routes = true;
-        /* NOTE: this var might be overwriten by network_apply_anonymize_if_set */
-        network->dhcp_send_hostname = true;
-        /* To enable/disable RFC7844 Anonymity Profiles */
-        network->dhcp_anonymize = false;
-        network->dhcp_route_metric = DHCP_ROUTE_METRIC;
-        /* NOTE: this var might be overwrite by network_apply_anonymize_if_set */
-        network->dhcp_client_identifier = DHCP_CLIENT_ID_DUID;
-        network->dhcp_route_table = RT_TABLE_MAIN;
-        network->dhcp_route_table_set = false;
-        /* NOTE: from man: UseMTU=... Defaults to false*/
-        network->dhcp_use_mtu = false;
-        /* NOTE: from man: UseTimezone=... Defaults to "no".*/
-        network->dhcp_use_timezone = false;
-        network->rapid_commit = true;
-
-        network->dhcp_server_emit_dns = true;
-        network->dhcp_server_emit_ntp = true;
-        network->dhcp_server_emit_router = true;
-        network->dhcp_server_emit_timezone = true;
-
-        network->router_emit_dns = true;
-        network->router_emit_domains = true;
-
-        network->use_bpdu = -1;
-        network->hairpin = -1;
-        network->fast_leave = -1;
-        network->allow_port_to_be_root = -1;
-        network->unicast_flood = -1;
-        network->priority = LINK_BRIDGE_PORT_PRIORITY_INVALID;
-
-        network->lldp_mode = LLDP_MODE_ROUTERS_ONLY;
-
-        network->llmnr = RESOLVE_SUPPORT_YES;
-        network->mdns = RESOLVE_SUPPORT_NO;
-        network->dnssec_mode = _DNSSEC_MODE_INVALID;
-        network->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
-
-        network->link_local = ADDRESS_FAMILY_IPV6;
-
-        network->ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO;
-        network->ipv6_accept_ra = -1;
-        network->ipv6_dad_transmits = -1;
-        network->ipv6_hop_limit = -1;
-        network->ipv6_proxy_ndp = -1;
-        network->duid.type = _DUID_TYPE_INVALID;
-        network->proxy_arp = -1;
-        network->arp = -1;
-        network->multicast = -1;
-        network->allmulticast = -1;
-        network->ipv6_accept_ra_use_dns = true;
-        network->ipv6_accept_ra_route_table = RT_TABLE_MAIN;
-        network->ipv6_mtu = 0;
 
         dropin_dirname = strjoina(network->name, ".network.d");
 

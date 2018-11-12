@@ -449,16 +449,19 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return r;
 
-        link = new0(Link, 1);
+        link = new(Link, 1);
         if (!link)
                 return -ENOMEM;
 
-        link->n_ref = 1;
-        link->manager = manager;
-        link->state = LINK_STATE_PENDING;
-        link->rtnl_extended_attrs = true;
-        link->ifindex = ifindex;
-        link->iftype = iftype;
+        *link = (Link) {
+                .n_ref = 1,
+                .manager = manager,
+                .state = LINK_STATE_PENDING,
+                .rtnl_extended_attrs = true,
+                .ifindex = ifindex,
+                .iftype = iftype,
+        };
+
         link->ifname = strdup(ifname);
         if (!link->ifname)
                 return -ENOMEM;

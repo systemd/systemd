@@ -57,17 +57,18 @@ int ipv6_proxy_ndp_address_new_static(Network *network, IPv6ProxyNDPAddress **re
         assert(ret);
 
         /* allocate space for IPv6ProxyNDPAddress entry */
-        ipv6_proxy_ndp_address = new0(IPv6ProxyNDPAddress, 1);
+        ipv6_proxy_ndp_address = new(IPv6ProxyNDPAddress, 1);
         if (!ipv6_proxy_ndp_address)
                 return -ENOMEM;
 
-        ipv6_proxy_ndp_address->network = network;
+        *ipv6_proxy_ndp_address = (IPv6ProxyNDPAddress) {
+                .network = network,
+        };
 
         LIST_PREPEND(ipv6_proxy_ndp_addresses, network->ipv6_proxy_ndp_addresses, ipv6_proxy_ndp_address);
         network->n_ipv6_proxy_ndp_addresses++;
 
-        *ret = ipv6_proxy_ndp_address;
-        ipv6_proxy_ndp_address = NULL;
+        *ret = TAKE_PTR(ipv6_proxy_ndp_address);
 
         return 0;
 }
