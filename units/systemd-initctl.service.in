@@ -13,6 +13,7 @@ Documentation=man:systemd-initctl.service(8)
 DefaultDependencies=no
 
 [Service]
-NotifyAccess=all
 ExecStart=@rootlibexecdir@/systemd-initctl
+NoNewPrivileges=yes
+NotifyAccess=all
 SystemCallArchitectures=native

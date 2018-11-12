@@ -16,24 +16,25 @@ After=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-a
 Before=sysinit.target
 
 [Service]
-Type=notify
-Sockets=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_SYSLOG CAP_AUDIT_CONTROL CAP_AUDIT_READ CAP_CHOWN CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_MAC_OVERRIDE
 ExecStart=@rootlibexecdir@/systemd-journald
+FileDescriptorStoreMax=4224
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
 Restart=always
 RestartSec=0
-StandardOutput=null
-WatchdogSec=3min
-FileDescriptorStoreMax=4224
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_SYSLOG CAP_AUDIT_CONTROL CAP_AUDIT_READ CAP_CHOWN CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_MAC_OVERRIDE
-MemoryDenyWriteExecute=yes
-RestrictRealtime=yes
-RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
-SystemCallFilter=@system-service
-SystemCallErrorNumber=EPERM
+RestrictNamespaces=yes
+RestrictRealtime=yes
+Sockets=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket
+StandardOutput=null
 SystemCallArchitectures=native
-LockPersonality=yes
-IPAddressDeny=any
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+Type=notify
+WatchdogSec=3min
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.
