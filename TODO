@@ -21,6 +21,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* systemd-gpt-auto: if we find the root dir mounted read-only and the gpt flag
+  doesn't say so generate job that remounts it writable
+
 * When logind.conf contains HandleLidSwitch=suspend-then-hibernate and we can't
   hibernate because the swap partition isn't large enough, still suspend
 
