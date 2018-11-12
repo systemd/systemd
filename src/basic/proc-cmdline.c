@@ -39,7 +39,7 @@ int proc_cmdline(char **ret) {
                 return read_one_line_file("/proc/cmdline", ret);
 }
 
-int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, unsigned flags) {
+int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
         const char *p;
         int r;
 
@@ -82,7 +82,7 @@ int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, 
         return 0;
 }
 
-int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, unsigned flags) {
+int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
         _cleanup_free_ char *line = NULL;
         int r;
 
@@ -127,7 +127,7 @@ bool proc_cmdline_key_streq(const char *x, const char *y) {
         return true;
 }
 
-int proc_cmdline_get_key(const char *key, unsigned flags, char **value) {
+int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **value) {
         _cleanup_free_ char *line = NULL, *ret = NULL;
         bool found = false;
         const char *p;
