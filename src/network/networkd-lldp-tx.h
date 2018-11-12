@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "conf-parser.h"
 #include "networkd-link.h"
 
 typedef enum LLDPEmit {
@@ -14,4 +15,4 @@ typedef enum LLDPEmit {
 int link_lldp_emit_start(Link *link);
 void link_lldp_emit_stop(Link *link);
 
-int config_parse_lldp_emit(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_lldp_emit);

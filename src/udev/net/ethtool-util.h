@@ -4,6 +4,7 @@
 #include <macro.h>
 #include <linux/ethtool.h>
 
+#include "conf-parser.h"
 #include "missing.h"
 
 struct link_config;
@@ -119,8 +120,8 @@ NetDevPort port_from_string(const char *port) _pure_;
 const char *advertise_to_string(NetDevAdvertise advertise) _const_;
 NetDevAdvertise advertise_from_string(const char *advertise) _pure_;
 
-int config_parse_duplex(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_wol(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_port(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_channel(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_advertise(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_duplex);
+CONFIG_PARSER_PROTOTYPE(config_parse_wol);
+CONFIG_PARSER_PROTOTYPE(config_parse_port);
+CONFIG_PARSER_PROTOTYPE(config_parse_channel);
+CONFIG_PARSER_PROTOTYPE(config_parse_advertise);

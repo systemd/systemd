@@ -3,6 +3,7 @@
 
 #include "sd-netlink.h"
 
+#include "conf-parser.h"
 #include "list.h"
 #include "time-util.h"
 
@@ -162,7 +163,7 @@ int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t cb);
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
 
-int config_parse_netdev_kind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_netdev_kind);
 
 /* gperf */
 const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

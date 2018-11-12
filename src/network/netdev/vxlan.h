@@ -47,34 +47,6 @@ struct VxLan {
 DEFINE_NETDEV_CAST(VXLAN, VxLan);
 extern const NetDevVTable vxlan_vtable;
 
-int config_parse_vxlan_address(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata);
-int config_parse_port_range(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata);
-
-int config_parse_flow_label(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_vxlan_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_port_range);
+CONFIG_PARSER_PROTOTYPE(config_parse_flow_label);
