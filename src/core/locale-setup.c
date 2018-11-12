@@ -14,8 +14,8 @@
 #include "virt.h"
 
 int locale_setup(char ***environment) {
-        char **add;
         char *variables[_VARIABLE_LC_MAX] = {};
+        _cleanup_strv_free_ char **add = NULL;
         int r = 0, i;
 
         if (detect_container() <= 0) {
@@ -64,7 +64,6 @@ int locale_setup(char ***environment) {
                         log_warning_errno(r, "Failed to read /etc/locale.conf: %m");
         }
 
-        add = NULL;
         for (i = 0; i < _VARIABLE_LC_MAX; i++) {
                 char *s;
 
@@ -98,8 +97,6 @@ int locale_setup(char ***environment) {
         r = 0;
 
 finish:
-        strv_free(add);
-
         for (i = 0; i < _VARIABLE_LC_MAX; i++)
                 free(variables[i]);
 
