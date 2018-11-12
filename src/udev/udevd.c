@@ -653,11 +653,11 @@ static bool is_devpath_busy(Manager *manager, struct event *event) {
                         return true;
 
                 /* check network device ifindex */
-                if (event->ifindex != 0 && event->ifindex == loop_event->ifindex)
+                if (event->ifindex > 0 && event->ifindex == loop_event->ifindex)
                         return true;
 
                 /* check our old name */
-                if (event->devpath_old != NULL && streq(loop_event->devpath, event->devpath_old)) {
+                if (event->devpath_old && streq(loop_event->devpath, event->devpath_old)) {
                         event->delaying_seqnum = loop_event->seqnum;
                         return true;
                 }
@@ -672,9 +672,7 @@ static bool is_devpath_busy(Manager *manager, struct event *event) {
                 /* identical device event found */
                 if (loop_event->devpath_len == event->devpath_len) {
                         /* devices names might have changed/swapped in the meantime */
-                        if (major(event->devnum) != 0 && (event->devnum != loop_event->devnum || event->is_block != loop_event->is_block))
-                                continue;
-                        if (event->ifindex != 0 && event->ifindex != loop_event->ifindex)
+                        if (major(event->devnum) != 0 || event->ifindex > 0)
                                 continue;
                         event->delaying_seqnum = loop_event->seqnum;
                         return true;
@@ -691,9 +689,6 @@ static bool is_devpath_busy(Manager *manager, struct event *event) {
                         event->delaying_seqnum = loop_event->seqnum;
                         return true;
                 }
-
-                /* no matching device */
-                continue;
         }
 
         return false;
