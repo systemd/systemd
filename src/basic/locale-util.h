@@ -66,3 +66,8 @@ static inline void freelocalep(locale_t *p) {
 
         freelocale(*p);
 }
+
+void locale_variables_free(char* l[_VARIABLE_LC_MAX]);
+static inline void locale_variables_freep(char*(*l)[_VARIABLE_LC_MAX]) {
+        locale_variables_free(*l);
+}

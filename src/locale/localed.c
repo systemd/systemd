@@ -255,20 +255,13 @@ static int property_get_xkb(
         return -EINVAL;
 }
 
-static void locale_free(char ***l) {
-        int p;
-
-        for (p = 0; p < _VARIABLE_LC_MAX; p++)
-                (*l)[p] = mfree((*l)[p]);
-}
-
 static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = userdata;
+        _cleanup_(locale_variables_freep) char *new_locale[_VARIABLE_LC_MAX] = {};
         _cleanup_strv_free_ char **settings = NULL, **l = NULL;
-        char *new_locale[_VARIABLE_LC_MAX] = {}, **i;
-        _cleanup_(locale_free) _unused_ char **dummy = new_locale;
+        Context *c = userdata;
         bool modified = false;
         int interactive, p, r;
+        char **i;
 
         assert(m);
         assert(c);

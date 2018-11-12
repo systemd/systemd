@@ -15,7 +15,7 @@
 #include "virt.h"
 
 int locale_setup(char ***environment) {
-        char *variables[_VARIABLE_LC_MAX] = {};
+        _cleanup_(locale_variables_freep) char *variables[_VARIABLE_LC_MAX] = {};
         _cleanup_strv_free_ char **add = NULL;
         LocaleVariable i;
         int r;
@@ -66,25 +66,19 @@ int locale_setup(char ***environment) {
                         continue;
 
                 s = strjoin(locale_variable_to_string(i), "=", variables[i]);
-                if (!s) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!s)
+                        return -ENOMEM;
 
-                if (strv_consume(&add, s) < 0) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (strv_consume(&add, s) < 0)
+                        return -ENOMEM;
         }
 
         if (strv_isempty(add)) {
                 /* If no locale is configured then default to C.UTF-8. */
 
                 add = strv_new("LANG=C.UTF-8");
-                if (!add) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!add)
+                        return -ENOMEM;
         }
 
         if (strv_isempty(*environment))
@@ -93,19 +87,11 @@ int locale_setup(char ***environment) {
                 char **merged;
 
                 merged = strv_env_merge(2, *environment, add);
-                if (!merged) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!merged)
+                        return -ENOMEM;
 
                 strv_free_and_replace(*environment, merged);
         }
 
-        r = 0;
-
-finish:
-        for (i = 0; i < _VARIABLE_LC_MAX; i++)
-                free(variables[i]);
-
-        return r;
+        return 0;
 }
