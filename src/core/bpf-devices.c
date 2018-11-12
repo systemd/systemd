@@ -243,5 +243,5 @@ int bpf_devices_supported(void) {
                 return supported = 0;
         }
 
-        return supported;
+        return supported = 1;
 }
