@@ -54,9 +54,7 @@ int locale_setup(char ***environment) {
                                    "LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
                                    "LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
                                    "LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
-                                   "LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
-                                   NULL);
-
+                                   "LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION]);
                 if (r < 0 && r != -ENOENT)
                         log_warning_errno(r, "Failed to read /etc/locale.conf: %m");
         }

@@ -200,8 +200,7 @@ int inhibitor_load(Inhibitor *i) {
                            "WHO", &who,
                            "WHY", &why,
                            "MODE", &mode,
-                           "FIFO", &i->fifo_path,
-                           NULL);
+                           "FIFO", &i->fifo_path);
         if (r < 0)
                 return r;
 

@@ -1263,8 +1263,7 @@ int link_load_user(Link *l) {
                            "DNSSEC", &dnssec,
                            "SERVERS", &servers,
                            "DOMAINS", &domains,
-                           "NTAS", &ntas,
-                           NULL);
+                           "NTAS", &ntas);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

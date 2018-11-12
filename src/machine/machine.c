@@ -261,8 +261,7 @@ int machine_load(Machine *m) {
                            "CLASS",     &class,
                            "REALTIME",  &realtime,
                            "MONOTONIC", &monotonic,
-                           "NETIF",     &netif,
-                           NULL);
+                           "NETIF",     &netif);
         if (r < 0) {
                 if (r == -ENOENT)
                         return 0;

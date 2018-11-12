@@ -94,8 +94,7 @@ static int context_read_data(Context *c) {
                            "ICON_NAME", &c->data[PROP_ICON_NAME],
                            "CHASSIS", &c->data[PROP_CHASSIS],
                            "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
-                           "LOCATION", &c->data[PROP_LOCATION],
-                           NULL);
+                           "LOCATION", &c->data[PROP_LOCATION]);
         if (r < 0 && r != -ENOENT)
                 return r;
 

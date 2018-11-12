@@ -128,8 +128,7 @@ int locale_read_data(Context *c, sd_bus_message *m) {
                                    "LC_ADDRESS",        &c->locale[VARIABLE_LC_ADDRESS],
                                    "LC_TELEPHONE",      &c->locale[VARIABLE_LC_TELEPHONE],
                                    "LC_MEASUREMENT",    &c->locale[VARIABLE_LC_MEASUREMENT],
-                                   "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION],
-                                   NULL);
+                                   "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION]);
                 if (r < 0)
                         return r;
         } else {
@@ -188,8 +187,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
 
         r = parse_env_file(NULL, "/etc/vconsole.conf",
                            "KEYMAP",        &c->vc_keymap,
-                           "KEYMAP_TOGGLE", &c->vc_keymap_toggle,
-                           NULL);
+                           "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
         if (r < 0)
                 return r;
 

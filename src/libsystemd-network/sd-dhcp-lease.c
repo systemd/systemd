@@ -1067,8 +1067,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "OPTION_251", &options[27],
                            "OPTION_252", &options[28],
                            "OPTION_253", &options[29],
-                           "OPTION_254", &options[30],
-                           NULL);
+                           "OPTION_254", &options[30]);
         if (r < 0)
                 return r;
 

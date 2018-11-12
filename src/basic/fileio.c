@@ -710,7 +710,7 @@ int parse_env_filev(
         return n_pushed;
 }
 
-int parse_env_file(
+int parse_env_file_sentinel(
                 FILE *f,
                 const char *fname,
                 ...) {

@@ -92,8 +92,7 @@ static void test_parse_env_file(void) {
                        "seven", &seven,
                        "eight", &eight,
                        "export nine", &nine,
-                       "ten", &ten,
-                       NULL);
+                       "ten", &ten);
 
         assert_se(r >= 0);
 

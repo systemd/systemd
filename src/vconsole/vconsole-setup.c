@@ -423,8 +423,7 @@ int main(int argc, char **argv) {
                            "KEYMAP_TOGGLE", &vc_keymap_toggle,
                            "FONT", &vc_font,
                            "FONT_MAP", &vc_font_map,
-                           "FONT_UNIMAP", &vc_font_unimap,
-                           NULL);
+                           "FONT_UNIMAP", &vc_font_unimap);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /etc/vconsole.conf: %m");
 

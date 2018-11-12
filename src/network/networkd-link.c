@@ -3215,8 +3215,7 @@ static int link_load(Link *link) {
                            "ADDRESSES", &addresses,
                            "ROUTES", &routes,
                            "DHCP4_ADDRESS", &dhcp4_address,
-                           "IPV4LL_ADDRESS", &ipv4ll_address,
-                           NULL);
+                           "IPV4LL_ADDRESS", &ipv4ll_address);
         if (r < 0 && r != -ENOENT)
                 return log_link_error_errno(link, r, "Failed to read %s: %m", link->state_file);
 

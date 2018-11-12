@@ -281,8 +281,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
 
                 r = parse_env_file(f, "/etc/os-release",
                                    "PORTABLE_PRETTY_NAME", &pretty_portable,
-                                   "PRETTY_NAME", &pretty_os,
-                                   NULL);
+                                   "PRETTY_NAME", &pretty_os);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse /etc/os-release: %m");
 
