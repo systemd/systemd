@@ -798,14 +798,12 @@ int netdev_load_one(Manager *manager, const char *filename) {
 
 int netdev_load(Manager *manager) {
         _cleanup_strv_free_ char **files = NULL;
-        NetDev *netdev;
         char **f;
         int r;
 
         assert(manager);
 
-        while ((netdev = hashmap_first(manager->netdevs)))
-                netdev_unref(netdev);
+        hashmap_clear_with_destructor(manager->netdevs, netdev_unref);
 
         r = conf_files_list_strv(&files, ".netdev", NULL, 0, network_dirs);
         if (r < 0)
