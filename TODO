@@ -21,6 +21,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* When logind.conf contains HandleLidSwitch=suspend-then-hibernate and we can't
+  hibernate because the swap partition isn't large enough, still suspend
+
+* Now that C.UTF-8 is standardized in glibc, default to it if locale.conf
+  doesn't set anything otherwise
+
 * bootctl: implement Type #2 boot loader entry discovery
 
 * bootctl,sd-boot: actually honour the "architecture" key
