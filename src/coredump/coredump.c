@@ -55,10 +55,15 @@
 #define EXTERNAL_SIZE_MAX PROCESS_SIZE_MAX
 
 /* The maximum size up to which we store the coredump in the journal */
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 #define JOURNAL_SIZE_MAX ((size_t) (767LU*1024LU*1024LU))
+#else
+/* oss-fuzz limits memory usage. */
+#define JOURNAL_SIZE_MAX ((size_t) (10LU*1024LU*1024LU))
+#endif
 
 /* Make sure to not make this larger than the maximum journal entry
- * size. See DATA_SIZE_MAX in journald-native.c. */
+ * size. See DATA_SIZE_MAX in journal-importer.h. */
 assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
 enum {
