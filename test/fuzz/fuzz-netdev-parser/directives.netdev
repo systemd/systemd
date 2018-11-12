@@ -73,6 +73,7 @@ CopyDSCP=
 EncapsulationLimit=
 TTL=
 FOUSourcePort=
+IPv6RapidDeploymentPrefix=
 [VXLAN]
 UDP6ZeroChecksumRx=
 ARPProxy=

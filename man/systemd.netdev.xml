@@ -911,6 +911,14 @@
           <para>Accepts the same key as <literal>[FooOverUDP]</literal></para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>IPv6RapidDeploymentPrefix=</varname></term>
+        <listitem>
+          <para>Reconfigure the tunnel for <ulink url="https://tools.ietf.org/html/rfc5569">IPv6 Rapid
+          Deployment</ulink>, also known as 6rd. The value is an ISP-specific IPv6 prefix with a non-zero length. Only
+          applicable to SIT tunnels.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -1517,6 +1525,18 @@ MTUBytes=1480
 [Tunnel]
 Local=10.65.223.238
 Remote=10.65.223.239</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/systemd/network/25-6rd.netdev</title>
+      <programlisting>[NetDev]
+Name=6rd-tun
+Kind=sit
+MTUBytes=1480
+
+[Tunnel]
+Local=10.65.223.238
+IPv6RapidDeploymentPrefix=2602::/24</programlisting>
     </example>
 
     <example>
