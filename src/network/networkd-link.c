@@ -3210,7 +3210,7 @@ static int link_load(Link *link) {
 
         assert(link);
 
-        r = parse_env_file(NULL, link->state_file, NEWLINE,
+        r = parse_env_file(NULL, link->state_file,
                            "NETWORK_FILE", &network_file,
                            "ADDRESSES", &addresses,
                            "ROUTES", &routes,

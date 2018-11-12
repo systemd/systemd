@@ -47,7 +47,7 @@ static void load_testdata_env(void) {
         dirname(s);
 
         envpath = path_join(NULL, s, "systemd-runtest.env");
-        if (load_env_file_pairs(NULL, envpath, NULL, &pairs) < 0)
+        if (load_env_file_pairs(NULL, envpath, &pairs) < 0)
                 return;
 
         STRV_FOREACH_PAIR(k, v, pairs)

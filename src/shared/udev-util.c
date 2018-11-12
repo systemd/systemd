@@ -29,7 +29,7 @@ int udev_parse_config_full(
         _cleanup_free_ char *log_val = NULL, *children_max = NULL, *exec_delay = NULL, *event_timeout = NULL, *resolve_names = NULL;
         int r;
 
-        r = parse_env_file(NULL, "/etc/udev/udev.conf", NEWLINE,
+        r = parse_env_file(NULL, "/etc/udev/udev.conf",
                            "udev_log", &log_val,
                            "children_max", &children_max,
                            "exec_delay", &exec_delay,

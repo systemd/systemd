@@ -279,7 +279,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 if (!f)
                         return log_error_errno(errno, "Failed to open /etc/os-release buffer: %m");
 
-                r = parse_env_file(f, "/etc/os-release", NEWLINE,
+                r = parse_env_file(f, "/etc/os-release",
                                    "PORTABLE_PRETTY_NAME", &pretty_portable,
                                    "PRETTY_NAME", &pretty_os,
                                    NULL);

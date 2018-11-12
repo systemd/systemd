@@ -40,7 +40,7 @@ int locale_setup(char ***environment) {
 
         /* Hmm, nothing set on the kernel cmd line? Then let's try /etc/locale.conf */
         if (r <= 0) {
-                r = parse_env_file(NULL, "/etc/locale.conf", NEWLINE,
+                r = parse_env_file(NULL, "/etc/locale.conf",
                                    "LANG",              &variables[VARIABLE_LANG],
                                    "LANGUAGE",          &variables[VARIABLE_LANGUAGE],
                                    "LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],

@@ -373,7 +373,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 
                 pair[0] = -1;
 
-                r = load_env_file_pairs(f, "/etc/os-release", NULL, &l);
+                r = load_env_file_pairs(f, "/etc/os-release", &l);
                 if (r < 0)
                         return r;
 

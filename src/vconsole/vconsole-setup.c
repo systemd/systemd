@@ -418,7 +418,7 @@ int main(int argc, char **argv) {
 
         utf8 = is_locale_utf8();
 
-        r = parse_env_file(NULL, "/etc/vconsole.conf", NEWLINE,
+        r = parse_env_file(NULL, "/etc/vconsole.conf",
                            "KEYMAP", &vc_keymap,
                            "KEYMAP_TOGGLE", &vc_keymap_toggle,
                            "FONT", &vc_font,

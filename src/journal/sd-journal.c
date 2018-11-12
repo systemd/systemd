@@ -1888,7 +1888,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         assert_return(machine_name_is_valid(machine), -EINVAL);
 
         p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p, NEWLINE, "ROOT", &root, "CLASS", &class, NULL);
+        r = parse_env_file(NULL, p, "ROOT", &root, "CLASS", &class, NULL);
         if (r == -ENOENT)
                 return -EHOSTDOWN;
         if (r < 0)

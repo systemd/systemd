@@ -114,7 +114,7 @@ int locale_read_data(Context *c, sd_bus_message *m) {
                 c->locale_mtime = t;
                 context_free_locale(c);
 
-                r = parse_env_file(NULL, "/etc/locale.conf", NEWLINE,
+                r = parse_env_file(NULL, "/etc/locale.conf",
                                    "LANG",              &c->locale[VARIABLE_LANG],
                                    "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
                                    "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
@@ -186,7 +186,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         c->vc_mtime = t;
         context_free_vconsole(c);
 
-        r = parse_env_file(NULL, "/etc/vconsole.conf", NEWLINE,
+        r = parse_env_file(NULL, "/etc/vconsole.conf",
                            "KEYMAP",        &c->vc_keymap,
                            "KEYMAP_TOGGLE", &c->vc_keymap_toggle,
                            NULL);
@@ -341,7 +341,7 @@ int vconsole_write_data(Context *c) {
         struct stat st;
         int r;
 
-        r = load_env_file(NULL, "/etc/vconsole.conf", NULL, &l);
+        r = load_env_file(NULL, "/etc/vconsole.conf", &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
