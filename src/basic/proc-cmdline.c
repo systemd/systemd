@@ -39,42 +39,71 @@ int proc_cmdline(char **ret) {
                 return read_one_line_file("/proc/cmdline", ret);
 }
 
+static int proc_cmdline_extract_first(const char **p, char **ret_word, ProcCmdlineFlags flags) {
+        const char *q = *p;
+        int r;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                const char *c;
+
+                r = extract_first_word(&q, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                /* Filter out arguments that are intended only for the initrd */
+                c = startswith(word, "rd.");
+                if (c) {
+                        if (!in_initrd())
+                                continue;
+
+                        if (FLAGS_SET(flags, PROC_CMDLINE_STRIP_RD_PREFIX)) {
+                                r = free_and_strdup(&word, c);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                } else if (FLAGS_SET(flags, PROC_CMDLINE_RD_STRICT) && in_initrd())
+                        continue; /* And optionally filter out arguments that are intended only for the host */
+
+                *p = q;
+                *ret_word = TAKE_PTR(word);
+                return 1;
+        }
+
+        *p = q;
+        *ret_word = NULL;
+        return 0;
+}
+
 int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
         const char *p;
         int r;
 
         assert(parse_item);
 
+        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_parse(), let's make this
+         * clear. */
+        assert(!FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL));
+
         p = line;
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                char *value, *key, *q;
+                char *value;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = proc_cmdline_extract_first(&p, &word, flags);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                key = word;
-
-                /* Filter out arguments that are intended only for the initrd */
-                q = startswith(word, "rd.");
-                if (q) {
-                        if (!in_initrd())
-                                continue;
-
-                        if (FLAGS_SET(flags, PROC_CMDLINE_STRIP_RD_PREFIX))
-                                key = q;
-
-                } else if (FLAGS_SET(flags, PROC_CMDLINE_RD_STRICT) && in_initrd())
-                        continue; /* And optionally filter out arguments that are intended only for the host */
-
-                value = strchr(key, '=');
+                value = strchr(word, '=');
                 if (value)
                         *(value++) = 0;
 
-                r = parse_item(key, value, data);
+                r = parse_item(word, value, data);
                 if (r < 0)
                         return r;
         }
@@ -127,29 +156,29 @@ bool proc_cmdline_key_streq(const char *x, const char *y) {
         return true;
 }
 
-int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **value) {
+int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_value) {
         _cleanup_free_ char *line = NULL, *ret = NULL;
         bool found = false;
         const char *p;
         int r;
 
-        /* Looks for a specific key on the kernel command line. Supports two modes:
+        /* Looks for a specific key on the kernel command line. Supports three modes:
          *
-         * a) The "value" parameter is used. In this case a parameter beginning with the "key" string followed by "="
-         *    is searched, and the value following this is returned in "value".
+         * a) The "ret_value" parameter is used. In this case a parameter beginning with the "key" string followed by
+         *    "=" is searched for, and the value following it is returned in "ret_value".
          *
-         * b) as above, but the PROC_CMDLINE_VALUE_OPTIONAL flag is set. In this case if the key is found as a
-         *    separate word (i.e. not followed by "=" but instead by whitespace or the end of the command line), then
-         *    this is also accepted, and "value" is returned as NULL.
+         * b) as above, but the PROC_CMDLINE_VALUE_OPTIONAL flag is set. In this case if the key is found as a separate
+         *    word (i.e. not followed by "=" but instead by whitespace or the end of the command line), then this is
+         *    also accepted, and "value" is returned as NULL.
          *
-         * c) The "value" parameter is NULL. In this case a search for the exact "key" parameter is performed.
+         * c) The "ret_value" parameter is NULL. In this case a search for the exact "key" parameter is performed.
          *
          * In all three cases, > 0 is returned if the key is found, 0 if not. */
 
         if (isempty(key))
                 return -EINVAL;
 
-        if (FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL) && !value)
+        if (FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL) && !ret_value)
                 return -EINVAL;
 
         r = proc_cmdline(&line);
@@ -159,31 +188,17 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **value) 
         p = line;
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                const char *e, *k, *q;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = proc_cmdline_extract_first(&p, &word, flags);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                k = word;
+                if (ret_value) {
+                        const char *e;
 
-                /* Automatically filter out arguments that are intended only for the initrd, if we are not in the
-                 * initrd. */
-                q = startswith(word, "rd.");
-                if (q) {
-                        if (!in_initrd())
-                                continue;
-
-                        if (FLAGS_SET(flags, PROC_CMDLINE_STRIP_RD_PREFIX))
-                                k = q;
-
-                } else if (FLAGS_SET(flags, PROC_CMDLINE_RD_STRICT) && in_initrd())
-                        continue;
-
-                if (value) {
-                        e = proc_cmdline_key_startswith(k, key);
+                        e = proc_cmdline_key_startswith(word, key);
                         if (!e)
                                 continue;
 
@@ -198,13 +213,15 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **value) 
                                 found = true;
 
                 } else {
-                        if (streq(k, key))
+                        if (streq(word, key)) {
                                 found = true;
+                                break; /* we found what we were looking for */
+                        }
                 }
         }
 
-        if (value)
-                *value = TAKE_PTR(ret);
+        if (ret_value)
+                *ret_value = TAKE_PTR(ret);
 
         return found;
 }
