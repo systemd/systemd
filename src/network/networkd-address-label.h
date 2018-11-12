@@ -28,7 +28,6 @@ struct AddressLabel {
         LIST_FIELDS(AddressLabel, labels);
 };
 
-int address_label_new(AddressLabel **ret);
 void address_label_free(AddressLabel *label);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(AddressLabel*, address_label_free);

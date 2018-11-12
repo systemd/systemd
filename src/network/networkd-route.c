@@ -95,6 +95,9 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
                 return r;
 
         route->protocol = RTPROT_STATIC;
+        route->network = network;
+        LIST_PREPEND(routes, network->static_routes, route);
+        network->n_static_routes++;
 
         if (filename) {
                 route->section = TAKE_PTR(n);
@@ -103,10 +106,6 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
                 if (r < 0)
                         return r;
         }
-
-        route->network = network;
-        LIST_PREPEND(routes, network->static_routes, route);
-        network->n_static_routes++;
 
         *ret = TAKE_PTR(route);
 

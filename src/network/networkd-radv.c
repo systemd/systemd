@@ -153,6 +153,10 @@ int prefix_new_static(Network *network, const char *filename,
         if (r < 0)
                 return r;
 
+        prefix->network = network;
+        LIST_APPEND(prefixes, network->static_prefixes, prefix);
+        network->n_static_prefixes++;
+
         if (filename) {
                 prefix->section = TAKE_PTR(n);
 
@@ -161,10 +165,6 @@ int prefix_new_static(Network *network, const char *filename,
                 if (r < 0)
                         return r;
         }
-
-        prefix->network = network;
-        LIST_APPEND(prefixes, network->static_prefixes, prefix);
-        network->n_static_prefixes++;
 
         *ret = TAKE_PTR(prefix);
 

@@ -11,18 +11,6 @@
 #include "parse-util.h"
 #include "socket-util.h"
 
-int address_label_new(AddressLabel **ret) {
-        _cleanup_(address_label_freep) AddressLabel *addrlabel = NULL;
-
-        addrlabel = new0(AddressLabel, 1);
-        if (!addrlabel)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(addrlabel);
-
-        return 0;
-}
-
 void address_label_free(AddressLabel *label) {
         if (!label)
                 return;
@@ -50,30 +38,37 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         assert(ret);
         assert(!!filename == (section_line > 0));
 
-        r = network_config_section_new(filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (filename) {
+                r = network_config_section_new(filename, section_line, &n);
+                if (r < 0)
+                        return r;
 
-        label = hashmap_get(network->address_labels_by_section, n);
-        if (label) {
-                *ret = TAKE_PTR(label);
+                label = hashmap_get(network->address_labels_by_section, n);
+                if (label) {
+                        *ret = TAKE_PTR(label);
 
-                return 0;
+                        return 0;
+                }
         }
 
-        r = address_label_new(&label);
-        if (r < 0)
-                return r;
+        label = new(AddressLabel, 1);
+        if (!label)
+                return -ENOMEM;
 
-        label->section = TAKE_PTR(n);
+        *label = (AddressLabel) {
+                .network = network,
+        };
 
-        r = hashmap_put(network->address_labels_by_section, label->section, label);
-        if (r < 0)
-                return r;
-
-        label->network = network;
         LIST_APPEND(labels, network->address_labels, label);
         network->n_address_labels++;
+
+        if (filename) {
+                label->section = TAKE_PTR(n);
+
+                r = hashmap_put(network->address_labels_by_section, label->section, label);
+                if (r < 0)
+                        return r;
+        }
 
         *ret = TAKE_PTR(label);
 

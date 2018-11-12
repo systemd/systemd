@@ -67,6 +67,10 @@ int address_new_static(Network *network, const char *filename, unsigned section_
         if (r < 0)
                 return r;
 
+        address->network = network;
+        LIST_APPEND(addresses, network->static_addresses, address);
+        network->n_static_addresses++;
+
         if (filename) {
                 address->section = TAKE_PTR(n);
 
@@ -74,10 +78,6 @@ int address_new_static(Network *network, const char *filename, unsigned section_
                 if (r < 0)
                         return r;
         }
-
-        address->network = network;
-        LIST_APPEND(addresses, network->static_addresses, address);
-        network->n_static_addresses++;
 
         *ret = TAKE_PTR(address);
 
