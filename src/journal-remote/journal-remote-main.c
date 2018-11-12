@@ -560,7 +560,9 @@ static int create_remoteserver(
         if (r < 0)
                 return r;
 
-        setup_signals(s);
+        r = setup_signals(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up signals: %m");
 
         n = sd_listen_fds(true);
         if (n < 0)
