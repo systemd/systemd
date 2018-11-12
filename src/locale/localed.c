@@ -33,7 +33,8 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
         _cleanup_strv_free_ char **l_set = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus_error error = SD_BUS_ERROR_NULL;
-        unsigned c_set, c_unset, p;
+        size_t c_set, c_unset;
+        LocaleVariable p;
         int r;
 
         assert(bus);
