@@ -172,7 +172,6 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         _cleanup_(network_freep) Network *network = NULL;
 
         assert_se(network = new0(Network, 1));
-        assert_se(network->addresses_by_section = hashmap_new(NULL));
         assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);
         assert_se(network->n_static_addresses == n_addresses);
         if (n_addresses > 0) {

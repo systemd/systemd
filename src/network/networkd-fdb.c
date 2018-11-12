@@ -72,6 +72,10 @@ int fdb_entry_new_static(
         if (filename) {
                 fdb_entry->section = TAKE_PTR(n);
 
+                r = hashmap_ensure_allocated(&network->fdb_entries_by_section, &network_config_hash_ops);
+                if (r < 0)
+                        return r;
+
                 r = hashmap_put(network->fdb_entries_by_section, fdb_entry->section, fdb_entry);
                 if (r < 0)
                         return r;

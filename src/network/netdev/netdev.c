@@ -729,6 +729,10 @@ int netdev_load_one(Manager *manager, const char *filename) {
                         return log_error_errno(r, "Failed to generate predictable MAC address for %s: %m", netdev->ifname);
         }
 
+        r = hashmap_ensure_allocated(&netdev->manager->netdevs, &string_hash_ops);
+        if (r < 0)
+                return r;
+
         r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
         if (r < 0)
                 return r;

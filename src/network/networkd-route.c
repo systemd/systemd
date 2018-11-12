@@ -102,6 +102,10 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
         if (filename) {
                 route->section = TAKE_PTR(n);
 
+                r = hashmap_ensure_allocated(&network->routes_by_section, &network_config_hash_ops);
+                if (r < 0)
+                        return r;
+
                 r = hashmap_put(network->routes_by_section, route->section, route);
                 if (r < 0)
                         return r;

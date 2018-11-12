@@ -74,6 +74,10 @@ int address_new_static(Network *network, const char *filename, unsigned section_
         if (filename) {
                 address->section = TAKE_PTR(n);
 
+                r = hashmap_ensure_allocated(&network->addresses_by_section, &network_config_hash_ops);
+                if (r < 0)
+                        return r;
+
                 r = hashmap_put(network->addresses_by_section, address->section, address);
                 if (r < 0)
                         return r;

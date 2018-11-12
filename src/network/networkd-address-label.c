@@ -65,6 +65,10 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         if (filename) {
                 label->section = TAKE_PTR(n);
 
+                r = hashmap_ensure_allocated(&network->address_labels_by_section, &network_config_hash_ops);
+                if (r < 0)
+                        return r;
+
                 r = hashmap_put(network->address_labels_by_section, label->section, label);
                 if (r < 0)
                         return r;

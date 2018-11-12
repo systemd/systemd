@@ -193,34 +193,6 @@ int network_load_one(Manager *manager, const char *filename) {
                 .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
         };
 
-        network->stacked_netdevs = hashmap_new(&string_hash_ops);
-        if (!network->stacked_netdevs)
-                return log_oom();
-
-        network->addresses_by_section = hashmap_new(&network_config_hash_ops);
-        if (!network->addresses_by_section)
-                return log_oom();
-
-        network->routes_by_section = hashmap_new(&network_config_hash_ops);
-        if (!network->routes_by_section)
-                return log_oom();
-
-        network->fdb_entries_by_section = hashmap_new(&network_config_hash_ops);
-        if (!network->fdb_entries_by_section)
-                return log_oom();
-
-        network->address_labels_by_section = hashmap_new(&network_config_hash_ops);
-        if (!network->address_labels_by_section)
-                log_oom();
-
-        network->prefixes_by_section = hashmap_new(&network_config_hash_ops);
-        if (!network->prefixes_by_section)
-                return log_oom();
-
-        network->rules_by_section = hashmap_new(&network_config_hash_ops);
-        if (!network->rules_by_section)
-                return log_oom();
-
         network->filename = strdup(filename);
         if (!network->filename)
                 return log_oom();
@@ -615,6 +587,10 @@ int config_parse_netdev(const char *unit,
         case NETDEV_KIND_IPVLAN:
         case NETDEV_KIND_VXLAN:
         case NETDEV_KIND_VCAN:
+                r = hashmap_ensure_allocated(&network->stacked_netdevs, &string_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
                 r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Cannot add NetDev '%s' to network: %m", rvalue);
@@ -752,6 +728,10 @@ int config_parse_tunnel(const char *unit,
                            "NetDev is not a tunnel, ignoring assignment: %s", rvalue);
                 return 0;
         }
+
+        r = hashmap_ensure_allocated(&network->stacked_netdevs, &string_hash_ops);
+        if (r < 0)
+                return log_oom();
 
         r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
         if (r < 0) {
