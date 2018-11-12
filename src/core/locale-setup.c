@@ -79,16 +79,28 @@ int locale_setup(char ***environment) {
                 }
         }
 
-        if (!strv_isempty(add)) {
-                char **e;
+        if (strv_isempty(add)) {
+                /* If no locale is configured then default to C.UTF-8. */
 
-                e = strv_env_merge(2, *environment, add);
-                if (!e) {
+                add = strv_new("LANG=C.UTF-8");
+                if (!add) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+        }
+
+        if (strv_isempty(*environment))
+                strv_free_and_replace(*environment, add);
+        else {
+                char **merged;
+
+                merged = strv_env_merge(2, *environment, add);
+                if (!merged) {
                         r = -ENOMEM;
                         goto finish;
                 }
 
-                strv_free_and_replace(*environment, e);
+                strv_free_and_replace(*environment, merged);
         }
 
         r = 0;
