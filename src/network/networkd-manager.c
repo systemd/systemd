@@ -1198,18 +1198,15 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
         Manager *m = userdata;
         Link *link;
         Iterator i;
-        int r;
 
         assert(m);
 
         if (m->dirty)
                 manager_save(m);
 
-        SET_FOREACH(link, m->dirty_links, i) {
-                r = link_save(link);
-                if (r >= 0)
+        SET_FOREACH(link, m->dirty_links, i)
+                if (link_save(link) >= 0)
                         link_clean(link);
-        }
 
         return 1;
 }
