@@ -2178,12 +2178,12 @@ void unit_trigger_notify(Unit *u) {
 
 static int unit_log_resources(Unit *u) {
         struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + 4];
+        bool any_traffic = false, have_ip_accounting = false;
         _cleanup_free_ char *igress = NULL, *egress = NULL;
         size_t n_message_parts = 0, n_iovec = 0;
         char* message_parts[3 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
         CGroupIPAccountingMetric m;
-        bool any_traffic = false;
         size_t i;
         int r;
         const char* const ip_fields[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
@@ -2230,6 +2230,8 @@ static int unit_log_resources(Unit *u) {
                 (void) unit_get_ip_accounting(u, m, &value);
                 if (value == UINT64_MAX)
                         continue;
+
+                have_ip_accounting = true;
                 if (value > 0)
                         any_traffic = true;
 
@@ -2259,21 +2261,24 @@ static int unit_log_resources(Unit *u) {
                 }
         }
 
-        if (any_traffic) {
-                if (igress)
-                        message_parts[n_message_parts++] = TAKE_PTR(igress);
-                if (egress)
-                        message_parts[n_message_parts++] = TAKE_PTR(egress);
-        } else {
-                char *k;
+        if (have_ip_accounting) {
+                if (any_traffic) {
+                        if (igress)
+                                message_parts[n_message_parts++] = TAKE_PTR(igress);
+                        if (egress)
+                                message_parts[n_message_parts++] = TAKE_PTR(egress);
 
-                k = strdup("no IP traffic");
-                if (!k) {
-                        r = log_oom();
-                        goto finish;
+                } else {
+                        char *k;
+
+                        k = strdup("no IP traffic");
+                        if (!k) {
+                                r = log_oom();
+                                goto finish;
+                        }
+
+                        message_parts[n_message_parts++] = k;
                 }
-
-                message_parts[n_message_parts++] = k;
         }
 
         /* Is there any accounting data available at all? */
