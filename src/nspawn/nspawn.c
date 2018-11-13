@@ -3862,7 +3862,8 @@ static int run(int master,
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read cgroup mode: %m");
                 if (l != sizeof(arg_unified_cgroup_hierarchy)) {
-                        log_error("Short read while reading cgroup mode.");
+                        log_error("Short read while reading cgroup mode (%zu bytes).%s",
+                                  l, l == 0 ? " The child is most likely dead." : "");
                         return -EIO;
                 }
         }
