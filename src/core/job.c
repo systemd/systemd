@@ -1036,14 +1036,19 @@ int job_start_timer(Job *j, bool job_running) {
 }
 
 void job_add_to_run_queue(Job *j) {
+        int r;
+
         assert(j);
         assert(j->installed);
 
         if (j->in_run_queue)
                 return;
 
-        if (!j->manager->run_queue)
-                sd_event_source_set_enabled(j->manager->run_queue_event_source, SD_EVENT_ONESHOT);
+        if (!j->manager->run_queue) {
+                r = sd_event_source_set_enabled(j->manager->run_queue_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable job run queue event source, ignoring: %m");
+        }
 
         LIST_PREPEND(run_queue, j->manager->run_queue, j);
         j->in_run_queue = true;
