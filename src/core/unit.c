@@ -5462,6 +5462,18 @@ int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
         return 0;
 }
 
+void unit_log_failure(Unit *u, const char *result) {
+        assert(u);
+        assert(result);
+
+        log_struct(LOG_WARNING,
+                   "MESSAGE_ID=" SD_MESSAGE_UNIT_FAILURE_RESULT_STR,
+                   LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
+                   LOG_UNIT_MESSAGE(u, "Failed with result '%s'.", result),
+                   "UNIT_RESULT=%s", result);
+}
+
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
         [COLLECT_INACTIVE] = "inactive",
         [COLLECT_INACTIVE_OR_FAILED] = "inactive-or-failed",
