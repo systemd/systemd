@@ -641,13 +641,12 @@ static int import_file_into_properties(sd_device *dev, const char *filename) {
 
 static int import_program_into_properties(struct udev_event *event,
                                           usec_t timeout_usec,
-                                          usec_t timeout_warn_usec,
                                           const char *program) {
         char result[UTIL_LINE_SIZE];
         char *line;
         int err;
 
-        err = udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, result, sizeof(result));
+        err = udev_event_spawn(event, timeout_usec, true, program, result, sizeof(result));
         if (err < 0)
                 return err;
 
@@ -1728,7 +1727,6 @@ int udev_rules_apply_to_event(
                 struct udev_rules *rules,
                 struct udev_event *event,
                 usec_t timeout_usec,
-                usec_t timeout_warn_usec,
                 Hashmap *properties_list) {
         sd_device *dev = event->dev;
         enum escape_type esc = ESCAPE_UNSET;
@@ -1965,7 +1963,7 @@ int udev_rules_apply_to_event(
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
 
-                        if (udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, result, sizeof(result)) < 0) {
+                        if (udev_event_spawn(event, timeout_usec, true, program, result, sizeof(result)) < 0) {
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         } else {
@@ -2001,7 +1999,7 @@ int udev_rules_apply_to_event(
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
 
-                        if (import_program_into_properties(event, timeout_usec, timeout_warn_usec, import) != 0)
+                        if (import_program_into_properties(event, timeout_usec, import) != 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;

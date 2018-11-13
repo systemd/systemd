@@ -62,12 +62,16 @@ struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing);
 struct udev_rules *udev_rules_unref(struct udev_rules *rules);
 bool udev_rules_check_timestamp(struct udev_rules *rules);
 int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event,
-                              usec_t timeout_usec, usec_t timeout_warn_usec,
+                              usec_t timeout_usec,
                               Hashmap *properties_list);
 int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
 ResolveNameTiming resolve_name_timing_from_string(const char *s) _pure_;
 const char *resolve_name_timing_to_string(ResolveNameTiming i) _const_;
+
+static inline usec_t udev_warn_timeout(usec_t timeout_usec) {
+        return DIV_ROUND_UP(timeout_usec, 3);
+}
 
 /* udev-event.c */
 struct udev_event *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl);
@@ -77,14 +81,13 @@ ssize_t udev_event_apply_format(struct udev_event *event,
                                 bool replace_whitespace);
 int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_usec,
-                     usec_t timeout_warn_usec,
                      bool accept_failure,
                      const char *cmd, char *result, size_t ressize);
 int udev_event_execute_rules(struct udev_event *event,
-                             usec_t timeout_usec, usec_t timeout_warn_usec,
+                             usec_t timeout_usec,
                              Hashmap *properties_list,
                              struct udev_rules *rules);
-void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec);
+void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec);
 
 /* Cleanup functions */
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_event*, udev_event_free);

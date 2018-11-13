@@ -119,8 +119,8 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        udev_event_execute_rules(event, 3 * USEC_PER_SEC, USEC_PER_SEC, NULL, rules);
-        udev_event_execute_run(event, 3 * USEC_PER_SEC, USEC_PER_SEC);
+        udev_event_execute_rules(event, 3 * USEC_PER_SEC, NULL, rules);
+        udev_event_execute_run(event, 3 * USEC_PER_SEC);
 out:
         mac_selinux_finish();
 

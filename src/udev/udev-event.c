@@ -596,7 +596,6 @@ static int spawn_wait(Spawn *spawn) {
 
 int udev_event_spawn(struct udev_event *event,
                      usec_t timeout_usec,
-                     usec_t timeout_warn_usec,
                      bool accept_failure,
                      const char *cmd,
                      char *result, size_t ressize) {
@@ -667,7 +666,7 @@ int udev_event_spawn(struct udev_event *event,
                 .cmd = cmd,
                 .pid = pid,
                 .accept_failure = accept_failure,
-                .timeout_warn_usec = timeout_warn_usec,
+                .timeout_warn_usec = udev_warn_timeout(timeout_usec),
                 .timeout_usec = timeout_usec,
                 .event_birth_usec = event->birth_usec,
                 .fd_stdout = outpipe[READ_END],
@@ -780,7 +779,7 @@ static int update_devnode(struct udev_event *event) {
 
 static void event_execute_rules_on_remove(
                 struct udev_event *event,
-                usec_t timeout_usec, usec_t timeout_warn_usec,
+                usec_t timeout_usec,
                 Hashmap *properties_list,
                 struct udev_rules *rules) {
 
@@ -802,16 +801,14 @@ static void event_execute_rules_on_remove(
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_watch_end(dev);
 
-        (void) udev_rules_apply_to_event(rules, event,
-                                         timeout_usec, timeout_warn_usec,
-                                         properties_list);
+        (void) udev_rules_apply_to_event(rules, event, timeout_usec, properties_list);
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_node_remove(dev);
 }
 
 int udev_event_execute_rules(struct udev_event *event,
-                             usec_t timeout_usec, usec_t timeout_warn_usec,
+                             usec_t timeout_usec,
                              Hashmap *properties_list,
                              struct udev_rules *rules) {
         sd_device *dev = event->dev;
@@ -830,7 +827,7 @@ int udev_event_execute_rules(struct udev_event *event,
                 return log_device_error_errno(dev, r, "Failed to get property 'ACTION': %m");
 
         if (streq(action, "remove")) {
-                event_execute_rules_on_remove(event, timeout_usec, timeout_warn_usec, properties_list, rules);
+                event_execute_rules_on_remove(event, timeout_usec, properties_list, rules);
                 return 0;
         }
 
@@ -854,9 +851,7 @@ int udev_event_execute_rules(struct udev_event *event,
                         (void) udev_watch_end(event->dev_db_clone);
         }
 
-        (void) udev_rules_apply_to_event(rules, event,
-                                         timeout_usec, timeout_warn_usec,
-                                         properties_list);
+        (void) udev_rules_apply_to_event(rules, event, timeout_usec, properties_list);
 
         (void) rename_netif(event);
         (void) update_devnode(event);
@@ -882,7 +877,7 @@ int udev_event_execute_rules(struct udev_event *event,
         return 0;
 }
 
-void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_t timeout_warn_usec) {
+void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec) {
         const char *cmd;
         void *val;
         Iterator i;
@@ -901,7 +896,7 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec, usec_
                                 (void) usleep(event->exec_delay_usec);
                         }
 
-                        udev_event_spawn(event, timeout_usec, timeout_warn_usec, false, command, NULL, 0);
+                        udev_event_spawn(event, timeout_usec, false, command, NULL, 0);
                 }
         }
 }
