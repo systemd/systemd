@@ -583,7 +583,9 @@ int job_run_and_invalidate(Job *j) {
         switch (j->type) {
 
                 case JOB_VERIFY_ACTIVE: {
-                        UnitActiveState t = unit_active_state(j->unit);
+                        UnitActiveState t;
+
+                        t = unit_active_state(j->unit);
                         if (UNIT_IS_ACTIVE_OR_RELOADING(t))
                                 r = -EALREADY;
                         else if (t == UNIT_ACTIVATING)
@@ -598,8 +600,7 @@ int job_run_and_invalidate(Job *j) {
                 case JOB_RESTART:
                         r = job_perform_on_unit(&j);
 
-                        /* If the unit type does not support starting/stopping,
-                         * then simply wait. */
+                        /* If the unit type does not support starting/stopping, then simply wait. */
                         if (r == -EBADR)
                                 r = 0;
                         break;
