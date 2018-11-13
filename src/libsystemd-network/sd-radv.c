@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
@@ -77,8 +78,7 @@ _public_ sd_event *sd_radv_get_event(sd_radv *ra) {
 static void radv_reset(sd_radv *ra) {
         assert(ra);
 
-        ra->timeout_event_source =
-                sd_event_source_unref(ra->timeout_event_source);
+        (void) event_source_disable(ra->timeout_event_source);
 
         ra->recv_event_source =
                 sd_event_source_unref(ra->recv_event_source);
@@ -98,6 +98,8 @@ static sd_radv *radv_free(sd_radv *ra) {
 
         free(ra->rdnss);
         free(ra->dnssl);
+
+        ra->timeout_event_source = sd_event_source_unref(ra->timeout_event_source);
 
         radv_reset(ra);
 
@@ -289,8 +291,6 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(ra);
         assert(ra->event);
 
-        ra->timeout_event_source = sd_event_source_unref(ra->timeout_event_source);
-
         r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
                 goto fail;
@@ -311,28 +311,20 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
                  format_timespan(time_string, FORMAT_TIMESPAN_MAX,
                                  timeout, USEC_PER_SEC));
 
-        r = sd_event_add_time(ra->event, &ra->timeout_event_source,
-                              clock_boottime_or_monotonic(),
-                              time_now + timeout, MSEC_PER_SEC,
-                              radv_timeout, ra);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_priority(ra->timeout_event_source,
-                                         ra->event_priority);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_description(ra->timeout_event_source,
-                                            "radv-timeout");
+        r = event_reset_time(ra->event, &ra->timeout_event_source,
+                             clock_boottime_or_monotonic(),
+                             time_now + timeout, MSEC_PER_SEC,
+                             radv_timeout, ra,
+                             ra->event_priority, "radv-timeout", true);
         if (r < 0)
                 goto fail;
 
         ra->ra_sent++;
 
+        return 0;
+
 fail:
-        if (r < 0)
-                sd_radv_stop(ra);
+        sd_radv_stop(ra);
 
         return 0;
 }
@@ -370,19 +362,13 @@ _public_ int sd_radv_start(sd_radv *ra) {
         if (ra->state != SD_RADV_STATE_IDLE)
                 return 0;
 
-        r = sd_event_add_time(ra->event, &ra->timeout_event_source,
-                              clock_boottime_or_monotonic(), 0, 0,
-                              radv_timeout, ra);
+        r = event_reset_time(ra->event, &ra->timeout_event_source,
+                             clock_boottime_or_monotonic(),
+                             0, 0,
+                             radv_timeout, ra,
+                             ra->event_priority, "radv-timeout", true);
         if (r < 0)
                 goto fail;
-
-        r = sd_event_source_set_priority(ra->timeout_event_source,
-                                         ra->event_priority);
-        if (r < 0)
-                goto fail;
-
-        (void) sd_event_source_set_description(ra->timeout_event_source,
-                                               "radv-timeout");
 
         r = icmp6_bind_router_advertisement(ra->ifindex);
         if (r < 0)
