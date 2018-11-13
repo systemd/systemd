@@ -23,9 +23,10 @@ DEFINE_STRING_TABLE_LOOKUP(resolve_name_timing, ResolveNameTiming);
 int udev_parse_config_full(
                 unsigned *ret_children_max,
                 usec_t *ret_exec_delay_usec,
-                usec_t *ret_event_timeout_usec) {
+                usec_t *ret_event_timeout_usec,
+                ResolveNameTiming *ret_resolve_name_timing) {
 
-        _cleanup_free_ char *log_val = NULL, *children_max = NULL, *exec_delay = NULL, *event_timeout = NULL;
+        _cleanup_free_ char *log_val = NULL, *children_max = NULL, *exec_delay = NULL, *event_timeout = NULL, *resolve_names = NULL;
         int r;
 
         r = parse_env_file(NULL, "/etc/udev/udev.conf", NEWLINE,
@@ -76,6 +77,16 @@ int udev_parse_config_full(
                 r = parse_sec(event_timeout, ret_event_timeout_usec);
                 if (r < 0)
                         log_notice_errno(r, "/etc/udev/udev.conf: failed to set parse event_timeout=%s, ignoring: %m", event_timeout);
+        }
+
+        if (ret_resolve_name_timing && resolve_names) {
+                ResolveNameTiming t;
+
+                t = resolve_name_timing_from_string(resolve_names);
+                if (t < 0)
+                        log_notice("/etc/udev/udev.conf: failed to set parse resolve_names=%s, ignoring.", resolve_names);
+                else
+                        *ret_resolve_name_timing = t;
         }
 
         return 0;
