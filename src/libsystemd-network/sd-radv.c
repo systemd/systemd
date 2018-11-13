@@ -27,14 +27,14 @@ _public_ int sd_radv_new(sd_radv **ret) {
 
         assert_return(ret, -EINVAL);
 
-        ra = new0(sd_radv, 1);
+        ra = new(sd_radv, 1);
         if (!ra)
                 return -ENOMEM;
 
-        ra->n_ref = 1;
-        ra->fd = -1;
-
-        LIST_HEAD_INIT(ra->prefixes);
+        *ra = (sd_radv) {
+                .n_ref = 1,
+                .fd = -1,
+        };
 
         *ret = TAKE_PTR(ra);
 
