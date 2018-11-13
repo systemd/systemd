@@ -618,7 +618,9 @@ int job_run_and_invalidate(Job *j) {
         }
 
         if (j) {
-                if (r == -EALREADY)
+                if (r == -EAGAIN)
+                        job_set_state(j, JOB_WAITING); /* Hmm, not ready after all, let's return to JOB_WAITING state */
+                else if (r == -EALREADY)
                         r = job_finish_and_invalidate(j, JOB_DONE, true, true);
                 else if (r == -EBADR)
                         r = job_finish_and_invalidate(j, JOB_SKIPPED, true, false);
@@ -632,8 +634,6 @@ int job_run_and_invalidate(Job *j) {
                         r = job_finish_and_invalidate(j, JOB_DEPENDENCY, true, false);
                 else if (r == -ESTALE)
                         r = job_finish_and_invalidate(j, JOB_ONCE, true, false);
-                else if (r == -EAGAIN)
-                        job_set_state(j, JOB_WAITING);
                 else if (r < 0)
                         r = job_finish_and_invalidate(j, JOB_FAILED, true, false);
         }
