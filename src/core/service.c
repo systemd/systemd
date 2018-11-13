@@ -1700,7 +1700,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 s->result = f;
 
         if (s->result != SERVICE_SUCCESS)
-                log_unit_warning(UNIT(s), "Failed with result '%s'.", service_result_to_string(s->result));
+                unit_log_failure(UNIT(s), service_result_to_string(s->result));
 
         if (allow_restart && service_shall_restart(s))
                 s->will_auto_restart = true;

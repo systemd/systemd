@@ -800,7 +800,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
                 m->result = f;
 
         if (m->result != MOUNT_SUCCESS)
-                log_unit_warning(UNIT(m), "Failed with result '%s'.", mount_result_to_string(m->result));
+                unit_log_failure(UNIT(m), mount_result_to_string(m->result));
 
         mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
 

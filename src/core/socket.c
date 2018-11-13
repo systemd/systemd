@@ -1986,7 +1986,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
                 s->result = f;
 
         if (s->result != SOCKET_SUCCESS)
-                log_unit_warning(UNIT(s), "Failed with result '%s'.", socket_result_to_string(s->result));
+                unit_log_failure(UNIT(s), socket_result_to_string(s->result));
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 
