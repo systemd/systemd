@@ -16,6 +16,7 @@
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
 #include "dns-domain.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
@@ -408,12 +409,11 @@ static int client_reset(sd_dhcp6_client *client) {
 
         client->retransmit_time = 0;
         client->retransmit_count = 0;
-        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
-        client->timeout_resend_expire =
-                sd_event_source_unref(client->timeout_resend_expire);
 
-        client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
-        client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
+        (void) event_source_disable(client->timeout_resend);
+        (void) event_source_disable(client->timeout_resend_expire);
+        (void) event_source_disable(client->timeout_t1);
+        (void) event_source_disable(client->timeout_t2);
 
         client->state = DHCP6_STATE_STOPPED;
 
@@ -600,8 +600,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         assert(client);
         assert(client->lease);
 
-        client->timeout_t2 =
-                sd_event_source_unref(client->timeout_t2);
+        (void) event_source_disable(client->timeout_t2);
 
         log_dhcp6_client(client, "Timeout T2");
 
@@ -617,8 +616,7 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         assert(client);
         assert(client->lease);
 
-        client->timeout_t1 =
-                sd_event_source_unref(client->timeout_t1);
+        (void) event_source_disable(client->timeout_t1);
 
         log_dhcp6_client(client, "Timeout T1");
 
@@ -666,7 +664,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         assert(client);
         assert(client->event);
 
-        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
+        (void) event_source_disable(client->timeout_resend);
 
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
@@ -708,7 +706,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 init_retransmit_time = DHCP6_REB_TIMEOUT;
                 max_retransmit_time = DHCP6_REB_MAX_RT;
 
-                if (!client->timeout_resend_expire) {
+                if (event_source_is_enabled(client->timeout_resend_expire) <= 0) {
                         r = dhcp6_lease_ia_rebind_expire(&client->lease->ia,
                                                          &expire);
                         if (r < 0) {
@@ -757,43 +755,24 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         log_dhcp6_client(client, "Next retransmission in %s",
                          format_timespan(time_string, FORMAT_TIMESPAN_MAX, client->retransmit_time, USEC_PER_SEC));
 
-        r = sd_event_add_time(client->event, &client->timeout_resend,
-                              clock_boottime_or_monotonic(),
-                              time_now + client->retransmit_time,
-                              10 * USEC_PER_MSEC, client_timeout_resend,
-                              client);
+        r = event_reset_time(client->event, &client->timeout_resend,
+                             clock_boottime_or_monotonic(),
+                             time_now + client->retransmit_time, 10 * USEC_PER_MSEC,
+                             client_timeout_resend, client,
+                             client->event_priority, "dhcp6-resend-timer", true);
         if (r < 0)
                 goto error;
 
-        r = sd_event_source_set_priority(client->timeout_resend,
-                                         client->event_priority);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_description(client->timeout_resend, "dhcp6-resend-timer");
-        if (r < 0)
-                goto error;
-
-        if (max_retransmit_duration && !client->timeout_resend_expire) {
+        if (max_retransmit_duration && event_source_is_enabled(client->timeout_resend_expire) <= 0) {
 
                 log_dhcp6_client(client, "Max retransmission duration %"PRIu64" secs",
                                  max_retransmit_duration / USEC_PER_SEC);
 
-                r = sd_event_add_time(client->event,
-                                      &client->timeout_resend_expire,
-                                      clock_boottime_or_monotonic(),
-                                      time_now + max_retransmit_duration,
-                                      USEC_PER_SEC,
-                                      client_timeout_resend_expire, client);
-                if (r < 0)
-                        goto error;
-
-                r = sd_event_source_set_priority(client->timeout_resend_expire,
-                                                 client->event_priority);
-                if (r < 0)
-                        goto error;
-
-                r = sd_event_source_set_description(client->timeout_resend_expire, "dhcp6-resend-expire-timer");
+                r = event_reset_time(client->event, &client->timeout_resend_expire,
+                                     clock_boottime_or_monotonic(),
+                                     time_now + max_retransmit_duration, USEC_PER_SEC,
+                                     client_timeout_resend_expire, client,
+                                     client->event_priority, "dhcp6-resend-expire-timer", true);
                 if (r < 0)
                         goto error;
         }
@@ -1263,9 +1242,8 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
         assert_return(client->ifindex > 0, -EINVAL);
         assert_return(client->state != state, -EINVAL);
 
-        client->timeout_resend_expire =
-                sd_event_source_unref(client->timeout_resend_expire);
-        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
+        (void) event_source_disable(client->timeout_resend_expire);
+        (void) event_source_disable(client->timeout_resend);
         client->retransmit_time = 0;
         client->retransmit_count = 0;
 
@@ -1332,21 +1310,11 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                 log_dhcp6_client(client, "T1 expires in %s",
                                  format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
-                client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
-                r = sd_event_add_time(client->event,
-                                      &client->timeout_t1,
-                                      clock_boottime_or_monotonic(), time_now + timeout,
-                                      10 * USEC_PER_SEC, client_timeout_t1,
-                                      client);
-                if (r < 0)
-                        goto error;
-
-                r = sd_event_source_set_priority(client->timeout_t1,
-                                                 client->event_priority);
-                if (r < 0)
-                        goto error;
-
-                r = sd_event_source_set_description(client->timeout_t1, "dhcp6-t1-timeout");
+                r = event_reset_time(client->event, &client->timeout_t1,
+                                     clock_boottime_or_monotonic(),
+                                     time_now + timeout, 10 * USEC_PER_SEC,
+                                     client_timeout_t1, client,
+                                     client->event_priority, "dhcp6-t1-timeout", true);
                 if (r < 0)
                         goto error;
 
@@ -1355,21 +1323,11 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                 log_dhcp6_client(client, "T2 expires in %s",
                                  format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
-                client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
-                r = sd_event_add_time(client->event,
-                                      &client->timeout_t2,
-                                      clock_boottime_or_monotonic(), time_now + timeout,
-                                      10 * USEC_PER_SEC, client_timeout_t2,
-                                      client);
-                if (r < 0)
-                        goto error;
-
-                r = sd_event_source_set_priority(client->timeout_t2,
-                                                 client->event_priority);
-                if (r < 0)
-                        goto error;
-
-                r = sd_event_source_set_description(client->timeout_t2, "dhcp6-t2-timeout");
+                r = event_reset_time(client->event, &client->timeout_t2,
+                                     clock_boottime_or_monotonic(),
+                                     time_now + timeout, 10 * USEC_PER_SEC,
+                                     client_timeout_t2, client,
+                                     client->event_priority, "dhcp6-t2-timeout", true);
                 if (r < 0)
                         goto error;
 
@@ -1381,18 +1339,11 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
         client->transaction_id = random_u32() & htobe32(0x00ffffff);
         client->transaction_start = time_now;
 
-        r = sd_event_add_time(client->event, &client->timeout_resend,
-                              clock_boottime_or_monotonic(), 0, 0, client_timeout_resend,
-                              client);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_priority(client->timeout_resend,
-                                         client->event_priority);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_description(client->timeout_resend, "dhcp6-resend-timeout");
+        r = event_reset_time(client->event, &client->timeout_resend,
+                             clock_boottime_or_monotonic(),
+                             0, 0,
+                             client_timeout_resend, client,
+                             client->event_priority, "dhcp6-resend-timeout", true);
         if (r < 0)
                 goto error;
 
@@ -1504,6 +1455,11 @@ sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client) {
 
 static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         assert(client);
+
+        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
+        client->timeout_resend_expire = sd_event_source_unref(client->timeout_resend_expire);
+        client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
+        client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
 
         client_reset(client);
 
