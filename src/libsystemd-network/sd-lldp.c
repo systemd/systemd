@@ -361,14 +361,16 @@ _public_ int sd_lldp_new(sd_lldp **ret) {
 
         assert_return(ret, -EINVAL);
 
-        lldp = new0(sd_lldp, 1);
+        lldp = new(sd_lldp, 1);
         if (!lldp)
                 return -ENOMEM;
 
-        lldp->n_ref = 1;
-        lldp->fd = -1;
-        lldp->neighbors_max = LLDP_DEFAULT_NEIGHBORS_MAX;
-        lldp->capability_mask = (uint16_t) -1;
+        *lldp = (sd_lldp) {
+                .n_ref = 1,
+                .fd = -1,
+                .neighbors_max = LLDP_DEFAULT_NEIGHBORS_MAX,
+                .capability_mask = (uint16_t) -1,
+        };
 
         lldp->neighbor_by_id = hashmap_new(&lldp_neighbor_id_hash_ops);
         if (!lldp->neighbor_by_id)
