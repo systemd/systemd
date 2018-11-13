@@ -1703,7 +1703,7 @@ int main(int argc, char *argv[]) {
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
-        udev_parse_config();
+        udev_parse_config_full(&arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec);
         log_parse_environment();
         log_open();
 
