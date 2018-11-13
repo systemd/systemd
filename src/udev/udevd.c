@@ -456,7 +456,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
 
                         /* apply/restore inotify watch */
                         if (udev_event->inotify_watch) {
-                                udev_watch_begin(dev->device);
+                                (void) udev_watch_begin(dev->device);
                                 udev_device_update_db(dev);
                         }
 
