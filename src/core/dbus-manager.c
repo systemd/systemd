@@ -1329,8 +1329,8 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
          * is finished. That way the caller knows when the reload
          * finished. */
 
-        assert(!m->queued_message);
-        r = sd_bus_message_new_method_return(message, &m->queued_message);
+        assert(!m->pending_reload_message);
+        r = sd_bus_message_new_method_return(message, &m->pending_reload_message);
         if (r < 0)
                 return r;
 
