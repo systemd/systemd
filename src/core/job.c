@@ -550,11 +550,13 @@ static void job_print_begin_status_message(Unit *u, JobType t) {
         REENABLE_WARNING;
 }
 
-static void job_log_begin_status_message(Unit *u, JobType t) {
+static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
         const char *format, *mid;
         char buf[LINE_MAX];
 
         assert(u);
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
 
         if (!IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD))
                 return;
@@ -582,17 +584,19 @@ static void job_log_begin_status_message(Unit *u, JobType t) {
          * name. */
         log_struct(LOG_INFO,
                    LOG_MESSAGE("%s", buf),
+                   "JOB_ID=%" PRIu32, job_id,
+                   "JOB_TYPE=%s", job_type_to_string(t),
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
                    mid);
 }
 
-static void job_emit_begin_status_message(Unit *u, JobType t) {
+static void job_emit_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
         assert(u);
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
-        job_log_begin_status_message(u, t);
+        job_log_begin_status_message(u, job_id, t);
         job_print_begin_status_message(u, t);
 }
 
@@ -641,7 +645,7 @@ static int job_perform_on_unit(Job **j) {
          * actually did something. */
         *j = manager_get_job(m, id);
         if (*j && r > 0)
-                job_emit_begin_status_message(u, t);
+                job_emit_begin_status_message(u, id, t);
 
         return r;
 }
