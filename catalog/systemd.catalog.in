@@ -344,6 +344,13 @@ Support: %SUPPORT_URL%
 
 The unit @UNIT@ completed and consumed the indicated resources.
 
+-- 7ad2d189f7e94e70a38c781354912448
+Subject: Unit succeeded
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ has successfully entered the 'dead' state.
+
 -- d9b373ed55a64feb8242e02dbe79a49c
 Subject: Unit failed
 Defined-By: systemd

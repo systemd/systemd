@@ -314,7 +314,9 @@ static void automount_enter_dead(Automount *a, AutomountResult f) {
         if (a->result == AUTOMOUNT_SUCCESS)
                 a->result = f;
 
-        if (a->result != AUTOMOUNT_SUCCESS)
+        if (a->result == AUTOMOUNT_SUCCESS)
+                unit_log_success(UNIT(a));
+        else
                 unit_log_failure(UNIT(a), automount_result_to_string(a->result));
 
         automount_set_state(a, a->result != AUTOMOUNT_SUCCESS ? AUTOMOUNT_FAILED : AUTOMOUNT_DEAD);

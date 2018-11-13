@@ -287,7 +287,9 @@ static void timer_enter_dead(Timer *t, TimerResult f) {
         if (t->result == TIMER_SUCCESS)
                 t->result = f;
 
-        if (t->result != TIMER_SUCCESS)
+        if (t->result == TIMER_SUCCESS)
+                unit_log_success(UNIT(t));
+        else
                 unit_log_failure(UNIT(t), timer_result_to_string(t->result));
 
         timer_set_state(t, t->result != TIMER_SUCCESS ? TIMER_FAILED : TIMER_DEAD);

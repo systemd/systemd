@@ -1990,7 +1990,9 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
         if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
-        if (s->result != SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS)
+                unit_log_success(UNIT(s));
+        else
                 unit_log_failure(UNIT(s), socket_result_to_string(s->result));
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);

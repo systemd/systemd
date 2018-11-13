@@ -5462,6 +5462,16 @@ int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
         return 0;
 }
 
+void unit_log_success(Unit *u) {
+        assert(u);
+
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_UNIT_SUCCESS_STR,
+                   LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
+                   LOG_UNIT_MESSAGE(u, "Succeeded."));
+}
+
 void unit_log_failure(Unit *u, const char *result) {
         assert(u);
         assert(result);
