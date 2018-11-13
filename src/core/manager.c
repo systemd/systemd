@@ -2161,7 +2161,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 return 0;
 
         /* Anything to do at all? */
-        if (!m->dbus_unit_queue && !m->dbus_job_queue && !m->send_reloading_done && !m->queued_message)
+        if (!m->dbus_unit_queue && !m->dbus_job_queue && !m->send_reloading_done && !m->pending_reload_message)
                 return 0;
 
         /* Do we have overly many messages queued at the moment? If so, let's not enqueue more on top, let's sit this
@@ -2206,8 +2206,8 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 n++, budget--;
         }
 
-        if (budget > 0 && m->queued_message) {
-                bus_send_queued_message(m);
+        if (budget > 0 && m->pending_reload_message) {
+                bus_send_pending_reload_message(m);
                 n++;
         }
 
