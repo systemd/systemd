@@ -1520,28 +1520,32 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client, sd_dhcp6_client, dhcp6_client_fre
 
 int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        _cleanup_free_ be16_t *req_opts = NULL;
         size_t t;
 
         assert_return(ret, -EINVAL);
 
-        client = new0(sd_dhcp6_client, 1);
+        req_opts = new(be16_t, ELEMENTSOF(default_req_opts));
+        if (!req_opts)
+                return -ENOMEM;
+
+        for (t = 0; t < ELEMENTSOF(default_req_opts); t++)
+                req_opts[t] = htobe16(default_req_opts[t]);
+
+        client = new(sd_dhcp6_client, 1);
         if (!client)
                 return -ENOMEM;
 
-        client->n_ref = 1;
-        client->ia_na.type = SD_DHCP6_OPTION_IA_NA;
-        client->ia_pd.type = SD_DHCP6_OPTION_IA_PD;
-        client->ifindex = -1;
-        client->request = DHCP6_REQUEST_IA_NA;
-        client->fd = -1;
-
-        client->req_opts_len = ELEMENTSOF(default_req_opts);
-        client->req_opts = new0(be16_t, client->req_opts_len);
-        if (!client->req_opts)
-                return -ENOMEM;
-
-        for (t = 0; t < client->req_opts_len; t++)
-                client->req_opts[t] = htobe16(default_req_opts[t]);
+        *client = (sd_dhcp6_client) {
+                .n_ref = 1,
+                .ia_na.type = SD_DHCP6_OPTION_IA_NA,
+                .ia_pd.type = SD_DHCP6_OPTION_IA_PD,
+                .ifindex = -1,
+                .request = DHCP6_REQUEST_IA_NA,
+                .fd = -1,
+                .req_opts_len = ELEMENTSOF(default_req_opts),
+                .req_opts = TAKE_PTR(req_opts),
+        };
 
         *ret = TAKE_PTR(client);
 
