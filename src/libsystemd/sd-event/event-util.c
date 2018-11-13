@@ -80,3 +80,10 @@ int event_reset_time(
 
         return created;
 }
+
+int event_source_disable(sd_event_source *s) {
+        if (!s)
+                return 0;
+
+        return sd_event_source_set_enabled(s, SD_EVENT_OFF);
+}
