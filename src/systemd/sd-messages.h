@@ -81,16 +81,19 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_SHUTDOWN               SD_ID128_MAKE(98,26,88,66,d1,d5,4a,49,9c,4e,98,92,1d,93,bc,40)
 #define SD_MESSAGE_SHUTDOWN_STR           SD_ID128_MAKE_STR(98,26,88,66,d1,d5,4a,49,9c,4e,98,92,1d,93,bc,40)
 
+/* The messages below are actually about jobs, not really about units, the macros are misleadingly named. Moreover
+ * SD_MESSAGE_UNIT_FAILED is not actually about a failing unit but about a failed start job. A job either finishes with
+ * SD_MESSAGE_UNIT_STARTED or with SD_MESSAGE_UNIT_FAILED hence. */
 #define SD_MESSAGE_UNIT_STARTING          SD_ID128_MAKE(7d,49,58,e8,42,da,4a,75,8f,6c,1c,dc,7b,36,dc,c5)
 #define SD_MESSAGE_UNIT_STARTING_STR      SD_ID128_MAKE_STR(7d,49,58,e8,42,da,4a,75,8f,6c,1c,dc,7b,36,dc,c5)
 #define SD_MESSAGE_UNIT_STARTED           SD_ID128_MAKE(39,f5,34,79,d3,a0,45,ac,8e,11,78,62,48,23,1f,bf)
 #define SD_MESSAGE_UNIT_STARTED_STR       SD_ID128_MAKE_STR(39,f5,34,79,d3,a0,45,ac,8e,11,78,62,48,23,1f,bf)
+#define SD_MESSAGE_UNIT_FAILED            SD_ID128_MAKE(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
+#define SD_MESSAGE_UNIT_FAILED_STR        SD_ID128_MAKE_STR(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
 #define SD_MESSAGE_UNIT_STOPPING          SD_ID128_MAKE(de,5b,42,6a,63,be,47,a7,b6,ac,3e,aa,c8,2e,2f,6f)
 #define SD_MESSAGE_UNIT_STOPPING_STR      SD_ID128_MAKE_STR(de,5b,42,6a,63,be,47,a7,b6,ac,3e,aa,c8,2e,2f,6f)
 #define SD_MESSAGE_UNIT_STOPPED           SD_ID128_MAKE(9d,1a,aa,27,d6,01,40,bd,96,36,54,38,aa,d2,02,86)
 #define SD_MESSAGE_UNIT_STOPPED_STR       SD_ID128_MAKE_STR(9d,1a,aa,27,d6,01,40,bd,96,36,54,38,aa,d2,02,86)
-#define SD_MESSAGE_UNIT_FAILED            SD_ID128_MAKE(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
-#define SD_MESSAGE_UNIT_FAILED_STR        SD_ID128_MAKE_STR(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
 #define SD_MESSAGE_UNIT_RELOADING         SD_ID128_MAKE(d3,4d,03,7f,ff,18,47,e6,ae,66,9a,37,0e,69,47,25)
 #define SD_MESSAGE_UNIT_RELOADING_STR     SD_ID128_MAKE_STR(d3,4d,03,7f,ff,18,47,e6,ae,66,9a,37,0e,69,47,25)
 #define SD_MESSAGE_UNIT_RELOADED          SD_ID128_MAKE(7b,05,eb,c6,68,38,42,22,ba,a8,88,11,79,cf,da,54)
