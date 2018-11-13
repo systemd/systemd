@@ -106,6 +106,8 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_UNIT_RESOURCES         SD_ID128_MAKE(ae,8f,7b,86,6b,03,47,b9,af,31,fe,1c,80,b1,27,c0)
 #define SD_MESSAGE_UNIT_RESOURCES_STR     SD_ID128_MAKE_STR(ae,8f,7b,86,6b,03,47,b9,af,31,fe,1c,80,b1,27,c0)
 
+#define SD_MESSAGE_UNIT_SUCCESS           SD_ID128_MAKE(7a,d2,d1,89,f7,e9,4e,70,a3,8c,78,13,54,91,24,48)
+#define SD_MESSAGE_UNIT_SUCCESS_STR       SD_ID128_MAKE_STR(7a,d2,d1,89,f7,e9,4e,70,a3,8c,78,13,54,91,24,48)
 #define SD_MESSAGE_UNIT_FAILURE_RESULT    SD_ID128_MAKE(d9,b3,73,ed,55,a6,4f,eb,82,42,e0,2d,be,79,a4,9c)
 #define SD_MESSAGE_UNIT_FAILURE_RESULT_STR \
                                           SD_ID128_MAKE_STR(d9,b3,73,ed,55,a6,4f,eb,82,42,e0,2d,be,79,a4,9c)
