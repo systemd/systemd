@@ -1982,19 +1982,20 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
 
         assert_return(ret, -EINVAL);
 
-        client = new0(sd_dhcp_client, 1);
+        client = new(sd_dhcp_client, 1);
         if (!client)
                 return -ENOMEM;
 
-        client->n_ref = 1;
-        client->state = DHCP_STATE_INIT;
-        client->ifindex = -1;
-        client->fd = -1;
-        client->attempt = 1;
-        client->mtu = DHCP_DEFAULT_MIN_SIZE;
-        client->port = DHCP_PORT_CLIENT;
-
-        client->anonymize = !!anonymize;
+        *client = (sd_dhcp_client) {
+                .n_ref = 1,
+                .state = DHCP_STATE_INIT,
+                .ifindex = -1,
+                .fd = -1,
+                .attempt = 1,
+                .mtu = DHCP_DEFAULT_MIN_SIZE,
+                .port = DHCP_PORT_CLIENT,
+                .anonymize = !!anonymize,
+        };
         /* NOTE: this could be moved to a function. */
         if (anonymize) {
                 client->req_opts_size = ELEMENTSOF(default_req_opts_anonymize);
