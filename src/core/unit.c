@@ -2371,7 +2371,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
         }
 
         /* Keep track of failed units */
-        (void) manager_update_failed_units(u->manager, u, ns == UNIT_FAILED);
+        (void) manager_update_failed_units(m, u, ns == UNIT_FAILED);
 
         /* Make sure the cgroup and state files are always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
@@ -2516,7 +2516,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
         unit_trigger_notify(u);
 
-        if (!MANAGER_IS_RELOADING(u->manager)) {
+        if (!MANAGER_IS_RELOADING(m)) {
                 /* Maybe we finished startup and are now ready for being stopped because unneeded? */
                 unit_submit_to_stop_when_unneeded_queue(u);
 
@@ -2527,12 +2527,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
                         reason = strjoina("unit ", u->id, " failed");
-                        (void) emergency_action(u->manager, u->failure_action, 0,
-                                                u->reboot_arg, reason);
+                        (void) emergency_action(m, u->failure_action, 0, u->reboot_arg, reason);
                 } else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && ns == UNIT_INACTIVE) {
                         reason = strjoina("unit ", u->id, " succeeded");
-                        (void) emergency_action(u->manager, u->success_action, 0,
-                                                u->reboot_arg, reason);
+                        (void) emergency_action(m, u->success_action, 0, u->reboot_arg, reason);
                 }
         }
 
