@@ -24,10 +24,11 @@
 #include "terminal-util.h"
 #include "utf8.h"
 
-/* Refuse putting together variants with a larger depth than 16K by default (as a protection against overflowing stacks
+/* Refuse putting together variants with a larger depth than 4K by default (as a protection against overflowing stacks
  * if code processes JSON objects recursively. Note that we store the depth in an uint16_t, hence make sure this
- * remains under 2^16. */
-#define DEPTH_MAX (16U*1024U)
+ * remains under 2^16.
+ * The value was 16k, but it was discovered to be too high on llvm/x86-64. See also the issue #10738. */
+#define DEPTH_MAX (4U*1024U)
 assert_cc(DEPTH_MAX <= UINT16_MAX);
 
 typedef struct JsonSource {
