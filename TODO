@@ -21,6 +21,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* add a concept for automatically loading per-unit secrets off disk and
+  inserting them into the kernel keyring. Maybe SecretsDirectory= similar to
+  ConfigurationDirectory=.
+
 * systemd-gpt-auto: if we find the root dir mounted read-only and the gpt flag
   doesn't say so generate job that remounts it writable
 
