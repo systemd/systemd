@@ -701,7 +701,6 @@ int unit_coldplug(Unit *u);
 void unit_catchup(Unit *u);
 
 void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) _printf_(3, 0);
-void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t);
 
 bool unit_need_daemon_reload(Unit *u);
 
