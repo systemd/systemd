@@ -754,7 +754,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         }
 }
 
-static void job_log_status_message(Unit *u, JobType t, JobResult result) {
+static void job_log_status_message(Unit *u, uint32_t job_id, JobType t, JobResult result) {
         const char *format, *mid;
         char buf[LINE_MAX];
         static const int job_result_log_level[_JOB_RESULT_MAX] = {
@@ -813,6 +813,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         default:
                 log_struct(job_result_log_level[result],
                            LOG_MESSAGE("%s", buf),
+                           "JOB_ID=%" PRIu32, job_id,
                            "JOB_TYPE=%s", job_type_to_string(t),
                            "JOB_RESULT=%s", job_result_to_string(result),
                            LOG_UNIT_ID(u),
@@ -822,6 +823,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
 
         log_struct(job_result_log_level[result],
                    LOG_MESSAGE("%s", buf),
+                   "JOB_ID=%" PRIu32, job_id,
                    "JOB_TYPE=%s", job_type_to_string(t),
                    "JOB_RESULT=%s", job_result_to_string(result),
                    LOG_UNIT_ID(u),
@@ -829,14 +831,14 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                    mid);
 }
 
-static void job_emit_status_message(Unit *u, JobType t, JobResult result) {
+static void job_emit_status_message(Unit *u, uint32_t job_id, JobType t, JobResult result) {
         assert(u);
 
         /* No message if the job did not actually do anything due to failed condition. */
         if (t == JOB_START && result == JOB_DONE && !u->condition_result)
                 return;
 
-        job_log_status_message(u, t, result);
+        job_log_status_message(u, job_id, t, result);
         job_print_status_message(u, t, result);
 }
 
@@ -888,11 +890,11 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 
         j->result = result;
 
-        log_unit_debug(u, "Job %s/%s finished, result=%s", u->id, job_type_to_string(t), job_result_to_string(result));
+        log_unit_debug(u, "Job %" PRIu32 " %s/%s finished, result=%s", j->id, u->id, job_type_to_string(t), job_result_to_string(result));
 
         /* If this job did nothing to respective unit we don't log the status message */
         if (!already)
-                job_emit_status_message(u, t, result);
+                job_emit_status_message(u, j->id, t, result);
 
         /* Patch restart jobs so that they become normal start jobs */
         if (result == JOB_DONE && t == JOB_RESTART) {
