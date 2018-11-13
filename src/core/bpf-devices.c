@@ -142,7 +142,6 @@ int cgroup_apply_device_bpf(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy
         };
 
         _cleanup_free_ char *path = NULL;
-        uint32_t flags;
         int r;
 
         if (!prog) {
@@ -177,14 +176,13 @@ int cgroup_apply_device_bpf(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy
         if (r < 0)
                 return log_error_errno(r, "Failed to determine cgroup path: %m");
 
-        flags = (u->type == UNIT_SLICE || unit_cgroup_delegate(u)) ? BPF_F_ALLOW_MULTI : 0;
+
+        r = bpf_program_cgroup_attach(prog, BPF_CGROUP_DEVICE, path, BPF_F_ALLOW_MULTI);
+        if (r < 0)
+                return log_error_errno(r, "Attaching device control BPF program to cgroup %s failed: %m", path);
 
         /* Unref the old BPF program (which will implicitly detach it) right before attaching the new program. */
         u->bpf_device_control_installed = bpf_program_unref(u->bpf_device_control_installed);
-
-        r = bpf_program_cgroup_attach(prog, BPF_CGROUP_DEVICE, path, flags);
-        if (r < 0)
-                return log_error_errno(r, "Attaching device control BPF program to cgroup %s failed: %m", path);
 
         /* Remember that this BPF program is installed now. */
         u->bpf_device_control_installed = bpf_program_ref(prog);
@@ -243,5 +241,5 @@ int bpf_devices_supported(void) {
                 return supported = 0;
         }
 
-        return supported;
+        return supported = 1;
 }
