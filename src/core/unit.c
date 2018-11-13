@@ -2340,6 +2340,36 @@ static void unit_update_on_console(Unit *u) {
                 manager_unref_console(u->manager);
 }
 
+static void unit_emit_audit_start(Unit *u) {
+        assert(u);
+
+        if (u->type != UNIT_SERVICE)
+                return;
+
+        /* Write audit record if we have just finished starting up */
+        manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_START, true);
+        u->in_audit = true;
+}
+
+static void unit_emit_audit_stop(Unit *u, UnitActiveState state) {
+        assert(u);
+
+        if (u->type != UNIT_SERVICE)
+                return;
+
+        if (u->in_audit) {
+                /* Write audit record if we have just finished shutting down */
+                manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_STOP, state == UNIT_INACTIVE);
+                u->in_audit = false;
+        } else {
+                /* Hmm, if there was no start record written write it now, so that we always have a nice pair */
+                manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_START, state == UNIT_INACTIVE);
+
+                if (state == UNIT_INACTIVE)
+                        manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_STOP, true);
+        }
+}
+
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags) {
         bool unexpected;
         const char *reason;
@@ -2478,35 +2508,14 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                 if (UNIT_IS_ACTIVE_OR_RELOADING(ns) && !UNIT_IS_ACTIVE_OR_RELOADING(os)) {
                         /* This unit just finished starting up */
 
-                        if (u->type == UNIT_SERVICE) {
-                                /* Write audit record if we have just finished starting up */
-                                manager_send_unit_audit(m, u, AUDIT_SERVICE_START, true);
-                                u->in_audit = true;
-                        }
-
+                        unit_emit_audit_start(u);
                         manager_send_unit_plymouth(m, u);
                 }
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns) && !UNIT_IS_INACTIVE_OR_FAILED(os)) {
                         /* This unit just stopped/failed. */
 
-                        if (u->type == UNIT_SERVICE) {
-
-                                if (u->in_audit) {
-                                        /* Write audit record if we have just finished shutting down */
-                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
-                                        u->in_audit = false;
-                                } else {
-                                        /* Hmm, if there was no start record written write it now, so that we always
-                                         * have a nice pair */
-                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
-
-                                        if (ns == UNIT_INACTIVE)
-                                                manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, true);
-                                }
-                        }
-
-                        /* Write a log message about consumed resources */
+                        unit_emit_audit_stop(u, ns);
                         unit_log_resources(u);
                 }
         }
