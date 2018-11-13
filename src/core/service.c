@@ -3233,21 +3233,13 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 /* When this is a successful exit, let's log about the exit code on DEBUG level. If this is a failure
                  * and the process exited on its own via exit(), then let's make this a NOTICE, under the assumption
-                 * that the service already logged the reason at a higher log level on its own. However, if the service
-                 * died due to a signal, then it most likely didn't say anything about any reason, hence let's raise
-                 * our log level to WARNING then. */
-
-                log_struct(f == SERVICE_SUCCESS ? LOG_DEBUG :
-                           (code == CLD_EXITED ? LOG_NOTICE : LOG_WARNING),
-                           LOG_UNIT_MESSAGE(u, "Main process exited, code=%s, status=%i/%s",
-                                            sigchld_code_to_string(code), status,
-                                            strna(code == CLD_EXITED
-                                                  ? exit_status_to_string(status, EXIT_STATUS_FULL)
-                                                  : signal_to_string(status))),
-                           "EXIT_CODE=%s", sigchld_code_to_string(code),
-                           "EXIT_STATUS=%i", status,
-                           LOG_UNIT_ID(u),
-                           LOG_UNIT_INVOCATION_ID(u));
+                 * that the service already logged the reason at a higher log level on its own. (Internally,
+                 * unit_log_process_exit() will possibly bump this to WARNING if the service died due to a signal.) */
+                unit_log_process_exit(
+                                u, f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                                "Main process",
+                                service_exec_command_to_string(SERVICE_EXEC_START),
+                                code, status);
 
                 if (s->result == SERVICE_SUCCESS)
                         s->result = f;
@@ -3336,9 +3328,11 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 f = SERVICE_SUCCESS;
                 }
 
-                log_unit_full(u, f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE, 0,
-                              "Control process exited, code=%s status=%i",
-                              sigchld_code_to_string(code), status);
+                unit_log_process_exit(
+                                u, f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                                "Control process",
+                                service_exec_command_to_string(s->control_command_id),
+                                code, status);
 
                 if (s->result == SERVICE_SUCCESS)
                         s->result = f;

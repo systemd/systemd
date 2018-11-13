@@ -1270,8 +1270,11 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
         }
 
-        log_unit_full(u, f == MOUNT_SUCCESS ? LOG_DEBUG : LOG_NOTICE, 0,
-                      "Mount process exited, code=%s status=%i", sigchld_code_to_string(code), status);
+        unit_log_process_exit(
+                        u, f == MOUNT_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                        "Mount process",
+                        mount_exec_command_to_string(m->control_command_id),
+                        code, status);
 
         /* Note that due to the io event priority logic, we can be sure the new mountinfo is loaded
          * before we process the SIGCHLD for the mount command. */

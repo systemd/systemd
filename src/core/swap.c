@@ -1011,8 +1011,11 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
         }
 
-        log_unit_full(u, f == SWAP_SUCCESS ? LOG_DEBUG : LOG_NOTICE, 0,
-                      "Swap process exited, code=%s status=%i", sigchld_code_to_string(code), status);
+        unit_log_process_exit(
+                        u, f == SWAP_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                        "Swap process",
+                        swap_exec_command_to_string(s->control_command_id),
+                        code, status);
 
         switch (s->state) {
 

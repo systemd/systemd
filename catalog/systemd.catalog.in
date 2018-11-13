@@ -359,6 +359,15 @@ Support: %SUPPORT_URL%
 
 The unit @UNIT@ has entered the 'failed' state with result '@UNIT_RESULT@'.
 
+-- 98e322203f7a4ed290d09fe03c09fe15
+Subject: Unit process exited
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+An @COMMAND@= process belonging to unit @UNIT@ has exited.
+
+The process' exit code is '@EXIT_CODE@' and its exit status is @EXIT_STATUS@.
+
 -- 50876a9db00f4c40bde1a2ad381c3a1b
 Subject: The system is configured in a way that might cause problems
 Defined-By: systemd

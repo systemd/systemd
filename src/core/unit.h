@@ -807,6 +807,7 @@ const char *unit_label_path(Unit *u);
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 
 void unit_log_failure(Unit *u, const char *result);
+void unit_log_process_exit(Unit *u, int level, const char *kind, const char *command, int code, int status);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
