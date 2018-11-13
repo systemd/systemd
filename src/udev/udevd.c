@@ -35,6 +35,7 @@
 #include "cpu-set-util.h"
 #include "dev-setup.h"
 #include "device-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -764,49 +765,6 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
         return 1;
 }
 
-static int manager_enable_kill_workers_event(Manager *manager) {
-        int enabled, r;
-
-        assert(manager);
-
-        if (!manager->kill_workers_event)
-                goto create_new;
-
-        r = sd_event_source_get_enabled(manager->kill_workers_event, &enabled);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to query whether event source for killing idle workers is enabled or not, trying to create new event source: %m");
-                manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
-                goto create_new;
-        }
-
-        if (enabled == SD_EVENT_ONESHOT)
-                return 0;
-
-        r = sd_event_source_set_time(manager->kill_workers_event, now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to set time to event source for killing idle workers, trying to create new event source: %m");
-                manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
-                goto create_new;
-        }
-
-        r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_ONESHOT);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to enable event source for killing idle workers, trying to create new event source: %m");
-                manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
-                goto create_new;
-        }
-
-        return 0;
-
-create_new:
-        r = sd_event_add_time(manager->event, &manager->kill_workers_event, CLOCK_MONOTONIC,
-                              now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC, USEC_PER_SEC, on_kill_workers_event, manager);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to create timer event for killing idle workers: %m");
-
-        return 0;
-}
-
 static int manager_disable_kill_workers_event(Manager *manager) {
         int r;
 
@@ -1334,7 +1292,9 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (!hashmap_isempty(manager->workers)) {
                 /* There are idle workers */
-                (void) manager_enable_kill_workers_event(manager);
+                (void) event_reset_time(manager->event, &manager->kill_workers_event, CLOCK_MONOTONIC,
+                                        now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC, USEC_PER_SEC,
+                                        on_kill_workers_event, manager, 0, "kill-workers-event", false);
                 return 1;
         }
 
