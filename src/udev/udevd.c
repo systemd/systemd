@@ -765,22 +765,10 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
         return 1;
 }
 
-static int manager_disable_kill_workers_event(Manager *manager) {
-        int r;
-
-        if (!manager->kill_workers_event)
-                return 0;
-
-        r = sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
-
-        return 0;
-}
-
 static void event_queue_start(Manager *manager) {
         struct event *event;
         usec_t usec;
+        int r;
 
         assert(manager);
 
@@ -799,7 +787,9 @@ static void event_queue_start(Manager *manager) {
                 manager->last_usec = usec;
         }
 
-        (void) manager_disable_kill_workers_event(manager);
+        r = event_source_disable(manager->kill_workers_event);
+        if (r < 0)
+                log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
 
         udev_builtin_init();
 
@@ -1169,10 +1159,13 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
         union inotify_event_buffer buffer;
         struct inotify_event *e;
         ssize_t l;
+        int r;
 
         assert(manager);
 
-        (void) manager_disable_kill_workers_event(manager);
+        r = event_source_disable(manager->kill_workers_event);
+        if (r < 0)
+                log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
 
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
@@ -1224,6 +1217,7 @@ static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void
 
 static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *manager = userdata;
+        int r;
 
         assert(manager);
 
@@ -1274,8 +1268,11 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
         event_queue_start(manager);
 
         /* Disable unnecessary cleanup event */
-        if (hashmap_isempty(manager->workers) && manager->kill_workers_event)
-                (void) sd_event_source_set_enabled(manager->kill_workers_event, SD_EVENT_OFF);
+        if (hashmap_isempty(manager->workers)) {
+                r = event_source_disable(manager->kill_workers_event);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
+        }
 
         return 1;
 }
