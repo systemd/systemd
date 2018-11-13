@@ -30,7 +30,6 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "strbuf.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
@@ -2599,11 +2598,3 @@ finish:
 
         return 0;
 }
-
-static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
-        [RESOLVE_NAME_NEVER] = "never",
-        [RESOLVE_NAME_LATE] = "late",
-        [RESOLVE_NAME_EARLY] = "early",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(resolve_name_timing, ResolveNameTiming);

@@ -18,6 +18,7 @@
 #include "macro.h"
 #include "strv.h"
 #include "util.h"
+#include "udev-util.h"
 
 struct udev_event {
         sd_device *dev;
@@ -48,14 +49,6 @@ struct udev_event {
         bool run_final;
 };
 
-typedef enum ResolveNameTiming {
-        RESOLVE_NAME_NEVER,
-        RESOLVE_NAME_LATE,
-        RESOLVE_NAME_EARLY,
-        _RESOLVE_NAME_TIMING_MAX,
-        _RESOLVE_NAME_TIMING_INVALID = -1,
-} ResolveNameTiming;
-
 /* udev-rules.c */
 struct udev_rules;
 struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing);
@@ -65,9 +58,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                               usec_t timeout_usec,
                               Hashmap *properties_list);
 int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
-
-ResolveNameTiming resolve_name_timing_from_string(const char *s) _pure_;
-const char *resolve_name_timing_to_string(ResolveNameTiming i) _const_;
 
 static inline usec_t udev_warn_timeout(usec_t timeout_usec) {
         return DIV_ROUND_UP(timeout_usec, 3);
