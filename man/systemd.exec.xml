@@ -1645,7 +1645,13 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>
         See <citerefentry
         project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details
-        about environment variables.</para></listitem>
+        about environment variables.</para>
+
+        <para>Note that environment variables are not suitable for passing secrets (such as passwords, key material, …)
+        to service processes. Environment variables set for a unit are exposed to unprivileged clients via D-Bus IPC,
+        and generally not understood as being data that requires protection. Moreover, environment variables are
+        propagated down the process tree, including across security boundaries (such as setuid/setgid executables), and
+        hence might leak to processes that should not have access to the secret data.</para></listitem>
       </varlistentry>
 
       <varlistentry>
