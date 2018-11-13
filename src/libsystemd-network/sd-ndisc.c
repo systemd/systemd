@@ -136,12 +136,14 @@ _public_ int sd_ndisc_new(sd_ndisc **ret) {
 
         assert_return(ret, -EINVAL);
 
-        nd = new0(sd_ndisc, 1);
+        nd = new(sd_ndisc, 1);
         if (!nd)
                 return -ENOMEM;
 
-        nd->n_ref = 1;
-        nd->fd = -1;
+        *nd = (sd_ndisc) {
+                .n_ref = 1,
+                .fd = -1,
+        };
 
         *ret = TAKE_PTR(nd);
 
