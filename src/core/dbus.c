@@ -56,13 +56,12 @@ int bus_send_pending_reload_message(Manager *m) {
         if (!m->pending_reload_message)
                 return 0;
 
-        /* If we cannot get rid of this message we won't dispatch any
-         * D-Bus messages, so that we won't end up wanting to queue
-         * another message. */
+        /* If we cannot get rid of this message we won't dispatch any D-Bus messages, so that we won't end up wanting
+         * to queue another message. */
 
         r = sd_bus_send(NULL, m->pending_reload_message, NULL);
         if (r < 0)
-                log_warning_errno(r, "Failed to send queued message: %m");
+                log_warning_errno(r, "Failed to send queued message, ignoring: %m");
 
         m->pending_reload_message = sd_bus_message_unref(m->pending_reload_message);
 
