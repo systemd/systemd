@@ -113,14 +113,16 @@ int sd_ipv4acd_new(sd_ipv4acd **ret) {
 
         assert_return(ret, -EINVAL);
 
-        acd = new0(sd_ipv4acd, 1);
+        acd = new(sd_ipv4acd, 1);
         if (!acd)
                 return -ENOMEM;
 
-        acd->n_ref = 1;
-        acd->state = IPV4ACD_STATE_INIT;
-        acd->ifindex = -1;
-        acd->fd = -1;
+        *acd = (sd_ipv4acd) {
+                .n_ref = 1,
+                .state = IPV4ACD_STATE_INIT,
+                .ifindex = -1,
+                .fd = -1,
+        };
 
         *ret = TAKE_PTR(acd);
 
