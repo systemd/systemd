@@ -87,7 +87,8 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev) {
         log_debug("adding watch on '%s'", udev_device_get_devnode(dev));
         wd = inotify_add_watch(inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
         if (wd < 0) {
-                log_error_errno(errno, "inotify_add_watch(%d, %s, %o) failed: %m",
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
+                               errno, "inotify_add_watch(%d, %s, %o) failed: %m",
                                 inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
                 return;
         }
