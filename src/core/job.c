@@ -822,6 +822,10 @@ static void job_print_done_status_message(Unit *u, JobType t, JobResult result) 
         if (t == JOB_RELOAD)
                 return;
 
+        /* No message if the job did not actually do anything due to failed condition. */
+        if (t == JOB_START && result == JOB_DONE && !u->condition_result)
+                return;
+
         if (!job_print_done_status_messages[result].word)
                 return;
 
@@ -877,6 +881,20 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
         if (log_on_console() && job_print_done_status_messages[result].word)
                 return;
 
+        /* Show condition check message if the job did not actually do anything due to failed condition. */
+        if (t == JOB_START && result == JOB_DONE && !u->condition_result) {
+                log_struct(LOG_INFO,
+                           "MESSAGE=Condition check resulted in %s being skipped.", unit_description(u),
+                           "JOB_ID=%" PRIu32, job_id,
+                           "JOB_TYPE=%s", job_type_to_string(t),
+                           "JOB_RESULT=%s", job_result_to_string(result),
+                           LOG_UNIT_ID(u),
+                           LOG_UNIT_INVOCATION_ID(u),
+                           "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR);
+
+                return;
+        }
+
         format = job_get_done_status_message_format(u, t, result);
         if (!format)
                 return;
@@ -930,10 +948,6 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
 
 static void job_emit_done_status_message(Unit *u, uint32_t job_id, JobType t, JobResult result) {
         assert(u);
-
-        /* No message if the job did not actually do anything due to failed condition. */
-        if (t == JOB_START && result == JOB_DONE && !u->condition_result)
-                return;
 
         job_log_done_status_message(u, job_id, t, result);
         job_print_done_status_message(u, t, result);
