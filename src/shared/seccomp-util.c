@@ -308,6 +308,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "io_cancel\0"
                 "io_destroy\0"
                 "io_getevents\0"
+                "io_pgetevents\0"
                 "io_setup\0"
                 "io_submit\0"
         },
@@ -619,7 +620,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "bpf\0"
                 "capset\0"
                 "chroot\0"
+                "fanotify_init\0"
                 "nfsservctl\0"
+                "open_by_handle_at\0"
                 "pivot_root\0"
                 "quotactl\0"
                 "setdomainname\0"
