@@ -287,7 +287,6 @@ struct Manager {
 
         /* Flags */
         bool dispatching_load_queue:1;
-        bool dispatching_dbus_queue:1;
 
         bool taint_usr:1;
 

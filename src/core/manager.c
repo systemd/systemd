@@ -2157,10 +2157,6 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         assert(m);
 
-        /* Avoid recursion */
-        if (m->dispatching_dbus_queue)
-                return 0;
-
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
         if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message)
@@ -2189,8 +2185,6 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 budget = MANAGER_BUS_MESSAGE_BUDGET;
         }
 
-        m->dispatching_dbus_queue = true;
-
         while (budget != 0 && (u = m->dbus_unit_queue)) {
 
                 assert(u->in_dbus_queue);
@@ -2211,8 +2205,6 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 if (budget != (unsigned) -1)
                         budget--;
         }
-
-        m->dispatching_dbus_queue = false;
 
         if (m->send_reloading_done) {
                 m->send_reloading_done = false;
