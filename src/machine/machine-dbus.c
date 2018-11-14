@@ -207,7 +207,8 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return -errno;
 
-                r = safe_fork("(sd-addr)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+                r = namespace_fork("(sd-addrns)", "(sd-addr)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                                   -1, -1, netns_fd, -1, -1, &child);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
                 if (r == 0) {
@@ -216,10 +217,6 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                         int i, n;
 
                         pair[0] = safe_close(pair[0]);
-
-                        r = namespace_enter(-1, -1, netns_fd, -1, -1);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
 
                         n = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
                         if (n < 0)
@@ -294,7 +291,7 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                                 return r;
                 }
 
-                r = wait_for_terminate_and_check("(sd-addr)", child, 0);
+                r = wait_for_terminate_and_check("(sd-addrns)", child, 0);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 if (r != EXIT_SUCCESS)
@@ -333,29 +330,27 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 break;
 
         case MACHINE_CONTAINER: {
-                _cleanup_close_ int mntns_fd = -1, root_fd = -1;
+                _cleanup_close_ int mntns_fd = -1, root_fd = -1, pidns_fd = -1;
                 _cleanup_close_pair_ int pair[2] = { -1, -1 };
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t child;
 
-                r = namespace_open(m->leader, NULL, &mntns_fd, NULL, NULL, &root_fd);
+                r = namespace_open(m->leader, &pidns_fd, &mntns_fd, NULL, NULL, &root_fd);
                 if (r < 0)
                         return r;
 
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return -errno;
 
-                r = safe_fork("(sd-osrel)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+                r = namespace_fork("(sd-osrelns)", "(sd-osrel)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                                   pidns_fd, mntns_fd, -1, -1, root_fd,
+                                   &child);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
                 if (r == 0) {
                         int fd = -1;
 
                         pair[0] = safe_close(pair[0]);
-
-                        r = namespace_enter(-1, mntns_fd, -1, -1, root_fd);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
 
                         r = open_os_release(NULL, NULL, &fd);
                         if (r == -ENOENT)
@@ -382,7 +377,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 if (r < 0)
                         return r;
 
-                r = wait_for_terminate_and_check("(sd-osrel)", child, 0);
+                r = wait_for_terminate_and_check("(sd-osrelns)", child, 0);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 if (r == EXIT_NOT_FOUND)
@@ -1239,17 +1234,14 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
                 if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                         return -errno;
 
-                r = safe_fork("(sd-openroot)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+                r = namespace_fork("(sd-openrootns)", "(sd-openroot)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                                   -1, mntns_fd, -1, -1, root_fd, &child);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
                 if (r == 0) {
                         _cleanup_close_ int dfd = -1;
 
                         pair[0] = safe_close(pair[0]);
-
-                        r = namespace_enter(-1, mntns_fd, -1, -1, root_fd);
-                        if (r < 0)
-                                _exit(EXIT_FAILURE);
 
                         dfd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
                         if (dfd < 0)
@@ -1265,7 +1257,7 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
 
                 pair[1] = safe_close(pair[1]);
 
-                r = wait_for_terminate_and_check("(sd-openroot)", child, 0);
+                r = wait_for_terminate_and_check("(sd-openrootns)", child, 0);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 if (r != EXIT_SUCCESS)

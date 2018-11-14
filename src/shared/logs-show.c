@@ -1342,17 +1342,14 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        r = safe_fork("(sd-bootid)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        r = namespace_fork("(sd-bootidns)", "(sd-bootid)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           pidnsfd, mntnsfd, -1, -1, rootfd, &child);
         if (r < 0)
                 return r;
         if (r == 0) {
                 int fd;
 
                 pair[0] = safe_close(pair[0]);
-
-                r = namespace_enter(pidnsfd, mntnsfd, -1, -1, rootfd);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
 
                 fd = open("/proc/sys/kernel/random/boot_id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0)
@@ -1372,7 +1369,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate_and_check("(sd-bootid)", child, 0);
+        r = wait_for_terminate_and_check("(sd-bootidns)", child, 0);
         if (r < 0)
                 return r;
         if (r != EXIT_SUCCESS)
