@@ -563,7 +563,7 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
         if (!IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD))
                 return;
 
-        if (log_on_console())
+        if (log_on_console()) /* Skip this if it would only go on the console anyway */
                 return;
 
         /* We log status messages for all units and all operations. */
@@ -643,8 +643,9 @@ static int job_perform_on_unit(Job **j) {
                         assert_not_reached("Invalid job type");
         }
 
-        /* Log if the job still exists and the start/stop/reload function
-         * actually did something. */
+        /* Log if the job still exists and the start/stop/reload function actually did something. Note that this means
+         * for units for which there's no 'activating' phase (i.e. because we transition directly from 'inactive' to
+         * 'active') we'll possibly skip the "Starting..." message. */
         *j = manager_get_job(m, id);
         if (*j && r > 0)
                 job_emit_begin_status_message(u, id, t);
