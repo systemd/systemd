@@ -42,13 +42,62 @@
 
     <variablelist>
       <varlistentry>
-        <term><varname>udev_log</varname></term>
+        <term><varname>udev_log=</varname></term>
 
         <listitem>
           <para>The log level. Valid values are the numerical
           syslog priorities or their textual representations:
           <option>err</option>, <option>info</option> and
           <option>debug</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>children_max=</varname></term>
+
+        <listitem>
+          <para>An integer. The maximum number of events executed in parallel.</para>
+
+          <para>This is the same as the <option>--children-max=</option> option.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>exec_delay=</varname></term>
+
+        <listitem>
+          <para>An integer. Delay the execution of <varname>RUN</varname>
+          instructions by the given number of seconds. This option
+          might be useful when debugging system crashes during
+          coldplug caused by loading non-working kernel
+          modules.</para>
+
+          <para>This is the same as the <option>--exec-delay=</option> option.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>event_timeout=</varname></term>
+
+        <listitem>
+          <para>An integer. The number of seconds to wait for events to finish. After
+          this time, the event will be terminated. The default is 180 seconds.</para>
+
+          <para>This is the same as the <option>--event-timeout=</option> option.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>resolve_names=</varname></term>
+
+        <listitem>
+          <para>Specifes when systemd-udevd should resolve names of users and groups.  When set to
+          <option>early</option> (the default), names will be resolved when the rules are parsed.
+          When set to <option>late</option>, names will be resolved for every event.  When set to
+          <option>never</option>, names will never be resolved and all devices will be owned by
+          root.</para>
+
+          <para>This is the same as the <option>--resolve-names=</option> option.</para>
         </listitem>
       </varlistentry>
     </variablelist>

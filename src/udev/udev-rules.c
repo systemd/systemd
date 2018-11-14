@@ -30,7 +30,6 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "strbuf.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
@@ -641,13 +640,12 @@ static int import_file_into_properties(sd_device *dev, const char *filename) {
 
 static int import_program_into_properties(struct udev_event *event,
                                           usec_t timeout_usec,
-                                          usec_t timeout_warn_usec,
                                           const char *program) {
         char result[UTIL_LINE_SIZE];
         char *line;
         int err;
 
-        err = udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, result, sizeof(result));
+        err = udev_event_spawn(event, timeout_usec, true, program, result, sizeof(result));
         if (err < 0)
                 return err;
 
@@ -1728,7 +1726,6 @@ int udev_rules_apply_to_event(
                 struct udev_rules *rules,
                 struct udev_event *event,
                 usec_t timeout_usec,
-                usec_t timeout_warn_usec,
                 Hashmap *properties_list) {
         sd_device *dev = event->dev;
         enum escape_type esc = ESCAPE_UNSET;
@@ -1965,7 +1962,7 @@ int udev_rules_apply_to_event(
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
 
-                        if (udev_event_spawn(event, timeout_usec, timeout_warn_usec, true, program, result, sizeof(result)) < 0) {
+                        if (udev_event_spawn(event, timeout_usec, true, program, result, sizeof(result)) < 0) {
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         } else {
@@ -2001,7 +1998,7 @@ int udev_rules_apply_to_event(
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
 
-                        if (import_program_into_properties(event, timeout_usec, timeout_warn_usec, import) != 0)
+                        if (import_program_into_properties(event, timeout_usec, import) != 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
@@ -2601,11 +2598,3 @@ finish:
 
         return 0;
 }
-
-static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
-        [RESOLVE_NAME_NEVER] = "never",
-        [RESOLVE_NAME_LATE] = "late",
-        [RESOLVE_NAME_EARLY] = "early",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(resolve_name_timing, ResolveNameTiming);

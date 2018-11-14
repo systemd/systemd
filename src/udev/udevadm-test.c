@@ -131,10 +131,7 @@ int test_main(int argc, char *argv[], void *userdata) {
         sigfillset(&mask);
         sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
 
-        udev_event_execute_rules(event,
-                                 60 * USEC_PER_SEC, 20 * USEC_PER_SEC,
-                                 NULL,
-                                 rules);
+        udev_event_execute_rules(event, 60 * USEC_PER_SEC, NULL, rules);
 
         FOREACH_DEVICE_PROPERTY(dev, key, value)
                 printf("%s=%s\n", key, value);

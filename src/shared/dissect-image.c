@@ -769,7 +769,7 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
                 }
         }
 
-        if ((flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY))
+        if (flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY)
                 return 0;
 
         r = mount_partition(m->partitions + PARTITION_HOME, where, "/home", uid_shift, flags);

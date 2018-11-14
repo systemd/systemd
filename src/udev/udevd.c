@@ -66,7 +66,6 @@ static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
 static unsigned arg_children_max = 0;
 static usec_t arg_exec_delay_usec = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
-static usec_t arg_event_timeout_warn_usec = 180 * USEC_PER_SEC / 3;
 
 typedef struct Manager {
         sd_event *event;
@@ -271,7 +270,7 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
         assert_se(sd_event_now(e, CLOCK_MONOTONIC, &usec) >= 0);
 
         (void) sd_event_add_time(e, &event->timeout_warning, CLOCK_MONOTONIC,
-                                 usec + arg_event_timeout_warn_usec, USEC_PER_SEC, on_event_timeout_warning, event);
+                                 usec + udev_warn_timeout(arg_event_timeout_usec), USEC_PER_SEC, on_event_timeout_warning, event);
 
         (void) sd_event_add_time(e, &event->timeout, CLOCK_MONOTONIC,
                                  usec + arg_event_timeout_usec, USEC_PER_SEC, on_event_timeout, event);
@@ -442,13 +441,8 @@ static void worker_spawn(Manager *manager, struct event *event) {
                         }
 
                         /* apply rules, create node, symlinks */
-                        udev_event_execute_rules(udev_event,
-                                                 arg_event_timeout_usec, arg_event_timeout_warn_usec,
-                                                 manager->properties,
-                                                 manager->rules);
-
-                        udev_event_execute_run(udev_event,
-                                               arg_event_timeout_usec, arg_event_timeout_warn_usec);
+                        udev_event_execute_rules(udev_event, arg_event_timeout_usec, manager->properties, manager->rules);
+                        udev_event_execute_run(udev_event, arg_event_timeout_usec);
 
                         if (!rtnl)
                                 /* in case rtnl was initialized */
@@ -1421,8 +1415,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 r = parse_sec(value, &arg_event_timeout_usec);
-                if (r >= 0)
-                        arg_event_timeout_warn_usec = DIV_ROUND_UP(arg_event_timeout_usec, 3);
 
         } else if (proc_cmdline_key_streq(key, "udev.children_max")) {
 
@@ -1514,8 +1506,6 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_sec(optarg, &arg_event_timeout_usec);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse --event-timeout= value '%s', ignoring: %m", optarg);
-
-                        arg_event_timeout_warn_usec = DIV_ROUND_UP(arg_event_timeout_usec, 3);
                         break;
                 case 'D':
                         arg_debug = true;
@@ -1713,7 +1703,7 @@ int main(int argc, char *argv[]) {
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
-        udev_parse_config();
+        udev_parse_config_full(&arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec, &arg_resolve_name_timing);
         log_parse_environment();
         log_open();
 
