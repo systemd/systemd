@@ -291,8 +291,9 @@
         <listitem><para>Dump messages being exchanged. If
         <replaceable>SERVICE</replaceable> is specified, show messages
         to or from this peer, identified by its well-known or unique
-        name. Otherwise, show all messages on the bus. Use Ctrl-C to
-        terminate the dump.</para></listitem>
+        name. Otherwise, show all messages on the bus. Use
+        <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo>
+        to terminate the dump.</para></listitem>
       </varlistentry>
 
       <varlistentry>
