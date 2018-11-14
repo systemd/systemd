@@ -1556,10 +1556,18 @@ static void kernel_syscalls_remove(Set *s, const SyscallFilterSet *set) {
 static void dump_syscall_filter(const SyscallFilterSet *set) {
         const char *syscall;
 
-        printf("%s\n", set->name);
-        printf("    # %s\n", set->help);
+        printf("%s%s%s\n"
+               "    # %s\n",
+               ansi_highlight(),
+               set->name,
+               ansi_normal(),
+               set->help);
+
         NULSTR_FOREACH(syscall, set->value)
-                printf("    %s\n", syscall);
+                printf("    %s%s%s\n",
+                       syscall[0] == '@' ? ansi_underline() : "",
+                       syscall,
+                       ansi_normal());
 }
 
 static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
@@ -1592,7 +1600,8 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
                         Iterator j;
 
                         printf("\n"
-                               "# Unlisted System Calls (supported by the local kernel, but not included in any of the groups listed above):\n");
+                               "# %sUnlisted System Calls%s (supported by the local kernel, but not included in any of the groups listed above):\n",
+                               ansi_highlight(), ansi_normal());
 
                         SET_FOREACH(syscall, kernel, j)
                                 printf("#   %s\n", syscall);
