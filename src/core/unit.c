@@ -1726,7 +1726,7 @@ int unit_start(Unit *u) {
         if (state != UNIT_ACTIVATING &&
             !unit_condition_test(u)) {
                 log_unit_debug(u, "Starting requested but condition failed. Not starting unit.");
-                return -EALREADY;
+                return -ECOMM;
         }
 
         /* If the asserts failed, fail the entire job */

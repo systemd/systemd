@@ -2138,7 +2138,7 @@ static int manager_dispatch_run_queue(sd_event_source *source, void *userdata) {
                 assert(j->installed);
                 assert(j->in_run_queue);
 
-                job_run_and_invalidate(j);
+                (void) job_run_and_invalidate(j);
         }
 
         if (m->n_running_jobs > 0)
