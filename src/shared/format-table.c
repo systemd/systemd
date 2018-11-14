@@ -275,7 +275,7 @@ static bool table_data_matches(
         if (k != l)
                 return false;
 
-        return memcmp(data, d->data, l) == 0;
+        return memcmp_safe(data, d->data, l) == 0;
 }
 
 static TableData *table_data_new(
