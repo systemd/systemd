@@ -248,7 +248,7 @@ struct Manager {
 
         /* This is used during reloading: before the reload we queue
          * the reply message here, and afterwards we send it */
-        sd_bus_message *queued_message;
+        sd_bus_message *pending_reload_message;
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
 
