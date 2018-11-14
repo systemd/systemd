@@ -15,7 +15,6 @@
 
 #include "alloc-util.h"
 #include "ctype.h"
-#include "def.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"

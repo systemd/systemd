@@ -22,7 +22,7 @@
 #include "unit-name.h"
 #include "util.h"
 
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static bool arg_kernel_threads = false;
 static bool arg_all = false;
 
@@ -99,7 +99,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case 'a':
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = pager_open(arg_no_pager, false);
+        r = pager_open(arg_pager_flags);
         if (r > 0 && arg_full < 0)
                 arg_full = true;
 

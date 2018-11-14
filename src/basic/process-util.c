@@ -25,7 +25,6 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
-#include "def.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"

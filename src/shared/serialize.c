@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
-#include "def.h"
 #include "env-util.h"
 #include "escape.h"
+#include "fileio.h"
 #include "parse-util.h"
 #include "serialize.h"
 #include "strv.h"

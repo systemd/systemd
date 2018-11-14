@@ -4,7 +4,6 @@
 #include <stdio_ext.h>
 
 #include "alloc-util.h"
-#include "def.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"

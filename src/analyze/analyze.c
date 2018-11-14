@@ -66,7 +66,7 @@ static enum dot {
 static char** arg_dot_from_patterns = NULL;
 static char** arg_dot_to_patterns = NULL;
 static usec_t arg_fuzz = 0;
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
@@ -1023,7 +1023,7 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         }
         unit_times_hashmap = h;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         puts("The time after the unit is active or started is printed after the \"@\" character.\n"
              "The time the unit takes to start is printed after the \"+\" character.\n");
@@ -1055,7 +1055,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
 
         typesafe_qsort(times, n, compare_unit_time);
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         for (u = times; u->has_data; u++) {
                 char ts[FORMAT_TIMESPAN_MAX];
@@ -1303,7 +1303,7 @@ static int dump(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         if (!sd_bus_can_send(bus, SD_BUS_TYPE_UNIX_FD))
                 return dump_fallback(bus);
@@ -1337,7 +1337,7 @@ static int cat_config(int argc, char *argv[], void *userdata) {
         char **arg;
         int r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         STRV_FOREACH(arg, argv + 1) {
                 const char *t = NULL;
@@ -1509,7 +1509,7 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
 static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         bool first = true;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         if (strv_isempty(strv_skip(argv, 1))) {
                 int i;
@@ -1696,7 +1696,7 @@ static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(arg_no_pager, false);
+        (void) pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("systemd-analyze", "1", &link);
         if (r < 0)
@@ -1841,7 +1841,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case 'H':

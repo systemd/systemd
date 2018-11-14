@@ -2,7 +2,6 @@
 
 #include <string.h>
 
-#include "def.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"

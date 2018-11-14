@@ -12,6 +12,8 @@
 
 #include "copy.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "io-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "macro.h"
@@ -41,13 +43,50 @@ _noreturn_ static void pager_fallback(void) {
         _exit(EXIT_SUCCESS);
 }
 
-int pager_open(bool no_pager, bool jump_to_end) {
-        _cleanup_close_pair_ int fd[2] = { -1, -1 };
-        _cleanup_strv_free_ char **pager_args = NULL;
-        const char *pager;
+static int no_quit_on_interrupt(int exe_name_fd, const char *less_opts) {
+        _cleanup_fclose_ FILE *file = NULL;
+        _cleanup_free_ char *line = NULL;
         int r;
 
-        if (no_pager)
+        assert(exe_name_fd >= 0);
+        assert(less_opts);
+
+        /* This takes ownership of exe_name_fd */
+        file = fdopen(exe_name_fd, "r");
+        if (!file) {
+                safe_close(exe_name_fd);
+                return log_debug_errno(errno, "Failed to create FILE object: %m");
+        }
+
+        /* Find the last line */
+        for (;;) {
+                _cleanup_free_ char *t = NULL;
+
+                r = read_line(file, LONG_LINE_MAX, &t);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                free_and_replace(line, t);
+        }
+
+        /* We only treat "less" specially.
+         * Return true whenever option K is *not* set. */
+        r = streq_ptr(line, "less") && !strchr(less_opts, 'K');
+
+        log_debug("Pager executable is \"%s\", options \"%s\", quit_on_interrupt: %s",
+                  strnull(line), less_opts, yes_no(!r));
+        return r;
+}
+
+int pager_open(PagerFlags flags) {
+        _cleanup_close_pair_ int fd[2] = { -1, -1 }, exe_name_pipe[2] = { -1, -1 };
+        _cleanup_strv_free_ char **pager_args = NULL;
+        const char *pager, *less_opts;
+        int r;
+
+        if (flags & PAGER_DISABLE)
                 return 0;
 
         if (pager_pid > 0)
@@ -81,23 +120,28 @@ int pager_open(bool no_pager, bool jump_to_end) {
         if (pipe2(fd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
+        /* This is a pipe to feed the name of the executed pager binary into the parent */
+        if (pipe2(exe_name_pipe, O_CLOEXEC) < 0)
+                return log_error_errno(errno, "Failed to create exe_name pipe: %m");
+
+        /* Initialize a good set of less options */
+        less_opts = getenv("SYSTEMD_LESS");
+        if (!less_opts)
+                less_opts = "FRSXMK";
+        if (flags & PAGER_JUMP_TO_END)
+                less_opts = strjoina(less_opts, " +G");
+
         r = safe_fork("(pager)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pager_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                const char* less_opts, *less_charset;
+                const char *less_charset, *exe;
 
                 /* In the child start the pager */
 
                 (void) dup2(fd[0], STDIN_FILENO);
                 safe_close_pair(fd);
 
-                /* Initialize a good set of less options */
-                less_opts = getenv("SYSTEMD_LESS");
-                if (!less_opts)
-                        less_opts = "FRSXMK";
-                if (jump_to_end)
-                        less_opts = strjoina(less_opts, " +G");
                 if (setenv("LESS", less_opts, 1) < 0)
                         _exit(EXIT_FAILURE);
 
@@ -111,8 +155,12 @@ int pager_open(bool no_pager, bool jump_to_end) {
                     setenv("LESSCHARSET", less_charset, 1) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (pager_args)
+                if (pager_args) {
+                        if (loop_write(exe_name_pipe[1], pager_args[0], strlen(pager_args[0]) + 1, false) < 0)
+                                _exit(EXIT_FAILURE);
+
                         execvp(pager_args[0], pager_args);
+                }
 
                 /* Debian's alternatives command for pagers is
                  * called 'pager'. Note that we do not call
@@ -120,11 +168,14 @@ int pager_open(bool no_pager, bool jump_to_end) {
                  * shell script that implements a logic that
                  * is similar to this one anyway, but is
                  * Debian-specific. */
-                execlp("pager", "pager", NULL);
+                FOREACH_STRING(exe, "pager", "less", "more") {
+                        if (loop_write(exe_name_pipe[1], exe, strlen(exe) + 1, false) < 0)
+                                _exit(EXIT_FAILURE);
+                        execlp(exe, exe, NULL);
+                }
 
-                execlp("less", "less", NULL);
-                execlp("more", "more", NULL);
-
+                if (loop_write(exe_name_pipe[1], "(built-in)", strlen("(built-in") + 1, false) < 0)
+                        _exit(EXIT_FAILURE);
                 pager_fallback();
                 /* not reached */
         }
@@ -143,6 +194,14 @@ int pager_open(bool no_pager, bool jump_to_end) {
                 return log_error_errno(errno, "Failed to duplicate pager pipe: %m");
         }
         stderr_redirected = true;
+
+        exe_name_pipe[1] = safe_close(exe_name_pipe[1]);
+
+        r = no_quit_on_interrupt(TAKE_FD(exe_name_pipe[0]), less_opts);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                (void) ignore_signals(SIGINT, -1);
 
         return 1;
 }

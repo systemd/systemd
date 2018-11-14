@@ -15,7 +15,6 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
-#include "def.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"

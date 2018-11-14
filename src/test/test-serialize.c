@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "def.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"

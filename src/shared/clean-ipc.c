@@ -16,7 +16,6 @@
 #include <unistd.h>
 
 #include "clean-ipc.h"
-#include "def.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"

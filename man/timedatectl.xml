@@ -73,10 +73,11 @@
       <varlistentry>
         <term><option>--monitor</option></term>
 
-        <listitem><para>If <command>timesync-status</command> is invoked and this option is passed,
-        then <command>timedatectl</command> monitors the status of
+        <listitem><para>If <command>timesync-status</command> is invoked and this option is passed, then
+        <command>timedatectl</command> monitors the status of
         <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        and updates the outputs. Use Ctrl-C to terminate the monitoring.</para></listitem>
+        and updates the outputs. Use <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> to terminate the
+        monitoring.</para></listitem>
       </varlistentry>
 
       <varlistentry>

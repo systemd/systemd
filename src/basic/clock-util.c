@@ -12,7 +12,6 @@
 
 #include "alloc-util.h"
 #include "clock-util.h"
-#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"

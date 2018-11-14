@@ -580,16 +580,15 @@
       <varlistentry>
         <term><constant>SIGINT</constant></term>
 
-        <listitem><para>Upon receiving this signal the systemd system
-        manager will start the
-        <filename>ctrl-alt-del.target</filename> unit. This is mostly
-        equivalent to <command>systemctl start ctrl-alt-del.target
-        --job-mode=replace-irreversible</command>. If this signal is
-        received more than 7 times per 2s, an immediate reboot is
-        triggered.  Note that pressing Ctrl-Alt-Del on the console
-        will trigger this signal. Hence, if a reboot is hanging,
-        pressing Ctrl-Alt-Del more than 7 times in 2s is a relatively
-        safe way to trigger an immediate reboot.</para>
+        <listitem><para>Upon receiving this signal the systemd system manager will start the
+        <filename>ctrl-alt-del.target</filename> unit. This is mostly equivalent to
+        <command>systemctl start ctrl-alt-del.target --job-mode=replace-irreversible</command>. If
+        this signal is received more than 7 times per 2s, an immediate reboot is triggered. Note
+        that pressing
+        <keycombo><keycap>Ctrl</keycap><keycap>Alt</keycap><keycap>Del</keycap></keycombo> on the
+        console will trigger this signal. Hence, if a reboot is hanging, pressing
+        <keycombo><keycap>Ctrl</keycap><keycap>Alt</keycap><keycap>Del</keycap></keycombo> more than
+        7 times in 2 seconds is a relatively safe way to trigger an immediate reboot.</para>
 
         <para>systemd user managers treat this signal the same way as
         <constant>SIGTERM</constant>.</para></listitem>

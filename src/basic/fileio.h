@@ -10,6 +10,8 @@
 #include "macro.h"
 #include "time-util.h"
 
+#define LONG_LINE_MAX (1U*1024U*1024U)
+
 typedef enum {
         WRITE_STRING_FILE_CREATE            = 1 << 0,
         WRITE_STRING_FILE_ATOMIC            = 1 << 1,

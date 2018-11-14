@@ -153,7 +153,7 @@ static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
 static bool arg_boot = false;
-static bool arg_no_pager = false;
+static PagerFlags arg_pager_flags = 0;
 
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
@@ -2949,7 +2949,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NO_PAGER:
-                        arg_no_pager = true;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case '?':
@@ -3147,7 +3147,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_cat_config) {
-                (void) pager_open(arg_no_pager, false);
+                (void) pager_open(arg_pager_flags);
 
                 r = cat_config(config_dirs, argv + optind);
                 goto finish;
