@@ -45,13 +45,13 @@ for phase in "${PHASES[@]}"; do
         RUN)
             info "Run phase"
             # Build systemd
-            $DOCKER_EXEC meson --werror -Dslow-tests=true build
+            $DOCKER_EXEC meson --werror -Dtests=unsafe -Dslow-tests=true build
             $DOCKER_EXEC ninja -v -C build
             $DOCKER_EXEC ninja -C build test
             ;;
         RUN_ASAN)
             $DOCKER_EXEC git clean -dxff
-            $DOCKER_EXEC meson --werror -Db_sanitize=address,undefined build
+            $DOCKER_EXEC meson --werror -Dtests=unsafe -Db_sanitize=address,undefined build
             $DOCKER_EXEC ninja -v -C build
 
             # Never remove halt_on_error from UBSAN_OPTIONS. See https://github.com/systemd/systemd/commit/2614d83aa06592aedb.
