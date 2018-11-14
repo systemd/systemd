@@ -510,28 +510,30 @@ static void job_change_type(Job *j, JobType newtype) {
 }
 
 _pure_ static const char* job_get_begin_status_message_format(Unit *u, JobType t) {
-        const char *format;
         const UnitStatusMessageFormats *format_table;
+        const char *format;
 
         assert(u);
-        assert(IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD));
 
-        if (t != JOB_RELOAD) {
-                format_table = &UNIT_VTABLE(u)->status_message_formats;
-                if (format_table) {
-                        format = format_table->starting_stopping[t == JOB_STOP];
-                        if (format)
-                                return format;
-                }
+        if (t == JOB_RELOAD)
+                return "Reloading %s.";
+
+        assert(IN_SET(t, JOB_START, JOB_STOP));
+
+        format_table = &UNIT_VTABLE(u)->status_message_formats;
+        if (format_table) {
+                format = format_table->starting_stopping[t == JOB_STOP];
+                if (format)
+                        return format;
         }
 
         /* Return generic strings */
         if (t == JOB_START)
                 return "Starting %s.";
-        else if (t == JOB_STOP)
+        else {
+                assert(t == JOB_STOP);
                 return "Stopping %s.";
-        else
-                return "Reloading %s.";
+        }
 }
 
 static void job_print_begin_status_message(Unit *u, JobType t) {
