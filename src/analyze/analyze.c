@@ -21,6 +21,7 @@
 #include "conf-files.h"
 #include "copy.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "glob-util.h"
 #include "hashmap.h"
 #include "locale-util.h"
@@ -1497,6 +1498,61 @@ static int dump_unit_paths(int argc, char *argv[], void *userdata) {
 }
 
 #if HAVE_SECCOMP
+
+static int load_kernel_syscalls(Set **ret) {
+        _cleanup_(set_free_freep) Set *syscalls = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Let's read the available system calls from the list of available tracing events. Slightly dirty, but good
+         * enough for analysis purposes. */
+
+        f = fopen("/sys/kernel/debug/tracing/available_events", "re");
+        if (!f)
+                return log_full_errno(IN_SET(errno, EPERM, EACCES, ENOENT) ? LOG_DEBUG : LOG_WARNING, errno, "Can't read open /sys/kernel/debug/tracing/available_events: %m");
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *e;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read system call list: %m");
+                if (r == 0)
+                        break;
+
+                e = startswith(line, "syscalls:sys_enter_");
+                if (!e)
+                        continue;
+
+                /* These are named differently inside the kernel than their external name for historical reasons. Let's hide them here. */
+                if (STR_IN_SET(e, "newuname", "newfstat", "newstat", "newlstat", "sysctl"))
+                        continue;
+
+                r = set_ensure_allocated(&syscalls, &string_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put_strdup(syscalls, e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add system call to list: %m");
+        }
+
+        *ret = TAKE_PTR(syscalls);
+        return 0;
+}
+
+static void kernel_syscalls_remove(Set *s, const SyscallFilterSet *set) {
+        const char *syscall;
+
+        NULSTR_FOREACH(syscall, set->value) {
+                if (syscall[0] == '@')
+                        continue;
+
+                (void) set_remove(s, syscall);
+        }
+}
+
 static void dump_syscall_filter(const SyscallFilterSet *set) {
         const char *syscall;
 
@@ -1512,13 +1568,34 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (strv_isempty(strv_skip(argv, 1))) {
-                int i;
+                _cleanup_(set_free_freep) Set *kernel = NULL;
+                int i, k;
+
+                k = load_kernel_syscalls(&kernel);
 
                 for (i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
+                        const SyscallFilterSet *set = syscall_filter_sets + i;
                         if (!first)
                                 puts("");
-                        dump_syscall_filter(syscall_filter_sets + i);
+
+                        dump_syscall_filter(set);
+                        kernel_syscalls_remove(kernel, set);
                         first = false;
+                }
+
+                if (k < 0) {
+                        fputc('\n', stdout);
+                        fflush(stdout);
+                        log_notice_errno(k, "# Not showing unlisted system calls, couldn't retrieve kernel system call list: %m");
+                } else if (!set_isempty(kernel)) {
+                        const char *syscall;
+                        Iterator j;
+
+                        printf("\n"
+                               "# Unlisted System Calls (supported by the local kernel, but not included in any of the groups listed above):\n");
+
+                        SET_FOREACH(syscall, kernel, j)
+                                printf("#   %s\n", syscall);
                 }
         } else {
                 char **name;
