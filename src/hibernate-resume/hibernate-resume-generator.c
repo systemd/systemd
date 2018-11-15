@@ -95,10 +95,13 @@ int main(int argc, char *argv[]) {
 
         if (arg_noresume) {
                 log_notice("Found \"noresume\" on the kernel command line, quitting.");
-                return EXIT_SUCCESS;
+                r = 0;
+                goto finish;
         }
 
         r = process_resume();
+
+finish:
         free(arg_resume_device);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
