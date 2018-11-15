@@ -406,7 +406,7 @@ int session_load(Session *s) {
 
         assert(s);
 
-        r = parse_env_file(NULL, s->state_file, NEWLINE,
+        r = parse_env_file(NULL, s->state_file,
                            "REMOTE",         &remote,
                            "SCOPE",          &s->scope,
                            "SCOPE_JOB",      &s->scope_job,
@@ -431,8 +431,7 @@ int session_load(Session *s) {
                            "CONTROLLER",     &controller,
                            "ACTIVE",         &active,
                            "DEVICES",        &devices,
-                           "IS_DISPLAY",     &is_display,
-                           NULL);
+                           "IS_DISPLAY",     &is_display);
 
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", s->state_file);

@@ -8,42 +8,39 @@
 #include "fileio.h"
 #include "locale-setup.h"
 #include "locale-util.h"
+#include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
 #include "virt.h"
 
 int locale_setup(char ***environment) {
-        char **add;
-        char *variables[_VARIABLE_LC_MAX] = {};
-        int r = 0, i;
+        _cleanup_(locale_variables_freep) char *variables[_VARIABLE_LC_MAX] = {};
+        _cleanup_strv_free_ char **add = NULL;
+        LocaleVariable i;
+        int r;
 
-        if (detect_container() <= 0) {
-                r = parse_env_file(NULL, "/proc/cmdline", WHITESPACE,
-                                   "locale.LANG",              &variables[VARIABLE_LANG],
-                                   "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
-                                   "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
-                                   "locale.LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
-                                   "locale.LC_TIME",           &variables[VARIABLE_LC_TIME],
-                                   "locale.LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
-                                   "locale.LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
-                                   "locale.LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                                   "locale.LC_PAPER",          &variables[VARIABLE_LC_PAPER],
-                                   "locale.LC_NAME",           &variables[VARIABLE_LC_NAME],
-                                   "locale.LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
-                                   "locale.LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
-                                   "locale.LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
-                                   "locale.LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
-                                   NULL);
+        r = proc_cmdline_get_key_many(PROC_CMDLINE_STRIP_RD_PREFIX,
+                                      "locale.LANG",              &variables[VARIABLE_LANG],
+                                      "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
+                                      "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
+                                      "locale.LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
+                                      "locale.LC_TIME",           &variables[VARIABLE_LC_TIME],
+                                      "locale.LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
+                                      "locale.LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
+                                      "locale.LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
+                                      "locale.LC_PAPER",          &variables[VARIABLE_LC_PAPER],
+                                      "locale.LC_NAME",           &variables[VARIABLE_LC_NAME],
+                                      "locale.LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
+                                      "locale.LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
+                                      "locale.LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
+                                      "locale.LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION]);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "Failed to read /proc/cmdline: %m");
 
-                if (r < 0 && r != -ENOENT)
-                        log_warning_errno(r, "Failed to read /proc/cmdline: %m");
-        }
-
-        /* Hmm, nothing set on the kernel cmd line? Then let's
-         * try /etc/locale.conf */
+        /* Hmm, nothing set on the kernel cmd line? Then let's try /etc/locale.conf */
         if (r <= 0) {
-                r = parse_env_file(NULL, "/etc/locale.conf", NEWLINE,
+                r = parse_env_file(NULL, "/etc/locale.conf",
                                    "LANG",              &variables[VARIABLE_LANG],
                                    "LANGUAGE",          &variables[VARIABLE_LANGUAGE],
                                    "LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
@@ -57,14 +54,11 @@ int locale_setup(char ***environment) {
                                    "LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
                                    "LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
                                    "LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
-                                   "LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
-                                   NULL);
-
+                                   "LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION]);
                 if (r < 0 && r != -ENOENT)
                         log_warning_errno(r, "Failed to read /etc/locale.conf: %m");
         }
 
-        add = NULL;
         for (i = 0; i < _VARIABLE_LC_MAX; i++) {
                 char *s;
 
@@ -72,36 +66,32 @@ int locale_setup(char ***environment) {
                         continue;
 
                 s = strjoin(locale_variable_to_string(i), "=", variables[i]);
-                if (!s) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!s)
+                        return -ENOMEM;
 
-                if (strv_consume(&add, s) < 0) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (strv_consume(&add, s) < 0)
+                        return -ENOMEM;
         }
 
-        if (!strv_isempty(add)) {
-                char **e;
+        if (strv_isempty(add)) {
+                /* If no locale is configured then default to C.UTF-8. */
 
-                e = strv_env_merge(2, *environment, add);
-                if (!e) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                strv_free_and_replace(*environment, e);
+                add = strv_new("LANG=C.UTF-8");
+                if (!add)
+                        return -ENOMEM;
         }
 
-        r = 0;
+        if (strv_isempty(*environment))
+                strv_free_and_replace(*environment, add);
+        else {
+                char **merged;
 
-finish:
-        strv_free(add);
+                merged = strv_env_merge(2, *environment, add);
+                if (!merged)
+                        return -ENOMEM;
 
-        for (i = 0; i < _VARIABLE_LC_MAX; i++)
-                free(variables[i]);
+                strv_free_and_replace(*environment, merged);
+        }
 
-        return r;
+        return 0;
 }

@@ -389,6 +389,16 @@ const char *special_glyph(SpecialGlyph code) {
         return draw_table[is_locale_utf8()][code];
 }
 
+void locale_variables_free(char*l[_VARIABLE_LC_MAX]) {
+        LocaleVariable i;
+
+        if (!l)
+                return;
+
+        for (i = 0; i < _VARIABLE_LC_MAX; i++)
+                l[i] = mfree(l[i]);
+}
+
 static const char * const locale_variable_table[_VARIABLE_LC_MAX] = {
         [VARIABLE_LANG] = "LANG",
         [VARIABLE_LANGUAGE] = "LANGUAGE",

@@ -312,13 +312,12 @@ int user_load(User *u) {
 
         assert(u);
 
-        r = parse_env_file(NULL, u->state_file, NEWLINE,
+        r = parse_env_file(NULL, u->state_file,
                            "SERVICE_JOB",            &u->service_job,
                            "STOPPING",               &stopping,
                            "REALTIME",               &realtime,
                            "MONOTONIC",              &monotonic,
-                           "LAST_SESSION_TIMESTAMP", &last_session_timestamp,
-                           NULL);
+                           "LAST_SESSION_TIMESTAMP", &last_session_timestamp);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

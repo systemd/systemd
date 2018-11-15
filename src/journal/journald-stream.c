@@ -651,7 +651,7 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
                         return log_oom();
         }
 
-        r = parse_env_file(NULL, stream->state_file, NEWLINE,
+        r = parse_env_file(NULL, stream->state_file,
                            "PRIORITY", &priority,
                            "LEVEL_PREFIX", &level_prefix,
                            "FORWARD_TO_SYSLOG", &forward_to_syslog,
@@ -659,8 +659,7 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
                            "FORWARD_TO_CONSOLE", &forward_to_console,
                            "IDENTIFIER", &stream->identifier,
                            "UNIT", &stream->unit_id,
-                           "STREAM_ID", &stream_id,
-                           NULL);
+                           "STREAM_ID", &stream_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to read: %s", stream->state_file);
 

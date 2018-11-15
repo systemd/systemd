@@ -3961,7 +3961,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 assert(pglob.gl_pathc > 0);
 
                 for (n = 0; n < pglob.gl_pathc; n++) {
-                        k = load_env_file(NULL, pglob.gl_pathv[n], NULL, &p);
+                        k = load_env_file(NULL, pglob.gl_pathv[n], &p);
                         if (k < 0) {
                                 if (ignore)
                                         continue;

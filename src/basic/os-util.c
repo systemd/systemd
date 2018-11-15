@@ -98,7 +98,7 @@ int parse_os_release(const char *root, ...) {
                 return r;
 
         va_start(ap, root);
-        r = parse_env_filev(f, p, NEWLINE, ap);
+        r = parse_env_filev(f, p, ap);
         va_end(ap);
 
         return r;
@@ -113,5 +113,5 @@ int load_os_release_pairs(const char *root, char ***ret) {
         if (r < 0)
                 return r;
 
-        return load_env_file_pairs(f, p, NEWLINE, ret);
+        return load_env_file_pairs(f, p, ret);
 }

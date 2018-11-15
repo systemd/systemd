@@ -56,6 +56,7 @@
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "reboot-util.h"
 #include "rlimit-util.h"
@@ -5700,9 +5701,7 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         if (argc >= 3)
                 init = argv[2];
         else {
-                r = parse_env_file(NULL, "/proc/cmdline", WHITESPACE,
-                                   "init", &cmdline_init,
-                                   NULL);
+                r = proc_cmdline_get_key("init", 0, &cmdline_init);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse /proc/cmdline: %m");
 

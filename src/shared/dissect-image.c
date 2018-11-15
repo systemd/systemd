@@ -1333,14 +1333,14 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 }
 
                 case META_MACHINE_INFO:
-                        r = load_env_file_pairs(f, "machine-info", NULL, &machine_info);
+                        r = load_env_file_pairs(f, "machine-info", &machine_info);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to read /etc/machine-info: %m");
 
                         break;
 
                 case META_OS_RELEASE:
-                        r = load_env_file_pairs(f, "os-release", NULL, &os_release);
+                        r = load_env_file_pairs(f, "os-release", &os_release);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to read OS release file: %m");
 

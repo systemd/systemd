@@ -367,7 +367,6 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
 static int parse_env_file_internal(
                 FILE *f,
                 const char *fname,
-                const char *newline,
                 int (*push) (const char *filename, unsigned line,
                              const char *key, char *value, void *userdata, int *n_pushed),
                 void *userdata,
@@ -392,8 +391,6 @@ static int parse_env_file_internal(
                 COMMENT,
                 COMMENT_ESCAPE
         } state = PRE_KEY;
-
-        assert(newline);
 
         if (f)
                 r = read_full_stream(f, &contents, NULL);
@@ -422,7 +419,7 @@ static int parse_env_file_internal(
                         break;
 
                 case KEY:
-                        if (strchr(newline, c)) {
+                        if (strchr(NEWLINE, c)) {
                                 state = PRE_KEY;
                                 line++;
                                 n_key = 0;
@@ -444,7 +441,7 @@ static int parse_env_file_internal(
                         break;
 
                 case PRE_VALUE:
-                        if (strchr(newline, c)) {
+                        if (strchr(NEWLINE, c)) {
                                 state = PRE_KEY;
                                 line++;
                                 key[n_key] = 0;
@@ -482,7 +479,7 @@ static int parse_env_file_internal(
                         break;
 
                 case VALUE:
-                        if (strchr(newline, c)) {
+                        if (strchr(NEWLINE, c)) {
                                 state = PRE_KEY;
                                 line++;
 
@@ -527,7 +524,7 @@ static int parse_env_file_internal(
                 case VALUE_ESCAPE:
                         state = VALUE;
 
-                        if (!strchr(newline, c)) {
+                        if (!strchr(NEWLINE, c)) {
                                 /* Escaped newlines we eat up entirely */
                                 if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
                                         return -ENOMEM;
@@ -553,7 +550,7 @@ static int parse_env_file_internal(
                 case SINGLE_QUOTE_VALUE_ESCAPE:
                         state = SINGLE_QUOTE_VALUE;
 
-                        if (!strchr(newline, c)) {
+                        if (!strchr(NEWLINE, c)) {
                                 if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
                                         return -ENOMEM;
 
@@ -578,7 +575,7 @@ static int parse_env_file_internal(
                 case DOUBLE_QUOTE_VALUE_ESCAPE:
                         state = DOUBLE_QUOTE_VALUE;
 
-                        if (!strchr(newline, c)) {
+                        if (!strchr(NEWLINE, c)) {
                                 if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
                                         return -ENOMEM;
 
@@ -589,7 +586,7 @@ static int parse_env_file_internal(
                 case COMMENT:
                         if (c == '\\')
                                 state = COMMENT_ESCAPE;
-                        else if (strchr(newline, c)) {
+                        else if (strchr(NEWLINE, c)) {
                                 state = PRE_KEY;
                                 line++;
                         }
@@ -698,17 +695,13 @@ static int parse_env_file_push(
 int parse_env_filev(
                 FILE *f,
                 const char *fname,
-                const char *newline,
                 va_list ap) {
 
         int r, n_pushed = 0;
         va_list aq;
 
-        if (!newline)
-                newline = NEWLINE;
-
         va_copy(aq, ap);
-        r = parse_env_file_internal(f, fname, newline, parse_env_file_push, &aq, &n_pushed);
+        r = parse_env_file_internal(f, fname, parse_env_file_push, &aq, &n_pushed);
         va_end(aq);
         if (r < 0)
                 return r;
@@ -716,17 +709,16 @@ int parse_env_filev(
         return n_pushed;
 }
 
-int parse_env_file(
+int parse_env_file_sentinel(
                 FILE *f,
                 const char *fname,
-                const char *newline,
                 ...) {
 
         va_list ap;
         int r;
 
-        va_start(ap, newline);
-        r = parse_env_filev(f, fname, newline, ap);
+        va_start(ap, fname);
+        r = parse_env_filev(f, fname, ap);
         va_end(ap);
 
         return r;
@@ -762,14 +754,11 @@ static int load_env_file_push(
         return 0;
 }
 
-int load_env_file(FILE *f, const char *fname, const char *newline, char ***rl) {
+int load_env_file(FILE *f, const char *fname, char ***rl) {
         char **m = NULL;
         int r;
 
-        if (!newline)
-                newline = NEWLINE;
-
-        r = parse_env_file_internal(f, fname, newline, load_env_file_push, &m, NULL);
+        r = parse_env_file_internal(f, fname, load_env_file_push, &m, NULL);
         if (r < 0) {
                 strv_free(m);
                 return r;
@@ -811,14 +800,11 @@ static int load_env_file_push_pairs(
         return 0;
 }
 
-int load_env_file_pairs(FILE *f, const char *fname, const char *newline, char ***rl) {
+int load_env_file_pairs(FILE *f, const char *fname, char ***rl) {
         char **m = NULL;
         int r;
 
-        if (!newline)
-                newline = NEWLINE;
-
-        r = parse_env_file_internal(f, fname, newline, load_env_file_push_pairs, &m, NULL);
+        r = parse_env_file_internal(f, fname, load_env_file_push_pairs, &m, NULL);
         if (r < 0) {
                 strv_free(m);
                 return r;
@@ -871,7 +857,7 @@ int merge_env_file(
          * plus "extended" substitutions, unlike other exported parsing functions.
          */
 
-        return parse_env_file_internal(f, fname, NEWLINE, merge_env_file_push, env, NULL);
+        return parse_env_file_internal(f, fname, merge_env_file_push, env, NULL);
 }
 
 static void write_env_var(FILE *f, const char *v) {

@@ -149,10 +149,7 @@ static int load_cursor_state(Uploader *u) {
         if (!u->state_file)
                 return 0;
 
-        r = parse_env_file(NULL, u->state_file, NEWLINE,
-                           "LAST_CURSOR",  &u->last_cursor,
-                           NULL);
-
+        r = parse_env_file(NULL, u->state_file, "LAST_CURSOR", &u->last_cursor);
         if (r == -ENOENT)
                 log_debug("State file %s is not present.", u->state_file);
         else if (r < 0)

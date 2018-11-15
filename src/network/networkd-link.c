@@ -3210,13 +3210,12 @@ static int link_load(Link *link) {
 
         assert(link);
 
-        r = parse_env_file(NULL, link->state_file, NEWLINE,
+        r = parse_env_file(NULL, link->state_file,
                            "NETWORK_FILE", &network_file,
                            "ADDRESSES", &addresses,
                            "ROUTES", &routes,
                            "DHCP4_ADDRESS", &dhcp4_address,
-                           "IPV4LL_ADDRESS", &ipv4ll_address,
-                           NULL);
+                           "IPV4LL_ADDRESS", &ipv4ll_address);
         if (r < 0 && r != -ENOENT)
                 return log_link_error_errno(link, r, "Failed to read %s: %m", link->state_file);
 

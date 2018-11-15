@@ -63,6 +63,13 @@ CHANGES WITH 240 in spe:
           has been added to revert this change in behaviour, which might be
           an option for systems that turn off memcg in the kernel.
 
+        * When no /etc/locale.conf file exists (and hence no locale settings
+          are in place), systemd will now use the "C.UTF-8" locale by default,
+          and set LANG= to it. This locale is supported by various
+          distributions including Fedora, with clear indications that upstream
+          glibc is going to make it available too. This locale enables UTF-8
+          mode by default, which appears appropriate for 2018.
+
 CHANGES WITH 239:
 
         * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"

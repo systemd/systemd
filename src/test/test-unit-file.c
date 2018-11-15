@@ -531,7 +531,7 @@ static void test_load_env_file_1(void) {
         assert_se(fd >= 0);
         assert_se(write(fd, env_file_1, sizeof(env_file_1)) == sizeof(env_file_1));
 
-        r = load_env_file(NULL, name, NULL, &data);
+        r = load_env_file(NULL, name, &data);
         assert_se(r == 0);
         assert_se(streq(data[0], "a=a"));
         assert_se(streq(data[1], "b=bc"));
@@ -553,7 +553,7 @@ static void test_load_env_file_2(void) {
         assert_se(fd >= 0);
         assert_se(write(fd, env_file_2, sizeof(env_file_2)) == sizeof(env_file_2));
 
-        r = load_env_file(NULL, name, NULL, &data);
+        r = load_env_file(NULL, name, &data);
         assert_se(r == 0);
         assert_se(streq(data[0], "a=a"));
         assert_se(data[1] == NULL);
@@ -570,7 +570,7 @@ static void test_load_env_file_3(void) {
         assert_se(fd >= 0);
         assert_se(write(fd, env_file_3, sizeof(env_file_3)) == sizeof(env_file_3));
 
-        r = load_env_file(NULL, name, NULL, &data);
+        r = load_env_file(NULL, name, &data);
         assert_se(r == 0);
         assert_se(data == NULL);
 }
@@ -585,7 +585,7 @@ static void test_load_env_file_4(void) {
         assert_se(fd >= 0);
         assert_se(write(fd, env_file_4, sizeof(env_file_4)) == sizeof(env_file_4));
 
-        r = load_env_file(NULL, name, NULL, &data);
+        r = load_env_file(NULL, name, &data);
         assert_se(r == 0);
         assert_se(streq(data[0], "HWMON_MODULES=coretemp f71882fg"));
         assert_se(streq(data[1], "MODULE_0=coretemp"));
@@ -604,7 +604,7 @@ static void test_load_env_file_5(void) {
         assert_se(fd >= 0);
         assert_se(write(fd, env_file_5, sizeof(env_file_5)) == sizeof(env_file_5));
 
-        r = load_env_file(NULL, name, NULL, &data);
+        r = load_env_file(NULL, name, &data);
         assert_se(r == 0);
         assert_se(streq(data[0], "a="));
         assert_se(streq(data[1], "b="));

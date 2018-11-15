@@ -55,7 +55,7 @@ static void test_parse_env_file(void) {
         fflush(f);
         fclose(f);
 
-        r = load_env_file(NULL, t, NULL, &a);
+        r = load_env_file(NULL, t, &a);
         assert_se(r >= 0);
 
         STRV_FOREACH(i, a)
@@ -82,7 +82,7 @@ static void test_parse_env_file(void) {
         }
 
         r = parse_env_file(
-                        NULL, t, NULL,
+                        NULL, t,
                        "one", &one,
                        "two", &two,
                        "three", &three,
@@ -92,8 +92,7 @@ static void test_parse_env_file(void) {
                        "seven", &seven,
                        "eight", &eight,
                        "export nine", &nine,
-                       "ten", &ten,
-                       NULL);
+                       "ten", &ten);
 
         assert_se(r >= 0);
 
@@ -128,7 +127,7 @@ static void test_parse_env_file(void) {
         r = write_env_file(p, a);
         assert_se(r >= 0);
 
-        r = load_env_file(NULL, p, NULL, &b);
+        r = load_env_file(NULL, p, &b);
         assert_se(r >= 0);
 }
 
@@ -157,7 +156,7 @@ static void test_parse_multiline_env_file(void) {
         fflush(f);
         fclose(f);
 
-        r = load_env_file(NULL, t, NULL, &a);
+        r = load_env_file(NULL, t, &a);
         assert_se(r >= 0);
 
         STRV_FOREACH(i, a)
@@ -176,7 +175,7 @@ static void test_parse_multiline_env_file(void) {
         r = write_env_file(p, a);
         assert_se(r >= 0);
 
-        r = load_env_file(NULL, p, NULL, &b);
+        r = load_env_file(NULL, p, &b);
         assert_se(r >= 0);
 }
 
@@ -467,7 +466,7 @@ static void test_load_env_file_pairs(void) {
         f = fdopen(fd, "r");
         assert_se(f);
 
-        r = load_env_file_pairs(f, fn, NULL, &l);
+        r = load_env_file_pairs(f, fn, &l);
         assert_se(r >= 0);
 
         assert_se(strv_length(l) == 14);

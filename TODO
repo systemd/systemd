@@ -28,11 +28,10 @@ Features:
 * systemd-gpt-auto: if we find the root dir mounted read-only and the gpt flag
   doesn't say so generate job that remounts it writable
 
+* when no locale is configured, default to UEFI's PlatformLang variable
+
 * When logind.conf contains HandleLidSwitch=suspend-then-hibernate and we can't
   hibernate because the swap partition isn't large enough, still suspend
-
-* Now that C.UTF-8 is standardized in glibc, default to it if locale.conf
-  doesn't set anything otherwise
 
 * bootctl: implement Type #2 boot loader entry discovery
 

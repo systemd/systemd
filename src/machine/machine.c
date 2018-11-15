@@ -251,7 +251,7 @@ int machine_load(Machine *m) {
         if (!m->state_file)
                 return 0;
 
-        r = parse_env_file(NULL, m->state_file, NEWLINE,
+        r = parse_env_file(NULL, m->state_file,
                            "SCOPE",     &m->unit,
                            "SCOPE_JOB", &m->scope_job,
                            "SERVICE",   &m->service,
@@ -261,8 +261,7 @@ int machine_load(Machine *m) {
                            "CLASS",     &class,
                            "REALTIME",  &realtime,
                            "MONOTONIC", &monotonic,
-                           "NETIF",     &netif,
-                           NULL);
+                           "NETIF",     &netif);
         if (r < 0) {
                 if (r == -ENOENT)
                         return 0;

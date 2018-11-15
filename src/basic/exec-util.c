@@ -241,7 +241,7 @@ static int gather_environment_generate(int fd, void *arg) {
                 return -errno;
         }
 
-        r = load_env_file_pairs(f, NULL, NULL, &new);
+        r = load_env_file_pairs(f, NULL, &new);
         if (r < 0)
                 return r;
 

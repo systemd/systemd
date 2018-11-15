@@ -1114,7 +1114,7 @@ int image_read_metadata(Image *i) {
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-info in image %s: %m", i->name);
                 else if (r >= 0) {
-                        r = load_env_file_pairs(NULL, path, NULL, &machine_info);
+                        r = load_env_file_pairs(NULL, path, &machine_info);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to parse machine-info data of %s: %m", i->name);
                 }

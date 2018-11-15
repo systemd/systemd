@@ -248,7 +248,9 @@ int container_get_leader(const char *machine, pid_t *pid) {
                 return -EINVAL;
 
         p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p, NEWLINE, "LEADER", &s, "CLASS", &class, NULL);
+        r = parse_env_file(NULL, p,
+                           "LEADER", &s,
+                           "CLASS", &class);
         if (r == -ENOENT)
                 return -EHOSTDOWN;
         if (r < 0)

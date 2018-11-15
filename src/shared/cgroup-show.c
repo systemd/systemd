@@ -339,7 +339,7 @@ int show_cgroup_get_path_and_warn(
                 const char *m;
 
                 m = strjoina("/run/systemd/machines/", machine);
-                r = parse_env_file(NULL, m, NEWLINE, "SCOPE", &unit, NULL);
+                r = parse_env_file(NULL, m, "SCOPE", &unit);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load machine data: %m");
 

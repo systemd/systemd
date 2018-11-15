@@ -23,6 +23,7 @@
 #include "io-util.h"
 #include "locale-util.h"
 #include "log.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
@@ -417,32 +418,29 @@ int main(int argc, char **argv) {
 
         utf8 = is_locale_utf8();
 
-        r = parse_env_file(NULL, "/etc/vconsole.conf", NEWLINE,
+        r = parse_env_file(NULL, "/etc/vconsole.conf",
                            "KEYMAP", &vc_keymap,
                            "KEYMAP_TOGGLE", &vc_keymap_toggle,
                            "FONT", &vc_font,
                            "FONT_MAP", &vc_font_map,
-                           "FONT_UNIMAP", &vc_font_unimap,
-                           NULL);
+                           "FONT_UNIMAP", &vc_font_unimap);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /etc/vconsole.conf: %m");
 
         /* Let the kernel command line override /etc/vconsole.conf */
-        if (detect_container() <= 0) {
-                r = parse_env_file(NULL, "/proc/cmdline", WHITESPACE,
-                                   "vconsole.keymap", &vc_keymap,
-                                   "vconsole.keymap_toggle", &vc_keymap_toggle,
-                                   "vconsole.font", &vc_font,
-                                   "vconsole.font_map", &vc_font_map,
-                                   "vconsole.font_unimap", &vc_font_unimap,
-                                   /* compatibility with obsolete multiple-dot scheme */
-                                   "vconsole.keymap.toggle", &vc_keymap_toggle,
-                                   "vconsole.font.map", &vc_font_map,
-                                   "vconsole.font.unimap", &vc_font_unimap,
-                                   NULL);
-                if (r < 0 && r != -ENOENT)
-                        log_warning_errno(r, "Failed to read /proc/cmdline: %m");
-        }
+        r = proc_cmdline_get_key_many(
+                        PROC_CMDLINE_STRIP_RD_PREFIX,
+                        "vconsole.keymap", &vc_keymap,
+                        "vconsole.keymap_toggle", &vc_keymap_toggle,
+                        "vconsole.font", &vc_font,
+                        "vconsole.font_map", &vc_font_map,
+                        "vconsole.font_unimap", &vc_font_unimap,
+                        /* compatibility with obsolete multiple-dot scheme */
+                        "vconsole.keymap.toggle", &vc_keymap_toggle,
+                        "vconsole.font.map", &vc_font_map,
+                        "vconsole.font.unimap", &vc_font_unimap);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "Failed to read /proc/cmdline: %m");
 
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8(vc, fd, utf8);
