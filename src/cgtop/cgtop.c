@@ -501,31 +501,14 @@ static int refresh_one(
 }
 
 static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration) {
+        const char *c;
         int r;
 
-        assert(a);
-
-        r = refresh_one(SYSTEMD_CGROUP_CONTROLLER, root, a, b, iteration, 0, NULL);
-        if (r < 0)
-                return r;
-        r = refresh_one("cpu", root, a, b, iteration, 0, NULL);
-        if (r < 0)
-                return r;
-        r = refresh_one("cpuacct", root, a, b, iteration, 0, NULL);
-        if (r < 0)
-                return r;
-        r = refresh_one("memory", root, a, b, iteration, 0, NULL);
-        if (r < 0)
-                return r;
-        r = refresh_one("io", root, a, b, iteration, 0, NULL);
-        if (r < 0)
-                return r;
-        r = refresh_one("blkio", root, a, b, iteration, 0, NULL);
-        if (r < 0)
-                return r;
-        r = refresh_one("pids", root, a, b, iteration, 0, NULL);
-        if (r < 0)
-                return r;
+        FOREACH_STRING(c, SYSTEMD_CGROUP_CONTROLLER, "cpu", "cpuacct", "memory", "io", "blkio", "pids") {
+                r = refresh_one(c, root, a, b, iteration, 0, NULL);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
