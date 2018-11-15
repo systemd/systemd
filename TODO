@@ -40,7 +40,7 @@ Features:
 * consider splitting out all temporary file creation APIs (we have so many in
   fileio.h and elsewhere!) into a new util file of its own.
 
-* set memory.oom.group in cgroupsv2 for all leaf cgroups
+* set memory.oom.group in cgroupsv2 for all leaf cgroups (kernel v4.19+)
 
 * drop umask() calls and suchlike from our generators, pid1 should set things up correctly anyway
 
