@@ -174,6 +174,8 @@ int main(int argc, char *argv[]) {
 
 finish:
         arg_default_unit = mfree(arg_default_unit);
+        strv_free(arg_wants);
+        strv_free(arg_mask);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
