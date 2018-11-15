@@ -1406,7 +1406,7 @@ static int json_format(FILE *f, JsonVariant *v, unsigned flags, const char *pref
                                 break;
 
                         default:
-                                if (*q >= 0 && *q < ' ')
+                                if ((signed char) *q >= 0 && *q < ' ')
                                         fprintf(f, "\\u%04x", *q);
                                 else
                                         fputc(*q, f);
@@ -1759,7 +1759,7 @@ static void inc_lines_columns(unsigned *line, unsigned *column, const char *s, s
                 if (*s == '\n') {
                         (*line)++;
                         *column = 1;
-                } else if (*s >= 0 && *s < 127) /* Process ASCII chars quickly */
+                } else if ((signed char) *s >= 0 && *s < 127) /* Process ASCII chars quickly */
                         (*column)++;
                 else {
                         int w;
