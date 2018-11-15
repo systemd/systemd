@@ -835,7 +835,7 @@ static void cgroup_context_apply(
 
                                 weight = cgroup_cpu_shares_to_weight(shares);
 
-                                log_cgroup_compat(u, "Applying [Startup]CpuShares %" PRIu64 " as [Startup]CpuWeight %" PRIu64 " on %s",
+                                log_cgroup_compat(u, "Applying [Startup]CPUShares %" PRIu64 " as [Startup]CPUWeight %" PRIu64 " on %s",
                                                   shares, weight, path);
                         } else
                                 weight = CGROUP_WEIGHT_DEFAULT;
@@ -849,7 +849,7 @@ static void cgroup_context_apply(
 
                                 shares = cgroup_cpu_weight_to_shares(weight);
 
-                                log_cgroup_compat(u, "Applying [Startup]CpuWeight %" PRIu64 " as [Startup]CpuShares %" PRIu64 " on %s",
+                                log_cgroup_compat(u, "Applying [Startup]CPUWeight %" PRIu64 " as [Startup]CPUShares %" PRIu64 " on %s",
                                                   weight, shares, path);
                         } else if (has_shares)
                                 shares = cgroup_context_cpu_shares(c, state);
