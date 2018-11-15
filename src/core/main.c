@@ -100,7 +100,6 @@ static ShowStatus arg_show_status = _SHOW_STATUS_INVALID;
 static bool arg_switched_root = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_service_watchdogs = true;
-static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 static usec_t arg_default_restart_usec = DEFAULT_RESTART_USEC;
@@ -667,7 +666,7 @@ static int parse_config_file(void) {
                 { "Manager", "CrashReboot",               config_parse_bool,             0, &arg_crash_reboot                      },
                 { "Manager", "ShowStatus",                config_parse_show_status,      0, &arg_show_status                       },
                 { "Manager", "CPUAffinity",               config_parse_cpu_affinity2,    0, NULL                                   },
-                { "Manager", "JoinControllers",           config_parse_join_controllers, 0, &arg_join_controllers                  },
+                { "Manager", "JoinControllers",           config_parse_warn_compat,      DISABLED_CONFIGURATION, NULL              },
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
                 { "Manager", "WatchdogDevice",            config_parse_path,             0, &arg_watchdog_device                   },
@@ -1956,7 +1955,7 @@ static int initialize_runtime(
                 install_crash_handler();
 
                 if (!skip_setup) {
-                        r = mount_cgroup_controllers(arg_join_controllers);
+                        r = mount_cgroup_controllers();
                         if (r < 0) {
                                 *ret_error_message = "Failed to mount cgroup hierarchies";
                                 return r;
@@ -2081,7 +2080,6 @@ static void free_arguments(void) {
 
         arg_default_unit = mfree(arg_default_unit);
         arg_confirm_spawn = mfree(arg_confirm_spawn);
-        arg_join_controllers = strv_free_free(arg_join_controllers);
         arg_default_environment = strv_free(arg_default_environment);
         arg_syscall_archs = set_free(arg_syscall_archs);
 }

@@ -690,7 +690,6 @@ HibernateMode=
 HibernateState=
 HybridSleepMode=
 HybridSleepState=
-JoinControllers=
 LogColor=
 LogLevel=
 LogLocation=
