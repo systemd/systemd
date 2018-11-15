@@ -98,6 +98,8 @@ static void group_hashmap_free(Hashmap *h) {
         hashmap_free(h);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, group_hashmap_free);
+
 static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64_t t) {
         if (!is_valid)
                 return "-";
@@ -924,13 +926,13 @@ static const char* counting_what(void) {
 }
 
 int main(int argc, char *argv[]) {
-        int r;
-        Hashmap *a = NULL, *b = NULL;
+        _cleanup_(group_hashmap_freep) Hashmap *a = NULL, *b = NULL;
         unsigned iteration = 0;
         usec_t last_refresh = 0;
         bool quit = false, immediate_refresh = false;
         _cleanup_free_ char *root = NULL;
         CGroupMask mask;
+        int r;
 
         log_parse_environment();
         log_open();
@@ -1138,8 +1140,6 @@ int main(int argc, char *argv[]) {
         r = 0;
 
 finish:
-        group_hashmap_free(a);
-        group_hashmap_free(b);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
