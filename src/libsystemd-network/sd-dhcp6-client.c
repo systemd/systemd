@@ -1332,6 +1332,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                 log_dhcp6_client(client, "T1 expires in %s",
                                  format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
+                client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
                 r = sd_event_add_time(client->event,
                                       &client->timeout_t1,
                                       clock_boottime_or_monotonic(), time_now + timeout,
@@ -1354,6 +1355,7 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                 log_dhcp6_client(client, "T2 expires in %s",
                                  format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
+                client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
                 r = sd_event_add_time(client->event,
                                       &client->timeout_t2,
                                       clock_boottime_or_monotonic(), time_now + timeout,
