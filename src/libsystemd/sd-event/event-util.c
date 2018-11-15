@@ -87,3 +87,10 @@ int event_source_disable(sd_event_source *s) {
 
         return sd_event_source_set_enabled(s, SD_EVENT_OFF);
 }
+
+int event_source_is_enabled(sd_event_source *s) {
+        if (!s)
+                return false;
+
+        return sd_event_source_get_enabled(s, NULL);
+}
