@@ -2043,7 +2043,8 @@ int udev_rules_apply_to_event(
                         const char *key;
 
                         key = rules_str(rules, cur->key.value_off);
-                        if (sd_device_get_property_value(event->dev_db_clone, key, &val) >= 0)
+                        if (event->dev_db_clone &&
+                            sd_device_get_property_value(event->dev_db_clone, key, &val) >= 0)
                                 device_add_property(dev, key, val);
                         else if (cur->key.op != OP_NOMATCH)
                                 goto nomatch;
