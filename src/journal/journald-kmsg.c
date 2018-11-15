@@ -94,7 +94,7 @@ static bool is_us(const char *identifier, const char *pid) {
                streq(identifier, program_invocation_short_name);
 }
 
-static void dev_kmsg_record(Server *s, char *p, size_t l) {
+void dev_kmsg_record(Server *s, char *p, size_t l) {
 
         _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL, *identifier = NULL, *pid = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
