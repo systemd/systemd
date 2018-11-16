@@ -2108,6 +2108,7 @@ done:
 
 int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path) {
         CGroupController c;
+        CGroupMask done;
         bool created;
         int r;
 
@@ -2132,20 +2133,28 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
         if (r > 0)
                 return created;
 
+        supported &= CGROUP_MASK_V1;
+        mask = CGROUP_MASK_EXTEND_JOINED(mask);
+        done = 0;
+
         /* Otherwise, do the same in the other hierarchies */
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                 const char *n;
 
-                if (!FLAGS_SET(CGROUP_MASK_V1, bit))
+                if (!FLAGS_SET(supported, bit))
+                        continue;
+
+                if (FLAGS_SET(done, bit))
                         continue;
 
                 n = cgroup_controller_to_string(c);
-
                 if (FLAGS_SET(mask, bit))
                         (void) cg_create(n, path);
-                else if (FLAGS_SET(supported, bit))
+                else
                         (void) cg_trim(n, path, true);
+
+                done |= CGROUP_MASK_EXTEND_JOINED(bit);
         }
 
         return created;
@@ -2153,6 +2162,7 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
 
 int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_migrate_callback_t path_callback, void *userdata) {
         CGroupController c;
+        CGroupMask done;
         int r;
 
         r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, path, pid);
@@ -2165,23 +2175,26 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_m
         if (r > 0)
                 return 0;
 
+        supported &= CGROUP_MASK_V1;
+        done = 0;
+
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                 const char *p = NULL;
 
-                if (!FLAGS_SET(CGROUP_MASK_V1, bit))
+                if (!FLAGS_SET(supported, bit))
                         continue;
 
-                if (!FLAGS_SET(supported, bit))
+                if (FLAGS_SET(done, bit))
                         continue;
 
                 if (path_callback)
                         p = path_callback(bit, userdata);
-
                 if (!p)
                         p = path;
 
                 (void) cg_attach_fallback(cgroup_controller_to_string(c), p, pid);
+                done |= CGROUP_MASK_EXTEND_JOINED(bit);
         }
 
         return 0;
@@ -2206,6 +2219,7 @@ int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids,
 
 int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to, cg_migrate_callback_t to_callback, void *userdata) {
         CGroupController c;
+        CGroupMask done;
         int r = 0, q;
 
         if (!path_equal(from, to))  {
@@ -2220,30 +2234,34 @@ int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to
         if (q > 0)
                 return r;
 
+        supported &= CGROUP_MASK_V1;
+        done = 0;
+
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
                 const char *p = NULL;
 
-                if (!FLAGS_SET(CGROUP_MASK_V1, bit))
+                if (!FLAGS_SET(supported, bit))
                         continue;
 
-                if (!FLAGS_SET(supported, bit))
+                if (FLAGS_SET(done, bit))
                         continue;
 
                 if (to_callback)
                         p = to_callback(bit, userdata);
-
                 if (!p)
                         p = to;
 
                 (void) cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, cgroup_controller_to_string(c), p, 0);
+                done |= CGROUP_MASK_EXTEND_JOINED(bit);
         }
 
-        return 0;
+        return r;
 }
 
 int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root) {
         CGroupController c;
+        CGroupMask done;
         int r, q;
 
         r = cg_trim(SYSTEMD_CGROUP_CONTROLLER, path, delete_root);
@@ -2256,19 +2274,23 @@ int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root)
         if (q > 0)
                 return r;
 
+        supported &= CGROUP_MASK_V1;
+        done = 0;
+
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
-
-                if (!FLAGS_SET(CGROUP_MASK_V1, bit))
-                        continue;
 
                 if (!FLAGS_SET(supported, bit))
                         continue;
 
+                if (FLAGS_SET(done, bit))
+                        continue;
+
                 (void) cg_trim(cgroup_controller_to_string(c), path, delete_root);
+                done |= CGROUP_MASK_EXTEND_JOINED(bit);
         }
 
-        return 0;
+        return r;
 }
 
 int cg_mask_to_string(CGroupMask mask, char **ret) {

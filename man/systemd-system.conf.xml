@@ -107,29 +107,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>JoinControllers=cpu,cpuacct net_cls,netprio</varname></term>
-
-        <listitem><para>Configures controllers that shall be mounted
-        in a single hierarchy. By default, systemd will mount all
-        controllers which are enabled in the kernel in individual
-        hierarchies, with the exception of those listed in this
-        setting. Takes a space-separated list of comma-separated
-        controller names, in order to allow multiple joined
-        hierarchies. Defaults to 'cpu,cpuacct'. Pass an empty string
-        to ensure that systemd mounts all controllers in separate
-        hierarchies.</para>
-
-        <para>Note that this option is only applied once, at very
-        early boot. If you use an initial RAM disk (initrd) that uses
-        systemd, it might hence be necessary to rebuild the initrd if
-        this option is changed, and make sure the new configuration
-        file is included in it. Otherwise, the initrd might mount the
-        controller hierarchies in a different configuration than
-        intended, and the main system cannot remount them
-        anymore.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>RuntimeWatchdogSec=</varname></term>
         <term><varname>ShutdownWatchdogSec=</varname></term>
 

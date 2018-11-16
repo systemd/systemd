@@ -835,7 +835,7 @@ static void cgroup_context_apply(
 
                                 weight = cgroup_cpu_shares_to_weight(shares);
 
-                                log_cgroup_compat(u, "Applying [Startup]CpuShares %" PRIu64 " as [Startup]CpuWeight %" PRIu64 " on %s",
+                                log_cgroup_compat(u, "Applying [Startup]CPUShares %" PRIu64 " as [Startup]CPUWeight %" PRIu64 " on %s",
                                                   shares, weight, path);
                         } else
                                 weight = CGROUP_WEIGHT_DEFAULT;
@@ -849,7 +849,7 @@ static void cgroup_context_apply(
 
                                 shares = cgroup_cpu_weight_to_shares(weight);
 
-                                log_cgroup_compat(u, "Applying [Startup]CpuWeight %" PRIu64 " as [Startup]CpuShares %" PRIu64 " on %s",
+                                log_cgroup_compat(u, "Applying [Startup]CPUWeight %" PRIu64 " as [Startup]CPUShares %" PRIu64 " on %s",
                                                   weight, shares, path);
                         } else if (has_shares)
                                 shares = cgroup_context_cpu_shares(c, state);
@@ -1175,13 +1175,15 @@ static void cgroup_context_apply(
 CGroupMask cgroup_context_get_mask(CGroupContext *c) {
         CGroupMask mask = 0;
 
-        /* Figure out which controllers we need */
+        /* Figure out which controllers we need, based on the cgroup context object */
 
-        if (c->cpu_accounting ||
-            cgroup_context_has_cpu_weight(c) ||
+        if (c->cpu_accounting)
+                mask |= CGROUP_MASK_CPUACCT;
+
+        if (cgroup_context_has_cpu_weight(c) ||
             cgroup_context_has_cpu_shares(c) ||
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
-                mask |= CGROUP_MASK_CPUACCT | CGROUP_MASK_CPU;
+                mask |= CGROUP_MASK_CPU;
 
         if (cgroup_context_has_io_config(c) || cgroup_context_has_blockio_config(c))
                 mask |= CGROUP_MASK_IO | CGROUP_MASK_BLKIO;
@@ -1199,11 +1201,14 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
             c->tasks_max != CGROUP_LIMIT_MAX)
                 mask |= CGROUP_MASK_PIDS;
 
-        return mask;
+        return CGROUP_MASK_EXTEND_JOINED(mask);
 }
 
 CGroupMask unit_get_bpf_mask(Unit *u) {
         CGroupMask mask = 0;
+
+        /* Figure out which controllers we need, based on the cgroup context, possibly taking into account children
+         * too. */
 
         if (unit_get_needs_bpf_firewall(u))
                 mask |= CGROUP_MASK_BPF_FIREWALL;
@@ -1243,7 +1248,7 @@ CGroupMask unit_get_delegate_mask(Unit *u) {
         }
 
         assert_se(c = unit_get_cgroup_context(u));
-        return c->delegate_controllers;
+        return CGROUP_MASK_EXTEND_JOINED(c->delegate_controllers);
 }
 
 CGroupMask unit_get_members_mask(Unit *u) {
