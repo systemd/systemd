@@ -106,7 +106,6 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
         int r = 1;
 
         assert(p);
-        assert(*p);
         assert(ret);
 
         /* Unescapes C style. Returns the unescaped character in ret.
