@@ -199,10 +199,8 @@ int cg_rmdir(const char *controller, const char *path) {
                 return -errno;
 
         r = cg_hybrid_unified();
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
                 r = cg_rmdir(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path);

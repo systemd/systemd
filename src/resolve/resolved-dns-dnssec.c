@@ -1378,17 +1378,13 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
 
         a = dns_resource_key_name(rr->key);
         r = dns_name_parent(&a); /* strip off hash */
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         b = dns_resource_key_name(nsec3->key);
         r = dns_name_parent(&b); /* strip off hash */
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         /* Make sure both have the same parent */
         return dns_name_equal(a, b);
@@ -2096,10 +2092,8 @@ static int dnssec_test_positive_wildcard_nsec3(
         for (;;) {
                 next_closer = name;
                 r = dns_name_parent(&name);
-                if (r < 0)
+                if (r <= 0)
                         return r;
-                if (r == 0)
-                        return 0;
 
                 r = dns_name_equal(name, source);
                 if (r < 0)
