@@ -1699,10 +1699,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (s->result == SERVICE_SUCCESS)
                 s->result = f;
 
-        if (s->result == SERVICE_SUCCESS)
-                unit_log_success(UNIT(s));
-        else
-                unit_log_failure(UNIT(s), service_result_to_string(s->result));
+        unit_log_result(UNIT(s), s->result == SERVICE_SUCCESS, service_result_to_string(s->result));
 
         if (allow_restart && service_shall_restart(s))
                 s->will_auto_restart = true;

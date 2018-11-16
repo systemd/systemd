@@ -808,6 +808,13 @@ int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 
 void unit_log_success(Unit *u);
 void unit_log_failure(Unit *u, const char *result);
+static inline void unit_log_result(Unit *u, bool success, const char *result) {
+        if (success)
+                unit_log_success(u);
+        else
+                unit_log_failure(u, result);
+}
+
 void unit_log_process_exit(Unit *u, int level, const char *kind, const char *command, int code, int status);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */

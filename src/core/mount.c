@@ -799,11 +799,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         if (m->result == MOUNT_SUCCESS)
                 m->result = f;
 
-        if (m->result == MOUNT_SUCCESS)
-                unit_log_success(UNIT(m));
-        else
-                unit_log_failure(UNIT(m), mount_result_to_string(m->result));
-
+        unit_log_result(UNIT(m), m->result == MOUNT_SUCCESS, mount_result_to_string(m->result));
         mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
 
         m->exec_runtime = exec_runtime_unref(m->exec_runtime, true);
