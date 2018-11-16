@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <errno.h>
+
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"
 #include "hwdb-util.h"
-#include "libudev-private.h"
+#include "libudev-list-internal.h"
 
 /**
  * SECTION:libudev-hwdb

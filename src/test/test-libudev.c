@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <sys/epoll.h>
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "libudev-private.h"
+#include "libudev-util.h"
 #include "log.h"
 #include "stdio-util.h"
 #include "string-util.h"

@@ -9,10 +9,11 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "libudev.h"
+
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "libudev-private.h"
 
 /**
  * SECTION:libudev-queue

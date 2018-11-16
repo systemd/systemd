@@ -10,7 +10,6 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "libudev-device-internal.h"
-#include "libudev-private.h"
 #include "string-util.h"
 
 /**
@@ -65,7 +64,7 @@ static MonitorNetlinkGroup monitor_netlink_group_from_string(const char *name) {
  **/
 _public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
-        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor = NULL;
+        struct udev_monitor *udev_monitor;
         MonitorNetlinkGroup g;
         int r;
 
@@ -93,7 +92,7 @@ _public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, c
                 .monitor = TAKE_PTR(m),
         };
 
-        return TAKE_PTR(udev_monitor);
+        return udev_monitor;
 }
 
 /**
