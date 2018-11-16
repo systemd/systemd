@@ -4453,7 +4453,7 @@ static void manager_deserialize_uid_refs_one_internal(
 
         r = hashmap_replace(*uid_refs, UID_TO_PTR(uid), UINT32_TO_PTR(c));
         if (r < 0) {
-                log_debug("Failed to add UID reference entry");
+                log_debug_errno(r, "Failed to add UID reference entry: %m");
                 return;
         }
 }
