@@ -2788,10 +2788,8 @@ static int manager_dispatch_timezone_change(
         log_debug("inotify event for /etc/localtime");
 
         changed = manager_read_timezone_stat(m);
-        if (changed < 0)
+        if (changed <= 0)
                 return changed;
-        if (!changed)
-                return 0;
 
         /* Something changed, restart the watch, to ensure we watch the new /etc/localtime if it changed */
         (void) manager_setup_timezone_change(m);
