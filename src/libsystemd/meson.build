@@ -10,6 +10,8 @@ sd_daemon_c = files('sd-daemon/sd-daemon.c')
 
 sd_event_c = files('''
         sd-event/event-source.h
+        sd-event/event-util.c
+        sd-event/event-util.h
         sd-event/sd-event.c
 '''.split())
 
