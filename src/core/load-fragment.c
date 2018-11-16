@@ -4291,6 +4291,41 @@ int config_parse_pid_file(
         return 0;
 }
 
+int config_parse_exit_status(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *exit_status = data, r;
+        uint8_t u;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(exit_status);
+
+        if (isempty(rvalue)) {
+                *exit_status = -1;
+                return 0;
+        }
+
+        r = safe_atou8(rvalue, &u);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse exit status '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        *exit_status = u;
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {

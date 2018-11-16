@@ -25,6 +25,7 @@ int emergency_action(
                 EmergencyAction action,
                 EmergencyActionFlags options,
                 const char *reboot_arg,
+                int exit_status,
                 const char *reason) {
 
         assert(m);
@@ -75,6 +76,10 @@ int emergency_action(
                 break;
 
         case EMERGENCY_ACTION_EXIT:
+
+                if (exit_status >= 0)
+                        m->return_value = exit_status;
+
                 if (MANAGER_IS_USER(m) || detect_container() > 0) {
                         log_and_status(m, warn, "Exiting", reason);
                         (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
@@ -90,6 +95,10 @@ int emergency_action(
                 break;
 
         case EMERGENCY_ACTION_EXIT_FORCE:
+
+                if (exit_status >= 0)
+                        m->return_value = exit_status;
+
                 if (MANAGER_IS_USER(m) || detect_container() > 0) {
                         log_and_status(m, warn, "Exiting immediately", reason);
                         m->objective = MANAGER_EXIT;

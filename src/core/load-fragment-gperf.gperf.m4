@@ -239,6 +239,8 @@ Unit.StartLimitBurst,            config_parse_unsigned,              0,         
 Unit.StartLimitAction,           config_parse_emergency_action,      0,                             offsetof(Unit, start_limit_action)
 Unit.FailureAction,              config_parse_emergency_action,      0,                             offsetof(Unit, failure_action)
 Unit.SuccessAction,              config_parse_emergency_action,      0,                             offsetof(Unit, success_action)
+Unit.FailureActionExitStatus,    config_parse_exit_status,           0,                             offsetof(Unit, failure_action_exit_status)
+Unit.SuccessActionExitStatus,    config_parse_exit_status,           0,                             offsetof(Unit, success_action_exit_status)
 Unit.RebootArgument,             config_parse_unit_string_printf,    0,                             offsetof(Unit, reboot_arg)
 Unit.ConditionPathExists,        config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         offsetof(Unit, conditions)
 Unit.ConditionPathExistsGlob,    config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    offsetof(Unit, conditions)

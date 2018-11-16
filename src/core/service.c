@@ -4005,6 +4005,21 @@ static bool service_needs_console(Unit *u) {
                       SERVICE_FINAL_SIGKILL);
 }
 
+static int service_exit_status(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(u);
+
+        if (s->main_exec_status.pid <= 0 ||
+            !dual_timestamp_is_set(&s->main_exec_status.exit_timestamp))
+                return -ENODATA;
+
+        if (s->main_exec_status.code != CLD_EXITED)
+                return -EBADE;
+
+        return s->main_exec_status.status;
+}
+
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",
         [SERVICE_RESTART_ON_SUCCESS] = "on-success",
@@ -4125,6 +4140,7 @@ const UnitVTable service_vtable = {
 
         .get_timeout = service_get_timeout,
         .needs_console = service_needs_console,
+        .exit_status = service_exit_status,
 
         .status_message_formats = {
                 .starting_stopping = {

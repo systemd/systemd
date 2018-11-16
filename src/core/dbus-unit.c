@@ -671,7 +671,9 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitAction", "s", property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FailureAction", "s", property_get_emergency_action, offsetof(Unit, failure_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FailureActionExitStatus", "i", bus_property_get_int, offsetof(Unit, failure_action_exit_status), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SuccessAction", "s", property_get_emergency_action, offsetof(Unit, success_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SuccessActionExitStatus", "i", bus_property_get_int, offsetof(Unit, success_action_exit_status), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Unit, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("InvocationID", "ay", bus_property_get_id128, offsetof(Unit, invocation_id), 0),
         SD_BUS_PROPERTY("CollectMode", "s", property_get_collect_mode, offsetof(Unit, collect_mode), 0),
@@ -1374,6 +1376,38 @@ static int bus_set_transient_emergency_action(
         return 1;
 }
 
+static int bus_set_transient_exit_status(
+                Unit *u,
+                const char *name,
+                int *p,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        int32_t k;
+        int r;
+
+        assert(p);
+
+        r = sd_bus_message_read(message, "i", &k);
+        if (r < 0)
+                return r;
+
+        if (k > 255)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Exit status must be in range 0…255 or negative.");
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                *p = k < 0 ? -1 : k;
+
+                if (k < 0)
+                        unit_write_settingf(u, flags, name, "%s=", name);
+                else
+                        unit_write_settingf(u, flags, name, "%s=%i", name, k);
+        }
+
+        return 1;
+}
+
 static BUS_DEFINE_SET_TRANSIENT_PARSE(collect_mode, CollectMode, collect_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(job_mode, JobMode, job_mode_from_string);
 
@@ -1523,6 +1557,12 @@ static int bus_unit_set_transient_property(
 
         if (streq(name, "SuccessAction"))
                 return bus_set_transient_emergency_action(u, name, &u->success_action, message, flags, error);
+
+        if (streq(name, "FailureActionExitStatus"))
+                return bus_set_transient_exit_status(u, name, &u->failure_action_exit_status, message, flags, error);
+
+        if (streq(name, "SuccessActionExitStatus"))
+                return bus_set_transient_exit_status(u, name, &u->success_action_exit_status, message, flags, error);
 
         if (streq(name, "RebootArgument"))
                 return bus_set_transient_string(u, name, &u->reboot_arg, message, flags, error);
