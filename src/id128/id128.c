@@ -150,7 +150,7 @@ static int id128_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         log_parse_environment();
@@ -158,10 +158,9 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        r = id128_main(argc, argv);
-
- finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return id128_main(argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);
