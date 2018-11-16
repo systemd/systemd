@@ -60,6 +60,8 @@ _available_machines() {
         case $cmd in
           list*|cancel-transfer|pull-tar|pull-raw)
             msg="no options" ;;
+          clone)
+            _available_machines ;;
           start)
             _available_machines ;;
           *)
