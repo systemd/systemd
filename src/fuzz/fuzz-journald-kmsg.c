@@ -11,6 +11,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 return 0;
 
         s = (Server) {
+                .syslog_fd = -1,
                 .native_fd = -1,
                 .stdout_fd = -1,
                 .dev_kmsg_fd = -1,
