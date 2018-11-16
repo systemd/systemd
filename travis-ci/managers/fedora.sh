@@ -57,7 +57,11 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC ninja -v -C build
 
             # Never remove halt_on_error from UBSAN_OPTIONS. See https://github.com/systemd/systemd/commit/2614d83aa06592aedb.
-            travis_wait docker exec --interactive=false -t $CONT_NAME sh -c "UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1 meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs"
+            travis_wait docker exec --interactive=false \
+                -e UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1 \
+                -e ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1 \
+                -t $CONT_NAME \
+                meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs
             ;;
         CLEANUP)
             info "Cleanup phase"
