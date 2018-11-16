@@ -63,7 +63,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         /* This is mostly intended to be used for scripts which want
@@ -74,17 +74,16 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = on_ac_power();
-        if (r < 0) {
-                log_error_errno(r, "Failed to read AC status: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read AC status: %m");
 
         if (arg_verbose)
                 puts(yes_no(r));
 
-finish:
-        return r < 0 ? EXIT_FAILURE : !r;
+        return r == 0;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
