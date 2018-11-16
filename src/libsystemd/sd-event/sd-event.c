@@ -2143,11 +2143,11 @@ fail:
 
 _public_ int sd_event_source_get_enabled(sd_event_source *s, int *m) {
         assert_return(s, -EINVAL);
-        assert_return(m, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
-        *m = s->enabled;
-        return 0;
+        if (m)
+                *m = s->enabled;
+        return s->enabled != SD_EVENT_OFF;
 }
 
 _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
