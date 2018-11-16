@@ -834,18 +834,6 @@ int efi_loader_get_entries(char ***ret) {
         return 0;
 }
 
-#endif
-
-char *efi_tilt_backslashes(char *s) {
-        char *p;
-
-        for (p = s; *p; p++)
-                if (*p == '\\')
-                        *p = '/';
-
-        return s;
-}
-
 int efi_loader_get_features(uint64_t *ret) {
         _cleanup_free_ void *v = NULL;
         size_t s;
@@ -894,4 +882,16 @@ int efi_loader_get_features(uint64_t *ret) {
 
         memcpy(ret, v, sizeof(uint64_t));
         return 0;
+}
+
+#endif
+
+char *efi_tilt_backslashes(char *s) {
+        char *p;
+
+        for (p = s; *p; p++)
+                if (*p == '\\')
+                        *p = '/';
+
+        return s;
 }
