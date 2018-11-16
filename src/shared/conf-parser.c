@@ -82,19 +82,13 @@ int config_item_perf_lookup(
         assert(ltype);
         assert(data);
 
-        if (!section)
-                p = lookup(lvalue, strlen(lvalue));
-        else {
-                char *key;
+        if (section) {
+                const char *key;
 
-                key = strjoin(section, ".", lvalue);
-                if (!key)
-                        return -ENOMEM;
-
+                key = strjoina(section, ".", lvalue);
                 p = lookup(key, strlen(key));
-                free(key);
-        }
-
+        } else
+                p = lookup(lvalue, strlen(lvalue));
         if (!p)
                 return 0;
 
@@ -132,7 +126,6 @@ static int next_assignment(
         r = lookup(table, section, lvalue, &func, &ltype, &data, userdata);
         if (r < 0)
                 return r;
-
         if (r > 0) {
                 if (func)
                         return func(unit, filename, line, section, section_line,
