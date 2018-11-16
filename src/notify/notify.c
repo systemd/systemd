@@ -144,7 +144,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char* argv[]) {
+static int run(int argc, char* argv[]) {
         _cleanup_free_ char *status = NULL, *cpid = NULL, *n = NULL;
         _cleanup_strv_free_ char **final_env = NULL;
         char* our_env[4];
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         if (arg_booted)
                 return sd_booted() <= 0;
@@ -166,19 +166,15 @@ int main(int argc, char* argv[]) {
 
         if (arg_status) {
                 status = strappend("STATUS=", arg_status);
-                if (!status) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!status)
+                        return log_oom();
 
                 our_env[i++] = status;
         }
 
         if (arg_pid > 0) {
-                if (asprintf(&cpid, "MAINPID="PID_FMT, arg_pid) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (asprintf(&cpid, "MAINPID="PID_FMT, arg_pid) < 0)
+                        return log_oom();
 
                 our_env[i++] = cpid;
         }
@@ -186,47 +182,36 @@ int main(int argc, char* argv[]) {
         our_env[i++] = NULL;
 
         final_env = strv_env_merge(2, our_env, argv + optind);
-        if (!final_env) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!final_env)
+                return log_oom();
 
-        if (strv_isempty(final_env)) {
-                r = 0;
-                goto finish;
-        }
+        if (strv_isempty(final_env))
+                return 0;
 
         n = strv_join(final_env, "\n");
-        if (!n) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!n)
+                return log_oom();
 
         /* If this is requested change to the requested UID/GID. Note thta we only change the real UID here, and leave
            the effective UID in effect (which is 0 for this to work). That's because we want the privileges to fake the
            ucred data, and sd_pid_notify() uses the real UID for filling in ucred. */
 
-        if (arg_gid != GID_INVALID)
-                if (setregid(arg_gid, (gid_t) -1) < 0) {
-                        r = log_error_errno(errno, "Failed to change GID: %m");
-                        goto finish;
-                }
+        if (arg_gid != GID_INVALID &&
+            setregid(arg_gid, (gid_t) -1) < 0)
+                return log_error_errno(errno, "Failed to change GID: %m");
 
-        if (arg_uid != UID_INVALID)
-                if (setreuid(arg_uid, (uid_t) -1) < 0) {
-                        r = log_error_errno(errno, "Failed to change UID: %m");
-                        goto finish;
-                }
+        if (arg_uid != UID_INVALID &&
+            setreuid(arg_uid, (uid_t) -1) < 0)
+                return log_error_errno(errno, "Failed to change UID: %m");
 
         r = sd_pid_notify(arg_pid ? arg_pid : getppid(), false, n);
-        if (r < 0) {
-                log_error_errno(r, "Failed to notify init system: %m");
-                goto finish;
-        } else if (r == 0) {
+        if (r < 0)
+                return log_error_errno(r, "Failed to notify init system: %m");
+        if (r == 0) {
                 log_error("No status data could be sent: $NOTIFY_SOCKET was not set");
-                r = -EOPNOTSUPP;
+                return -EOPNOTSUPP;
         }
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
