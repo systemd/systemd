@@ -65,7 +65,7 @@ static void test_keymaps(void) {
 
 #define dump_glyph(x) log_info(STRINGIFY(x) ": %s", special_glyph(x))
 static void dump_special_glyphs(void) {
-        assert_cc(MU + 1 == _SPECIAL_GLYPH_MAX);
+        assert_cc(CROSS_MARK + 1 == _SPECIAL_GLYPH_MAX);
 
         log_info("/* %s */", __func__);
 
@@ -80,6 +80,9 @@ static void dump_special_glyphs(void) {
         dump_glyph(ARROW);
         dump_glyph(MDASH);
         dump_glyph(ELLIPSIS);
+        dump_glyph(MU);
+        dump_glyph(CHECK_MARK);
+        dump_glyph(CROSS_MARK);
 }
 
 int main(int argc, char *argv[]) {

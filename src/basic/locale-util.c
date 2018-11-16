@@ -369,6 +369,8 @@ const char *special_glyph(SpecialGlyph code) {
                         [MDASH]              = "-",
                         [ELLIPSIS]           = "...",
                         [MU]                 = "u",
+                        [CHECK_MARK]         = "+",
+                        [CROSS_MARK]         = "-",
                 },
 
                 /* UTF-8 */
@@ -383,6 +385,8 @@ const char *special_glyph(SpecialGlyph code) {
                         [MDASH]              = "\342\200\223",             /* – */
                         [ELLIPSIS]           = "\342\200\246",             /* … */
                         [MU]                 = "\316\274",                 /* μ */
+                        [CHECK_MARK]         = "\342\234\223",             /* ✓ */
+                        [CROSS_MARK]         = "\342\234\227",             /* ✗ */
                 },
         };
 

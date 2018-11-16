@@ -49,6 +49,8 @@ typedef enum {
         MDASH,
         ELLIPSIS,
         MU,
+        CHECK_MARK,
+        CROSS_MARK,
         _SPECIAL_GLYPH_MAX
 } SpecialGlyph;
 

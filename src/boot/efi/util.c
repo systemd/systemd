@@ -39,7 +39,7 @@ UINT64 ticks_freq(VOID) {
         uefi_call_wrapper(BS->Stall, 1, 1000);
         ticks_end = ticks_read();
 
-        return (ticks_end - ticks_start) * 1000;
+        return (ticks_end - ticks_start) * 1000UL;
 }
 
 UINT64 time_usec(VOID) {
@@ -56,7 +56,7 @@ UINT64 time_usec(VOID) {
                         return 0;
         }
 
-        return 1000 * 1000 * ticks / freq;
+        return 1000UL * 1000UL * ticks / freq;
 }
 
 EFI_STATUS parse_boolean(CHAR8 *v, BOOLEAN *b) {
