@@ -112,7 +112,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_close_ int  fd = -1, saved_stderr = -1;
         int r;
 
@@ -121,22 +121,18 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         fd = sd_journal_stream_fd(arg_identifier, arg_priority, arg_level_prefix);
-        if (fd < 0) {
-                r = log_error_errno(fd, "Failed to create stream fd: %m");
-                goto finish;
-        }
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to create stream fd: %m");
 
         saved_stderr = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 
         r = rearrange_stdio(STDIN_FILENO, fd, fd); /* Invalidates fd on succcess + error! */
-        fd = -1;
-        if (r < 0) {
-                log_error_errno(r, "Failed to rearrange stdout/stderr: %m");
-                goto finish;
-        }
+        TAKE_FD(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to rearrange stdout/stderr: %m");
 
         if (argc <= optind)
                 (void) execl("/bin/cat", "/bin/cat", NULL);
@@ -148,8 +144,7 @@ int main(int argc, char *argv[]) {
         if (saved_stderr >= 0)
                 (void) dup3(saved_stderr, STDERR_FILENO, 0);
 
-        log_error_errno(r, "Failed to execute process: %m");
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return log_error_errno(r, "Failed to execute process: %m");
 }
+
+DEFINE_MAIN_FUNCTION(run);
