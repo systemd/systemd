@@ -74,8 +74,10 @@
     <para><function>sd_event_source_get_enabled()</function> may be
     used to query whether the event source object
     <parameter>source</parameter> is currently enabled or not. It
-    returns the enablement state in
-    <parameter>enabled</parameter>.</para>
+    returns the enablement state (one of <constant>SD_EVENT_ON</constant>,
+    <constant>SD_EVENT_OFF</constant>, <constant>SD_EVENT_ONESHOT</constant>)
+    in <parameter>enabled</parameter>, if it is not <constant>NULL</constant>.
+    It also returns true if the event source is not disabled.</para>
 
     <para>Event source objects are enabled when they are first created
     with calls such as
@@ -100,10 +102,10 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_event_source_set_enabled()</function> and
-    <function>sd_event_source_get_enabled()</function> return a
-    non-negative integer. On failure, they return a negative
-    errno-style error code.</para>
+    <para>On success, <function>sd_event_source_set_enabled()</function> returns a non-negative
+    integer. <function>sd_event_source_get_enabled()</function> returns zero if the source is
+    disabled (<constant>SD_EVENT_OFF</constant>) and a positive integer otherwise. On failure, they
+    return a negative errno-style error code.</para>
   </refsect1>
 
   <refsect1>
