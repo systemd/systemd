@@ -1869,16 +1869,13 @@ static int post_change_thunk(sd_event_source *timer, uint64_t usec, void *userda
 }
 
 static void schedule_post_change(JournalFile *f) {
-        sd_event_source *timer;
         int enabled, r;
         uint64_t now;
 
         assert(f);
         assert(f->post_change_timer);
 
-        timer = f->post_change_timer;
-
-        r = sd_event_source_get_enabled(timer, &enabled);
+        r = sd_event_source_get_enabled(f->post_change_timer, &enabled);
         if (r < 0) {
                 log_debug_errno(r, "Failed to get ftruncate timer state: %m");
                 goto fail;
@@ -1887,19 +1884,19 @@ static void schedule_post_change(JournalFile *f) {
         if (enabled == SD_EVENT_ONESHOT)
                 return;
 
-        r = sd_event_now(sd_event_source_get_event(timer), CLOCK_MONOTONIC, &now);
+        r = sd_event_now(sd_event_source_get_event(f->post_change_timer), CLOCK_MONOTONIC, &now);
         if (r < 0) {
                 log_debug_errno(r, "Failed to get clock's now for scheduling ftruncate: %m");
                 goto fail;
         }
 
-        r = sd_event_source_set_time(timer, now+f->post_change_timer_period);
+        r = sd_event_source_set_time(f->post_change_timer, now + f->post_change_timer_period);
         if (r < 0) {
                 log_debug_errno(r, "Failed to set time for scheduling ftruncate: %m");
                 goto fail;
         }
 
-        r = sd_event_source_set_enabled(timer, SD_EVENT_ONESHOT);
+        r = sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_ONESHOT);
         if (r < 0) {
                 log_debug_errno(r, "Failed to enable scheduled ftruncate: %m");
                 goto fail;
