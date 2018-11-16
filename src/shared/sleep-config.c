@@ -341,9 +341,9 @@ static int resume_configured(void) {
 
         r = find_default_boot_entry(NULL, NULL, &config, &e);
         if (r == -ENOKEY)
-                log_debug("Cannot find the ESP partition mount point, falling back to other checks.");
+                log_debug_errno(r, "Cannot find the ESP partition mount point, falling back to other checks.");
         else if (r < 0)
-                log_debug("Cannot read boot configuration from ESP, assuming hibernation is not possible.");
+                log_debug_errno(r, "Cannot read boot configuration from ESP, assuming hibernation is not possible.");
         else {
                 _cleanup_free_ char *options = NULL;
 
