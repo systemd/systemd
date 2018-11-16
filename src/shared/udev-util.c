@@ -33,7 +33,8 @@ int udev_parse_config_full(
                            "udev_log", &log_val,
                            "children_max", &children_max,
                            "exec_delay", &exec_delay,
-                           "event_timeout", &event_timeout);
+                           "event_timeout", &event_timeout,
+                           "resolve_names", &resolve_names);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
