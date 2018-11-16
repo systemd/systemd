@@ -887,10 +887,26 @@
         cause no dirty file systems on reboot (i.e. equivalent to <command>systemctl reboot -f</command>) and
         <option>reboot-immediate</option> causes immediate execution of the
         <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call, which
-        might result in data loss. Similarly, <option>poweroff</option>, <option>poweroff-force</option>,
-        <option>poweroff-immediate</option> have the effect of powering down the system with similar
-        semantics. <option>exit</option> causes the manager to exit following the normal shutdown procedure, and
-        <option>exit-force</option> causes it terminate without shutting down services.</para></listitem>
+        might result in data loss (i.e. equivalent to <command>systemctl reboot -ff</command>). Similarly,
+        <option>poweroff</option>, <option>poweroff-force</option>, <option>poweroff-immediate</option> have the effect
+        of powering down the system with similar semantics. <option>exit</option> causes the manager to exit following
+        the normal shutdown procedure, and <option>exit-force</option> causes it terminate without shutting down
+        services. When <option>exit</option> or <option>exit-force</option> is used by default the exit status of the
+        main process of the unit (if this applies) is returned from the service manager. However, this may be overriden
+        with <varname>FailureActionExitStatus=</varname>/<varname>SuccessActionExitStatus=</varname>, see
+        below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FailureActionExitStatus=</varname></term>
+        <term><varname>SuccessActionExitStatus=</varname></term>
+
+        <listitem><para>Controls the exit status to propagate back to an invoking container manager (in case of a
+        system service) or service manager (in case of a user manager) when the
+        <varname>FailureAction=</varname>/<varname>SuccessAction=</varname> are set to <option>exit</option> or
+        <option>exit-force</option> and the action is triggered. By default the exit status of the main process of the
+        triggering unit (if this applies) is propagated. Takes a value in the range 0…255 or the empty string to
+        request default behaviour.</para></listitem>
       </varlistentry>
 
       <varlistentry>
