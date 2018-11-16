@@ -235,7 +235,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                         j = 0;
                         FOREACH_DEVICE_DEVLINK(d, g) {
 
-                                if (j > N_IOVEC_UDEV_FIELDS)
+                                if (j >= N_IOVEC_UDEV_FIELDS)
                                         break;
 
                                 b = strappend("_UDEV_DEVLINK=", g);
