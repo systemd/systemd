@@ -916,47 +916,43 @@ finish:
         return r;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(free_sysvstub_hashmapp) Hashmap *all_services = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         SysvStub *service;
         Iterator j;
         int r;
 
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
-        }
-
-        if (argc > 1)
-                arg_dest = argv[3];
-
         log_set_prohibit_ipc(true);
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 
+        if (argc > 1 && argc != 4) {
+                log_error("This program takes three or no arguments.");
+                return -EINVAL;
+        }
+
+        if (argc > 1)
+                arg_dest = argv[3];
+
         umask(0022);
 
         r = lookup_paths_init(&lp, UNIT_FILE_SYSTEM, LOOKUP_PATHS_EXCLUDE_GENERATED, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to find lookup paths: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to find lookup paths: %m");
 
         all_services = hashmap_new(&string_hash_ops);
-        if (!all_services) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!all_services)
+                return log_oom();
 
         r = enumerate_sysv(&lp, all_services);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = set_dependencies_from_rcnd(&lp, all_services);
         if (r < 0)
-                goto finish;
+                return r;
 
         HASHMAP_FOREACH(service, all_services, j)
                 (void) load_sysv(service);
@@ -966,8 +962,7 @@ int main(int argc, char *argv[]) {
                 (void) generate_unit_file(service);
         }
 
-        r = 0;
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
