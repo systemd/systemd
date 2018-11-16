@@ -383,7 +383,7 @@ static inline int __coverity_check__(int condition) {
 #define SET_FLAG(v, flag, b) \
         (v) = (b) ? ((v) | (flag)) : ((v) & ~(flag))
 #define FLAGS_SET(v, flags) \
-        (((v) & (flags)) == (flags))
+        ((~(v) & (flags)) == 0)
 
 #define CASE_F(X) case X:
 #define CASE_F_1(CASE, X) CASE_F(X)
