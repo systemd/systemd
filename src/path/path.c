@@ -167,7 +167,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char* argv[]) {
+static int run(int argc, char* argv[]) {
         int r;
 
         log_parse_environment();
@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         if (argc > optind) {
                 int i, q;
@@ -185,9 +185,10 @@ int main(int argc, char* argv[]) {
                         if (q < 0)
                                 r = q;
                 }
-        } else
-                r = list_homes();
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return r;
+        } else
+                return list_homes();
 }
+
+DEFINE_MAIN_FUNCTION(run);
