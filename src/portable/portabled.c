@@ -122,7 +122,7 @@ static int manager_run(Manager *m) {
                         check_idle, m);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
@@ -134,26 +134,20 @@ int main(int argc, char *argv[]) {
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");
-                r = -EINVAL;
-                goto finish;
+                return -EINVAL;
         }
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, -1) >= 0);
 
         r = manager_new(&m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate manager object: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate manager object: %m");
 
         r = manager_startup(m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to fully start up daemon: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to fully start up daemon: %m");
 
         log_debug("systemd-portabled running as pid " PID_FMT, getpid_cached());
-
         sd_notify(false,
                   "READY=1\n"
                   "STATUS=Processing requests...");
@@ -161,8 +155,7 @@ int main(int argc, char *argv[]) {
         r = manager_run(m);
 
         log_debug("systemd-portabled stopped as pid " PID_FMT, getpid_cached());
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
