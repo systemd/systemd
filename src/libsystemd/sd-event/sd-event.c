@@ -1887,8 +1887,10 @@ _public_ int sd_event_source_set_description(sd_event_source *s, const char *des
 _public_ int sd_event_source_get_description(sd_event_source *s, const char **description) {
         assert_return(s, -EINVAL);
         assert_return(description, -EINVAL);
-        assert_return(s->description, -ENXIO);
         assert_return(!event_pid_changed(s->event), -ECHILD);
+
+        if (!s->description)
+                return -ENXIO;
 
         *description = s->description;
         return 0;
