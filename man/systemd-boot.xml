@@ -63,9 +63,8 @@
     used from a running system to locate the ESP, list available entries, and install systemd-boot itself.</para>
 
     <para>systemd-boot will provide information about the time spent in UEFI firmware using the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>. This
-    information can be displayed using
-    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>. This information can be displayed
+    using <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     </para>
   </refsect1>
 
@@ -343,8 +342,7 @@
         <listitem><para>Information about the time spent in various parts of the boot loader. Set by the boot
         loader. Use <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         to view this data. These variables are defined by the <ulink
-        url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader
-        Interface</ulink>.</para></listitem>
+        url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -412,7 +410,7 @@
       <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>,
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>
+      <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>
     </para>
   </refsect1>
 </refentry>
