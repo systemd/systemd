@@ -506,4 +506,13 @@ static inline int __coverity_check__(int condition) {
         DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name);                    \
         DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func);
 
+/* Negative return values from impl are mapped to EXIT_FAILURE, and
+ * everything else means success! */
+#define DEFINE_MAIN_FUNCTION(impl)                                      \
+        int main(int argc, char *argv[]) {                              \
+                int r;                                                  \
+                r = impl(argc, argv);                                   \
+                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;             \
+        }
+
 #include "log.h"
