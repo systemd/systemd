@@ -197,8 +197,7 @@ static int run(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to replace instance: %m");
 
-                                free(e);
-                                e = x;
+                                free_and_replace(e, x);
                         } else if (arg_suffix) {
                                 char *x;
 
@@ -206,8 +205,7 @@ static int run(int argc, char *argv[]) {
                                 if (!x)
                                         return log_oom();
 
-                                free(e);
-                                e = x;
+                                free_and_replace(e, x);
                         }
 
                         break;
@@ -254,7 +252,7 @@ static int run(int argc, char *argv[]) {
                         break;
                 }
 
-                if (i != argv+optind)
+                if (i != argv + optind)
                         fputc(' ', stdout);
 
                 fputs(e, stdout);
