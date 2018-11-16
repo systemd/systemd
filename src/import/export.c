@@ -269,7 +269,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int export_main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "help", VERB_ANY, VERB_ANY, 0, help       },
                 { "tar",  2,        3,        0, export_tar },
@@ -280,7 +279,7 @@ static int export_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
@@ -289,12 +288,11 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         (void) ignore_signals(SIGPIPE, -1);
 
-        r = export_main(argc, argv);
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return export_main(argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);
