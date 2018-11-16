@@ -799,8 +799,10 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         if (m->result == MOUNT_SUCCESS)
                 m->result = f;
 
-        if (m->result != MOUNT_SUCCESS)
-                log_unit_warning(UNIT(m), "Failed with result '%s'.", mount_result_to_string(m->result));
+        if (m->result == MOUNT_SUCCESS)
+                unit_log_success(UNIT(m));
+        else
+                unit_log_failure(UNIT(m), mount_result_to_string(m->result));
 
         mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
 
@@ -1270,8 +1272,11 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
         }
 
-        log_unit_full(u, f == MOUNT_SUCCESS ? LOG_DEBUG : LOG_NOTICE, 0,
-                      "Mount process exited, code=%s status=%i", sigchld_code_to_string(code), status);
+        unit_log_process_exit(
+                        u, f == MOUNT_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                        "Mount process",
+                        mount_exec_command_to_string(m->control_command_id),
+                        code, status);
 
         /* Note that due to the io event priority logic, we can be sure the new mountinfo is loaded
          * before we process the SIGCHLD for the mount command. */

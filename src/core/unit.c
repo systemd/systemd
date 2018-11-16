@@ -1627,92 +1627,6 @@ void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg
         REENABLE_WARNING;
 }
 
-_pure_ static const char* unit_get_status_message_format(Unit *u, JobType t) {
-        const char *format;
-        const UnitStatusMessageFormats *format_table;
-
-        assert(u);
-        assert(IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD));
-
-        if (t != JOB_RELOAD) {
-                format_table = &UNIT_VTABLE(u)->status_message_formats;
-                if (format_table) {
-                        format = format_table->starting_stopping[t == JOB_STOP];
-                        if (format)
-                                return format;
-                }
-        }
-
-        /* Return generic strings */
-        if (t == JOB_START)
-                return "Starting %s.";
-        else if (t == JOB_STOP)
-                return "Stopping %s.";
-        else
-                return "Reloading %s.";
-}
-
-static void unit_status_print_starting_stopping(Unit *u, JobType t) {
-        const char *format;
-
-        assert(u);
-
-        /* Reload status messages have traditionally not been printed to console. */
-        if (!IN_SET(t, JOB_START, JOB_STOP))
-                return;
-
-        format = unit_get_status_message_format(u, t);
-
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        unit_status_printf(u, "", format);
-        REENABLE_WARNING;
-}
-
-static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
-        const char *format, *mid;
-        char buf[LINE_MAX];
-
-        assert(u);
-
-        if (!IN_SET(t, JOB_START, JOB_STOP, JOB_RELOAD))
-                return;
-
-        if (log_on_console())
-                return;
-
-        /* We log status messages for all units and all operations. */
-
-        format = unit_get_status_message_format(u, t);
-
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        (void) snprintf(buf, sizeof buf, format, unit_description(u));
-        REENABLE_WARNING;
-
-        mid = t == JOB_START ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTING_STR :
-              t == JOB_STOP  ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPING_STR :
-                               "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADING_STR;
-
-        /* Note that we deliberately use LOG_MESSAGE() instead of
-         * LOG_UNIT_MESSAGE() here, since this is supposed to mimic
-         * closely what is written to screen using the status output,
-         * which is supposed the highest level, friendliest output
-         * possible, which means we should avoid the low-level unit
-         * name. */
-        log_struct(LOG_INFO,
-                   LOG_MESSAGE("%s", buf),
-                   LOG_UNIT_ID(u),
-                   LOG_UNIT_INVOCATION_ID(u),
-                   mid);
-}
-
-void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
-        assert(u);
-        assert(t >= 0);
-        assert(t < _JOB_TYPE_MAX);
-
-        unit_status_log_starting_stopping_reloading(u, t);
-        unit_status_print_starting_stopping(u, t);
-}
 
 int unit_start_limit_test(Unit *u) {
         const char *reason;
@@ -1812,7 +1726,7 @@ int unit_start(Unit *u) {
         if (state != UNIT_ACTIVATING &&
             !unit_condition_test(u)) {
                 log_unit_debug(u, "Starting requested but condition failed. Not starting unit.");
-                return -EALREADY;
+                return -ECOMM;
         }
 
         /* If the asserts failed, fail the entire job */
@@ -5528,6 +5442,57 @@ int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a kernel thread, refusing.", pid);
 
         return 0;
+}
+
+void unit_log_success(Unit *u) {
+        assert(u);
+
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_UNIT_SUCCESS_STR,
+                   LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
+                   LOG_UNIT_MESSAGE(u, "Succeeded."));
+}
+
+void unit_log_failure(Unit *u, const char *result) {
+        assert(u);
+        assert(result);
+
+        log_struct(LOG_WARNING,
+                   "MESSAGE_ID=" SD_MESSAGE_UNIT_FAILURE_RESULT_STR,
+                   LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
+                   LOG_UNIT_MESSAGE(u, "Failed with result '%s'.", result),
+                   "UNIT_RESULT=%s", result);
+}
+
+void unit_log_process_exit(
+                Unit *u,
+                int level,
+                const char *kind,
+                const char *command,
+                int code,
+                int status) {
+
+        assert(u);
+        assert(kind);
+
+        if (code != CLD_EXITED)
+                level = LOG_WARNING;
+
+        log_struct(level,
+                   "MESSAGE_ID=" SD_MESSAGE_UNIT_PROCESS_EXIT_STR,
+                   LOG_UNIT_MESSAGE(u, "%s exited, code=%s, status=%i/%s",
+                                    kind,
+                                    sigchld_code_to_string(code), status,
+                                    strna(code == CLD_EXITED
+                                          ? exit_status_to_string(status, EXIT_STATUS_FULL)
+                                          : signal_to_string(status))),
+                   "EXIT_CODE=%s", sigchld_code_to_string(code),
+                   "EXIT_STATUS=%i", status,
+                   "COMMAND=%s", strna(command),
+                   LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u));
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {

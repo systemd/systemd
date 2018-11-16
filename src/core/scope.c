@@ -240,8 +240,10 @@ static void scope_enter_dead(Scope *s, ScopeResult f) {
         if (s->result == SCOPE_SUCCESS)
                 s->result = f;
 
-        if (s->result != SCOPE_SUCCESS)
-                log_unit_warning(UNIT(s), "Failed with result '%s'.", scope_result_to_string(s->result));
+        if (s->result == SCOPE_SUCCESS)
+                unit_log_success(UNIT(s));
+        else
+                unit_log_failure(UNIT(s), scope_result_to_string(s->result));
 
         scope_set_state(s, s->result != SCOPE_SUCCESS ? SCOPE_FAILED : SCOPE_DEAD);
 }

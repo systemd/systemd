@@ -449,8 +449,10 @@ static void path_enter_dead(Path *p, PathResult f) {
         if (p->result == PATH_SUCCESS)
                 p->result = f;
 
-        if (p->result != PATH_SUCCESS)
-                log_unit_warning(UNIT(p), "Failed with result '%s'.", path_result_to_string(p->result));
+        if (p->result == PATH_SUCCESS)
+                unit_log_success(UNIT(p));
+        else
+                unit_log_failure(UNIT(p), path_result_to_string(p->result));
 
         path_set_state(p, p->result != PATH_SUCCESS ? PATH_FAILED : PATH_DEAD);
 }

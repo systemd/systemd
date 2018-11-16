@@ -701,7 +701,6 @@ int unit_coldplug(Unit *u);
 void unit_catchup(Unit *u);
 
 void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) _printf_(3, 0);
-void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t);
 
 bool unit_need_daemon_reload(Unit *u);
 
@@ -806,6 +805,10 @@ bool unit_needs_console(Unit *u);
 const char *unit_label_path(Unit *u);
 
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
+
+void unit_log_success(Unit *u);
+void unit_log_failure(Unit *u, const char *result);
+void unit_log_process_exit(Unit *u, int level, const char *kind, const char *command, int code, int status);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

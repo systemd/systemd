@@ -653,8 +653,10 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
         if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
-        if (s->result != SWAP_SUCCESS)
-                log_unit_warning(UNIT(s), "Failed with result '%s'.", swap_result_to_string(s->result));
+        if (s->result == SWAP_SUCCESS)
+                unit_log_success(UNIT(s));
+        else
+                unit_log_failure(UNIT(s), swap_result_to_string(s->result));
 
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 
@@ -1011,8 +1013,11 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
         }
 
-        log_unit_full(u, f == SWAP_SUCCESS ? LOG_DEBUG : LOG_NOTICE, 0,
-                      "Swap process exited, code=%s status=%i", sigchld_code_to_string(code), status);
+        unit_log_process_exit(
+                        u, f == SWAP_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                        "Swap process",
+                        swap_exec_command_to_string(s->control_command_id),
+                        code, status);
 
         switch (s->state) {
 

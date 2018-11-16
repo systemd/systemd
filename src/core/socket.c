@@ -1985,8 +1985,10 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
         if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
-        if (s->result != SOCKET_SUCCESS)
-                log_unit_warning(UNIT(s), "Failed with result '%s'.", socket_result_to_string(s->result));
+        if (s->result == SOCKET_SUCCESS)
+                unit_log_success(UNIT(s));
+        else
+                unit_log_failure(UNIT(s), socket_result_to_string(s->result));
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 
@@ -2968,9 +2970,11 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         f = SOCKET_SUCCESS;
         }
 
-        log_unit_full(u, f == SOCKET_SUCCESS ? LOG_DEBUG : LOG_NOTICE, 0,
-                      "Control process exited, code=%s status=%i",
-                      sigchld_code_to_string(code), status);
+        unit_log_process_exit(
+                        u, f == SOCKET_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                        "Control process",
+                        socket_exec_command_to_string(s->control_command_id),
+                        code, status);
 
         if (s->result == SOCKET_SUCCESS)
                 s->result = f;
