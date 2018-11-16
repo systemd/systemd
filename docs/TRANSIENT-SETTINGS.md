@@ -282,7 +282,6 @@ Most service unit settings are available for transient units.
 ✓ WatchdogSec=
 ✓ Type=
 ✓ Restart=
-✓ PermissionsStartOnly=
 ✓ RootDirectoryStartOnly=
 ✓ RemainAfterExit=
 ✓ GuessMainPID=
