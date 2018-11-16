@@ -341,11 +341,12 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
         if (!p)
                 return;
 
+        k = 0;
         if (sscanf(p, "(%" PRIu64 ".%" PRIu64 ":%" PRIu64 "):%n",
                    &seconds,
                    &msec,
                    &id,
-                   &k) != 3)
+                   &k) != 3 || k == 0)
                 return;
 
         p += k;
