@@ -796,7 +796,7 @@ bool efi_loader_entry_name_valid(const char *s) {
         if (strlen(s) > FILENAME_MAX) /* Make sure entry names fit in filenames */
                 return false;
 
-        return in_charset(s, ALPHANUMERICAL "-");
+        return in_charset(s, ALPHANUMERICAL "-_.");
 }
 
 int efi_loader_get_entries(char ***ret) {
