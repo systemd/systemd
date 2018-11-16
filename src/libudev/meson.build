@@ -7,7 +7,6 @@ libudev_sources = files('''
         libudev-list.c
         libudev-util.c
         libudev-device.c
-        libudev-device-private.c
         libudev-enumerate.c
         libudev-monitor.c
         libudev-queue.c

@@ -13,40 +13,6 @@
 #include "strxcpyx.h"
 #include "util.h"
 
-/* libudev-device.c */
-struct udev_device *udev_device_new_from_nulstr(struct udev *udev, char *nulstr, ssize_t buflen);
-struct udev_device *udev_device_new_from_synthetic_event(struct udev *udev, const char *syspath, const char *action);
-struct udev_device *udev_device_shallow_clone(struct udev_device *old_device);
-struct udev_device *udev_device_clone_with_db(struct udev_device *old_device);
-int udev_device_copy_properties(struct udev_device *dst, struct udev_device *src);
-mode_t udev_device_get_devnode_mode(struct udev_device *udev_device);
-uid_t udev_device_get_devnode_uid(struct udev_device *udev_device);
-gid_t udev_device_get_devnode_gid(struct udev_device *udev_device);
-int udev_device_rename(struct udev_device *udev_device, const char *new_name);
-int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink);
-void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);
-int udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
-char **udev_device_get_properties_envp(struct udev_device *udev_device);
-ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf);
-const char *udev_device_get_devpath_old(struct udev_device *udev_device);
-const char *udev_device_get_id_filename(struct udev_device *udev_device);
-void udev_device_set_is_initialized(struct udev_device *udev_device);
-int udev_device_add_tag(struct udev_device *udev_device, const char *tag);
-void udev_device_remove_tag(struct udev_device *udev_device, const char *tag);
-void udev_device_cleanup_tags_list(struct udev_device *udev_device);
-void udev_device_ensure_usec_initialized(struct udev_device *udev_device, struct udev_device *old_device);
-int udev_device_get_devlink_priority(struct udev_device *udev_device);
-int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio);
-int udev_device_get_watch_handle(struct udev_device *udev_device);
-int udev_device_set_watch_handle(struct udev_device *udev_device, int handle);
-int udev_device_get_ifindex(struct udev_device *udev_device);
-void udev_device_set_info_loaded(struct udev_device *device);
-void udev_device_set_db_persist(struct udev_device *udev_device);
-void udev_device_read_db(struct udev_device *udev_device);
-int udev_device_update_db(struct udev_device *udev_device);
-int udev_device_delete_db(struct udev_device *udev_device);
-int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, bool add);
-
 /* libudev-monitor.c - netlink/unix socket communication  */
 int udev_monitor_disconnect(struct udev_monitor *udev_monitor);
 int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender);
