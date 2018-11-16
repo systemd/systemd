@@ -510,7 +510,6 @@ static void job_change_type(Job *j, JobType newtype) {
 }
 
 _pure_ static const char* job_get_begin_status_message_format(Unit *u, JobType t) {
-        const UnitStatusMessageFormats *format_table;
         const char *format;
 
         assert(u);
@@ -520,12 +519,9 @@ _pure_ static const char* job_get_begin_status_message_format(Unit *u, JobType t
 
         assert(IN_SET(t, JOB_START, JOB_STOP));
 
-        format_table = &UNIT_VTABLE(u)->status_message_formats;
-        if (format_table) {
-                format = format_table->starting_stopping[t == JOB_STOP];
-                if (format)
-                        return format;
-        }
+        format = UNIT_VTABLE(u)->status_message_formats.starting_stopping[t == JOB_STOP];
+        if (format)
+                return format;
 
         /* Return generic strings */
         if (t == JOB_START)
@@ -766,7 +762,6 @@ _pure_ static const char *job_get_done_status_message_format(Unit *u, JobType t,
                 [JOB_SKIPPED]     = "%s is not active.",
         };
 
-        const UnitStatusMessageFormats *format_table;
         const char *format;
 
         assert(u);
@@ -774,13 +769,11 @@ _pure_ static const char *job_get_done_status_message_format(Unit *u, JobType t,
         assert(t < _JOB_TYPE_MAX);
 
         if (IN_SET(t, JOB_START, JOB_STOP, JOB_RESTART)) {
-                format_table = &UNIT_VTABLE(u)->status_message_formats;
-                if (format_table) {
-                        format = t == JOB_START ? format_table->finished_start_job[result] :
-                                                  format_table->finished_stop_job[result];
-                        if (format)
-                                return format;
-                }
+                format = t == JOB_START ?
+                        UNIT_VTABLE(u)->status_message_formats.finished_start_job[result] :
+                        UNIT_VTABLE(u)->status_message_formats.finished_stop_job[result];
+                if (format)
+                        return format;
         }
 
         /* Return generic strings */
