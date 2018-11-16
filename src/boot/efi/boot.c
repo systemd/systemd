@@ -62,6 +62,7 @@ typedef struct {
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
+        BOOLEAN force_menu;
         UINTN console_mode;
         enum console_mode_change_type console_mode_change;
 } Config;
@@ -385,10 +386,10 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"\n--- press key ---\n\n");
         console_key_read(&key, TRUE);
 
-        Print(L"timeout:                %d\n", config->timeout_sec);
+        Print(L"timeout:                %u\n", config->timeout_sec);
         if (config->timeout_sec_efivar >= 0)
                 Print(L"timeout (EFI var):      %d\n", config->timeout_sec_efivar);
-        Print(L"timeout (config):       %d\n", config->timeout_sec_config);
+        Print(L"timeout (config):       %u\n", config->timeout_sec_config);
         if (config->entry_default_pattern)
                 Print(L"default pattern:        '%s'\n", config->entry_default_pattern);
         Print(L"editor:                 %s\n", yes_no(config->editor));
@@ -403,7 +404,8 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"\n");
 
         if (efivar_get_int(L"LoaderConfigTimeout", &i) == EFI_SUCCESS)
-                Print(L"LoaderConfigTimeout:    %d\n", i);
+                Print(L"LoaderConfigTimeout:    %u\n", i);
+
         if (config->entry_oneshot)
                 Print(L"LoaderEntryOneShot:     %s\n", config->entry_oneshot);
         if (efivar_get(L"LoaderDevicePartUUID", &partstr) == EFI_SUCCESS)
@@ -1402,9 +1404,11 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         UINTN sec;
         EFI_STATUS err;
 
-        config->editor = TRUE;
-        config->auto_entries = TRUE;
-        config->auto_firmware = TRUE;
+        *config = (Config) {
+                .editor = TRUE,
+                .auto_entries = TRUE,
+                .auto_firmware = TRUE,
+        };
 
         err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
         if (!EFI_ERROR(err))
@@ -1412,10 +1416,19 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
 
         err = efivar_get_int(L"LoaderConfigTimeout", &sec);
         if (!EFI_ERROR(err)) {
-                config->timeout_sec_efivar = sec;
+                config->timeout_sec_efivar = sec > INTN_MAX ? INTN_MAX : sec;
                 config->timeout_sec = sec;
         } else
                 config->timeout_sec_efivar = -1;
+
+        err = efivar_get_int(L"LoaderConfigTimeoutOneShot", &sec);
+        if (!EFI_ERROR(err)) {
+                /* Unset variable now, after all it's "one shot". */
+                (void) efivar_set(L"LoaderConfigTimeoutOneShot", NULL, TRUE);
+
+                config->timeout_sec = sec;
+                config->force_menu = TRUE; /* force the menu when this is set */
+        }
 }
 
 static VOID config_load_entries(
@@ -2061,6 +2074,14 @@ static VOID config_write_entries_to_variable(Config *config) {
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        static const UINT64 loader_features =
+                (1ULL << 0) | /* I honour the LoaderConfigTimeout variable */
+                (1ULL << 1) | /* I honour the LoaderConfigTimeoutOneShot variable */
+                (1ULL << 2) | /* I honour the LoaderEntryDefault variable */
+                (1ULL << 3) | /* I honour the LoaderEntryOneShot variable */
+                (1ULL << 4) | /* I support boot counting */
+                0;
+
         _cleanup_freepool_ CHAR16 *infostr = NULL, *typestr = NULL;
         CHAR8 *b;
         UINTN size;
@@ -2083,6 +2104,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         typestr = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         efivar_set(L"LoaderFirmwareType", typestr, FALSE);
+
+        (void) efivar_set_raw(&loader_guid, L"LoaderFeatures", &loader_features, sizeof(loader_features), FALSE);
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -2116,7 +2139,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         loaded_image_path = DevicePathToStr(loaded_image->FilePath);
         efivar_set(L"LoaderImageIdentifier", loaded_image_path, FALSE);
 
-        ZeroMem(&config, sizeof(Config));
         config_load_defaults(&config, root_dir);
 
         /* scan /EFI/Linux/ directory */
@@ -2141,7 +2163,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 UINT64 osind = (UINT64)*b;
 
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
-                        config_entry_add_call(&config, L"auto-reboot-into-firmware-ui", L"Reboot Into Firmware Interface", reboot_into_firmware);
+                        config_entry_add_call(&config, L"auto-reboot-to-firmware-setup", L"Reboot Into Firmware Interface", reboot_into_firmware);
                 FreePool(b);
         }
 
@@ -2166,7 +2188,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* select entry or show menu when key is pressed or timeout is set */
-        if (config.timeout_sec == 0) {
+        if (config.force_menu || config.timeout_sec > 0)
+                menu = TRUE;
+        else {
                 UINT64 key;
 
                 err = console_key_read(&key, FALSE);
@@ -2180,8 +2204,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         else
                                 menu = TRUE;
                 }
-        } else
-                menu = TRUE;
+        }
 
         for (;;) {
                 ConfigEntry *entry;
@@ -2192,12 +2215,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
                         if (!menu_run(&config, &entry, loaded_image_path))
                                 break;
+                }
 
-                        /* run special entry like "reboot" */
-                        if (entry->call) {
-                                entry->call();
-                                continue;
-                        }
+                /* run special entry like "reboot" */
+                if (entry->call) {
+                        entry->call();
+                        continue;
                 }
 
                 config_entry_bump_counters(entry, root_dir);

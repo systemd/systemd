@@ -256,8 +256,12 @@
 
       <varlistentry>
         <term><varname>LoaderConfigTimeout</varname></term>
-        <listitem><para>The menu time-out. Read by the boot loader. (Also, modified by it when the
-        <keycap>t</keycap>/<keycap>T</keycap> keys are used, see above.)</para></listitem>
+        <term><varname>LoaderConfigTimeoutOneShot</varname></term>
+        <listitem><para>The menu time-out in seconds. Read by the boot loader. <varname>LoaderConfigTimeout</varname>
+        is maintained persistently, while <varname>LoaderConfigTimeoutOneShot</varname> is a one-time override which is
+        read once (in which case it takes precedence over <varname>LoaderConfigTimeout</varname>) and then
+        removed. <varname>LoaderConfigTimeout</varname> may be manipulated with the
+        <keycap>t</keycap>/<keycap>T</keycap> keys, see above.)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -295,6 +299,14 @@
 
         <listitem><para>The identifier of the boot loader entry currently being booted. Set by the boot
         loader.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderFeatures</varname></term>
+
+        <listitem><para>A set of flags indicating the features the boot loader supports. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para></listitem>
       </varlistentry>
 
       <varlistentry>
