@@ -737,6 +737,7 @@ manpages = [
   '8',
   ['systemd-rfkill', 'systemd-rfkill.socket'],
   'ENABLE_RFKILL'],
+ ['systemd-run-generator', '8', [], ''],
  ['systemd-run', '1', [], ''],
  ['systemd-sleep.conf', '5', ['sleep.conf.d'], ''],
  ['systemd-socket-activate', '1', [], ''],
