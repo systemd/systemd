@@ -225,7 +225,7 @@ Features:
 
 * taint systemd if there are fewer than 65536 users assigned (userns) to the system.
 
-* deprecate PermissionsStartOnly= and RootDirectoryStartOnly= in favour of the ExecStart= prefix chars
+* deprecate RootDirectoryStartOnly= in favour of a new ExecStart= prefix char
 
 * add a new RuntimeDirectoryPreserve= mode that defines a similar lifecycle for
   the runtime dir as we maintain for the fdstore: i.e. keep it around as long

@@ -833,24 +833,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>PermissionsStartOnly=</varname></term>
-        <listitem><para>Takes a boolean argument. If true, the
-        permission-related execution options, as configured with
-        <varname>User=</varname> and similar options (see
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for more information), are only applied to the process started
-        with
-        <varname>ExecStart=</varname>, and not to the various other
-        <varname>ExecStartPre=</varname>,
-        <varname>ExecStartPost=</varname>,
-        <varname>ExecReload=</varname>,
-        <varname>ExecStop=</varname>, and
-        <varname>ExecStopPost=</varname>
-        commands. If false, the setting is applied to all configured
-        commands the same way. Defaults to false.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>RootDirectoryStartOnly=</varname></term>
         <listitem><para>Takes a boolean argument. If true, the root
         directory, as configured with the
