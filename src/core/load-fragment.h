@@ -75,7 +75,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_io_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_blockio_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_blockio_device_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_blockio_bandwidth);
-CONFIG_PARSER_PROTOTYPE(config_parse_netclass);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_mode_isolate);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_selinux_context);
