@@ -137,7 +137,7 @@ int manager_handle_action(
             manager_is_inhibited(m, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
-                get_process_comm(offending->pid, &comm);
+                (void) get_process_comm(offending->pid, &comm);
                 u = uid_to_name(offending->uid);
 
                 /* If this is just a recheck of the lid switch then don't warn about anything */
