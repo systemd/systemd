@@ -349,11 +349,8 @@ JournalFile* journal_file_close(JournalFile *f) {
 #endif
 
         if (f->post_change_timer) {
-                int enabled;
-
-                if (sd_event_source_get_enabled(f->post_change_timer, &enabled) >= 0)
-                        if (enabled == SD_EVENT_ONESHOT)
-                                journal_file_post_change(f);
+                if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
+                        journal_file_post_change(f);
 
                 (void) sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_OFF);
                 sd_event_source_unref(f->post_change_timer);
@@ -1869,19 +1866,18 @@ static int post_change_thunk(sd_event_source *timer, uint64_t usec, void *userda
 }
 
 static void schedule_post_change(JournalFile *f) {
-        int enabled, r;
         uint64_t now;
+        int r;
 
         assert(f);
         assert(f->post_change_timer);
 
-        r = sd_event_source_get_enabled(f->post_change_timer, &enabled);
+        r = sd_event_source_get_enabled(f->post_change_timer, NULL);
         if (r < 0) {
                 log_debug_errno(r, "Failed to get ftruncate timer state: %m");
                 goto fail;
         }
-
-        if (enabled == SD_EVENT_ONESHOT)
+        if (r > 0)
                 return;
 
         r = sd_event_now(sd_event_source_get_event(f->post_change_timer), CLOCK_MONOTONIC, &now);
