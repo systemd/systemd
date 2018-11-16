@@ -655,8 +655,6 @@ Features:
 
 * add a pam module that on password changes updates any LUKS slot where the password matches
 
-* maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
-
 * test/:
   - add unit tests for config_parse_device_allow()
 
