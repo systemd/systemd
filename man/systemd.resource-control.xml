@@ -730,6 +730,9 @@
           specific to the unified hierarchy while others are specific to the legacy hierarchy. Also note that the
           kernel might support further controllers, which aren't covered here yet as delegation is either not supported
           at all for them or not defined cleanly.</para>
+
+          <para>For further details on the delegation model consult <ulink
+          url="https://systemd.io/CGROUP_DELEGATION">Control Group APIs and Delegation</ulink>.</para>
         </listitem>
       </varlistentry>
 
