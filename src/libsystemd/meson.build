@@ -7,7 +7,14 @@ id128_sources = files('''
 '''.split())
 
 sd_daemon_c = files('sd-daemon/sd-daemon.c')
-sd_event_c = files('sd-event/sd-event.c')
+
+sd_event_c = files('''
+        sd-event/event-source.h
+        sd-event/event-util.c
+        sd-event/event-util.h
+        sd-event/sd-event.c
+'''.split())
+
 sd_login_c = files('sd-login/sd-login.c')
 
 libsystemd_sources = files('''

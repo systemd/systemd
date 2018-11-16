@@ -21,6 +21,7 @@
 #include "dhcp-lease-internal.h"
 #include "dhcp-protocol.h"
 #include "dns-domain.h"
+#include "event-util.h"
 #include "hostname-util.h"
 #include "random-util.h"
 #include "string-util.h"
@@ -546,11 +547,10 @@ static int client_initialize(sd_dhcp_client *client) {
 
         client->fd = asynchronous_close(client->fd);
 
-        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
-
-        client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
-        client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
-        client->timeout_expire = sd_event_source_unref(client->timeout_expire);
+        (void) event_source_disable(client->timeout_resend);
+        (void) event_source_disable(client->timeout_t1);
+        (void) event_source_disable(client->timeout_t2);
+        (void) event_source_disable(client->timeout_expire);
 
         client->attempt = 1;
 
@@ -1065,22 +1065,11 @@ static int client_timeout_resend(
 
         next_timeout += (random_u32() & 0x1fffff);
 
-        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
-
-        r = sd_event_add_time(client->event,
-                              &client->timeout_resend,
-                              clock_boottime_or_monotonic(),
-                              next_timeout, 10 * USEC_PER_MSEC,
-                              client_timeout_resend, client);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_priority(client->timeout_resend,
-                                         client->event_priority);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_description(client->timeout_resend, "dhcp4-resend-timer");
+        r = event_reset_time(client->event, &client->timeout_resend,
+                             clock_boottime_or_monotonic(),
+                             next_timeout, 10 * USEC_PER_MSEC,
+                             client_timeout_resend, client,
+                             client->event_priority, "dhcp4-resend-timer", true);
         if (r < 0)
                 goto error;
 
@@ -1177,31 +1166,16 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
         assert(client);
         assert(client->event);
 
-        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
-
         if (client->start_delay) {
                 assert_se(sd_event_now(client->event, clock_boottime_or_monotonic(), &usec) >= 0);
                 usec += client->start_delay;
         }
 
-        r = sd_event_add_time(client->event,
-                              &client->timeout_resend,
-                              clock_boottime_or_monotonic(),
-                              usec, 0,
-                              client_timeout_resend, client);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_priority(client->timeout_resend,
-                                         client->event_priority);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_description(client->timeout_resend, "dhcp4-resend-timer");
-        if (r < 0)
-                goto error;
-
-error:
+        r = event_reset_time(client->event, &client->timeout_resend,
+                             clock_boottime_or_monotonic(),
+                             usec, 0,
+                             client_timeout_resend, client,
+                             client->event_priority, "dhcp4-resend-timer", true);
         if (r < 0)
                 client_stop(client, r);
 
@@ -1459,13 +1433,14 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         assert(client->lease);
         assert(client->lease->lifetime);
 
-        client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
-        client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
-        client->timeout_expire = sd_event_source_unref(client->timeout_expire);
-
         /* don't set timers for infinite leases */
-        if (client->lease->lifetime == 0xffffffff)
+        if (client->lease->lifetime == 0xffffffff) {
+                (void) event_source_disable(client->timeout_t1);
+                (void) event_source_disable(client->timeout_t2);
+                (void) event_source_disable(client->timeout_expire);
+
                 return 0;
+        }
 
         r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
@@ -1517,19 +1492,11 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         }
 
         /* arm lifetime timeout */
-        r = sd_event_add_time(client->event, &client->timeout_expire,
-                              clock_boottime_or_monotonic(),
-                              lifetime_timeout, 10 * USEC_PER_MSEC,
-                              client_timeout_expire, client);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_priority(client->timeout_expire,
-                                         client->event_priority);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_description(client->timeout_expire, "dhcp4-lifetime");
+        r = event_reset_time(client->event, &client->timeout_expire,
+                             clock_boottime_or_monotonic(),
+                             lifetime_timeout, 10 * USEC_PER_MSEC,
+                             client_timeout_expire, client,
+                             client->event_priority, "dhcp4-lifetime", true);
         if (r < 0)
                 return r;
 
@@ -1541,21 +1508,11 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return 0;
 
         /* arm T2 timeout */
-        r = sd_event_add_time(client->event,
-                              &client->timeout_t2,
-                              clock_boottime_or_monotonic(),
-                              t2_timeout,
-                              10 * USEC_PER_MSEC,
-                              client_timeout_t2, client);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_priority(client->timeout_t2,
-                                         client->event_priority);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_description(client->timeout_t2, "dhcp4-t2-timeout");
+        r = event_reset_time(client->event, &client->timeout_t2,
+                             clock_boottime_or_monotonic(),
+                             t2_timeout, 10 * USEC_PER_MSEC,
+                             client_timeout_t2, client,
+                             client->event_priority, "dhcp4-t2-timeout", true);
         if (r < 0)
                 return r;
 
@@ -1567,20 +1524,11 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return 0;
 
         /* arm T1 timeout */
-        r = sd_event_add_time(client->event,
-                              &client->timeout_t1,
-                              clock_boottime_or_monotonic(),
-                              t1_timeout, 10 * USEC_PER_MSEC,
-                              client_timeout_t1, client);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_priority(client->timeout_t1,
-                                         client->event_priority);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_description(client->timeout_t1, "dhcp4-t1-timer");
+        r = event_reset_time(client->event, &client->timeout_t1,
+                             clock_boottime_or_monotonic(),
+                             t1_timeout, 10 * USEC_PER_MSEC,
+                             client_timeout_t1, client,
+                             client->event_priority, "dhcp4-t1-timer", true);
         if (r < 0)
                 return r;
 
@@ -1605,26 +1553,14 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 r = client_handle_offer(client, message, len);
                 if (r >= 0) {
 
-                        client->timeout_resend =
-                                sd_event_source_unref(client->timeout_resend);
-
                         client->state = DHCP_STATE_REQUESTING;
                         client->attempt = 1;
 
-                        r = sd_event_add_time(client->event,
-                                              &client->timeout_resend,
-                                              clock_boottime_or_monotonic(),
-                                              0, 0,
-                                              client_timeout_resend, client);
-                        if (r < 0)
-                                goto error;
-
-                        r = sd_event_source_set_priority(client->timeout_resend,
-                                                         client->event_priority);
-                        if (r < 0)
-                                goto error;
-
-                        r = sd_event_source_set_description(client->timeout_resend, "dhcp4-resend-timer");
+                        r = event_reset_time(client->event, &client->timeout_resend,
+                                             clock_boottime_or_monotonic(),
+                                             0, 0,
+                                             client_timeout_resend, client,
+                                             client->event_priority, "dhcp4-resend-timer", true);
                         if (r < 0)
                                 goto error;
                 } else if (r == -ENOMSG)
@@ -1641,8 +1577,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 r = client_handle_ack(client, message, len);
                 if (r >= 0) {
                         client->start_delay = 0;
-                        client->timeout_resend =
-                                sd_event_source_unref(client->timeout_resend);
+                        (void) event_source_disable(client->timeout_resend);
                         client->receive_message =
                                 sd_event_source_unref(client->receive_message);
                         client->fd = asynchronous_close(client->fd);
@@ -1682,9 +1617,6 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
 
                 } else if (r == -EADDRNOTAVAIL) {
                         /* got a NAK, let's restart the client */
-                        client->timeout_resend =
-                                sd_event_source_unref(client->timeout_resend);
-
                         client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
 
                         r = client_initialize(client);
@@ -1960,9 +1892,12 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
 
         log_dhcp_client(client, "FREE");
 
-        client_initialize(client);
+        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
+        client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
+        client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
+        client->timeout_expire = sd_event_source_unref(client->timeout_expire);
 
-        client->receive_message = sd_event_source_unref(client->receive_message);
+        client_initialize(client);
 
         sd_dhcp_client_detach_event(client);
 
@@ -1982,19 +1917,20 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
 
         assert_return(ret, -EINVAL);
 
-        client = new0(sd_dhcp_client, 1);
+        client = new(sd_dhcp_client, 1);
         if (!client)
                 return -ENOMEM;
 
-        client->n_ref = 1;
-        client->state = DHCP_STATE_INIT;
-        client->ifindex = -1;
-        client->fd = -1;
-        client->attempt = 1;
-        client->mtu = DHCP_DEFAULT_MIN_SIZE;
-        client->port = DHCP_PORT_CLIENT;
-
-        client->anonymize = !!anonymize;
+        *client = (sd_dhcp_client) {
+                .n_ref = 1,
+                .state = DHCP_STATE_INIT,
+                .ifindex = -1,
+                .fd = -1,
+                .attempt = 1,
+                .mtu = DHCP_DEFAULT_MIN_SIZE,
+                .port = DHCP_PORT_CLIENT,
+                .anonymize = !!anonymize,
+        };
         /* NOTE: this could be moved to a function. */
         if (anonymize) {
                 client->req_opts_size = ELEMENTSOF(default_req_opts_anonymize);
