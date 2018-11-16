@@ -11,6 +11,12 @@
 
 static const char *arg_dest = "/tmp";
 
+/* So you are reading this, and might wonder: why is this implemented as a generator rather than as a plain, statically
+ * enabled service that carries appropriate ConditionFileIsExecutable= lines? The answer is this: conditions bypass
+ * execution of a service's binary, but they have no influence on unit dependencies. Thus, a service that is
+ * conditioned out will still act as synchronization point in the dependency tree, and we'd rather not have that for
+ * these two legacy scripts. */
+
 static int add_symlink(const char *service, const char *where) {
         const char *from, *to;
         int r;
