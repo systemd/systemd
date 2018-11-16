@@ -108,6 +108,14 @@ int manager_handle_action(
         else
                 supported = true;
 
+        if (!supported && IN_SET(handle, HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP, HANDLE_SUSPEND_THEN_HIBERNATE)) {
+                supported = can_sleep("suspend") > 0;
+                if (supported) {
+                        log_notice("Operation '%s' requested but not supported, using regular suspend instead.", handle_action_to_string(handle));
+                        handle = HANDLE_SUSPEND;
+                }
+        }
+
         if (!supported) {
                 log_warning("Requested operation not supported, ignoring.");
                 return -EOPNOTSUPP;
