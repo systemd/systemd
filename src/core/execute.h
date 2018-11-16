@@ -294,12 +294,13 @@ typedef enum ExecFlags {
         EXEC_CHOWN_DIRECTORIES = 1 << 5, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
         EXEC_NSS_BYPASS_BUS    = 1 << 6, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
         EXEC_CGROUP_DELEGATE   = 1 << 7,
+        EXEC_IS_CONTROL        = 1 << 8,
+        EXEC_CONTROL_CGROUP    = 1 << 9, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS          = 1 << 8,
-        EXEC_IS_CONTROL        = 1 << 9,
-        EXEC_SETENV_RESULT     = 1 << 10,
-        EXEC_SET_WATCHDOG      = 1 << 11,
+        EXEC_PASS_FDS          = 1 << 10,
+        EXEC_SETENV_RESULT     = 1 << 11,
+        EXEC_SET_WATCHDOG      = 1 << 12,
 } ExecFlags;
 
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is

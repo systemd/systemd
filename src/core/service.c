@@ -1418,7 +1418,7 @@ static int service_spawn(
         assert(c);
         assert(_pid);
 
-        r = unit_prepare_exec(UNIT(s));
+        r = unit_prepare_exec(UNIT(s)); /* This realizes the cgroup, among other things */
         if (r < 0)
                 return r;
 
@@ -1777,7 +1777,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_stop_usec,
-                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_IS_CONTROL|EXEC_SETENV_RESULT,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_IS_CONTROL|EXEC_SETENV_RESULT|EXEC_CONTROL_CGROUP,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1892,7 +1892,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_stop_usec,
-                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_SETENV_RESULT,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_SETENV_RESULT|EXEC_CONTROL_CGROUP,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -1970,7 +1970,7 @@ static void service_enter_start_post(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -2214,7 +2214,7 @@ static void service_enter_reload(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -2254,7 +2254,8 @@ static void service_run_next_control(Service *s) {
                           timeout,
                           EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|
                           (IN_SET(s->control_command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_STOP_POST) ? EXEC_APPLY_TTY_STDIN : 0)|
-                          (IN_SET(s->control_command_id, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST) ? EXEC_SETENV_RESULT : 0),
+                          (IN_SET(s->control_command_id, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST) ? EXEC_SETENV_RESULT : 0)|
+                          (IN_SET(s->control_command_id, SERVICE_EXEC_START_POST, SERVICE_EXEC_RELOAD, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST) ? EXEC_CONTROL_CGROUP : 0),
                           &s->control_pid);
         if (r < 0)
                 goto fail;
