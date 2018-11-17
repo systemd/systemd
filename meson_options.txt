@@ -8,7 +8,7 @@ option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
 option('rootlibdir', type : 'string',
        description : '''[/usr]/lib/x86_64-linux-gnu or such''')
 option('rootprefix', type : 'string',
-       description : '''override the root prefix''')
+       description : '''override the root prefix [default '/' if split-usr and '/usr' otherwise]''')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udev and its helpers to libsystemd-shared.so')
 option('link-systemctl-shared', type: 'boolean',
