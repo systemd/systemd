@@ -231,7 +231,7 @@ static int process(
                 if (g->n_tasks > 0)
                         g->n_tasks_valid = true;
 
-        } else if (STR_IN_SET(controller, "cpu", "cpuacct")) {
+        } else if (STR_IN_SET(controller, "cpu", "cpuacct") || cpu_accounting_is_cheap()) {
                 _cleanup_free_ char *p = NULL, *v = NULL;
                 uint64_t new_usage;
                 nsec_t timestamp;
