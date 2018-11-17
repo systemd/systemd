@@ -235,11 +235,12 @@ conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_
 conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_YES_NO',           memory_accounting_default ? 'yes' : 'no')
 
 substs.set('prefix',                                          prefixdir)
+substs.set('rootprefix',                                      rootprefixdir)
 substs.set('exec_prefix',                                     prefixdir)
 substs.set('libdir',                                          libdir)
 substs.set('rootlibdir',                                      rootlibdir)
 substs.set('includedir',                                      includedir)
-substs.set('pkgsysconfdir',                                   pkgsysconfdir)
+substs.set('sysconfdir',                                      sysconfdir)
 substs.set('bindir',                                          bindir)
 substs.set('rootbindir',                                      rootbindir)
 substs.set('rootlibexecdir',                                  rootlibexecdir)
