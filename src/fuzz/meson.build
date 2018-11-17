@@ -51,7 +51,14 @@ fuzzers += [
           libshared],
          [libmount]],
 
-        [['src/fuzz/fuzz-journald-kmsg.c'],
+        [['src/fuzz/fuzz-journald-audit.c',
+          'src/fuzz/fuzz-journald.c'],
+         [libjournal_core,
+          libshared],
+         [libselinux]],
+
+        [['src/fuzz/fuzz-journald-kmsg.c',
+          'src/fuzz/fuzz-journald.c'],
          [libjournal_core,
           libshared],
          [libselinux]],

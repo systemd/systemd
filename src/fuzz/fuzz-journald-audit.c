@@ -2,16 +2,13 @@
 
 #include "fuzz.h"
 #include "fuzz-journald.h"
-#include "journald-kmsg.h"
+#include "journald-audit.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         Server s;
 
-        if (size == 0)
-                return 0;
-
         dummy_server_init(&s, data, size);
-        dev_kmsg_record(&s, s.buffer, size);
+        process_audit_string(&s, 0, s.buffer, size);
         server_done(&s);
 
         return 0;

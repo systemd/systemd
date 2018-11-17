@@ -313,7 +313,7 @@ static int map_all_fields(
         }
 }
 
-static void process_audit_string(Server *s, int type, const char *data, size_t size) {
+void process_audit_string(Server *s, int type, const char *data, size_t size) {
         size_t n_iov_allocated = 0, n_iov = 0, z;
         _cleanup_free_ struct iovec *iov = NULL;
         uint64_t seconds, msec, id;
@@ -341,11 +341,12 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         if (!p)
                 return;
 
+        k = 0;
         if (sscanf(p, "(%" PRIu64 ".%" PRIu64 ":%" PRIu64 "):%n",
                    &seconds,
                    &msec,
                    &id,
-                   &k) != 3)
+                   &k) != 3 || k == 0)
                 return;
 
         p += k;
