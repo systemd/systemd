@@ -8,7 +8,56 @@
 #include "tests.h"
 #include "util.h"
 
-static void test_sd_device_basic(void) {
+static void test_sd_device_one(sd_device *d) {
+        const char *syspath, *subsystem, *val;
+        dev_t devnum;
+        usec_t usec;
+        int i, r;
+
+        assert_se(sd_device_get_syspath(d, &syspath) >= 0);
+
+        r = sd_device_get_subsystem(d, &subsystem);
+        assert_se(r >= 0 || r == -ENOENT);
+
+        r = sd_device_get_devtype(d, &val);
+        assert_se(r >= 0 || r == -ENOENT);
+
+        r = sd_device_get_devnum(d, &devnum);
+        assert_se((r >= 0 && major(devnum) > 0) || r == -ENOENT);
+
+        r = sd_device_get_ifindex(d, &i);
+        assert_se((r >= 0 && i > 0) || r == -ENOENT);
+
+        r = sd_device_get_driver(d, &val);
+        assert_se(r >= 0 || r == -ENOENT);
+
+        assert_se(sd_device_get_devpath(d, &val) >= 0);
+
+        r = sd_device_get_devname(d, &val);
+        assert_se(r >= 0 || r == -ENOENT);
+
+        assert_se(sd_device_get_sysname(d, &val) >= 0);
+
+        r = sd_device_get_sysnum(d, &val);
+        assert_se(r >= 0 || r == -ENOENT);
+
+        i = sd_device_get_is_initialized(d);
+        assert_se(i >= 0);
+        if (i > 0) {
+                r = sd_device_get_usec_since_initialized(d, &usec);
+                assert_se((r >= 0 && usec > 0) || r == -ENODATA);
+        }
+
+        r = sd_device_get_sysattr_value(d, "name_assign_type", &val);
+        assert_se(r >= 0 || IN_SET(r, -ENOENT, -EINVAL));
+
+        r = sd_device_get_property_value(d, "ID_NET_DRIVER", &val);
+        assert_se(r >= 0 || r == -ENOENT);
+
+        log_info("syspath:%s subsystem:%s initialized:%s", syspath, strna(subsystem), yes_no(i));
+}
+
+static void test_sd_device_enumerator_devices(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *d;
 
@@ -16,54 +65,20 @@ static void test_sd_device_basic(void) {
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
-        FOREACH_DEVICE(e, d) {
-                const char *syspath, *subsystem, *val;
-                dev_t devnum;
-                usec_t usec;
-                int i, r;
+        FOREACH_DEVICE(e, d)
+                test_sd_device_one(d);
+}
 
-                assert_se(sd_device_get_syspath(d, &syspath) >= 0);
+static void test_sd_device_enumerator_subsystems(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
 
-                r = sd_device_get_subsystem(d, &subsystem);
-                assert_se(r >= 0 || r == -ENOENT);
+        log_info("/* %s */", __func__);
 
-                r = sd_device_get_devtype(d, &val);
-                assert_se(r >= 0 || r == -ENOENT);
-
-                r = sd_device_get_devnum(d, &devnum);
-                assert_se((r >= 0 && major(devnum) > 0) || r == -ENOENT);
-
-                r = sd_device_get_ifindex(d, &i);
-                assert_se((r >= 0 && i > 0) || r == -ENOENT);
-
-                r = sd_device_get_driver(d, &val);
-                assert_se(r >= 0 || r == -ENOENT);
-
-                assert_se(sd_device_get_devpath(d, &val) >= 0);
-
-                r = sd_device_get_devname(d, &val);
-                assert_se(r >= 0 || r == -ENOENT);
-
-                assert_se(sd_device_get_sysname(d, &val) >= 0);
-
-                r = sd_device_get_sysnum(d, &val);
-                assert_se(r >= 0 || r == -ENOENT);
-
-                i = sd_device_get_is_initialized(d);
-                assert_se(i >= 0);
-                if (i > 0) {
-                        r = sd_device_get_usec_since_initialized(d, &usec);
-                        assert_se((r >= 0 && usec > 0) || r == -ENODATA);
-                }
-
-                r = sd_device_get_sysattr_value(d, "name_assign_type", &val);
-                assert_se(r >= 0 || IN_SET(r, -ENOENT, -EINVAL));
-
-                r = sd_device_get_property_value(d, "ID_NET_DRIVER", &val);
-                assert_se(r >= 0 || r == -ENOENT);
-
-                log_debug("subsystem:%s syspath:%s initialized:%s", strna(subsystem), syspath, yes_no(i));
-        }
+        assert_se(sd_device_enumerator_new(&e) >= 0);
+        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        FOREACH_SUBSYSTEM(e, d)
+                test_sd_device_one(d);
 }
 
 static void test_sd_device_enumerator_filter_subsystem_one(const char *subsystem, Hashmap *h) {
@@ -133,7 +148,8 @@ static void test_sd_device_enumerator_filter_subsystem(void) {
 int main(int argc, char **argv) {
         test_setup_logging(LOG_INFO);
 
-        test_sd_device_basic();
+        test_sd_device_enumerator_devices();
+        test_sd_device_enumerator_subsystems();
         test_sd_device_enumerator_filter_subsystem();
 
         return 0;
