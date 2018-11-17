@@ -576,8 +576,14 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
 
         if (link->advertise) {
                 uint32_t advertise[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32] = {};
+                Iterator i;
+                void *id;
 
-                advertise[0] = link->advertise;
+                SET_FOREACH(id, link->advertise, i) {
+                        int val = PTR_TO_INT(id);
+
+                        advertise[val / 32] |= (1 << (val % 32));
+                }
                 memcpy(&u->link_modes.advertising, advertise, ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES);
         }
 
@@ -704,7 +710,7 @@ int config_parse_advertise(const char *unit,
                            void *data,
                            void *userdata) {
         link_config *config = data;
-        NetDevAdvertise mode, a = 0;
+        NetDevAdvertise mode;
         const char *p;
         int r;
 
@@ -738,10 +744,15 @@ int config_parse_advertise(const char *unit,
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse advertise mode, ignoring: %s", w);
                         continue;
                 }
-                a |= mode;
-        }
 
-        config->advertise |= a;
+                r = set_ensure_allocated(&config->advertise, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put(config->advertise, INT_TO_PTR(mode));
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }

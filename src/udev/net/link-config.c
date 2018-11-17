@@ -54,6 +54,7 @@ static void link_config_free(link_config *link) {
         free(link->filename);
 
         set_free_free(link->match_mac);
+        set_free(link->advertise);
         strv_free(link->match_path);
         strv_free(link->match_driver);
         strv_free(link->match_type);
@@ -373,7 +374,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         log_warning_errno(r,  "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
 
                 if (config->advertise)
-                        log_warning_errno(r, "Could not set advertise mode to 0x%X: %m", config->advertise);
+                        log_warning_errno(r, "Could not set advertise mode: %m");
 
                 if (config->speed) {
 
