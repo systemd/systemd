@@ -54,25 +54,6 @@ typedef enum NetDevPort {
         _NET_DEV_PORT_INVALID = -1
 } NetDevPort;
 
-typedef enum NetDevAdvertise {
-        NET_DEV_ADVERTISE_10BASET_HALF        =  1 << ETHTOOL_LINK_MODE_10baseT_Half_BIT,
-        NET_DEV_ADVERTISE_10BASET_FULL        =  1 << ETHTOOL_LINK_MODE_10baseT_Full_BIT,
-        NET_DEV_ADVERTISE_100BASET_HALF       =  1 << ETHTOOL_LINK_MODE_100baseT_Half_BIT,
-        NET_DEV_ADVERTISE_100BASET_FULL       =  1 << ETHTOOL_LINK_MODE_100baseT_Full_BIT,
-        NET_DEV_ADVERTISE_1000BASET_HALF      =  1 << ETHTOOL_LINK_MODE_1000baseT_Half_BIT,
-        NET_DEV_ADVERTISE_1000BASET_FULL      =  1 << ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
-        NET_DEV_ADVERTISE_10000BASET_FULL     =  1 << ETHTOOL_LINK_MODE_10000baseT_Full_BIT,
-        NET_DEV_ADVERTISE_2500BASEX_FULL      =  1 << ETHTOOL_LINK_MODE_2500baseX_Full_BIT,
-        NET_DEV_ADVERTISE_1000BASEKX_FULL     =  1 << ETHTOOL_LINK_MODE_1000baseKX_Full_BIT,
-        NET_DEV_ADVERTISE_10000BASEKX4_FULL   =  1 << ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT,
-        NET_DEV_ADVERTISE_10000BASEKR_FULL    =  1 << ETHTOOL_LINK_MODE_10000baseKR_Full_BIT,
-        NET_DEV_ADVERTISE_10000BASER_FEC      =  1 << ETHTOOL_LINK_MODE_10000baseR_FEC_BIT,
-        NET_DEV_ADVERTISE_20000BASEMLD2_Full  =  1 << ETHTOOL_LINK_MODE_20000baseMLD2_Full_BIT,
-        NET_DEV_ADVERTISE_20000BASEKR2_Full   =  1 << ETHTOOL_LINK_MODE_20000baseKR2_Full_BIT,
-        _NET_DEV_ADVERTISE_MAX,
-        _NET_DEV_ADVERTISE_INVALID = -1,
-} NetDevAdvertise;
-
 #define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32    (SCHAR_MAX)
 #define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES  (4 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32)
 
@@ -117,8 +98,8 @@ WakeOnLan wol_from_string(const char *wol) _pure_;
 const char *port_to_string(NetDevPort port) _const_;
 NetDevPort port_from_string(const char *port) _pure_;
 
-const char *advertise_to_string(NetDevAdvertise advertise) _const_;
-NetDevAdvertise advertise_from_string(const char *advertise) _pure_;
+const char *ethtool_link_mode_bit_to_string(enum ethtool_link_mode_bit_indices val) _const_;
+enum ethtool_link_mode_bit_indices ethtool_link_mode_bit_from_string(const char *str) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_duplex);
 CONFIG_PARSER_PROTOTYPE(config_parse_wol);

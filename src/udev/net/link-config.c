@@ -69,6 +69,7 @@ static void link_config_free(link_config *link) {
         free(link->name_policy);
         free(link->name);
         free(link->alias);
+        free(link->advertise);
 
         free(link);
 }
@@ -373,10 +374,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         log_warning_errno(r,  "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
 
                 if (config->advertise)
-                        log_warning_errno(r, "Could not set advertise mode to 0x%X: %m", config->advertise);
+                        log_warning_errno(r, "Could not set advertise mode: %m"); /* TODO: include modes in the log message. */
 
                 if (config->speed) {
-
                         speed = DIV_ROUND_UP(config->speed, 1000000);
                         if (r == -EOPNOTSUPP) {
                                 r = ethtool_set_speed(&ctx->ethtool_fd, old_name, speed, config->duplex);

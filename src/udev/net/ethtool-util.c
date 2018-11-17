@@ -56,24 +56,62 @@ static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
         [NET_DEV_FEAT_TSO6] = "tx-tcp6-segmentation",
 };
 
-static const char* const advertise_table[_NET_DEV_ADVERTISE_MAX] = {
-        [NET_DEV_ADVERTISE_10BASET_HALF]        = "10baset-half",
-        [NET_DEV_ADVERTISE_10BASET_FULL]        = "10baset-full",
-        [NET_DEV_ADVERTISE_100BASET_HALF]       = "100baset-half",
-        [NET_DEV_ADVERTISE_100BASET_FULL]       = "100baset-full",
-        [NET_DEV_ADVERTISE_1000BASET_HALF]      = "1000baset-half",
-        [NET_DEV_ADVERTISE_1000BASET_FULL]      = "1000baset-full",
-        [NET_DEV_ADVERTISE_10000BASET_FULL]     = "10000baset-full",
-        [NET_DEV_ADVERTISE_2500BASEX_FULL]      = "2500basex-full",
-        [NET_DEV_ADVERTISE_1000BASEKX_FULL]     = "1000basekx-full",
-        [NET_DEV_ADVERTISE_10000BASEKX4_FULL]   = "10000basekx4-full",
-        [NET_DEV_ADVERTISE_10000BASEKR_FULL]    = "10000basekr-full",
-        [NET_DEV_ADVERTISE_10000BASER_FEC]      = "10000baser-fec",
-        [NET_DEV_ADVERTISE_20000BASEMLD2_Full]  = "20000basemld2-full",
-        [NET_DEV_ADVERTISE_20000BASEKR2_Full]   = "20000basekr2-full",
+static const char* const ethtool_link_mode_bit_table[_ETHTOOL_LINK_MODE_MAX] = {
+        [ETHTOOL_LINK_MODE_10baseT_Half_BIT]           = "10baset-half",
+        [ETHTOOL_LINK_MODE_10baseT_Full_BIT]           = "10baset-full",
+        [ETHTOOL_LINK_MODE_100baseT_Half_BIT]          = "100baset-half",
+        [ETHTOOL_LINK_MODE_100baseT_Full_BIT]          = "100baset-full",
+        [ETHTOOL_LINK_MODE_1000baseT_Half_BIT]         = "1000baset-half",
+        [ETHTOOL_LINK_MODE_1000baseT_Full_BIT]         = "1000baset-full",
+        [ETHTOOL_LINK_MODE_Autoneg_BIT]                = "autonegotiation",
+        [ETHTOOL_LINK_MODE_TP_BIT]                     = "tp",
+        [ETHTOOL_LINK_MODE_AUI_BIT]                    = "aui",
+        [ETHTOOL_LINK_MODE_MII_BIT]                    = "mii",
+        [ETHTOOL_LINK_MODE_FIBRE_BIT]                  = "fibre",
+        [ETHTOOL_LINK_MODE_BNC_BIT]                    = "bnc",
+        [ETHTOOL_LINK_MODE_10000baseT_Full_BIT]        = "10000baset-full",
+        [ETHTOOL_LINK_MODE_Pause_BIT]                  = "pause",
+        [ETHTOOL_LINK_MODE_Asym_Pause_BIT]             = "asym-pause",
+        [ETHTOOL_LINK_MODE_2500baseX_Full_BIT]         = "2500basex-full",
+        [ETHTOOL_LINK_MODE_Backplane_BIT]              = "backplane",
+        [ETHTOOL_LINK_MODE_1000baseKX_Full_BIT]        = "1000basekx-full",
+        [ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT]      = "10000basekx4-full",
+        [ETHTOOL_LINK_MODE_10000baseKR_Full_BIT]       = "10000basekr-full",
+        [ETHTOOL_LINK_MODE_10000baseR_FEC_BIT]         = "10000baser-fec",
+        [ETHTOOL_LINK_MODE_20000baseMLD2_Full_BIT]     = "20000basemld2-full",
+        [ETHTOOL_LINK_MODE_20000baseKR2_Full_BIT]      = "20000basekr2-full",
+        [ETHTOOL_LINK_MODE_40000baseKR4_Full_BIT]      = "40000basekr4-full",
+        [ETHTOOL_LINK_MODE_40000baseCR4_Full_BIT]      = "40000basecr4-full",
+        [ETHTOOL_LINK_MODE_40000baseSR4_Full_BIT]      = "40000basesr4-full",
+        [ETHTOOL_LINK_MODE_40000baseLR4_Full_BIT]      = "40000baselr4-full",
+        [ETHTOOL_LINK_MODE_56000baseKR4_Full_BIT]      = "56000basekr4-full",
+        [ETHTOOL_LINK_MODE_56000baseCR4_Full_BIT]      = "56000basecr4-full",
+        [ETHTOOL_LINK_MODE_56000baseSR4_Full_BIT]      = "56000basesr4-full",
+        [ETHTOOL_LINK_MODE_56000baseLR4_Full_BIT]      = "56000baselr4-full",
+        [ETHTOOL_LINK_MODE_25000baseCR_Full_BIT]       = "25000basecr-full",
+        [ETHTOOL_LINK_MODE_25000baseKR_Full_BIT]       = "25000basekr-full",
+        [ETHTOOL_LINK_MODE_25000baseSR_Full_BIT]       = "25000basesr-full",
+        [ETHTOOL_LINK_MODE_50000baseCR2_Full_BIT]      = "50000basecr2-full",
+        [ETHTOOL_LINK_MODE_50000baseKR2_Full_BIT]      = "50000basekr2-full",
+        [ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT]     = "100000basekr4-full",
+        [ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT]     = "100000basesr4-full",
+        [ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT]     = "100000basecr4-full",
+        [ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT] = "100000baselr4-er4-full",
+        [ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT]      = "50000basesr2-full",
+        [ETHTOOL_LINK_MODE_1000baseX_Full_BIT]         = "1000basex-full",
+        [ETHTOOL_LINK_MODE_10000baseCR_Full_BIT]       = "10000basecr-full",
+        [ETHTOOL_LINK_MODE_10000baseSR_Full_BIT]       = "10000basesr-full",
+        [ETHTOOL_LINK_MODE_10000baseLR_Full_BIT]       = "10000baselr-full",
+        [ETHTOOL_LINK_MODE_10000baseLRM_Full_BIT]      = "10000baselrm-full",
+        [ETHTOOL_LINK_MODE_10000baseER_Full_BIT]       = "10000baseer-full",
+        [ETHTOOL_LINK_MODE_2500baseT_Full_BIT]         = "2500baset-full",
+        [ETHTOOL_LINK_MODE_5000baseT_Full_BIT]         = "5000baset-full",
+        [ETHTOOL_LINK_MODE_FEC_NONE_BIT]               = "fec-none",
+        [ETHTOOL_LINK_MODE_FEC_RS_BIT]                 = "fec-rs",
+        [ETHTOOL_LINK_MODE_FEC_BASER_BIT]              = "fec-baser",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(advertise, NetDevAdvertise);
+DEFINE_STRING_TABLE_LOOKUP(ethtool_link_mode_bit, enum ethtool_link_mode_bit_indices);
 
 int ethtool_connect(int *ret) {
         int fd;
@@ -574,12 +612,8 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
 
         u->base.autoneg = link->autonegotiation;
 
-        if (link->advertise) {
-                uint32_t advertise[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32] = {};
-
-                advertise[0] = link->advertise;
-                memcpy(&u->link_modes.advertising, advertise, ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES);
-        }
+        if (link->advertise)
+                memcpy(&u->link_modes.advertising, link->advertise, ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES);
 
         if (u->base.cmd == ETHTOOL_GLINKSETTINGS)
                 r = set_slinksettings(*fd, &ifr, u);
@@ -703,8 +737,9 @@ int config_parse_advertise(const char *unit,
                            const char *rvalue,
                            void *data,
                            void *userdata) {
+        uint32_t a[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32] = {};
+        enum ethtool_link_mode_bit_indices mode;
         link_config *config = data;
-        NetDevAdvertise mode, a = 0;
         const char *p;
         int r;
 
@@ -716,7 +751,7 @@ int config_parse_advertise(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty string resets the value. */
-                config->advertise = 0;
+                config->advertise = mfree(config->advertise);
                 return 0;
         }
 
@@ -733,15 +768,28 @@ int config_parse_advertise(const char *unit,
                 if (r == 0)
                         break;
 
-                mode = advertise_from_string(w);
-                if (mode == _NET_DEV_ADVERTISE_INVALID) {
+                mode = ethtool_link_mode_bit_from_string(w);
+                if (mode < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse advertise mode, ignoring: %s", w);
                         continue;
                 }
-                a |= mode;
+
+                a[mode / 32] |= 1UL << (mode % 32);
         }
 
-        config->advertise |= a;
+        if (!config->advertise) {
+                config->advertise = new(uint32_t, ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32);
+                if (!config->advertise)
+                        return log_oom();
+
+                memcpy(config->advertise, a, ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES);
+
+        } else {
+                unsigned i;
+
+                for (i = 0; i < ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32; i++)
+                        config->advertise[i] |= a[i];
+        }
 
         return 0;
 }
