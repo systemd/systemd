@@ -188,59 +188,67 @@ Zainicjowano wyłączenie systemu. Wyłączenie zostało rozpoczęte i wszystki
 usługi systemowe zostały zakończone, a wszystkie systemy plików odmontowane.
 
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
-Subject: Rozpoczęto uruchamianie jednostki @UNIT@
+Subject: Rozpoczęto wykonywanie zadania uruchamiania dla jednostki @UNIT@
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Jednostka @UNIT@ rozpoczęła uruchamianie.
+Rozpoczęto wykonywanie zadania uruchamiania dla jednostki @UNIT@.
+
+Identyfikator zadania: @JOB_ID@.
 
 -- 39f53479d3a045ac8e11786248231fbf
-Subject: Ukończono uruchamianie jednostki @UNIT@
+Subject: Pomyślnie ukończono zadanie uruchamiania dla jednostki @UNIT@
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Jednostka @UNIT@ ukończyła uruchamianie.
+Pomyślnie ukończono zadanie uruchamiania dla jednostki @UNIT@.
 
-Wynik uruchamiania: @JOB_RESULT@.
-
--- de5b426a63be47a7b6ac3eaac82e2f6f
-Subject: Rozpoczęto wyłączanie jednostki @UNIT@
-Defined-By: systemd
-Support: %SUPPORT_URL%
-
-Jednostka @UNIT@ rozpoczęła wyłączanie.
-
--- 9d1aaa27d60140bd96365438aad20286
-Subject: Ukończono wyłączanie jednostki @UNIT@
-Defined-By: systemd
-Support: %SUPPORT_URL%
-
-Jednostka @UNIT@ ukończyła wyłączanie.
+Identyfikator zadania: @JOB_ID@.
 
 -- be02cf6855d2428ba40df7e9d022f03d
-Subject: Jednostka @UNIT@ się nie powiodła
+Subject: Zadanie uruchamiania dla jednostki @UNIT@ się nie powiodło
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Jednostka @UNIT@ się nie powiodła.
+Zadanie uruchamiania dla jednostki @UNIT@ zostało ukończone z niepowodzeniem.
 
-Wynik: @JOB_RESULT@.
+Identyfikator zadania: @JOB_ID@, wynik zadania: @JOB_RESULT@.
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: Rozpoczęto wykonywanie zadania zatrzymania dla jednostki @UNIT@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Rozpoczęto wykonywanie zadania zatrzymania dla jednostki @UNIT@.
+
+Identyfikator zadania: @JOB_ID@.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: Ukończono zadanie zatrzymania dla jednostki @UNIT@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Ukończono zadanie zatrzymania dla jednostki @UNIT@.
+
+Identyfikator zadania: @JOB_ID@, wynik zadania: @JOB_RESULT@.
 
 -- d34d037fff1847e6ae669a370e694725
-Subject: Rozpoczęto ponowne wczytywanie konfiguracji jednostki @UNIT@
+Subject: Rozpoczęto wykonywanie zadania ponownego wczytania dla jednostki @UNIT@
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Jednostka @UNIT@ rozpoczęła ponowne wczytywanie swojej konfiguracji.
+Rozpoczęto wykonywanie zadania ponownego wczytania dla jednostki @UNIT@.
+
+Identyfikator zadania: @JOB_ID@.
 
 -- 7b05ebc668384222baa8881179cfda54
-Subject: Ukończono ponowne wczytywanie konfiguracji jednostki @UNIT@
+Subject: Ukończono zadanie ponownego wczytania dla jednostki @UNIT@
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Jednostka @UNIT@ ukończyła ponowne wczytywanie swojej konfiguracji.
+Ukończono zadanie ponownego wczytania dla jednostki @UNIT@.
 
-Wynik: @JOB_RESULT@.
+Identyfikator zadania: @JOB_ID@, wynik zadania: @JOB_RESULT@.
 
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Nie można wykonać procesu @EXECUTABLE@
@@ -337,6 +345,30 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 Jednostka @UNIT@ została ukończona, zużywając wskazane zasoby.
+
+-- 7ad2d189f7e94e70a38c781354912448
+Subject: Jednostka się powiodła
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Jednostka @UNIT@ pomyślnie przeszła do stanu „dead” (martwego).
+
+-- d9b373ed55a64feb8242e02dbe79a49c
+Subject: Jednostka się nie powiodła
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Jednostka @UNIT@ przeszła do stanu „failed” (niepowodzenia)
+z wynikiem „@UNIT_RESULT@”.
+
+-- 98e322203f7a4ed290d09fe03c09fe15
+Subject: Proces jednostki zakończył działanie
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Proces @COMMAND@= należący do jednostki @UNIT@ zakończył działanie.
+
+Kod wyjścia procesu: „@EXIT_CODE@”, jego stan wyjścia: @EXIT_STATUS@.
 
 -- 50876a9db00f4c40bde1a2ad381c3a1b
 Subject: System jest skonfigurowany w sposób, który może powodować problemy
