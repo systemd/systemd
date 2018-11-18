@@ -56,7 +56,7 @@ static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
         [NET_DEV_FEAT_TSO6] = "tx-tcp6-segmentation",
 };
 
-static const char* const ethtool_link_mode_bit_table[_ETHTOOL_LINK_MODE_MAX] = {
+static const char* const ethtool_link_mode_bit_table[] = {
         [ETHTOOL_LINK_MODE_10baseT_Half_BIT]           = "10baset-half",
         [ETHTOOL_LINK_MODE_10baseT_Full_BIT]           = "10baset-full",
         [ETHTOOL_LINK_MODE_100baseT_Half_BIT]          = "100baset-half",
