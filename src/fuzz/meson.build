@@ -97,6 +97,14 @@ fuzzers += [
           libshared],
          []],
 
+        [['src/fuzz/fuzz-udev-rules.c'],
+         [libudev_core,
+          libudev_static,
+          libsystemd_network,
+          libshared],
+         [threads,
+          libacl]],
+
         [['src/fuzz/fuzz-compress.c'],
          [libshared],
          []],

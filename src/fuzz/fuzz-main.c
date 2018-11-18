@@ -36,7 +36,8 @@ int main(int argc, char **argv) {
                 printf("%s... ", name);
                 fflush(stdout);
                 for (int j = 0; j < MIN_NUMBER_OF_RUNS; j++)
-                        (void) LLVMFuzzerTestOneInput((uint8_t*)buf, size);
+                        if (LLVMFuzzerTestOneInput((uint8_t*)buf, size) == EXIT_TEST_SKIP)
+                                return EXIT_TEST_SKIP;
                 printf("ok\n");
         }
 
