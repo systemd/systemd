@@ -237,6 +237,20 @@ static void test_log2i(void) {
         assert_se(log2i(INT_MAX) == sizeof(int)*8-2);
 }
 
+static void test_eqzero(void) {
+        const uint32_t zeros[] = {0, 0, 0};
+        const uint32_t ones[] = {1, 1};
+        const uint32_t mixed[] = {0, 1, 0, 0, 0};
+        const uint8_t longer[] = {[55] = 255};
+
+        log_info("/* %s */", __func__);
+
+        assert_se(eqzero(zeros));
+        assert_se(!eqzero(ones));
+        assert_se(!eqzero(mixed));
+        assert_se(!eqzero(longer));
+}
+
 static void test_raw_clone(void) {
         pid_t parent, pid, pid2;
 
@@ -370,6 +384,7 @@ int main(int argc, char *argv[]) {
         test_protect_errno();
         test_in_set();
         test_log2i();
+        test_eqzero();
         test_raw_clone();
         test_physical_memory();
         test_physical_memory_scale();

@@ -165,6 +165,28 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
         return NULL;
 }
 
+bool memeqzero(const void *data, size_t length) {
+        /* Does the buffer consist entirely of NULs?
+         * Copied from https://github.com/systemd/casync/, copied in turn from
+         * https://github.com/rustyrussell/ccan/blob/master/ccan/mem/mem.c#L92,
+         * which is licensed CC-0.
+         */
+
+        const uint8_t *p = data;
+        size_t i;
+
+        /* Check first 16 bytes manually */
+        for (i = 0; i < 16; i++, length--) {
+                if (length == 0)
+                        return true;
+                if (p[i])
+                        return false;
+        }
+
+        /* Now we know first 16 bytes are NUL, memcmp with self.  */
+        return memcmp(data, p + i, length) == 0;
+}
+
 int on_ac_power(void) {
         bool found_offline = false, found_online = false;
         _cleanup_closedir_ DIR *d = NULL;

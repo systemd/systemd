@@ -159,6 +159,10 @@ int on_ac_power(void);
 
 #define zero(x) (memzero(&(x), sizeof(x)))
 
+bool memeqzero(const void *data, size_t length);
+
+#define eqzero(x) memeqzero(x, sizeof(x))
+
 static inline void *mempset(void *s, int c, size_t n) {
         memset(s, c, n);
         return (uint8_t*)s + n;
