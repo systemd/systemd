@@ -69,7 +69,6 @@ static void link_config_free(link_config *link) {
         free(link->name_policy);
         free(link->name);
         free(link->alias);
-        free(link->advertise);
 
         free(link);
 }
@@ -373,7 +372,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                 if (config->port != _NET_DEV_PORT_INVALID)
                         log_warning_errno(r,  "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
 
-                if (config->advertise)
+                if (!eqzero(config->advertise))
                         log_warning_errno(r, "Could not set advertise mode: %m"); /* TODO: include modes in the log message. */
 
                 if (config->speed) {

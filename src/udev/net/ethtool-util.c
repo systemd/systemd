@@ -110,6 +110,8 @@ static const char* const ethtool_link_mode_bit_table[_ETHTOOL_LINK_MODE_MAX] = {
         [ETHTOOL_LINK_MODE_FEC_RS_BIT]                 = "fec-rs",
         [ETHTOOL_LINK_MODE_FEC_BASER_BIT]              = "fec-baser",
 };
+/* Make sure the array is large enough to fit all bits */
+assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < ELEMENTSOF(((struct link_config){}).advertise));
 
 DEFINE_STRING_TABLE_LOOKUP(ethtool_link_mode_bit, enum ethtool_link_mode_bit_indices);
 
@@ -612,8 +614,11 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
 
         u->base.autoneg = link->autonegotiation;
 
-        if (link->advertise)
-                memcpy(&u->link_modes.advertising, link->advertise, ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES);
+        if (!eqzero(link->advertise)) {
+                memcpy(&u->link_modes.advertising, link->advertise, sizeof(link->advertise));
+                memzero((uint8_t*) &u->link_modes.advertising + sizeof(link->advertise),
+                        ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES - sizeof(link->advertise));
+        }
 
         if (u->base.cmd == ETHTOOL_GLINKSETTINGS)
                 r = set_slinksettings(*fd, &ifr, u);
@@ -737,8 +742,6 @@ int config_parse_advertise(const char *unit,
                            const char *rvalue,
                            void *data,
                            void *userdata) {
-        uint32_t a[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32] = {};
-        enum ethtool_link_mode_bit_indices mode;
         link_config *config = data;
         const char *p;
         int r;
@@ -751,12 +754,13 @@ int config_parse_advertise(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty string resets the value. */
-                config->advertise = mfree(config->advertise);
+                zero(config->advertise);
                 return 0;
         }
 
         for (p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
+                enum ethtool_link_mode_bit_indices mode;
 
                 r = extract_first_word(&p, &w, NULL, 0);
                 if (r == -ENOMEM)
@@ -774,21 +778,7 @@ int config_parse_advertise(const char *unit,
                         continue;
                 }
 
-                a[mode / 32] |= 1UL << (mode % 32);
-        }
-
-        if (!config->advertise) {
-                config->advertise = new(uint32_t, ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32);
-                if (!config->advertise)
-                        return log_oom();
-
-                memcpy(config->advertise, a, ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES);
-
-        } else {
-                unsigned i;
-
-                for (i = 0; i < ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32; i++)
-                        config->advertise[i] |= a[i];
+                config->advertise[mode / 32] |= 1UL << (mode % 32);
         }
 
         return 0;
