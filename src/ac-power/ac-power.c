@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "main-func.h"
 #include "util.h"
 
 static bool arg_verbose = false;

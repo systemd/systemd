@@ -10,6 +10,7 @@
 
 #include "exit-status.h"
 #include "log.h"
+#include "main-func.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "path-util.h"

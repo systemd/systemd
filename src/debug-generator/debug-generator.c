@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"

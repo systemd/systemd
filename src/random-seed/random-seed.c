@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "string-util.h"
 #include "util.h"

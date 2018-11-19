@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "main-func.h"
 #include "string-table.h"
 #include "terminal-util.h"
 #include "util.h"

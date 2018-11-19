@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
+#include "main-func.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"

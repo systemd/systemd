@@ -11,11 +11,12 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "main-func.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
-#include "util.h"
 #include "terminal-util.h"
+#include "util.h"
 
 static const char *arg_identifier = NULL;
 static int arg_priority = LOG_INFO;
