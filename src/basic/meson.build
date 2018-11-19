@@ -269,7 +269,6 @@ libbasic = static_library(
         include_directories : includes,
         dependencies : [threads,
                         libcap,
-                        libblkid,
                         libmount,
                         libselinux,
                         libm],
