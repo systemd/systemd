@@ -498,3 +498,10 @@ int generator_hook_up_growfs(
 
         return generator_add_symlink(dir, where_unit, "wants", unit);
 }
+
+void log_setup_generator(void) {
+        log_set_prohibit_ipc(true);
+        log_set_target(LOG_TARGET_AUTO);
+        log_parse_environment();
+        log_open();
+}

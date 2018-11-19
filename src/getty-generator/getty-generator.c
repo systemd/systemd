@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "generator.h"
 #include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -120,10 +121,7 @@ int main(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[1];
 
-        log_set_prohibit_ipc(true);
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_generator();
 
         umask(0022);
 
