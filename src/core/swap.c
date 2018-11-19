@@ -653,11 +653,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
         if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
-        if (s->result == SWAP_SUCCESS)
-                unit_log_success(UNIT(s));
-        else
-                unit_log_failure(UNIT(s), swap_result_to_string(s->result));
-
+        unit_log_result(UNIT(s), s->result == SWAP_SUCCESS, swap_result_to_string(s->result));
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
