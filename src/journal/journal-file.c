@@ -10,6 +10,8 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
@@ -23,7 +25,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
-#include "sd-event.h"
 #include "set.h"
 #include "stat-util.h"
 #include "string-util.h"
