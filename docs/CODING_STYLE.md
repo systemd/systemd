@@ -431,12 +431,13 @@
   want to call it "big endian" right-away.
 
 - You might wonder what kind of common code belongs in `src/shared/` and what
-  belongs in `src/basic/`. The split is like this: anything that uses public APIs
-  we expose (i.e. any of the sd-bus, sd-login, sd-id128, ... APIs) must be
-  located in `src/shared/`. All stuff that only uses external libraries from
-  other projects (such as glibc's APIs), or APIs from `src/basic/` itself should
-  be placed in `src/basic/`. Conversely, `src/libsystemd/` may only use symbols
-  from `src/basic`, but not from `src/shared/`.
+  belongs in `src/basic/`. The split is like this: anything that is used to
+  implement the public shared object we provide (sd-bus, sd-login, sd-id128,
+  nss-systemd, nss-mymachines, nss-resolve, nss-myhostname, pam_systemd), must
+  be located in `src/basic` (those objects are not allowed to link to
+  libsystemd-shared.so). Conversly, anything which is shared between multiple
+  components and does not need to be in `src/basic/`, should be in
+  `src/shared/`.
 
   To summarize:
 
@@ -449,7 +450,9 @@
   - may not use any code outside of `src/basic/`, `src/libsystemd/`
 
   `src/shared/`
-  - may be used by all code in the tree, except for code in `src/basic/`, `src/libsystemd/`
+  - may be used by all code in the tree, except for code in `src/basic/`,
+    `src/libsystemd/`, `src/nss-*`, `src/login/pam_systemd.*`, and files under
+    `src/journal/` that end up in `libjournal-client.a` convenience library.
   - may not use any code outside of `src/basic/`, `src/libsystemd/`, `src/shared/`
 
 - Our focus is on the GNU libc (glibc), not any other libcs. If other libcs are
