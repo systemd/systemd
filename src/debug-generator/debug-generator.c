@@ -137,12 +137,12 @@ static int generate_wants_symlinks(void) {
         return r;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r, q;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
         if (argc > 1)
@@ -178,5 +178,7 @@ finish:
         strv_free(arg_wants);
         strv_free(arg_mask);
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
