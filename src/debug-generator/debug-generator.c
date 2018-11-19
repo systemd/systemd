@@ -17,6 +17,10 @@ static char **arg_mask = NULL;
 static char **arg_wants = NULL;
 static bool arg_debug_shell = false;
 
+STATIC_DESTRUCTOR_REGISTER(arg_default_unit, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_mask, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_wants, strv_freep);
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
@@ -161,24 +165,14 @@ static int run(int argc, char *argv[]) {
 
         if (arg_debug_shell) {
                 r = strv_extend(&arg_wants, "debug-shell.service");
-                if (r < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_oom();
         }
 
         r = generate_mask_symlinks();
-
         q = generate_wants_symlinks();
-        if (q < 0)
-                r = q;
 
-finish:
-        arg_default_unit = mfree(arg_default_unit);
-        strv_free(arg_wants);
-        strv_free(arg_mask);
-
-        return r;
+        return r < 0 ? r : q;
 }
 
 DEFINE_MAIN_FUNCTION(run);
