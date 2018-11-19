@@ -733,7 +733,6 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_VERSION = 0x100,
                 ARG_DEPTH,
@@ -908,7 +907,7 @@ static const char* counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(group_hashmap_freep) Hashmap *a = NULL, *b = NULL;
         unsigned iteration = 0;
         usec_t last_refresh = 0;
@@ -922,13 +921,11 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = cg_mask_supported(&mask);
-        if (r < 0) {
-                log_error_errno(r, "Failed to determine supported controllers: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine supported controllers: %m");
 
         arg_count = (mask & CGROUP_MASK_PIDS) ? COUNT_PIDS : COUNT_USERSPACE_PROCESSES;
 
@@ -938,18 +935,14 @@ int main(int argc, char *argv[]) {
         }
 
         r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &root);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get root control group path: %m");
-                goto finish;
-        } else
-                log_debug("Cgroup path: %s", root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get root control group path: %m");
+        log_debug("Cgroup path: %s", root);
 
         a = hashmap_new(&path_hash_ops);
         b = hashmap_new(&path_hash_ops);
-        if (!a || !b) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!a || !b)
+                return log_oom();
 
         signal(SIGWINCH, columns_lines_cache_reset);
 
@@ -967,10 +960,8 @@ int main(int argc, char *argv[]) {
                 if (t >= last_refresh + arg_delay || immediate_refresh) {
 
                         r = refresh(root, a, b, iteration++);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to refresh: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to refresh: %m");
 
                         group_hashmap_clear(b);
 
@@ -997,10 +988,8 @@ int main(int argc, char *argv[]) {
                         r = read_one_char(stdin, &key, last_refresh + arg_delay - t, NULL);
                         if (r == -ETIMEDOUT)
                                 continue;
-                        if (r < 0) {
-                                log_error_errno(r, "Couldn't read key: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Couldn't read key: %m");
                 }
 
                 if (on_tty()) { /* TTY: Clear any user keystroke */
@@ -1120,9 +1109,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        r = 0;
-
-finish:
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

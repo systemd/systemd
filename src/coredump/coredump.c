@@ -1376,7 +1376,7 @@ static int process_backtrace(int argc, char *argv[]) {
         return r;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         /* First, log to a safe place, since we don't know what crashed and it might
@@ -1395,25 +1395,21 @@ int main(int argc, char *argv[]) {
         log_debug("Selected compression %s.", yes_no(arg_compress));
 
         r = sd_listen_fds(false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to determine number of file descriptor: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine the number of file descriptors: %m");
 
         /* If we got an fd passed, we are running in coredumpd mode. Otherwise we
          * are invoked from the kernel as coredump handler. */
         if (r == 0) {
                 if (streq_ptr(argv[1], "--backtrace"))
-                        r = process_backtrace(argc, argv);
+                        return process_backtrace(argc, argv);
                 else
-                        r = process_kernel(argc, argv);
+                        return process_kernel(argc, argv);
         } else if (r == 1)
-                r = process_socket(SD_LISTEN_FDS_START);
-        else {
-                log_error("Received unexpected number of file descriptors.");
-                r = -EINVAL;
-        }
+                return process_socket(SD_LISTEN_FDS_START);
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        log_error("Received unexpected number of file descriptors.");
+        return -EINVAL;
 }
+
+DEFINE_MAIN_FUNCTION(run);

@@ -19,7 +19,7 @@
 #define POOL_SIZE_MIN 512
 #define POOL_SIZE_MAX (10*1024*1024)
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_close_ int seed_fd = -1, random_fd = -1;
         bool read_seed_file, write_seed_file;
         _cleanup_free_ void* buf = NULL;
@@ -29,14 +29,14 @@ int main(int argc, char *argv[]) {
         FILE *f;
         int r;
 
-        if (argc != 2) {
-                log_error("This program requires one argument.");
-                return EXIT_FAILURE;
-        }
-
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        if (argc != 2) {
+                log_error("This program requires one argument.");
+                return -EINVAL;
+        }
 
         umask(0022);
 
@@ -54,10 +54,8 @@ int main(int argc, char *argv[]) {
                 buf_size = POOL_SIZE_MIN;
 
         r = mkdir_parents_label(RANDOM_SEED, 0755);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create directory " RANDOM_SEED_DIR ": %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create directory " RANDOM_SEED_DIR ": %m");
 
         /* When we load the seed we read it and write it to the device and then immediately update the saved seed with
          * new data, to make sure the next boot gets seeded differently. */
@@ -78,10 +76,7 @@ int main(int argc, char *argv[]) {
                                                open_rw_error, "Failed to open " RANDOM_SEED " for writing: %m");
                                 r = log_full_errno(missing ? LOG_DEBUG : LOG_ERR,
                                                    errno, "Failed to open " RANDOM_SEED " for reading: %m");
-                                if (missing)
-                                        r = 0;
-
-                                goto finish;
+                                return missing ? 0 : r;
                         }
                 } else
                         write_seed_file = true;
@@ -91,10 +86,8 @@ int main(int argc, char *argv[]) {
                         write_seed_file = false;
 
                         random_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY, 0600);
-                        if (random_fd < 0) {
-                                r = log_error_errno(errno, "Failed to open /dev/urandom: %m");
-                                goto finish;
-                        }
+                        if (random_fd < 0)
+                                return log_error_errno(errno, "Failed to open /dev/urandom: %m");
                 }
 
                 read_seed_file = true;
@@ -102,40 +95,31 @@ int main(int argc, char *argv[]) {
         } else if (streq(argv[1], "save")) {
 
                 random_fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (random_fd < 0) {
-                        r = log_error_errno(errno, "Failed to open /dev/urandom: %m");
-                        goto finish;
-                }
+                if (random_fd < 0)
+                        return log_error_errno(errno, "Failed to open /dev/urandom: %m");
 
                 seed_fd = open(RANDOM_SEED, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
-                if (seed_fd < 0) {
-                        r = log_error_errno(errno, "Failed to open " RANDOM_SEED ": %m");
-                        goto finish;
-                }
+                if (seed_fd < 0)
+                        return log_error_errno(errno, "Failed to open " RANDOM_SEED ": %m");
 
                 read_seed_file = false;
                 write_seed_file = true;
 
         } else {
                 log_error("Unknown verb '%s'.", argv[1]);
-                r = -EINVAL;
-                goto finish;
+                return -EINVAL;
         }
 
-        if (fstat(seed_fd, &st) < 0) {
-                r = log_error_errno(errno, "Failed to stat() seed file " RANDOM_SEED ": %m");
-                goto finish;
-        }
+        if (fstat(seed_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat() seed file " RANDOM_SEED ": %m");
 
         /* If the seed file is larger than what we expect, then honour the existing size and save/restore as much as it says */
         if ((uint64_t) st.st_size > buf_size)
                 buf_size = MIN(st.st_size, POOL_SIZE_MAX);
 
         buf = malloc(buf_size);
-        if (!buf) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!buf)
+                return log_oom();
 
         if (read_seed_file) {
                 sd_id128_t mid;
@@ -172,7 +156,6 @@ int main(int argc, char *argv[]) {
         }
 
         if (write_seed_file) {
-
                 /* This is just a safety measure. Given that we are root and
                  * most likely created the file ourselves the mode and owner
                  * should be correct anyway. */
@@ -180,21 +163,19 @@ int main(int argc, char *argv[]) {
                 (void) fchown(seed_fd, 0, 0);
 
                 k = loop_read(random_fd, buf, buf_size, false);
-                if (k < 0) {
-                        r = log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
-                        goto finish;
-                }
+                if (k < 0)
+                        return log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
                 if (k == 0) {
                         log_error("Got EOF while reading from /dev/urandom.");
-                        r = -EIO;
-                        goto finish;
+                        return -EIO;
                 }
 
                 r = loop_write(seed_fd, buf, (size_t) k, false);
                 if (r < 0)
-                        log_error_errno(r, "Failed to write new random seed file: %m");
+                        return log_error_errno(r, "Failed to write new random seed file: %m");
         }
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);

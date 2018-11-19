@@ -836,7 +836,7 @@ static int ask_on_consoles(int argc, char *argv[]) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -847,31 +847,28 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         if (arg_console && !arg_device)
                 /*
-                 * Spawn for each console device a separate process.
+                 * Spawn a separate process for each console device.
                  */
-                r = ask_on_consoles(argc, argv);
-        else {
+                return ask_on_consoles(argc, argv);
 
-                if (arg_device) {
-                        /*
-                         * Later on, a controlling terminal will be acquired,
-                         * therefore the current process has to become a session
-                         * leader and should not have a controlling terminal already.
-                         */
-                        (void) setsid();
-                        (void) release_terminal();
-                }
-
-                if (IN_SET(arg_action, ACTION_WATCH, ACTION_WALL))
-                        r = watch_passwords();
-                else
-                        r = show_passwords();
+        if (arg_device) {
+                /*
+                 * Later on, a controlling terminal will be acquired,
+                 * therefore the current process has to become a session
+                 * leader and should not have a controlling terminal already.
+                 */
+                (void) setsid();
+                (void) release_terminal();
         }
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        if (IN_SET(arg_action, ACTION_WATCH, ACTION_WALL))
+                return watch_passwords();
+        else
+                return show_passwords();
 }
+
+DEFINE_MAIN_FUNCTION(run);

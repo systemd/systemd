@@ -1166,7 +1166,7 @@ static int manager_run(Manager *m) {
         }
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
@@ -1179,15 +1179,12 @@ int main(int argc, char *argv[]) {
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");
-                r = -EINVAL;
-                goto finish;
+                return -EINVAL;
         }
 
         r = mac_selinux_init();
-        if (r < 0) {
-                log_error_errno(r, "Could not initialize labelling: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not initialize labelling: %m");
 
         /* Always create the directories people can create inotify watches in. Note that some applications might check
          * for the existence of /run/systemd/seats/ to determine whether logind is available, so please always make
@@ -1199,21 +1196,16 @@ int main(int argc, char *argv[]) {
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, -1) >= 0);
 
         r = manager_new(&m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate manager object: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate manager object: %m");
 
         (void) manager_parse_config_file(m);
 
         r = manager_startup(m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to fully start up daemon: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to fully start up daemon: %m");
 
         log_debug("systemd-logind running as pid "PID_FMT, getpid_cached());
-
         (void) sd_notify(false,
                          "READY=1\n"
                          "STATUS=Processing requests...");
@@ -1221,11 +1213,11 @@ int main(int argc, char *argv[]) {
         r = manager_run(m);
 
         log_debug("systemd-logind stopped as pid "PID_FMT, getpid_cached());
-
         (void) sd_notify(false,
                          "STOPPING=1\n"
                          "STATUS=Shutting down...");
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);

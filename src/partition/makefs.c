@@ -42,7 +42,7 @@ static int makefs(const char *type, const char *device) {
         return wait_for_terminate_and_check(mkfs, pid, WAIT_LOG);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         const char *device, *type;
         _cleanup_free_ char *detected = NULL;
         struct stat st;
@@ -54,37 +54,32 @@ int main(int argc, char *argv[]) {
 
         if (argc != 3) {
                 log_error("This program expects two arguments.");
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
         type = argv[1];
         device = argv[2];
 
-        if (stat(device, &st) < 0) {
-                r = log_error_errno(errno, "Failed to stat \"%s\": %m", device);
-                goto finish;
-        }
+        if (stat(device, &st) < 0)
+                return log_error_errno(errno, "Failed to stat \"%s\": %m", device);
 
         if (!S_ISBLK(st.st_mode))
                 log_info("%s is not a block device.", device);
 
         r = probe_filesystem(device, &detected);
-        if (r < 0) {
-                log_warning_errno(r,
-                                  r == -EUCLEAN ?
-                                  "Cannot reliably determine probe \"%s\", refusing to proceed." :
-                                  "Failed to probe \"%s\": %m",
-                                  device);
-                goto finish;
-        }
+        if (r < 0)
+                return log_warning_errno(r,
+                                         r == -EUCLEAN ?
+                                         "Cannot reliably determine probe \"%s\", refusing to proceed." :
+                                         "Failed to probe \"%s\": %m",
+                                         device);
 
         if (detected) {
                 log_info("%s is not empty (type %s), exiting", device, detected);
-                goto finish;
+                return 0;
         }
 
-        r = makefs(type, device);
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return makefs(type, device);
 }
+
+DEFINE_MAIN_FUNCTION(run);

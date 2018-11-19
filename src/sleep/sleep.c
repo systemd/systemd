@@ -351,7 +351,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1 /* work to do */;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         bool allow;
         _cleanup_strv_free_ char **modes = NULL, **states = NULL;
         usec_t delay = 0;
@@ -363,22 +363,21 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = parse_sleep_config(arg_verb, &allow, &modes, &states, &delay);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (!allow) {
                 log_error("Sleep mode \"%s\" is disabled by configuration, refusing.", arg_verb);
-                return EXIT_FAILURE;
+                return -EACCES;
         }
 
         if (streq(arg_verb, "suspend-then-hibernate"))
-                r = execute_s2h(delay);
+                return execute_s2h(delay);
         else
-                r = execute(modes, states);
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return execute(modes, states);
 }
+
+DEFINE_MAIN_FUNCTION(run);

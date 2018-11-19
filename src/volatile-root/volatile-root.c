@@ -76,7 +76,7 @@ finish_rmdir:
         return r;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         VolatileMode m = _VOLATILE_MODE_INVALID;
         const char *path;
         int r;
@@ -87,22 +87,18 @@ int main(int argc, char *argv[]) {
 
         if (argc > 3) {
                 log_error("Too many arguments. Expected directory and mode.");
-                r = -EINVAL;
-                goto finish;
+                return -EINVAL;
         }
 
         r = query_volatile_mode(&m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to determine volatile mode from kernel command line.");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine volatile mode from kernel command line.");
         if (r == 0 && argc >= 2) {
                 /* The kernel command line always wins. However if nothing was set there, the argument passed here wins instead. */
                 m = volatile_mode_from_string(argv[1]);
                 if (m < 0) {
                         log_error("Couldn't parse volatile mode: %s", argv[1]);
                         r = -EINVAL;
-                        goto finish;
                 }
         }
 
@@ -113,28 +109,22 @@ int main(int argc, char *argv[]) {
 
                 if (isempty(path)) {
                         log_error("Directory name cannot be empty.");
-                        r = -EINVAL;
-                        goto finish;
+                        return -EINVAL;
                 }
                 if (!path_is_absolute(path)) {
                         log_error("Directory must be specified as absolute path.");
-                        r = -EINVAL;
-                        goto finish;
+                        return -EINVAL;
                 }
                 if (path_equal(path, "/")) {
                         log_error("Directory cannot be the root directory.");
-                        r = -EINVAL;
-                        goto finish;
+                        return -EINVAL;
                 }
         }
 
-        if (m != VOLATILE_YES) {
-                r = 0;
-                goto finish;
-        }
+        if (m != VOLATILE_YES)
+                return 0;
 
-        r = make_volatile(path);
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return make_volatile(path);
 }
+
+DEFINE_MAIN_FUNCTION(run);

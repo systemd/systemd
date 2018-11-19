@@ -52,17 +52,17 @@ static void test_files(void) {
 #endif
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
-
-        if (argc > 1) {
-                log_error("This program takes no arguments.");
-                return EXIT_FAILURE;
-        }
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        if (argc > 1) {
+                log_error("This program takes no arguments.");
+                return -EINVAL;
+        }
 
         umask(0022);
 
@@ -74,15 +74,15 @@ int main(int argc, char *argv[]) {
 
         if (!arg_force) {
                 if (arg_skip)
-                        return EXIT_SUCCESS;
+                        return 0;
 
                 if (access("/run/systemd/quotacheck", F_OK) < 0)
-                        return EXIT_SUCCESS;
+                        return 0;
         }
 
         r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
-                goto finish;
+                return r;
         if (r == 0) {
                 static const char * const cmdline[] = {
                         QUOTACHECK,
@@ -96,6 +96,7 @@ int main(int argc, char *argv[]) {
                 _exit(EXIT_FAILURE); /* Operational error */
         }
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

@@ -266,7 +266,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -274,23 +274,17 @@ int main(int argc, char *argv[]) {
         log_open();
 
         r = parse_argv(argc, argv);
-        if (r < 0)
-                return EXIT_FAILURE;
-        if (r == 0)
-                return EXIT_SUCCESS;
+        if (r <= 0)
+                return r;
 
         r = sd_bus_default_system(&bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to bus: %m");
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to bus: %m");
 
         if (arg_action == ACTION_LIST) {
-
                 r = print_inhibitors(bus);
                 pager_close();
-                if (r < 0)
-                        return EXIT_FAILURE;
+                return r;
 
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -308,14 +302,12 @@ int main(int argc, char *argv[]) {
                         arg_mode = "block";
 
                 fd = inhibit(bus, &error);
-                if (fd < 0) {
-                        log_error("Failed to inhibit: %s", bus_error_message(&error, fd));
-                        return EXIT_FAILURE;
-                }
+                if (fd < 0)
+                        return log_error("Failed to inhibit: %s", bus_error_message(&error, fd));
 
                 r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
                 if (r < 0)
-                        return EXIT_FAILURE;
+                        return r;
                 if (r == 0) {
                         /* Child */
                         execvp(argv[optind], argv + optind);
@@ -324,9 +316,8 @@ int main(int argc, char *argv[]) {
                         _exit(EXIT_FAILURE);
                 }
 
-                r = wait_for_terminate_and_check(argv[optind], pid, WAIT_LOG);
-                return r < 0 ? EXIT_FAILURE : r;
+                return wait_for_terminate_and_check(argv[optind], pid, WAIT_LOG);
         }
-
-        return EXIT_SUCCESS;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

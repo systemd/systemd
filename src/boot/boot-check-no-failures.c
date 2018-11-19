@@ -61,7 +61,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         uint32_t n;
@@ -72,13 +72,11 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = sd_bus_open_system(&bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to system bus: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
 
         r = sd_bus_get_property_trivial(
                         bus,
@@ -89,18 +87,15 @@ int main(int argc, char *argv[]) {
                         &error,
                         'u',
                         &n);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get failed units counter: %s", bus_error_message(&error, r));
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get failed units counter: %s", bus_error_message(&error, r));
 
         if (n > 0)
                 log_notice("Health check: %" PRIu32 " units have failed.", n);
         else
                 log_info("Health check: no failed units.");
 
-        r = n > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-
-finish:
-        return r < 0 ? EXIT_FAILURE : r;
+        return n > 0;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

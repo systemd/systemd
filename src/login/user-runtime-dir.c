@@ -168,7 +168,7 @@ static int do_umount(const char *user) {
         return user_remove_runtime_path(runtime_path);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         log_parse_environment();
@@ -176,27 +176,24 @@ int main(int argc, char *argv[]) {
 
         if (argc != 3) {
                 log_error("This program takes two arguments.");
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
         if (!STR_IN_SET(argv[1], "start", "stop")) {
                 log_error("First argument must be either \"start\" or \"stop\".");
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
         r = mac_selinux_init();
-        if (r < 0) {
-                log_error_errno(r, "Could not initialize labelling: %m\n");
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not initialize labelling: %m\n");
 
         umask(0022);
 
         if (streq(argv[1], "start"))
-                r = do_mount(argv[2]);
-        else if (streq(argv[1], "stop"))
-                r = do_umount(argv[2]);
-        else
-                assert_not_reached("Unknown verb!");
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return do_mount(argv[2]);
+        if (streq(argv[1], "stop"))
+                return do_umount(argv[2]);
+        assert_not_reached("Unknown verb!");
 }
+
+DEFINE_MAIN_FUNCTION(run);
