@@ -603,7 +603,7 @@ int bus_cgroup_set_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "CPUAccounting"))
-                return bus_cgroup_set_boolean(u, name, &c->cpu_accounting, CGROUP_MASK_CPUACCT|CGROUP_MASK_CPU, message, flags, error);
+                return bus_cgroup_set_boolean(u, name, &c->cpu_accounting, get_cpu_accounting_mask(), message, flags, error);
 
         if (streq(name, "CPUWeight"))
                 return bus_cgroup_set_cpu_weight(u, name, &c->cpu_weight, message, flags, error);
