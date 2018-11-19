@@ -74,3 +74,41 @@ that directory is empty, and only if no other file systems are mounted
 there. The `systemctl reboot --boot-loader-entry=…` and `systemctl reboot
 --boot-loader-menu=…` commands rely on the `LoaderFeatures` ,
 `LoaderConfigTimeoutOneShot`, `LoaderEntries`, `LoaderEntryOneShot` variables.
+
+## Boot Loader Entry Identifiers
+
+While boot loader entries may be named relatively freely, it's highly
+recommended to follow the following rules when picking identifiers for the
+entries, so that programs (and users) can derive basic context and meaning from
+the identifiers as passed in `LoaderEntries`, `LoaderEntryDefault`,
+`LoaderEntryOneShot`, `LoaderEntrySelected`, and possibly show nicely localized
+names for them in UIs.
+
+1. When boot loader entries are defined through [Boot Loader
+   Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION) drop-in files
+   the identifier should be derived directly from the drop-in snippet name, but
+   with the `.conf` (or `.efi` in case of Type #2 entries) suffix removed.
+
+2. Entries automatically discovered by the boot loader (as opposed to being
+   configured in configuration files) should generally have an identifier
+   prefixed with `auto-`.
+
+3. Boot menu entries referring to Microsoft Windows installations should either
+   use the identifier `windows` or use the `windows-` prefix for the
+   identifier. If a menu entry is automatically discovered, it should be
+   prefixed with `auto-`, see above (Example: this means an automatically
+   discovered Windows installation might have the identifier `auto-windows` or
+   `auto-windows-10` or so.).
+
+4. Similar, boot menu entries referring to Apple MacOS X installations should
+   use the identifier `osx` or one that is prefixed with `osx-`. If such an
+   entry is automatically discovered by the boot loader use `auto-osx` as
+   identifier, or `auto-osx-` as prefix for the identifier, see above.
+
+5. If a boot menu entry encapsulates the EFI shell program, it should use the
+   identifier `efi-shell` (or when automatically discovered: `auto-efi-shell`,
+   see above).
+
+6. If a boot menu entry encapsulates a reboot into EFI firmware setup feature,
+   it should use the identifier `reboot-to-firmware-setup` (or
+   `auto-reboot-to-firmware-setup` in case it is automatically discovered).
