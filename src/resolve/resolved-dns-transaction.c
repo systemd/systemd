@@ -2148,6 +2148,9 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                         continue;
                         }
 
+                        if (t->scope->dnssec_mode == DNSSEC_NO)
+                                continue;
+
                         r = dnssec_has_rrsig(t->answer, rr->key);
                         if (r < 0)
                                 return r;
@@ -2189,13 +2192,16 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r == 0)
                                 continue;
 
-                        r = dnssec_has_rrsig(t->answer, rr->key);
+                        r = dns_answer_has_dname_for_cname(t->answer, rr);
                         if (r < 0)
                                 return r;
                         if (r > 0)
                                 continue;
 
-                        r = dns_answer_has_dname_for_cname(t->answer, rr);
+                        if (t->scope->dnssec_mode == DNSSEC_NO)
+                                continue;
+
+                        r = dnssec_has_rrsig(t->answer, rr->key);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -2235,6 +2241,9 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r < 0)
                                 return r;
                         if (r == 0)
+                                continue;
+
+                        if (t->scope->dnssec_mode == DNSSEC_NO)
                                 continue;
 
                         r = dnssec_has_rrsig(t->answer, rr->key);
