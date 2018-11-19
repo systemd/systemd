@@ -600,7 +600,7 @@ static char** sanitize_environment(char **l) {
         return l;
 }
 
-static int manager_default_environment(Manager *m) {
+int manager_default_environment(Manager *m) {
         assert(m);
 
         m->transient_environment = strv_free(m->transient_environment);

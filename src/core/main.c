@@ -767,8 +767,10 @@ static void set_manager_defaults(Manager *m) {
         m->default_tasks_accounting = arg_default_tasks_accounting;
         m->default_tasks_max = arg_default_tasks_max;
 
-        manager_set_default_rlimits(m, arg_default_rlimit);
-        manager_transient_environment_add(m, arg_default_environment);
+        (void) manager_set_default_rlimits(m, arg_default_rlimit);
+
+        (void) manager_default_environment(m);
+        (void) manager_transient_environment_add(m, arg_default_environment);
 }
 
 static void set_manager_settings(Manager *m) {
