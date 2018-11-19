@@ -210,10 +210,10 @@ const UnitVTable target_vtable = {
 
         .status_message_formats = {
                 .finished_start_job = {
-                        [JOB_DONE]       = "Reached target %s.",
+                        [JOB_DONE]       = "Reached Target %s.",
                 },
                 .finished_stop_job = {
-                        [JOB_DONE]       = "Stopped target %s.",
+                        [JOB_DONE]       = "Stopped Target %s.",
                 },
         },
 };
