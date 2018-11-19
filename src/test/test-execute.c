@@ -54,7 +54,7 @@ static void check(Manager *m, Unit *unit, int status_expected, int code_expected
                 n = now(CLOCK_MONOTONIC);
                 if (ts + timeout < n) {
                         log_error("Test timeout when testing %s", unit->id);
-                        r = UNIT_VTABLE(unit)->kill(unit, KILL_ALL, 9, NULL);
+                        r = unit_kill(unit, KILL_ALL, SIGKILL, NULL);
                         if (r < 0)
                                 log_error_errno(r, "Failed to kill %s: %m", unit->id);
                         exit(EXIT_FAILURE);
