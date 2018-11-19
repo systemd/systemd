@@ -373,12 +373,16 @@
   something some time", or so is a lazy excuse. Always wait for the
   proper event, instead of doing time-based poll loops.
 
-- To determine the length of a constant string `"foo"`, don't bother
-  with `sizeof("foo")-1`, please use `STRLEN()` instead.
+- To determine the length of a constant string `"foo"`, don't bother with
+  `sizeof("foo")-1`, please use `strlen()` instead (both gcc and clang optimize
+  the call away for fixed strings). The only exception is when declaring an
+  array. In that case use STRLEN, which evalutates to a static constant and
+  doesn't force the compiler to create a VLA.
 
-- If you want to concatenate two or more strings, consider using
-  `strjoin()` rather than `asprintf()`, as the latter is a lot
-  slower. This matters particularly in inner loops.
+- If you want to concatenate two or more strings, consider using `strjoina()`
+  or `strjoin()` rather than `asprintf()`, as the latter is a lot slower. This
+  matters particularly in inner loops (but note that `strjoina()` cannot be
+  used there).
 
 - Please avoid using global variables as much as you can. And if you
   do use them make sure they are static at least, instead of
