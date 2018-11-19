@@ -129,7 +129,7 @@ static void test(Manager *m, const char *unit_name, int status_expected, int cod
         assert_se(unit_name);
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
-        assert_se(UNIT_VTABLE(unit)->start(unit) >= 0);
+        assert_se(unit_start(unit) >= 0);
         check(m, unit, status_expected, code_expected);
 }
 
