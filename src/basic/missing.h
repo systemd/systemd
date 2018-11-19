@@ -1577,11 +1577,4 @@ enum ethtool_link_mode_bit_indices {
 #endif
 #endif
 
-/* Strictly speaking, this is not a missing field. Just for our convention. */
-#if !HAVE_ETHTOOL_LINK_MODE_FEC_NONE_BIT
-#define _ETHTOOL_LINK_MODE_MAX                       52
-#else
-#define _ETHTOOL_LINK_MODE_MAX                       (__ETHTOOL_LINK_MODE_LAST + 1)
-#endif
-
 #include "missing_syscall.h"
