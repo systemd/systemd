@@ -3,12 +3,15 @@
 
 #include <stdlib.h>
 
+#include "static-destruct.h"
+
 /* Negative return values from impl are mapped to EXIT_FAILURE, and
  * everything else means success! */
 #define DEFINE_MAIN_FUNCTION(impl)                                      \
         int main(int argc, char *argv[]) {                              \
                 int r;                                                  \
                 r = impl(argc, argv);                                   \
+                static_destruct();                                      \
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;             \
         }
 
@@ -19,5 +22,6 @@
         int main(int argc, char *argv[]) {                              \
                 int r;                                                  \
                 r = impl(argc, argv);                                   \
+                static_destruct();                                      \
                 return r != 0 ? EXIT_FAILURE : EXIT_SUCCESS;            \
         }
