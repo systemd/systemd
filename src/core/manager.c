@@ -600,7 +600,7 @@ static char** sanitize_environment(char **l) {
         return l;
 }
 
-static int manager_default_environment(Manager *m) {
+int manager_default_environment(Manager *m) {
         assert(m);
 
         m->transient_environment = strv_free(m->transient_environment);
@@ -623,7 +623,7 @@ static int manager_default_environment(Manager *m) {
                 m->transient_environment = strv_copy(environ);
 
         if (!m->transient_environment)
-                return -ENOMEM;
+                return log_oom();
 
         sanitize_environment(m->transient_environment);
 
@@ -3875,7 +3875,7 @@ int manager_transient_environment_add(Manager *m, char **plus) {
 
         a = strv_env_merge(2, m->transient_environment, plus);
         if (!a)
-                return -ENOMEM;
+                return log_oom();
 
         sanitize_environment(a);
 

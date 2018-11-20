@@ -442,6 +442,7 @@ void manager_clear_jobs(Manager *m);
 
 unsigned manager_dispatch_load_queue(Manager *m);
 
+int manager_default_environment(Manager *m);
 int manager_transient_environment_add(Manager *m, char **plus);
 int manager_client_environment_modify(Manager *m, char **minus, char **plus);
 int manager_get_effective_environment(Manager *m, char ***ret);
