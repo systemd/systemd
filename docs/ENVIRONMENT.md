@@ -125,6 +125,12 @@ bootctl and other tools that access the EFI System Partition (ESP):
   is a FAT file system are turned off, as are checks that the path is located
   on a GPT partition with the correct type UUID.
 
+* `$SYSTEMD_ESP_PATH=…` — override the path to the EFI System Partition. This
+  may be used to override ESP path auto detection, and redirect any accesses to
+  the ESP to the specified directory. Not that unlike with bootctl's --path=
+  switch only very superficial validation of the specified path is done when
+  this environment variable is used.
+
 systemd itself:
 
 * `$SYSTEMD_ACTIVATION_UNIT` — set for all NSS and PAM module invocations that

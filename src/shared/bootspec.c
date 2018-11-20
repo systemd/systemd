@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -587,6 +588,18 @@ int find_esp_and_warn(
                 if (r < 0)
                         return r;
 
+                goto found;
+        }
+
+        path = getenv("SYSTEMD_ESP_PATH");
+        if (path) {
+                if (!path_is_valid(path) || !path_is_absolute(path)) {
+                        log_error("$SYSTEMD_ESP_PATH does not refer to absolute path, refusing to use it: %s", path);
+                        return -EINVAL;
+                }
+
+                /* Note: when the user explicitly configured things with an env var we won't validate the mount
+                 * point. After all we want this to be useful for testing. */
                 goto found;
         }
 
