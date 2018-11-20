@@ -31,7 +31,7 @@
  * out specific attributes from us. */
 #define LOG_LEVEL_CGROUP_WRITE(r) (IN_SET(abs(r), ENOENT, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING)
 
-bool manager_owns_root_cgroup(Manager *m) {
+bool manager_owns_host_root_cgroup(Manager *m) {
         assert(m);
 
         /* Returns true if we are managing the root cgroup. Note that it isn't sufficient to just check whether the
@@ -45,13 +45,13 @@ bool manager_owns_root_cgroup(Manager *m) {
         return empty_or_root(m->cgroup_root);
 }
 
-bool unit_has_root_cgroup(Unit *u) {
+bool unit_has_host_root_cgroup(Unit *u) {
         assert(u);
 
         /* Returns whether this unit manages the root cgroup. This will return true if this unit is the root slice and
          * the manager manages the root cgroup. */
 
-        if (!manager_owns_root_cgroup(u->manager))
+        if (!manager_owns_host_root_cgroup(u->manager))
                 return false;
 
         return unit_has_name(u, SPECIAL_ROOT_SLICE);
@@ -789,7 +789,7 @@ static void cgroup_context_apply(
                 return;
 
         /* Some cgroup attributes are not supported on the root cgroup, hence silently ignore */
-        is_root = unit_has_root_cgroup(u);
+        is_root = unit_has_host_root_cgroup(u);
 
         assert_se(c = unit_get_cgroup_context(u));
         assert_se(path = u->cgroup_path);
@@ -2340,7 +2340,7 @@ int manager_setup_cgroup(Manager *m) {
 
                 (void) sd_event_source_set_description(m->cgroup_inotify_event_source, "cgroup-inotify");
 
-        } else if (MANAGER_IS_SYSTEM(m) && manager_owns_root_cgroup(m) && !MANAGER_IS_TEST_RUN(m)) {
+        } else if (MANAGER_IS_SYSTEM(m) && manager_owns_host_root_cgroup(m) && !MANAGER_IS_TEST_RUN(m)) {
 
                 /* On the legacy hierarchy we only get notifications via cgroup agents. (Which isn't really reliable,
                  * since it does not generate events when control groups with children run empty. */
@@ -2518,7 +2518,7 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
                 return -ENODATA;
 
         /* The root cgroup doesn't expose this information, let's get it from /proc instead */
-        if (unit_has_root_cgroup(u))
+        if (unit_has_host_root_cgroup(u))
                 return procfs_memory_get_current(ret);
 
         if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
@@ -2553,7 +2553,7 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret) {
                 return -ENODATA;
 
         /* The root cgroup doesn't expose this information, let's get it from /proc instead */
-        if (unit_has_root_cgroup(u))
+        if (unit_has_host_root_cgroup(u))
                 return procfs_tasks_get_current(ret);
 
         if ((u->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
@@ -2580,7 +2580,7 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
                 return -ENODATA;
 
         /* The root cgroup doesn't expose this information, let's get it from /proc instead */
-        if (unit_has_root_cgroup(u))
+        if (unit_has_host_root_cgroup(u))
                 return procfs_cpu_get_usage(ret);
 
         r = cg_all_unified();
