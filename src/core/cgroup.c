@@ -39,6 +39,9 @@ bool manager_owns_host_root_cgroup(Manager *m) {
          * appears to be no nice way to detect whether we are in a CLONE_NEWCGROUP namespace we instead just check if
          * we run in any kind of container virtualization. */
 
+        if (MANAGER_IS_USER(m))
+                return false;
+
         if (detect_container() > 0)
                 return false;
 
