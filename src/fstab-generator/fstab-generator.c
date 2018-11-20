@@ -14,6 +14,7 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "log.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"
@@ -50,6 +51,15 @@ static char *arg_usr_what = NULL;
 static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
 static VolatileMode arg_volatile_mode = _VOLATILE_MODE_INVALID;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root_what, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_usr_what, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
+
 
 static int write_options(FILE *f, const char *options) {
         _cleanup_free_ char *o = NULL;
@@ -857,12 +867,12 @@ static int determine_root(void) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        int r = 0;
+static int run(int argc, char *argv[]) {
+        int r;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
         if (argc > 1)
@@ -917,14 +927,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        free(arg_root_what);
-        free(arg_root_fstype);
-        free(arg_root_options);
-        free(arg_root_hash);
-
-        free(arg_usr_what);
-        free(arg_usr_fstype);
-        free(arg_usr_options);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
