@@ -35,7 +35,7 @@ static bool arg_runtime = false;
 static bool arg_reload = true;
 static bool arg_cat = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 
 static int determine_image(const char *image, bool permit_non_existing, char **ret) {
         int r;
