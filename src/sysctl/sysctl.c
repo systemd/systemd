@@ -28,6 +28,7 @@ static bool arg_cat_config = false;
 static PagerFlags arg_pager_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
+STATIC_DESTRUCTOR_CALL(pager_close);
 
 static int apply_all(OrderedHashmap *sysctl_options) {
         char *property, *value;
@@ -270,7 +271,7 @@ static int run(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -279,10 +280,8 @@ static int run(int argc, char *argv[]) {
         umask(0022);
 
         sysctl_options = ordered_hashmap_new(&path_hash_ops);
-        if (!sysctl_options) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!sysctl_options)
+                return log_oom();
 
         r = 0;
 
@@ -299,16 +298,13 @@ static int run(int argc, char *argv[]) {
                 char **f;
 
                 r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("sysctl.d"));
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
 
                 if (arg_cat_config) {
                         (void) pager_open(arg_pager_flags);
 
-                        r = cat_files(NULL, files, 0);
-                        goto finish;
+                        return cat_files(NULL, files, 0);
                 }
 
                 STRV_FOREACH(f, files) {
@@ -321,9 +317,6 @@ static int run(int argc, char *argv[]) {
         k = apply_all(sysctl_options);
         if (k < 0 && r == 0)
                 r = k;
-
-finish:
-        pager_close();
 
         return r;
 }
