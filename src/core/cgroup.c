@@ -609,7 +609,7 @@ static void cgroup_apply_legacy_cpu_config(Unit *u, uint64_t shares, uint64_t qu
                 xsprintf(buf, USEC_FMT "\n", quota * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC);
                 (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_quota_us", buf);
         } else
-                (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_quota_us", "-1");
+                (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_quota_us", "-1\n");
 }
 
 static uint64_t cgroup_cpu_shares_to_weight(uint64_t shares) {
@@ -756,7 +756,7 @@ static bool cgroup_context_has_unified_memory_config(CGroupContext *c) {
 }
 
 static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_t v) {
-        char buf[DECIMAL_STR_MAX(uint64_t) + 1] = "max";
+        char buf[DECIMAL_STR_MAX(uint64_t) + 1] = "max\n";
 
         if (v != CGROUP_LIMIT_MAX)
                 xsprintf(buf, "%" PRIu64 "\n", v);
@@ -1136,7 +1136,7 @@ static void cgroup_context_apply(
                                 sprintf(buf, "%" PRIu64 "\n", c->tasks_max);
                                 (void) set_attribute_and_warn(u, "pids", "pids.max", buf);
                         } else
-                                (void) set_attribute_and_warn(u, "pids", "pids.max", "max");
+                                (void) set_attribute_and_warn(u, "pids", "pids.max", "max\n");
                 }
         }
 
