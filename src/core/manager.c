@@ -3813,6 +3813,7 @@ static int manager_run_environment_generators(Manager *m) {
                 [STDOUT_COLLECT] = &tmp,
                 [STDOUT_CONSUME] = &m->transient_environment,
         };
+        int r;
 
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
@@ -3822,7 +3823,10 @@ static int manager_run_environment_generators(Manager *m) {
         if (!generator_path_any(paths))
                 return 0;
 
-        return execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, m->transient_environment);
+        RUN_WITH_UMASK(0022)
+                r = execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, m->transient_environment);
+
+        return r;
 }
 
 static int manager_run_generators(Manager *m) {
