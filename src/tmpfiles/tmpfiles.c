@@ -3139,7 +3139,7 @@ static int link_parent(ItemArray *a) {
 
         assert(a);
 
-        /* Finds the closestq "parent" item array for the specified item array. Then registers the specified item array
+        /* Finds the closest "parent" item array for the specified item array. Then registers the specified item array
          * as child of it, and fills the parent in, linking them both ways. This allows us to later create parents
          * before their children, and clean up/remove children before their parents. */
 
