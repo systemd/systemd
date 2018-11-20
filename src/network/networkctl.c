@@ -20,6 +20,7 @@
 #include "local-addresses.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "main-func.h"
 #include "netlink-util.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -1163,7 +1164,7 @@ static void warn_networkd_missing(void) {
         fprintf(stderr, "WARNING: systemd-networkd is not running, output will be incomplete.\n\n");
 }
 
-int main(int argc, char* argv[]) {
+static int run(int argc, char* argv[]) {
         int r;
 
         log_parse_environment();
@@ -1171,14 +1172,11 @@ int main(int argc, char* argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         warn_networkd_missing();
 
-        r = networkctl_main(argc, argv);
-
-finish:
-        pager_close();
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return networkctl_main(argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);
