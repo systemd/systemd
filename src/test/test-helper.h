@@ -27,3 +27,5 @@
                )
 
 int enter_cgroup_subroot(void);
+
+bool is_run_on_travis_ci(void);
