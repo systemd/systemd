@@ -51,6 +51,7 @@
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -8648,7 +8649,7 @@ static int logind_cancel_shutdown(void) {
 #endif
 }
 
-int main(int argc, char*argv[]) {
+static int run(int argc, char*argv[]) {
         int r;
 
         argv_cmdline = argv[0];
@@ -8672,7 +8673,6 @@ int main(int argc, char*argv[]) {
                 goto finish;
 
         if (arg_action != ACTION_SYSTEMCTL && running_in_chroot() > 0) {
-
                 if (!arg_quiet)
                         log_info("Running in chroot, ignoring request.");
                 r = 0;
@@ -8738,10 +8738,6 @@ int main(int argc, char*argv[]) {
 finish:
         release_busses();
 
-        pager_close();
-        ask_password_agent_close();
-        polkit_agent_close();
-
         strv_free(arg_types);
         strv_free(arg_states);
         strv_free(arg_properties);
@@ -8750,6 +8746,8 @@ finish:
         free(arg_root);
         free(arg_esp_path);
 
-        /* Note that we return r here, not EXIT_SUCCESS, so that we can implement the LSB-like return codes */
-        return r < 0 ? EXIT_FAILURE : r;
+        /* Note that we return r here, not 0, so that we can implement the LSB-like return codes */
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

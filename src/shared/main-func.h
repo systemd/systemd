@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "pager.h"
+#include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "static-destruct.h"
 
@@ -12,6 +13,7 @@
                 int r;                                                  \
                 r = impl(argc, argv);                                   \
                 static_destruct();                                      \
+                ask_password_agent_close();                             \
                 polkit_agent_close();                                   \
                 pager_close();                                          \
                 return ret;                                             \
