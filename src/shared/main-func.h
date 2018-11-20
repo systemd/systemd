@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "pager.h"
+#include "spawn-polkit-agent.h"
 #include "static-destruct.h"
 
 #define _DEFINE_MAIN_FUNCTION(impl, ret)                                \
@@ -11,6 +12,7 @@
                 int r;                                                  \
                 r = impl(argc, argv);                                   \
                 static_destruct();                                      \
+                polkit_agent_close();                                   \
                 pager_close();                                          \
                 return ret;                                             \
         }
