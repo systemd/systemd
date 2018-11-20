@@ -831,7 +831,7 @@ int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
 void sigkill_wait(pid_t pid) {
         assert(pid > 1);
 
-        if (kill(pid, SIGKILL) > 0)
+        if (kill(pid, SIGKILL) >= 0)
                 (void) wait_for_terminate(pid, NULL);
 }
 
@@ -849,7 +849,7 @@ void sigkill_waitp(pid_t *pid) {
 void sigterm_wait(pid_t pid) {
         assert(pid > 1);
 
-        if (kill_and_sigcont(pid, SIGTERM) > 0)
+        if (kill_and_sigcont(pid, SIGTERM) >= 0)
                 (void) wait_for_terminate(pid, NULL);
 }
 
