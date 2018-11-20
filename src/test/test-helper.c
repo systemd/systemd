@@ -4,7 +4,6 @@
 #include "random-util.h"
 #include "alloc-util.h"
 #include "cgroup-util.h"
-#include "string-util.h"
 
 int enter_cgroup_subroot(void) {
         _cleanup_free_ char *cgroup_root = NULL, *cgroup_subroot = NULL;
@@ -27,9 +26,4 @@ int enter_cgroup_subroot(void) {
                 return r;
 
         return cg_attach_everywhere(supported, cgroup_subroot, 0, NULL, NULL);
-}
-
-/* https://docs.travis-ci.com/user/environment-variables#default-environment-variables */
-bool is_run_on_travis_ci(void) {
-        return streq_ptr(getenv("TRAVIS"), "true");
 }

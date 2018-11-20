@@ -60,7 +60,6 @@ for phase in "${PHASES[@]}"; do
             travis_wait docker exec --interactive=false \
                 -e UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1 \
                 -e ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1 \
-                -e "TRAVIS=$TRAVIS" \
                 -t $CONT_NAME \
                 meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs
             ;;
