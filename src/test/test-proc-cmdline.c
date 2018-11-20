@@ -53,17 +53,17 @@ static int parse_item_given(const char *key, const char *value, void *data) {
         bool *strip = data;
 
         log_info("%s: option <%s> = <%s>", __func__, key, strna(value));
-        if (streq(key, "foo_bar"))
+        if (proc_cmdline_key_streq(key, "foo_bar"))
                 assert_se(streq(value, "quux"));
-        else if (streq(key, "wuff-piep"))
+        else if (proc_cmdline_key_streq(key, "wuff-piep"))
                 assert_se(streq(value, "tuet "));
-        else if (streq(key, "space"))
+        else if (proc_cmdline_key_streq(key, "space"))
                 assert_se(streq(value, "x y z"));
-        else if (streq(key, "miepf"))
+        else if (proc_cmdline_key_streq(key, "miepf"))
                 assert_se(streq(value, "uuu"));
-        else if (in_initrd() && *strip && streq(key, "zumm"))
+        else if (in_initrd() && *strip && proc_cmdline_key_streq(key, "zumm"))
                 assert_se(!value);
-        else if (in_initrd() && !*strip && streq(key, "rd.zumm"))
+        else if (in_initrd() && !*strip && proc_cmdline_key_streq(key, "rd.zumm"))
                 assert_se(!value);
         else
                 assert_not_reached("Bad key!");

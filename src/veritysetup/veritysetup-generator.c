@@ -118,7 +118,7 @@ static int create_device(void) {
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
-        if (streq(key, "systemd.verity")) {
+        if (proc_cmdline_key_streq(key, "systemd.verity")) {
 
                 r = value ? parse_boolean(value) : 1;
                 if (r < 0)
@@ -126,7 +126,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         arg_enabled = r;
 
-        } else if (streq(key, "roothash")) {
+        } else if (proc_cmdline_key_streq(key, "roothash")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -135,7 +135,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         return log_oom();
 
-        } else if (streq(key, "systemd.verity_root_data")) {
+        } else if (proc_cmdline_key_streq(key, "systemd.verity_root_data")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -144,7 +144,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         return log_oom();
 
-        } else if (streq(key, "systemd.verity_root_hash")) {
+        } else if (proc_cmdline_key_streq(key, "systemd.verity_root_hash")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
