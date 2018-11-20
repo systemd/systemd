@@ -9,6 +9,7 @@
 #include "def.h"
 #include "log.h"
 #include "macro.h"
+#include "main-func.h"
 #include "strv.h"
 #include "terminal-util.h"
 
@@ -20,6 +21,8 @@ static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 static bool arg_multiple = false;
 static bool arg_no_output = false;
 static AskPasswordFlags arg_flags = ASK_PASSWORD_PUSH_CACHE;
+
+STATIC_DESTRUCTOR_REGISTER(arg_message, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -149,7 +152,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_strv_free_erase_ char **l = NULL;
         usec_t timeout;
         char **p;
@@ -160,7 +163,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         if (arg_timeout > 0)
                 timeout = now(CLOCK_MONOTONIC) + arg_timeout;
@@ -168,10 +171,8 @@ int main(int argc, char *argv[]) {
                 timeout = 0;
 
         r = ask_password_auto(arg_message, arg_icon, arg_id, arg_keyname, timeout, arg_flags, &l);
-        if (r < 0) {
-                log_error_errno(r, "Failed to query password: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to query password: %m");
 
         STRV_FOREACH(p, l) {
                 if (!arg_no_output)
@@ -181,8 +182,7 @@ int main(int argc, char *argv[]) {
                         break;
         }
 
-finish:
-        free(arg_message);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
