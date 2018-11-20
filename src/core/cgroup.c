@@ -26,6 +26,11 @@
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
+/* Returns the log level to use when cgroup attribute writes fail. When an attribute is missing or we have access
+ * problems we downgrade to LOG_DEBUG. This is supposed to be nice to container managers and kernels which want to mask
+ * out specific attributes from us. */
+#define LOG_LEVEL_CGROUP_WRITE(r) (IN_SET(abs(r), ENOENT, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING)
+
 bool manager_owns_root_cgroup(Manager *m) {
         assert(m);
 
@@ -1156,7 +1161,7 @@ static void cgroup_context_apply(
                                 r = 0;
 
                         if (r < 0)
-                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                log_unit_full(u, LOG_LEVEL_CGROUP_WRITE(r), r,
                                               "Failed to write to tasks limit sysctls: %m");
 
                 } else {
