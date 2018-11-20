@@ -11,6 +11,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "in-addr-util.h"
+#include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "spawn-polkit-agent.h"
@@ -829,7 +830,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "status",          VERB_ANY, 1,        VERB_DEFAULT, show_status          },
                 { "show",            VERB_ANY, 1,        0,            show_properties      },
@@ -847,7 +847,7 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, bus);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         /* The pager must be closed last, after the connection has been terminated,
          * so keep the order here. See issue #3543 for details. */
         _cleanup_(pager_closep) Pager pager;
@@ -860,15 +860,13 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = bus_connect_transport(arg_transport, arg_host, false, &bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create bus connection: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
-        r = timedatectl_main(bus, argc, argv);
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return timedatectl_main(bus, argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);
