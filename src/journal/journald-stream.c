@@ -125,7 +125,7 @@ void stdout_stream_free(StdoutStream *s) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(StdoutStream*, stdout_stream_free);
 
-static void stdout_stream_destroy(StdoutStream *s) {
+void stdout_stream_destroy(StdoutStream *s) {
         if (!s)
                 return;
 
@@ -534,7 +534,7 @@ terminate:
         return 0;
 }
 
-static int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
+int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         _cleanup_(stdout_stream_freep) StdoutStream *stream = NULL;
         sd_id128_t id;
         int r;
