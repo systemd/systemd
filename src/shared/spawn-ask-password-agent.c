@@ -9,12 +9,12 @@
 #include "spawn-ask-password-agent.h"
 #include "util.h"
 
-static pid_t agent_pid = 0;
+pid_t ask_password_agent_pid = 0;
 
 int ask_password_agent_open(void) {
         int r;
 
-        if (agent_pid > 0)
+        if (ask_password_agent_pid > 0)
                 return 0;
 
         /* We check STDIN here, not STDOUT, since this is about input,
@@ -27,7 +27,7 @@ int ask_password_agent_open(void) {
 
         r = fork_agent("(sd-askpwagent)",
                        NULL, 0,
-                       &agent_pid,
+                       &ask_password_agent_pid,
                        SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH,
                        SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, "--watch", NULL);
         if (r < 0)
@@ -36,13 +36,18 @@ int ask_password_agent_open(void) {
         return 1;
 }
 
-void ask_password_agent_close(void) {
+void ask_password_agent_closep(pid_t *p) {
+        assert(p);
 
-        if (agent_pid <= 0)
+        if (*p <= 0)
                 return;
 
         /* Inform agent that we are done */
-        (void) kill_and_sigcont(agent_pid, SIGTERM);
-        (void) wait_for_terminate(agent_pid, NULL);
-        agent_pid = 0;
+        (void) kill_and_sigcont(*p, SIGTERM);
+        (void) wait_for_terminate(*p, NULL);
+        *p = 0;
+}
+
+void ask_password_agent_close(void) {
+        ask_password_agent_closep(&ask_password_agent_pid);
 }
