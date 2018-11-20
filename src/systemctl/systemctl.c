@@ -8649,6 +8649,7 @@ static int logind_cancel_shutdown(void) {
 
 int main(int argc, char*argv[]) {
         _cleanup_(pager_closep) Pager pager;
+        _cleanup_(polkit_agent_closep) PolkitAgent agent;
         int r;
 
         argv_cmdline = argv[0];
@@ -8739,7 +8740,6 @@ finish:
         release_busses();
 
         ask_password_agent_close();
-        polkit_agent_close();
 
         strv_free(arg_types);
         strv_free(arg_states);

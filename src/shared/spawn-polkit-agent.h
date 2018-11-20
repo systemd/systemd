@@ -20,3 +20,9 @@ static inline int polkit_agent_open_if_enabled(
 
         return polkit_agent_open();
 }
+
+/* A dummy struct to make _cleanup_ type-safe */
+typedef struct PolkitAgent {} PolkitAgent;
+static inline void polkit_agent_closep(PolkitAgent *agent) {
+        polkit_agent_close();
+}
