@@ -18,6 +18,7 @@
 #include "json.h"
 #include "locale-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -54,6 +55,8 @@ static bool arg_allow_interactive_authorization = true;
 static bool arg_augment_creds = true;
 static bool arg_watch_bind = false;
 static usec_t arg_timeout = 0;
+
+STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
 #define NAME_IS_ACQUIRED INT_TO_PTR(1)
 #define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
@@ -2417,7 +2420,7 @@ static int busctl_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         log_parse_environment();
@@ -2425,16 +2428,9 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        r = busctl_main(argc, argv);
-
-finish:
-        /* make sure we terminate the bus connection first, and then close the
-         * pager, see issue #3543 for the details. */
-        pager_close();
-
-        arg_matches = strv_free(arg_matches);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return busctl_main(argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);
