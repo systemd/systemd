@@ -435,7 +435,7 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
 
                 r = cg_set_attribute("devices", path, "devices.allow", buf);
                 if (r < 0)
-                        return log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING,
+                        return log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING,
                                               r, "Failed to set devices.allow on %s: %m", path);
 
                 return 0;
@@ -524,7 +524,7 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
 
                         r = cg_set_attribute("devices", path, "devices.allow", buf);
                         if (r < 0)
-                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING,
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING,
                                                r, "Failed to set devices.allow on %s: %m", path);
                 }
         }
@@ -1065,8 +1065,8 @@ static void cgroup_context_apply(
                         else
                                 r = cg_set_attribute("devices", path, "devices.allow", "a");
                         if (r < 0)
-                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                              "Failed to reset devices.list: %m");
+                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
+                                              "Failed to reset devices.allow/devices.deny: %m");
                 }
 
                 if (c->device_policy == CGROUP_CLOSED ||
