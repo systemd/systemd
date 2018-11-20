@@ -27,8 +27,8 @@
 #include <stdint.h>
 
 #ifdef __CHECKER__
-#define __sd_bitwise __attribute__((bitwise))
-#define __sd_force __attribute__((force))
+#define __sd_bitwise __attribute__((__bitwise__))
+#define __sd_force __attribute__((__force__))
 #else
 #define __sd_bitwise
 #define __sd_force

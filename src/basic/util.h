@@ -172,7 +172,8 @@ static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
 }
 
-#define PROTECT_ERRNO _cleanup_(_reset_errno_) __attribute__((unused)) int _saved_errno_ = errno
+#define PROTECT_ERRNO                                                   \
+        _cleanup_(_reset_errno_) __attribute__((__unused__)) int _saved_errno_ = errno
 
 static inline int negative_errno(void) {
         /* This helper should be used to shut up gcc if you know 'errno' is

@@ -41,7 +41,7 @@ static inline void FreePoolp(void *p) {
         FreePool(q);
 }
 
-#define _cleanup_(x) __attribute__((cleanup(x)))
+#define _cleanup_(x) __attribute__((__cleanup__(x)))
 #define _cleanup_freepool_ _cleanup_(FreePoolp)
 
 static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
