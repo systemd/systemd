@@ -27,6 +27,8 @@ static char **arg_prefixes = NULL;
 static bool arg_cat_config = false;
 static PagerFlags arg_pager_flags = 0;
 
+STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
+
 static int apply_all(OrderedHashmap *sysctl_options) {
         char *property, *value;
         Iterator i;
@@ -322,8 +324,6 @@ static int run(int argc, char *argv[]) {
 
 finish:
         pager_close();
-
-        strv_free(arg_prefixes);
 
         return r;
 }
