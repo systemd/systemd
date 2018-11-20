@@ -23,6 +23,7 @@
 #include "journal-util.h"
 #include "log.h"
 #include "macro.h"
+#include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1066,7 +1067,7 @@ static int coredumpctl_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r, units_active;
 
         setlocale(LC_ALL, "");
@@ -1078,7 +1079,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto end;
+                return r;
 
         sigbus_install();
 
@@ -1091,8 +1092,7 @@ int main(int argc, char *argv[]) {
                        ansi_highlight_red(),
                        units_active, units_active == 1 ? "unit is running" : "units are running",
                        ansi_normal());
-end:
-        pager_close();
-
-        return r >= 0 ? r : EXIT_FAILURE;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
