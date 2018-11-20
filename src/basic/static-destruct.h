@@ -12,6 +12,7 @@ typedef struct StaticDestructor {
         void (*destroy)(void *p);
 } StaticDestructor;
 
+/* Register a function to typesafely invoke that destroys the specified variable */
 #define STATIC_DESTRUCTOR_REGISTER(variable, func) \
         _STATIC_DESTRUCTOR_REGISTER(UNIQ, variable, func)
 
@@ -28,6 +29,22 @@ typedef struct StaticDestructor {
         static const StaticDestructor UNIQ_T(static_destructor_entry, uq) = { \
                 .data = &(variable),                                    \
                 .destroy = UNIQ_T(static_destructor_wrapper, uq),       \
+        }
+
+/* Register a function to call without arguments that can do whatever it needs to do before exiting. */
+#define STATIC_DESTRUCTOR_CALL(func) \
+        _STATIC_DESTRUCTOR_CALL(UNIQ, func)
+
+#define _STATIC_DESTRUCTOR_CALL(uq, func)                               \
+        static void UNIQ_T(static_destructor_stub, uq)(void *p) {       \
+                func();                                                 \
+        }                                                               \
+        /* The actual destructor structure */                           \
+        __attribute__ ((__section__("SYSTEMD_STATIC_DESTRUCT")))        \
+        __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)))            \
+        __attribute__ ((__used__))                                      \
+        static const StaticDestructor UNIQ_T(static_destructor_entry, uq) = { \
+                .destroy = UNIQ_T(static_destructor_stub, uq),          \
         }
 
 /* Beginning and end of our section listing the destructors. We define these as weak as we want this to work even if
