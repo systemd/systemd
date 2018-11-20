@@ -581,26 +581,33 @@ static uint64_t cgroup_context_cpu_shares(CGroupContext *c, ManagerState state) 
                 return CGROUP_CPU_SHARES_DEFAULT;
 }
 
-static void cgroup_apply_unified_cpu_config(Unit *u, uint64_t weight, uint64_t quota) {
-        char buf[MAX(DECIMAL_STR_MAX(uint64_t) + 1, (DECIMAL_STR_MAX(usec_t) + 1) * 2)];
+static void cgroup_apply_unified_cpu_weight(Unit *u, uint64_t weight) {
+        char buf[DECIMAL_STR_MAX(uint64_t) + 2];
 
         xsprintf(buf, "%" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, "cpu", "cpu.weight", buf);
+}
+
+static void cgroup_apply_unified_cpu_quota(Unit *u, usec_t quota) {
+        char buf[(DECIMAL_STR_MAX(usec_t) + 1) * 2 + 1];
 
         if (quota != USEC_INFINITY)
                 xsprintf(buf, USEC_FMT " " USEC_FMT "\n",
                          quota * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC, CGROUP_CPU_QUOTA_PERIOD_USEC);
         else
                 xsprintf(buf, "max " USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
-
         (void) set_attribute_and_warn(u, "cpu", "cpu.max", buf);
 }
 
-static void cgroup_apply_legacy_cpu_config(Unit *u, uint64_t shares, uint64_t quota) {
-        char buf[MAX(DECIMAL_STR_MAX(uint64_t), DECIMAL_STR_MAX(usec_t)) + 1];
+static void cgroup_apply_legacy_cpu_shares(Unit *u, uint64_t shares) {
+        char buf[DECIMAL_STR_MAX(uint64_t) + 2];
 
         xsprintf(buf, "%" PRIu64 "\n", shares);
         (void) set_attribute_and_warn(u, "cpu", "cpu.shares", buf);
+}
+
+static void cgroup_apply_legacy_cpu_quota(Unit *u, usec_t quota) {
+        char buf[DECIMAL_STR_MAX(usec_t) + 2];
 
         xsprintf(buf, USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
         (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_period_us", buf);
@@ -782,7 +789,7 @@ static void cgroup_context_apply(
 
         const char *path;
         CGroupContext *c;
-        bool is_root;
+        bool is_host_root, is_local_root;
         int r;
 
         assert(u);
@@ -791,117 +798,135 @@ static void cgroup_context_apply(
         if (apply_mask == 0)
                 return;
 
-        /* Some cgroup attributes are not supported on the root cgroup, hence silently ignore */
-        is_root = unit_has_host_root_cgroup(u);
+        /* Some cgroup attributes are not supported on the host root cgroup, hence silently ignore them here. And other
+         * attributes should only be managed for cgroups further down the tree. */
+        is_local_root = unit_has_name(u, SPECIAL_ROOT_SLICE);
+        is_host_root = unit_has_host_root_cgroup(u);
 
         assert_se(c = unit_get_cgroup_context(u));
         assert_se(path = u->cgroup_path);
 
-        if (is_root) /* Make sure we don't try to display messages with an empty path. */
+        if (is_local_root) /* Make sure we don't try to display messages with an empty path. */
                 path = "/";
 
         /* We generally ignore errors caused by read-only mounted
          * cgroup trees (assuming we are running in a container then),
          * and missing cgroups, i.e. EROFS and ENOENT. */
 
-        if ((apply_mask & CGROUP_MASK_CPU) && !is_root) {
+        if (apply_mask & CGROUP_MASK_CPU) {
                 bool has_weight, has_shares;
 
                 has_weight = cgroup_context_has_cpu_weight(c);
                 has_shares = cgroup_context_has_cpu_shares(c);
 
                 if (cg_all_unified() > 0) {
-                        uint64_t weight;
 
-                        if (has_weight)
-                                weight = cgroup_context_cpu_weight(c, state);
-                        else if (has_shares) {
-                                uint64_t shares = cgroup_context_cpu_shares(c, state);
+                        /* In fully unified mode these attributes don't exist on the host cgroup root, and inside of
+                         * containers we want to leave control of these to the container manager (and if delegation is
+                         * used we couldn't even write to them if we wanted to). */
+                        if (!is_local_root) {
+                                uint64_t weight;
 
-                                weight = cgroup_cpu_shares_to_weight(shares);
+                                if (has_weight)
+                                        weight = cgroup_context_cpu_weight(c, state);
+                                else if (has_shares) {
+                                        uint64_t shares;
 
-                                log_cgroup_compat(u, "Applying [Startup]CPUShares %" PRIu64 " as [Startup]CPUWeight %" PRIu64 " on %s",
-                                                  shares, weight, path);
-                        } else
-                                weight = CGROUP_WEIGHT_DEFAULT;
+                                        shares = cgroup_context_cpu_shares(c, state);
+                                        weight = cgroup_cpu_shares_to_weight(shares);
 
-                        cgroup_apply_unified_cpu_config(u, weight, c->cpu_quota_per_sec_usec);
+                                        log_cgroup_compat(u, "Applying [Startup]CPUShares %" PRIu64 " as [Startup]CPUWeight %" PRIu64 " on %s",
+                                                          shares, weight, path);
+                                } else
+                                        weight = CGROUP_WEIGHT_DEFAULT;
+
+                                cgroup_apply_unified_cpu_weight(u, weight);
+                                cgroup_apply_unified_cpu_quota(u, c->cpu_quota_per_sec_usec);
+                        }
+
                 } else {
-                        uint64_t shares;
+                        /* Setting the weight makes very little sense on the host root cgroup, as there are no other
+                         * cgroups at this level. And for containers we want to leave management of this to the
+                         * container manager */
+                        if (!is_local_root) {
+                                uint64_t shares;
 
-                        if (has_weight) {
-                                uint64_t weight = cgroup_context_cpu_weight(c, state);
+                                if (has_weight) {
+                                        uint64_t weight;
 
-                                shares = cgroup_cpu_weight_to_shares(weight);
+                                        weight = cgroup_context_cpu_weight(c, state);
+                                        shares = cgroup_cpu_weight_to_shares(weight);
 
-                                log_cgroup_compat(u, "Applying [Startup]CPUWeight %" PRIu64 " as [Startup]CPUShares %" PRIu64 " on %s",
-                                                  weight, shares, path);
-                        } else if (has_shares)
-                                shares = cgroup_context_cpu_shares(c, state);
-                        else
-                                shares = CGROUP_CPU_SHARES_DEFAULT;
+                                        log_cgroup_compat(u, "Applying [Startup]CPUWeight %" PRIu64 " as [Startup]CPUShares %" PRIu64 " on %s",
+                                                          weight, shares, path);
+                                } else if (has_shares)
+                                        shares = cgroup_context_cpu_shares(c, state);
+                                else
+                                        shares = CGROUP_CPU_SHARES_DEFAULT;
 
-                        cgroup_apply_legacy_cpu_config(u, shares, c->cpu_quota_per_sec_usec);
+                                cgroup_apply_legacy_cpu_shares(u, shares);
+                        }
+
+                        /* The "cpu" quota attribute is available on the host root, hence manage it there. But in
+                         * containers let's leave this to the container manager. */
+                        if (is_host_root || !is_local_root)
+                                cgroup_apply_legacy_cpu_quota(u, c->cpu_quota_per_sec_usec);
                 }
         }
 
-        if (apply_mask & CGROUP_MASK_IO) {
-                bool has_io = cgroup_context_has_io_config(c);
-                bool has_blockio = cgroup_context_has_blockio_config(c);
+        /* The 'io' controller attributes are not exported on the host's root cgroup (being a pure cgroupsv2
+         * controller), and in case of containers we want to leave control of these attributes to the container manager
+         * (and we couldn't access that stuff anyway, even if we tried if proper delegation is used). */
+        if ((apply_mask & CGROUP_MASK_IO) && !is_local_root) {
+                char buf[8+DECIMAL_STR_MAX(uint64_t)+1];
+                bool has_io, has_blockio;
+                uint64_t weight;
 
-                if (!is_root) {
-                        char buf[8+DECIMAL_STR_MAX(uint64_t)+1];
-                        uint64_t weight;
+                has_io = cgroup_context_has_io_config(c);
+                has_blockio = cgroup_context_has_blockio_config(c);
 
-                        if (has_io)
-                                weight = cgroup_context_io_weight(c, state);
-                        else if (has_blockio) {
-                                uint64_t blkio_weight = cgroup_context_blkio_weight(c, state);
+                if (has_io)
+                        weight = cgroup_context_io_weight(c, state);
+                else if (has_blockio) {
+                        uint64_t blkio_weight;
 
-                                weight = cgroup_weight_blkio_to_io(blkio_weight);
+                        blkio_weight = cgroup_context_blkio_weight(c, state);
+                        weight = cgroup_weight_blkio_to_io(blkio_weight);
 
-                                log_cgroup_compat(u, "Applying [Startup]BlockIOWeight %" PRIu64 " as [Startup]IOWeight %" PRIu64,
-                                                  blkio_weight, weight);
-                        } else
-                                weight = CGROUP_WEIGHT_DEFAULT;
+                        log_cgroup_compat(u, "Applying [Startup]BlockIOWeight %" PRIu64 " as [Startup]IOWeight %" PRIu64,
+                                          blkio_weight, weight);
+                } else
+                        weight = CGROUP_WEIGHT_DEFAULT;
 
-                        xsprintf(buf, "default %" PRIu64 "\n", weight);
-                        (void) set_attribute_and_warn(u, "io", "io.weight", buf);
-
-                        if (has_io) {
-                                CGroupIODeviceWeight *w;
-
-                                LIST_FOREACH(device_weights, w, c->io_device_weights)
-                                        cgroup_apply_io_device_weight(u, w->path, w->weight);
-                        } else if (has_blockio) {
-                                CGroupBlockIODeviceWeight *w;
-
-                                LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
-                                        weight = cgroup_weight_blkio_to_io(w->weight);
-
-                                        log_cgroup_compat(u, "Applying BlockIODeviceWeight %" PRIu64 " as IODeviceWeight %" PRIu64 " for %s",
-                                                          w->weight, weight, w->path);
-
-                                        cgroup_apply_io_device_weight(u, w->path, weight);
-                                }
-                        }
-
-                        if (has_io) {
-                                CGroupIODeviceLatency *l;
-
-                                LIST_FOREACH(device_latencies, l, c->io_device_latencies)
-                                        cgroup_apply_io_device_latency(u, l->path, l->target_usec);
-                        }
-                }
+                xsprintf(buf, "default %" PRIu64 "\n", weight);
+                (void) set_attribute_and_warn(u, "io", "io.weight", buf);
 
                 if (has_io) {
-                        CGroupIODeviceLimit *l;
+                        CGroupIODeviceLatency *latency;
+                        CGroupIODeviceLimit *limit;
+                        CGroupIODeviceWeight *w;
 
-                        LIST_FOREACH(device_limits, l, c->io_device_limits)
-                                cgroup_apply_io_device_limit(u, l->path, l->limits);
+                        LIST_FOREACH(device_weights, w, c->io_device_weights)
+                                cgroup_apply_io_device_weight(u, w->path, w->weight);
+
+                        LIST_FOREACH(device_limits, limit, c->io_device_limits)
+                                cgroup_apply_io_device_limit(u, limit->path, limit->limits);
+
+                        LIST_FOREACH(device_latencies, latency, c->io_device_latencies)
+                                cgroup_apply_io_device_latency(u, latency->path, latency->target_usec);
 
                 } else if (has_blockio) {
+                        CGroupBlockIODeviceWeight *w;
                         CGroupBlockIODeviceBandwidth *b;
+
+                        LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
+                                weight = cgroup_weight_blkio_to_io(w->weight);
+
+                                log_cgroup_compat(u, "Applying BlockIODeviceWeight %" PRIu64 " as IODeviceWeight %" PRIu64 " for %s",
+                                                  w->weight, weight, w->path);
+
+                                cgroup_apply_io_device_weight(u, w->path, weight);
+                        }
 
                         LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
                                 uint64_t limits[_CGROUP_IO_LIMIT_TYPE_MAX];
@@ -922,16 +947,21 @@ static void cgroup_context_apply(
         }
 
         if (apply_mask & CGROUP_MASK_BLKIO) {
-                bool has_io = cgroup_context_has_io_config(c);
-                bool has_blockio = cgroup_context_has_blockio_config(c);
+                bool has_io, has_blockio;
 
-                if (!is_root) {
+                has_io = cgroup_context_has_io_config(c);
+                has_blockio = cgroup_context_has_blockio_config(c);
+
+                /* Applying a 'weight' never makes sense for the host root cgroup, and for containers this should be
+                 * left to our container manager, too. */
+                if (!is_local_root) {
                         char buf[DECIMAL_STR_MAX(uint64_t)+1];
                         uint64_t weight;
 
                         if (has_io) {
-                                uint64_t io_weight = cgroup_context_io_weight(c, state);
+                                uint64_t io_weight;
 
+                                io_weight = cgroup_context_io_weight(c, state);
                                 weight = cgroup_weight_io_to_blkio(cgroup_context_io_weight(c, state));
 
                                 log_cgroup_compat(u, "Applying [Startup]IOWeight %" PRIu64 " as [Startup]BlockIOWeight %" PRIu64,
@@ -963,62 +993,80 @@ static void cgroup_context_apply(
                         }
                 }
 
-                if (has_io) {
-                        CGroupIODeviceLimit *l;
+                /* The bandwith limits are something that make sense to be applied to the host's root but not container
+                 * roots, as there we want the container manager to handle it */
+                if (is_host_root || !is_local_root) {
+                        if (has_io) {
+                                CGroupIODeviceLimit *l;
 
-                        LIST_FOREACH(device_limits, l, c->io_device_limits) {
-                                log_cgroup_compat(u, "Applying IO{Read|Write}Bandwidth %" PRIu64 " %" PRIu64 " as BlockIO{Read|Write}BandwidthMax for %s",
-                                                  l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX], l->path);
+                                LIST_FOREACH(device_limits, l, c->io_device_limits) {
+                                        log_cgroup_compat(u, "Applying IO{Read|Write}Bandwidth %" PRIu64 " %" PRIu64 " as BlockIO{Read|Write}BandwidthMax for %s",
+                                                          l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX], l->path);
 
-                                cgroup_apply_blkio_device_limit(u, l->path, l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX]);
+                                        cgroup_apply_blkio_device_limit(u, l->path, l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX]);
+                                }
+                        } else if (has_blockio) {
+                                CGroupBlockIODeviceBandwidth *b;
+
+                                LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths)
+                                        cgroup_apply_blkio_device_limit(u, b->path, b->rbps, b->wbps);
                         }
-                } else if (has_blockio) {
-                        CGroupBlockIODeviceBandwidth *b;
-
-                        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths)
-                                cgroup_apply_blkio_device_limit(u, b->path, b->rbps, b->wbps);
                 }
         }
 
-        if ((apply_mask & CGROUP_MASK_MEMORY) && !is_root) {
+        if (apply_mask & CGROUP_MASK_MEMORY) {
+
                 if (cg_all_unified() > 0) {
-                        uint64_t max, swap_max = CGROUP_LIMIT_MAX;
+                        /* In unified mode 'memory' attributes do not exist on the root cgroup. And if we run in a
+                         * container we want to leave control to the container manager (and if proper delegation is
+                         * used we couldn't even write to this if we wanted to. */
+                        if (!is_local_root) {
+                                uint64_t max, swap_max = CGROUP_LIMIT_MAX;
 
-                        if (cgroup_context_has_unified_memory_config(c)) {
-                                max = c->memory_max;
-                                swap_max = c->memory_swap_max;
-                        } else {
-                                max = c->memory_limit;
+                                if (cgroup_context_has_unified_memory_config(c)) {
+                                        max = c->memory_max;
+                                        swap_max = c->memory_swap_max;
+                                } else {
+                                        max = c->memory_limit;
 
-                                if (max != CGROUP_LIMIT_MAX)
-                                        log_cgroup_compat(u, "Applying MemoryLimit=%" PRIu64 " as MemoryMax=", max);
+                                        if (max != CGROUP_LIMIT_MAX)
+                                                log_cgroup_compat(u, "Applying MemoryLimit=%" PRIu64 " as MemoryMax=", max);
+                                }
+
+                                cgroup_apply_unified_memory_limit(u, "memory.min", c->memory_min);
+                                cgroup_apply_unified_memory_limit(u, "memory.low", c->memory_low);
+                                cgroup_apply_unified_memory_limit(u, "memory.high", c->memory_high);
+                                cgroup_apply_unified_memory_limit(u, "memory.max", max);
+                                cgroup_apply_unified_memory_limit(u, "memory.swap.max", swap_max);
                         }
-
-                        cgroup_apply_unified_memory_limit(u, "memory.min", c->memory_min);
-                        cgroup_apply_unified_memory_limit(u, "memory.low", c->memory_low);
-                        cgroup_apply_unified_memory_limit(u, "memory.high", c->memory_high);
-                        cgroup_apply_unified_memory_limit(u, "memory.max", max);
-                        cgroup_apply_unified_memory_limit(u, "memory.swap.max", swap_max);
                 } else {
-                        char buf[DECIMAL_STR_MAX(uint64_t) + 1];
-                        uint64_t val;
 
-                        if (cgroup_context_has_unified_memory_config(c)) {
-                                val = c->memory_max;
-                                log_cgroup_compat(u, "Applying MemoryMax=%" PRIi64 " as MemoryLimit=", val);
-                        } else
-                                val = c->memory_limit;
+                        /* In legacy mode 'memory' exists on the host root, but in container mode we want to leave it
+                         * to the container manager around us */
+                        if (is_host_root || !is_local_root) {
+                                char buf[DECIMAL_STR_MAX(uint64_t) + 1];
+                                uint64_t val;
 
-                        if (val == CGROUP_LIMIT_MAX)
-                                strncpy(buf, "-1\n", sizeof(buf));
-                        else
-                                xsprintf(buf, "%" PRIu64 "\n", val);
+                                if (cgroup_context_has_unified_memory_config(c)) {
+                                        val = c->memory_max;
+                                        log_cgroup_compat(u, "Applying MemoryMax=%" PRIi64 " as MemoryLimit=", val);
+                                } else
+                                        val = c->memory_limit;
 
-                        (void) set_attribute_and_warn(u, "memory", "memory.limit_in_bytes", buf);
+                                if (val == CGROUP_LIMIT_MAX)
+                                        strncpy(buf, "-1\n", sizeof(buf));
+                                else
+                                        xsprintf(buf, "%" PRIu64 "\n", val);
+
+                                (void) set_attribute_and_warn(u, "memory", "memory.limit_in_bytes", buf);
+                        }
                 }
         }
 
-        if ((apply_mask & (CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES)) && !is_root) {
+        /* On cgroupsv2 we can apply BPF everywhre. On cgroupsv1 we apply it everywhere except for the root of
+         * containers, where we leave this to the manager */
+        if ((apply_mask & (CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES)) &&
+            (is_host_root || cg_all_unified() > 0 || !is_local_root)) {
                 _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
                 CGroupDeviceAllow *a;
 
@@ -1103,7 +1151,7 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_PIDS) {
 
-                if (is_root) {
+                if (is_host_root) {
                         /* So, the "pids" controller does not expose anything on the root cgroup, in order not to
                          * replicate knobs exposed elsewhere needlessly. We abstract this away here however, and when
                          * the knobs of the root cgroup are modified propagate this to the relevant sysctls. There's a
@@ -1128,8 +1176,11 @@ static void cgroup_context_apply(
                         if (r < 0)
                                 log_unit_full(u, LOG_LEVEL_CGROUP_WRITE(r), r,
                                               "Failed to write to tasks limit sysctls: %m");
+                }
 
-                } else {
+                /* The attribute itself is not available on the host root cgroup, and in the container case we want to
+                 * leave it for the container manager. */
+                if (!is_local_root) {
                         if (c->tasks_max != CGROUP_LIMIT_MAX) {
                                 char buf[DECIMAL_STR_MAX(uint64_t) + 2];
 
