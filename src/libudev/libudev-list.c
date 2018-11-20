@@ -209,7 +209,7 @@ static void udev_list_entry_delete(struct udev_list_entry *entry) {
 
 #define udev_list_entry_foreach_safe(entry, tmp, first) \
         for (entry = first, tmp = udev_list_entry_get_next(entry); \
-             entry; \
+             entry && tmp != first; \
              entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
 void udev_list_cleanup(struct udev_list *list) {
