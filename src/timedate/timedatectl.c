@@ -11,6 +11,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "in-addr-util.h"
+#include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "spawn-polkit-agent.h"
@@ -829,7 +830,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "status",          VERB_ANY, 1,        VERB_DEFAULT, show_status          },
                 { "show",            VERB_ANY, 1,        0,            show_properties      },
@@ -847,8 +847,8 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, bus);
 }
 
-int main(int argc, char *argv[]) {
-        sd_bus *bus = NULL;
+static int run(int argc, char *argv[]) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -857,21 +857,13 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = bus_connect_transport(arg_transport, arg_host, false, &bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create bus connection: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
-        r = timedatectl_main(bus, argc, argv);
-
-finish:
-        /* make sure we terminate the bus connection first, and then close the
-         * pager, see issue #3543 for the details. */
-        sd_bus_flush_close_unref(bus);
-        pager_close();
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return timedatectl_main(bus, argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);
