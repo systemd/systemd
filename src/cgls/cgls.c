@@ -14,6 +14,7 @@
 #include "cgroup-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "main-func.h"
 #include "output-mode.h"
 #include "pager.h"
 #include "path-util.h"
@@ -35,6 +36,8 @@ static char **arg_names = NULL;
 
 static int arg_full = -1;
 static const char* arg_machine = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_names, freep); /* don't free the strings */
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -160,7 +163,7 @@ static void show_cg_info(const char *controller, const char *path) {
         fflush(stdout);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r, output_flags;
 
         log_parse_environment();
@@ -168,7 +171,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = pager_open(arg_pager_flags);
         if (r > 0 && arg_full < 0)
@@ -196,10 +199,8 @@ int main(int argc, char *argv[]) {
                                         r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL,
                                                                           arg_show_unit == SHOW_UNIT_USER,
                                                                           &bus);
-                                        if (r < 0) {
-                                                log_error_errno(r, "Failed to create bus connection: %m");
-                                                goto finish;
-                                        }
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to create bus connection: %m");
                                 }
 
                                 q = show_cgroup_get_unit_path_and_warn(bus, *name, &cgroup);
@@ -231,7 +232,7 @@ int main(int argc, char *argv[]) {
                                         /* Query root only if needed, treat error as fatal */
                                         r = show_cgroup_get_path_and_warn(arg_machine, NULL, &root);
                                         if (r < 0)
-                                                goto finish;
+                                                return log_error_errno(r, "Failed to list cgroup tree: %m");
                                 }
 
                                 q = cg_split_spec(*name, &c, &p);
@@ -243,10 +244,8 @@ int main(int argc, char *argv[]) {
                                 controller = c ?: SYSTEMD_CGROUP_CONTROLLER;
                                 if (p) {
                                         j = strjoin(root, "/", p);
-                                        if (!j) {
-                                                r = log_oom();
-                                                goto finish;
-                                        }
+                                        if (!j)
+                                                return log_oom();
 
                                         path_simplify(j, false);
                                         path = j;
@@ -270,10 +269,8 @@ int main(int argc, char *argv[]) {
                         _cleanup_free_ char *cwd = NULL;
 
                         r = safe_getcwd(&cwd);
-                        if (r < 0) {
-                                log_error_errno(r, "Cannot determine current working directory: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot determine current working directory: %m");
 
                         if (path_startswith(cwd, "/sys/fs/cgroup")) {
                                 printf("Working directory %s:\n", cwd);
@@ -289,7 +286,7 @@ int main(int argc, char *argv[]) {
 
                         r = show_cgroup_get_path_and_warn(arg_machine, NULL, &root);
                         if (r < 0)
-                                goto finish;
+                                return log_error_errno(r, "Failed to list cgroup tree: %m");
 
                         show_cg_info(SYSTEMD_CGROUP_CONTROLLER, root);
 
@@ -297,13 +294,10 @@ int main(int argc, char *argv[]) {
                         r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, output_flags);
                 }
         }
-
         if (r < 0)
-                log_error_errno(r, "Failed to list cgroup tree: %m");
+                return log_error_errno(r, "Failed to list cgroup tree: %m");
 
-finish:
-        pager_close();
-        free(arg_names); /* don't free the strings */
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
