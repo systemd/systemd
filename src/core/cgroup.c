@@ -431,6 +431,8 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
                         major(st.st_rdev), minor(st.st_rdev),
                         acc);
 
+                /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore EINVAL here. */
+
                 r = cg_set_attribute("devices", path, "devices.allow", buf);
                 if (r < 0)
                         return log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING,
@@ -516,6 +518,9 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
                                 type,
                                 maj,
                                 acc);
+
+                        /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore EINVAL
+                         * here. */
 
                         r = cg_set_attribute("devices", path, "devices.allow", buf);
                         if (r < 0)
@@ -1052,8 +1057,7 @@ static void cgroup_context_apply(
                         if (r < 0)
                                 log_unit_warning_errno(u, r, "Failed to initialize device control bpf program: %m");
                 } else {
-                        /* Changing the devices list of a populated cgroup
-                         * might result in EINVAL, hence ignore EINVAL
+                        /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore EINVAL
                          * here. */
 
                         if (c->device_allow || c->device_policy != CGROUP_AUTO)
