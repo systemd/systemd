@@ -924,10 +924,7 @@ static int run(int argc, char *argv[]) {
         Iterator j;
         int r;
 
-        log_set_prohibit_ipc(true);
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_generator();
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");

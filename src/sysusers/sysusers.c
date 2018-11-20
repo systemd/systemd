@@ -1933,9 +1933,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         if (arg_cat_config) {
                 r = cat_config();

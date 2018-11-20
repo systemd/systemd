@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "generator.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -152,10 +153,7 @@ static int run(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[2];
 
-        log_set_prohibit_ipc(true);
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_generator();
 
         umask(0022);
 

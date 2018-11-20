@@ -82,9 +82,7 @@ static int run(int argc, char *argv[]) {
         const char *path;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         if (argc > 3) {
                 log_error("Too many arguments. Expected directory and mode.");

@@ -270,9 +270,7 @@ static int run(int argc, char *argv[]) {
         int r, exit_status;
         pid_t pid;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         if (argc > 2) {
                 log_error("This program expects one or no arguments.");

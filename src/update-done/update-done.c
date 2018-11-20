@@ -37,9 +37,7 @@ int main(int argc, char *argv[]) {
         struct stat st;
         int r, q = 0;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         if (stat("/usr", &st) < 0) {
                 log_error_errno(errno, "Failed to stat /usr: %m");

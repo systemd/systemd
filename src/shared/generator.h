@@ -47,3 +47,5 @@ int generator_hook_up_growfs(
         const char *dir,
         const char *where,
         const char *target);
+
+void log_setup_generator(void);

@@ -39,9 +39,7 @@ int main(int argc, char *argv[]) {
         size_t length = 0;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         if (argc != 3) {
                 log_error("Wrong number of arguments.");

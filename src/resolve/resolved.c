@@ -19,9 +19,7 @@ int main(int argc, char *argv[]) {
         gid_t gid;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");

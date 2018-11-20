@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "fstab-util.h"
+#include "generator.h"
 #include "log.h"
 #include "mkdir.h"
 #include "proc-cmdline.h"
@@ -68,10 +69,7 @@ static int process_resume(void) {
 int main(int argc, char *argv[]) {
         int r = 0;
 
-        log_set_prohibit_ipc(true);
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_generator();
 
         umask(0022);
 
