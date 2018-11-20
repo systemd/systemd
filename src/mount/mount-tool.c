@@ -15,6 +15,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "fstab-util.h"
+#include "main-func.h"
 #include "mount-util.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -57,6 +58,14 @@ static uid_t arg_uid = UID_INVALID;
 static gid_t arg_gid = GID_INVALID;
 static bool arg_fsck = true;
 static bool arg_aggressive_gc = false;
+
+STATIC_DESTRUCTOR_REGISTER(arg_mount_what, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_mount_where, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_mount_type, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_mount_options, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_automount_property, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -1518,8 +1527,8 @@ finish:
         return r;
 }
 
-int main(int argc, char* argv[]) {
-        sd_bus *bus = NULL;
+static int run(int argc, char* argv[]) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();
@@ -1527,52 +1536,42 @@ int main(int argc, char* argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        if (arg_action == ACTION_LIST) {
-                r = list_devices();
-                goto finish;
-        }
+        if (arg_action == ACTION_LIST)
+                return list_devices();
 
         r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create bus connection: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
-        if (arg_action == ACTION_UMOUNT) {
-                r = action_umount(bus, argc, argv);
-                goto finish;
-        }
+        if (arg_action == ACTION_UMOUNT)
+                return action_umount(bus, argc, argv);
 
         if (!path_is_normalized(arg_mount_what)) {
                 log_error("Path contains non-normalized components: %s", arg_mount_what);
-                r = -EINVAL;
-                goto finish;
+                return -EINVAL;
         }
 
         if (arg_discover) {
                 r = discover_device();
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         if (!arg_mount_where) {
                 log_error("Can't figure out where to mount %s.", arg_mount_what);
-                r = -EINVAL;
-                goto finish;
+                return -EINVAL;
         }
 
         if (path_equal(arg_mount_where, "/")) {
                 log_error("Refusing to operate on root directory.");
-                r = -EINVAL;
-                goto finish;
+                return -EINVAL;
         }
 
         if (!path_is_normalized(arg_mount_where)) {
                 log_error("Path contains non-normalized components: %s", arg_mount_where);
-                r = -EINVAL;
-                goto finish;
+                return -EINVAL;
         }
 
         if (streq_ptr(arg_mount_type, "auto"))
@@ -1606,8 +1605,7 @@ int main(int argc, char* argv[]) {
             !fstype_can_uid_gid(arg_mount_type)) {
                 log_error("File system type %s is not known to support uid=/gid=, refusing.",
                           arg_mount_type);
-                r = -EOPNOTSUPP;
-                goto finish;
+                return -EOPNOTSUPP;
         }
 
         switch (arg_action) {
@@ -1625,19 +1623,7 @@ int main(int argc, char* argv[]) {
                 assert_not_reached("Unexpected action.");
         }
 
-finish:
-        /* make sure we terminate the bus connection first, and then close the
-         * pager, see issue #3543 for the details. */
-        bus = sd_bus_flush_close_unref(bus);
-        pager_close();
-
-        free(arg_mount_what);
-        free(arg_mount_where);
-        free(arg_mount_type);
-        free(arg_mount_options);
-        free(arg_description);
-        strv_free(arg_property);
-        strv_free(arg_automount_property);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
