@@ -1013,7 +1013,7 @@ static void cgroup_context_apply(
                                 max = c->memory_limit;
 
                                 if (max != CGROUP_LIMIT_MAX)
-                                        log_cgroup_compat(u, "Applying MemoryLimit %" PRIu64 " as MemoryMax", max);
+                                        log_cgroup_compat(u, "Applying MemoryLimit=%" PRIu64 " as MemoryMax=", max);
                         }
 
                         cgroup_apply_unified_memory_limit(u, "memory.min", c->memory_min);
@@ -1027,7 +1027,7 @@ static void cgroup_context_apply(
 
                         if (cgroup_context_has_unified_memory_config(c)) {
                                 val = c->memory_max;
-                                log_cgroup_compat(u, "Applying MemoryMax %" PRIi64 " as MemoryLimit", val);
+                                log_cgroup_compat(u, "Applying MemoryMax=%" PRIi64 " as MemoryLimit=", val);
                         } else
                                 val = c->memory_limit;
 
