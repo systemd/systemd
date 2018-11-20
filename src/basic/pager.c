@@ -24,8 +24,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 
-static pid_t pager_pid = 0;
-
+pid_t pager_pid = 0;
 static int stored_stdout = -1;
 static int stored_stderr = -1;
 static bool stdout_redirected = false;
@@ -206,9 +205,10 @@ int pager_open(PagerFlags flags) {
         return 1;
 }
 
-void pager_close(void) {
+void pager_closep(pid_t *p) {
+        assert(p);
 
-        if (pager_pid <= 0)
+        if (*p <= 0)
                 return;
 
         /* Inform pager that we are done */
@@ -224,9 +224,13 @@ void pager_close(void) {
         stored_stderr = safe_close(stored_stderr);
         stdout_redirected = stderr_redirected = false;
 
-        (void) kill(pager_pid, SIGCONT);
-        (void) wait_for_terminate(pager_pid, NULL);
-        pager_pid = 0;
+        (void) kill(*p, SIGCONT);
+        (void) wait_for_terminate(*p, NULL);
+        *p = 0;
+}
+
+void pager_close(void) {
+        pager_closep(&pager_pid);
 }
 
 bool pager_have(void) {
