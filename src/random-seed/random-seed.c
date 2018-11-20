@@ -30,9 +30,7 @@ static int run(int argc, char *argv[]) {
         FILE *f;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         if (argc != 2) {
                 log_error("This program requires one argument.");

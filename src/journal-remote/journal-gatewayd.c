@@ -990,9 +990,7 @@ int main(int argc, char *argv[]) {
         struct MHD_Daemon *d = NULL;
         int r, n;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         r = parse_argv(argc, argv);
         if (r < 0)

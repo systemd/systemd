@@ -501,7 +501,5 @@ int generator_hook_up_growfs(
 
 void log_setup_generator(void) {
         log_set_prohibit_ipc(true);
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 }

@@ -883,9 +883,7 @@ static int process_socket(int fd) {
 
         assert(fd >= 0);
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         log_debug("Processing coredump received on stdin...");
 

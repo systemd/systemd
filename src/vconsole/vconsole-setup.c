@@ -403,9 +403,7 @@ int main(int argc, char **argv) {
         unsigned idx = 0;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
 

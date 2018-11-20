@@ -109,9 +109,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
+        log_setup_service();
 
         umask(0022);
 
