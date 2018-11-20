@@ -15,13 +15,13 @@
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;             \
         }
 
-/* Zero is mapped to EXIT_SUCCESS, and both negative and positive values
- * are mapped to EXIT_FAILURE.
- * Note: this means "true" maps to EXIT_FAILURE. */
+/* Zero is mapped to EXIT_SUCCESS, negative values are mapped to EXIT_FAILURE,
+ * and postive values are propagated.
+ * Note: "true" means failure! */
 #define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(impl)                \
         int main(int argc, char *argv[]) {                              \
                 int r;                                                  \
                 r = impl(argc, argv);                                   \
                 static_destruct();                                      \
-                return r != 0 ? EXIT_FAILURE : EXIT_SUCCESS;            \
+                return r < 0 ? EXIT_FAILURE : r;                        \
         }
