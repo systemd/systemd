@@ -57,6 +57,17 @@ bool unit_has_root_cgroup(Unit *u) {
         return unit_has_name(u, SPECIAL_ROOT_SLICE);
 }
 
+static int set_attribute_and_warn(Unit *u, const char *controller, const char *attribute, const char *value) {
+        int r;
+
+        r = cg_set_attribute(controller, u->cgroup_path, attribute, value);
+        if (r < 0)
+                log_unit_full(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%.*s': %m",
+                              strna(attribute), isempty(u->cgroup_path) ? "/" : u->cgroup_path, (int) strcspn(value, NEWLINE), value);
+
+        return r;
+}
+
 static void cgroup_compat_warn(void) {
         static bool cgroup_compat_warned = false;
 
@@ -569,13 +580,9 @@ static uint64_t cgroup_context_cpu_shares(CGroupContext *c, ManagerState state) 
 
 static void cgroup_apply_unified_cpu_config(Unit *u, uint64_t weight, uint64_t quota) {
         char buf[MAX(DECIMAL_STR_MAX(uint64_t) + 1, (DECIMAL_STR_MAX(usec_t) + 1) * 2)];
-        int r;
 
         xsprintf(buf, "%" PRIu64 "\n", weight);
-        r = cg_set_attribute("cpu", u->cgroup_path, "cpu.weight", buf);
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set cpu.weight: %m");
+        (void) set_attribute_and_warn(u, "cpu", "cpu.weight", buf);
 
         if (quota != USEC_INFINITY)
                 xsprintf(buf, USEC_FMT " " USEC_FMT "\n",
@@ -583,37 +590,23 @@ static void cgroup_apply_unified_cpu_config(Unit *u, uint64_t weight, uint64_t q
         else
                 xsprintf(buf, "max " USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
 
-        r = cg_set_attribute("cpu", u->cgroup_path, "cpu.max", buf);
-
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set cpu.max: %m");
+        (void) set_attribute_and_warn(u, "cpu", "cpu.max", buf);
 }
 
 static void cgroup_apply_legacy_cpu_config(Unit *u, uint64_t shares, uint64_t quota) {
         char buf[MAX(DECIMAL_STR_MAX(uint64_t), DECIMAL_STR_MAX(usec_t)) + 1];
-        int r;
 
         xsprintf(buf, "%" PRIu64 "\n", shares);
-        r = cg_set_attribute("cpu", u->cgroup_path, "cpu.shares", buf);
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set cpu.shares: %m");
+        (void) set_attribute_and_warn(u, "cpu", "cpu.shares", buf);
 
         xsprintf(buf, USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
-        r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_period_us", buf);
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set cpu.cfs_period_us: %m");
+        (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_period_us", buf);
 
         if (quota != USEC_INFINITY) {
                 xsprintf(buf, USEC_FMT "\n", quota * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC);
-                r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_quota_us", buf);
+                (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_quota_us", buf);
         } else
-                r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_quota_us", "-1");
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set cpu.cfs_quota_us: %m");
+                (void) set_attribute_and_warn(u, "cpu", "cpu.cfs_quota_us", "-1");
 }
 
 static uint64_t cgroup_cpu_shares_to_weight(uint64_t shares) {
@@ -683,10 +676,7 @@ static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_
                 return;
 
         xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), io_weight);
-        r = cg_set_attribute("io", u->cgroup_path, "io.weight", buf);
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set io.weight: %m");
+        (void) set_attribute_and_warn(u, "io", "io.weight", buf);
 }
 
 static void cgroup_apply_blkio_device_weight(Unit *u, const char *dev_path, uint64_t blkio_weight) {
@@ -699,10 +689,7 @@ static void cgroup_apply_blkio_device_weight(Unit *u, const char *dev_path, uint
                 return;
 
         xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), blkio_weight);
-        r = cg_set_attribute("blkio", u->cgroup_path, "blkio.weight_device", buf);
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set blkio.weight_device: %m");
+        (void) set_attribute_and_warn(u, "blkio", "blkio.weight_device", buf);
 }
 
 static void cgroup_apply_io_device_latency(Unit *u, const char *dev_path, usec_t target) {
@@ -719,10 +706,7 @@ static void cgroup_apply_io_device_latency(Unit *u, const char *dev_path, usec_t
         else
                 xsprintf(buf, "%u:%u target=max\n", major(dev), minor(dev));
 
-        r = cg_set_attribute("io", u->cgroup_path, "io.latency", buf);
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set io.latency on cgroup %s: %m", u->cgroup_path);
+        (void) set_attribute_and_warn(u, "io", "io.latency", buf);
 }
 
 static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t *limits) {
@@ -745,10 +729,7 @@ static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t
         xsprintf(buf, "%u:%u rbps=%s wbps=%s riops=%s wiops=%s\n", major(dev), minor(dev),
                  limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX],
                  limit_bufs[CGROUP_IO_RIOPS_MAX], limit_bufs[CGROUP_IO_WIOPS_MAX]);
-        r = cg_set_attribute("io", u->cgroup_path, "io.max", buf);
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set io.max: %m");
+        (void) set_attribute_and_warn(u, "io", "io.max", buf);
 }
 
 static void cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint64_t rbps, uint64_t wbps) {
@@ -761,16 +742,10 @@ static void cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint6
                 return;
 
         sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), rbps);
-        r = cg_set_attribute("blkio", u->cgroup_path, "blkio.throttle.read_bps_device", buf);
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set blkio.throttle.read_bps_device: %m");
+        (void) set_attribute_and_warn(u, "blkio", "blkio.throttle.read_bps_device", buf);
 
         sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), wbps);
-        r = cg_set_attribute("blkio", u->cgroup_path, "blkio.throttle.write_bps_device", buf);
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set blkio.throttle.write_bps_device: %m");
+        (void) set_attribute_and_warn(u, "blkio", "blkio.throttle.write_bps_device", buf);
 }
 
 static bool cgroup_context_has_unified_memory_config(CGroupContext *c) {
@@ -779,15 +754,11 @@ static bool cgroup_context_has_unified_memory_config(CGroupContext *c) {
 
 static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_t v) {
         char buf[DECIMAL_STR_MAX(uint64_t) + 1] = "max";
-        int r;
 
         if (v != CGROUP_LIMIT_MAX)
                 xsprintf(buf, "%" PRIu64 "\n", v);
 
-        r = cg_set_attribute("memory", u->cgroup_path, file, buf);
-        if (r < 0)
-                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to set %s: %m", file);
+        (void) set_attribute_and_warn(u, "memory", file, buf);
 }
 
 static void cgroup_apply_firewall(Unit *u) {
@@ -892,10 +863,7 @@ static void cgroup_context_apply(
                                 weight = CGROUP_WEIGHT_DEFAULT;
 
                         xsprintf(buf, "default %" PRIu64 "\n", weight);
-                        r = cg_set_attribute("io", path, "io.weight", buf);
-                        if (r < 0)
-                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                              "Failed to set io.weight: %m");
+                        (void) set_attribute_and_warn(u, "io", "io.weight", buf);
 
                         if (has_io) {
                                 CGroupIODeviceWeight *w;
@@ -971,10 +939,7 @@ static void cgroup_context_apply(
                                 weight = CGROUP_BLKIO_WEIGHT_DEFAULT;
 
                         xsprintf(buf, "%" PRIu64 "\n", weight);
-                        r = cg_set_attribute("blkio", path, "blkio.weight", buf);
-                        if (r < 0)
-                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                              "Failed to set blkio.weight: %m");
+                        (void) set_attribute_and_warn(u, "blkio", "blkio.weight", buf);
 
                         if (has_io) {
                                 CGroupIODeviceWeight *w;
@@ -1046,10 +1011,7 @@ static void cgroup_context_apply(
                         else
                                 xsprintf(buf, "%" PRIu64 "\n", val);
 
-                        r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
-                        if (r < 0)
-                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                              "Failed to set memory.limit_in_bytes: %m");
+                        (void) set_attribute_and_warn(u, "memory", "memory.limit_in_bytes", buf);
                 }
         }
 
@@ -1169,12 +1131,9 @@ static void cgroup_context_apply(
                                 char buf[DECIMAL_STR_MAX(uint64_t) + 2];
 
                                 sprintf(buf, "%" PRIu64 "\n", c->tasks_max);
-                                r = cg_set_attribute("pids", path, "pids.max", buf);
+                                (void) set_attribute_and_warn(u, "pids", "pids.max", buf);
                         } else
-                                r = cg_set_attribute("pids", path, "pids.max", "max");
-                        if (r < 0)
-                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                              "Failed to set pids.max: %m");
+                                (void) set_attribute_and_warn(u, "pids", "pids.max", "max");
                 }
         }
 
