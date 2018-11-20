@@ -46,7 +46,7 @@ static const char *arg_directory = NULL;
 static PagerFlags arg_pager_flags = 0;
 static int arg_no_legend = false;
 static int arg_one = false;
-static FILE* arg_output = NULL;
+static const char* arg_output = NULL;
 static bool arg_reverse = false;
 static bool arg_quiet = false;
 
@@ -228,10 +228,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        arg_output = fopen(optarg, "we");
-                        if (!arg_output)
-                                return log_error_errno(errno, "writing to '%s': %m", optarg);
-
+                        arg_output = optarg;
                         break;
 
                 case 'S':
@@ -871,6 +868,7 @@ error:
 
 static int dump_core(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         if (arg_field) {
@@ -886,9 +884,15 @@ static int dump_core(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        print_info(arg_output ? stdout : stderr, j, false);
+        if (arg_output) {
+                f = fopen(arg_output, "we");
+                if (!f)
+                        return log_error_errno(errno, "Failed to open \"%s\" for writing: %m", arg_output);
+        }
 
-        r = save_core(j, arg_output, NULL, NULL);
+        print_info(f ? stdout : stderr, j, false);
+
+        r = save_core(j, f, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -1089,7 +1093,5 @@ int main(int argc, char *argv[]) {
                        units_active, units_active == 1 ? "unit is running" : "units are running",
                        ansi_normal());
 end:
-        safe_fclose(arg_output);
-
         return r >= 0 ? r : EXIT_FAILURE;
 }
