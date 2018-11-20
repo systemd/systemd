@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 
+#include "pager.h"
 #include "static-destruct.h"
 
 #define _DEFINE_MAIN_FUNCTION(impl, ret)                                \
@@ -10,6 +11,7 @@
                 int r;                                                  \
                 r = impl(argc, argv);                                   \
                 static_destruct();                                      \
+                pager_close();                                          \
                 return ret;                                             \
         }
 
