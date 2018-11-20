@@ -60,6 +60,8 @@ _available_machines() {
         case $cmd in
           list*|cancel-transfer|pull-tar|pull-raw)
             msg="no options" ;;
+          clone)
+            _available_machines ;;
           start)
             _available_machines ;;
           *)
@@ -87,7 +89,7 @@ _arguments \
   {-H+,--host=}'[Operate on remote host.]:userathost:_sd_hosts_or_user_at_host' \
   {-M+,--machine=}'[Operate on local container.]:machine:_sd_machines' \
   {-p+,--property=}'[Limit output to specified property.]:property:(Name Id Timestamp TimestampMonotonic Service Scope Leader Class State RootDirectory)' \
-  {-a,--all}'[Show all proerties.]' \
+  {-a,--all}'[Show all properties.]' \
   {-q,--quiet}'[Suppress output.]' \
   {-l,--full}'[Do not ellipsize cgroup members.]' \
   '--kill-who=[Who to send signal to.]:killwho:(leader all)' \
