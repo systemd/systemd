@@ -2268,10 +2268,10 @@ static int process_item(Item *i, OperationMask operation) {
 
         r = chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS, NULL);
         if (r == -EREMOTE) {
-                log_debug_errno(r, "Item '%s' is behind autofs, skipping.", i->path);
+                log_debug_errno(r, "Item '%s' is below autofs, skipping.", i->path);
                 return 0;
         } else if (r < 0)
-                log_debug_errno(r, "Failed to determine whether '%s' is behind autofs, ignoring: %m", i->path);
+                log_debug_errno(r, "Failed to determine whether '%s' is below autofs, ignoring: %m", i->path);
 
         r = FLAGS_SET(operation, OPERATION_CREATE) ? create_item(i) : 0;
         /* Failure can only be tolerated for create */
@@ -3139,7 +3139,7 @@ static int link_parent(ItemArray *a) {
 
         assert(a);
 
-        /* Finds the closestq "parent" item array for the specified item array. Then registers the specified item array
+        /* Finds the closest "parent" item array for the specified item array. Then registers the specified item array
          * as child of it, and fills the parent in, linking them both ways. This allows us to later create parents
          * before their children, and clean up/remove children before their parents. */
 
@@ -3152,6 +3152,8 @@ static int link_parent(ItemArray *a) {
                 ItemArray *j;
 
                 j = ordered_hashmap_get(items, prefix);
+                if (!j)
+                        j = ordered_hashmap_get(globs, prefix);
                 if (j) {
                         r = set_ensure_allocated(&j->children, NULL);
                         if (r < 0)
@@ -3171,10 +3173,15 @@ static int link_parent(ItemArray *a) {
 
 int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **config_dirs = NULL;
-        int r, k, r_process = 0, phase;
+        int r, k, r_process = 0;
         bool invalid_config = false;
         Iterator iterator;
         ItemArray *a;
+        enum {
+                PHASE_REMOVE_AND_CLEAN,
+                PHASE_CREATE,
+                _PHASE_MAX
+        } phase;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -3250,12 +3257,12 @@ int main(int argc, char *argv[]) {
 
         /* If multiple operations are requested, let's first run the remove/clean operations, and only then the create
          * operations. i.e. that we first clean out the platform we then build on. */
-        for (phase = 0; phase < 2; phase++) {
+        for (phase = 0; phase < _PHASE_MAX; phase++) {
                 OperationMask op;
 
-                if (phase == 0)
+                if (phase == PHASE_REMOVE_AND_CLEAN)
                         op = arg_operation & (OPERATION_REMOVE|OPERATION_CLEAN);
-                else if (phase == 1)
+                else if (phase == PHASE_CREATE)
                         op = arg_operation & OPERATION_CREATE;
                 else
                         assert_not_reached("unexpected phase");

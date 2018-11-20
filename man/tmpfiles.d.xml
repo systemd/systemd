@@ -78,9 +78,9 @@
     name will be applied.  All other conflicting entries will be logged as errors. When two lines are prefix path and
     suffix path of each other, then the prefix line is always created first, the suffix later (and if removal applies
     to the line, the order is reversed: the suffix is removed first, the prefix later). Lines that take globs are
-    applied after those accepting no globs. If multiple operations shall be applied on the same file, (such as ACL,
-    xattr, file attribute adjustments), these are always done in the same fixed order. Otherwise, the files/directories
-    are processed in the order they are listed.</para>
+    applied after those accepting no globs. If multiple operations shall be applied on the same file (such as ACL,
+    xattr, file attribute adjustments), these are always done in the same fixed order. Except for those cases, the
+    files/directories are processed in the order they are listed.</para>
 
     <para>If the administrator wants to disable a configuration file
     supplied by the vendor, the recommended way is to place a symlink
