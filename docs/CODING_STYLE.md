@@ -373,12 +373,16 @@
   something some time", or so is a lazy excuse. Always wait for the
   proper event, instead of doing time-based poll loops.
 
-- To determine the length of a constant string `"foo"`, don't bother
-  with `sizeof("foo")-1`, please use `STRLEN()` instead.
+- To determine the length of a constant string `"foo"`, don't bother with
+  `sizeof("foo")-1`, please use `strlen()` instead (both gcc and clang optimize
+  the call away for fixed strings). The only exception is when declaring an
+  array. In that case use STRLEN, which evalutates to a static constant and
+  doesn't force the compiler to create a VLA.
 
-- If you want to concatenate two or more strings, consider using
-  `strjoin()` rather than `asprintf()`, as the latter is a lot
-  slower. This matters particularly in inner loops.
+- If you want to concatenate two or more strings, consider using `strjoina()`
+  or `strjoin()` rather than `asprintf()`, as the latter is a lot slower. This
+  matters particularly in inner loops (but note that `strjoina()` cannot be
+  used there).
 
 - Please avoid using global variables as much as you can. And if you
   do use them make sure they are static at least, instead of
@@ -431,12 +435,13 @@
   want to call it "big endian" right-away.
 
 - You might wonder what kind of common code belongs in `src/shared/` and what
-  belongs in `src/basic/`. The split is like this: anything that uses public APIs
-  we expose (i.e. any of the sd-bus, sd-login, sd-id128, ... APIs) must be
-  located in `src/shared/`. All stuff that only uses external libraries from
-  other projects (such as glibc's APIs), or APIs from `src/basic/` itself should
-  be placed in `src/basic/`. Conversely, `src/libsystemd/` may only use symbols
-  from `src/basic`, but not from `src/shared/`.
+  belongs in `src/basic/`. The split is like this: anything that is used to
+  implement the public shared object we provide (sd-bus, sd-login, sd-id128,
+  nss-systemd, nss-mymachines, nss-resolve, nss-myhostname, pam_systemd), must
+  be located in `src/basic` (those objects are not allowed to link to
+  libsystemd-shared.so). Conversly, anything which is shared between multiple
+  components and does not need to be in `src/basic/`, should be in
+  `src/shared/`.
 
   To summarize:
 
@@ -449,7 +454,9 @@
   - may not use any code outside of `src/basic/`, `src/libsystemd/`
 
   `src/shared/`
-  - may be used by all code in the tree, except for code in `src/basic/`, `src/libsystemd/`
+  - may be used by all code in the tree, except for code in `src/basic/`,
+    `src/libsystemd/`, `src/nss-*`, `src/login/pam_systemd.*`, and files under
+    `src/journal/` that end up in `libjournal-client.a` convenience library.
   - may not use any code outside of `src/basic/`, `src/libsystemd/`, `src/shared/`
 
 - Our focus is on the GNU libc (glibc), not any other libcs. If other libcs are

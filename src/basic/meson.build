@@ -15,23 +15,14 @@ basic_sources = files('''
         async.h
         audit-util.c
         audit-util.h
-        barrier.c
-        barrier.h
-        bitmap.c
-        bitmap.h
-        blkid-util.h
         blockdev-util.c
         blockdev-util.h
-        bpf-program.c
-        bpf-program.h
         btrfs-ctree.h
         btrfs-util.c
         btrfs-util.h
         build.h
         bus-label.c
         bus-label.h
-        calendarspec.c
-        calendarspec.h
         cap-list.c
         cap-list.h
         capability-util.c
@@ -40,16 +31,10 @@ basic_sources = files('''
         cgroup-util.h
         chattr-util.c
         chattr-util.h
-        clock-util.c
-        clock-util.h
         conf-files.c
         conf-files.h
         copy.c
         copy.h
-        cpu-set-util.c
-        cpu-set-util.h
-        crypt-util.c
-        crypt-util.h
         def.h
         device-nodes.c
         device-nodes.h
@@ -63,20 +48,12 @@ basic_sources = files('''
         escape.h
         ether-addr-util.c
         ether-addr-util.h
-        exec-util.c
-        exec-util.h
-        exit-status.c
-        exit-status.h
         extract-word.c
         extract-word.h
         fd-util.c
         fd-util.h
-        fileio-label.c
-        fileio-label.h
         fileio.c
         fileio.h
-        format-table.c
-        format-table.h
         format-util.h
         fs-util.c
         fs-util.h
@@ -97,11 +74,6 @@ basic_sources = files('''
         io-util.c
         io-util.h
         ioprio.h
-        journal-importer.c
-        journal-importer.h
-        json-internal.h
-        json.c
-        json.h
         khash.c
         khash.h
         label.c
@@ -109,8 +81,6 @@ basic_sources = files('''
         list.h
         locale-util.c
         locale-util.h
-        lockfile-util.c
-        lockfile-util.h
         log.c
         log.h
         login-util.c
@@ -129,8 +99,6 @@ basic_sources = files('''
         nss-util.h
         ordered-set.c
         ordered-set.h
-        os-util.c
-        os-util.h
         pager.c
         pager.h
         parse-util.c
@@ -151,17 +119,11 @@ basic_sources = files('''
         ratelimit.h
         raw-clone.h
         raw-reboot.h
-        reboot-util.c
-        reboot-util.h
         refcnt.h
         replace-var.c
         replace-var.h
-        rlimit-util.c
-        rlimit-util.h
         rm-rf.c
         rm-rf.h
-        securebits-util.c
-        securebits-util.h
         securebits.h
         selinux-util.c
         selinux-util.h
@@ -175,8 +137,6 @@ basic_sources = files('''
         smack-util.c
         smack-util.h
         socket-label.c
-        socket-protocol-list.c
-        socket-protocol-list.h
         socket-util.c
         socket-util.h
         sparse-endian.h
@@ -213,16 +173,10 @@ basic_sources = files('''
         utf8.h
         util.c
         util.h
-        verbs.c
-        verbs.h
         virt.c
         virt.h
-        web-util.c
-        web-util.h
         xattr-util.c
         xattr-util.h
-        xml.c
-        xml.h
 '''.split())
 
 missing_h = files('missing.h')
@@ -315,7 +269,6 @@ libbasic = static_library(
         include_directories : includes,
         dependencies : [threads,
                         libcap,
-                        libblkid,
                         libmount,
                         libselinux,
                         libm],

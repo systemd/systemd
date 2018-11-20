@@ -4,16 +4,16 @@
 #include <inttypes.h>
 
 #if HAVE_GCRYPT
-#include <gcrypt.h>
+#  include <gcrypt.h>
 #endif
 
+#include "sd-event.h"
 #include "sd-id128.h"
 
 #include "hashmap.h"
 #include "journal-def.h"
 #include "macro.h"
 #include "mmap-cache.h"
-#include "sd-event.h"
 #include "sparse-endian.h"
 
 typedef struct JournalMetrics {
