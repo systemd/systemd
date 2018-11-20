@@ -185,7 +185,7 @@ _noreturn_ static void crash(int sig) {
                         (void) kill(pid, sig); /* raise() would kill the parent */
 
                         assert_not_reached("We shouldn't be here...");
-                        _exit(EXIT_FAILURE);
+                        _exit(EXIT_EXCEPTION);
                 } else {
                         siginfo_t status;
                         int r;
@@ -231,7 +231,7 @@ _noreturn_ static void crash(int sig) {
                         (void) execle("/bin/sh", "/bin/sh", NULL, environ);
 
                         log_emergency_errno(errno, "execle() failed: %m");
-                        _exit(EXIT_FAILURE);
+                        _exit(EXIT_EXCEPTION);
                 } else {
                         log_info("Spawned crash shell as PID "PID_FMT".", pid);
                         (void) wait_for_terminate(pid, NULL);
