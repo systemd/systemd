@@ -19,9 +19,10 @@ const char* exit_status_to_string(int status, ExitStatusLevel level) {
          *  79…199 │ (Currently unmapped)
          * 200…241 │ systemd's private error codes (might be extended to 254 in future development)
          * 242…254 │ (Currently unmapped, but see above)
-         *   255   │ (We should probably stay away from that one, it's frequently used by applications to indicate an
-         *         │ exit reason that cannot really be expressed in a single exit status value — such as a propagated
-         *         │ signal or such)
+         *
+         *   255   │ EXIT_EXCEPTION (We use this to propagate exit-by-signal events. It's frequently used by others apps (like bash)
+         *         │ to indicate exit reason that cannot really be expressed in a single exit status value — such as a propagated
+         *         │ signal or such, and we follow that logic here.)
          */
 
         switch (status) {  /* We always cover the ISO C ones */
@@ -155,6 +156,9 @@ const char* exit_status_to_string(int status, ExitStatusLevel level) {
 
                 case EXIT_CONFIGURATION_DIRECTORY:
                         return "CONFIGURATION_DIRECTORY";
+
+                case EXIT_EXCEPTION:
+                        return "EXCEPTION";
                 }
         }
 

@@ -69,6 +69,8 @@ enum {
         EXIT_CACHE_DIRECTORY,
         EXIT_LOGS_DIRECTORY, /* 240 */
         EXIT_CONFIGURATION_DIRECTORY,
+
+        EXIT_EXCEPTION = 255,  /* Whenever we want to propagate an abnormal/signal exit, in line with bash */
 };
 
 typedef enum ExitStatusLevel {
