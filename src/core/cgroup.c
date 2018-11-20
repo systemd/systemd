@@ -72,29 +72,30 @@ static void cgroup_compat_warn(void) {
 void cgroup_context_init(CGroupContext *c) {
         assert(c);
 
-        /* Initialize everything to the kernel defaults, assuming the
-         * structure is preinitialized to 0 */
+        /* Initialize everything to the kernel defaults. */
 
-        c->cpu_weight = CGROUP_WEIGHT_INVALID;
-        c->startup_cpu_weight = CGROUP_WEIGHT_INVALID;
-        c->cpu_quota_per_sec_usec = USEC_INFINITY;
+        *c = (CGroupContext) {
+                .cpu_weight = CGROUP_WEIGHT_INVALID,
+                .startup_cpu_weight = CGROUP_WEIGHT_INVALID,
+                .cpu_quota_per_sec_usec = USEC_INFINITY,
 
-        c->cpu_shares = CGROUP_CPU_SHARES_INVALID;
-        c->startup_cpu_shares = CGROUP_CPU_SHARES_INVALID;
+                .cpu_shares = CGROUP_CPU_SHARES_INVALID,
+                .startup_cpu_shares = CGROUP_CPU_SHARES_INVALID,
 
-        c->memory_high = CGROUP_LIMIT_MAX;
-        c->memory_max = CGROUP_LIMIT_MAX;
-        c->memory_swap_max = CGROUP_LIMIT_MAX;
+                .memory_high = CGROUP_LIMIT_MAX,
+                .memory_max = CGROUP_LIMIT_MAX,
+                .memory_swap_max = CGROUP_LIMIT_MAX,
 
-        c->memory_limit = CGROUP_LIMIT_MAX;
+                .memory_limit = CGROUP_LIMIT_MAX,
 
-        c->io_weight = CGROUP_WEIGHT_INVALID;
-        c->startup_io_weight = CGROUP_WEIGHT_INVALID;
+                .io_weight = CGROUP_WEIGHT_INVALID,
+                .startup_io_weight = CGROUP_WEIGHT_INVALID,
 
-        c->blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID;
-        c->startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID;
+                .blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
+                .startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
 
-        c->tasks_max = (uint64_t) -1;
+                .tasks_max = CGROUP_LIMIT_MAX,
+        };
 }
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
