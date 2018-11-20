@@ -1519,8 +1519,10 @@ finish:
 }
 
 int main(int argc, char* argv[]) {
+        /* The pager must be closed last, after the connection has been terminated,
+         * so keep the order here. See issue #3543 for details. */
         _cleanup_(pager_closep) Pager pager;
-        sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();
@@ -1627,10 +1629,6 @@ int main(int argc, char* argv[]) {
         }
 
 finish:
-        /* make sure we terminate the bus connection first, and then close the
-         * pager, see issue #3543 for the details. */
-        bus = sd_bus_flush_close_unref(bus);
-
         free(arg_mount_what);
         free(arg_mount_where);
         free(arg_mount_type);

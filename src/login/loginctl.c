@@ -1517,8 +1517,10 @@ static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
 }
 
 int main(int argc, char *argv[]) {
+        /* The pager must be closed last, after the connection has been terminated,
+         * so keep the order here. See issue #3543 for details. */
         _cleanup_(pager_closep) Pager pager;
-        sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -1545,9 +1547,6 @@ int main(int argc, char *argv[]) {
         r = loginctl_main(argc, argv, bus);
 
 finish:
-        /* make sure we terminate the bus connection first, and then close the
-         * pager, see issue #3543 for the details. */
-        sd_bus_flush_close_unref(bus);
         polkit_agent_close();
 
         strv_free(arg_property);
