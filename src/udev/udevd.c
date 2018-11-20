@@ -46,6 +46,7 @@
 #include "io-util.h"
 #include "libudev-device-internal.h"
 #include "list.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "netlink-util.h"
 #include "parse-util.h"
@@ -1715,7 +1716,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         return 0;
 }
 
-static int run(int fd_ctrl, int fd_uevent, const char *cgroup) {
+static int main_loop(int fd_ctrl, int fd_uevent, const char *cgroup) {
         _cleanup_(manager_freep) Manager *manager = NULL;
         int r;
 
@@ -1750,7 +1751,7 @@ exit:
         return r;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL;
         int fd_ctrl = -1, fd_uevent = -1;
         int r;
@@ -1762,7 +1763,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto exit;
+                return r;
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
@@ -1777,7 +1778,7 @@ int main(int argc, char *argv[]) {
 
         r = must_be_root();
         if (r < 0)
-                goto exit;
+                return r;
 
         if (arg_children_max == 0) {
                 cpu_set_t cpu_set;
@@ -1796,24 +1797,18 @@ int main(int argc, char *argv[]) {
 
         /* set umask before creating any file/directory */
         r = chdir("/");
-        if (r < 0) {
-                r = log_error_errno(errno, "Failed to change dir to '/': %m");
-                goto exit;
-        }
+        if (r < 0)
+                return log_error_errno(errno, "Failed to change dir to '/': %m");
 
         umask(022);
 
         r = mac_selinux_init();
-        if (r < 0) {
-                log_error_errno(r, "could not initialize labelling: %m");
-                goto exit;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not initialize labelling: %m");
 
         r = mkdir_errno_wrapper("/run/udev", 0755);
-        if (r < 0 && r != -EEXIST) {
-                log_error_errno(r, "Failed to create /run/udev: %m");
-                goto exit;
-        }
+        if (r < 0 && r != -EEXIST)
+                return log_error_errno(r, "Failed to create /run/udev: %m");
 
         dev_setup(NULL, UID_INVALID, GID_INVALID);
 
@@ -1831,10 +1826,8 @@ int main(int argc, char *argv[]) {
         }
 
         r = listen_fds(&fd_ctrl, &fd_uevent);
-        if (r < 0) {
-                r = log_error_errno(r, "Failed to listen on fds: %m");
-                goto exit;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to listen on fds: %m");
 
         if (arg_daemonize) {
                 pid_t pid;
@@ -1849,18 +1842,13 @@ int main(int argc, char *argv[]) {
                 }
 
                 pid = fork();
-                switch (pid) {
-                case 0:
-                        break;
-                case -1:
-                        r = log_error_errno(errno, "Failed to fork daemon: %m");
-                        goto exit;
-                default:
-                        mac_selinux_finish();
-                        log_close();
-                        _exit(EXIT_SUCCESS);
-                }
+                if (pid < 0)
+                        return log_error_errno(errno, "Failed to fork daemon: %m");
+                if (pid > 0)
+                        /* parent */
+                        return 0;
 
+                /* child */
                 setsid();
 
                 r = set_oom_score_adjust(-1000);
@@ -1868,10 +1856,7 @@ int main(int argc, char *argv[]) {
                         log_debug_errno(r, "Failed to adjust OOM score, ignoring: %m");
         }
 
-        r = run(fd_ctrl, fd_uevent, cgroup);
-
-exit:
-        mac_selinux_finish();
-        log_close();
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return main_loop(fd_ctrl, fd_uevent, cgroup);
 }
+
+DEFINE_MAIN_FUNCTION(run);
