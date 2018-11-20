@@ -2372,7 +2372,7 @@ int manager_setup_cgroup(Manager *m) {
 
                 (void) sd_event_source_set_description(m->cgroup_inotify_event_source, "cgroup-inotify");
 
-        } else if (MANAGER_IS_SYSTEM(m) && !MANAGER_IS_TEST_RUN(m)) {
+        } else if (MANAGER_IS_SYSTEM(m) && manager_owns_root_cgroup(m) && !MANAGER_IS_TEST_RUN(m)) {
 
                 /* On the legacy hierarchy we only get notifications via cgroup agents. (Which isn't really reliable,
                  * since it does not generate events when control groups with children run empty. */
