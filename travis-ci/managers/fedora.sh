@@ -15,7 +15,7 @@ CONT_NAME="${CONT_NAME:-fedora-$FEDORA_RELEASE-$RANDOM}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(dnf-plugins-core python2 iputils hostname libasan python3-pyparsing python3-evdev libubsan)
+ADDITIONAL_DEPS=(dnf-plugins-core python2 iputils hostname libasan python3-pyparsing python3-evdev libubsan strace)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
@@ -57,11 +57,11 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC ninja -v -C build
 
             # Never remove halt_on_error from UBSAN_OPTIONS. See https://github.com/systemd/systemd/commit/2614d83aa06592aedb.
-            travis_wait docker exec --interactive=false \
+            docker exec --interactive=false \
                 -e UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1 \
                 -e ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1 \
                 -t $CONT_NAME \
-                meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs
+                meson test --timeout-multiplier=3 -C ./build/ -v --no-stdsplit --print-errorlogs test-execute
             ;;
         CLEANUP)
             info "Cleanup phase"
