@@ -15,11 +15,15 @@ void dummy_server_init(Server *s, const uint8_t *buffer, size_t size) {
                 .hostname_fd = -1,
                 .notify_fd = -1,
                 .storage = STORAGE_NONE,
+                .line_max = 64,
         };
         assert_se(sd_event_default(&s->event) >= 0);
-        s->buffer = memdup_suffix0(buffer, size);
-        assert_se(s->buffer);
-        s->buffer_size = size + 1;
+
+        if (buffer) {
+                s->buffer = memdup_suffix0(buffer, size);
+                assert_se(s->buffer);
+                s->buffer_size = size + 1;
+        }
 }
 
 void fuzz_journald_processing_function(
