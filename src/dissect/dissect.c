@@ -9,6 +9,7 @@
 #include "hexdecoct.h"
 #include "log.h"
 #include "loop-util.h"
+#include "main-func.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -23,6 +24,8 @@ static const char *arg_path = NULL;
 static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP;
 static void *arg_root_hash = NULL;
 static size_t arg_root_hash_size = 0;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
 
 static void help(void) {
         printf("%s [OPTIONS...] IMAGE\n"
@@ -157,7 +160,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *di = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
@@ -168,25 +171,21 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = loop_device_make_by_path(arg_image, (arg_flags & DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR, &d);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set up loopback device: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up loopback device: %m");
 
         if (!arg_root_hash) {
                 r = root_hash_load(arg_image, &arg_root_hash, &arg_root_hash_size);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to read root hash file for %s: %m", arg_image);
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read root hash file for %s: %m", arg_image);
         }
 
         r = dissect_image_and_warn(d->fd, arg_image, arg_root_hash, arg_root_hash_size, arg_flags, &m);
         if (r < 0)
-                goto finish;
+                return r;
 
         switch (arg_action) {
 
@@ -227,10 +226,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 r = dissected_image_acquire_metadata(m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to acquire image metadata: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire image metadata: %m");
 
                 if (m->hostname)
                         printf("  Hostname: %s\n", m->hostname);
@@ -262,20 +259,16 @@ int main(int argc, char *argv[]) {
         case ACTION_MOUNT:
                 r = dissected_image_decrypt_interactively(m, NULL, arg_root_hash, arg_root_hash_size, arg_flags, &di);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 r = dissected_image_mount(m, arg_path, UID_INVALID, arg_flags);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to mount image: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mount image: %m");
 
                 if (di) {
                         r = decrypted_image_relinquish(di);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to relinquish DM devices: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to relinquish DM devices: %m");
                 }
 
                 loop_device_relinquish(d);
@@ -285,7 +278,7 @@ int main(int argc, char *argv[]) {
                 assert_not_reached("Unknown action.");
         }
 
-finish:
-        free(arg_root_hash);
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
