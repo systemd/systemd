@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
+#include "main-func.h"
 #include "pager.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -261,7 +262,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         OrderedHashmap *sysctl_options = NULL;
         int r = 0, k;
 
@@ -325,5 +326,7 @@ finish:
         ordered_hashmap_free_free_free(sysctl_options);
         strv_free(arg_prefixes);
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
