@@ -5,6 +5,8 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "def.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "log.h"
 #include "missing.h"
@@ -12,7 +14,6 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "time-util.h"
-#include "def.h"
 
 static int reset_environ(const char *new_environment, size_t length) {
         unsigned long start, end;
@@ -122,7 +123,7 @@ int stub_pid1(sd_id128_t uuid) {
                         if (si.si_pid == pid && si.si_code == CLD_EXITED)
                                 r = si.si_status; /* pass on exit code */
                         else
-                                r = 255; /* signal, coredump, timeout, … */
+                                r = EXIT_EXCEPTION; /* signal, coredump, timeout, … */
 
                         goto finish;
                 }
