@@ -3152,6 +3152,8 @@ static int link_parent(ItemArray *a) {
                 ItemArray *j;
 
                 j = ordered_hashmap_get(items, prefix);
+                if (!j)
+                        j = ordered_hashmap_get(globs, prefix);
                 if (j) {
                         r = set_ensure_allocated(&j->children, NULL);
                         if (r < 0)
