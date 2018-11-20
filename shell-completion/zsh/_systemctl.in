@@ -63,6 +63,7 @@
     "exit:Ask for user instance termination"
     "switch-root:Change root directory"
     "revert:Revert unit files to their vendor versions"
+    "set-property:Sets one or more properties of a unit"
   )
 
   if (( CURRENT == 1 )); then
@@ -176,7 +177,7 @@ for fun in cat mask ; do
 done
 
 # Completion functions for NONTEMPLATE_UNITS
-for fun in is-active is-failed is-enabled status show preset help list-dependencies edit revert add-wants add-requires ; do
+for fun in is-active is-failed is-enabled status show preset help list-dependencies edit revert add-wants add-requires set-property; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     _wanted systemd-units expl unit \
