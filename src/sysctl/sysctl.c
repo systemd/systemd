@@ -263,7 +263,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        OrderedHashmap *sysctl_options = NULL;
+        _cleanup_(ordered_hashmap_free_free_freep) OrderedHashmap *sysctl_options = NULL;
         int r = 0, k;
 
         r = parse_argv(argc, argv);
@@ -321,7 +321,6 @@ static int run(int argc, char *argv[]) {
 finish:
         pager_close();
 
-        ordered_hashmap_free_free_free(sysctl_options);
         strv_free(arg_prefixes);
 
         return r;
