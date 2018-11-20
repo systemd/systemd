@@ -13,7 +13,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "libudev-private.h"
+#include "libudev-util.h"
 #include "time-util.h"
 #include "udevadm.h"
 #include "udev-ctrl.h"

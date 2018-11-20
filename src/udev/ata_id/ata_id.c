@@ -24,9 +24,10 @@
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "libudev-private.h"
+#include "libudev-util.h"
 #include "log.h"
 #include "udev-util.h"
+#include "util.h"
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 

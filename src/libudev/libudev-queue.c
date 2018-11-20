@@ -9,10 +9,11 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "libudev.h"
+
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "libudev-private.h"
 
 /**
  * SECTION:libudev-queue
@@ -45,7 +46,7 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev) {
         struct udev_queue *udev_queue;
 
         udev_queue = new(struct udev_queue, 1);
-        if (udev_queue == NULL) {
+        if (!udev_queue) {
                 errno = ENOMEM;
                 return NULL;
         }

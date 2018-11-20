@@ -5,20 +5,16 @@
  * Copyright © 2003 Greg Kroah-Hartman <greg@kroah.com>
  */
 
-#include <sys/param.h>
-#include <sys/sysmacros.h>
-#include <sys/types.h>
-
 #include "sd-device.h"
 #include "sd-netlink.h"
 
 #include "hashmap.h"
-#include "label.h"
-#include "libudev-private.h"
 #include "macro.h"
-#include "strv.h"
-#include "util.h"
 #include "udev-util.h"
+#include "util.h"
+
+#define READ_END  0
+#define WRITE_END 1
 
 struct udev_event {
         sd_device *dev;

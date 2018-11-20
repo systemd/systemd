@@ -7,11 +7,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "libudev.h"
-
-#include "MurmurHash2.h"
 #include "device-nodes.h"
-#include "libudev-private.h"
+#include "libudev-util.h"
+#include "strxcpyx.h"
 #include "utf8.h"
 
 /**
@@ -38,13 +36,13 @@ int util_resolve_subsys_kernel(const char *string,
         subsys = &temp[1];
 
         sysname = strchr(subsys, '/');
-        if (sysname == NULL)
+        if (!sysname)
                 return -1;
         sysname[0] = '\0';
         sysname = &sysname[1];
 
         attr = strchr(sysname, ']');
-        if (attr == NULL)
+        if (!attr)
                 return -1;
         attr[0] = '\0';
         attr = &attr[1];
@@ -53,18 +51,18 @@ int util_resolve_subsys_kernel(const char *string,
         if (attr[0] == '\0')
                 attr = NULL;
 
-        if (read_value && attr == NULL)
+        if (read_value && !attr)
                 return -1;
 
         dev = udev_device_new_from_subsystem_sysname(NULL, subsys, sysname);
-        if (dev == NULL)
+        if (!dev)
                 return -1;
 
         if (read_value) {
                 const char *val;
 
                 val = udev_device_get_sysattr_value(dev, attr);
-                if (val != NULL)
+                if (val)
                         strscpy(result, maxsize, val);
                 else
                         result[0] = '\0';
@@ -75,7 +73,7 @@ int util_resolve_subsys_kernel(const char *string,
 
                 s = result;
                 l = strpcpyl(&s, maxsize, udev_device_get_syspath(dev), NULL);
-                if (attr != NULL)
+                if (attr)
                         strpcpyl(&s, l, "/", attr, NULL);
                 log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
         }
@@ -182,7 +180,7 @@ int util_replace_chars(char *str, const char *white) {
                 }
 
                 /* if space is allowed, replace whitespace with ordinary space */
-                if (isspace(str[i]) && white != NULL && strchr(white, ' ') != NULL) {
+                if (isspace(str[i]) && white && strchr(white, ' ')) {
                         str[i] = ' ';
                         i++;
                         replaced++;

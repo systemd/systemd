@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <errno.h>
+
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"
 #include "hwdb-util.h"
-#include "libudev-private.h"
+#include "libudev-list-internal.h"
 
 /**
  * SECTION:libudev-hwdb
@@ -110,7 +112,7 @@ _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev
         udev_list_cleanup(&hwdb->properties_list);
 
         SD_HWDB_FOREACH_PROPERTY(hwdb->hwdb, modalias, key, value) {
-                if (udev_list_entry_add(&hwdb->properties_list, key, value) == NULL) {
+                if (!udev_list_entry_add(&hwdb->properties_list, key, value)) {
                         errno = ENOMEM;
                         return NULL;
                 }

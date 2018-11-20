@@ -19,9 +19,10 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "libudev-private.h"
+#include "libudev-util.h"
 #include "scsi_id.h"
 #include "string-util.h"
+#include "strxcpyx.h"
 #include "udev-util.h"
 
 static const struct option options[] = {
