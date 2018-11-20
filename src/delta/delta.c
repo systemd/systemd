@@ -13,6 +13,7 @@
 #include "hashmap.h"
 #include "locale-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -636,7 +637,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r, k, n_found = 0;
 
         log_parse_environment();
@@ -644,7 +645,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         if (arg_flags == 0)
                 arg_flags = SHOW_DEFAULTS;
@@ -679,9 +680,7 @@ int main(int argc, char *argv[]) {
 
         if (r >= 0)
                 printf("%s%i overridden configuration files found.\n", n_found ? "\n" : "", n_found);
-
-finish:
-        pager_close();
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
