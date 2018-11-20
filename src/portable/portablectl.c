@@ -16,6 +16,7 @@
 #include "fs-util.h"
 #include "locale-util.h"
 #include "machine-image.h"
+#include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -942,7 +943,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",        VERB_ANY, VERB_ANY, 0,            help              },
                 { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_images       },
@@ -964,10 +965,9 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        r = dispatch_verb(argc, argv, verbs, NULL);
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
+
+DEFINE_MAIN_FUNCTION(run);
