@@ -34,7 +34,7 @@ static enum {
 static char **arg_names = NULL;
 
 static int arg_full = -1;
-static char* arg_machine = NULL;
+static const char* arg_machine = NULL;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
