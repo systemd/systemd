@@ -22,6 +22,7 @@
 #include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "procfs-util.h"
 #include "stdio-util.h"

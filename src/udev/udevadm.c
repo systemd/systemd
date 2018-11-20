@@ -6,9 +6,9 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "pretty-print.h"
 #include "selinux-util.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "udevadm.h"
 #include "udev-util.h"
 #include "verbs.h"

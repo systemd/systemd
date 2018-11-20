@@ -17,10 +17,10 @@
 #include "main-func.h"
 #include "pager.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "terminal-util.h"
 #include "util.h"
 
 static char **arg_prefixes = NULL;

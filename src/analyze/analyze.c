@@ -30,8 +30,9 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #if HAVE_SECCOMP
-#include "seccomp-util.h"
+#  include "seccomp-util.h"
 #endif
 #include "special.h"
 #include "strv.h"

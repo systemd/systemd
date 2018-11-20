@@ -27,6 +27,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "sigbus.h"

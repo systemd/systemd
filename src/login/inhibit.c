@@ -16,10 +16,10 @@
 #include "format-util.h"
 #include "main-func.h"
 #include "pager.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 

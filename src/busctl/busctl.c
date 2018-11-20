@@ -22,6 +22,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "set.h"
 #include "strv.h"
 #include "terminal-util.h"

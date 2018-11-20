@@ -13,9 +13,9 @@
 #include "fd-util.h"
 #include "main-func.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "syslog-util.h"
-#include "terminal-util.h"
 #include "util.h"
 
 static const char *arg_identifier = NULL;

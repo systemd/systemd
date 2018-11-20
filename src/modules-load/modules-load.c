@@ -13,10 +13,10 @@
 #include "fileio.h"
 #include "log.h"
 #include "module-util.h"
+#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "util.h"
 
 static char **arg_proc_cmdline_modules = NULL;

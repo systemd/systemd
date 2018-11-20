@@ -54,6 +54,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"

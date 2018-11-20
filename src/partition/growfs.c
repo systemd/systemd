@@ -22,8 +22,8 @@
 #include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static const char *arg_target = NULL;
 static bool arg_dry_run = false;

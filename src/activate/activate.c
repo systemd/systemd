@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"

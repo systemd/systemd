@@ -17,9 +17,9 @@
 #include "main-func.h"
 #include "pager.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "util.h"
 
 static bool arg_cat_config = false;

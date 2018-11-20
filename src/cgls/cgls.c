@@ -18,8 +18,8 @@
 #include "output-mode.h"
 #include "pager.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
 

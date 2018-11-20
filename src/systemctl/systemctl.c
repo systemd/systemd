@@ -56,6 +56,7 @@
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "reboot-util.h"

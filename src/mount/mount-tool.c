@@ -19,6 +19,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "spawn-polkit-agent.h"
 #include "stat-util.h"
 #include "strv.h"

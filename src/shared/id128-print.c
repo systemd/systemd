@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "id128-print.h"
 #include "log.h"
+#include "pretty-print.h"
 #include "terminal-util.h"
 
 int id128_pretty_print(sd_id128_t id, bool pretty) {

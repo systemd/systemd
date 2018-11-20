@@ -14,6 +14,7 @@
 #include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "spawn-polkit-agent.h"
 #include "sparse-endian.h"
 #include "string-table.h"

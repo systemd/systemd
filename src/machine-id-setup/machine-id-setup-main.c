@@ -11,7 +11,7 @@
 #include "machine-id-setup.h"
 #include "main-func.h"
 #include "path-util.h"
-#include "terminal-util.h"
+#include "pretty-print.h"
 #include "util.h"
 
 static char *arg_root = NULL;

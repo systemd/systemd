@@ -17,6 +17,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "stat-util.h"

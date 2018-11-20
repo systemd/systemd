@@ -32,6 +32,7 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
 #include "string-util.h"

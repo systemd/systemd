@@ -10,8 +10,8 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "pretty-print.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static const char *arg_icon = NULL;
 static const char *arg_id = NULL;

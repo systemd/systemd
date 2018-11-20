@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "util.h"

@@ -24,6 +24,7 @@
 #include "netlink-util.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "socket-util.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"

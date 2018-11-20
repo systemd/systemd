@@ -32,6 +32,7 @@
 #include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-util.h"
