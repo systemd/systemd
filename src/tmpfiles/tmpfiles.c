@@ -3171,10 +3171,15 @@ static int link_parent(ItemArray *a) {
 
 int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **config_dirs = NULL;
-        int r, k, r_process = 0, phase;
+        int r, k, r_process = 0;
         bool invalid_config = false;
         Iterator iterator;
         ItemArray *a;
+        enum {
+                PHASE_REMOVE_AND_CLEAN,
+                PHASE_CREATE,
+                _PHASE_MAX
+        } phase;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -3250,12 +3255,12 @@ int main(int argc, char *argv[]) {
 
         /* If multiple operations are requested, let's first run the remove/clean operations, and only then the create
          * operations. i.e. that we first clean out the platform we then build on. */
-        for (phase = 0; phase < 2; phase++) {
+        for (phase = 0; phase < _PHASE_MAX; phase++) {
                 OperationMask op;
 
-                if (phase == 0)
+                if (phase == PHASE_REMOVE_AND_CLEAN)
                         op = arg_operation & (OPERATION_REMOVE|OPERATION_CLEAN);
-                else if (phase == 1)
+                else if (phase == PHASE_CREATE)
                         op = arg_operation & OPERATION_CREATE;
                 else
                         assert_not_reached("unexpected phase");
