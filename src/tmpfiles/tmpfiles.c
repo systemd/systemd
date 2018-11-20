@@ -65,6 +65,12 @@
  * properly owned directories beneath /tmp, /var/tmp, /run, which are
  * volatile and hence need to be recreated on bootup. */
 
+typedef enum OperationMask {
+        OPERATION_CREATE = 1 << 0,
+        OPERATION_REMOVE = 1 << 1,
+        OPERATION_CLEAN  = 1 << 2,
+} OperationMask;
+
 typedef enum ItemType {
         /* These ones take file names */
         CREATE_FILE = 'f',
@@ -130,17 +136,20 @@ typedef struct Item {
 
         bool allow_failure:1;
 
-        bool done:1;
+        OperationMask done;
 } Item;
 
 typedef struct ItemArray {
         Item *items;
-        size_t count;
-        size_t size;
+        size_t n_items;
+        size_t allocated;
+
+        struct ItemArray *parent;
+        Set *children;
 } ItemArray;
 
 typedef enum DirectoryType {
-        DIRECTORY_RUNTIME = 0,
+        DIRECTORY_RUNTIME,
         DIRECTORY_STATE,
         DIRECTORY_CACHE,
         DIRECTORY_LOGS,
@@ -149,9 +158,7 @@ typedef enum DirectoryType {
 
 static bool arg_cat_config = false;
 static bool arg_user = false;
-static bool arg_create = false;
-static bool arg_clean = false;
-static bool arg_remove = false;
+static OperationMask arg_operation = 0;
 static bool arg_boot = false;
 static PagerFlags arg_pager_flags = 0;
 
@@ -352,9 +359,9 @@ static struct Item* find_glob(OrderedHashmap *h, const char *match) {
         Iterator i;
 
         ORDERED_HASHMAP_FOREACH(j, h, i) {
-                unsigned n;
+                size_t n;
 
-                for (n = 0; n < j->count; n++) {
+                for (n = 0; n < j->n_items; n++) {
                         Item *item = j->items + n;
 
                         if (fnmatch(item->path, match, FNM_PATHNAME|FNM_PERIOD) == 0)
@@ -2131,12 +2138,10 @@ static int remove_item_instance(Item *i, const char *instance) {
 
                 break;
 
-        case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
-                /* FIXME: we probably should use dir_cleanup() here
-                 * instead of rm_rf() so that 'x' is honoured. */
+                /* FIXME: we probably should use dir_cleanup() here instead of rm_rf() so that 'x' is honoured. */
                 log_debug("rm -rf \"%s\"", instance);
-                r = rm_rf(instance, (i->type == RECURSIVE_REMOVE_PATH ? REMOVE_ROOT|REMOVE_SUBVOLUME : 0) | REMOVE_PHYSICAL);
+                r = rm_rf(instance, REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "rm_rf(%s): %m", instance);
 
@@ -2150,14 +2155,24 @@ static int remove_item_instance(Item *i, const char *instance) {
 }
 
 static int remove_item(Item *i) {
+        int r;
+
         assert(i);
 
         log_debug("Running remove action for entry %c %s", (char) i->type, i->path);
 
         switch (i->type) {
 
-        case REMOVE_PATH:
         case TRUNCATE_DIRECTORY:
+                /* FIXME: we probably should use dir_cleanup() here instead of rm_rf() so that 'x' is honoured. */
+                log_debug("rm -rf \"%s\"", i->path);
+                r = rm_rf(i->path, REMOVE_PHYSICAL);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "rm_rf(%s): %m", i->path);
+
+                return 0;
+
+        case REMOVE_PATH:
         case RECURSIVE_REMOVE_PATH:
                 return glob_item(i, remove_item_instance);
 
@@ -2239,60 +2254,66 @@ static int clean_item(Item *i) {
         }
 }
 
-static int process_item_array(ItemArray *array);
-
-static int process_item(Item *i) {
-        int r, q, p, t = 0;
-        _cleanup_free_ char *prefix = NULL;
+static int process_item(Item *i, OperationMask operation) {
+        OperationMask todo;
+        int r, q, p;
 
         assert(i);
 
-        if (i->done)
+        todo = operation & ~i->done;
+        if (todo == 0) /* Everything already done? */
                 return 0;
 
-        i->done = true;
+        i->done |= operation;
 
-        prefix = malloc(strlen(i->path) + 1);
-        if (!prefix)
-                return log_oom();
+        r = chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS, NULL);
+        if (r == -EREMOTE) {
+                log_debug_errno(r, "Item '%s' is behind autofs, skipping.", i->path);
+                return 0;
+        } else if (r < 0)
+                log_debug_errno(r, "Failed to determine whether '%s' is behind autofs, ignoring: %m", i->path);
 
-        PATH_FOREACH_PREFIX(prefix, i->path) {
-                ItemArray *j;
-
-                j = ordered_hashmap_get(items, prefix);
-                if (j) {
-                        int s;
-
-                        s = process_item_array(j);
-                        if (s < 0 && t == 0)
-                                t = s;
-                }
-        }
-
-        if (chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS, NULL) == -EREMOTE)
-                return t;
-
-        r = arg_create ? create_item(i) : 0;
-        q = arg_remove ? remove_item(i) : 0;
-        p = arg_clean ? clean_item(i) : 0;
+        r = FLAGS_SET(operation, OPERATION_CREATE) ? create_item(i) : 0;
         /* Failure can only be tolerated for create */
         if (i->allow_failure)
                 r = 0;
 
-        return t < 0 ? t :
-                r < 0 ? r :
+        q = FLAGS_SET(operation, OPERATION_REMOVE) ? remove_item(i) : 0;
+        p = FLAGS_SET(operation, OPERATION_CLEAN) ? clean_item(i) : 0;
+
+        return r < 0 ? r :
                 q < 0 ? q :
                 p;
 }
 
-static int process_item_array(ItemArray *array) {
-        unsigned n;
-        int r = 0, k;
+static int process_item_array(ItemArray *array, OperationMask operation) {
+        int r = 0;
+        size_t n;
 
         assert(array);
 
-        for (n = 0; n < array->count; n++) {
-                k = process_item(array->items + n);
+        /* Create any parent first. */
+        if (FLAGS_SET(operation, OPERATION_CREATE) && array->parent)
+                r = process_item_array(array->parent, operation & OPERATION_CREATE);
+
+        /* Clean up all children first */
+        if ((operation & (OPERATION_REMOVE|OPERATION_CLEAN)) && !set_isempty(array->children)) {
+                Iterator i;
+                ItemArray *c;
+
+                SET_FOREACH(c, array->children, i) {
+                        int k;
+
+                        k = process_item_array(c, operation & (OPERATION_REMOVE|OPERATION_CLEAN));
+                        if (k < 0 && r == 0)
+                                r = k;
+                }
+        }
+
+        for (n = 0; n < array->n_items; n++) {
+                int k;
+
+                k = process_item(array->items + n, operation);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -2313,13 +2334,15 @@ static void item_free_contents(Item *i) {
 }
 
 static void item_array_free(ItemArray *a) {
-        unsigned n;
+        size_t n;
 
         if (!a)
                 return;
 
-        for (n = 0; n < a->count; n++)
+        for (n = 0; n < a->n_items; n++)
                 item_free_contents(a->items + n);
+
+        set_free(a->children);
         free(a->items);
         free(a);
 }
@@ -2468,8 +2491,7 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
 
         log_notice("[%s:%u] Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", fname, line, *path, n);
 
-        free(*path);
-        *path = n;
+        free_and_replace(*path, n);
 
         return 0;
 }
@@ -2706,8 +2728,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 if (!p)
                         return log_oom();
 
-                free(i.path);
-                i.path = p;
+                free_and_replace(i.path, p);
         }
 
         if (!isempty(user) && !streq(user, "-")) {
@@ -2776,9 +2797,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
         existing = ordered_hashmap_get(h, i.path);
         if (existing) {
-                unsigned n;
+                size_t n;
 
-                for (n = 0; n < existing->count; n++) {
+                for (n = 0; n < existing->n_items; n++) {
                         if (!item_compatible(existing->items + n, &i)) {
                                 log_notice("[%s:%u] Duplicate line for path \"%s\", ignoring.",
                                            fname, line, i.path);
@@ -2791,19 +2812,21 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         return log_oom();
 
                 r = ordered_hashmap_put(h, i.path, existing);
-                if (r < 0)
+                if (r < 0) {
+                        free(existing);
                         return log_oom();
+                }
         }
 
-        if (!GREEDY_REALLOC(existing->items, existing->size, existing->count + 1))
+        if (!GREEDY_REALLOC(existing->items, existing->allocated, existing->n_items + 1))
                 return log_oom();
 
-        memcpy(existing->items + existing->count++, &i, sizeof(i));
+        existing->items[existing->n_items++] = i;
+        i = (struct Item) {};
 
         /* Sort item array, to enforce stable ordering of application */
-        typesafe_qsort(existing->items, existing->count, item_compare);
+        typesafe_qsort(existing->items, existing->n_items, item_compare);
 
-        zero(i);
         return 0;
 }
 
@@ -2907,15 +2930,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CREATE:
-                        arg_create = true;
+                        arg_operation |= OPERATION_CREATE;
                         break;
 
                 case ARG_CLEAN:
-                        arg_clean = true;
+                        arg_operation |= OPERATION_CLEAN;
                         break;
 
                 case ARG_REMOVE:
-                        arg_remove = true;
+                        arg_operation |= OPERATION_REMOVE;
                         break;
 
                 case ARG_BOOT:
@@ -2959,7 +2982,7 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (!arg_clean && !arg_create && !arg_remove && !arg_cat_config) {
+        if (arg_operation == 0 && !arg_cat_config) {
                 log_error("You need to specify at least one of --clean, --create or --remove.");
                 return -EINVAL;
         }
@@ -3109,12 +3132,49 @@ static int read_config_files(char **config_dirs, char **args, bool *invalid_conf
         return 0;
 }
 
+static int link_parent(ItemArray *a) {
+        const char *path;
+        char *prefix;
+        int r;
+
+        assert(a);
+
+        /* Finds the closestq "parent" item array for the specified item array. Then registers the specified item array
+         * as child of it, and fills the parent in, linking them both ways. This allows us to later create parents
+         * before their children, and clean up/remove children before their parents. */
+
+        if (a->n_items <= 0)
+                return 0;
+
+        path = a->items[0].path;
+        prefix = alloca(strlen(path) + 1);
+        PATH_FOREACH_PREFIX(prefix, path) {
+                ItemArray *j;
+
+                j = ordered_hashmap_get(items, prefix);
+                if (j) {
+                        r = set_ensure_allocated(&j->children, NULL);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = set_put(j->children, a);
+                        if (r < 0)
+                                return log_oom();
+
+                        a->parent = j;
+                        return 1;
+                }
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
-        int r, k, r_process = 0;
-        ItemArray *a;
-        Iterator iterator;
         _cleanup_strv_free_ char **config_dirs = NULL;
+        int r, k, r_process = 0, phase;
         bool invalid_config = false;
+        Iterator iterator;
+        ItemArray *a;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -3178,20 +3238,46 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        /* The non-globbing ones usually create things, hence we apply
-         * them first */
+        /* Let's now link up all child/parent relationships */
         ORDERED_HASHMAP_FOREACH(a, items, iterator) {
-                k = process_item_array(a);
-                if (k < 0 && r_process == 0)
-                        r_process = k;
+                r = link_parent(a);
+                if (r < 0)
+                        goto finish;
+        }
+        ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
+                r = link_parent(a);
+                if (r < 0)
+                        goto finish;
         }
 
-        /* The globbing ones usually alter things, hence we apply them
-         * second. */
-        ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
-                k = process_item_array(a);
-                if (k < 0 && r_process == 0)
-                        r_process = k;
+        /* If multiple operations are requested, let's first run the remove/clean operations, and only then the create
+         * operations. i.e. that we first clean out the platform we then build on. */
+        for (phase = 0; phase < 2; phase++) {
+                OperationMask op;
+
+                if (phase == 0)
+                        op = arg_operation & (OPERATION_REMOVE|OPERATION_CLEAN);
+                else if (phase == 1)
+                        op = arg_operation & OPERATION_CREATE;
+                else
+                        assert_not_reached("unexpected phase");
+
+                if (op == 0) /* Nothing requested in this phase */
+                        continue;
+
+                /* The non-globbing ones usually create things, hence we apply them first */
+                ORDERED_HASHMAP_FOREACH(a, items, iterator) {
+                        k = process_item_array(a, op);
+                        if (k < 0 && r_process == 0)
+                                r_process = k;
+                }
+
+                /* The globbing ones usually alter things, hence we apply them second. */
+                ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
+                        k = process_item_array(a, op);
+                        if (k < 0 && r_process == 0)
+                                r_process = k;
+                }
         }
 
 finish:

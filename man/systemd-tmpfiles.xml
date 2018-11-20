@@ -176,14 +176,12 @@
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
 
-    <para>It is possible to combine <option>--create</option>,
-    <option>--clean</option>, and <option>--remove</option> in one
-    invocation. For example, during boot the following command line is
-    executed to ensure that all temporary and volatile directories are
+    <para>It is possible to combine <option>--create</option>, <option>--clean</option>, and <option>--remove</option>
+    in one invocation (in which case removal and clean-up are executed before creation of new files). For example,
+    during boot the following command line is executed to ensure that all temporary and volatile directories are
     removed and created according to the configuration file:</para>
 
     <programlisting>systemd-tmpfiles --remove --create</programlisting>
-
   </refsect1>
 
   <refsect1>

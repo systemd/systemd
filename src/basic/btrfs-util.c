@@ -1178,6 +1178,18 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         if (subvol_fd < 0)
                 return -errno;
 
+        /* Let's check if this is actually a subvolume. Note that this is mostly redundant, as BTRFS_IOC_SNAP_DESTROY
+         * would fail anyway if it is not. However, it's a good thing to check this ahead of time so that we can return
+         * ENOTTY unconditionally in this case. This is different from the ioctl() which will return EPERM/EACCES if we
+         * don't have the privileges to remove subvolumes, regardless if the specified directory is actually a
+         * subvolume or not. In order to make it easy for callers to cover the "this is not a btrfs subvolume" case
+         * let's prefer ENOTTY over EPERM/EACCES though. */
+        r = btrfs_is_subvol_fd(subvol_fd);
+        if (r < 0)
+                return r;
+        if (r == 0) /* Not a btrfs subvolume */
+                return -ENOTTY;
+
         if (subvol_id == 0) {
                 r = btrfs_subvol_get_id_fd(subvol_fd, &subvol_id);
                 if (r < 0)
