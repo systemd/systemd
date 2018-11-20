@@ -797,10 +797,10 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
                 st = &stbuf;
         }
 
-        if (hardlink_vulnerable(st)) {
-                log_error("Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
-                return -EPERM;
-        }
+        if (hardlink_vulnerable(st))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
+                                       path);
 
         if (i->mode_set) {
                 if (S_ISLNK(st->st_mode))
@@ -852,10 +852,10 @@ static int path_open_parent_safe(const char *path) {
         _cleanup_free_ char *dn = NULL;
         int fd;
 
-        if (path_equal(path, "/") || !path_is_normalized(path)) {
-                log_error("Failed to open parent of '%s': invalid path.", path);
-                return -EINVAL;
-        }
+        if (path_equal(path, "/") || !path_is_normalized(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to open parent of '%s': invalid path.",
+                                       path);
 
         dn = dirname_malloc(path);
         if (!dn)
@@ -879,10 +879,10 @@ static int path_open_safe(const char *path) {
 
         assert(path);
 
-        if (!path_is_normalized(path)) {
-                log_error("Failed to open invalid path '%s'.", path);
-                return -EINVAL;
-        }
+        if (!path_is_normalized(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to open invalid path '%s'.",
+                                       path);
 
         fd = chase_symlinks(path, NULL, CHASE_OPEN|CHASE_SAFE|CHASE_NOFOLLOW, NULL);
         if (fd == -EPERM)
@@ -1057,10 +1057,10 @@ static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *
                 st = &stbuf;
         }
 
-        if (hardlink_vulnerable(st)) {
-                log_error("Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
-                return -EPERM;
-        }
+        if (hardlink_vulnerable(st))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
+                                       path);
 
         if (S_ISLNK(st->st_mode)) {
                 log_debug("Skipping ACL fix for symlink %s.", path);
@@ -1168,10 +1168,10 @@ static int parse_attribute_from_arg(Item *item) {
                 }
         }
 
-        if (isempty(p) && mode != MODE_SET) {
-                log_error("Setting file attribute on '%s' needs an attribute specification.", item->path);
-                return -EINVAL;
-        }
+        if (isempty(p) && mode != MODE_SET)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Setting file attribute on '%s' needs an attribute specification.",
+                                       item->path);
 
         for (; p && *p ; p++) {
                 unsigned i, v;
@@ -1180,10 +1180,10 @@ static int parse_attribute_from_arg(Item *item) {
                         if (*p == attributes[i].character)
                                 break;
 
-                if (i >= ELEMENTSOF(attributes)) {
-                        log_error("Unknown file attribute '%c' on '%s'.", *p, item->path);
-                        return -EINVAL;
-                }
+                if (i >= ELEMENTSOF(attributes))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unknown file attribute '%c' on '%s'.",
+                                               *p, item->path);
 
                 v = attributes[i].value;
 
@@ -1226,10 +1226,10 @@ static int fd_set_attribute(Item *item, int fd, const char *path, const struct s
         /* Issuing the file attribute ioctls on device nodes is not
          * safe, as that will be delivered to the drivers, not the
          * file system containing the device node. */
-        if (!S_ISREG(st->st_mode) && !S_ISDIR(st->st_mode)) {
-                log_error("Setting file flags is only supported on regular files and directories, cannot set on '%s'.", path);
-                return -EINVAL;
-        }
+        if (!S_ISREG(st->st_mode) && !S_ISDIR(st->st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Setting file flags is only supported on regular files and directories, cannot set on '%s'.",
+                                       path);
 
         f = item->attribute_value & item->attribute_mask;
 
@@ -1657,10 +1657,10 @@ static int empty_directory(Item *i, const char *path) {
         }
         if (r < 0)
                 return log_error_errno(r, "is_dir() failed on path %s: %m", path);
-        if (r == 0) {
-                log_error("'%s' already exists and is not a directory.", path);
-                return -EEXIST;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "'%s' already exists and is not a directory.",
+                                       path);
 
         return path_set_perms(i, path);
 }
@@ -2212,10 +2212,9 @@ static int clean_item_instance(Item *i, const char* instance) {
         if (fstat(dirfd(d), &s) < 0)
                 return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
-        if (!S_ISDIR(s.st_mode)) {
-                log_error("%s is not a directory.", i->path);
-                return -ENOTDIR;
-        }
+        if (!S_ISDIR(s.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR),
+                                       "%s is not a directory.", i->path);
 
         if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
                 return log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
@@ -2963,10 +2962,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_REPLACE:
                         if (!path_is_absolute(optarg) ||
-                            !endswith(optarg, ".conf")) {
-                                log_error("The argument to --replace= must an absolute path to a config file");
-                                return -EINVAL;
-                        }
+                            !endswith(optarg, ".conf"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "The argument to --replace= must an absolute path to a config file");
 
                         arg_replace = optarg;
                         break;
@@ -2982,20 +2980,17 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_operation == 0 && !arg_cat_config) {
-                log_error("You need to specify at least one of --clean, --create or --remove.");
-                return -EINVAL;
-        }
+        if (arg_operation == 0 && !arg_cat_config)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "You need to specify at least one of --clean, --create or --remove.");
 
-        if (arg_replace && arg_cat_config) {
-                log_error("Option --replace= is not supported with --cat-config");
-                return -EINVAL;
-        }
+        if (arg_replace && arg_cat_config)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --replace= is not supported with --cat-config");
 
-        if (arg_replace && optind >= argc) {
-                log_error("When --replace= is given, some configuration items must be specified");
-                return -EINVAL;
-        }
+        if (arg_replace && optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "When --replace= is given, some configuration items must be specified");
 
         return 1;
 }

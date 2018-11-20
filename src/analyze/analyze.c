@@ -1360,10 +1360,10 @@ static int cat_config(int argc, char *argv[], void *userdata) {
                                         break;
                         }
 
-                        if (!t) {
-                                log_error("Path %s does not start with any known prefix.", *arg);
-                                return -EINVAL;
-                        }
+                        if (!t)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Path %s does not start with any known prefix.",
+                                                       *arg);
                 } else
                         t = *arg;
 
@@ -1638,10 +1638,9 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
 }
 
 #else
-static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
-        log_error("Not compiled with syscall filters, sorry.");
-        return -EOPNOTSUPP;
-}
+static int dump_syscall_filters(int argc, char *argv[], void *userdata)
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Not compiled with syscall filters, sorry.");
 #endif
 
 static int dump_timespan(int argc, char *argv[], void *userdata) {
@@ -1948,10 +1947,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_MAN:
                         if (optarg) {
                                 r = parse_boolean(optarg);
-                                if (r < 0) {
-                                        log_error("Failed to parse --man= argument.");
-                                        return -EINVAL;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to parse --man= argument.");
 
                                 arg_man = r;
                         } else
@@ -1962,10 +1960,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_GENERATORS:
                         if (optarg) {
                                 r = parse_boolean(optarg);
-                                if (r < 0) {
-                                        log_error("Failed to parse --generators= argument.");
-                                        return -EINVAL;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to parse --generators= argument.");
 
                                 arg_generators = r;
                         } else
@@ -1981,15 +1978,13 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_scope == UNIT_FILE_GLOBAL &&
-            !STR_IN_SET(argv[optind] ?: "time", "dot", "unit-paths", "verify")) {
-                log_error("Option --global only makes sense with verbs dot, unit-paths, verify.");
-                return -EINVAL;
-        }
+            !STR_IN_SET(argv[optind] ?: "time", "dot", "unit-paths", "verify"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --global only makes sense with verbs dot, unit-paths, verify.");
 
-        if (arg_root && !streq_ptr(argv[optind], "cat-config")) {
-                log_error("Option --root is only supported for cat-config right now.");
-                return -EINVAL;
-        }
+        if (arg_root && !streq_ptr(argv[optind], "cat-config"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --root is only supported for cat-config right now.");
 
         return 1; /* work to do */
 }

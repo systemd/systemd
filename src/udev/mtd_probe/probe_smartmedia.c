@@ -49,19 +49,17 @@ int probe_smart_media(int mtd_fd, mtd_info_t* info) {
         if (!cis_buffer)
                 return log_oom();
 
-        if (info->type != MTD_NANDFLASH) {
-                log_debug("Not marked MTD_NANDFLASH.");
-                return -EINVAL;
-        }
+        if (info->type != MTD_NANDFLASH)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not marked MTD_NANDFLASH.");
 
         sector_size = info->writesize;
         block_size = info->erasesize;
         size_in_megs = info->size / (1024 * 1024);
 
-        if (!IN_SET(sector_size, SM_SECTOR_SIZE, SM_SMALL_PAGE)) {
-                log_debug("Unexpected sector size: %i", sector_size);
-                return -EINVAL;
-        }
+        if (!IN_SET(sector_size, SM_SECTOR_SIZE, SM_SMALL_PAGE))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unexpected sector size: %i", sector_size);
 
         switch(size_in_megs) {
         case 1:
@@ -85,16 +83,14 @@ int probe_smart_media(int mtd_fd, mtd_info_t* info) {
                 }
         }
 
-        if (!cis_found) {
-                log_debug("CIS not found");
-                return -EINVAL;
-        }
+        if (!cis_found)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "CIS not found");
 
         if (memcmp(cis_buffer, cis_signature, sizeof(cis_signature)) != 0 &&
-            memcmp(cis_buffer + SM_SMALL_PAGE, cis_signature, sizeof(cis_signature)) != 0) {
-                log_debug("CIS signature didn't match");
-                return -EINVAL;
-        }
+            memcmp(cis_buffer + SM_SMALL_PAGE, cis_signature, sizeof(cis_signature)) != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "CIS signature didn't match");
 
         printf("MTD_FTL=smartmedia\n");
         return 0;

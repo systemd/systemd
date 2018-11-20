@@ -91,10 +91,9 @@ int ifname_mangle(const char *s, bool allow_loopback) {
         if (arg_ifname) {
                 assert(arg_ifindex >= 0);
 
-                if (!allow_loopback && arg_ifindex == LOOPBACK_IFINDEX) {
-                        log_error("Interface can't be the loopback interface (lo). Sorry.");
-                        return -EINVAL;
-                }
+                if (!allow_loopback && arg_ifindex == LOOPBACK_IFINDEX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Interface can't be the loopback interface (lo). Sorry.");
 
                 return 1;
         }
@@ -124,10 +123,9 @@ int ifname_mangle(const char *s, bool allow_loopback) {
                 }
         }
 
-        if (!allow_loopback && r == LOOPBACK_IFINDEX) {
-                log_error("Interface can't be the loopback interface (lo). Sorry.");
-                return -EINVAL;
-        }
+        if (!allow_loopback && r == LOOPBACK_IFINDEX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Interface can't be the loopback interface (lo). Sorry.");
 
         arg_ifindex = r;
         arg_ifname = TAKE_PTR(iface);
@@ -579,10 +577,9 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
                                 _cleanup_free_ char *t = NULL;
                                 const char *e;
 
-                                if (class != 0) {
-                                        log_error("DNS class specified twice.");
-                                        return -EINVAL;
-                                }
+                                if (class != 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "DNS class specified twice.");
 
                                 e = strchrnul(f, ';');
                                 t = strndup(f, e - f);
@@ -590,10 +587,9 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
                                         return log_oom();
 
                                 r = dns_class_from_string(t);
-                                if (r < 0) {
-                                        log_error("Unknown DNS class %s.", t);
-                                        return -EINVAL;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unknown DNS class %s.", t);
 
                                 class = r;
 
@@ -610,10 +606,9 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
                                 _cleanup_free_ char *t = NULL;
                                 const char *e;
 
-                                if (type != 0) {
-                                        log_error("DNS type specified twice.");
-                                        return -EINVAL;
-                                }
+                                if (type != 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "DNS type specified twice.");
 
                                 e = strchrnul(f, ';');
                                 t = strndup(f, e - f);
@@ -621,10 +616,9 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
                                         return log_oom();
 
                                 r = dns_type_from_string(t);
-                                if (r < 0) {
-                                        log_error("Unknown DNS type %s.", t);
-                                        return -EINVAL;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unknown DNS type %s.", t);
 
                                 type = r;
 
@@ -649,8 +643,8 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
         return resolve_record(bus, n, class, type, true);
 
 invalid:
-        log_error("Invalid DNS URI: %s", name);
-        return -EINVAL;
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "Invalid DNS URI: %s", name);
 }
 
 static int verb_query(int argc, char **argv, void *userdata) {
@@ -897,13 +891,12 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
         assert(address);
 
         domain = strrchr(address, '@');
-        if (!domain) {
-                log_error("Address does not contain '@': \"%s\"", address);
-                return -EINVAL;
-        } else if (domain == address || domain[1] == '\0') {
-                log_error("Address starts or ends with '@': \"%s\"", address);
-                return -EINVAL;
-        }
+        if (!domain)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Address does not contain '@': \"%s\"", address);
+        if (domain == address || domain[1] == '\0')
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Address starts or ends with '@': \"%s\"", address);
         domain++;
 
         r = string_hashsum_sha256(address, domain - 1 - address, &hashed);
@@ -2566,10 +2559,9 @@ static int compat_parse_argv(int argc, char *argv[]) {
                                 arg_flags |= SD_RESOLVED_MDNS_IPV4;
                         else if (streq(optarg, "mdns-ipv6"))
                                 arg_flags |= SD_RESOLVED_MDNS_IPV6;
-                        else {
-                                log_error("Unknown protocol specifier: %s", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown protocol specifier: %s", optarg);
 
                         break;
 
@@ -2585,26 +2577,24 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         arg_mode = MODE_RESOLVE_TLSA;
                         if (!optarg || service_family_is_valid(optarg))
                                 arg_service_family = optarg;
-                        else {
-                                log_error("Unknown service family \"%s\".", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown service family \"%s\".", optarg);
                         break;
 
                 case ARG_RAW:
-                        if (on_tty()) {
-                                log_error("Refusing to write binary data to tty.");
-                                return -ENOTTY;
-                        }
+                        if (on_tty())
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                                       "Refusing to write binary data to tty.");
 
                         if (optarg == NULL || streq(optarg, "payload"))
                                 arg_raw = RAW_PAYLOAD;
                         else if (streq(optarg, "packet"))
                                 arg_raw = RAW_PACKET;
-                        else {
-                                log_error("Unknown --raw specifier \"%s\".", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown --raw specifier \"%s\".",
+                                                       optarg);
 
                         arg_legend = false;
                         break;
@@ -2716,15 +2706,13 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_type == 0 && arg_class != 0) {
-                log_error("--class= may only be used in conjunction with --type=.");
-                return -EINVAL;
-        }
+        if (arg_type == 0 && arg_class != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--class= may only be used in conjunction with --type=.");
 
-        if (arg_type != 0 && arg_mode == MODE_RESOLVE_SERVICE) {
-                log_error("--service and --type= may not be combined.");
-                return -EINVAL;
-        }
+        if (arg_type != 0 && arg_mode == MODE_RESOLVE_SERVICE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--service and --type= may not be combined.");
 
         if (arg_type != 0 && arg_class == 0)
                 arg_class = DNS_CLASS_IN;
@@ -2734,15 +2722,13 @@ static int compat_parse_argv(int argc, char *argv[]) {
 
         if (IN_SET(arg_mode, MODE_SET_LINK, MODE_REVERT_LINK)) {
 
-                if (arg_ifindex <= 0) {
-                        log_error("--set-dns=, --set-domain=, --set-llmnr=, --set-mdns=, --set-dnsovertls=, --set-dnssec=, --set-nta= and --revert require --interface=.");
-                        return -EINVAL;
-                }
+                if (arg_ifindex <= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--set-dns=, --set-domain=, --set-llmnr=, --set-mdns=, --set-dnsovertls=, --set-dnssec=, --set-nta= and --revert require --interface=.");
 
-                if (arg_ifindex == LOOPBACK_IFINDEX) {
-                        log_error("Interface can't be the loopback interface (lo). Sorry.");
-                        return -EINVAL;
-                }
+                if (arg_ifindex == LOOPBACK_IFINDEX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Interface can't be the loopback interface (lo). Sorry.");
         }
 
         return 1 /* work to do */;
@@ -2864,27 +2850,26 @@ static int native_parse_argv(int argc, char *argv[]) {
                                 arg_flags |= SD_RESOLVED_MDNS_IPV4;
                         else if (streq(optarg, "mdns-ipv6"))
                                 arg_flags |= SD_RESOLVED_MDNS_IPV6;
-                        else {
-                                log_error("Unknown protocol specifier: %s", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown protocol specifier: %s",
+                                                       optarg);
 
                         break;
 
                 case ARG_RAW:
-                        if (on_tty()) {
-                                log_error("Refusing to write binary data to tty.");
-                                return -ENOTTY;
-                        }
+                        if (on_tty())
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                                       "Refusing to write binary data to tty.");
 
                         if (optarg == NULL || streq(optarg, "payload"))
                                 arg_raw = RAW_PAYLOAD;
                         else if (streq(optarg, "packet"))
                                 arg_raw = RAW_PACKET;
-                        else {
-                                log_error("Unknown --raw specifier \"%s\".", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown --raw specifier \"%s\".",
+                                                       optarg);
 
                         arg_legend = false;
                         break;
@@ -2928,10 +2913,9 @@ static int native_parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_type == 0 && arg_class != 0) {
-                log_error("--class= may only be used in conjunction with --type=.");
-                return -EINVAL;
-        }
+        if (arg_type == 0 && arg_class != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--class= may only be used in conjunction with --type=.");
 
         if (arg_type != 0 && arg_class == 0)
                 arg_class = DNS_CLASS_IN;

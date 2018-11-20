@@ -155,8 +155,9 @@ ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
                 case GNUTLS_E_AGAIN:
                         return -EAGAIN;
                 default:
-                        log_debug("Failed to invoke gnutls_record_send: %s", gnutls_strerror(ss));
-                        return -EPIPE;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPIPE),
+                                               "Failed to invoke gnutls_record_send: %s",
+                                               gnutls_strerror(ss));
                 }
 
         return ss;
@@ -178,8 +179,9 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
                 case GNUTLS_E_AGAIN:
                         return -EAGAIN;
                 default:
-                        log_debug("Failed to invoke gnutls_record_recv: %s", gnutls_strerror(ss));
-                        return -EPIPE;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPIPE),
+                                               "Failed to invoke gnutls_record_recv: %s",
+                                               gnutls_strerror(ss));
                 }
 
         return ss;

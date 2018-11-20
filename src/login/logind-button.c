@@ -329,10 +329,10 @@ int button_open(Button *b) {
         r = button_suitable(b);
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine whether input device is relevant to us: %m");
-        if (r == 0) {
-                log_debug("Device %s does not expose keys or switches relevant to us, ignoring.", p);
-                return -EADDRNOTAVAIL;
-        }
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                       "Device %s does not expose keys or switches relevant to us, ignoring.",
+                                       p);
 
         if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
                 r = log_error_errno(errno, "Failed to get input name: %m");

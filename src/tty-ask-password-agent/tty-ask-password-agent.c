@@ -308,10 +308,9 @@ static int parse_password(const char *filename, char **wall) {
         if (r < 0)
                 return r;
 
-        if (!socket_name) {
-                log_error("Invalid password file %s", filename);
-                return -EBADMSG;
-        }
+        if (!socket_name)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid password file %s", filename);
 
         if (not_after > 0 && now(CLOCK_MONOTONIC) > not_after)
                 return 0;
@@ -652,10 +651,9 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_console = true;
                         if (optarg) {
 
-                                if (isempty(optarg)) {
-                                        log_error("Empty console device path is not allowed.");
-                                        return -EINVAL;
-                                }
+                                if (isempty(optarg))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Empty console device path is not allowed.");
 
                                 arg_device = optarg;
                         }
@@ -668,22 +666,19 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind != argc) {
-                log_error("%s takes no arguments.", program_invocation_short_name);
-                return -EINVAL;
-        }
+        if (optind != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s takes no arguments.", program_invocation_short_name);
 
         if (arg_plymouth || arg_console) {
 
-                if (!IN_SET(arg_action, ACTION_QUERY, ACTION_WATCH)) {
-                        log_error("Options --query and --watch conflict.");
-                        return -EINVAL;
-                }
+                if (!IN_SET(arg_action, ACTION_QUERY, ACTION_WATCH))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Options --query and --watch conflict.");
 
-                if (arg_plymouth && arg_console) {
-                        log_error("Options --plymouth and --console conflict.");
-                        return -EINVAL;
-                }
+                if (arg_plymouth && arg_console)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Options --plymouth and --console conflict.");
         }
 
         return 1;

@@ -1031,10 +1031,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = safe_atoi(optarg, &fd);
                         if (r < 0)
                                 log_error_errno(r, "Failed to parse deserialize option \"%s\": %m", optarg);
-                        if (fd < 0) {
-                                log_error("Invalid deserialize fd: %d", fd);
-                                return -EINVAL;
-                        }
+                        if (fd < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid deserialize fd: %d",
+                                                       fd);
 
                         (void) fd_cloexec(fd, true);
 
@@ -1088,8 +1088,8 @@ static int parse_argv(int argc, char *argv[]) {
                 /* Hmm, when we aren't run as init system
                  * let's complain about excess arguments */
 
-                log_error("Excess arguments.");
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Excess arguments.");
         }
 
         return 0;
@@ -2149,50 +2149,43 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
 static int safety_checks(void) {
 
         if (getpid_cached() == 1 &&
-            arg_action != ACTION_RUN) {
-                log_error("Unsupported execution mode while PID 1.");
-                return -EPERM;
-        }
+            arg_action != ACTION_RUN)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Unsupported execution mode while PID 1.");
 
         if (getpid_cached() == 1 &&
-            !arg_system) {
-                log_error("Can't run --user mode as PID 1.");
-                return -EPERM;
-        }
+            !arg_system)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Can't run --user mode as PID 1.");
 
         if (arg_action == ACTION_RUN &&
             arg_system &&
-            getpid_cached() != 1) {
-                log_error("Can't run system mode unless PID 1.");
-                return -EPERM;
-        }
+            getpid_cached() != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Can't run system mode unless PID 1.");
 
         if (arg_action == ACTION_TEST &&
-            geteuid() == 0) {
-                log_error("Don't run test mode as root.");
-                return -EPERM;
-        }
+            geteuid() == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Don't run test mode as root.");
 
         if (!arg_system &&
             arg_action == ACTION_RUN &&
-            sd_booted() <= 0) {
-                log_error("Trying to run as user instance, but the system has not been booted with systemd.");
-                return -EOPNOTSUPP;
-        }
+            sd_booted() <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Trying to run as user instance, but the system has not been booted with systemd.");
 
         if (!arg_system &&
             arg_action == ACTION_RUN &&
-            !getenv("XDG_RUNTIME_DIR")) {
-                log_error("Trying to run as user instance, but $XDG_RUNTIME_DIR is not set.");
-                return -EUNATCH;
-        }
+            !getenv("XDG_RUNTIME_DIR"))
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH),
+                                       "Trying to run as user instance, but $XDG_RUNTIME_DIR is not set.");
 
         if (arg_system &&
             arg_action == ACTION_RUN &&
-            running_in_chroot() > 0) {
-                log_error("Cannot be run in a chroot() environment.");
-                return -EOPNOTSUPP;
-        }
+            running_in_chroot() > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Cannot be run in a chroot() environment.");
 
         return 0;
 }

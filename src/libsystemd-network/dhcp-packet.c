@@ -106,70 +106,62 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
 
         /* IP */
 
-        if (packet->ip.version != IPVERSION) {
-                log_debug("ignoring packet: not IPv4");
-                return -EINVAL;
-        }
+        if (packet->ip.version != IPVERSION)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ignoring packet: not IPv4");
 
-        if (packet->ip.ihl < 5) {
-                log_debug("ignoring packet: IPv4 IHL (%u words) invalid",
-                          packet->ip.ihl);
-                return -EINVAL;
-        }
+        if (packet->ip.ihl < 5)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ignoring packet: IPv4 IHL (%u words) invalid",
+                                       packet->ip.ihl);
 
         hdrlen = packet->ip.ihl * 4;
-        if (hdrlen < 20) {
-                log_debug("ignoring packet: IPv4 IHL (%zu bytes) "
-                          "smaller than minimum (20 bytes)", hdrlen);
-                return -EINVAL;
-        }
+        if (hdrlen < 20)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ignoring packet: IPv4 IHL (%zu bytes) "
+                                       "smaller than minimum (20 bytes)",
+                                       hdrlen);
 
-        if (len < hdrlen) {
-                log_debug("ignoring packet: packet (%zu bytes) "
-                          "smaller than expected (%zu) by IP header", len,
-                          hdrlen);
-                return -EINVAL;
-        }
+        if (len < hdrlen)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ignoring packet: packet (%zu bytes) "
+                                       "smaller than expected (%zu) by IP header",
+                                       len, hdrlen);
 
         /* UDP */
 
-        if (packet->ip.protocol != IPPROTO_UDP) {
-                log_debug("ignoring packet: not UDP");
-                return -EINVAL;
-        }
+        if (packet->ip.protocol != IPPROTO_UDP)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ignoring packet: not UDP");
 
-        if (len < hdrlen + be16toh(packet->udp.len)) {
-                log_debug("ignoring packet: packet (%zu bytes) "
-                          "smaller than expected (%zu) by UDP header", len,
-                          hdrlen + be16toh(packet->udp.len));
-                return -EINVAL;
-        }
+        if (len < hdrlen + be16toh(packet->udp.len))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ignoring packet: packet (%zu bytes) "
+                                       "smaller than expected (%zu) by UDP header",
+                                       len, hdrlen + be16toh(packet->udp.len));
 
-        if (be16toh(packet->udp.dest) != port) {
-                log_debug("ignoring packet: to port %u, which "
-                          "is not the DHCP client port (%u)",
-                          be16toh(packet->udp.dest), port);
-                return -EINVAL;
-        }
+        if (be16toh(packet->udp.dest) != port)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ignoring packet: to port %u, which "
+                                       "is not the DHCP client port (%u)",
+                                       be16toh(packet->udp.dest), port);
 
         /* checksums - computing these is relatively expensive, so only do it
            if all the other checks have passed
          */
 
-        if (dhcp_packet_checksum((uint8_t*)&packet->ip, hdrlen)) {
-                log_debug("ignoring packet: invalid IP checksum");
-                return -EINVAL;
-        }
+        if (dhcp_packet_checksum((uint8_t*)&packet->ip, hdrlen))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ignoring packet: invalid IP checksum");
 
         if (checksum && packet->udp.check) {
                 packet->ip.check = packet->udp.len;
                 packet->ip.ttl = 0;
 
                 if (dhcp_packet_checksum((uint8_t*)&packet->ip.ttl,
-                                  be16toh(packet->udp.len) + 12)) {
-                        log_debug("ignoring packet: invalid UDP checksum");
-                        return -EINVAL;
-                }
+                                  be16toh(packet->udp.len) + 12))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "ignoring packet: invalid UDP checksum");
         }
 
         return 0;

@@ -2545,11 +2545,10 @@ static int cg_unified_update(void) {
                                 unified_cache = CGROUP_UNIFIED_NONE;
                         }
                 }
-        } else {
-                log_debug("Unknown filesystem type %llx mounted on /sys/fs/cgroup.",
-                          (unsigned long long) fs.f_type);
-                return -ENOMEDIUM;
-        }
+        } else
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                       "Unknown filesystem type %llx mounted on /sys/fs/cgroup.",
+                                       (unsigned long long)fs.f_type);
 
         return 0;
 }

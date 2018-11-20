@@ -303,10 +303,9 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                         k = format_timestamp_utc(buf, sizeof(buf), x);
                 else
                         k = format_timestamp(buf, sizeof(buf), x);
-                if (!k) {
-                        log_error("Failed to format timestamp: %"PRIu64, x);
-                        return -EINVAL;
-                }
+                if (!k)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to format timestamp: %" PRIu64, x);
 
         } else {
                 char usec[7];
@@ -321,18 +320,16 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                         break;
 
                 case OUTPUT_SHORT_ISO:
-                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm)) <= 0) {
-                                log_error("Failed to format ISO time");
-                                return -EINVAL;
-                        }
+                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm)) <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to format ISO time");
                         break;
 
                 case OUTPUT_SHORT_ISO_PRECISE:
                         /* No usec in strftime, so we leave space and copy over */
-                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z", gettime_r(&t, &tm)) <= 0) {
-                                log_error("Failed to format ISO-precise time");
-                                return -EINVAL;
-                        }
+                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z", gettime_r(&t, &tm)) <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to format ISO-precise time");
                         xsprintf(usec, "%06"PRI_USEC, x % USEC_PER_SEC);
                         memcpy(buf + 20, usec, 6);
                         break;
@@ -340,10 +337,9 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                 case OUTPUT_SHORT:
                 case OUTPUT_SHORT_PRECISE:
 
-                        if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm)) <= 0) {
-                                log_error("Failed to format syslog time");
-                                return -EINVAL;
-                        }
+                        if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm)) <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to format syslog time");
 
                         if (mode == OUTPUT_SHORT_PRECISE) {
                                 size_t k;
@@ -352,10 +348,9 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                                 k = sizeof(buf) - strlen(buf);
 
                                 r = snprintf(buf + strlen(buf), k, ".%06"PRIu64, x % USEC_PER_SEC);
-                                if (r <= 0 || (size_t) r >= k) { /* too long? */
-                                        log_error("Failed to format precise time");
-                                        return -EINVAL;
-                                }
+                                if (r <= 0 || (size_t) r >= k) /* too long? */
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to format precise time");
                         }
                         break;
 
@@ -563,10 +558,9 @@ static int output_verbose(
                 const char *on = "", *off = "";
 
                 c = memchr(data, '=', length);
-                if (!c) {
-                        log_error("Invalid field.");
-                        return -EINVAL;
-                }
+                if (!c)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Invalid field.");
                 fieldlen = c - (const char*) data;
 
                 r = field_set_test(output_fields, data, fieldlen);
@@ -658,10 +652,9 @@ static int output_export(
                         continue;
 
                 c = memchr(data, '=', length);
-                if (!c) {
-                        log_error("Invalid field.");
-                        return -EINVAL;
-                }
+                if (!c)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Invalid field.");
 
                 r = field_set_test(output_fields, data, c - (const char *) data);
                 if (r < 0)

@@ -525,8 +525,8 @@ static int mount_unified_cgroups(const char *dest) {
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to determine if mount point %s contains the unified cgroup hierarchy: %m", p);
 
-                log_error("%s is already mounted but not a unified cgroup hierarchy. Refusing.", p);
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s is already mounted but not a unified cgroup hierarchy. Refusing.", p);
         }
 
         return mount_verbose(LOG_ERR, "cgroup", p, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);

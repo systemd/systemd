@@ -121,10 +121,10 @@ static int parse_counter(
         e++;
 
         k = strspn(e, DIGITS);
-        if (k == 0) {
-                log_error("Can't parse empty 'tries left' counter from LoaderBootCountPath: %s", path);
-                return -EINVAL;
-        }
+        if (k == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Can't parse empty 'tries left' counter from LoaderBootCountPath: %s",
+                                       path);
 
         z = strndupa(e, k);
         r = safe_atou64(z, &left);
@@ -137,10 +137,10 @@ static int parse_counter(
                 e++;
 
                 k = strspn(e, DIGITS);
-                if (k == 0) { /* If there's a "-" there also needs to be at least one digit */
-                        log_error("Can't parse empty 'tries done' counter from LoaderBootCountPath: %s", path);
-                        return -EINVAL;
-                }
+                if (k == 0) /* If there's a "-" there also needs to be at least one digit */
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Can't parse empty 'tries done' counter from LoaderBootCountPath: %s",
+                                               path);
 
                 z = strndupa(e, k);
                 r = safe_atou64(z, &done);
@@ -185,22 +185,22 @@ static int acquire_boot_count_path(
 
         efi_tilt_backslashes(path);
 
-        if (!path_is_normalized(path)) {
-                log_error("Path read from LoaderBootCountPath is not normalized, refusing: %s", path);
-                return -EINVAL;
-        }
+        if (!path_is_normalized(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Path read from LoaderBootCountPath is not normalized, refusing: %s",
+                                       path);
 
-        if (!path_is_absolute(path)) {
-                log_error("Path read from LoaderBootCountPath is not absolute, refusing: %s", path);
-                return -EINVAL;
-        }
+        if (!path_is_absolute(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Path read from LoaderBootCountPath is not absolute, refusing: %s",
+                                       path);
 
         last = last_path_component(path);
         e = strrchr(last, '+');
-        if (!e) {
-                log_error("Path read from LoaderBootCountPath does not contain a counter, refusing: %s", path);
-                return -EINVAL;
-        }
+        if (!e)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Path read from LoaderBootCountPath does not contain a counter, refusing: %s",
+                                       path);
 
         if (ret_prefix) {
                 prefix = strndup(path, e - path);
@@ -458,15 +458,13 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        if (detect_container() > 0) {
-                log_error("Marking a boot is not supported in containers.");
-                return -EOPNOTSUPP;
-        }
+        if (detect_container() > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Marking a boot is not supported in containers.");
 
-        if (!is_efi_boot()) {
-                log_error("Marking a boot is only supported on EFI systems.");
-                return -EOPNOTSUPP;
-        }
+        if (!is_efi_boot())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Marking a boot is only supported on EFI systems.");
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

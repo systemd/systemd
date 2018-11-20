@@ -214,15 +214,13 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
         if (sz <= 0)
                 return 0;
 
-        if (j->written_uncompressed + sz < j->written_uncompressed) {
-                log_error("File too large, overflow");
-                return -EOVERFLOW;
-        }
+        if (j->written_uncompressed + sz < j->written_uncompressed)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW),
+                                       "File too large, overflow");
 
-        if (j->written_uncompressed + sz > j->uncompressed_max) {
-                log_error("File overly large, refusing");
-                return -EFBIG;
-        }
+        if (j->written_uncompressed + sz > j->uncompressed_max)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "File overly large, refusing");
 
         if (j->disk_fd >= 0) {
 
@@ -240,10 +238,8 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
                 }
                 if (n < 0)
                         return log_error_errno((int) n, "Failed to write file: %m");
-                if ((size_t) n < sz) {
-                        log_error("Short write");
-                        return -EIO;
-                }
+                if ((size_t) n < sz)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write");
         } else {
 
                 if (!GREEDY_REALLOC(j->payload, j->payload_allocated, j->payload_size + sz))
@@ -268,21 +264,16 @@ static int pull_job_write_compressed(PullJob *j, void *p, size_t sz) {
         if (sz <= 0)
                 return 0;
 
-        if (j->written_compressed + sz < j->written_compressed) {
-                log_error("File too large, overflow");
-                return -EOVERFLOW;
-        }
+        if (j->written_compressed + sz < j->written_compressed)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
 
-        if (j->written_compressed + sz > j->compressed_max) {
-                log_error("File overly large, refusing.");
-                return -EFBIG;
-        }
+        if (j->written_compressed + sz > j->compressed_max)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
 
         if (j->content_length != (uint64_t) -1 &&
-            j->written_compressed + sz > j->content_length) {
-                log_error("Content length incorrect.");
-                return -EFBIG;
-        }
+            j->written_compressed + sz > j->content_length)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "Content length incorrect.");
 
         if (j->checksum_context)
                 gcry_md_write(j->checksum_context, p, sz);
@@ -323,10 +314,9 @@ static int pull_job_open_disk(PullJob *j) {
         if (j->calc_checksum) {
                 initialize_libgcrypt(false);
 
-                if (gcry_md_open(&j->checksum_context, GCRY_MD_SHA256, 0) != 0) {
-                        log_error("Failed to initialize hash context.");
-                        return -EIO;
-                }
+                if (gcry_md_open(&j->checksum_context, GCRY_MD_SHA256, 0) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to initialize hash context.");
         }
 
         return 0;

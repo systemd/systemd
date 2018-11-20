@@ -256,8 +256,8 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
                 return 0;
         }
 
-        log_debug("No swap partitions were found.");
-        return -ENOSYS;
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "No swap partitions were found.");
 }
 
 static bool enough_swap_for_hibernation(void) {

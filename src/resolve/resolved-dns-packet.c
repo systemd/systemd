@@ -48,10 +48,10 @@ int dns_packet_new(
         /* The caller may not check what is going to be truly allocated, so do not allow to
          * allocate a DNS packet bigger than DNS_PACKET_SIZE_MAX.
          */
-        if (min_alloc_dsize > DNS_PACKET_SIZE_MAX) {
-                log_error("Requested packet data size too big: %zu", min_alloc_dsize);
-                return -EFBIG;
-        }
+        if (min_alloc_dsize > DNS_PACKET_SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "Requested packet data size too big: %zu",
+                                       min_alloc_dsize);
 
         /* When dns_packet_new() is called with min_alloc_dsize == 0, allocate more than the
          * absolute minimum (which is the dns packet header size), to avoid

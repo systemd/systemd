@@ -102,10 +102,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMEOUT:
-                        if (parse_sec(optarg, &arg_timeout) < 0) {
-                                log_error("Failed to parse --timeout parameter %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (parse_sec(optarg, &arg_timeout) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse --timeout parameter %s",
+                                                       optarg);
                         break;
 
                 case ARG_ECHO:

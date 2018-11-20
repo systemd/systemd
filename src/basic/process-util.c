@@ -1227,8 +1227,7 @@ int must_be_root(void) {
         if (geteuid() == 0)
                 return 0;
 
-        log_error("Need to be root.");
-        return -EPERM;
+        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
 }
 
 int safe_fork_full(

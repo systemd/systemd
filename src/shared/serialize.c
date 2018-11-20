@@ -153,10 +153,10 @@ int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
                 return -EINVAL;
 
         r = sscanf(value, "%" PRIu64 "%" PRIu64 "%n", &a, &b, &pos);
-        if (r != 2) {
-                log_debug("Failed to parse dual timestamp value \"%s\".", value);
-                return -EINVAL;
-        }
+        if (r != 2)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to parse dual timestamp value \"%s\".",
+                                       value);
 
         if (value[pos] != '\0')
                 /* trailing garbage */

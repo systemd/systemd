@@ -3640,11 +3640,10 @@ static int start_special(int argc, char *argv[], void *userdata) {
 static int start_system_special(int argc, char *argv[], void *userdata) {
         /* Like start_special above, but raises an error when running in user mode */
 
-        if (arg_scope != UNIT_FILE_SYSTEM) {
-                log_error("Bad action for %s mode.",
-                          arg_scope == UNIT_FILE_GLOBAL ? "--global" : "--user");
-                return -EINVAL;
-        }
+        if (arg_scope != UNIT_FILE_SYSTEM)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Bad action for %s mode.",
+                                       arg_scope == UNIT_FILE_GLOBAL ? "--global" : "--user");
 
         return start_special(argc, argv, userdata);
 }
@@ -5252,15 +5251,13 @@ static int show(int argc, char *argv[], void *userdata) {
         assert(argv);
 
         show_mode = systemctl_show_mode_from_string(argv[0]);
-        if (show_mode < 0) {
-                log_error("Invalid argument.");
-                return -EINVAL;
-        }
+        if (show_mode < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid argument.");
 
-        if (show_mode == SYSTEMCTL_SHOW_HELP && argc <= 1) {
-                log_error("This command expects one or more unit names. Did you mean --help?");
-                return -EINVAL;
-        }
+        if (show_mode == SYSTEMCTL_SHOW_HELP && argc <= 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This command expects one or more unit names. Did you mean --help?");
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -5624,10 +5621,9 @@ static int print_variable(const char *s) {
         _cleanup_free_ char *esc = NULL;
 
         sep = strchr(s, '=');
-        if (!sep) {
-                log_error("Invalid environment block");
-                return -EUCLEAN;
-        }
+        if (!sep)
+                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                       "Invalid environment block");
 
         esc = shell_maybe_quote(sep + 1, ESCAPE_POSIX);
         if (!esc)
@@ -6042,15 +6038,15 @@ static int normalize_filenames(char **names) {
                 if (!path_is_absolute(*u)) {
                         char* normalized_path;
 
-                        if (!isempty(arg_root)) {
-                                log_error("Non-absolute paths are not allowed when --root is used: %s", *u);
-                                return -EINVAL;
-                        }
+                        if (!isempty(arg_root))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Non-absolute paths are not allowed when --root is used: %s",
+                                                       *u);
 
-                        if (!strchr(*u,'/')) {
-                                log_error("Link argument does contain at least one directory separator: %s", *u);
-                                return -EINVAL;
-                        }
+                        if (!strchr(*u,'/'))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Link argument does contain at least one directory separator: %s",
+                                                       *u);
 
                         r = path_make_absolute_cwd(*u, &normalized_path);
                         if (r < 0)
@@ -6765,10 +6761,10 @@ static int get_file_to_edit(
         }
 
         if (arg_runtime) {
-                if (access(path, F_OK) >= 0) {
-                        log_error("Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.", run, path);
-                        return -EEXIST;
-                }
+                if (access(path, F_OK) >= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                               "Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.",
+                                               run, path);
 
                 *ret_path = TAKE_PTR(run);
         } else
@@ -7515,10 +7511,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't': {
-                        if (isempty(optarg)) {
-                                log_error("--type= requires arguments.");
-                                return -EINVAL;
-                        }
+                        if (isempty(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--type= requires arguments.");
 
                         for (p = optarg;;) {
                                 _cleanup_free_ char *type = NULL;
@@ -7553,8 +7548,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 }
 
                                 log_error("Unknown unit type or load state '%s'.", type);
-                                log_info("Use -t help to see a list of allowed values.");
-                                return -EINVAL;
+                                return log_info_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                      "Use -t help to see a list of allowed values.");
                         }
 
                         break;
@@ -7708,10 +7703,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_signal = signal_from_string(optarg);
-                        if (arg_signal < 0) {
-                                log_error("Failed to parse signal string %s.", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_signal < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse signal string %s.",
+                                                       optarg);
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -7733,10 +7728,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'n':
-                        if (safe_atou(optarg, &arg_lines) < 0) {
-                                log_error("Failed to parse lines '%s'", optarg);
-                                return -EINVAL;
-                        }
+                        if (safe_atou(optarg, &arg_lines) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse lines '%s'",
+                                                       optarg);
                         break;
 
                 case 'o':
@@ -7746,10 +7741,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_output = output_mode_from_string(optarg);
-                        if (arg_output < 0) {
-                                log_error("Unknown output '%s'.", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_output < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown output '%s'.",
+                                                       optarg);
                         break;
 
                 case 'i':
@@ -7765,10 +7760,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_STATE: {
-                        if (isempty(optarg)) {
-                                log_error("--state= requires arguments.");
-                                return -EINVAL;
-                        }
+                        if (isempty(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--state= requires arguments.");
 
                         for (p = optarg;;) {
                                 _cleanup_free_ char *s = NULL;
@@ -7793,10 +7787,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 }
 
                 case 'r':
-                        if (geteuid() != 0) {
-                                log_error("--recursive requires root privileges.");
-                                return -EPERM;
-                        }
+                        if (geteuid() != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "--recursive requires root privileges.");
 
                         arg_recursive = true;
                         break;
@@ -7808,10 +7801,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_preset_mode = unit_file_preset_mode_from_string(optarg);
-                        if (arg_preset_mode < 0) {
-                                log_error("Failed to parse preset mode: %s.", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_preset_mode < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse preset mode: %s.", optarg);
 
                         break;
 
@@ -7831,20 +7823,18 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL && arg_scope != UNIT_FILE_SYSTEM) {
-                log_error("Cannot access user instance remotely.");
-                return -EINVAL;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL && arg_scope != UNIT_FILE_SYSTEM)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot access user instance remotely.");
 
-        if (arg_wait && arg_no_block) {
-                log_error("--wait may not be combined with --no-block.");
-                return -EINVAL;
-        }
+        if (arg_wait && arg_no_block)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--wait may not be combined with --no-block.");
 
-        if (arg_runtime && STRPTR_IN_SET(argv[optind], "disable", "unmask", "preset", "preset-all")) {
-                log_error("--runtime cannot be used with %s", argv[optind]);
-                return -EINVAL;
-        }
+        if (arg_runtime && STRPTR_IN_SET(argv[optind], "disable", "unmask", "preset", "preset-all"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--runtime cannot be used with %s",
+                                       argv[optind]);
 
         return 1;
 }
@@ -7934,10 +7924,9 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 r = update_reboot_parameter_and_warn(argc == optind + 1 ? argv[optind] : NULL);
                 if (r < 0)
                         return r;
-        } else if (optind < argc) {
-                log_error("Too many arguments.");
-                return -EINVAL;
-        }
+        } else if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Too many arguments.");
 
         return 1;
 }
@@ -8151,29 +8140,26 @@ static int telinit_parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind >= argc) {
-                log_error("%s: required argument missing.", program_invocation_short_name);
-                return -EINVAL;
-        }
+        if (optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: required argument missing.",
+                                       program_invocation_short_name);
 
-        if (optind + 1 < argc) {
-                log_error("Too many arguments.");
-                return -EINVAL;
-        }
+        if (optind + 1 < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Too many arguments.");
 
-        if (strlen(argv[optind]) != 1) {
-                log_error("Expected single character argument.");
-                return -EINVAL;
-        }
+        if (strlen(argv[optind]) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Expected single character argument.");
 
         for (i = 0; i < ELEMENTSOF(table); i++)
                 if (table[i].from == argv[optind][0])
                         break;
 
-        if (i >= ELEMENTSOF(table)) {
-                log_error("Unknown command '%s'.", argv[optind]);
-                return -EINVAL;
-        }
+        if (i >= ELEMENTSOF(table))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown command '%s'.", argv[optind]);
 
         arg_action = table[i].to;
 
@@ -8210,10 +8196,9 @@ static int runlevel_parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind < argc) {
-                log_error("Too many arguments.");
-                return -EINVAL;
-        }
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Too many arguments.");
 
         return 1;
 }
@@ -8267,8 +8252,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 execv(TELINIT, argv);
 
-                                log_error("Couldn't find an alternative telinit implementation to spawn.");
-                                return -EIO;
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                                       "Couldn't find an alternative telinit implementation to spawn.");
                         }
 
                 } else if (strstr(program_invocation_short_name, "runlevel")) {
@@ -8439,8 +8424,8 @@ static int start_with_fallback(void) {
         if (talk_initctl() > 0)
                 return 0;
 
-        log_error("Failed to talk to init daemon.");
-        return -EIO;
+        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                               "Failed to talk to init daemon.");
 }
 
 static int halt_now(enum action a) {

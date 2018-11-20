@@ -372,18 +372,18 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         r = get_file_version(fd_from, &a);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                log_error("Source file \"%s\" does not carry version information!", from);
-                return -EINVAL;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Source file \"%s\" does not carry version information!",
+                                       from);
 
         r = get_file_version(fd_to, &b);
         if (r < 0)
                 return r;
-        if (r == 0 || compare_product(a, b) != 0) {
-                log_notice("Skipping \"%s\", since it's owned by another boot loader.", to);
-                return -EEXIST;
-        }
+        if (r == 0 || compare_product(a, b) != 0)
+                return log_notice_errno(SYNTHETIC_ERRNO(EEXIST),
+                                        "Skipping \"%s\", since it's owned by another boot loader.",
+                                        to);
 
         if (compare_version(a, b) < 0) {
                 log_warning("Skipping \"%s\", since a newer boot loader version exists already.", to);
@@ -1193,10 +1193,9 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
         const char *name;
         int r;
 
-        if (!is_efi_boot()) {
-                log_error("Not booted with UEFI.");
-                return -EOPNOTSUPP;
-        }
+        if (!is_efi_boot())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Not booted with UEFI.");
 
         if (access("/sys/firmware/efi/efivars/LoaderInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) < 0) {
                 if (errno == ENOENT) {
@@ -1207,15 +1206,15 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
                 return log_error_errno(errno, "Failed to detect whether boot loader supports '%s' operation: %m", argv[0]);
         }
 
-        if (detect_container() > 0) {
-                log_error("'%s' operation not supported in a container.", argv[0]);
-                return -EOPNOTSUPP;
-        }
+        if (detect_container() > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "'%s' operation not supported in a container.",
+                                       argv[0]);
 
-        if (!arg_touch_variables) {
-                log_error("'%s' operation cannot be combined with --touch-variables=no.", argv[0]);
-                return -EINVAL;
-        }
+        if (!arg_touch_variables)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'%s' operation cannot be combined with --touch-variables=no.",
+                                       argv[0]);
 
         name = streq(argv[0], "set-default") ? "LoaderEntryDefault" : "LoaderEntryOneShot";
 

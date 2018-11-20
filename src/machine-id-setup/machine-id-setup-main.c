@@ -97,10 +97,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind < argc) {
-                log_error("Extraneous arguments");
-                return -EINVAL;
-        }
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Extraneous arguments");
 
         return 1;
 }

@@ -137,10 +137,10 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         assert(_syspath);
 
         /* must be a subdirectory of /sys */
-        if (!path_startswith(_syspath, "/sys/")) {
-                log_debug("sd-device: Syspath '%s' is not a subdirectory of /sys", _syspath);
-                return -EINVAL;
-        }
+        if (!path_startswith(_syspath, "/sys/"))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "sd-device: Syspath '%s' is not a subdirectory of /sys",
+                                       _syspath);
 
         if (verify) {
                 r = chase_symlinks(_syspath, NULL, 0, &syspath);
@@ -159,10 +159,10 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                 return log_debug_errno(r, "sd-device: Failed to chase symlink /sys: %m");
 
                         p = path_startswith(syspath, real_sys);
-                        if (!p) {
-                                log_debug("sd-device: Canonicalized path '%s' does not starts with sysfs mount point '%s'", syspath, real_sys);
-                                return -ENODEV;
-                        }
+                        if (!p)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                       "sd-device: Canonicalized path '%s' does not starts with sysfs mount point '%s'",
+                                                       syspath, real_sys);
 
                         new_syspath = strjoin("/sys/", p);
                         if (!new_syspath)

@@ -82,8 +82,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unknown option code %c", c);
                 }
         }
 

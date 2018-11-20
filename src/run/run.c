@@ -408,10 +408,9 @@ static int parse_argv(int argc, char *argv[]) {
         with_trigger = !!arg_path_property || !!arg_socket_property || with_timer;
 
         /* currently, only single trigger (path, socket, timer) unit can be created simultaneously */
-        if ((int) !!arg_path_property + (int) !!arg_socket_property + (int) with_timer > 1) {
-                log_error("Only single trigger (path, socket, timer) unit can be created.");
-                return -EINVAL;
-        }
+        if ((int) !!arg_path_property + (int) !!arg_socket_property + (int) with_timer > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Only single trigger (path, socket, timer) unit can be created.");
 
         if (arg_stdio == ARG_STDIO_AUTO) {
                 /* If we both --pty and --pipe are specified we'll automatically pick --pty if we are connected fully
@@ -422,66 +421,54 @@ static int parse_argv(int argc, char *argv[]) {
                         ARG_STDIO_DIRECT;
         }
 
-        if ((optind >= argc) && (!arg_unit || !with_trigger)) {
-                log_error("Command line to execute required.");
-                return -EINVAL;
-        }
+        if ((optind >= argc) && (!arg_unit || !with_trigger))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Command line to execute required.");
 
-        if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Execution in user context is not supported on non-local systems.");
-                return -EINVAL;
-        }
+        if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Execution in user context is not supported on non-local systems.");
 
-        if (arg_scope && arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Scope execution is not supported on non-local systems.");
-                return -EINVAL;
-        }
+        if (arg_scope && arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Scope execution is not supported on non-local systems.");
 
-        if (arg_scope && (arg_remain_after_exit || arg_service_type)) {
-                log_error("--remain-after-exit and --service-type= are not supported in --scope mode.");
-                return -EINVAL;
-        }
+        if (arg_scope && (arg_remain_after_exit || arg_service_type))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--remain-after-exit and --service-type= are not supported in --scope mode.");
 
-        if (arg_stdio != ARG_STDIO_NONE && (with_trigger || arg_scope)) {
-                log_error("--pty/--pipe is not compatible in timer or --scope mode.");
-                return -EINVAL;
-        }
+        if (arg_stdio != ARG_STDIO_NONE && (with_trigger || arg_scope))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--pty/--pipe is not compatible in timer or --scope mode.");
 
-        if (arg_stdio != ARG_STDIO_NONE && arg_transport == BUS_TRANSPORT_REMOTE) {
-                log_error("--pty/--pipe is only supported when connecting to the local system or containers.");
-                return -EINVAL;
-        }
+        if (arg_stdio != ARG_STDIO_NONE && arg_transport == BUS_TRANSPORT_REMOTE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--pty/--pipe is only supported when connecting to the local system or containers.");
 
-        if (arg_stdio != ARG_STDIO_NONE && arg_no_block) {
-                log_error("--pty/--pipe is not compatible with --no-block.");
-                return -EINVAL;
-        }
+        if (arg_stdio != ARG_STDIO_NONE && arg_no_block)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--pty/--pipe is not compatible with --no-block.");
 
-        if (arg_scope && with_trigger) {
-                log_error("Path, socket or timer options are not supported in --scope mode.");
-                return -EINVAL;
-        }
+        if (arg_scope && with_trigger)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Path, socket or timer options are not supported in --scope mode.");
 
-        if (arg_timer_property && !with_timer) {
-                log_error("--timer-property= has no effect without any other timer options.");
-                return -EINVAL;
-        }
+        if (arg_timer_property && !with_timer)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--timer-property= has no effect without any other timer options.");
 
         if (arg_wait) {
-                if (arg_no_block) {
-                        log_error("--wait may not be combined with --no-block.");
-                        return -EINVAL;
-                }
+                if (arg_no_block)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--wait may not be combined with --no-block.");
 
-                if (with_trigger) {
-                        log_error("--wait may not be combined with path, socket or timer operations.");
-                        return -EINVAL;
-                }
+                if (with_trigger)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--wait may not be combined with path, socket or timer operations.");
 
-                if (arg_scope) {
-                        log_error("--wait may not be combined with --scope.");
-                        return -EINVAL;
-                }
+                if (arg_scope)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--wait may not be combined with --scope.");
         }
 
         return 1;
@@ -787,10 +774,10 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
          * name our transient units. */
 
         id = startswith(unique, ":1.");
-        if (!id) {
-                log_error("Unique name %s has unexpected format.", unique);
-                return -EINVAL;
-        }
+        if (!id)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unique name %s has unexpected format.",
+                                       unique);
 
         p = strjoin("run-u", id, ".", unit_type_to_string(t));
         if (!p)

@@ -256,10 +256,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_cat_config && argc > optind) {
-                log_error("Positional arguments are not allowed with --cat-config");
-                return -EINVAL;
-        }
+        if (arg_cat_config && argc > optind)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Positional arguments are not allowed with --cat-config");
 
         return 1;
 }

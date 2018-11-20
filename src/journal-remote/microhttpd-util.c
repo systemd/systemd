@@ -153,8 +153,7 @@ static int log_enable_gnutls_category(const char *cat) {
                                 log_reset_gnutls_level();
                                 return 0;
                         }
-        log_error("No such log category: %s", cat);
-        return -EINVAL;
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No such log category: %s", cat);
 }
 
 int setup_gnutls_logger(char **categories) {
@@ -206,10 +205,9 @@ static int get_client_cert(gnutls_session_t session, gnutls_x509_crt_t *client_c
         assert(client_cert);
 
         pcert = gnutls_certificate_get_peers(session, &listsize);
-        if (!pcert || !listsize) {
-                log_error("Failed to retrieve certificate chain");
-                return -EINVAL;
-        }
+        if (!pcert || !listsize)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to retrieve certificate chain");
 
         r = gnutls_x509_crt_init(&cert);
         if (r < 0) {

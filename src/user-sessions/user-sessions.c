@@ -15,10 +15,9 @@
 static int run(int argc, char*argv[]) {
         int r, k;
 
-        if (argc != 2) {
-                log_error("This program requires one argument.");
-                return -EINVAL;
-        }
+        if (argc != 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program requires one argument.");
 
         log_setup_service();
 
@@ -36,8 +35,7 @@ static int run(int argc, char*argv[]) {
         } else if (streq(argv[1], "stop"))
                 return create_shutdown_run_nologin_or_warn();
 
-        log_error("Unknown verb '%s'.", argv[1]);
-        return -EINVAL;
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb '%s'.", argv[1]);
 }
 
 DEFINE_MAIN_FUNCTION(run);

@@ -183,19 +183,19 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 case 'r':
                 case 'v':
                 case 'V':
-                        log_error("Switch -%c not supported.", c);
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Switch -%c not supported.", c);
 
                 /* The Debian resolvconf commands we don't support. */
                 case ARG_ENABLE_UPDATES:
-                        log_error("Switch --enable-updates not supported.");
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Switch --enable-updates not supported.");
                 case ARG_DISABLE_UPDATES:
-                        log_error("Switch --disable-updates not supported.");
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Switch --disable-updates not supported.");
                 case ARG_UPDATES_ARE_ENABLED:
-                        log_error("Switch --updates-are-enabled not supported.");
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Switch --updates-are-enabled not supported.");
 
                 case '?':
                         return -EINVAL;
@@ -204,15 +204,13 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_mode == _MODE_INVALID) {
-                log_error("Expected either -a or -d on the command line.");
-                return -EINVAL;
-        }
+        if (arg_mode == _MODE_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Expected either -a or -d on the command line.");
 
-        if (optind+1 != argc) {
-                log_error("Expected interface name as argument.");
-                return -EINVAL;
-        }
+        if (optind+1 != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Expected interface name as argument.");
 
         r = ifname_mangle(argv[optind], false);
         if (r <= 0)
@@ -268,10 +266,9 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 } else if (type == TYPE_PRIVATE)
                         log_debug("Private DNS server data not supported, ignoring.");
 
-                if (!arg_set_dns) {
-                        log_error("No DNS servers specified, refusing operation.");
-                        return -EINVAL;
-                }
+                if (!arg_set_dns)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "No DNS servers specified, refusing operation.");
         }
 
         return 1; /* work to do */

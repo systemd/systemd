@@ -62,10 +62,9 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
                 return 0;
         }
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Operations on images by path not supported when connecting to remote systems.");
-                return -EOPNOTSUPP;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Operations on images by path not supported when connecting to remote systems.");
 
         r = chase_symlinks(image, NULL, CHASE_TRAIL_SLASH | (permit_non_existing ? CHASE_NONEXISTENT : 0), ret);
         if (r < 0)
@@ -135,10 +134,9 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
 
         } else if (strv_equal(l, STRV_MAKE("-"))) {
 
-                if (!allow_any) {
-                        log_error("Refusing all unit file match.");
-                        return -EINVAL;
-                }
+                if (!allow_any)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Refusing all unit file match.");
 
                 if (!arg_quiet)
                         log_info("(Matching all unit files.)");
@@ -896,10 +894,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "help"))
                                 return dump_profiles();
 
-                        if (!filename_is_valid(optarg)) {
-                                log_error("Unit profile name not valid: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (!filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unit profile name not valid: %s", optarg);
 
                         arg_profile = optarg;
                         break;
@@ -914,10 +911,9 @@ static int parse_argv(int argc, char *argv[]) {
                                      "copy\n"
                                      "symlink");
                                 return 0;
-                        } else {
-                                log_error("Failed to parse --copy= argument: %s", optarg);
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse --copy= argument: %s", optarg);
 
                         break;
 

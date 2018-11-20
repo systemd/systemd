@@ -1382,12 +1382,10 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, bool
                 if (user)
                         r = bus_connect_user_systemd(bus);
                 else {
-                        if (sd_booted() <= 0) {
+                        if (sd_booted() <= 0)
                                 /* Print a friendly message when the local system is actually not running systemd as PID 1. */
-                                log_error("System has not been booted with systemd as init system (PID 1). Can't operate.");
-
-                                return -EHOSTDOWN;
-                        }
+                                return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                                       "System has not been booted with systemd as init system (PID 1). Can't operate.");
                         r = bus_connect_system_systemd(bus);
                 }
                 break;

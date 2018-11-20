@@ -123,10 +123,10 @@ static int create_disk(
         swap = fstab_test_option(options, "swap\0");
         netdev = fstab_test_option(options, "_netdev\0");
 
-        if (tmp && swap) {
-                log_error("Device '%s' cannot be both 'tmp' and 'swap'. Ignoring.", name);
-                return -EINVAL;
-        }
+        if (tmp && swap)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Device '%s' cannot be both 'tmp' and 'swap'. Ignoring.",
+                                       name);
 
         name_escaped = specifier_escape(name);
         if (!name_escaped)
@@ -158,10 +158,9 @@ static int create_disk(
                         return log_oom();
         }
 
-        if (keydev && !password) {
-                log_error("Key device is specified, but path to the password file is missing.");
-                return -EINVAL;
-        }
+        if (keydev && !password)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Key device is specified, but path to the password file is missing.");
 
         r = generator_open_unit_file(arg_dest, NULL, n, &f);
         if (r < 0)

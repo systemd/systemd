@@ -168,10 +168,10 @@ int rm_rf(const char *path, RemoveFlags flags) {
         /* We refuse to clean the root file system with this
          * call. This is extra paranoia to never cause a really
          * seriously broken system. */
-        if (path_equal_or_files_same(path, "/", AT_SYMLINK_NOFOLLOW)) {
-                log_error("Attempted to remove entire root file system (\"%s\"), and we can't allow that.", path);
-                return -EPERM;
-        }
+        if (path_equal_or_files_same(path, "/", AT_SYMLINK_NOFOLLOW))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Attempted to remove entire root file system (\"%s\"), and we can't allow that.",
+                                       path);
 
         if (FLAGS_SET(flags, REMOVE_SUBVOLUME | REMOVE_ROOT | REMOVE_PHYSICAL)) {
                 /* Try to remove as subvolume first */
@@ -194,10 +194,10 @@ int rm_rf(const char *path, RemoveFlags flags) {
                         if (statfs(path, &s) < 0)
                                 return -errno;
 
-                        if (is_physical_fs(&s)) {
-                                log_error("Attempted to remove files from a disk file system under \"%s\", refusing.", path);
-                                return -EPERM;
-                        }
+                        if (is_physical_fs(&s))
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "Attempted to remove files from a disk file system under \"%s\", refusing.",
+                                                       path);
                 }
 
                 if ((flags & REMOVE_ROOT) && !(flags & REMOVE_ONLY_DIRECTORIES))

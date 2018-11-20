@@ -471,10 +471,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         break;
                 }
         }
-        if (!recv_time) {
-                log_error("Invalid packet timestamp.");
-                return -EINVAL;
-        }
+        if (!recv_time)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid packet timestamp.");
 
         if (!m->pending) {
                 log_debug("Unexpected reply. Ignoring.");

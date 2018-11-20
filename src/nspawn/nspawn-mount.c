@@ -678,15 +678,15 @@ static int mount_bind(const char *dest, CustomMount *m) {
                 if (stat(where, &dest_st) < 0)
                         return log_error_errno(errno, "Failed to stat %s: %m", where);
 
-                if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode)) {
-                        log_error("Cannot bind mount directory %s on file %s.", m->source, where);
-                        return -EINVAL;
-                }
+                if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Cannot bind mount directory %s on file %s.",
+                                               m->source, where);
 
-                if (!S_ISDIR(source_st.st_mode) && S_ISDIR(dest_st.st_mode)) {
-                        log_error("Cannot bind mount file %s on directory %s.", m->source, where);
-                        return -EINVAL;
-                }
+                if (!S_ISDIR(source_st.st_mode) && S_ISDIR(dest_st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Cannot bind mount file %s on directory %s.",
+                                               m->source, where);
 
         } else { /* Path doesn't exist yet? */
                 r = mkdir_parents_label(where, 0755);

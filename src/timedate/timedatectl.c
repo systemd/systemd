@@ -438,15 +438,13 @@ static int map_server_address(sd_bus *bus, const char *member, sd_bus_message *m
                 return 0;
         }
 
-        if (!IN_SET(family, AF_INET, AF_INET6)) {
-                log_error("Unknown address family %i", family);
-                return -EINVAL;
-        }
+        if (!IN_SET(family, AF_INET, AF_INET6))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown address family %i", family);
 
-        if (sz != FAMILY_ADDRESS_SIZE(family)) {
-                log_error("Invalid address size");
-                return -EINVAL;
-        }
+        if (sz != FAMILY_ADDRESS_SIZE(family))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid address size");
 
         r = in_addr_to_string(family, d, p);
         if (r < 0)

@@ -253,10 +253,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_compress = IMPORT_COMPRESS_GZIP;
                         else if (streq(optarg, "bzip2"))
                                 arg_compress = IMPORT_COMPRESS_BZIP2;
-                        else {
-                                log_error("Unknown format: %s", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown format: %s", optarg);
                         break;
 
                 case '?':

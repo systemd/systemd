@@ -372,10 +372,10 @@ static int swap_setup_unit(
 
         if (u &&
             SWAP(u)->from_proc_swaps &&
-            !path_equal(SWAP(u)->parameters_proc_swaps.what, what_proc_swaps)) {
-                log_error("Swap %s appeared twice with different device paths %s and %s", e, SWAP(u)->parameters_proc_swaps.what, what_proc_swaps);
-                return -EEXIST;
-        }
+            !path_equal(SWAP(u)->parameters_proc_swaps.what, what_proc_swaps))
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Swap %s appeared twice with different device paths %s and %s",
+                                       e, SWAP(u)->parameters_proc_swaps.what, what_proc_swaps);
 
         if (!u) {
                 delete = true;

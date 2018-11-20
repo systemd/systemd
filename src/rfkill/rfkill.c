@@ -251,10 +251,9 @@ static int load_state(
         l = write(rfkill_fd, &we, sizeof(we));
         if (l < 0)
                 return log_error_errno(errno, "Failed to restore rfkill state for %i: %m", event->idx);
-        if (l != sizeof(we)) {
-                log_error("Couldn't write rfkill event structure, too short.");
-                return -EIO;
-        }
+        if (l != sizeof(we))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Couldn't write rfkill event structure, too short.");
 
         log_debug("Loaded state '%s' from %s.", one_zero(b), state_file);
         return 0;

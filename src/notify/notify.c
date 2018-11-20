@@ -96,10 +96,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PID:
 
                         if (optarg) {
-                                if (parse_pid(optarg, &arg_pid) < 0) {
-                                        log_error("Failed to parse PID %s.", optarg);
-                                        return -EINVAL;
-                                }
+                                if (parse_pid(optarg, &arg_pid) < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to parse PID %s.", optarg);
                         } else
                                 arg_pid = getppid();
 
@@ -208,10 +207,9 @@ static int run(int argc, char* argv[]) {
         r = sd_pid_notify(arg_pid ? arg_pid : getppid(), false, n);
         if (r < 0)
                 return log_error_errno(r, "Failed to notify init system: %m");
-        if (r == 0) {
-                log_error("No status data could be sent: $NOTIFY_SOCKET was not set");
-                return -EOPNOTSUPP;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "No status data could be sent: $NOTIFY_SOCKET was not set");
         return 0;
 }
 

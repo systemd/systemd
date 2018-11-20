@@ -1247,10 +1247,10 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
         assert(s);
         assert(fd == s->native_fd || fd == s->syslog_fd || fd == s->audit_fd);
 
-        if (revents != EPOLLIN) {
-                log_error("Got invalid event from epoll for datagram fd: %"PRIx32, revents);
-                return -EIO;
-        }
+        if (revents != EPOLLIN)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Got invalid event from epoll for datagram fd: %" PRIx32,
+                                       revents);
 
         /* Try to get the right size, if we can. (Not all sockets support SIOCINQ, hence we just try, but don't rely on
          * it.) */
@@ -1884,38 +1884,34 @@ int server_init(Server *s) {
 
                 if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/run/systemd/journal/socket", 0) > 0) {
 
-                        if (s->native_fd >= 0) {
-                                log_error("Too many native sockets passed.");
-                                return -EINVAL;
-                        }
+                        if (s->native_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many native sockets passed.");
 
                         s->native_fd = fd;
 
                 } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, "/run/systemd/journal/stdout", 0) > 0) {
 
-                        if (s->stdout_fd >= 0) {
-                                log_error("Too many stdout sockets passed.");
-                                return -EINVAL;
-                        }
+                        if (s->stdout_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many stdout sockets passed.");
 
                         s->stdout_fd = fd;
 
                 } else if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/dev/log", 0) > 0 ||
                            sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/run/systemd/journal/dev-log", 0) > 0) {
 
-                        if (s->syslog_fd >= 0) {
-                                log_error("Too many /dev/log sockets passed.");
-                                return -EINVAL;
-                        }
+                        if (s->syslog_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many /dev/log sockets passed.");
 
                         s->syslog_fd = fd;
 
                 } else if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
 
-                        if (s->audit_fd >= 0) {
-                                log_error("Too many audit sockets passed.");
-                                return -EINVAL;
-                        }
+                        if (s->audit_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many audit sockets passed.");
 
                         s->audit_fd = fd;
 

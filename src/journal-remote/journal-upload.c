@@ -198,10 +198,9 @@ int start_upload(Uploader *u,
                 CURL *curl;
 
                 curl = curl_easy_init();
-                if (!curl) {
-                        log_error("Call to curl_easy_init failed.");
-                        return -ENOSR;
-                }
+                if (!curl)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSR),
+                                               "Call to curl_easy_init failed.");
 
                 /* tell it to POST to the URL */
                 easy_setopt(curl, CURLOPT_POST, 1L,
@@ -265,11 +264,10 @@ int start_upload(Uploader *u,
 
         /* upload to this place */
         code = curl_easy_setopt(u->easy, CURLOPT_URL, u->url);
-        if (code) {
-                log_error("curl_easy_setopt CURLOPT_URL failed: %s",
-                          curl_easy_strerror(code));
-                return -EXFULL;
-        }
+        if (code)
+                return log_error_errno(SYNTHETIC_ERRNO(EXFULL),
+                                       "curl_easy_setopt CURLOPT_URL failed: %s",
+                                       curl_easy_strerror(code));
 
         u->uploading = true;
 
@@ -488,21 +486,20 @@ static int perform_upload(Uploader *u) {
         }
 
         code = curl_easy_getinfo(u->easy, CURLINFO_RESPONSE_CODE, &status);
-        if (code) {
-                log_error("Failed to retrieve response code: %s",
-                          curl_easy_strerror(code));
-                return -EUCLEAN;
-        }
+        if (code)
+                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                       "Failed to retrieve response code: %s",
+                                       curl_easy_strerror(code));
 
-        if (status >= 300) {
-                log_error("Upload to %s failed with code %ld: %s",
-                          u->url, status, strna(u->answer));
-                return -EIO;
-        } else if (status < 200) {
-                log_error("Upload to %s finished with unexpected code %ld: %s",
-                          u->url, status, strna(u->answer));
-                return -EIO;
-        } else
+        if (status >= 300)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Upload to %s failed with code %ld: %s",
+                                       u->url, status, strna(u->answer));
+        else if (status < 200)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Upload to %s finished with unexpected code %ld: %s",
+                                       u->url, status, strna(u->answer));
+        else
                 log_debug("Upload finished successfully with code %ld: %s",
                           status, strna(u->answer));
 
@@ -615,37 +612,33 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'u':
-                        if (arg_url) {
-                                log_error("cannot use more than one --url");
-                                return -EINVAL;
-                        }
+                        if (arg_url)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --url");
 
                         arg_url = optarg;
                         break;
 
                 case ARG_KEY:
-                        if (arg_key) {
-                                log_error("cannot use more than one --key");
-                                return -EINVAL;
-                        }
+                        if (arg_key)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --key");
 
                         arg_key = optarg;
                         break;
 
                 case ARG_CERT:
-                        if (arg_cert) {
-                                log_error("cannot use more than one --cert");
-                                return -EINVAL;
-                        }
+                        if (arg_cert)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --cert");
 
                         arg_cert = optarg;
                         break;
 
                 case ARG_TRUST:
-                        if (arg_trust) {
-                                log_error("cannot use more than one --trust");
-                                return -EINVAL;
-                        }
+                        if (arg_trust)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --trust");
 
                         arg_trust = optarg;
                         break;
@@ -663,19 +656,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        if (arg_machine) {
-                                log_error("cannot use more than one --machine/-M");
-                                return -EINVAL;
-                        }
+                        if (arg_machine)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --machine/-M");
 
                         arg_machine = optarg;
                         break;
 
                 case 'D':
-                        if (arg_directory) {
-                                log_error("cannot use more than one --directory/-D");
-                                return -EINVAL;
-                        }
+                        if (arg_directory)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --directory/-D");
 
                         arg_directory = optarg;
                         break;
@@ -687,19 +678,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CURSOR:
-                        if (arg_cursor) {
-                                log_error("cannot use more than one --cursor/--after-cursor");
-                                return -EINVAL;
-                        }
+                        if (arg_cursor)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --cursor/--after-cursor");
 
                         arg_cursor = optarg;
                         break;
 
                 case ARG_AFTER_CURSOR:
-                        if (arg_cursor) {
-                                log_error("cannot use more than one --cursor/--after-cursor");
-                                return -EINVAL;
-                        }
+                        if (arg_cursor)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --cursor/--after-cursor");
 
                         arg_cursor = optarg;
                         arg_after_cursor = true;
@@ -708,10 +697,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_FOLLOW:
                         if (optarg) {
                                 r = parse_boolean(optarg);
-                                if (r < 0) {
-                                        log_error("Failed to parse --follow= parameter.");
-                                        return -EINVAL;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to parse --follow= parameter.");
 
                                 arg_follow = !!r;
                         } else
@@ -724,31 +712,30 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case '?':
-                        log_error("Unknown option %s.", argv[optind-1]);
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unknown option %s.",
+                                               argv[optind - 1]);
 
                 case ':':
-                        log_error("Missing argument to %s.", argv[optind-1]);
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Missing argument to %s.",
+                                               argv[optind - 1]);
 
                 default:
                         assert_not_reached("Unhandled option code.");
                 }
 
-        if (!arg_url) {
-                log_error("Required --url/-u option missing.");
-                return -EINVAL;
-        }
+        if (!arg_url)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Required --url/-u option missing.");
 
-        if (!!arg_key != !!arg_cert) {
-                log_error("Options --key and --cert must be used together.");
-                return -EINVAL;
-        }
+        if (!!arg_key != !!arg_cert)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Options --key and --cert must be used together.");
 
-        if (optind < argc && (arg_directory || arg_file || arg_machine || arg_journal_type)) {
-                log_error("Input arguments make no sense with journal input.");
-                return -EINVAL;
-        }
+        if (optind < argc && (arg_directory || arg_file || arg_machine || arg_journal_type))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Input arguments make no sense with journal input.");
 
         return 1;
 }

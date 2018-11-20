@@ -41,10 +41,9 @@ static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *u
         else
                 action = 0;
 
-        if (curl_multi_socket_action(g->curl, translated_fd, action, &k) != CURLM_OK) {
-                log_debug("Failed to propagate IO event.");
-                return -EINVAL;
-        }
+        if (curl_multi_socket_action(g->curl, translated_fd, action, &k) != CURLM_OK)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to propagate IO event.");
 
         curl_glue_check_finished(g);
         return 0;
@@ -151,10 +150,9 @@ static int curl_glue_on_timer(sd_event_source *s, uint64_t usec, void *userdata)
         assert(s);
         assert(g);
 
-        if (curl_multi_socket_action(g->curl, CURL_SOCKET_TIMEOUT, 0, &k) != CURLM_OK) {
-                log_debug("Failed to propagate timeout.");
-                return -EINVAL;
-        }
+        if (curl_multi_socket_action(g->curl, CURL_SOCKET_TIMEOUT, 0, &k) != CURLM_OK)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to propagate timeout.");
 
         curl_glue_check_finished(g);
         return 0;

@@ -244,10 +244,10 @@ int job_install_deserialized(Job *j) {
 
         assert(!j->installed);
 
-        if (j->type < 0 || j->type >= _JOB_TYPE_MAX_IN_TRANSACTION) {
-                log_debug("Invalid job type %s in deserialization.", strna(job_type_to_string(j->type)));
-                return -EINVAL;
-        }
+        if (j->type < 0 || j->type >= _JOB_TYPE_MAX_IN_TRANSACTION)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid job type %s in deserialization.",
+                                       strna(job_type_to_string(j->type)));
 
         pj = (j->type == JOB_NOP) ? &j->unit->nop_job : &j->unit->job;
         if (*pj) {

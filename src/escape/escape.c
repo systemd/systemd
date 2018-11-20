@@ -85,20 +85,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SUFFIX:
 
-                        if (unit_type_from_string(optarg) < 0) {
-                                log_error("Invalid unit suffix type %s.", optarg);
-                                return -EINVAL;
-                        }
+                        if (unit_type_from_string(optarg) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid unit suffix type %s.", optarg);
 
                         arg_suffix = optarg;
                         break;
 
                 case ARG_TEMPLATE:
 
-                        if (!unit_name_is_valid(optarg, UNIT_NAME_TEMPLATE)) {
-                                log_error("Template name %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!unit_name_is_valid(optarg, UNIT_NAME_TEMPLATE))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Template name %s is not valid.", optarg);
 
                         arg_template = optarg;
                         break;
@@ -126,40 +124,33 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind >= argc) {
-                log_error("Not enough arguments.");
-                return -EINVAL;
-        }
+        if (optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough arguments.");
 
-        if (arg_template && arg_suffix) {
-                log_error("--suffix= and --template= may not be combined.");
-                return -EINVAL;
-        }
+        if (arg_template && arg_suffix)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--suffix= and --template= may not be combined.");
 
-        if ((arg_template || arg_suffix) && arg_action == ACTION_MANGLE) {
-                log_error("--suffix= and --template= are not compatible with --mangle.");
-                return -EINVAL;
-        }
+        if ((arg_template || arg_suffix) && arg_action == ACTION_MANGLE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--suffix= and --template= are not compatible with --mangle.");
 
-        if (arg_suffix && arg_action == ACTION_UNESCAPE) {
-                log_error("--suffix is not compatible with --unescape.");
-                return -EINVAL;
-        }
+        if (arg_suffix && arg_action == ACTION_UNESCAPE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--suffix is not compatible with --unescape.");
 
-        if (arg_path && !IN_SET(arg_action, ACTION_ESCAPE, ACTION_UNESCAPE)) {
-                log_error("--path may not be combined with --mangle.");
-                return -EINVAL;
-        }
+        if (arg_path && !IN_SET(arg_action, ACTION_ESCAPE, ACTION_UNESCAPE))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--path may not be combined with --mangle.");
 
-        if (arg_instance && arg_action != ACTION_UNESCAPE) {
-                log_error("--instance must be used in conjunction with --unescape.");
-                return -EINVAL;
-        }
+        if (arg_instance && arg_action != ACTION_UNESCAPE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--instance must be used in conjunction with --unescape.");
 
-        if (arg_instance && arg_template) {
-                log_error("--instance may not be combined with --template.");
-                return -EINVAL;
-        }
+        if (arg_instance && arg_template)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--instance may not be combined with --template.");
 
         return 1;
 }

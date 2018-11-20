@@ -173,15 +173,13 @@ static int parse_one_option(const char *option) {
         } else if ((val = startswith(option, "header="))) {
                 arg_type = ANY_LUKS;
 
-                if (!path_is_absolute(val)) {
-                        log_error("Header path \"%s\" is not absolute, refusing.", val);
-                        return -EINVAL;
-                }
+                if (!path_is_absolute(val))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Header path \"%s\" is not absolute, refusing.", val);
 
-                if (arg_header) {
-                        log_error("Duplicate header= option, refusing.");
-                        return -EINVAL;
-                }
+                if (arg_header)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Duplicate header= option, refusing.");
 
                 arg_header = strdup(val);
                 if (!arg_header)
@@ -216,8 +214,8 @@ static int parse_one_option(const char *option) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_veracrypt = true;
 #else
-                log_error("This version of cryptsetup does not support tcrypt-veracrypt; refusing.");
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This version of cryptsetup does not support tcrypt-veracrypt; refusing.");
 #endif
         } else if (STR_IN_SET(option, "plain", "swap", "tmp"))
                 arg_type = CRYPT_PLAIN;
@@ -463,10 +461,10 @@ static int attach_tcrypt(
 
         r = crypt_load(cd, CRYPT_TCRYPT, &params);
         if (r < 0) {
-                if (key_file && r == -EPERM) {
-                        log_error("Failed to activate using password file '%s'.", key_file);
-                        return -EAGAIN;
-                }
+                if (key_file && r == -EPERM)
+                        return log_error_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "Failed to activate using password file '%s'.",
+                                               key_file);
                 return r;
         }
 

@@ -2825,31 +2825,30 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                         return r;
 
                 /* Let's do the type check by hand, since we used 0 context above. */
-                if (o->object.type != OBJECT_DATA) {
-                        log_debug("%s:offset " OFSfmt ": object has type %d, expected %d",
-                                  j->unique_file->path, j->unique_offset,
-                                  o->object.type, OBJECT_DATA);
-                        return -EBADMSG;
-                }
+                if (o->object.type != OBJECT_DATA)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "%s:offset " OFSfmt ": object has type %d, expected %d",
+                                               j->unique_file->path,
+                                               j->unique_offset,
+                                               o->object.type, OBJECT_DATA);
 
                 r = return_data(j, j->unique_file, o, &odata, &ol);
                 if (r < 0)
                         return r;
 
                 /* Check if we have at least the field name and "=". */
-                if (ol <= k) {
-                        log_debug("%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
-                                  j->unique_file->path, j->unique_offset,
-                                  ol, k + 1);
-                        return -EBADMSG;
-                }
+                if (ol <= k)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
+                                               j->unique_file->path,
+                                               j->unique_offset, ol, k + 1);
 
-                if (memcmp(odata, j->unique_field, k) || ((const char*) odata)[k] != '=') {
-                        log_debug("%s:offset " OFSfmt ": object does not start with \"%s=\"",
-                                  j->unique_file->path, j->unique_offset,
-                                  j->unique_field);
-                        return -EBADMSG;
-                }
+                if (memcmp(odata, j->unique_field, k) || ((const char*) odata)[k] != '=')
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "%s:offset " OFSfmt ": object does not start with \"%s=\"",
+                                               j->unique_file->path,
+                                               j->unique_offset,
+                                               j->unique_field);
 
                 /* OK, now let's see if we already returned this data
                  * object by checking if it exists in the earlier
@@ -2980,10 +2979,11 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                         return r;
 
                 /* Because we used OBJECT_UNUSED above, we need to do our type check manually */
-                if (o->object.type != OBJECT_FIELD) {
-                        log_debug("%s:offset " OFSfmt ": object has type %i, expected %i", f->path, j->fields_offset, o->object.type, OBJECT_FIELD);
-                        return -EBADMSG;
-                }
+                if (o->object.type != OBJECT_FIELD)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "%s:offset " OFSfmt ": object has type %i, expected %i",
+                                               f->path, j->fields_offset,
+                                               o->object.type, OBJECT_FIELD);
 
                 sz = le64toh(o->object.size) - offsetof(Object, field.payload);
 

@@ -56,10 +56,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind < argc) {
-                log_error("%s takes no arguments.", program_invocation_short_name);
-                return -EINVAL;
-        }
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s takes no arguments.",
+                                       program_invocation_short_name);
 
         return 1;
 }

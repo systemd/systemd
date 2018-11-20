@@ -309,46 +309,39 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Execution in user context is not supported on non-local systems.");
-                return -EINVAL;
-        }
+        if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Execution in user context is not supported on non-local systems.");
 
         if (arg_action == ACTION_LIST) {
-                if (optind < argc) {
-                        log_error("Too many arguments.");
-                        return -EINVAL;
-                }
+                if (optind < argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Too many arguments.");
 
-                if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                        log_error("Listing devices only supported locally.");
-                        return -EOPNOTSUPP;
-                }
+                if (arg_transport != BUS_TRANSPORT_LOCAL)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Listing devices only supported locally.");
         } else if (arg_action == ACTION_UMOUNT) {
-                if (optind >= argc) {
-                        log_error("At least one argument required.");
-                        return -EINVAL;
-                }
+                if (optind >= argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "At least one argument required.");
 
                 if (arg_transport != BUS_TRANSPORT_LOCAL) {
                         int i;
 
                         for (i = optind; i < argc; i++)
-                                if (!path_is_absolute(argv[i]) ) {
-                                        log_error("Only absolute path is supported: %s", argv[i]);
-                                        return -EINVAL;
-                                }
+                                if (!path_is_absolute(argv[i]) )
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Only absolute path is supported: %s", argv[i]);
                 }
         } else {
-                if (optind >= argc) {
-                        log_error("At least one argument required.");
-                        return -EINVAL;
-                }
+                if (optind >= argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "At least one argument required.");
 
-                if (argc > optind+2) {
-                        log_error("At most two arguments required.");
-                        return -EINVAL;
-                }
+                if (argc > optind+2)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "At most two arguments required.");
 
                 if (arg_mount_type && (fstype_is_api_vfs(arg_mount_type) || fstype_is_network(arg_mount_type))) {
                         arg_mount_what = strdup(argv[optind]);
@@ -372,10 +365,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         path_simplify(arg_mount_what, false);
 
-                        if (!path_is_absolute(arg_mount_what)) {
-                                log_error("Only absolute path is supported: %s", arg_mount_what);
-                                return -EINVAL;
-                        }
+                        if (!path_is_absolute(arg_mount_what))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Only absolute path is supported: %s", arg_mount_what);
                 }
 
                 if (argc > optind+1) {
@@ -390,18 +382,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 path_simplify(arg_mount_where, false);
 
-                                if (!path_is_absolute(arg_mount_where)) {
-                                        log_error("Only absolute path is supported: %s", arg_mount_where);
-                                        return -EINVAL;
-                                }
+                                if (!path_is_absolute(arg_mount_where))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Only absolute path is supported: %s", arg_mount_where);
                         }
                 } else
                         arg_discover = true;
 
-                if (arg_discover && arg_transport != BUS_TRANSPORT_LOCAL) {
-                        log_error("Automatic mount location discovery is only supported locally.");
-                        return -EOPNOTSUPP;
-                }
+                if (arg_discover && arg_transport != BUS_TRANSPORT_LOCAL)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Automatic mount location discovery is only supported locally.");
         }
 
         return 1;
@@ -909,15 +899,13 @@ static int stop_mounts(
 
         int r;
 
-        if (path_equal(where, "/")) {
-                log_error("Refusing to operate on root directory: %s", where);
-                return -EINVAL;
-        }
+        if (path_equal(where, "/"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing to operate on root directory: %s", where);
 
-        if (!path_is_normalized(where)) {
-                log_error("Path contains non-normalized components: %s", where);
-                return -EINVAL;
-        }
+        if (!path_is_normalized(where))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Path contains non-normalized components: %s", where);
 
         r = stop_mount(bus, where, ".mount");
         if (r < 0)
@@ -1164,13 +1152,14 @@ static int acquire_mount_where_for_loop_dev(const char *loop_dev) {
         r = find_mount_points(loop_dev, &list);
         if (r < 0)
                 return r;
-        else if (r == 0) {
-                log_error("Can't find mount point of %s. It is expected that %s is already mounted on a place.", loop_dev, loop_dev);
-                return -EINVAL;
-        } else if (r >= 2) {
-                log_error("%s is mounted on %d places. It is expected that %s is mounted on a place.", loop_dev, r, loop_dev);
-                return -EINVAL;
-        }
+        else if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Can't find mount point of %s. It is expected that %s is already mounted on a place.",
+                                       loop_dev, loop_dev);
+        else if (r >= 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s is mounted on %d places. It is expected that %s is mounted on a place.",
+                                       loop_dev, r, loop_dev);
 
         arg_mount_where = strdup(list[0]);
         if (!arg_mount_where)

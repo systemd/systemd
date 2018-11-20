@@ -65,8 +65,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case 's':
                 case 'e':
                 case 'q':
-                        log_info("Option -%c no longer supported.", c);
-                        return -EINVAL;
+                        return log_info_errno(SYNTHETIC_ERRNO(EINVAL),
+                                              "Option -%c no longer supported.",
+                                              c);
                 case '?':
                         return -EINVAL;
                 default:

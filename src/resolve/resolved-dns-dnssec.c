@@ -1272,10 +1272,10 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (nsec3->key->type != DNS_TYPE_NSEC3)
                 return -EINVAL;
 
-        if (nsec3->nsec3.iterations > NSEC3_ITERATIONS_MAX) {
-                log_debug("Ignoring NSEC3 RR %s with excessive number of iterations.", dns_resource_record_to_string(nsec3));
-                return -EOPNOTSUPP;
-        }
+        if (nsec3->nsec3.iterations > NSEC3_ITERATIONS_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Ignoring NSEC3 RR %s with excessive number of iterations.",
+                                       dns_resource_record_to_string(nsec3));
 
         algorithm = nsec3_hash_to_gcrypt_md(nsec3->nsec3.algorithm);
         if (algorithm < 0)

@@ -100,8 +100,8 @@ static int print_home(const char *n) {
                 }
         }
 
-        log_error("Path %s not known.", n);
-        return -EOPNOTSUPP;
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Path %s not known.", n);
 }
 
 static int help(void) {

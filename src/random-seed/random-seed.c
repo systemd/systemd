@@ -32,10 +32,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        if (argc != 2) {
-                log_error("This program requires one argument.");
-                return -EINVAL;
-        }
+        if (argc != 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program requires one argument.");
 
         umask(0022);
 
@@ -104,10 +103,9 @@ static int run(int argc, char *argv[]) {
                 read_seed_file = false;
                 write_seed_file = true;
 
-        } else {
-                log_error("Unknown verb '%s'.", argv[1]);
-                return -EINVAL;
-        }
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown verb '%s'.", argv[1]);
 
         if (fstat(seed_fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat() seed file " RANDOM_SEED ": %m");
@@ -164,10 +162,9 @@ static int run(int argc, char *argv[]) {
                 k = loop_read(random_fd, buf, buf_size, false);
                 if (k < 0)
                         return log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
-                if (k == 0) {
-                        log_error("Got EOF while reading from /dev/urandom.");
-                        return -EIO;
-                }
+                if (k == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Got EOF while reading from /dev/urandom.");
 
                 r = loop_write(seed_fd, buf, (size_t) k, false);
                 if (r < 0)

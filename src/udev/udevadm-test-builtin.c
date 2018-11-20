@@ -49,16 +49,14 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         arg_command = argv[optind++];
-        if (!arg_command) {
-                log_error("Command missing.");
-                return -EINVAL;
-        }
+        if (!arg_command)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Command missing.");
 
         arg_syspath = argv[optind++];
-        if (!arg_syspath) {
-                log_error("syspath missing.");
-                return -EINVAL;
-        }
+        if (!arg_syspath)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "syspath missing.");
 
         return 1;
 }

@@ -49,10 +49,9 @@ static int write_hibernate_location_info(void) {
 
                 return r;
         }
-        if (!streq(type, "file")) {
-                log_debug("Invalid hibernate type: %s", type);
-                return -EINVAL;
-        }
+        if (!streq(type, "file"))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid hibernate type: %s", type);
 
         /* Only available in 4.17+ */
         if (access("/sys/power/resume_offset", W_OK) < 0) {
@@ -74,10 +73,9 @@ static int write_hibernate_location_info(void) {
         r = read_fiemap(fd, &fiemap);
         if (r < 0)
                 return log_debug_errno(r, "Unable to read extent map for '%s': %m", device);
-        if (fiemap->fm_mapped_extents == 0) {
-                log_debug("No extents found in '%s'", device);
-                return -EINVAL;
-        }
+        if (fiemap->fm_mapped_extents == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No extents found in '%s'", device);
 
         offset = fiemap->fm_extents[0].fe_physical / page_size();
         xsprintf(offset_str, "%" PRIu64, offset);
@@ -336,18 +334,16 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (argc - optind != 1) {
-                log_error("Usage: %s COMMAND",
-                          program_invocation_short_name);
-                return -EINVAL;
-        }
+        if (argc - optind != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Usage: %s COMMAND",
+                                       program_invocation_short_name);
 
         arg_verb = argv[optind];
 
-        if (!STR_IN_SET(arg_verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate")) {
-                log_error("Unknown command '%s'.", arg_verb);
-                return -EINVAL;
-        }
+        if (!STR_IN_SET(arg_verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown command '%s'.", arg_verb);
 
         return 1 /* work to do */;
 }
@@ -368,10 +364,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (!allow) {
-                log_error("Sleep mode \"%s\" is disabled by configuration, refusing.", arg_verb);
-                return -EACCES;
-        }
+        if (!allow)
+                return log_error_errno(SYNTHETIC_ERRNO(EACCES),
+                                       "Sleep mode \"%s\" is disabled by configuration, refusing.",
+                                       arg_verb);
 
         if (streq(arg_verb, "suspend-then-hibernate"))
                 return execute_s2h(delay);
