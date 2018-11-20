@@ -8,6 +8,7 @@
 #include "bus-error.h"
 #include "fs-util.h"
 #include "label.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "path-util.h"

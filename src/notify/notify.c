@@ -12,6 +12,7 @@
 #include "env-util.h"
 #include "format-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"

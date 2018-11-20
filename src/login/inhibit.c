@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "main-func.h"
 #include "pager.h"
 #include "process-util.h"
 #include "signal-util.h"

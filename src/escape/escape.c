@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"

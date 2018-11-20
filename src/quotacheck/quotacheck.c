@@ -6,6 +6,7 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"

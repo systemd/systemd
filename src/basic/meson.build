@@ -183,6 +183,7 @@ basic_sources = files('''
         special.h
         stat-util.c
         stat-util.h
+        static-destruct.h
         stdio-util.h
         strbuf.c
         strbuf.h

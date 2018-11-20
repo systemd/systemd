@@ -14,6 +14,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "hostname-util.h"
+#include "main-func.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
 #include "util.h"

@@ -17,6 +17,7 @@
 #include "label.h"
 #include "machine-image.h"
 #include "machined.h"
+#include "main-func.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "special.h"

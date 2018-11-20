@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "def.h"
+#include "main-func.h"
 #include "portabled-bus.h"
 #include "portabled-image-bus.h"
 #include "portabled.h"

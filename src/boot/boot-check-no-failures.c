@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "log.h"
+#include "main-func.h"
 #include "util.h"
 
 static int help(void) {

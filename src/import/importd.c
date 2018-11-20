@@ -13,6 +13,7 @@
 #include "hostname-util.h"
 #include "import-util.h"
 #include "machine-pool.h"
+#include "main-func.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"

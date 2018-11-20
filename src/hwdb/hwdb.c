@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "hwdb-util.h"
+#include "main-func.h"
 #include "selinux-util.h"
 #include "terminal-util.h"
 #include "util.h"

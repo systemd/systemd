@@ -9,6 +9,7 @@
 #include "hostname-util.h"
 #include "import-util.h"
 #include "machine-image.h"
+#include "main-func.h"
 #include "parse-util.h"
 #include "pull-raw.h"
 #include "pull-tar.h"

@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "main-func.h"
 #include "parse-util.h"
 #include "sleep-config.h"
 #include "stdio-util.h"

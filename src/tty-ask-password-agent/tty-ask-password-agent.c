@@ -30,6 +30,7 @@
 #include "hashmap.h"
 #include "io-util.h"
 #include "macro.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"

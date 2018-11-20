@@ -14,6 +14,7 @@
 #include "hexdecoct.h"
 #include "install.h"
 #include "log.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"

@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "id128-print.h"
+#include "main-func.h"
 #include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"

@@ -19,6 +19,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
