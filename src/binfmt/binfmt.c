@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "main-func.h"
 #include "pager.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -125,7 +126,6 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
@@ -178,7 +178,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(pager_closep) Pager pager;
         int r, k;
 
@@ -207,16 +207,13 @@ int main(int argc, char *argv[]) {
                 char **f;
 
                 r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("binfmt.d"));
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enumerate binfmt.d files: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate binfmt.d files: %m");
 
                 if (arg_cat_config) {
                         (void) pager_open(arg_pager_flags);
 
-                        r = cat_files(NULL, files, 0);
-                        goto finish;
+                        return cat_files(NULL, files, 0);
                 }
 
                 /* Flush out all rules */
@@ -229,6 +226,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
