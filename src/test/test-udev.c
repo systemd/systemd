@@ -14,6 +14,7 @@
 #include "device-private.h"
 #include "fs-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "selinux-util.h"
@@ -53,7 +54,7 @@ static int fake_filesystems(void) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
         _cleanup_(udev_event_freep) struct udev_event *event = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -64,19 +65,20 @@ int main(int argc, char *argv[]) {
 
         if (!IN_SET(argc, 2, 3)) {
                 log_error("This program needs one or two arguments, %d given", argc - 1);
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
-        if (fake_filesystems() < 0)
-                return EXIT_FAILURE;
+        r = fake_filesystems();
+        if (r < 0)
+                return r;
 
         if (argc == 2) {
                 if (!streq(argv[1], "check")) {
                         log_error("Unknown argument: %s", argv[1]);
-                        return EXIT_FAILURE;
+                        return -EINVAL;
                 }
 
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         log_debug("version %s", PACKAGE_VERSION);
@@ -89,10 +91,8 @@ int main(int argc, char *argv[]) {
 
         const char *syspath = strjoina("/sys", devpath);
         r = device_new_from_synthetic_event(&dev, syspath, action);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to open device '%s'", devpath);
-                goto out;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open device '%s'", devpath);
 
         assert_se(event = udev_event_new(dev, 0, NULL));
 
@@ -122,8 +122,8 @@ int main(int argc, char *argv[]) {
 
         udev_event_execute_rules(event, 3 * USEC_PER_SEC, NULL, rules);
         udev_event_execute_run(event, 3 * USEC_PER_SEC);
-out:
-        mac_selinux_finish();
 
-        return EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

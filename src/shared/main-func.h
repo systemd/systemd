@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "pager.h"
+#include "selinux-util.h"
 #include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "static-destruct.h"
@@ -15,6 +16,7 @@
                 static_destruct();                                      \
                 ask_password_agent_close();                             \
                 polkit_agent_close();                                   \
+                mac_selinux_finish();                                   \
                 pager_close();                                          \
                 return ret;                                             \
         }
