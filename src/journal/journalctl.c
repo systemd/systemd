@@ -2078,6 +2078,7 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         sd_id128_t previous_boot_id;
@@ -2687,7 +2688,6 @@ int main(int argc, char *argv[]) {
 
 finish:
         fflush(stdout);
-        pager_close();
 
         strv_free(arg_file);
 

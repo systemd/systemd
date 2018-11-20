@@ -1252,6 +1252,7 @@ static int bootctl_main(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         int r;
 
         log_parse_environment();
@@ -1268,7 +1269,6 @@ int main(int argc, char *argv[]) {
         r = bootctl_main(argc, argv);
 
  finish:
-        pager_close();
         free(arg_path);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

@@ -1990,6 +1990,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
 
         static const Verb verbs[] = {
                 { "help",              VERB_ANY, VERB_ANY, 0,            help                   },
@@ -2031,8 +2032,6 @@ int main(int argc, char *argv[]) {
         r = dispatch_verb(argc, argv, verbs, NULL);
 
 finish:
-        pager_close();
-
         strv_free(arg_dot_from_patterns);
         strv_free(arg_dot_to_patterns);
 

@@ -1164,6 +1164,7 @@ static void warn_networkd_missing(void) {
 }
 
 int main(int argc, char* argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         int r;
 
         log_parse_environment();
@@ -1178,7 +1179,5 @@ int main(int argc, char* argv[]) {
         r = networkctl_main(argc, argv);
 
 finish:
-        pager_close();
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

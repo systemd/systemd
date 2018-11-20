@@ -15,3 +15,9 @@ void pager_close(void);
 bool pager_have(void) _pure_;
 
 int show_man_page(const char *page, bool null_stdio);
+
+/* A dummy struct to make _cleanup_ type-safe */
+typedef struct Pager {} Pager;
+static inline void pager_closep(Pager *pager) {
+        pager_close();
+}

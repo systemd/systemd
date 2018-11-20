@@ -161,6 +161,7 @@ static void show_cg_info(const char *controller, const char *path) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         int r, output_flags;
 
         log_parse_environment();
@@ -302,7 +303,6 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to list cgroup tree: %m");
 
 finish:
-        pager_close();
         free(arg_names); /* don't free the strings */
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

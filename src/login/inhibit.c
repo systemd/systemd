@@ -268,6 +268,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -282,12 +283,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
 
-        if (arg_action == ACTION_LIST) {
-                r = print_inhibitors(bus);
-                pager_close();
-                return r;
+        if (arg_action == ACTION_LIST)
+                return print_inhibitors(bus);
 
-        } else {
+        else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_close_ int fd = -1;
                 _cleanup_free_ char *w = NULL;

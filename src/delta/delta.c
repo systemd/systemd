@@ -637,6 +637,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         int r, k, n_found = 0;
 
         log_parse_environment();
@@ -681,7 +682,5 @@ int main(int argc, char *argv[]) {
                 printf("%s%i overridden configuration files found.\n", n_found ? "\n" : "", n_found);
 
 finish:
-        pager_close();
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

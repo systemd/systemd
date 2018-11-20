@@ -3110,6 +3110,7 @@ static int read_config_files(char **config_dirs, char **args, bool *invalid_conf
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         int r, k, r_process = 0;
         ItemArray *a;
         Iterator iterator;
@@ -3195,8 +3196,6 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        pager_close();
-
         ordered_hashmap_free_with_destructor(items, item_array_free);
         ordered_hashmap_free_with_destructor(globs, item_array_free);
 

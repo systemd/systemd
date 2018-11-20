@@ -1063,6 +1063,7 @@ static int coredumpctl_main(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         int r, units_active;
 
         setlocale(LC_ALL, "");
@@ -1088,8 +1089,6 @@ int main(int argc, char *argv[]) {
                        units_active, units_active == 1 ? "unit is running" : "units are running",
                        ansi_normal());
 end:
-        pager_close();
-
         safe_fclose(arg_output);
 
         return r >= 0 ? r : EXIT_FAILURE;

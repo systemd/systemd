@@ -4242,6 +4242,7 @@ static int initialize_rlimits(void) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         _cleanup_free_ char *console = NULL;
         _cleanup_close_ int master = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
@@ -4605,8 +4606,6 @@ finish:
 
         if (pid > 0)
                 (void) wait_for_terminate(pid, NULL);
-
-        pager_close();
 
         if (remove_directory && arg_directory) {
                 int k;

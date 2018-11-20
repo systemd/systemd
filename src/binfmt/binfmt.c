@@ -179,6 +179,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         int r, k;
 
         r = parse_argv(argc, argv);
@@ -229,7 +230,5 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        pager_close();
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

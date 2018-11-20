@@ -848,6 +848,7 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         sd_bus *bus = NULL;
         int r;
 
@@ -871,7 +872,6 @@ finish:
         /* make sure we terminate the bus connection first, and then close the
          * pager, see issue #3543 for the details. */
         sd_bus_flush_close_unref(bus);
-        pager_close();
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

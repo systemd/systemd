@@ -1923,6 +1923,7 @@ static int read_config_files(char **args) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(pager_closep) Pager pager;
         _cleanup_close_ int lock = -1;
         Iterator iterator;
         int r;
@@ -2015,8 +2016,6 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to write files: %m");
 
 finish:
-        pager_close();
-
         ordered_hashmap_free_with_destructor(groups, item_free);
         ordered_hashmap_free_with_destructor(users, item_free);
 

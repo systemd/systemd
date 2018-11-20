@@ -943,7 +943,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "help",        VERB_ANY, VERB_ANY, 0,            help              },
                 { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_images       },
@@ -957,6 +956,7 @@ int main(int argc, char *argv[]) {
                 {}
         };
 
+        _cleanup_(pager_closep) Pager pager;
         int r;
 
         log_parse_environment();
@@ -969,7 +969,5 @@ int main(int argc, char *argv[]) {
         r = dispatch_verb(argc, argv, verbs, NULL);
 
 finish:
-        pager_close();
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

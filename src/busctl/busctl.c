@@ -2418,6 +2418,9 @@ static int busctl_main(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        /* The pager must be closed last, after the connection has been terminated.
+         * See issue #3543 for details. */
+        _cleanup_(pager_closep) Pager pager;
         int r;
 
         log_parse_environment();
@@ -2430,10 +2433,6 @@ int main(int argc, char *argv[]) {
         r = busctl_main(argc, argv);
 
 finish:
-        /* make sure we terminate the bus connection first, and then close the
-         * pager, see issue #3543 for the details. */
-        pager_close();
-
         arg_matches = strv_free(arg_matches);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
