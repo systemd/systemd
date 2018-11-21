@@ -1270,7 +1270,11 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 CGroupMask unit_get_own_mask(Unit *u) {
         CGroupContext *c;
 
-        /* Returns the mask of controllers the unit needs for itself */
+        /* Returns the mask of controllers the unit needs for itself. If a unit is not properly loaded, return an empty
+         * mask, as we shouldn't reflect it in the cgroup hierarchy then. */
+
+        if (u->load_state != UNIT_LOADED)
+                return 0;
 
         c = unit_get_cgroup_context(u);
         if (!c)
