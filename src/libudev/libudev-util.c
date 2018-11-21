@@ -2,13 +2,12 @@
 
 #include <ctype.h>
 #include <errno.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+
+#include "sd-device.h"
 
 #include "device-nodes.h"
 #include "libudev-util.h"
+#include "string-util.h"
 #include "strxcpyx.h"
 #include "utf8.h"
 
@@ -20,16 +19,14 @@
  */
 
 /* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
-int util_resolve_subsys_kernel(const char *string,
-                               char *result, size_t maxsize, int read_value) {
-        char temp[UTIL_PATH_SIZE];
-        char *subsys;
-        char *sysname;
-        struct udev_device *dev;
-        char *attr;
+int util_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value) {
+        char temp[UTIL_PATH_SIZE], *subsys, *sysname, *attr;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *val;
+        int r;
 
         if (string[0] != '[')
-                return -1;
+                return -EINVAL;
 
         strscpy(temp, sizeof(temp), string);
 
@@ -37,13 +34,13 @@ int util_resolve_subsys_kernel(const char *string,
 
         sysname = strchr(subsys, '/');
         if (!sysname)
-                return -1;
+                return -EINVAL;
         sysname[0] = '\0';
         sysname = &sysname[1];
 
         attr = strchr(sysname, ']');
         if (!attr)
-                return -1;
+                return -EINVAL;
         attr[0] = '\0';
         attr = &attr[1];
         if (attr[0] == '/')
@@ -52,37 +49,37 @@ int util_resolve_subsys_kernel(const char *string,
                 attr = NULL;
 
         if (read_value && !attr)
-                return -1;
+                return -EINVAL;
 
-        dev = udev_device_new_from_subsystem_sysname(NULL, subsys, sysname);
-        if (!dev)
-                return -1;
+        r = sd_device_new_from_subsystem_sysname(&dev, subsys, sysname);
+        if (r < 0)
+                return r;
 
         if (read_value) {
-                const char *val;
-
-                val = udev_device_get_sysattr_value(dev, attr);
-                if (val)
-                        strscpy(result, maxsize, val);
-                else
+                r = sd_device_get_sysattr_value(dev, attr, &val);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (r == -ENOENT)
                         result[0] = '\0';
+                else
+                        strscpy(result, maxsize, val);
                 log_debug("value '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
         } else {
-                size_t l;
-                char *s;
+                r = sd_device_get_syspath(dev, &val);
+                if (r < 0)
+                        return r;
 
-                s = result;
-                l = strpcpyl(&s, maxsize, udev_device_get_syspath(dev), NULL);
-                if (attr)
-                        strpcpyl(&s, l, "/", attr, NULL);
-                log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
+                strscpyl(result, maxsize, val, attr ? "/" : NULL, attr ?: NULL, NULL);
+                log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, strempty(attr), result);
         }
-        udev_device_unref(dev);
         return 0;
 }
 
 size_t util_path_encode(const char *src, char *dest, size_t size) {
         size_t i, j;
+
+        assert(src);
+        assert(dest);
 
         for (i = 0, j = 0; src[i] != '\0'; i++) {
                 if (src[i] == '/') {
@@ -126,37 +123,41 @@ size_t util_path_encode(const char *src, char *dest, size_t size) {
  * Note this may be called with 'str' == 'to', i.e. to replace whitespace
  * in-place in a buffer.  This function can handle that situation.
  */
-int util_replace_whitespace(const char *str, char *to, size_t len) {
-        size_t i, j;
+size_t util_replace_whitespace(const char *str, char *to, size_t len) {
+        bool is_space = false;
+        const char *p = str;
+        size_t j;
 
-        /* strip trailing whitespace */
-        len = strnlen(str, len);
-        while (len && isspace(str[len-1]))
-                len--;
+        assert(str);
+        assert(to);
 
-        /* strip leading whitespace */
-        i = 0;
-        while ((i < len) && isspace(str[i]))
-                i++;
+        p += strspn(p, WHITESPACE);
 
-        j = 0;
-        while (i < len) {
-                /* substitute multiple whitespace with a single '_' */
-                if (isspace(str[i])) {
-                        while (isspace(str[i]))
-                                i++;
-                        to[j++] = '_';
+        for (j = 0; j < len && *p != '\0'; p++) {
+                if (isspace(*p)) {
+                        is_space = true;
+                        continue;
                 }
-                to[j++] = str[i++];
+
+                if (is_space) {
+                        if (j + 1 >= len)
+                                break;
+
+                        to[j++] = '_';
+                        is_space = false;
+                }
+                to[j++] = *p;
         }
+
         to[j] = '\0';
         return j;
 }
 
 /* allow chars in whitelist, plain ascii, hex-escaping and valid utf8 */
-int util_replace_chars(char *str, const char *white) {
-        size_t i = 0;
-        int replaced = 0;
+size_t util_replace_chars(char *str, const char *white) {
+        size_t i = 0, replaced = 0;
+
+        assert(str);
 
         while (str[i] != '\0') {
                 int len;

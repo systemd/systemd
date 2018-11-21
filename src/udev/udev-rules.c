@@ -1688,7 +1688,7 @@ static int match_attr(struct udev_rules *rules, sd_device *dev, struct udev_even
                         return -1;
                 break;
         case SB_SUBSYS:
-                if (util_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), 1) != 0)
+                if (util_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) != 0)
                         return -1;
                 value = vbuf;
                 break;
@@ -1931,7 +1931,7 @@ int udev_rules_apply_to_event(
                         int match;
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), filename, sizeof(filename), false);
-                        if (util_resolve_subsys_kernel(filename, filename, sizeof(filename), 0) != 0) {
+                        if (util_resolve_subsys_kernel(filename, filename, sizeof(filename), false) != 0) {
                                 if (filename[0] != '/') {
                                         char tmp[UTIL_PATH_SIZE];
 
@@ -2374,7 +2374,7 @@ int udev_rules_apply_to_event(
                         const char *key_name;
 
                         key_name = rules_str(rules, cur->key.attr_off);
-                        if (util_resolve_subsys_kernel(key_name, attr, sizeof(attr), 0) != 0 &&
+                        if (util_resolve_subsys_kernel(key_name, attr, sizeof(attr), false) != 0 &&
                             sd_device_get_syspath(dev, &val) >= 0)
                                 strscpyl(attr, sizeof(attr), val, "/", key_name, NULL);
                         attr_subst_subdir(attr, sizeof(attr));

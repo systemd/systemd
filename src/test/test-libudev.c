@@ -6,6 +6,7 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "libudev-util.h"
 #include "log.h"
@@ -329,6 +330,80 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
         assert_se(hwdb == NULL);
 }
 
+static void test_util_replace_whitespace_one_len(const char *str, size_t len, const char *expected) {
+        _cleanup_free_ char *result = NULL;
+        int r;
+
+        result = new(char, len + 1);
+        assert_se(result);
+        r = util_replace_whitespace(str, result, len);
+        assert_se((size_t) r == strlen(expected));
+        assert_se(streq(result, expected));
+}
+
+static void test_util_replace_whitespace_one(const char *str, const char *expected) {
+        test_util_replace_whitespace_one_len(str, strlen(str), expected);
+}
+
+static void test_util_replace_whitespace(void) {
+        test_util_replace_whitespace_one("hogehoge", "hogehoge");
+        test_util_replace_whitespace_one("hoge  hoge", "hoge_hoge");
+        test_util_replace_whitespace_one("  hoge  hoge  ", "hoge_hoge");
+        test_util_replace_whitespace_one("     ", "");
+        test_util_replace_whitespace_one("hoge ", "hoge");
+
+        test_util_replace_whitespace_one_len("hoge hoge    ", 9, "hoge_hoge");
+        test_util_replace_whitespace_one_len("hoge hoge    ", 8, "hoge_hog");
+        test_util_replace_whitespace_one_len("hoge hoge    ", 7, "hoge_ho");
+        test_util_replace_whitespace_one_len("hoge hoge    ", 6, "hoge_h");
+        test_util_replace_whitespace_one_len("hoge hoge    ", 5, "hoge");
+        test_util_replace_whitespace_one_len("hoge hoge    ", 4, "hoge");
+        test_util_replace_whitespace_one_len("hoge hoge    ", 3, "hog");
+        test_util_replace_whitespace_one_len("hoge hoge    ", 2, "ho");
+        test_util_replace_whitespace_one_len("hoge hoge    ", 1, "h");
+        test_util_replace_whitespace_one_len("hoge hoge    ", 0, "");
+
+        test_util_replace_whitespace_one_len("         hoge   hoge    ", 9, "hoge_hoge");
+        test_util_replace_whitespace_one_len("         hoge   hoge    ", 8, "hoge_hog");
+        test_util_replace_whitespace_one_len("         hoge   hoge    ", 7, "hoge_ho");
+        test_util_replace_whitespace_one_len("         hoge   hoge    ", 6, "hoge_h");
+        test_util_replace_whitespace_one_len("         hoge   hoge    ", 5, "hoge");
+        test_util_replace_whitespace_one_len("         hoge   hoge    ", 4, "hoge");
+        test_util_replace_whitespace_one_len("         hoge   hoge    ", 3, "hog");
+        test_util_replace_whitespace_one_len("         hoge   hoge    ", 2, "ho");
+        test_util_replace_whitespace_one_len("         hoge   hoge    ", 1, "h");
+        test_util_replace_whitespace_one_len("         hoge   hoge    ", 0, "");
+}
+
+static void test_util_resolve_subsys_kernel_one(const char *str, bool read_value, int retval, const char *expected) {
+        char result[UTIL_PATH_SIZE];
+        int r;
+
+        r = util_resolve_subsys_kernel(str, result, sizeof(result), read_value);
+        assert_se(r == retval);
+        if (r >= 0)
+                assert_se(streq(result, expected));
+}
+
+static void test_util_resolve_subsys_kernel(void) {
+        test_util_resolve_subsys_kernel_one("hoge", false, -EINVAL, NULL);
+        test_util_resolve_subsys_kernel_one("[hoge", false, -EINVAL, NULL);
+        test_util_resolve_subsys_kernel_one("[hoge/foo", false, -EINVAL, NULL);
+        test_util_resolve_subsys_kernel_one("[hoge/]", false, -ENODEV, NULL);
+
+        test_util_resolve_subsys_kernel_one("[net/lo]", false, 0, "/sys/devices/virtual/net/lo");
+        test_util_resolve_subsys_kernel_one("[net/lo]/", false, 0, "/sys/devices/virtual/net/lo");
+        test_util_resolve_subsys_kernel_one("[net/lo]hoge", false, 0, "/sys/devices/virtual/net/lo/hoge");
+        test_util_resolve_subsys_kernel_one("[net/lo]/hoge", false, 0, "/sys/devices/virtual/net/lo/hoge");
+
+        test_util_resolve_subsys_kernel_one("[net/lo]", true, -EINVAL, NULL);
+        test_util_resolve_subsys_kernel_one("[net/lo]/", true, -EINVAL, NULL);
+        test_util_resolve_subsys_kernel_one("[net/lo]hoge", true, 0, "");
+        test_util_resolve_subsys_kernel_one("[net/lo]/hoge", true, 0, "");
+        test_util_resolve_subsys_kernel_one("[net/lo]address", true, 0, "00:00:00:00:00:00");
+        test_util_resolve_subsys_kernel_one("[net/lo]/address", true, 0, "00:00:00:00:00:00");
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(udev_unrefp) struct udev *udev = NULL;
         bool arg_monitor = false;
@@ -397,7 +472,6 @@ int main(int argc, char *argv[]) {
         test_device_subsys_name(udev, "subsystem", "pci");
         test_device_subsys_name(udev, "drivers", "scsi:sd");
         test_device_subsys_name(udev, "module", "printk");
-
         test_device_parents(udev, syspath);
 
         test_enumerate(udev, subsystem);
@@ -408,6 +482,9 @@ int main(int argc, char *argv[]) {
 
         if (arg_monitor)
                 test_monitor(udev);
+
+        test_util_replace_whitespace();
+        test_util_resolve_subsys_kernel();
 
         return EXIT_SUCCESS;
 }
