@@ -77,7 +77,7 @@ int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key
                 return 0;
         }
 
-        r = dns_name_concat(dns_resource_key_name(key), name, &joined);
+        r = dns_name_concat(dns_resource_key_name(key), name, 0, &joined);
         if (r < 0)
                 return r;
 
@@ -222,7 +222,7 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, 
         if (search_domain) {
                 _cleanup_free_ char *joined = NULL;
 
-                r = dns_name_concat(dns_resource_key_name(key), search_domain, &joined);
+                r = dns_name_concat(dns_resource_key_name(key), search_domain, 0, &joined);
                 if (r < 0)
                         return r;
 
@@ -254,7 +254,7 @@ int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsRe
         if (search_domain) {
                 _cleanup_free_ char *joined = NULL;
 
-                r = dns_name_concat(dns_resource_key_name(key), search_domain, &joined);
+                r = dns_name_concat(dns_resource_key_name(key), search_domain, 0, &joined);
                 if (r < 0)
                         return r;
 

@@ -24,13 +24,18 @@
 /* Maximum number of labels per valid hostname */
 #define DNS_N_LABELS_MAX 127
 
-int dns_label_unescape(const char **name, char *dest, size_t sz);
+typedef enum DNSLabelFlags {
+        DNS_LABEL_LDH        = 1 << 0, /* Follow the "LDH" rule — only letters, digits, and internal hyphens. */
+        DNS_LABEL_NO_ESCAPES = 1 << 1, /* Do not treat backslashes specially */
+} DNSLabelFlags;
+
+int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags flags);
 int dns_label_unescape_suffix(const char *name, const char **label_end, char *dest, size_t sz);
 int dns_label_escape(const char *p, size_t l, char *dest, size_t sz);
 int dns_label_escape_new(const char *p, size_t l, char **ret);
 
 static inline int dns_name_parent(const char **name) {
-        return dns_label_unescape(name, NULL, DNS_LABEL_MAX);
+        return dns_label_unescape(name, NULL, DNS_LABEL_MAX, 0);
 }
 
 #if HAVE_LIBIDN
@@ -38,18 +43,29 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
 int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
 #endif
 
-int dns_name_concat(const char *a, const char *b, char **ret);
+int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **ret);
 
-static inline int dns_name_normalize(const char *s, char **ret) {
+static inline int dns_name_normalize(const char *s, DNSLabelFlags flags, char **ret) {
         /* dns_name_concat() normalizes as a side-effect */
-        return dns_name_concat(s, NULL, ret);
+        return dns_name_concat(s, NULL, flags, ret);
 }
 
 static inline int dns_name_is_valid(const char *s) {
         int r;
 
         /* dns_name_normalize() verifies as a side effect */
-        r = dns_name_normalize(s, NULL);
+        r = dns_name_normalize(s, 0, NULL);
+        if (r == -EINVAL)
+                return 0;
+        if (r < 0)
+                return r;
+        return 1;
+}
+
+static inline int dns_name_is_valid_ldh(const char *s) {
+        int r;
+
+        r = dns_name_concat(s, NULL, DNS_LABEL_LDH|DNS_LABEL_NO_ESCAPES, NULL);
         if (r == -EINVAL)
                 return 0;
         if (r < 0)

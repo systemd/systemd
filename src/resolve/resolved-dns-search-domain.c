@@ -19,7 +19,7 @@ int dns_search_domain_new(
         assert((type == DNS_SEARCH_DOMAIN_LINK) == !!l);
         assert(name);
 
-        r = dns_name_normalize(name, &normalized);
+        r = dns_name_normalize(name, 0, &normalized);
         if (r < 0)
                 return r;
 

@@ -228,10 +228,10 @@ int dnssd_update_rrs(DnssdService *s) {
         if (r < 0)
                 return r;
 
-        r = dns_name_concat(s->type, "local", &service_name);
+        r = dns_name_concat(s->type, "local", 0, &service_name);
         if (r < 0)
                 return r;
-        r = dns_name_concat(n, service_name, &full_name);
+        r = dns_name_concat(n, service_name, 0, &full_name);
         if (r < 0)
                 return r;
 

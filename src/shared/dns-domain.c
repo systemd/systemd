@@ -24,9 +24,17 @@
 #include "strv.h"
 #include "utf8.h"
 
-int dns_label_unescape(const char **name, char *dest, size_t sz) {
+static bool valid_ldh_char(char c) {
+        return
+                (c >= 'a' && c <= 'z') ||
+                (c >= 'A' && c <= 'Z') ||
+                (c >= '0' && c <= '9') ||
+                c == '-';
+}
+
+int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags flags) {
         const char *n;
-        char *d;
+        char *d, last_char = 0;
         int r = 0;
 
         assert(name);
@@ -36,13 +44,15 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
         d = dest;
 
         for (;;) {
-                if (*n == '.') {
-                        n++;
+                if (*n == 0 || *n == '.') {
+                        if (FLAGS_SET(flags, DNS_LABEL_LDH) && last_char == '-')
+                                /* Trailing dash */
+                                return -EINVAL;
+
+                        if (*n == '.')
+                                n++;
                         break;
                 }
-
-                if (*n == 0)
-                        break;
 
                 if (r >= DNS_LABEL_MAX)
                         return -EINVAL;
@@ -52,6 +62,8 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
 
                 if (*n == '\\') {
                         /* Escaped character */
+                        if (FLAGS_SET(flags, DNS_LABEL_NO_ESCAPES))
+                                return -EINVAL;
 
                         n++;
 
@@ -62,6 +74,10 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
                         else if (IN_SET(*n, '\\', '.')) {
                                 /* Escaped backslash or dot */
 
+                                if (FLAGS_SET(flags, DNS_LABEL_LDH))
+                                        return -EINVAL;
+
+                                last_char = *n;
                                 if (d)
                                         *(d++) = *n;
                                 sz--;
@@ -90,6 +106,11 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
                                 if (k > 255)
                                         return -EINVAL;
 
+                                if (FLAGS_SET(flags, DNS_LABEL_LDH) &&
+                                    !valid_ldh_char((char) k))
+                                        return -EINVAL;
+
+                                last_char = (char) k;
                                 if (d)
                                         *(d++) = (char) k;
                                 sz--;
@@ -103,6 +124,15 @@ int dns_label_unescape(const char **name, char *dest, size_t sz) {
 
                         /* Normal character */
 
+                        if (FLAGS_SET(flags, DNS_LABEL_LDH)) {
+                                if (!valid_ldh_char(*n))
+                                        return -EINVAL;
+                                if (r == 0 && *n == '-')
+                                        /* Leading dash */
+                                        return -EINVAL;
+                        }
+
+                        last_char = *n;
                         if (d)
                                 *(d++) = *n;
                         sz--;
@@ -184,7 +214,7 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                 terminal--;
         }
 
-        r = dns_label_unescape(&name, dest, sz);
+        r = dns_label_unescape(&name, dest, sz, 0);
         if (r < 0)
                 return r;
 
@@ -378,7 +408,7 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
 }
 #endif
 
-int dns_name_concat(const char *a, const char *b, char **_ret) {
+int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **_ret) {
         _cleanup_free_ char *ret = NULL;
         size_t n = 0, allocated = 0;
         const char *p;
@@ -395,7 +425,7 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
         for (;;) {
                 char label[DNS_LABEL_MAX];
 
-                r = dns_label_unescape(&p, label, sizeof(label));
+                r = dns_label_unescape(&p, label, sizeof label, flags);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -468,7 +498,7 @@ void dns_name_hash_func(const char *p, struct siphash *state) {
         for (;;) {
                 char label[DNS_LABEL_MAX+1];
 
-                r = dns_label_unescape(&p, label, sizeof(label));
+                r = dns_label_unescape(&p, label, sizeof label, 0);
                 if (r < 0)
                         break;
                 if (r == 0)
@@ -521,11 +551,11 @@ int dns_name_equal(const char *x, const char *y) {
         for (;;) {
                 char la[DNS_LABEL_MAX], lb[DNS_LABEL_MAX];
 
-                r = dns_label_unescape(&x, la, sizeof(la));
+                r = dns_label_unescape(&x, la, sizeof la, 0);
                 if (r < 0)
                         return r;
 
-                q = dns_label_unescape(&y, lb, sizeof(lb));
+                q = dns_label_unescape(&y, lb, sizeof lb, 0);
                 if (q < 0)
                         return q;
 
@@ -552,14 +582,14 @@ int dns_name_endswith(const char *name, const char *suffix) {
         for (;;) {
                 char ln[DNS_LABEL_MAX], ls[DNS_LABEL_MAX];
 
-                r = dns_label_unescape(&n, ln, sizeof(ln));
+                r = dns_label_unescape(&n, ln, sizeof ln, 0);
                 if (r < 0)
                         return r;
 
                 if (!saved_n)
                         saved_n = n;
 
-                q = dns_label_unescape(&s, ls, sizeof(ls));
+                q = dns_label_unescape(&s, ls, sizeof ls, 0);
                 if (q < 0)
                         return q;
 
@@ -590,13 +620,13 @@ int dns_name_startswith(const char *name, const char *prefix) {
         for (;;) {
                 char ln[DNS_LABEL_MAX], lp[DNS_LABEL_MAX];
 
-                r = dns_label_unescape(&p, lp, sizeof(lp));
+                r = dns_label_unescape(&p, lp, sizeof lp, 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return true;
 
-                q = dns_label_unescape(&n, ln, sizeof(ln));
+                q = dns_label_unescape(&n, ln, sizeof ln, 0);
                 if (q < 0)
                         return q;
 
@@ -625,14 +655,14 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
                 if (!saved_before)
                         saved_before = n;
 
-                r = dns_label_unescape(&n, ln, sizeof(ln));
+                r = dns_label_unescape(&n, ln, sizeof ln, 0);
                 if (r < 0)
                         return r;
 
                 if (!saved_after)
                         saved_after = n;
 
-                q = dns_label_unescape(&s, ls, sizeof(ls));
+                q = dns_label_unescape(&s, ls, sizeof ls, 0);
                 if (q < 0)
                         return q;
 
@@ -655,7 +685,7 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
         /* Found it! Now generate the new name */
         prefix = strndupa(name, saved_before - name);
 
-        r = dns_name_concat(prefix, new_suffix, ret);
+        r = dns_name_concat(prefix, new_suffix, 0, ret);
         if (r < 0)
                 return r;
 
@@ -733,7 +763,7 @@ int dns_name_address(const char *p, int *family, union in_addr_union *address) {
                 for (i = 0; i < ELEMENTSOF(a); i++) {
                         char label[DNS_LABEL_MAX+1];
 
-                        r = dns_label_unescape(&p, label, sizeof(label));
+                        r = dns_label_unescape(&p, label, sizeof label, 0);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -770,7 +800,7 @@ int dns_name_address(const char *p, int *family, union in_addr_union *address) {
                         char label[DNS_LABEL_MAX+1];
                         int x, y;
 
-                        r = dns_label_unescape(&p, label, sizeof(label));
+                        r = dns_label_unescape(&p, label, sizeof label, 0);
                         if (r <= 0)
                                 return r;
                         if (r != 1)
@@ -779,7 +809,7 @@ int dns_name_address(const char *p, int *family, union in_addr_union *address) {
                         if (x < 0)
                                 return -EINVAL;
 
-                        r = dns_label_unescape(&p, label, sizeof(label));
+                        r = dns_label_unescape(&p, label, sizeof label, 0);
                         if (r <= 0)
                                 return r;
                         if (r != 1)
@@ -847,7 +877,7 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, boo
                  * dns_label_unescape() returns 0 when it hits the end
                  * of the domain name, which we rely on here to encode
                  * the trailing NUL byte. */
-                r = dns_label_unescape(&domain, (char *) out, len);
+                r = dns_label_unescape(&domain, (char *) out, len, 0);
                 if (r < 0)
                         return r;
 
@@ -914,7 +944,7 @@ bool dns_srv_type_is_valid(const char *name) {
 
                 /* This more or less implements RFC 6335, Section 5.1 */
 
-                r = dns_label_unescape(&name, label, sizeof(label));
+                r = dns_label_unescape(&name, label, sizeof label, 0);
                 if (r < 0)
                         return false;
                 if (r == 0)
@@ -974,7 +1004,7 @@ int dns_service_join(const char *name, const char *type, const char *domain, cha
                 return -EINVAL;
 
         if (!name)
-                return dns_name_concat(type, domain, ret);
+                return dns_name_concat(type, domain, 0, ret);
 
         if (!dns_service_name_is_valid(name))
                 return -EINVAL;
@@ -983,11 +1013,11 @@ int dns_service_join(const char *name, const char *type, const char *domain, cha
         if (r < 0)
                 return r;
 
-        r = dns_name_concat(type, domain, &n);
+        r = dns_name_concat(type, domain, 0, &n);
         if (r < 0)
                 return r;
 
-        return dns_name_concat(escaped, n, ret);
+        return dns_name_concat(escaped, n, 0, ret);
 }
 
 static bool dns_service_name_label_is_valid(const char *label, size_t n) {
@@ -1012,7 +1042,7 @@ int dns_service_split(const char *joined, char **_name, char **_type, char **_do
         assert(joined);
 
         /* Get first label from the full name */
-        an = dns_label_unescape(&p, a, sizeof(a));
+        an = dns_label_unescape(&p, a, sizeof(a), 0);
         if (an < 0)
                 return an;
 
@@ -1020,7 +1050,7 @@ int dns_service_split(const char *joined, char **_name, char **_type, char **_do
                 x++;
 
                 /* If there was a first label, try to get the second one */
-                bn = dns_label_unescape(&p, b, sizeof(b));
+                bn = dns_label_unescape(&p, b, sizeof(b), 0);
                 if (bn < 0)
                         return bn;
 
@@ -1029,7 +1059,7 @@ int dns_service_split(const char *joined, char **_name, char **_type, char **_do
 
                         /* If there was a second label, try to get the third one */
                         q = p;
-                        cn = dns_label_unescape(&p, c, sizeof(c));
+                        cn = dns_label_unescape(&p, c, sizeof(c), 0);
                         if (cn < 0)
                                 return cn;
 
@@ -1079,7 +1109,7 @@ int dns_service_split(const char *joined, char **_name, char **_type, char **_do
         d = joined;
 
 finish:
-        r = dns_name_normalize(d, &domain);
+        r = dns_name_normalize(d, 0, &domain);
         if (r < 0)
                 return r;
 
@@ -1224,12 +1254,12 @@ int dns_name_common_suffix(const char *a, const char *b, const char **ret) {
                 }
 
                 x = a_labels[n - 1 - k];
-                r = dns_label_unescape(&x, la, sizeof(la));
+                r = dns_label_unescape(&x, la, sizeof la, 0);
                 if (r < 0)
                         return r;
 
                 y = b_labels[m - 1 - k];
-                q = dns_label_unescape(&y, lb, sizeof(lb));
+                q = dns_label_unescape(&y, lb, sizeof lb, 0);
                 if (q < 0)
                         return q;
 
@@ -1297,13 +1327,13 @@ int dns_name_apply_idna(const char *name, char **ret) {
         for (;;) {
                 char label[DNS_LABEL_MAX];
 
-                r = dns_label_unescape(&name, label, sizeof(label));
+                r = dns_label_unescape(&name, label, sizeof label, 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                q = dns_label_apply_idna(label, r, label, sizeof(label));
+                q = dns_label_apply_idna(label, r, label, sizeof label);
                 if (q < 0)
                         return q;
                 if (q > 0)

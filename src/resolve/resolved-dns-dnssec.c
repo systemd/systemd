@@ -74,7 +74,7 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max) {
                 return -ENOBUFS;
 
         for (;;) {
-                r = dns_label_unescape(&n, buffer, buffer_max);
+                r = dns_label_unescape(&n, buffer, buffer_max, 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1705,7 +1705,7 @@ static int dnssec_nsec_wildcard_equal(DnsResourceRecord *rr, const char *name) {
                 return 0;
 
         n = dns_resource_key_name(rr->key);
-        r = dns_label_unescape(&n, label, sizeof(label));
+        r = dns_label_unescape(&n, label, sizeof label, 0);
         if (r <= 0)
                 return r;
         if (r != 1 || label[0] != '*')
@@ -1827,13 +1827,13 @@ static int dnssec_nsec_covers_wildcard(DnsResourceRecord *rr, const char *name) 
                 return r;
         if (r > 0)  /* If the name we are interested in is a child of the NSEC RR, then append the asterisk to the NSEC
                      * RR's name. */
-                r = dns_name_concat("*", dns_resource_key_name(rr->key), &wc);
+                r = dns_name_concat("*", dns_resource_key_name(rr->key), 0, &wc);
         else {
                 r = dns_name_common_suffix(dns_resource_key_name(rr->key), rr->nsec.next_domain_name, &common_suffix);
                 if (r < 0)
                         return r;
 
-                r = dns_name_concat("*", common_suffix, &wc);
+                r = dns_name_concat("*", common_suffix, 0, &wc);
         }
         if (r < 0)
                 return r;

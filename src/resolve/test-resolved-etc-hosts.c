@@ -91,15 +91,9 @@ static void test_parse_etc_hosts(void) {
         assert_se(bn->n_allocated >= 1);
         assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.6")));
 
-        /* Those names do not follow the LDH rule, but so far we allow them.
-         * Let's make this explicit by adding a test.
-         * See https://tools.ietf.org/html/rfc1035#section-2.3.1 */
-        FOREACH_STRING(s, "bad-dash-", "-bad-dash", "-bad-dash.bad-") {
-                assert_se(bn = hashmap_get(hosts.by_name, s));
-                assert_se(bn->n_addresses == 1);
-                assert_se(bn->n_allocated >= 1);
-                assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.7")));
-        }
+        /* See https://tools.ietf.org/html/rfc1035#section-2.3.1 */
+        FOREACH_STRING(s, "bad-dash-", "-bad-dash", "-bad-dash.bad-")
+                assert_se(!hashmap_get(hosts.by_name, s));
 
         assert_se(bn = hashmap_get(hosts.by_name, "before.comment"));
         assert_se(bn->n_addresses == 4);

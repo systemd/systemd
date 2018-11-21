@@ -99,7 +99,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
                 found = true;
 
-                r = dns_name_is_valid(name);
+                r = dns_name_is_valid_ldh(name);
                 if (r <= 0) {
                         log_warning_errno(r, "/etc/hosts:%u: hostname \"%s\" is not valid, ignoring.", nr, name);
                         continue;

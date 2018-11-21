@@ -191,7 +191,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
 
         /* The key names are not necessarily normalized, make sure that they are when we return them to our bus
          * clients. */
-        r = dns_name_normalize(dns_resource_key_name(canonical->key), &normalized);
+        r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
         if (r < 0)
                 goto finish;
 
@@ -404,7 +404,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 if (r == 0)
                         continue;
 
-                r = dns_name_normalize(rr->ptr.name, &normalized);
+                r = dns_name_normalize(rr->ptr.name, 0, &normalized);
                 if (r < 0)
                         goto finish;
 
@@ -742,7 +742,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
         if (r < 0)
                 return r;
 
-        r = dns_name_normalize(rr->srv.name, &normalized);
+        r = dns_name_normalize(rr->srv.name, 0, &normalized);
         if (r < 0)
                 return r;
 
@@ -798,7 +798,7 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
         if (canonical) {
                 normalized = mfree(normalized);
 
-                r = dns_name_normalize(dns_resource_key_name(canonical->key), &normalized);
+                r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
                 if (r < 0)
                         return r;
         }

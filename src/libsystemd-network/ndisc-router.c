@@ -676,7 +676,7 @@ _public_ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret)
                                 _cleanup_free_ char *normalized = NULL;
 
                                 e[n] = 0;
-                                r = dns_name_normalize(e, &normalized);
+                                r = dns_name_normalize(e, 0, &normalized);
                                 if (r < 0)
                                         return r;
 

@@ -333,7 +333,7 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
                 return log_debug_errno(r, "Can't determine system hostname: %m");
 
         p = h;
-        r = dns_label_unescape(&p, label, sizeof label);
+        r = dns_label_unescape(&p, label, sizeof label, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape host name: %m");
         if (r == 0)
@@ -371,7 +371,7 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "System hostname is 'localhost', ignoring.");
 
-        r = dns_name_concat(n, "local", mdns_hostname);
+        r = dns_name_concat(n, "local", 0, mdns_hostname);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine mDNS hostname: %m");
 
@@ -403,7 +403,7 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
         assert(mdns_hostname);
 
         p = fallback_hostname();
-        r = dns_label_unescape(&p, label, sizeof(label));
+        r = dns_label_unescape(&p, label, sizeof label, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape fallback host name: %m");
 
@@ -413,7 +413,7 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
         if (r < 0)
                 return log_error_errno(r, "Failed to escape fallback hostname: %m");
 
-        r = dns_name_concat(n, "local", &m);
+        r = dns_name_concat(n, "local", 0, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to concatenate mDNS hostname: %m");
 
@@ -1147,7 +1147,7 @@ int manager_next_hostname(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = dns_name_concat(h, "local", &k);
+        r = dns_name_concat(h, "local", 0, &k);
         if (r < 0)
                 return r;
 
