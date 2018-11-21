@@ -3,6 +3,8 @@
 #include <ctype.h>
 #include <errno.h>
 
+#include "sd-device.h"
+
 #include "device-nodes.h"
 #include "libudev-util.h"
 #include "string-util.h"
@@ -17,16 +19,14 @@
  */
 
 /* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
-int util_resolve_subsys_kernel(const char *string,
-                               char *result, size_t maxsize, int read_value) {
-        char temp[UTIL_PATH_SIZE];
-        char *subsys;
-        char *sysname;
-        struct udev_device *dev;
-        char *attr;
+int util_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value) {
+        char temp[UTIL_PATH_SIZE], *subsys, *sysname, *attr;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *val;
+        int r;
 
         if (string[0] != '[')
-                return -1;
+                return -EINVAL;
 
         strscpy(temp, sizeof(temp), string);
 
@@ -34,13 +34,13 @@ int util_resolve_subsys_kernel(const char *string,
 
         sysname = strchr(subsys, '/');
         if (!sysname)
-                return -1;
+                return -EINVAL;
         sysname[0] = '\0';
         sysname = &sysname[1];
 
         attr = strchr(sysname, ']');
         if (!attr)
-                return -1;
+                return -EINVAL;
         attr[0] = '\0';
         attr = &attr[1];
         if (attr[0] == '/')
@@ -49,32 +49,29 @@ int util_resolve_subsys_kernel(const char *string,
                 attr = NULL;
 
         if (read_value && !attr)
-                return -1;
+                return -EINVAL;
 
-        dev = udev_device_new_from_subsystem_sysname(NULL, subsys, sysname);
-        if (!dev)
-                return -1;
+        r = sd_device_new_from_subsystem_sysname(&dev, subsys, sysname);
+        if (r < 0)
+                return r;
 
         if (read_value) {
-                const char *val;
-
-                val = udev_device_get_sysattr_value(dev, attr);
-                if (val)
-                        strscpy(result, maxsize, val);
-                else
+                r = sd_device_get_sysattr_value(dev, attr, &val);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (r == -ENOENT)
                         result[0] = '\0';
+                else
+                        strscpy(result, maxsize, val);
                 log_debug("value '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
         } else {
-                size_t l;
-                char *s;
+                r = sd_device_get_syspath(dev, &val);
+                if (r < 0)
+                        return r;
 
-                s = result;
-                l = strpcpyl(&s, maxsize, udev_device_get_syspath(dev), NULL);
-                if (attr)
-                        strpcpyl(&s, l, "/", attr, NULL);
-                log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
+                strscpyl(result, maxsize, val, attr ? "/" : NULL, attr ?: NULL, NULL);
+                log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, strempty(attr), result);
         }
-        udev_device_unref(dev);
         return 0;
 }
 

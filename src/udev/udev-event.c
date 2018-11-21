@@ -234,7 +234,7 @@ static ssize_t subst_format_var(struct udev_event *event,
                         return -EINVAL;
 
                 /* try to read the value specified by "[dmi/id]product_name" */
-                if (util_resolve_subsys_kernel(attr, vbuf, sizeof(vbuf), 1) == 0)
+                if (util_resolve_subsys_kernel(attr, vbuf, sizeof(vbuf), true) == 0)
                         val = vbuf;
 
                 /* try to read the attribute the device */
