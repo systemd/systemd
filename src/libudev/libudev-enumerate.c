@@ -77,7 +77,7 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
                 .enumerator = TAKE_PTR(e),
         };
 
-        udev_list_init(udev, &udev_enumerate->devices_list, false);
+        udev_list_init(&udev_enumerate->devices_list, false);
 
         return udev_enumerate;
 }

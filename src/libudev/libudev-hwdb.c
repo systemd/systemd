@@ -56,7 +56,7 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
                 .hwdb = TAKE_PTR(hwdb_internal),
         };
 
-        udev_list_init(udev, &hwdb->properties_list, true);
+        udev_list_init(&hwdb->properties_list, true);
 
         return hwdb;
 }

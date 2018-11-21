@@ -206,10 +206,10 @@ struct udev_device *udev_device_new(struct udev *udev, sd_device *device) {
                 .device = sd_device_ref(device),
         };
 
-        udev_list_init(udev, &udev_device->properties, true);
-        udev_list_init(udev, &udev_device->tags, true);
-        udev_list_init(udev, &udev_device->sysattrs, true);
-        udev_list_init(udev, &udev_device->devlinks, true);
+        udev_list_init(&udev_device->properties, true);
+        udev_list_init(&udev_device->tags, true);
+        udev_list_init(&udev_device->sysattrs, true);
+        udev_list_init(&udev_device->devlinks, true);
 
         return udev_device;
 }
