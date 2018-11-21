@@ -9,4 +9,4 @@
 
 # Each vtcon keeps its own state of fonts.
 #
-ACTION=="add", SUBSYSTEM=="vtconsole", KERNEL=="vtcon*", ATTR{name}!="*dummy device", RUN+="@rootlibexecdir@/systemd-vconsole-setup"
+ACTION=="add", SUBSYSTEM=="vtconsole", KERNEL=="vtcon*", RUN+="@rootlibexecdir@/systemd-vconsole-setup"
