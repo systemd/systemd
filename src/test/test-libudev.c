@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "libudev-list-internal.h"
 #include "libudev-util.h"
 #include "log.h"
 #include "stdio-util.h"
@@ -404,6 +405,64 @@ static void test_util_resolve_subsys_kernel(void) {
         test_util_resolve_subsys_kernel_one("[net/lo]/address", true, 0, "00:00:00:00:00:00");
 }
 
+static void test_list(void) {
+        struct udev_list list = {};
+        struct udev_list_entry *e;
+
+        /* empty list */
+        udev_list_init(&list, false);
+        assert_se(!udev_list_get_entry(&list));
+
+        /* unique == false */
+        udev_list_init(&list, false);
+        assert_se(udev_list_entry_add(&list, "aaa", "hoge"));
+        assert_se(udev_list_entry_add(&list, "aaa", "hogehoge"));
+        assert_se(udev_list_entry_add(&list, "bbb", "foo"));
+        e = udev_list_get_entry(&list);
+        assert_se(e);
+        assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
+        assert_se(streq_ptr(udev_list_entry_get_value(e), "hoge"));
+        e = udev_list_entry_get_next(e);
+        assert_se(e);
+        assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
+        assert_se(streq_ptr(udev_list_entry_get_value(e), "hogehoge"));
+        e = udev_list_entry_get_next(e);
+        assert_se(e);
+        assert_se(streq_ptr(udev_list_entry_get_name(e), "bbb"));
+        assert_se(streq_ptr(udev_list_entry_get_value(e), "foo"));
+        assert_se(!udev_list_entry_get_next(e));
+
+        assert_se(!udev_list_entry_get_by_name(e, "aaa"));
+        assert_se(!udev_list_entry_get_by_name(e, "bbb"));
+        assert_se(!udev_list_entry_get_by_name(e, "ccc"));
+        udev_list_cleanup(&list);
+
+        /* unique == true */
+        udev_list_init(&list, true);
+        assert_se(udev_list_entry_add(&list, "aaa", "hoge"));
+        assert_se(udev_list_entry_add(&list, "aaa", "hogehoge"));
+        assert_se(udev_list_entry_add(&list, "bbb", "foo"));
+        e = udev_list_get_entry(&list);
+        assert_se(e);
+        assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
+        assert_se(streq_ptr(udev_list_entry_get_value(e), "hogehoge"));
+        e = udev_list_entry_get_next(e);
+        assert_se(streq_ptr(udev_list_entry_get_name(e), "bbb"));
+        assert_se(streq_ptr(udev_list_entry_get_value(e), "foo"));
+        assert_se(!udev_list_entry_get_next(e));
+
+        e = udev_list_entry_get_by_name(e, "bbb");
+        assert_se(e);
+        assert_se(streq_ptr(udev_list_entry_get_name(e), "bbb"));
+        assert_se(streq_ptr(udev_list_entry_get_value(e), "foo"));
+        e = udev_list_entry_get_by_name(e, "aaa");
+        assert_se(e);
+        assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
+        assert_se(streq_ptr(udev_list_entry_get_value(e), "hogehoge"));
+        assert_se(!udev_list_entry_get_by_name(e, "ccc"));
+        udev_list_cleanup(&list);
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(udev_unrefp) struct udev *udev = NULL;
         bool arg_monitor = false;
@@ -485,6 +544,8 @@ int main(int argc, char *argv[]) {
 
         test_util_replace_whitespace();
         test_util_resolve_subsys_kernel();
+
+        test_list();
 
         return EXIT_SUCCESS;
 }
