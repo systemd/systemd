@@ -375,6 +375,35 @@ static void test_util_replace_whitespace(void) {
         test_util_replace_whitespace_one_len("         hoge   hoge    ", 0, "");
 }
 
+static void test_util_resolve_subsys_kernel_one(const char *str, bool read_value, int retval, const char *expected) {
+        char result[UTIL_PATH_SIZE];
+        int r;
+
+        r = util_resolve_subsys_kernel(str, result, sizeof(result), read_value);
+        assert_se(r == retval);
+        if (r >= 0)
+                assert_se(streq(result, expected));
+}
+
+static void test_util_resolve_subsys_kernel(void) {
+        test_util_resolve_subsys_kernel_one("hoge", false, -EINVAL, NULL);
+        test_util_resolve_subsys_kernel_one("[hoge", false, -EINVAL, NULL);
+        test_util_resolve_subsys_kernel_one("[hoge/foo", false, -EINVAL, NULL);
+        test_util_resolve_subsys_kernel_one("[hoge/]", false, -ENODEV, NULL);
+
+        test_util_resolve_subsys_kernel_one("[net/lo]", false, 0, "/sys/devices/virtual/net/lo");
+        test_util_resolve_subsys_kernel_one("[net/lo]/", false, 0, "/sys/devices/virtual/net/lo");
+        test_util_resolve_subsys_kernel_one("[net/lo]hoge", false, 0, "/sys/devices/virtual/net/lo/hoge");
+        test_util_resolve_subsys_kernel_one("[net/lo]/hoge", false, 0, "/sys/devices/virtual/net/lo/hoge");
+
+        test_util_resolve_subsys_kernel_one("[net/lo]", true, -EINVAL, NULL);
+        test_util_resolve_subsys_kernel_one("[net/lo]/", true, -EINVAL, NULL);
+        test_util_resolve_subsys_kernel_one("[net/lo]hoge", true, 0, "");
+        test_util_resolve_subsys_kernel_one("[net/lo]/hoge", true, 0, "");
+        test_util_resolve_subsys_kernel_one("[net/lo]address", true, 0, "00:00:00:00:00:00");
+        test_util_resolve_subsys_kernel_one("[net/lo]/address", true, 0, "00:00:00:00:00:00");
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(udev_unrefp) struct udev *udev = NULL;
         bool arg_monitor = false;
@@ -455,6 +484,7 @@ int main(int argc, char *argv[]) {
                 test_monitor(udev);
 
         test_util_replace_whitespace();
+        test_util_resolve_subsys_kernel();
 
         return EXIT_SUCCESS;
 }
