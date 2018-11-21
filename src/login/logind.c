@@ -25,6 +25,7 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
@@ -747,7 +748,29 @@ static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo
 
         active = m->seat0->active;
         if (!active || active->vtnr < 1) {
-                log_warning("Received VT_PROCESS signal without a registered session on that VT.");
+                _cleanup_close_ int fd = -1;
+                int r;
+
+                /* We are requested to acknowledge the VT-switch signal by the kernel but
+                 * there's no registered sessions for the current VT. Normally this
+                 * shouldn't happen but something wrong might have happened when we tried
+                 * to release the VT. Better be safe than sorry, and try to release the VT
+                 * one more time otherwise the user will be locked with the current VT. */
+
+                log_warning("Received VT_PROCESS signal without a registered session, restoring VT.");
+
+                /* At this point we only have the kernel mapping for referring to the
+                 * current VT. */
+                fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0) {
+                        log_warning_errno(fd, "Failed to open, ignoring: %m");
+                        return 0;
+                }
+
+                r = vt_release(fd, true);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to release VT, ignoring: %m");
+
                 return 0;
         }
 

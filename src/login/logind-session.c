@@ -36,6 +36,7 @@
 #define RELEASE_USEC (20*USEC_PER_SEC)
 
 static void session_remove_fifo(Session *s);
+static void session_restore_vt(Session *s);
 
 int session_new(Session **ret, Manager *m, const char *id) {
         _cleanup_(session_freep) Session *s = NULL;
@@ -1223,35 +1224,55 @@ error:
         return r;
 }
 
-void session_restore_vt(Session *s) {
+static void session_restore_vt(Session *s) {
+        pid_t pid;
+        int r;
 
-        static const struct vt_mode mode = {
-                .mode = VT_AUTO,
-        };
-
-        int vt, old_fd;
-
-        /* We need to get a fresh handle to the virtual terminal,
-         * since the old file-descriptor is potentially in a hung-up
-         * state after the controlling process exited; we do a
-         * little dance to avoid having the terminal be available
-         * for reuse before we've cleaned it up.
-         */
-        old_fd = TAKE_FD(s->vtfd);
-
-        vt = session_open_vt(s);
-        safe_close(old_fd);
-
-        if (vt < 0)
+        if (s->vtnr < 1)
                 return;
 
-        (void) ioctl(vt, KDSETMODE, KD_TEXT);
+        if (s->vtfd < 0)
+                return;
 
-        (void) vt_reset_keyboard(vt);
+        /* The virtual terminal can potentially be entering in hung-up state at any time
+         * depending on when the controlling process exits.
+         *
+         * If the controlling process exits while we're restoring the virtual terminal,
+         * the VT will enter in hung-up state and we'll fail at restoring it. To prevent
+         * this case, we kick off the current controlling process (if any) in a child
+         * process so logind doesn't play around with tty ownership.
+         *
+         * If the controlling process already exited, getting a fresh handle to the
+         * virtual terminal reset the hung-up state. */
+        r = safe_fork("(logind)", FORK_REOPEN_LOG|FORK_CLOSE_ALL_FDS|FORK_RESET_SIGNALS|FORK_WAIT|FORK_LOG, &pid);
+        if (r == 0) {
+                char path[sizeof("/dev/tty") + DECIMAL_STR_MAX(s->vtnr)];
+                int vt;
 
-        (void) ioctl(vt, VT_SETMODE, &mode);
-        (void) fchown(vt, 0, (gid_t) -1);
+                /* We must be a session leader in order to become the controlling process. */
+                pid = setsid();
+                if (pid < 0) {
+                        log_error_errno(errno, "Failed to become session leader: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
+                sprintf(path, "/dev/tty%u", s->vtnr);
+                vt = acquire_terminal(path, ACQUIRE_TERMINAL_FORCE, USEC_INFINITY);
+                if (vt < 0) {
+                        log_error_errno(vt, "Cannot acquire VT %s of session %s: %m", path, s->id);
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = vt_restore(vt);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to restore VT, ignoring: %m");
+
+                /* Give up and release the controlling terminal. */
+                safe_close(vt);
+                _exit(EXIT_SUCCESS);
+        }
+
+        /* Close the fd in any cases.  */
         s->vtfd = safe_close(s->vtfd);
 }
 
@@ -1275,9 +1296,9 @@ void session_leave_vt(Session *s) {
                 return;
 
         session_device_pause_all(s);
-        r = ioctl(s->vtfd, VT_RELDISP, 1);
+        r = vt_release(s->vtfd, false);
         if (r < 0)
-                log_debug_errno(errno, "Cannot release VT of session %s: %m", s->id);
+                log_debug_errno(r, "Cannot release VT of session %s: %m", s->id);
 }
 
 bool session_is_controller(Session *s, const char *sender) {

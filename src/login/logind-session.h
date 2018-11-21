@@ -173,7 +173,6 @@ const char* tty_validity_to_string(TTYValidity t) _const_;
 TTYValidity tty_validity_from_string(const char *s) _pure_;
 
 int session_prepare_vt(Session *s);
-void session_restore_vt(Session *s);
 void session_leave_vt(Session *s);
 
 bool session_is_controller(Session *s, const char *sender);
