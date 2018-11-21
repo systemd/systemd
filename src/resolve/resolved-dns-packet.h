@@ -117,10 +117,13 @@ static inline uint16_t DNS_PACKET_RCODE(DnsPacket *p) {
 
 static inline uint16_t DNS_PACKET_PAYLOAD_SIZE_MAX(DnsPacket *p) {
 
-        /* Returns the advertised maximum datagram size for replies, or the DNS default if there's nothing defined. */
+        /* Returns the advertised maximum size for replies, or the DNS default if there's nothing defined. */
 
         if (p->opt)
                 return MAX(DNS_PACKET_UNICAST_SIZE_MAX, p->opt->key->class);
+
+        if (p->ipproto == IPPROTO_TCP)
+                return DNS_PACKET_SIZE_MAX;
 
         return DNS_PACKET_UNICAST_SIZE_MAX;
 }
