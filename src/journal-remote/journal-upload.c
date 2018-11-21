@@ -77,8 +77,7 @@ static size_t output_callback(char *buf,
         if (nmemb && !u->answer) {
                 u->answer = strndup(buf, size*nmemb);
                 if (!u->answer)
-                        log_warning_errno(ENOMEM, "Failed to store server answer (%zu bytes): %m",
-                                          size*nmemb);
+                        log_warning("Failed to store server answer (%zu bytes): out of memory", size*nmemb);
         }
 
         return size * nmemb;

@@ -793,8 +793,7 @@ static int on_exit_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         assert(manager);
 
-        log_error_errno(ETIMEDOUT, "Giving up waiting for workers to finish.");
-
+        log_error("Giving up waiting for workers to finish.");
         sd_event_exit(manager->event, -ETIMEDOUT);
 
         return 1;
@@ -956,7 +955,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                         return log_error_errno(errno, "Failed to receive message: %m");
                 } else if (size != sizeof(struct worker_message)) {
-                        log_warning_errno(EIO, "Ignoring worker message with invalid size %zi bytes", size);
+                        log_warning("Ignoring worker message with invalid size %zi bytes", size);
                         continue;
                 }
 
@@ -968,7 +967,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 }
 
                 if (!ucred || ucred->pid <= 0) {
-                        log_warning_errno(EIO, "Ignoring worker message without valid PID");
+                        log_warning("Ignoring worker message without valid PID");
                         continue;
                 }
 
