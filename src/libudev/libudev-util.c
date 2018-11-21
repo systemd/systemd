@@ -129,7 +129,7 @@ size_t util_path_encode(const char *src, char *dest, size_t size) {
  * Note this may be called with 'str' == 'to', i.e. to replace whitespace
  * in-place in a buffer.  This function can handle that situation.
  */
-int util_replace_whitespace(const char *str, char *to, size_t len) {
+size_t util_replace_whitespace(const char *str, char *to, size_t len) {
         size_t i, j;
 
         assert(str);
@@ -160,9 +160,8 @@ int util_replace_whitespace(const char *str, char *to, size_t len) {
 }
 
 /* allow chars in whitelist, plain ascii, hex-escaping and valid utf8 */
-int util_replace_chars(char *str, const char *white) {
-        size_t i = 0;
-        int replaced = 0;
+size_t util_replace_chars(char *str, const char *white) {
+        size_t i = 0, replaced = 0;
 
         assert(str);
 
