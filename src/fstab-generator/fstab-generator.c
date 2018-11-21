@@ -882,8 +882,6 @@ static int run(int argc, char *argv[]) {
 
         log_setup_generator();
 
-        umask(0022);
-
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");

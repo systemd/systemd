@@ -681,8 +681,6 @@ int main(int argc, char *argv[]) {
 
         log_setup_generator();
 
-        umask(0022);
-
         if (detect_container() > 0) {
                 log_debug("In a container, exiting.");
                 return EXIT_SUCCESS;

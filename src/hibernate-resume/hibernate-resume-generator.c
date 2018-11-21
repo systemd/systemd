@@ -74,8 +74,6 @@ static int run(int argc, char *argv[]) {
 
         log_setup_generator();
 
-        umask(0022);
-
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
                 return -EINVAL;

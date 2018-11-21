@@ -54,8 +54,6 @@ int main(int argc, char *argv[]) {
 
         log_setup_generator();
 
-        umask(0022);
-
         if (access(RC_LOCAL_SCRIPT_PATH_START, X_OK) >= 0) {
                 log_debug("Automatically adding rc-local.service.");
 

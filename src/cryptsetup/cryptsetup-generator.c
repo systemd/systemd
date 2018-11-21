@@ -585,8 +585,6 @@ int main(int argc, char *argv[]) {
 
         log_setup_generator();
 
-        umask(0022);
-
         arg_disks = hashmap_new(&string_hash_ops);
         if (!arg_disks) {
                 r = log_oom();
