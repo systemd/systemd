@@ -796,7 +796,8 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                  */
                 if (!file) {
                         if (on_tty())
-                                return log_error_errno(ENOTTY, "Refusing to dump core to tty"
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                                       "Refusing to dump core to tty"
                                                        " (use shell redirection or specify --output).");
                         file = stdout;
                 }

@@ -389,35 +389,42 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         }
 
         if (buflen < 32 || (smsg.msg_flags & MSG_TRUNC))
-                return log_debug_errno(EINVAL, "sd-device-monitor: Invalid message length.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "sd-device-monitor: Invalid message length.");
 
         if (snl.nl.nl_groups == MONITOR_GROUP_NONE) {
                 /* unicast message, check if we trust the sender */
                 if (m->snl_trusted_sender.nl.nl_pid == 0 ||
                     snl.nl.nl_pid != m->snl_trusted_sender.nl.nl_pid)
-                        return log_debug_errno(EAGAIN, "sd-device-monitor: Unicast netlink message ignored.");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "sd-device-monitor: Unicast netlink message ignored.");
 
         } else if (snl.nl.nl_groups == MONITOR_GROUP_KERNEL) {
                 if (snl.nl.nl_pid > 0)
-                        return log_debug_errno(EAGAIN, "sd-device-monitor: Multicast kernel netlink message from PID %"PRIu32" ignored.", snl.nl.nl_pid);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "sd-device-monitor: Multicast kernel netlink message from PID %"PRIu32" ignored.", snl.nl.nl_pid);
         }
 
         cmsg = CMSG_FIRSTHDR(&smsg);
         if (!cmsg || cmsg->cmsg_type != SCM_CREDENTIALS)
-                return log_debug_errno(EAGAIN, "sd-device-monitor: No sender credentials received, message ignored.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                       "sd-device-monitor: No sender credentials received, message ignored.");
 
         cred = (struct ucred*) CMSG_DATA(cmsg);
         if (cred->uid != 0)
-                return log_debug_errno(EAGAIN, "sd-device-monitor: Sender uid="UID_FMT", message ignored.", cred->uid);
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                       "sd-device-monitor: Sender uid="UID_FMT", message ignored.", cred->uid);
 
         if (streq(buf.raw, "libudev")) {
                 /* udev message needs proper version magic */
                 if (buf.nlh.magic != htobe32(UDEV_MONITOR_MAGIC))
-                        return log_debug_errno(EAGAIN, "sd-device-monitor: Invalid message signature (%x != %x)",
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "sd-device-monitor: Invalid message signature (%x != %x)",
                                                buf.nlh.magic, htobe32(UDEV_MONITOR_MAGIC));
 
                 if (buf.nlh.properties_off+32 > (size_t) buflen)
-                        return log_debug_errno(EAGAIN, "sd-device-monitor: Invalid message length (%u > %zd)",
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "sd-device-monitor: Invalid message length (%u > %zd)",
                                                buf.nlh.properties_off+32, buflen);
 
                 bufpos = buf.nlh.properties_off;
@@ -429,11 +436,13 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 /* kernel message with header */
                 bufpos = strlen(buf.raw) + 1;
                 if ((size_t) bufpos < sizeof("a@/d") || bufpos >= buflen)
-                        return log_debug_errno(EAGAIN, "sd-device-monitor: Invalid message length");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "sd-device-monitor: Invalid message length");
 
                 /* check message header */
                 if (!strstr(buf.raw, "@/"))
-                        return log_debug_errno(EAGAIN, "sd-device-monitor: Invalid message header");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "sd-device-monitor: Invalid message header");
         }
 
         r = device_new_from_nulstr(&device, (uint8_t*) &buf.raw[bufpos], buflen - bufpos);

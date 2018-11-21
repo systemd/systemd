@@ -1612,11 +1612,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         manager->rules = udev_rules_new(arg_resolve_name_timing);
         if (!manager->rules)
-                return log_error_errno(ENOMEM, "Failed to read udev rules");
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to read udev rules");
 
         manager->ctrl = udev_ctrl_new_from_fd(fd_ctrl);
         if (!manager->ctrl)
-                return log_error_errno(EINVAL, "Failed to initialize udev control socket");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize udev control socket");
 
         r = udev_ctrl_enable_receiving(manager->ctrl);
         if (r < 0)

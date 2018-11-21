@@ -989,7 +989,7 @@ static int parse_acls_from_arg(Item *item) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring", item->argument);
 #else
-        log_warning_errno(ENOSYS, "ACLs are not supported. Ignoring");
+        log_warning_errno(SYNTHETIC_ERRNO(ENOSYS), "ACLs are not supported. Ignoring");
 #endif
 
         return 0;

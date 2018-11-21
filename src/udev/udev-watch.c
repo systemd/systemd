@@ -36,7 +36,8 @@ int udev_watch_restore(void) {
         int r;
 
         if (inotify_fd < 0)
-                return log_debug_errno(EINVAL, "Invalid inotify descriptor.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid inotify descriptor.");
 
         if (rename("/run/udev/watch", "/run/udev/watch.old") < 0) {
                 if (errno != ENOENT)
@@ -86,7 +87,8 @@ int udev_watch_begin(sd_device *dev) {
         int wd, r;
 
         if (inotify_fd < 0)
-                return log_debug_errno(EINVAL, "Invalid inotify descriptor.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid inotify descriptor.");
 
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
@@ -123,7 +125,8 @@ int udev_watch_end(sd_device *dev) {
         int wd, r;
 
         if (inotify_fd < 0)
-                return log_debug_errno(EINVAL, "Invalid inotify descriptor.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid inotify descriptor.");
 
         r = device_get_watch_handle(dev, &wd);
         if (r == -ENOENT)
@@ -150,10 +153,12 @@ int udev_watch_lookup(int wd, sd_device **ret) {
         assert(ret);
 
         if (inotify_fd < 0)
-                return log_debug_errno(EINVAL, "Invalid inotify descriptor.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid inotify descriptor.");
 
         if (wd < 0)
-                return log_debug_errno(EINVAL, "Invalid watch handle.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid watch handle.");
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
         r = readlink_malloc(filename, &device);

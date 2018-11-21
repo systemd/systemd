@@ -33,3 +33,10 @@ expression list args;
 - log_emergency(args);
 - return -e;
 + return log_emergency_errno(SYNTHETIC_ERRNO(e), args);
+@@
+identifier log_LEVEL_errno =~ "^log_(debug|info|notice|warning|error|emergency)_errno$";
+identifier ERRNO =~ "^E[A-Z]+$";
+expression list args;
+@@
+- return log_LEVEL_errno(ERRNO, args);
++ return log_LEVEL_errno(SYNTHETIC_ERRNO(ERRNO), args);
