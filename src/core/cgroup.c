@@ -1369,6 +1369,12 @@ void unit_update_cgroup_members_masks(Unit *u) {
 
         assert(u);
 
+        /* Don't update on a stub as it can mark subtree_mask valid
+         * prematurely and prevent the needed update after it is
+         * actually loaded */
+        if (u->load_state == UNIT_STUB)
+                return;
+
         /* Calculate subtree mask */
         m = unit_get_subtree_mask(u);
 
