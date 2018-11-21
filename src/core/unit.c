@@ -1155,22 +1155,32 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 (void) cg_mask_to_string(u->cgroup_realized_mask, &s);
                 fprintf(f, "%s\tCGroup realized mask: %s\n", prefix, strnull(s));
         }
+
         if (u->cgroup_enabled_mask != 0) {
                 _cleanup_free_ char *s = NULL;
                 (void) cg_mask_to_string(u->cgroup_enabled_mask, &s);
                 fprintf(f, "%s\tCGroup enabled mask: %s\n", prefix, strnull(s));
         }
+
         m = unit_get_own_mask(u);
         if (m != 0) {
                 _cleanup_free_ char *s = NULL;
                 (void) cg_mask_to_string(m, &s);
                 fprintf(f, "%s\tCGroup own mask: %s\n", prefix, strnull(s));
         }
+
         m = unit_get_members_mask(u);
         if (m != 0) {
                 _cleanup_free_ char *s = NULL;
                 (void) cg_mask_to_string(m, &s);
                 fprintf(f, "%s\tCGroup members mask: %s\n", prefix, strnull(s));
+        }
+
+        m = unit_get_delegate_mask(u);
+        if (m != 0) {
+                _cleanup_free_ char *s = NULL;
+                (void) cg_mask_to_string(m, &s);
+                fprintf(f, "%s\tCGroup delegate mask: %s\n", prefix, strnull(s));
         }
 
         SET_FOREACH(t, u->names, i)
