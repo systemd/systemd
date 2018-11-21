@@ -46,10 +46,8 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev) {
         struct udev_queue *udev_queue;
 
         udev_queue = new(struct udev_queue, 1);
-        if (!udev_queue) {
-                errno = ENOMEM;
-                return NULL;
-        }
+        if (!udev_queue)
+                return_with_errno(NULL, ENOMEM);
 
         *udev_queue = (struct udev_queue) {
                 .udev = udev,
@@ -188,8 +186,7 @@ _public_ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, un
  * Returns: NULL.
  **/
 _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue) {
-        errno = ENODATA;
-        return NULL;
+        return_with_errno(NULL, ENODATA);
 }
 
 /**
