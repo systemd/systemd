@@ -934,8 +934,6 @@ static int run(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[3];
 
-        umask(0022);
-
         r = lookup_paths_init(&lp, UNIT_FILE_SYSTEM, LOOKUP_PATHS_EXCLUDE_GENERATED, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to find lookup paths: %m");

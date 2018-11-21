@@ -64,8 +64,6 @@ int main(int argc, char *argv[]) {
 
         log_setup_generator();
 
-        umask(0022);
-
         r = generate_symlink();
 
         if (r > 0) {

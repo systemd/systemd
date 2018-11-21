@@ -123,8 +123,6 @@ int main(int argc, char *argv[]) {
 
         log_setup_generator();
 
-        umask(0022);
-
         if (detect_container() > 0) {
                 _cleanup_free_ char *container_ttys = NULL;
 
