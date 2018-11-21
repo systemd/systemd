@@ -84,6 +84,9 @@ int util_resolve_subsys_kernel(const char *string,
 size_t util_path_encode(const char *src, char *dest, size_t size) {
         size_t i, j;
 
+        assert(src);
+        assert(dest);
+
         for (i = 0, j = 0; src[i] != '\0'; i++) {
                 if (src[i] == '/') {
                         if (j+4 >= size) {
@@ -129,6 +132,9 @@ size_t util_path_encode(const char *src, char *dest, size_t size) {
 int util_replace_whitespace(const char *str, char *to, size_t len) {
         size_t i, j;
 
+        assert(str);
+        assert(to);
+
         /* strip trailing whitespace */
         len = strnlen(str, len);
         while (len && isspace(str[len-1]))
@@ -157,6 +163,8 @@ int util_replace_whitespace(const char *str, char *to, size_t len) {
 int util_replace_chars(char *str, const char *white) {
         size_t i = 0;
         int replaced = 0;
+
+        assert(str);
 
         while (str[i] != '\0') {
                 int len;
