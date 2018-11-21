@@ -182,9 +182,6 @@ typedef struct Unit {
         /* Per type list */
         LIST_FIELDS(Unit, units_by_type);
 
-        /* All units which have requires_mounts_for set */
-        LIST_FIELDS(Unit, has_requires_mounts_for);
-
         /* Load queue */
         LIST_FIELDS(Unit, load_queue);
 
