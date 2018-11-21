@@ -1491,6 +1491,9 @@ int unit_load(Unit *u) {
                 return 0;
 
         if (u->transient_file) {
+                /* Finalize transient file: if this is a transient unit file, as soon as we reach unit_load() the setup
+                 * is complete, hence let's synchronize the unit file we just wrote to disk. */
+
                 r = fflush_and_check(u->transient_file);
                 if (r < 0)
                         goto fail;
