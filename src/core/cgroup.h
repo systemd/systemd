@@ -137,8 +137,6 @@ void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix);
 
-CGroupMask cgroup_context_get_mask(CGroupContext *c);
-
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_io_device_weight(CGroupContext *c, CGroupIODeviceWeight *w);
 void cgroup_context_free_io_device_limit(CGroupContext *c, CGroupIODeviceLimit *l);
@@ -158,7 +156,6 @@ CGroupMask unit_get_target_mask(Unit *u);
 CGroupMask unit_get_enable_mask(Unit *u);
 
 bool unit_get_needs_bpf_firewall(Unit *u);
-CGroupMask unit_get_bpf_mask(Unit *u);
 
 void unit_update_cgroup_members_masks(Unit *u);
 

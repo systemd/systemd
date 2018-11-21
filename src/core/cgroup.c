@@ -1195,7 +1195,7 @@ static void cgroup_context_apply(
                 cgroup_apply_firewall(u);
 }
 
-CGroupMask cgroup_context_get_mask(CGroupContext *c) {
+static CGroupMask cgroup_context_get_mask(CGroupContext *c) {
         CGroupMask mask = 0;
 
         /* Figure out which controllers we need, based on the cgroup context object */
@@ -1227,7 +1227,7 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
         return CGROUP_MASK_EXTEND_JOINED(mask);
 }
 
-CGroupMask unit_get_bpf_mask(Unit *u) {
+static CGroupMask unit_get_bpf_mask(Unit *u) {
         CGroupMask mask = 0;
 
         /* Figure out which controllers we need, based on the cgroup context, possibly taking into account children
