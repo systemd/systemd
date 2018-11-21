@@ -68,7 +68,7 @@
 static bool arg_debug = false;
 static int arg_daemonize = false;
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
-static unsigned arg_children_max = 0;
+static unsigned arg_children_max = 1;  /* Workaround for issue #10754 */
 static usec_t arg_exec_delay_usec = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 
