@@ -2985,7 +2985,6 @@ int unit_set_slice(Unit *u, Unit *slice) {
 }
 
 int unit_set_default_slice(Unit *u) {
-        _cleanup_free_ char *b = NULL;
         const char *slice_name;
         Unit *slice;
         int r;
@@ -3013,13 +3012,9 @@ int unit_set_default_slice(Unit *u) {
                         return -ENOMEM;
 
                 if (MANAGER_IS_SYSTEM(u->manager))
-                        b = strjoin("system-", escaped, ".slice");
+                        slice_name = strjoina("system-", escaped, ".slice");
                 else
-                        b = strappend(escaped, ".slice");
-                if (!b)
-                        return -ENOMEM;
-
-                slice_name = b;
+                        slice_name = strjoina(escaped, ".slice");
         } else
                 slice_name =
                         MANAGER_IS_SYSTEM(u->manager) && !unit_has_name(u, SPECIAL_INIT_SCOPE)
