@@ -1195,6 +1195,34 @@ static void cgroup_context_apply(
                 cgroup_apply_firewall(u);
 }
 
+static bool unit_get_needs_bpf_firewall(Unit *u) {
+        CGroupContext *c;
+        Unit *p;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        if (c->ip_accounting ||
+            c->ip_address_allow ||
+            c->ip_address_deny)
+                return true;
+
+        /* If any parent slice has an IP access list defined, it applies too */
+        for (p = UNIT_DEREF(u->slice); p; p = UNIT_DEREF(p->slice)) {
+                c = unit_get_cgroup_context(p);
+                if (!c)
+                        return false;
+
+                if (c->ip_address_allow ||
+                    c->ip_address_deny)
+                        return true;
+        }
+
+        return false;
+}
+
 static CGroupMask cgroup_context_get_mask(CGroupContext *c) {
         CGroupMask mask = 0;
 
@@ -1354,34 +1382,6 @@ CGroupMask unit_get_enable_mask(Unit *u) {
         mask &= u->manager->cgroup_supported;
 
         return mask;
-}
-
-bool unit_get_needs_bpf_firewall(Unit *u) {
-        CGroupContext *c;
-        Unit *p;
-        assert(u);
-
-        c = unit_get_cgroup_context(u);
-        if (!c)
-                return false;
-
-        if (c->ip_accounting ||
-            c->ip_address_allow ||
-            c->ip_address_deny)
-                return true;
-
-        /* If any parent slice has an IP access list defined, it applies too */
-        for (p = UNIT_DEREF(u->slice); p; p = UNIT_DEREF(p->slice)) {
-                c = unit_get_cgroup_context(p);
-                if (!c)
-                        return false;
-
-                if (c->ip_address_allow ||
-                    c->ip_address_deny)
-                        return true;
-        }
-
-        return false;
 }
 
 /* Recurse from a unit up through its containing slices, propagating
