@@ -2,13 +2,10 @@
 
 #include <ctype.h>
 #include <errno.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 #include "device-nodes.h"
 #include "libudev-util.h"
+#include "string-util.h"
 #include "strxcpyx.h"
 #include "utf8.h"
 
@@ -130,31 +127,31 @@ size_t util_path_encode(const char *src, char *dest, size_t size) {
  * in-place in a buffer.  This function can handle that situation.
  */
 size_t util_replace_whitespace(const char *str, char *to, size_t len) {
-        size_t i, j;
+        bool is_space = false;
+        const char *p = str;
+        size_t j;
 
         assert(str);
         assert(to);
 
-        /* strip trailing whitespace */
-        len = strnlen(str, len);
-        while (len && isspace(str[len-1]))
-                len--;
+        p += strspn(p, WHITESPACE);
 
-        /* strip leading whitespace */
-        i = 0;
-        while ((i < len) && isspace(str[i]))
-                i++;
-
-        j = 0;
-        while (i < len) {
-                /* substitute multiple whitespace with a single '_' */
-                if (isspace(str[i])) {
-                        while (isspace(str[i]))
-                                i++;
-                        to[j++] = '_';
+        for (j = 0; j < len && *p != '\0'; p++) {
+                if (isspace(*p)) {
+                        is_space = true;
+                        continue;
                 }
-                to[j++] = str[i++];
+
+                if (is_space) {
+                        if (j + 1 >= len)
+                                break;
+
+                        to[j++] = '_';
+                        is_space = false;
+                }
+                to[j++] = *p;
         }
+
         to[j] = '\0';
         return j;
 }
