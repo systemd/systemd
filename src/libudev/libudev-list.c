@@ -300,15 +300,3 @@ _public_ const char *udev_list_entry_get_value(struct udev_list_entry *list_entr
                 return NULL;
         return list_entry->value;
 }
-
-int udev_list_entry_get_num(struct udev_list_entry *list_entry) {
-        if (!list_entry)
-                return -EINVAL;
-        return list_entry->num;
-}
-
-void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num) {
-        if (!list_entry)
-                return;
-        list_entry->num = num;
-}
