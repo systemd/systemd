@@ -9,6 +9,8 @@
 static void test_parse_etc_hosts_system(void) {
         _cleanup_fclose_ FILE *f = NULL;
 
+        log_info("/* %s */", __func__);
+
         f = fopen("/etc/hosts", "re");
         if (!f) {
                 assert_se(errno == -ENOENT);
@@ -19,37 +21,31 @@ static void test_parse_etc_hosts_system(void) {
         assert_se(etc_hosts_parse(&hosts, f) == 0);
 }
 
-static void test_parse_etc_hosts(const char *fname) {
+static void test_parse_etc_hosts(void) {
         _cleanup_(unlink_tempfilep) char
                 t[] = "/tmp/test-resolved-etc-hosts.XXXXXX";
+
+        log_info("/* %s */", __func__);
 
         int fd;
         _cleanup_fclose_ FILE *f;
 
-        if (fname) {
-                f = fopen(fname, "re");
-                assert_se(f);
-        } else {
-                fd = mkostemp_safe(t);
-                assert_se(fd >= 0);
+        fd = mkostemp_safe(t);
+        assert_se(fd >= 0);
 
-                f = fdopen(fd, "r+");
-                assert_se(f);
-                fputs("1.2.3.4 some.where\n", f);
-                fputs("1.2.3.5 some.where\n", f);
-                fputs("::0 some.where some.other\n", f);
-                fputs("0.0.0.0 black.listed\n", f);
-                fputs("::5 some.where some.other foobar.foo.foo\n", f);
-                fputs("        \n", f);
-                fflush(f);
-                rewind(f);
-        }
+        f = fdopen(fd, "r+");
+        assert_se(f);
+        fputs("1.2.3.4 some.where\n", f);
+        fputs("1.2.3.5 some.where\n", f);
+        fputs("::0 some.where some.other\n", f);
+        fputs("0.0.0.0 black.listed\n", f);
+        fputs("::5 some.where some.other foobar.foo.foo\n", f);
+        fputs("        \n", f);
+        fflush(f);
+        rewind(f);
 
         _cleanup_(etc_hosts_free) EtcHosts hosts = {};
         assert_se(etc_hosts_parse(&hosts, f) == 0);
-
-        if (fname)
-                return;
 
         EtcHostsItemByName *bn;
         assert_se(bn = hashmap_get(hosts.by_name, "some.where"));
@@ -79,14 +75,26 @@ static void test_parse_etc_hosts(const char *fname) {
         assert_se(!set_contains(hosts.no_address, "foobar.foo.foo"));
 }
 
+static void test_parse_file(const char *fname) {
+        _cleanup_(etc_hosts_free) EtcHosts hosts = {};
+        _cleanup_fclose_ FILE *f;
+
+        log_info("/* %s(\"%s\") */", __func__, fname);
+
+        assert_se(f = fopen(fname, "re"));
+        assert_se(etc_hosts_parse(&hosts, f) == 0);
+}
+
 int main(int argc, char **argv) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
         log_open();
 
-        if (argc == 1)
+        if (argc == 1) {
                 test_parse_etc_hosts_system();
-        test_parse_etc_hosts(argv[1]);
+                test_parse_etc_hosts();
+        } else
+                test_parse_file(argv[1]);
 
         return 0;
 }
