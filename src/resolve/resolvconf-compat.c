@@ -9,6 +9,7 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "resolvconf-compat.h"
 #include "resolvectl.h"
 #include "resolved-def.h"

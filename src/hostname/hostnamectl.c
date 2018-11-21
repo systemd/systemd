@@ -15,8 +15,8 @@
 #include "bus-util.h"
 #include "hostname-util.h"
 #include "main-func.h"
+#include "pretty-print.h"
 #include "spawn-polkit-agent.h"
-#include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
 

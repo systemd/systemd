@@ -9,13 +9,16 @@
 #include "id128-util.h"
 #include "log.h"
 #include "machine-id-setup.h"
+#include "main-func.h"
 #include "path-util.h"
-#include "terminal-util.h"
+#include "pretty-print.h"
 #include "util.h"
 
 static char *arg_root = NULL;
 static bool arg_commit = false;
 static bool arg_print = false;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -102,7 +105,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         char buf[SD_ID128_STRING_MAX];
         sd_id128_t id;
         int r;
@@ -112,31 +115,29 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         if (arg_commit) {
                 const char *etc_machine_id;
 
                 r = machine_id_commit(arg_root);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 etc_machine_id = prefix_roota(arg_root, "/etc/machine-id");
                 r = id128_read(etc_machine_id, ID128_PLAIN, &id);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to read machine ID back: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read machine ID back: %m");
         } else {
                 r = machine_id_setup(arg_root, SD_ID128_NULL, &id);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         if (arg_print)
                 puts(sd_id128_to_string(id, buf));
 
-finish:
-        free(arg_root);
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

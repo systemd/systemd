@@ -16,10 +16,10 @@
 #include "format-util.h"
 #include "main-func.h"
 #include "pager.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -282,12 +282,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
 
-        if (arg_action == ACTION_LIST) {
-                r = print_inhibitors(bus);
-                pager_close();
-                return r;
+        if (arg_action == ACTION_LIST)
+                return print_inhibitors(bus);
 
-        } else {
+        else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_close_ int fd = -1;
                 _cleanup_free_ char *w = NULL;
@@ -304,7 +302,7 @@ static int run(int argc, char *argv[]) {
 
                 fd = inhibit(bus, &error);
                 if (fd < 0)
-                        return log_error("Failed to inhibit: %s", bus_error_message(&error, fd));
+                        return log_error_errno(fd, "Failed to inhibit: %s", bus_error_message(&error, fd));
 
                 r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
                 if (r < 0)

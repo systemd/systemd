@@ -7,9 +7,9 @@
 #include "alloc-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "unit-name.h"
 
 static enum {

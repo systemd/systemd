@@ -5,9 +5,9 @@
 #include "sd-daemon.h"
 
 #include "manager.h"
+#include "pretty-print.h"
 #include "signal-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static bool arg_quiet = false;
 static usec_t arg_timeout = 120 * USEC_PER_SEC;

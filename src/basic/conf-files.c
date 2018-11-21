@@ -328,36 +328,3 @@ int conf_files_list_with_replacement(
                 *replace_file = TAKE_PTR(p);
         return 0;
 }
-
-int conf_files_cat(const char *root, const char *name) {
-        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
-        _cleanup_free_ char *path = NULL;
-        const char *dir;
-        char **t;
-        int r;
-
-        NULSTR_FOREACH(dir, CONF_PATHS_NULSTR("")) {
-                assert(endswith(dir, "/"));
-                r = strv_extendf(&dirs, "%s%s.d", dir, name);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to build directory list: %m");
-        }
-
-        r = conf_files_list_strv(&files, ".conf", root, 0, (const char* const*) dirs);
-        if (r < 0)
-                return log_error_errno(r, "Failed to query file list: %m");
-
-        path = path_join(root, "/etc", name);
-        if (!path)
-                return log_oom();
-
-        if (DEBUG_LOGGING) {
-                log_debug("Looking for configuration in:");
-                log_debug("   %s", path);
-                STRV_FOREACH(t, dirs)
-                        log_debug("   %s/*.conf", *t);
-        }
-
-        /* show */
-        return cat_files(path, files, CAT_FLAGS_MAIN_FILE_OPTIONAL);
-}

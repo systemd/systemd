@@ -12,16 +12,18 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "main-func.h"
 #include "module-util.h"
+#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "util.h"
 
 static char **arg_proc_cmdline_modules = NULL;
-
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
+
+STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
 
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args) {
@@ -158,13 +160,13 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        int r, k;
+static int run(int argc, char *argv[]) {
         _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        int r, k;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return r;
 
         log_setup_service();
 
@@ -177,7 +179,7 @@ int main(int argc, char *argv[]) {
         ctx = kmod_new(NULL, NULL);
         if (!ctx) {
                 log_error("Failed to allocate memory for kmod.");
-                goto finish;
+                return -ENOMEM;
         }
 
         kmod_load_resources(ctx);
@@ -209,7 +211,7 @@ int main(int argc, char *argv[]) {
                         log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
                         if (r == 0)
                                 r = k;
-                        goto finish;
+                        return r;
                 }
 
                 STRV_FOREACH(fn, files) {
@@ -219,8 +221,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-finish:
-        strv_free(arg_proc_cmdline_modules);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);

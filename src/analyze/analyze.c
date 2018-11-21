@@ -26,11 +26,13 @@
 #include "hashmap.h"
 #include "locale-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #if HAVE_SECCOMP
-#include "seccomp-util.h"
+#  include "seccomp-util.h"
 #endif
 #include "special.h"
 #include "strv.h"
@@ -74,6 +76,9 @@ static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_man = true;
 static bool arg_generators = false;
 static const char *arg_root = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
 
 struct boot_times {
         usec_t firmware_time;
@@ -1989,7 +1994,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1; /* work to do */
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
                 { "help",              VERB_ANY, VERB_ANY, 0,            help                   },
@@ -2026,15 +2031,9 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        r = dispatch_verb(argc, argv, verbs, NULL);
-
-finish:
-        pager_close();
-
-        strv_free(arg_dot_from_patterns);
-        strv_free(arg_dot_to_patterns);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
+
+DEFINE_MAIN_FUNCTION(run);

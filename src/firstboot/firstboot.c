@@ -27,10 +27,12 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "locale-util.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
 #include "string-util.h"
@@ -57,6 +59,14 @@ static bool arg_copy_locale = false;
 static bool arg_copy_keymap = false;
 static bool arg_copy_timezone = false;
 static bool arg_copy_root_password = false;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_locale, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_locale_messages, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_keymap, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_timezone, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_hostname, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_password, string_free_erasep);
 
 static bool press_any_key(void) {
         char k = 0;
@@ -941,61 +951,49 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         bool enabled;
         int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         log_setup_service();
 
         umask(0022);
 
         r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
-        if (r < 0) {
-                log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
-                goto finish;
-        }
-        if (r > 0 && !enabled) {
-                r = 0; /* disabled */
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
+        if (r > 0 && !enabled)
+                return 0; /* disabled */
 
         r = process_locale();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = process_keymap();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = process_timezone();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = process_hostname();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = process_machine_id();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = process_root_password();
         if (r < 0)
-                goto finish;
+                return r;
 
-finish:
-        free(arg_root);
-        free(arg_locale);
-        free(arg_locale_messages);
-        free(arg_keymap);
-        free(arg_timezone);
-        free(arg_hostname);
-        string_erase(arg_root_password);
-        free(arg_root_password);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

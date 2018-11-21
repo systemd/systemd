@@ -33,6 +33,7 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"

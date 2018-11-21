@@ -7,8 +7,8 @@
 
 #include "alloc-util.h"
 #include "main-func.h"
+#include "pretty-print.h"
 #include "string-table.h"
-#include "terminal-util.h"
 #include "util.h"
 #include "virt.h"
 

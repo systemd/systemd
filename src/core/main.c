@@ -58,6 +58,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "raw-clone.h"

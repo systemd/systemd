@@ -20,10 +20,10 @@
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "util.h"
 
 #define BUFFER_SIZE (256 * 1024)

@@ -18,11 +18,11 @@
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "sleep-config.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "util.h"
 
 static char* arg_verb = NULL;

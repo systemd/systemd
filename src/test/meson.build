@@ -305,6 +305,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-pretty-print.c'],
+         [],
+         []],
+
         [['src/test/test-uid-range.c'],
          [],
          []],

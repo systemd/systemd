@@ -6,6 +6,7 @@
 #include "device-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -296,7 +297,7 @@ static bool shall_clamp(sd_device *d) {
         return r;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
         const char *sysname, *path_id, *ss, *saved;
@@ -305,7 +306,7 @@ int main(int argc, char *argv[]) {
 
         if (argc != 3) {
                 log_error("This program requires two arguments.");
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
         log_setup_service();
@@ -313,15 +314,13 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
         r = mkdir_p("/var/lib/systemd/backlight", 0755);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create backlight directory /var/lib/systemd/backlight: %m");
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create backlight directory /var/lib/systemd/backlight: %m");
 
         sysname = strchr(argv[2], ':');
         if (!sysname) {
                 log_error("Requires a subsystem and sysname pair specifying a backlight device.");
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
         ss = strndupa(argv[2], sysname - argv[2]);
@@ -330,40 +329,31 @@ int main(int argc, char *argv[]) {
 
         if (!STR_IN_SET(ss, "backlight", "leds")) {
                 log_error("Not a backlight or LED device: '%s:%s'", ss, sysname);
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
         r = sd_device_new_from_subsystem_sysname(&device, ss, sysname);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get backlight or LED device '%s:%s': %m", ss, sysname);
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get backlight or LED device '%s:%s': %m", ss, sysname);
 
         /* If max_brightness is 0, then there is no actual backlight
          * device. This happens on desktops with Asus mainboards
          * that load the eeepc-wmi module. */
-        r = get_max_brightness(device, &max_brightness);
-        if (r < 0)
-                return EXIT_SUCCESS;
+        if (get_max_brightness(device, &max_brightness) < 0)
+                return 0;
 
         escaped_ss = cescape(ss);
-        if (!escaped_ss) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
+        if (!escaped_ss)
+                return log_oom();
 
         escaped_sysname = cescape(sysname);
-        if (!escaped_sysname) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
+        if (!escaped_sysname)
+                return log_oom();
 
         if (sd_device_get_property_value(device, "ID_PATH", &path_id) >= 0) {
                 escaped_path_id = cescape(path_id);
-                if (!escaped_path_id) {
-                        log_oom();
-                        return EXIT_FAILURE;
-                }
+                if (!escaped_path_id)
+                        return log_oom();
 
                 saved = strjoina("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname);
         } else
@@ -383,10 +373,10 @@ int main(int argc, char *argv[]) {
                 bool clamp;
 
                 if (shall_restore_state() == 0)
-                        return EXIT_SUCCESS;
+                        return 0;
 
                 if (validate_device(device) == 0)
-                        return EXIT_SUCCESS;
+                        return 0;
 
                 clamp = shall_clamp(device);
 
@@ -397,57 +387,47 @@ int main(int argc, char *argv[]) {
                         /* Fallback to clamping current brightness or exit early if
                          * clamping is not supported/enabled. */
                         if (!clamp)
-                                return EXIT_SUCCESS;
+                                return 0;
 
                         r = sd_device_get_sysattr_value(device, "brightness", &curval);
-                        if (r < 0) {
-                                log_device_warning_errno(device, r, "Failed to read 'brightness' attribute: %m");
-                                return EXIT_FAILURE;
-                        }
+                        if (r < 0)
+                                return log_device_warning_errno(device, r, "Failed to read 'brightness' attribute: %m");
 
                         value = strdup(curval);
-                        if (!value) {
-                                log_oom();
-                                return EXIT_FAILURE;
-                        }
-                } else if (r < 0) {
-                        log_error_errno(r, "Failed to read %s: %m", saved);
-                        return EXIT_FAILURE;
-                }
+                        if (!value)
+                                return log_oom();
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to read %s: %m", saved);
 
                 if (clamp)
                         (void) clamp_brightness(device, &value, max_brightness);
 
                 r = sd_device_set_sysattr_value(device, "brightness", value);
-                if (r < 0) {
-                        log_device_error_errno(device, r, "Failed to write system 'brightness' attribute: %m");
-                        return EXIT_FAILURE;
-                }
+                if (r < 0)
+                        return log_device_error_errno(device, r, "Failed to write system 'brightness' attribute: %m");
 
         } else if (streq(argv[1], "save")) {
                 const char *value;
 
                 if (validate_device(device) == 0) {
                         unlink(saved);
-                        return EXIT_SUCCESS;
+                        return 0;
                 }
 
                 r = sd_device_get_sysattr_value(device, "brightness", &value);
-                if (r < 0) {
-                        log_device_error_errno(device, r, "Failed to read system 'brightness' attribute: %m");
-                        return EXIT_FAILURE;
-                }
+                if (r < 0)
+                        return log_device_error_errno(device, r, "Failed to read system 'brightness' attribute: %m");
 
                 r = write_string_file(saved, value, WRITE_STRING_FILE_CREATE);
-                if (r < 0) {
-                        log_device_error_errno(device, r, "Failed to write %s: %m", saved);
-                        return EXIT_FAILURE;
-                }
+                if (r < 0)
+                        return log_device_error_errno(device, r, "Failed to write %s: %m", saved);
 
         } else {
                 log_error("Unknown verb %s.", argv[1]);
-                return EXIT_FAILURE;
+                return -EINVAL;
         }
 
-        return EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

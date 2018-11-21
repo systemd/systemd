@@ -14,9 +14,9 @@
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 

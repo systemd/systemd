@@ -428,7 +428,7 @@ static int run(int argc, char *argv[]) {
         if (exit_status & FSCK_ERROR_CORRECTED)
                 (void) touch("/run/systemd/quotacheck");
 
-        return exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED);
+        return !!(exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED));
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

@@ -8,6 +8,7 @@
 #include "crypt-util.h"
 #include "hexdecoct.h"
 #include "log.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "terminal-util.h"
 

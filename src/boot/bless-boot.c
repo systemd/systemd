@@ -18,6 +18,8 @@
 
 static char *arg_path = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
+
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%s [COMMAND] [OPTIONS...]\n"
@@ -436,7 +438,7 @@ exists:
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
                 { "help",          VERB_ANY, VERB_ANY, 0,                 help        },
@@ -454,24 +456,19 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         if (detect_container() > 0) {
                 log_error("Marking a boot is not supported in containers.");
-                r = -EOPNOTSUPP;
-                goto finish;
+                return -EOPNOTSUPP;
         }
 
         if (!is_efi_boot()) {
                 log_error("Marking a boot is only supported on EFI systems.");
-                r = -EOPNOTSUPP;
-                goto finish;
+                return -EOPNOTSUPP;
         }
 
-        r = dispatch_verb(argc, argv, verbs, NULL);
-
-finish:
-        free(arg_path);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
+
+DEFINE_MAIN_FUNCTION(run);

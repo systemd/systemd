@@ -16,6 +16,7 @@
 #include "format-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
 #include "signal-util.h"

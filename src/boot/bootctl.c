@@ -29,8 +29,10 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "locale-util.h"
+#include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -46,6 +48,8 @@ static char *arg_path = NULL;
 static bool arg_print_path = false;
 static bool arg_touch_variables = true;
 static PagerFlags arg_pager_flags = 0;
+
+STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
 
 static int acquire_esp(
                 bool unprivileged_mode,
@@ -1251,7 +1255,7 @@ static int bootctl_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         log_parse_environment();
@@ -1263,13 +1267,9 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
-        r = bootctl_main(argc, argv);
-
- finish:
-        pager_close();
-        free(arg_path);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return bootctl_main(argc, argv);
 }
+
+DEFINE_MAIN_FUNCTION(run);
