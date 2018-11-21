@@ -2,7 +2,9 @@
 #pragma once
 
 #include <grp.h>
+#if ENABLE_GSHADOW
 #include <gshadow.h>
+#endif
 #include <pwd.h>
 #include <shadow.h>
 #include <stdbool.h>
