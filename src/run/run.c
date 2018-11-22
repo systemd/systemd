@@ -14,6 +14,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -1539,7 +1540,7 @@ static int start_transient_trigger(
         return 0;
 }
 
-int main(int argc, char* argv[]) {
+static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *description = NULL;
         int r, retval = EXIT_SUCCESS;
@@ -1612,5 +1613,7 @@ finish:
         strv_free(arg_cmdline);
         free(arg_working_directory);
 
-        return r < 0 ? EXIT_FAILURE : retval;
+        return r < 0 ? r : retval;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
