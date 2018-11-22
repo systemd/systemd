@@ -275,6 +275,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--shell</option></term>
+        <term><option>-S</option></term>
+
+        <listitem><para>A shortcut for <literal>--pty --same-dir --wait --collect --service-type=exec $SHELL</literal>,
+        i.e. requests an interactive shell in the current working directory, running in service context, accessible
+        with a single switch.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--quiet</option></term>
         <term><option>-q</option></term>
 

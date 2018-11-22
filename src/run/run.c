@@ -59,6 +59,8 @@ static bool with_timer = false;
 static bool arg_quiet = false;
 static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
+static bool arg_shell = false;
+static char **arg_cmdline = NULL;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -96,7 +98,8 @@ static int help(void) {
                "                                  STDERR\n"
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
-               "  -G --collect                    Unload unit after it ran, even when failed\n\n"
+               "  -G --collect                    Unload unit after it ran, even when failed\n"
+               "  -S --shell                      Invoke a $SHELL interactively\n\n"
                "Path options:\n"
                "     --path-property=NAME=VALUE   Set path unit property\n\n"
                "Socket options:\n"
@@ -161,6 +164,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
+                ARG_SHELL,
         };
 
         static const struct option options[] = {
@@ -201,6 +205,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "collect",           no_argument,       NULL, 'G'                   },
                 { "working-directory", required_argument, NULL, ARG_WORKING_DIRECTORY },
                 { "same-dir",          no_argument,       NULL, 'd'                   },
+                { "shell",             no_argument,       NULL, 'S'                   },
                 {},
         };
 
@@ -210,7 +215,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPqGd", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPqGdS", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -425,6 +430,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_aggressive_gc = true;
                         break;
 
+                case 'S':
+                        arg_shell = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -439,6 +448,32 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Only single trigger (path, socket, timer) unit can be created.");
 
+        if (arg_shell) {
+                /* If --shell is imply --pty --pipe --same-dir --service-type=exec --wait --collect, unless otherwise
+                 * specified. */
+
+                if (!arg_scope) {
+                        if (arg_stdio == ARG_STDIO_NONE)
+                                arg_stdio = ARG_STDIO_AUTO;
+
+                        if (!arg_working_directory) {
+                                r = safe_getcwd(&arg_working_directory);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to get current working directory: %m");
+                        }
+
+                        if (!arg_service_type) {
+                                arg_service_type = strdup("exec");
+                                if (!arg_service_type)
+                                        return log_oom();
+                        }
+
+                        arg_wait = true;
+                }
+
+                arg_aggressive_gc = true;
+        }
+
         if (arg_stdio == ARG_STDIO_AUTO) {
                 /* If we both --pty and --pipe are specified we'll automatically pick --pty if we are connected fully
                  * to a TTY and pick direct fd passing otherwise. This way, we automatically adapt to usage in a shell
@@ -448,9 +483,34 @@ static int parse_argv(int argc, char *argv[]) {
                         ARG_STDIO_DIRECT;
         }
 
-        if ((optind >= argc) && (!arg_unit || !with_trigger))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Command line to execute required.");
+        if (argc > optind) {
+                char **l;
+
+                if (arg_shell)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "If --shell is used, no command line is expected.");
+
+                l = strv_copy(argv + optind);
+                if (!l)
+                        return log_oom();
+
+                strv_free_and_replace(arg_cmdline, l);
+
+        } else if (arg_shell) {
+                _cleanup_free_ char *s = NULL;
+                char **l;
+
+                r = get_shell(&s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine shell: %m");
+
+                l = strv_new(s);
+                if (!l)
+                        return log_oom();
+
+                strv_free_and_replace(arg_cmdline, l);
+
+        } else if (!arg_unit || !with_trigger)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command line to execute required.");
 
         if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -554,7 +614,7 @@ static int transient_kill_set_properties(sd_bus_message *m) {
         return 0;
 }
 
-static int transient_service_set_properties(sd_bus_message *m, char **argv, const char *pty_path) {
+static int transient_service_set_properties(sd_bus_message *m, const char *pty_path) {
         bool send_term = false;
         int r;
 
@@ -681,7 +741,7 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
         }
 
         /* Exec container */
-        {
+        if (!strv_isempty(arg_cmdline)) {
                 r = sd_bus_message_open_container(m, 'r', "sv");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -702,11 +762,11 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", argv[0]);
+                r = sd_bus_message_append(m, "s", arg_cmdline[0]);
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_strv(m, argv);
+                r = sd_bus_message_append_strv(m, arg_cmdline);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -927,7 +987,6 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
 
 static int start_transient_service(
                 sd_bus *bus,
-                char **argv,
                 int *retval) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -938,7 +997,6 @@ static int start_transient_service(
         int r;
 
         assert(bus);
-        assert(argv);
         assert(retval);
 
         if (arg_stdio == ARG_STDIO_PTY) {
@@ -1030,7 +1088,7 @@ static int start_transient_service(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = transient_service_set_properties(m, argv, pty_path);
+        r = transient_service_set_properties(m, pty_path);
         if (r < 0)
                 return r;
 
@@ -1180,9 +1238,7 @@ static int start_transient_service(
         return 0;
 }
 
-static int start_transient_scope(
-                sd_bus *bus,
-                char **argv) {
+static int start_transient_scope(sd_bus *bus) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -1193,7 +1249,7 @@ static int start_transient_scope(
         int r;
 
         assert(bus);
-        assert(argv);
+        assert(!strv_isempty(arg_cmdline));
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
@@ -1321,14 +1377,13 @@ static int start_transient_scope(
         if (!arg_quiet)
                 log_info("Running scope as unit: %s", scope);
 
-        execvpe(argv[0], argv, env);
+        execvpe(arg_cmdline[0], arg_cmdline, env);
 
         return log_error_errno(errno, "Failed to execute: %m");
 }
 
 static int start_transient_trigger(
                 sd_bus *bus,
-                char **argv,
                 const char *suffix) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1339,7 +1394,6 @@ static int start_transient_trigger(
         int r;
 
         assert(bus);
-        assert(argv);
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
@@ -1432,7 +1486,7 @@ static int start_transient_trigger(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (!strv_isempty(argv)) {
+        if (!strv_isempty(arg_cmdline)) {
                 r = sd_bus_message_open_container(m, 'r', "sa(sv)");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1445,7 +1499,7 @@ static int start_transient_trigger(
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = transient_service_set_properties(m, argv, NULL);
+                r = transient_service_set_properties(m, NULL);
                 if (r < 0)
                         return r;
 
@@ -1478,7 +1532,7 @@ static int start_transient_trigger(
 
         if (!arg_quiet) {
                 log_info("Running %s as unit: %s", suffix + 1, trigger);
-                if (argv[0])
+                if (!strv_isempty(arg_cmdline))
                         log_info("Will run service as unit: %s", service);
         }
 
@@ -1487,7 +1541,7 @@ static int start_transient_trigger(
 
 int main(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *description = NULL, *command = NULL;
+        _cleanup_free_ char *description = NULL;
         int r, retval = EXIT_SUCCESS;
 
         log_parse_environment();
@@ -1497,20 +1551,22 @@ int main(int argc, char* argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (argc > optind && arg_transport == BUS_TRANSPORT_LOCAL) {
+        if (!strv_isempty(arg_cmdline) && arg_transport == BUS_TRANSPORT_LOCAL) {
+                _cleanup_free_ char *command = NULL;
+
                 /* Patch in an absolute path */
 
-                r = find_binary(argv[optind], &command);
+                r = find_binary(arg_cmdline[0], &command);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to find executable %s: %m", argv[optind]);
+                        log_error_errno(r, "Failed to find executable %s: %m", arg_cmdline[0]);
                         goto finish;
                 }
 
-                argv[optind] = command;
+                free_and_replace(arg_cmdline[0], command);
         }
 
         if (!arg_description) {
-                description = strv_join(argv + optind, " ");
+                description = strv_join(arg_cmdline, " ");
                 if (!description) {
                         r = log_oom();
                         goto finish;
@@ -1537,15 +1593,15 @@ int main(int argc, char* argv[]) {
         }
 
         if (arg_scope)
-                r = start_transient_scope(bus, argv + optind);
+                r = start_transient_scope(bus);
         else if (arg_path_property)
-                r = start_transient_trigger(bus, argv + optind, ".path");
+                r = start_transient_trigger(bus, ".path");
         else if (arg_socket_property)
-                r = start_transient_trigger(bus, argv + optind, ".socket");
+                r = start_transient_trigger(bus, ".socket");
         else if (with_timer)
-                r = start_transient_trigger(bus, argv + optind, ".timer");
+                r = start_transient_trigger(bus, ".timer");
         else
-                r = start_transient_service(bus, argv + optind, &retval);
+                r = start_transient_service(bus, &retval);
 
 finish:
         strv_free(arg_environment);
@@ -1553,6 +1609,7 @@ finish:
         strv_free(arg_path_property);
         strv_free(arg_socket_property);
         strv_free(arg_timer_property);
+        strv_free(arg_cmdline);
         free(arg_working_directory);
 
         return r < 0 ? EXIT_FAILURE : retval;
