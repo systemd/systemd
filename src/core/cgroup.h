@@ -151,11 +151,12 @@ CGroupMask unit_get_delegate_mask(Unit *u);
 CGroupMask unit_get_members_mask(Unit *u);
 CGroupMask unit_get_siblings_mask(Unit *u);
 CGroupMask unit_get_subtree_mask(Unit *u);
-
 CGroupMask unit_get_target_mask(Unit *u);
 CGroupMask unit_get_enable_mask(Unit *u);
 
 void unit_update_cgroup_members_masks(Unit *u);
+
+void unit_add_to_cgroup_realize_queue(Unit *u);
 
 const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask);
 char *unit_default_cgroup_path(Unit *u);
