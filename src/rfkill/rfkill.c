@@ -31,6 +31,11 @@ typedef struct write_queue_item {
         int state;
 } write_queue_item;
 
+typedef struct Context {
+        LIST_HEAD(write_queue_item, write_queue);
+        int rfkill_fd;
+} Context;
+
 static struct write_queue_item* write_queue_item_free(struct write_queue_item *item) {
         if (!item)
                 return NULL;
@@ -205,16 +210,14 @@ static int determine_state_file(
         return 0;
 }
 
-static int load_state(
-                int rfkill_fd,
-                const struct rfkill_event *event) {
-
+static int load_state(Context *c, const struct rfkill_event *event) {
         _cleanup_free_ char *state_file = NULL, *value = NULL;
         struct rfkill_event we;
         ssize_t l;
         int b, r;
 
-        assert(rfkill_fd >= 0);
+        assert(c);
+        assert(c->rfkill_fd >= 0);
         assert(event);
 
         if (shall_restore_state() == 0)
@@ -248,7 +251,7 @@ static int load_state(
                 .soft = b,
         };
 
-        l = write(rfkill_fd, &we, sizeof(we));
+        l = write(c->rfkill_fd, &we, sizeof(we));
         if (l < 0)
                 return log_error_errno(errno, "Failed to restore rfkill state for %i: %m", event->idx);
         if (l != sizeof(we))
@@ -259,39 +262,34 @@ static int load_state(
         return 0;
 }
 
-static void save_state_queue_remove(
-                struct write_queue_item **write_queue,
-                int idx,
-                char *state_file) {
-
+static void save_state_queue_remove(Context *c, int idx, const char *state_file) {
         struct write_queue_item *item, *tmp;
 
-        LIST_FOREACH_SAFE(queue, item, tmp, *write_queue) {
+        assert(c);
+
+        LIST_FOREACH_SAFE(queue, item, tmp, c->write_queue) {
                 if ((state_file && streq(item->file, state_file)) || idx == item->rfkill_idx) {
                         log_debug("Canceled previous save state of '%s' to %s.", one_zero(item->state), item->file);
-                        LIST_REMOVE(queue, *write_queue, item);
+                        LIST_REMOVE(queue, c->write_queue, item);
                         write_queue_item_free(item);
                 }
         }
 }
 
-static int save_state_queue(
-                struct write_queue_item **write_queue,
-                int rfkill_fd,
-                const struct rfkill_event *event) {
-
+static int save_state_queue(Context *c, const struct rfkill_event *event) {
         _cleanup_free_ char *state_file = NULL;
         struct write_queue_item *item;
         int r;
 
-        assert(rfkill_fd >= 0);
+        assert(c);
+        assert(c->rfkill_fd >= 0);
         assert(event);
 
         r = determine_state_file(event, &state_file);
         if (r < 0)
                 return r;
 
-        save_state_queue_remove(write_queue, event->idx, state_file);
+        save_state_queue_remove(c, event->idx, state_file);
 
         item = new0(struct write_queue_item, 1);
         if (!item)
@@ -301,57 +299,54 @@ static int save_state_queue(
         item->rfkill_idx = event->idx;
         item->state = event->soft;
 
-        LIST_APPEND(queue, *write_queue, item);
+        LIST_APPEND(queue, c->write_queue, item);
 
         return 0;
 }
 
-static int save_state_cancel(
-                struct write_queue_item **write_queue,
-                int rfkill_fd,
-                const struct rfkill_event *event) {
-
+static int save_state_cancel(Context *c, const struct rfkill_event *event) {
         _cleanup_free_ char *state_file = NULL;
         int r;
 
-        assert(rfkill_fd >= 0);
+        assert(c);
+        assert(c->rfkill_fd >= 0);
         assert(event);
 
         r = determine_state_file(event, &state_file);
-        save_state_queue_remove(write_queue, event->idx, state_file);
+        save_state_queue_remove(c, event->idx, state_file);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-static int save_state_write(struct write_queue_item **write_queue) {
-        struct write_queue_item *item, *tmp;
-        int result = 0;
-        bool error_logged = false;
+static int save_state_write_one(struct write_queue_item *item) {
         int r;
 
-        LIST_FOREACH_SAFE(queue, item, tmp, *write_queue) {
-                r = write_string_file(item->file, one_zero(item->state), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
-                if (r < 0) {
-                        result = r;
-                        if (!error_logged) {
-                                log_error_errno(r, "Failed to write state file %s: %m", item->file);
-                                error_logged = true;
-                        } else
-                                log_warning_errno(r, "Failed to write state file %s: %m", item->file);
-                } else
-                        log_debug("Saved state '%s' to %s.", one_zero(item->state), item->file);
+        r = write_string_file(item->file, one_zero(item->state), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write state file %s: %m", item->file);
 
-                LIST_REMOVE(queue, *write_queue, item);
-                write_queue_item_free(item);
+        log_debug("Saved state '%s' to %s.", one_zero(item->state), item->file);
+        return 0;
+}
+
+static void context_save_and_clear(Context *c) {
+        struct write_queue_item *i;
+
+        assert(c);
+
+        while ((i = c->write_queue)) {
+                LIST_REMOVE(queue, c->write_queue, i);
+                (void) save_state_write_one(i);
+                write_queue_item_free(i);
         }
-        return result;
+
+        safe_close(c->rfkill_fd);
 }
 
 int main(int argc, char *argv[]) {
-        LIST_HEAD(write_queue_item, write_queue);
-        _cleanup_close_ int rfkill_fd = -1;
+        _cleanup_(context_save_and_clear) Context c = { .rfkill_fd = -1 };
         bool ready = false;
         int r, n;
 
@@ -359,8 +354,6 @@ int main(int argc, char *argv[]) {
                 log_error("This program requires no arguments.");
                 return EXIT_FAILURE;
         }
-
-        LIST_HEAD_INIT(write_queue);
 
         log_setup_service();
 
@@ -384,8 +377,8 @@ int main(int argc, char *argv[]) {
         }
 
         if (n == 0) {
-                rfkill_fd = open("/dev/rfkill", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                if (rfkill_fd < 0) {
+                c.rfkill_fd = open("/dev/rfkill", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                if (c.rfkill_fd < 0) {
                         if (errno == ENOENT) {
                                 log_debug_errno(errno, "Missing rfkill subsystem, or no device present, exiting.");
                                 r = 0;
@@ -396,13 +389,13 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
         } else {
-                rfkill_fd = SD_LISTEN_FDS_START;
+                c.rfkill_fd = SD_LISTEN_FDS_START;
 
-                r = fd_nonblock(rfkill_fd, 1);
                 if (r < 0) {
                         log_error_errno(r, "Failed to make /dev/rfkill socket non-blocking: %m");
                         goto finish;
                 }
+                r = fd_nonblock(c.rfkill_fd, 1);
         }
 
         for (;;) {
@@ -410,7 +403,7 @@ int main(int argc, char *argv[]) {
                 const char *type;
                 ssize_t l;
 
-                l = read(rfkill_fd, &event, sizeof(event));
+                l = read(c.rfkill_fd, &event, sizeof(event));
                 if (l < 0) {
                         if (errno == EAGAIN) {
 
@@ -425,7 +418,7 @@ int main(int argc, char *argv[]) {
 
                                 /* Hang around for a bit, maybe there's more coming */
 
-                                r = fd_wait_for_event(rfkill_fd, POLLIN, EXIT_USEC);
+                                r = fd_wait_for_event(c.rfkill_fd, POLLIN, EXIT_USEC);
                                 if (r == -EINTR)
                                         continue;
                                 if (r < 0) {
@@ -458,17 +451,17 @@ int main(int argc, char *argv[]) {
 
                 case RFKILL_OP_ADD:
                         log_debug("A new rfkill device has been added with index %i and type %s.", event.idx, type);
-                        (void) load_state(rfkill_fd, &event);
+                        (void) load_state(&c, &event);
                         break;
 
                 case RFKILL_OP_DEL:
                         log_debug("An rfkill device has been removed with index %i and type %s", event.idx, type);
-                        (void) save_state_cancel(&write_queue, rfkill_fd, &event);
+                        (void) save_state_cancel(&c, &event);
                         break;
 
                 case RFKILL_OP_CHANGE:
                         log_debug("An rfkill device has changed state with index %i and type %s", event.idx, type);
-                        (void) save_state_queue(&write_queue, rfkill_fd, &event);
+                        (void) save_state_queue(&c, &event);
                         break;
 
                 default:
@@ -480,7 +473,5 @@ int main(int argc, char *argv[]) {
         r = 0;
 
 finish:
-        (void) save_state_write(&write_queue);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
