@@ -13,6 +13,7 @@
 #include "generator.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -27,6 +28,10 @@ static bool arg_enabled = true;
 static char *arg_root_hash = NULL;
 static char *arg_data_what = NULL;
 static char *arg_hash_what = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_data_what, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_hash_what, freep);
 
 static int create_device(void) {
         _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *u_escaped = NULL, *v_escaped = NULL, *root_hash_escaped = NULL;
@@ -199,13 +204,11 @@ static int determine_devices(void) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
-        }
+        if (argc > 1 && argc != 4)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes three or no arguments.");
 
         if (argc > 1)
                 arg_dest = argv[1];
@@ -213,33 +216,24 @@ int main(int argc, char *argv[]) {
         log_setup_generator();
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to parse kernel command line: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse kernel command line: %m");
 
         /* For now we only support the root device on verity. Later on we might want to add support for /etc/veritytab
          * or similar to define additional mappings */
 
-        if (!arg_enabled) {
-                r = 0;
-                goto finish;
-        }
+        if (!arg_enabled)
+                return 0;
 
         r = determine_devices();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = create_device();
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = 0;
-
-finish:
-        free(arg_root_hash);
-        free(arg_data_what);
-        free(arg_hash_what);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
