@@ -1592,14 +1592,12 @@ static int unit_create_cgroup(
                 CGroupMask target_mask,
                 CGroupMask enable_mask) {
 
-        CGroupContext *c;
         bool created;
         int r;
 
         assert(u);
 
-        c = unit_get_cgroup_context(u);
-        if (!c)
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
 
         /* Figure out our cgroup path */
