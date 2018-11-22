@@ -456,7 +456,7 @@ static int add_token(struct udev_rules *rules, struct token *token) {
                         add = 8;
 
                 tokens = reallocarray(rules->tokens, rules->token_max + add, sizeof(struct token));
-                if (tokens == NULL)
+                if (!tokens)
                         return -1;
                 rules->tokens = tokens;
                 rules->token_max += add;
@@ -502,7 +502,7 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
                         add = 8;
 
                 uids = reallocarray(rules->uids, rules->uids_max + add, sizeof(struct uid_gid));
-                if (uids == NULL)
+                if (!uids)
                         return uid;
                 rules->uids = uids;
                 rules->uids_max += add;
@@ -545,7 +545,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
                         add = 8;
 
                 gids = reallocarray(rules->gids, rules->gids_max + add, sizeof(struct uid_gid));
-                if (gids == NULL)
+                if (!gids)
                         return gid;
                 rules->gids = gids;
                 rules->gids_max += add;
@@ -651,11 +651,11 @@ static int import_program_into_properties(struct udev_event *event,
                 return err;
 
         line = result;
-        while (line != NULL) {
+        while (line) {
                 char *pos;
 
                 pos = strchr(line, '\n');
-                if (pos != NULL) {
+                if (pos) {
                         pos[0] = '\0';
                         pos = &pos[1];
                 }
@@ -695,7 +695,7 @@ static void attr_subst_subdir(char *attr, size_t len) {
         tail = pos + 2;
         path = strndupa(attr, pos - attr + 1); /* include slash at end */
         dir = opendir(path);
-        if (dir == NULL)
+        if (!dir)
                 return;
 
         FOREACH_DIRENT_ALL(dent, dir, break)
@@ -716,7 +716,7 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
         unsigned i, j;
 
         linepos = *line;
-        if (linepos == NULL || linepos[0] == '\0')
+        if (!linepos || linepos[0] == '\0')
                 return -1;
 
         /* skip whitespace */
@@ -817,10 +817,10 @@ static const char *get_key_attribute(char *str) {
         char *attr;
 
         attr = strchr(str, '{');
-        if (attr != NULL) {
+        if (attr) {
                 attr++;
                 pos = strchr(attr, '}');
-                if (pos == NULL) {
+                if (!pos) {
                         log_error("Missing closing brace for format");
                         return NULL;
                 }
@@ -888,7 +888,7 @@ static void rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
                 break;
         case TK_M_TEST:
                 token->key.value_off = rules_add_string(rule_tmp->rules, value);
-                if (data != NULL)
+                if (data)
                         token->key.mode = *(mode_t *)data;
                 break;
         case TK_A_STRING_ESCAPE_NONE:
@@ -922,44 +922,43 @@ static void rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
                 assert_not_reached("wrong type");
         }
 
-        if (value != NULL && type < TK_M_MAX) {
+        if (value && type < TK_M_MAX) {
                 /* check if we need to split or call fnmatch() while matching rules */
                 enum string_glob_type glob;
-                int has_split;
-                int has_glob;
+                bool has_split, has_glob;
 
-                has_split = (strchr(value, '|') != NULL);
+                has_split = strchr(value, '|');
                 has_glob = string_is_glob(value);
-                if (has_split && has_glob) {
+                if (has_split && has_glob)
                         glob = GL_SPLIT_GLOB;
-                } else if (has_split) {
+                else if (has_split)
                         glob = GL_SPLIT;
-                } else if (has_glob) {
+                else if (has_glob) {
                         if (streq(value, "?*"))
                                 glob = GL_SOMETHING;
                         else
                                 glob = GL_GLOB;
-                } else {
+                } else
                         glob = GL_PLAIN;
-                }
+
                 token->key.glob = glob;
         }
 
-        if (value != NULL && type > TK_M_MAX) {
+        if (value && type > TK_M_MAX) {
                 /* check if assigned value has substitution chars */
                 if (value[0] == '[')
                         token->key.subst = SB_SUBSYS;
-                else if (strchr(value, '%') != NULL || strchr(value, '$') != NULL)
+                else if (strchr(value, '%') || strchr(value, '$'))
                         token->key.subst = SB_FORMAT;
                 else
                         token->key.subst = SB_NONE;
         }
 
-        if (attr != NULL) {
+        if (attr) {
                 /* check if property/attribute name has substitution chars */
                 if (attr[0] == '[')
                         token->key.attrsubst = SB_SUBSYS;
-                else if (strchr(attr, '%') != NULL || strchr(attr, '$') != NULL)
+                else if (strchr(attr, '%') || strchr(attr, '$'))
                         token->key.attrsubst = SB_FORMAT;
                 else
                         token->key.attrsubst = SB_NONE;
@@ -1093,7 +1092,7 @@ static void add_rule(struct udev_rules *rules, char *line,
 
                 } else if (startswith(key, "ATTR{")) {
                         attr = get_key_attribute(key + STRLEN("ATTR"));
-                        if (attr == NULL)
+                        if (!attr)
                                 LOG_AND_RETURN("error parsing %s attribute", "ATTR");
 
                         if (op == OP_REMOVE)
@@ -1106,7 +1105,7 @@ static void add_rule(struct udev_rules *rules, char *line,
 
                 } else if (startswith(key, "SYSCTL{")) {
                         attr = get_key_attribute(key + STRLEN("SYSCTL"));
-                        if (attr == NULL)
+                        if (!attr)
                                 LOG_AND_RETURN("error parsing %s attribute", "ATTR");
 
                         if (op == OP_REMOVE)
@@ -1119,7 +1118,7 @@ static void add_rule(struct udev_rules *rules, char *line,
 
                 } else if (startswith(key, "SECLABEL{")) {
                         attr = get_key_attribute(key + STRLEN("SECLABEL"));
-                        if (attr == NULL)
+                        if (!attr)
                                 LOG_AND_RETURN("error parsing %s attribute", "SECLABEL");
 
                         if (op == OP_REMOVE)
@@ -1150,12 +1149,12 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 LOG_AND_RETURN("invalid %s operation", "ATTRS");
 
                         attr = get_key_attribute(key + STRLEN("ATTRS"));
-                        if (attr == NULL)
+                        if (!attr)
                                 LOG_AND_RETURN("error parsing %s attribute", "ATTRS");
 
                         if (startswith(attr, "device/"))
                                 LOG_RULE_WARNING("'device' link may not be available in future kernels; please fix");
-                        if (strstr(attr, "../") != NULL)
+                        if (strstr(attr, "../"))
                                 LOG_RULE_WARNING("direct reference to parent sysfs directory, may break in future kernels; please fix");
                         rule_add_key(&rule_tmp, TK_M_ATTRS, op, value, attr);
 
@@ -1167,7 +1166,7 @@ static void add_rule(struct udev_rules *rules, char *line,
 
                 } else if (startswith(key, "ENV{")) {
                         attr = get_key_attribute(key + STRLEN("ENV"));
-                        if (attr == NULL)
+                        if (!attr)
                                 LOG_AND_RETURN("error parsing %s attribute", "ENV");
 
                         if (op == OP_REMOVE)
@@ -1213,7 +1212,7 @@ static void add_rule(struct udev_rules *rules, char *line,
 
                 } else if (startswith(key, "IMPORT")) {
                         attr = get_key_attribute(key + STRLEN("IMPORT"));
-                        if (attr == NULL) {
+                        if (!attr) {
                                 LOG_RULE_WARNING("ignoring IMPORT{} with missing type");
                                 continue;
                         }
@@ -1257,7 +1256,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 LOG_AND_RETURN("invalid %s operation", "TEST");
 
                         attr = get_key_attribute(key + STRLEN("TEST"));
-                        if (attr != NULL) {
+                        if (attr) {
                                 mode = strtol(attr, NULL, 8);
                                 rule_add_key(&rule_tmp, TK_M_TEST, op, value, &mode);
                         } else
@@ -1265,7 +1264,7 @@ static void add_rule(struct udev_rules *rules, char *line,
 
                 } else if (startswith(key, "RUN")) {
                         attr = get_key_attribute(key + STRLEN("RUN"));
-                        if (attr == NULL)
+                        if (!attr)
                                 attr = "program";
                         if (op == OP_REMOVE)
                                 LOG_AND_RETURN("invalid %s operation", "RUN");
@@ -1335,7 +1334,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         uid = strtoul(value, &endptr, 10);
                         if (endptr[0] == '\0')
                                 rule_add_key(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
-                        else if (rules->resolve_name_timing == RESOLVE_NAME_EARLY && strchr("$%", value[0]) == NULL) {
+                        else if (rules->resolve_name_timing == RESOLVE_NAME_EARLY && !strchr("$%", value[0])) {
                                 uid = add_uid(rules, value);
                                 rule_add_key(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
                         } else if (rules->resolve_name_timing != RESOLVE_NAME_NEVER)
@@ -1353,7 +1352,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         gid = strtoul(value, &endptr, 10);
                         if (endptr[0] == '\0')
                                 rule_add_key(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
-                        else if ((rules->resolve_name_timing == RESOLVE_NAME_EARLY) && strchr("$%", value[0]) == NULL) {
+                        else if ((rules->resolve_name_timing == RESOLVE_NAME_EARLY) && !strchr("$%", value[0])) {
                                 gid = add_gid(rules, value);
                                 rule_add_key(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
                         } else if (rules->resolve_name_timing != RESOLVE_NAME_NEVER)
@@ -1382,14 +1381,14 @@ static void add_rule(struct udev_rules *rules, char *line,
                                 LOG_AND_RETURN("invalid %s operation", key);
 
                         pos = strstr(value, "link_priority=");
-                        if (pos != NULL) {
+                        if (pos) {
                                 int prio = atoi(pos + STRLEN("link_priority="));
 
                                 rule_add_key(&rule_tmp, TK_A_DEVLINK_PRIO, op, NULL, &prio);
                         }
 
                         pos = strstr(value, "string_escape=");
-                        if (pos != NULL) {
+                        if (pos) {
                                 pos += STRLEN("string_escape=");
                                 if (startswith(pos, "none"))
                                         rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_NONE, op, NULL, NULL);
@@ -1398,7 +1397,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         }
 
                         pos = strstr(value, "db_persist");
-                        if (pos != NULL)
+                        if (pos)
                                 rule_add_key(&rule_tmp, TK_A_DB_PERSIST, op, NULL, NULL);
 
                         pos = strstr(value, "nowatch");
@@ -1413,7 +1412,7 @@ static void add_rule(struct udev_rules *rules, char *line,
                         }
 
                         pos = strstr(value, "static_node=");
-                        if (pos != NULL) {
+                        if (pos) {
                                 pos += STRLEN("static_node=");
                                 rule_add_key(&rule_tmp, TK_A_STATIC_NODE, op, pos, NULL);
                                 rule_tmp.rule.rule.has_static_node = true;
@@ -1454,7 +1453,7 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
         first_token = rules->token_cur;
         filename_off = rules_add_string(rules, filename);
 
-        while (fgets(line, sizeof(line), f) != NULL) {
+        while (fgets(line, sizeof(line), f)) {
                 char *key;
                 size_t len;
 
@@ -1474,7 +1473,7 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
 
                 /* continue reading if backslash+newline is found */
                 while (line[len-2] == '\\') {
-                        if (fgets(&line[len-2], (sizeof(line)-len)+2, f) == NULL)
+                        if (!fgets(&line[len-2], (sizeof(line)-len)+2, f))
                                 break;
                         if (strlen(&line[len-2]) < 2)
                                 break;
@@ -1530,7 +1529,7 @@ struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing) {
 
         /* init token array and string buffer */
         rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
-        if (rules->tokens == NULL)
+        if (!rules->tokens)
                 return udev_rules_free(rules);
         rules->token_max = PREALLOC_TOKEN;
 
@@ -1583,7 +1582,7 @@ struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing) {
 }
 
 struct udev_rules *udev_rules_free(struct udev_rules *rules) {
-        if (rules == NULL)
+        if (!rules)
                 return NULL;
         free(rules->tokens);
         strbuf_cleanup(rules->strbuf);
@@ -1604,7 +1603,7 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
         char *pos;
         bool match = false;
 
-        if (val == NULL)
+        if (!val)
                 val = "";
 
         switch (token->key.glob) {
@@ -1625,7 +1624,7 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
                                 const char *next;
 
                                 next = strchr(s, '|');
-                                if (next != NULL) {
+                                if (next) {
                                         size_t matchlen = (size_t)(next - s);
 
                                         match = (matchlen == len && strneq(s, val, matchlen));
@@ -1645,9 +1644,9 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 
                         strscpy(value, sizeof(value), rules_str(rules, token->key.value_off));
                         key_value = value;
-                        while (key_value != NULL) {
+                        while (key_value) {
                                 pos = strchr(key_value, '|');
-                                if (pos != NULL) {
+                                if (pos) {
                                         pos[0] = '\0';
                                         pos = &pos[1];
                                 }
@@ -2384,7 +2383,7 @@ int udev_rules_apply_to_event(
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
                         f = fopen(attr, "we");
-                        if (f == NULL)
+                        if (!f)
                                 log_error_errno(errno, "error opening ATTR{%s} for writing: %m", attr);
                         else if (fprintf(f, "%s", value) <= 0)
                                 log_error_errno(errno, "error writing ATTR{%s}: %m", attr);
@@ -2472,7 +2471,7 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules) {
         _cleanup_free_ char *path = NULL;
         int r;
 
-        if (rules->tokens == NULL)
+        if (!rules->tokens)
                 return 0;
 
         cur = &rules->tokens[0];
@@ -2515,7 +2514,7 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules) {
 
                         /* we assure, that the permissions tokens are sorted before the static token */
 
-                        if (mode == 0 && uid == 0 && gid == 0 && tags == NULL)
+                        if (mode == 0 && uid == 0 && gid == 0 && !tags)
                                 goto next;
 
                         strscpyl(device_node, sizeof(device_node), "/dev/", rules_str(rules, cur->key.value_off), NULL);
