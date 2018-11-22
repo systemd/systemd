@@ -221,7 +221,7 @@ struct rule_tmp {
         unsigned token_cur;
 };
 
-#ifdef DEBUG
+#if ENABLE_DEBUG_UDEV
 static const char *operation_str(enum operation_type type) {
         static const char *operation_strs[] = {
                 [OP_UNSET] =            "UNSET",
@@ -442,7 +442,7 @@ static void dump_rules(struct udev_rules *rules) {
 #else
 static inline void dump_token(struct udev_rules *rules, struct token *token) {}
 static inline void dump_rules(struct udev_rules *rules) {}
-#endif /* DEBUG */
+#endif /* ENABLE_DEBUG_UDEV */
 
 static int add_token(struct udev_rules *rules, struct token *token) {
         /* grow buffer if needed */
