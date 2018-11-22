@@ -36,6 +36,7 @@ typedef enum LogTarget{
         _LOG_TARGET_INVALID = -1
 } LogTarget;
 
+/* Note to readers: << and >> have lower precedence than & and | */
 #define LOG_REALM_PLUS_LEVEL(realm, level)  ((realm) << 10 | (level))
 #define LOG_REALM_REMOVE_LEVEL(realm_level) ((realm_level) >> 10)
 #define SYNTHETIC_ERRNO(num)                (1 << 30 | (num))
