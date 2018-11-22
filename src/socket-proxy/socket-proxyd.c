@@ -18,6 +18,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -74,7 +75,7 @@ static void connection_free(Connection *c) {
         free(c);
 }
 
-static void context_free(Context *context) {
+static void context_clear(Context *context) {
         assert(context);
 
         set_free_with_destructor(context->listen, sd_event_source_unref);
@@ -616,8 +617,8 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        Context context = {};
+static int run(int argc, char *argv[]) {
+        _cleanup_(context_clear) Context context = {};
         int r, n, fd;
 
         log_parse_environment();
@@ -625,53 +626,41 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = sd_event_default(&context.event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
         r = sd_resolve_default(&context.resolve);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate resolver: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate resolver: %m");
 
         r = sd_resolve_attach_event(context.resolve, context.event, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to attach resolver: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach resolver: %m");
 
         sd_event_set_watchdog(context.event, true);
 
-        n = sd_listen_fds(1);
-        if (n < 0) {
-                log_error("Failed to receive sockets from parent.");
-                r = n;
-                goto finish;
-        } else if (n == 0) {
-                log_error("Didn't get any sockets passed in.");
-                r = -EINVAL;
-                goto finish;
-        }
+        r = sd_listen_fds(1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to receive sockets from parent.");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Didn't get any sockets passed in.");
+
+        n = r;
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 r = add_listen_socket(&context, fd);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         r = sd_event_loop(context.event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to run event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
 
-finish:
-        context_free(&context);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
