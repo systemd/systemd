@@ -58,6 +58,7 @@ static char **arg_timer_property = NULL;
 static bool with_timer = false;
 static bool arg_quiet = false;
 static bool arg_aggressive_gc = false;
+static char *arg_working_directory = NULL;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -88,6 +89,8 @@ static int help(void) {
                "     --uid=USER                   Run as system user\n"
                "     --gid=GROUP                  Run as system group\n"
                "     --nice=NICE                  Nice level\n"
+               "     --working-directory=PATH     Set working directory\n"
+               "  -d --same-dir                   Inherit working directory from caller\n"
                "  -E --setenv=NAME=VALUE          Set environment\n"
                "  -t --pty                        Run service on pseudo TTY as STDIN/STDOUT/\n"
                "                                  STDERR\n"
@@ -157,44 +160,47 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_BLOCK,
                 ARG_NO_ASK_PASSWORD,
                 ARG_WAIT,
+                ARG_WORKING_DIRECTORY,
         };
 
         static const struct option options[] = {
-                { "help",              no_argument,       NULL, 'h'                  },
-                { "version",           no_argument,       NULL, ARG_VERSION          },
-                { "user",              no_argument,       NULL, ARG_USER             },
-                { "system",            no_argument,       NULL, ARG_SYSTEM           },
-                { "scope",             no_argument,       NULL, ARG_SCOPE            },
-                { "unit",              required_argument, NULL, ARG_UNIT             },
-                { "description",       required_argument, NULL, ARG_DESCRIPTION      },
-                { "slice",             required_argument, NULL, ARG_SLICE            },
-                { "remain-after-exit", no_argument,       NULL, 'r'                  },
-                { "send-sighup",       no_argument,       NULL, ARG_SEND_SIGHUP      },
-                { "host",              required_argument, NULL, 'H'                  },
-                { "machine",           required_argument, NULL, 'M'                  },
-                { "service-type",      required_argument, NULL, ARG_SERVICE_TYPE     },
-                { "wait",              no_argument,       NULL, ARG_WAIT             },
-                { "uid",               required_argument, NULL, ARG_EXEC_USER        },
-                { "gid",               required_argument, NULL, ARG_EXEC_GROUP       },
-                { "nice",              required_argument, NULL, ARG_NICE             },
-                { "setenv",            required_argument, NULL, 'E'                  },
-                { "property",          required_argument, NULL, 'p'                  },
-                { "tty",               no_argument,       NULL, 't'                  }, /* deprecated alias */
-                { "pty",               no_argument,       NULL, 't'                  },
-                { "pipe",              no_argument,       NULL, 'P'                  },
-                { "quiet",             no_argument,       NULL, 'q'                  },
-                { "on-active",         required_argument, NULL, ARG_ON_ACTIVE        },
-                { "on-boot",           required_argument, NULL, ARG_ON_BOOT          },
-                { "on-startup",        required_argument, NULL, ARG_ON_STARTUP       },
-                { "on-unit-active",    required_argument, NULL, ARG_ON_UNIT_ACTIVE   },
-                { "on-unit-inactive",  required_argument, NULL, ARG_ON_UNIT_INACTIVE },
-                { "on-calendar",       required_argument, NULL, ARG_ON_CALENDAR      },
-                { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY   },
-                { "path-property",     required_argument, NULL, ARG_PATH_PROPERTY    },
-                { "socket-property",   required_argument, NULL, ARG_SOCKET_PROPERTY  },
-                { "no-block",          no_argument,       NULL, ARG_NO_BLOCK         },
-                { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD  },
-                { "collect",           no_argument,       NULL, 'G'                  },
+                { "help",              no_argument,       NULL, 'h'                   },
+                { "version",           no_argument,       NULL, ARG_VERSION           },
+                { "user",              no_argument,       NULL, ARG_USER              },
+                { "system",            no_argument,       NULL, ARG_SYSTEM            },
+                { "scope",             no_argument,       NULL, ARG_SCOPE             },
+                { "unit",              required_argument, NULL, ARG_UNIT              },
+                { "description",       required_argument, NULL, ARG_DESCRIPTION       },
+                { "slice",             required_argument, NULL, ARG_SLICE             },
+                { "remain-after-exit", no_argument,       NULL, 'r'                   },
+                { "send-sighup",       no_argument,       NULL, ARG_SEND_SIGHUP       },
+                { "host",              required_argument, NULL, 'H'                   },
+                { "machine",           required_argument, NULL, 'M'                   },
+                { "service-type",      required_argument, NULL, ARG_SERVICE_TYPE      },
+                { "wait",              no_argument,       NULL, ARG_WAIT              },
+                { "uid",               required_argument, NULL, ARG_EXEC_USER         },
+                { "gid",               required_argument, NULL, ARG_EXEC_GROUP        },
+                { "nice",              required_argument, NULL, ARG_NICE              },
+                { "setenv",            required_argument, NULL, 'E'                   },
+                { "property",          required_argument, NULL, 'p'                   },
+                { "tty",               no_argument,       NULL, 't'                   }, /* deprecated alias */
+                { "pty",               no_argument,       NULL, 't'                   },
+                { "pipe",              no_argument,       NULL, 'P'                   },
+                { "quiet",             no_argument,       NULL, 'q'                   },
+                { "on-active",         required_argument, NULL, ARG_ON_ACTIVE         },
+                { "on-boot",           required_argument, NULL, ARG_ON_BOOT           },
+                { "on-startup",        required_argument, NULL, ARG_ON_STARTUP        },
+                { "on-unit-active",    required_argument, NULL, ARG_ON_UNIT_ACTIVE    },
+                { "on-unit-inactive",  required_argument, NULL, ARG_ON_UNIT_INACTIVE  },
+                { "on-calendar",       required_argument, NULL, ARG_ON_CALENDAR       },
+                { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY    },
+                { "path-property",     required_argument, NULL, ARG_PATH_PROPERTY     },
+                { "socket-property",   required_argument, NULL, ARG_SOCKET_PROPERTY   },
+                { "no-block",          no_argument,       NULL, ARG_NO_BLOCK          },
+                { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD   },
+                { "collect",           no_argument,       NULL, 'G'                   },
+                { "working-directory", required_argument, NULL, ARG_WORKING_DIRECTORY },
+                { "same-dir",          no_argument,       NULL, 'd'                   },
                 {},
         };
 
@@ -204,7 +210,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPqG", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPqGd", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -394,6 +400,27 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_wait = true;
                         break;
 
+                case ARG_WORKING_DIRECTORY:
+                        r = parse_path_argument_and_warn(optarg, true, &arg_working_directory);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case 'd': {
+                        _cleanup_free_ char *p = NULL;
+
+                        r = safe_getcwd(&p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get current working directory: %m");
+
+                        if (empty_or_root(p))
+                                arg_working_directory = mfree(arg_working_directory);
+                        else
+                                free_and_replace(arg_working_directory, p);
+                        break;
+                }
+
                 case 'G':
                         arg_aggressive_gc = true;
                         break;
@@ -577,6 +604,12 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
 
         if (arg_nice_set) {
                 r = sd_bus_message_append(m, "(sv)", "Nice", "i", arg_nice);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (arg_working_directory) {
+                r = sd_bus_message_append(m, "(sv)", "WorkingDirectory", "s", arg_working_directory);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
@@ -1520,6 +1553,7 @@ finish:
         strv_free(arg_path_property);
         strv_free(arg_socket_property);
         strv_free(arg_timer_property);
+        free(arg_working_directory);
 
         return r < 0 ? EXIT_FAILURE : retval;
 }

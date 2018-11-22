@@ -208,6 +208,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--working-directory=</option></term>
+
+        <listitem><para>Runs the service process with the specified working directory. Also see
+        <varname>WorkingDirectory=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--same-dir</option></term>
+        <term><option>-d</option></term>
+
+        <listitem><para>Similar to <option>--working-directory=</option> but uses the current working directory of the
+        caller for the service to execute.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
         <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
 
