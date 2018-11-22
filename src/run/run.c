@@ -63,6 +63,14 @@ static char *arg_working_directory = NULL;
 static bool arg_shell = false;
 static char **arg_cmdline = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_path_property, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_socket_property, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_timer_property, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_working_directory, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cmdline, strv_freep);
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1550,7 +1558,7 @@ static int run(int argc, char* argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         if (!strv_isempty(arg_cmdline) && arg_transport == BUS_TRANSPORT_LOCAL) {
                 _cleanup_free_ char *command = NULL;
@@ -1558,25 +1566,21 @@ static int run(int argc, char* argv[]) {
                 /* Patch in an absolute path */
 
                 r = find_binary(arg_cmdline[0], &command);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to find executable %s: %m", arg_cmdline[0]);
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find executable %s: %m", arg_cmdline[0]);
 
                 free_and_replace(arg_cmdline[0], command);
         }
 
         if (!arg_description) {
                 description = strv_join(arg_cmdline, " ");
-                if (!description) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!description)
+                        return log_oom();
 
                 if (arg_unit && isempty(description)) {
                         r = free_and_strdup(&description, arg_unit);
                         if (r < 0)
-                                goto finish;
+                                return log_oom();
                 }
 
                 arg_description = description;
@@ -1588,10 +1592,8 @@ static int run(int argc, char* argv[]) {
                 r = bus_connect_transport(arg_transport, arg_host, arg_user, &bus);
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create bus connection: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
         if (arg_scope)
                 r = start_transient_scope(bus);
@@ -1603,17 +1605,10 @@ static int run(int argc, char* argv[]) {
                 r = start_transient_trigger(bus, ".timer");
         else
                 r = start_transient_service(bus, &retval);
+        if (r < 0)
+                return r;
 
-finish:
-        strv_free(arg_environment);
-        strv_free(arg_property);
-        strv_free(arg_path_property);
-        strv_free(arg_socket_property);
-        strv_free(arg_timer_property);
-        strv_free(arg_cmdline);
-        free(arg_working_directory);
-
-        return r < 0 ? r : retval;
+        return retval;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
