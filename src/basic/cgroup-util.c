@@ -2368,9 +2368,9 @@ int cg_mask_supported(CGroupMask *ret) {
         CGroupMask mask;
         int r;
 
-        /* Determines the mask of supported cgroup controllers. Only
-         * includes controllers we can make sense of and that are
-         * actually accessible. */
+        /* Determines the mask of supported cgroup controllers. Only includes controllers we can make sense of and that
+         * are actually accessible. Only covers real controllers, i.e. not the CGROUP_CONTROLLER_BPF_xyz
+         * pseudo-controllers. */
 
         r = cg_all_unified();
         if (r < 0)
