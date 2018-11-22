@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -345,57 +346,44 @@ static void context_save_and_clear(Context *c) {
         safe_close(c->rfkill_fd);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(context_save_and_clear) Context c = { .rfkill_fd = -1 };
         bool ready = false;
         int r, n;
 
-        if (argc > 1) {
-                log_error("This program requires no arguments.");
-                return EXIT_FAILURE;
-        }
+        if (argc > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires no arguments.");
 
         log_setup_service();
 
         umask(0022);
 
         r = mkdir_p("/var/lib/systemd/rfkill", 0755);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create rfkill directory: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to create rfkill directory: %m");
 
         n = sd_listen_fds(false);
-        if (n < 0) {
-                r = log_error_errno(n, "Failed to determine whether we got any file descriptors passed: %m");
-                goto finish;
-        }
-        if (n > 1) {
-                log_error("Got too many file descriptors.");
-                r = -EINVAL;
-                goto finish;
-        }
+        if (n < 0)
+                return log_error_errno(n, "Failed to determine whether we got any file descriptors passed: %m");
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got too many file descriptors.");
 
         if (n == 0) {
                 c.rfkill_fd = open("/dev/rfkill", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                 if (c.rfkill_fd < 0) {
                         if (errno == ENOENT) {
                                 log_debug_errno(errno, "Missing rfkill subsystem, or no device present, exiting.");
-                                r = 0;
-                                goto finish;
+                                return 0;
                         }
 
-                        r = log_error_errno(errno, "Failed to open /dev/rfkill: %m");
-                        goto finish;
+                        return log_error_errno(errno, "Failed to open /dev/rfkill: %m");
                 }
         } else {
                 c.rfkill_fd = SD_LISTEN_FDS_START;
 
-                if (r < 0) {
-                        log_error_errno(r, "Failed to make /dev/rfkill socket non-blocking: %m");
-                        goto finish;
-                }
                 r = fd_nonblock(c.rfkill_fd, 1);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make /dev/rfkill socket non-blocking: %m");
         }
 
         for (;;) {
@@ -421,10 +409,8 @@ int main(int argc, char *argv[]) {
                                 r = fd_wait_for_event(c.rfkill_fd, POLLIN, EXIT_USEC);
                                 if (r == -EINTR)
                                         continue;
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to poll() on device: %m");
-                                        goto finish;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to poll() on device: %m");
                                 if (r > 0)
                                         continue;
 
@@ -435,11 +421,8 @@ int main(int argc, char *argv[]) {
                         log_error_errno(errno, "Failed to read from /dev/rfkill: %m");
                 }
 
-                if (l != RFKILL_EVENT_SIZE_V1) {
-                        log_error("Read event structure of invalid size.");
-                        r = -EIO;
-                        goto finish;
-                }
+                if (l != RFKILL_EVENT_SIZE_V1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Read event structure of invalid size.");
 
                 type = rfkill_type_to_string(event.type);
                 if (!type) {
@@ -470,8 +453,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        r = 0;
-
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
