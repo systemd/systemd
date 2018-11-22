@@ -601,7 +601,8 @@ _public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev
                 udev_list_cleanup(&udev_device->devlinks);
 
                 FOREACH_DEVICE_DEVLINK(udev_device->device, devlink)
-                        udev_list_entry_add(&udev_device->devlinks, devlink, NULL);
+                        if (!udev_list_entry_add(&udev_device->devlinks, devlink, NULL))
+                                return_with_errno(NULL, ENOMEM);
 
                 udev_device->devlinks_read = true;
                 udev_device->devlinks_generation = device_get_devlinks_generation(udev_device->device);
@@ -632,7 +633,8 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
                 udev_list_cleanup(&udev_device->properties);
 
                 FOREACH_DEVICE_PROPERTY(udev_device->device, key, value)
-                        udev_list_entry_add(&udev_device->properties, key, value);
+                        if (!udev_list_entry_add(&udev_device->properties, key, value))
+                                return_with_errno(NULL, ENOMEM);
 
                 udev_device->properties_read = true;
                 udev_device->properties_generation = device_get_properties_generation(udev_device->device);
@@ -755,7 +757,8 @@ _public_ struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_
                 udev_list_cleanup(&udev_device->sysattrs);
 
                 FOREACH_DEVICE_SYSATTR(udev_device->device, sysattr)
-                        udev_list_entry_add(&udev_device->sysattrs, sysattr, NULL);
+                        if (!udev_list_entry_add(&udev_device->sysattrs, sysattr, NULL))
+                                return_with_errno(NULL, ENOMEM);
 
                 udev_device->sysattrs_read = true;
         }
@@ -809,7 +812,8 @@ _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_dev
                 udev_list_cleanup(&udev_device->tags);
 
                 FOREACH_DEVICE_TAG(udev_device->device, tag)
-                        udev_list_entry_add(&udev_device->tags, tag, NULL);
+                        if (!udev_list_entry_add(&udev_device->tags, tag, NULL))
+                                return_with_errno(NULL, ENOMEM);
 
                 udev_device->tags_read = true;
                 udev_device->tags_generation = device_get_tags_generation(udev_device->device);

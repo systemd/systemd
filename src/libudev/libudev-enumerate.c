@@ -144,7 +144,8 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                         if (r < 0)
                                 return_with_errno(NULL, r);
 
-                        udev_list_entry_add(&udev_enumerate->devices_list, syspath, NULL);
+                        if (!udev_list_entry_add(&udev_enumerate->devices_list, syspath, NULL))
+                                return_with_errno(NULL, ENOMEM);
                 }
 
                 udev_enumerate->devices_uptodate = true;
