@@ -30,6 +30,17 @@ typedef struct Context {
 #endif
 } Context;
 
+static void context_clear(Context *c) {
+        assert(c);
+
+        c->bus = sd_bus_flush_close_unref(c->bus);
+#if HAVE_AUDIT
+        if (c->audit_fd >= 0)
+                audit_close(c->audit_fd);
+        c->audit_fd = -1;
+#endif
+}
+
 static usec_t get_startup_time(Context *c) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         usec_t t = 0;
@@ -205,7 +216,7 @@ static int on_runlevel(Context *c) {
 }
 
 int main(int argc, char *argv[]) {
-        Context c = {
+        _cleanup_(context_clear) Context c = {
 #if HAVE_AUDIT
                 .audit_fd = -1
 #endif
@@ -236,8 +247,7 @@ int main(int argc, char *argv[]) {
         r = bus_connect_system_systemd(&c.bus);
         if (r < 0) {
                 log_error_errno(r, "Failed to get D-Bus connection: %m");
-                r = -EIO;
-                goto finish;
+                return EXIT_FAILURE;
         }
 
         log_debug("systemd-update-utmp running as pid "PID_FMT, getpid_cached());
@@ -250,17 +260,10 @@ int main(int argc, char *argv[]) {
                 r = on_runlevel(&c);
         else {
                 log_error("Unknown command %s", argv[1]);
-                r = -EINVAL;
+                return EXIT_FAILURE;
         }
 
         log_debug("systemd-update-utmp stopped as pid "PID_FMT, getpid_cached());
 
-finish:
-#if HAVE_AUDIT
-        if (c.audit_fd >= 0)
-                audit_close(c.audit_fd);
-#endif
-
-        sd_bus_flush_close_unref(c.bus);
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

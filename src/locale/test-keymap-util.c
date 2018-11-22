@@ -65,7 +65,7 @@ static void test_find_legacy_keymap(void) {
 }
 
 static void test_vconsole_convert_to_x11(void) {
-        _cleanup_(context_free) Context c = {};
+        _cleanup_(context_clear) Context c = {};
 
         log_info("/*** %s ***/", __func__);
 
@@ -119,7 +119,7 @@ static void test_vconsole_convert_to_x11(void) {
 }
 
 static void test_x11_convert_to_vconsole(void) {
-        _cleanup_(context_free) Context c = {};
+        _cleanup_(context_clear) Context c = {};
         int r;
 
         log_info("/*** %s ***/", __func__);
