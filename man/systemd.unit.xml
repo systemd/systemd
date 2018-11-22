@@ -502,15 +502,21 @@
 
       <varlistentry>
         <term><varname>Description=</varname></term>
-        <listitem><para>A free-form string describing the unit. This
-        is intended for use in UIs to show descriptive information
-        along with the unit name. The description should contain a
-        name that means something to the end user. <literal>Apache2
-        Web Server</literal> is a good example. Bad examples are
-        <literal>high-performance light-weight HTTP server</literal>
-        (too generic) or <literal>Apache2</literal> (too specific and
-        meaningless for people who do not know
-        Apache).</para></listitem>
+        <listitem><para>A human readable name for the unit. This is used by
+        <command>systemd</command> (and other UIs) as the label for the unit, so this string should
+        identify the unit rather than describe it, despite the name. <literal>Apache2 Web
+        Server</literal> is a good example. Bad examples are <literal>high-performance light-weight
+        HTTP server</literal> (too generic) or <literal>Apache2</literal> (too specific and
+        meaningless for people who do not know Apache). <command>systemd</command> will use this
+        string as a noun in status messages (<literal>Starting
+        <replaceable>description</replaceable>...</literal>, <literal>Started
+        <replaceable>description</replaceable>.</literal>, <literal>Reached target
+        <replaceable>description</replaceable>.</literal>, <literal>Failed to start
+        <replaceable>description</replaceable>.</literal>), so it should be capitalized, and should
+        not be a full sentence or a phrase with a continous verb. Bad examples include
+        <literal>exiting the container</literal> or <literal>updating the database once per
+        day.</literal>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
