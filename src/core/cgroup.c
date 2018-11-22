@@ -2824,10 +2824,10 @@ void unit_invalidate_cgroup(Unit *u, CGroupMask m) {
         if (m & (CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT))
                 m |= CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT;
 
-        if ((u->cgroup_realized_mask & m) == 0) /* NOP? */
+        if (FLAGS_SET(u->cgroup_invalidated_mask, m)) /* NOP? */
                 return;
 
-        u->cgroup_realized_mask &= ~m;
+        u->cgroup_invalidated_mask |= m;
         unit_add_to_cgroup_realize_queue(u);
 }
 
