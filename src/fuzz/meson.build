@@ -74,6 +74,12 @@ fuzzers += [
           libshared],
          [libselinux]],
 
+        [['src/fuzz/fuzz-journald-native-fd.c',
+          'src/fuzz/fuzz-journald.c'],
+         [libjournal_core,
+          libshared],
+         [libselinux]],
+
         [['src/fuzz/fuzz-journald-stream.c',
           'src/fuzz/fuzz-journald.c'],
          [libjournal_core,
