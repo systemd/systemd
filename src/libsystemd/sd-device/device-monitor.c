@@ -648,13 +648,12 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
                                 /* jump if subsystem does not match */
                                 bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
                         } else {
-                                hash = string_hash32(devtype);
-
                                 /* jump if subsystem does not match */
                                 bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 3);
                                 /* load device devtype value in A */
                                 bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_devtype_hash));
                                 /* jump if value does not match */
+                                hash = string_hash32(devtype);
                                 bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
                         }
 
