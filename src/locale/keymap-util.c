@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "bus-util.h"
 #include "def.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -76,6 +77,8 @@ void context_clear(Context *c) {
         sd_bus_message_unref(c->locale_cache);
         sd_bus_message_unref(c->x11_cache);
         sd_bus_message_unref(c->vc_cache);
+
+        bus_verify_polkit_async_registry_free(c->polkit_registry);
 };
 
 void locale_simplify(char *locale[_VARIABLE_LC_MAX]) {

@@ -3,6 +3,7 @@
 
 #include "sd-bus.h"
 
+#include "hashmap.h"
 #include "locale-util.h"
 #include "time-util.h"
 
@@ -22,6 +23,8 @@ typedef struct Context {
         usec_t vc_mtime;
         char *vc_keymap;
         char *vc_keymap_toggle;
+
+        Hashmap *polkit_registry;
 } Context;
 
 int find_converted_keymap(const char *x11_layout, const char *x11_variant, char **new_keymap);

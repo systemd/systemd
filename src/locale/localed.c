@@ -26,8 +26,6 @@
 #include "strv.h"
 #include "user-util.h"
 
-static Hashmap *polkit_registry = NULL;
-
 static int locale_update_system_manager(Context *c, sd_bus *bus) {
         _cleanup_free_ char **l_unset = NULL;
         _cleanup_strv_free_ char **l_set = NULL;
@@ -362,7 +360,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                         NULL,
                         interactive,
                         UID_INVALID,
-                        &polkit_registry,
+                        &c->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -433,7 +431,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         NULL,
                         interactive,
                         UID_INVALID,
-                        &polkit_registry,
+                        &c->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -626,7 +624,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                         NULL,
                         interactive,
                         UID_INVALID,
-                        &polkit_registry,
+                        &c->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -762,7 +760,5 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to run event loop: %m");
 
 finish:
-        bus_verify_polkit_async_registry_free(polkit_registry);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
