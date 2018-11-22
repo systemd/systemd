@@ -22,7 +22,7 @@
 
 #define SYSTEMD_VERITYSETUP_SERVICE "systemd-veritysetup@root.service"
 
-static char *arg_dest = NULL;
+static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static char *arg_root_hash = NULL;
 static char *arg_data_what = NULL;
