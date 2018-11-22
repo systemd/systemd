@@ -198,6 +198,24 @@
   "logging" function, then it should not generate log messages, so
   that log messages are not generated twice for the same errors.
 
+- If possible, do a combined log & return operation:
+
+  ```c
+  r = operation(...);
+  if (r < 0)
+          return log_(error|warning|notice|...)_errno(r, "Failed to ...: %m");
+  ```
+
+  If the error value is "synthetic", i.e. it was not received from
+  the called function, use `SYNTHETIC_ERRNO` wrapper to tell the logging
+  system to not log the errno value, but still return it:
+
+  ```c
+  n = read(..., s, sizeof s);
+  if (n != sizeof s)
+          return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read ...");
+  ```
+
 - Avoid static variables, except for caches and very few other
   cases. Think about thread-safety! While most of our code is never
   used in threaded environments, at least the library code should make
