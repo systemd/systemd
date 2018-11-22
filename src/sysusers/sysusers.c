@@ -1922,9 +1922,9 @@ static int read_config_files(char **args) {
 int main(int argc, char *argv[]) {
         _cleanup_close_ int lock = -1;
         Iterator iterator;
-        int r;
+        char *n, **v;
         Item *i;
-        char *n;
+        int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -2015,8 +2015,8 @@ finish:
         ordered_hashmap_free_with_destructor(groups, item_free);
         ordered_hashmap_free_with_destructor(users, item_free);
 
-        while ((n = ordered_hashmap_first_key(members))) {
-                strv_free(ordered_hashmap_steal_first(members));
+        while ((v = ordered_hashmap_steal_first_key_and_value(members, (void **) &n))) {
+                strv_free(v);
                 free(n);
         }
         ordered_hashmap_free(members);
