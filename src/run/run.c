@@ -1247,14 +1247,46 @@ static int start_transient_service(
         return 0;
 }
 
-static int start_transient_scope(sd_bus *bus) {
+static int acquire_invocation_id(sd_bus *bus, sd_id128_t *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const void *p;
+        size_t l;
+        int r;
 
+        assert(bus);
+        assert(ret);
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1/unit/self",
+                                "org.freedesktop.systemd1.Unit",
+                                "InvocationID",
+                                &error,
+                                &reply,
+                                "ay");
+        if (r < 0)
+                return log_error_errno(r, "Failed to request invocation ID for scope: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read_array(reply, 'y', &p, &l);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (l != sizeof(sd_id128_t))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid UUID size, %zu != %zu.", l, sizeof(sd_id128_t));
+
+        memcpy(ret, p, l);
+        return 0;
+}
+
+static int start_transient_scope(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *object = NULL;
+        sd_id128_t invocation_id;
         int r;
 
         assert(bus);
@@ -1317,6 +1349,22 @@ static int start_transient_scope(sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start transient scope unit: %s", bus_error_message(&error, -r));
 
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = bus_wait_for_jobs_one(w, object, arg_quiet);
+        if (r < 0)
+                return r;
+
+        r = acquire_invocation_id(bus, &invocation_id);
+        if (r < 0)
+                return r;
+
+        r = strv_extendf(&user_env, "INVOCATION_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(invocation_id));
+        if (r < 0)
+                return log_oom();
+
         if (arg_nice_set) {
                 if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0)
                         return log_error_errno(errno, "Failed to set nice level: %m");
@@ -1374,14 +1422,6 @@ static int start_transient_scope(sd_bus *bus) {
         env = strv_env_merge(3, environ, user_env, arg_environment);
         if (!env)
                 return log_oom();
-
-        r = sd_bus_message_read(reply, "o", &object);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = bus_wait_for_jobs_one(w, object, arg_quiet);
-        if (r < 0)
-                return r;
 
         if (!arg_quiet)
                 log_info("Running scope as unit: %s", scope);
