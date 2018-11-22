@@ -15,6 +15,7 @@
 #include "escape.h"
 #include "gcrypt-util.h"
 #include "in-addr-util.h"
+#include "main-func.h"
 #include "netlink-util.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -55,6 +56,11 @@ static const char *arg_set_mdns = NULL;
 static const char *arg_set_dns_over_tls = NULL;
 static const char *arg_set_dnssec = NULL;
 static char **arg_set_nta = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_ifname, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_set_dns, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_set_domain, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_set_nta, strv_freep);
 
 typedef enum StatusMode {
         STATUS_ALL,
@@ -3064,8 +3070,8 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
         return 0;
 }
 
-int main(int argc, char **argv) {
-        sd_bus *bus = NULL;
+static int run(int argc, char **argv) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -3079,29 +3085,16 @@ int main(int argc, char **argv) {
         else
                 r = native_parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = sd_bus_open_system(&bus);
-        if (r < 0) {
-                log_error_errno(r, "sd_bus_open_system: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "sd_bus_open_system: %m");
 
         if (STR_IN_SET(program_invocation_short_name, "systemd-resolve", "resolvconf"))
-                r = compat_main(argc, argv, bus);
-        else
-                r = native_main(argc, argv, bus);
+                return compat_main(argc, argv, bus);
 
-finish:
-        /* make sure we terminate the bus connection first, and then close the
-         * pager, see issue #3543 for the details. */
-        sd_bus_flush_close_unref(bus);
-        pager_close();
-
-        free(arg_ifname);
-        strv_free(arg_set_dns);
-        strv_free(arg_set_domain);
-        strv_free(arg_set_nta);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return native_main(argc, argv, bus);
 }
+
+DEFINE_MAIN_FUNCTION(run);
