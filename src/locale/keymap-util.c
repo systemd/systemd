@@ -68,7 +68,7 @@ static void context_free_locale(Context *c) {
                 c->locale[p] = mfree(c->locale[p]);
 }
 
-void context_free(Context *c) {
+void context_clear(Context *c) {
         context_free_locale(c);
         context_free_x11(c);
         context_free_vconsole(c);

@@ -711,7 +711,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(context_free) Context context = {
+        _cleanup_(context_clear) Context context = {
                 .locale_mtime = USEC_INFINITY,
                 .vc_mtime = USEC_INFINITY,
                 .x11_mtime = USEC_INFINITY,
