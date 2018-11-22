@@ -5,6 +5,11 @@ fuzzers += [
          [libshared],
          []],
 
+        [['src/fuzz/fuzz-catalog.c'],
+         [libjournal_core,
+          libshared],
+         []],
+
         [['src/fuzz/fuzz-dns-packet.c',
           dns_type_headers],
          [libsystemd_resolve_core,
