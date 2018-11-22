@@ -1531,19 +1531,19 @@ struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing) {
         /* init token array and string buffer */
         rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
         if (rules->tokens == NULL)
-                return udev_rules_unref(rules);
+                return udev_rules_free(rules);
         rules->token_max = PREALLOC_TOKEN;
 
         rules->strbuf = strbuf_new();
         if (!rules->strbuf)
-                return udev_rules_unref(rules);
+                return udev_rules_free(rules);
 
         udev_rules_check_timestamp(rules);
 
         r = conf_files_list_strv(&files, ".rules", NULL, 0, rules_dirs);
         if (r < 0) {
                 log_error_errno(r, "failed to enumerate rules files: %m");
-                return udev_rules_unref(rules);
+                return udev_rules_free(rules);
         }
 
         /*
@@ -1582,7 +1582,7 @@ struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing) {
         return rules;
 }
 
-struct udev_rules *udev_rules_unref(struct udev_rules *rules) {
+struct udev_rules *udev_rules_free(struct udev_rules *rules) {
         if (rules == NULL)
                 return NULL;
         free(rules->tokens);
