@@ -48,7 +48,7 @@ struct udev_event {
 /* udev-rules.c */
 struct udev_rules;
 struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing);
-struct udev_rules *udev_rules_unref(struct udev_rules *rules);
+struct udev_rules *udev_rules_free(struct udev_rules *rules);
 bool udev_rules_check_timestamp(struct udev_rules *rules);
 int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event,
                               usec_t timeout_usec,
@@ -77,4 +77,4 @@ void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec);
 
 /* Cleanup functions */
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_event*, udev_event_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_rules*, udev_rules_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_rules*, udev_rules_free);

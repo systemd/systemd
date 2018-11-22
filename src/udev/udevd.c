@@ -310,7 +310,7 @@ static void manager_free(Manager *manager) {
         sd_netlink_unref(manager->rtnl);
 
         hashmap_free_free_free(manager->properties);
-        udev_rules_unref(manager->rules);
+        udev_rules_free(manager->rules);
 
         safe_close(manager->fd_inotify);
         safe_close_pair(manager->worker_watch);
@@ -843,7 +843,7 @@ static void manager_reload(Manager *manager) {
                   "STATUS=Flushing configuration...");
 
         manager_kill_workers(manager);
-        manager->rules = udev_rules_unref(manager->rules);
+        manager->rules = udev_rules_free(manager->rules);
         udev_builtin_exit();
 
         sd_notifyf(false,

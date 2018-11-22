@@ -90,7 +90,7 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
                         /* We did not have enough input to fill out the padding completely */
                         return;
 
-#ifdef DEBUG
+#if ENABLE_DEBUG_SIPHASH
                 printf("(%3zu) v0 %08x %08x\n", state->inlen, (uint32_t) (state->v0 >> 32), (uint32_t) state->v0);
                 printf("(%3zu) v1 %08x %08x\n", state->inlen, (uint32_t) (state->v1 >> 32), (uint32_t) state->v1);
                 printf("(%3zu) v2 %08x %08x\n", state->inlen, (uint32_t) (state->v2 >> 32), (uint32_t) state->v2);
@@ -110,7 +110,7 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
 
         for ( ; in < end; in += 8) {
                 m = unaligned_read_le64(in);
-#ifdef DEBUG
+#if ENABLE_DEBUG_SIPHASH
                 printf("(%3zu) v0 %08x %08x\n", state->inlen, (uint32_t) (state->v0 >> 32), (uint32_t) state->v0);
                 printf("(%3zu) v1 %08x %08x\n", state->inlen, (uint32_t) (state->v1 >> 32), (uint32_t) state->v1);
                 printf("(%3zu) v2 %08x %08x\n", state->inlen, (uint32_t) (state->v2 >> 32), (uint32_t) state->v2);
@@ -158,7 +158,7 @@ uint64_t siphash24_finalize(struct siphash *state) {
 
         b = state->padding | (((uint64_t) state->inlen) << 56);
 
-#ifdef DEBUG
+#if ENABLE_DEBUG_SIPHASH
         printf("(%3zu) v0 %08x %08x\n", state->inlen, (uint32_t) (state->v0 >> 32), (uint32_t) state->v0);
         printf("(%3zu) v1 %08x %08x\n", state->inlen, (uint32_t) (state->v1 >> 32), (uint32_t) state->v1);
         printf("(%3zu) v2 %08x %08x\n", state->inlen, (uint32_t) (state->v2 >> 32), (uint32_t) state->v2);
@@ -171,7 +171,7 @@ uint64_t siphash24_finalize(struct siphash *state) {
         sipround(state);
         state->v0 ^= b;
 
-#ifdef DEBUG
+#if ENABLE_DEBUG_SIPHASH
         printf("(%3zu) v0 %08x %08x\n", state->inlen, (uint32_t) (state->v0 >> 32), (uint32_t) state->v0);
         printf("(%3zu) v1 %08x %08x\n", state->inlen, (uint32_t) (state->v1 >> 32), (uint32_t) state->v1);
         printf("(%3zu) v2 %08x %08x\n", state->inlen, (uint32_t) (state->v2 >> 32), (uint32_t) state->v2);
