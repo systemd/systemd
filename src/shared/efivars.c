@@ -875,10 +875,9 @@ int efi_loader_get_features(uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        if (s != sizeof(uint64_t)) {
-                log_debug("LoaderFeatures EFI variable doesn't have the right size.");
-                return -EINVAL;
-        }
+        if (s != sizeof(uint64_t))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "LoaderFeatures EFI variable doesn't have the right size.");
 
         memcpy(ret, v, sizeof(uint64_t));
         return 0;

@@ -51,10 +51,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        if (argc != 3) {
-                log_error("This program expects two arguments.");
-                return -EINVAL;
-        }
+        if (argc != 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program expects two arguments.");
 
         type = argv[1];
         device = argv[2];

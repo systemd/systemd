@@ -513,8 +513,8 @@ static int process_suffix_chop(const char *arg) {
                 }
         }
 
-        log_error("Invalid suffix specification %s.", arg);
-        return -EINVAL;
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "Invalid suffix specification %s.", arg);
 }
 
 static int help(void) {
@@ -604,10 +604,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case 't': {
                         int f;
                         f = parse_flags(optarg, arg_flags);
-                        if (f < 0) {
-                                log_error("Failed to parse flags field.");
-                                return -EINVAL;
-                        }
+                        if (f < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse flags field.");
                         arg_flags = f;
                         break;
                 }
@@ -619,10 +618,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 int b;
 
                                 b = parse_boolean(optarg);
-                                if (b < 0) {
-                                        log_error("Failed to parse diff boolean.");
-                                        return -EINVAL;
-                                }
+                                if (b < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to parse diff boolean.");
 
                                 arg_diff = b;
                         }

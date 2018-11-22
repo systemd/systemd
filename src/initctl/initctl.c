@@ -322,10 +322,9 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
         assert(s);
 
-        if (!(ev->events & EPOLLIN)) {
-                log_info("Got invalid event from epoll. (3)");
-                return -EIO;
-        }
+        if (!(ev->events & EPOLLIN))
+                return log_info_errno(SYNTHETIC_ERRNO(EIO),
+                                      "Got invalid event from epoll. (3)");
 
         f = (Fifo*) ev->data.ptr;
         r = fifo_process(f);

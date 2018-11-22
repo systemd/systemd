@@ -351,16 +351,15 @@ static int save_external_coredump(
                 /* Is coredumping disabled? Then don't bother saving/processing the coredump.
                  * Anything below PAGE_SIZE cannot give a readable coredump (the kernel uses
                  * ELF_EXEC_PAGESIZE which is not easily accessible, but is usually the same as PAGE_SIZE. */
-                log_info("Resource limits disable core dumping for process %s (%s).",
-                         context[CONTEXT_PID], context[CONTEXT_COMM]);
-                return -EBADSLT;
+                return log_info_errno(SYNTHETIC_ERRNO(EBADSLT),
+                                      "Resource limits disable core dumping for process %s (%s).",
+                                      context[CONTEXT_PID], context[CONTEXT_COMM]);
         }
 
         process_limit = MAX(arg_process_size_max, storage_size_max());
-        if (process_limit == 0) {
-                log_debug("Limits for coredump processing and storage are both 0, not dumping core.");
-                return -EBADSLT;
-        }
+        if (process_limit == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT),
+                                       "Limits for coredump processing and storage are both 0, not dumping core.");
 
         /* Never store more than the process configured, or than we actually shall keep or process */
         max_size = MIN(rlimit, process_limit);
@@ -484,10 +483,9 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         n = read(fd, field + 9, size);
         if (n < 0)
                 return log_error_errno((int) n, "Failed to read core data: %m");
-        if ((size_t) n < size) {
-                log_error("Core data too short.");
-                return -EIO;
-        }
+        if ((size_t) n < size)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Core data too short.");
 
         *ret = TAKE_PTR(field);
         *ret_size = size + 9;
@@ -1236,10 +1234,10 @@ static int process_kernel(int argc, char* argv[]) {
 
         log_debug("Processing coredump received from the kernel...");
 
-        if (argc < CONTEXT_COMM + 1) {
-                log_error("Not enough arguments passed by the kernel (%i, expected %i).", argc - 1, CONTEXT_COMM + 1 - 1);
-                return -EINVAL;
-        }
+        if (argc < CONTEXT_COMM + 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough arguments passed by the kernel (%i, expected %i).",
+                                       argc - 1, CONTEXT_COMM + 1 - 1);
 
         context[CONTEXT_PID]       = argv[1 + CONTEXT_PID];
         context[CONTEXT_UID]       = argv[1 + CONTEXT_UID];
@@ -1293,10 +1291,10 @@ static int process_backtrace(int argc, char *argv[]) {
 
         log_debug("Processing backtrace on stdin...");
 
-        if (argc < CONTEXT_COMM + 1) {
-                log_error("Not enough arguments passed (%i, expected %i).", argc - 1, CONTEXT_COMM + 1 - 1);
-                return -EINVAL;
-        }
+        if (argc < CONTEXT_COMM + 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough arguments passed (%i, expected %i).",
+                                       argc - 1, CONTEXT_COMM + 1 - 1);
 
         context[CONTEXT_PID]       = argv[2 + CONTEXT_PID];
         context[CONTEXT_UID]       = argv[2 + CONTEXT_UID];
@@ -1407,8 +1405,8 @@ static int run(int argc, char *argv[]) {
         } else if (r == 1)
                 return process_socket(SD_LISTEN_FDS_START);
 
-        log_error("Received unexpected number of file descriptors.");
-        return -EINVAL;
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "Received unexpected number of file descriptors.");
 }
 
 DEFINE_MAIN_FUNCTION(run);

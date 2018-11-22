@@ -225,10 +225,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        if (arg_output) {
-                                log_error("Cannot set output more than once.");
-                                return -EINVAL;
-                        }
+                        if (arg_output)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Cannot set output more than once.");
 
                         arg_output = optarg;
                         break;
@@ -246,10 +245,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'F':
-                        if (arg_field) {
-                                log_error("Cannot use --field/-F more than once.");
-                                return -EINVAL;
-                        }
+                        if (arg_field)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Cannot use --field/-F more than once.");
                         arg_field = optarg;
                         break;
 
@@ -277,10 +275,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_since != USEC_INFINITY && arg_until != USEC_INFINITY &&
-            arg_since > arg_until) {
-                log_error("--since= must be before --until=.");
-                return -EINVAL;
-        }
+            arg_since > arg_until)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--since= must be before --until=.");
 
         return 1;
 }
@@ -628,10 +625,9 @@ static int focus(sd_journal *j) {
                 r = sd_journal_previous(j);
         if (r < 0)
                 return log_error_errno(r, "Failed to search journal: %m");
-        if (r == 0) {
-                log_error("No match found.");
-                return -ESRCH;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
+                                       "No match found.");
         return r;
 }
 
@@ -800,7 +796,8 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                  */
                 if (!file) {
                         if (on_tty())
-                                return log_error_errno(ENOTTY, "Refusing to dump core to tty"
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                                       "Refusing to dump core to tty"
                                                        " (use shell redirection or specify --output).");
                         file = stdout;
                 }

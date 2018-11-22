@@ -94,10 +94,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 flags = DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD;
                         else if (streq(optarg, "crypt"))
                                 flags = DISSECT_IMAGE_DISCARD_ANY;
-                        else {
-                                log_error("Unknown --discard= parameter: %s", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown --discard= parameter: %s",
+                                                       optarg);
                         arg_flags = (arg_flags & ~DISSECT_IMAGE_DISCARD_ANY) | flags;
 
                         break;
@@ -134,20 +134,18 @@ static int parse_argv(int argc, char *argv[]) {
         switch (arg_action) {
 
         case ACTION_DISSECT:
-                if (optind + 1 != argc) {
-                        log_error("Expected a file path as only argument.");
-                        return -EINVAL;
-                }
+                if (optind + 1 != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected a file path as only argument.");
 
                 arg_image = argv[optind];
                 arg_flags |= DISSECT_IMAGE_READ_ONLY;
                 break;
 
         case ACTION_MOUNT:
-                if (optind + 2 != argc) {
-                        log_error("Expected a file path and mount point path as only arguments.");
-                        return -EINVAL;
-                }
+                if (optind + 2 != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected a file path and mount point path as only arguments.");
 
                 arg_image = argv[optind];
                 arg_path = argv[optind + 1];

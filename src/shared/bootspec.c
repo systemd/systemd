@@ -593,10 +593,10 @@ int find_esp_and_warn(
 
         path = getenv("SYSTEMD_ESP_PATH");
         if (path) {
-                if (!path_is_valid(path) || !path_is_absolute(path)) {
-                        log_error("$SYSTEMD_ESP_PATH does not refer to absolute path, refusing to use it: %s", path);
-                        return -EINVAL;
-                }
+                if (!path_is_valid(path) || !path_is_absolute(path))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "$SYSTEMD_ESP_PATH does not refer to absolute path, refusing to use it: %s",
+                                               path);
 
                 /* Note: when the user explicitly configured things with an env var we won't validate the mount
                  * point. After all we want this to be useful for testing. */
@@ -649,10 +649,9 @@ int find_default_boot_entry(
         if (r < 0)
                 return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m", where);
 
-        if (config->default_entry < 0) {
-                log_error("No entry suitable as default, refusing to guess.");
-                return -ENOENT;
-        }
+        if (config->default_entry < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No entry suitable as default, refusing to guess.");
 
         *e = &config->entries[config->default_entry];
         log_debug("Found default boot entry in file \"%s\"", (*e)->path);

@@ -146,10 +146,9 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         ssize_t l;
         int r = 0;
 
-        if (revents != EPOLLIN) {
-                log_error("Got invalid poll event on inotify.");
-                return -EINVAL;
-        }
+        if (revents != EPOLLIN)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Got invalid poll event on inotify.");
 
         l = read(s->inotify_fd, &buffer, sizeof(buffer));
         if (l < 0) {

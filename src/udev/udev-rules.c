@@ -605,10 +605,10 @@ static int import_property_from_string(sd_device *dev, char *line) {
 
         /* unquote */
         if (IN_SET(val[0], '"', '\'')) {
-                if (len == 1 || val[len-1] != val[0]) {
-                        log_debug("inconsistent quoting: '%s', skip", line);
-                        return -EINVAL;
-                }
+                if (len == 1 || val[len-1] != val[0])
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "inconsistent quoting: '%s', skip",
+                                               line);
                 val[len-1] = '\0';
                 val++;
         }

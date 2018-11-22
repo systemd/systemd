@@ -92,16 +92,14 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                 left = 1;
 
         if (verb->min_args != VERB_ANY &&
-            (unsigned) left < verb->min_args) {
-                log_error("Too few arguments.");
-                return -EINVAL;
-        }
+            (unsigned) left < verb->min_args)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Too few arguments.");
 
         if (verb->max_args != VERB_ANY &&
-            (unsigned) left > verb->max_args) {
-                log_error("Too many arguments.");
-                return -EINVAL;
-        }
+            (unsigned) left > verb->max_args)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Too many arguments.");
 
         if ((verb->flags & VERB_ONLINE_ONLY) && running_in_chroot_or_offline()) {
                 if (name)

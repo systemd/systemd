@@ -1086,10 +1086,9 @@ int dissected_image_decrypt_interactively(
                 else if (r != -ENOKEY)
                         return log_error_errno(r, "Failed to decrypt image: %m");
 
-                if (--n < 0) {
-                        log_error("Too many retries.");
-                        return -EKEYREJECTED;
-                }
+                if (--n < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                               "Too many retries.");
 
                 z = strv_free(z);
 

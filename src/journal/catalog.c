@@ -217,14 +217,14 @@ static int catalog_entry_lang(const char* filename, int line,
         size_t c;
 
         c = strlen(t);
-        if (c == 0) {
-                log_error("[%s:%u] Language too short.", filename, line);
-                return -EINVAL;
-        }
-        if (c > 31) {
-                log_error("[%s:%u] language too long.", filename, line);
-                return -EINVAL;
-        }
+        if (c == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "[%s:%u] Language too short.",
+                                       filename, line);
+        if (c > 31)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "[%s:%u] language too long.", filename,
+                                       line);
 
         if (deflang) {
                 if (streq(t, deflang)) {
@@ -304,10 +304,11 @@ int catalog_import_file(Hashmap *h, const char *path) {
                         if (sd_id128_from_string(line + 2 + 1, &jd) >= 0) {
 
                                 if (got_id) {
-                                        if (payload_size == 0) {
-                                                log_error("[%s:%u] No payload text.", path, n);
-                                                return -EINVAL;
-                                        }
+                                        if (payload_size == 0)
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                                       "[%s:%u] No payload text.",
+                                                                       path,
+                                                                       n);
 
                                         r = finish_item(h, id, lang ?: deflang, payload, payload_size);
                                         if (r < 0)
@@ -335,10 +336,10 @@ int catalog_import_file(Hashmap *h, const char *path) {
                 }
 
                 /* Payload */
-                if (!got_id) {
-                        log_error("[%s:%u] Got payload before ID.", path, n);
-                        return -EINVAL;
-                }
+                if (!got_id)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] Got payload before ID.",
+                                               path, n);
 
                 line_len = strlen(line);
                 if (!GREEDY_REALLOC(payload, payload_allocated,
@@ -356,10 +357,10 @@ int catalog_import_file(Hashmap *h, const char *path) {
         }
 
         if (got_id) {
-                if (payload_size == 0) {
-                        log_error("[%s:%u] No payload text.", path, n);
-                        return -EINVAL;
-                }
+                if (payload_size == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "[%s:%u] No payload text.",
+                                               path, n);
 
                 r = finish_item(h, id, lang ?: deflang, payload, payload_size);
                 if (r < 0)

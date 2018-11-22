@@ -363,10 +363,9 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
                         return log_oom();
         }
 
-        if (strv_isempty(list)) {
-                log_error("Couldn't find any entries.");
-                return -ENOENT;
-        }
+        if (strv_isempty(list))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Couldn't find any entries.");
 
         strv_sort(list);
         strv_uniq(list);

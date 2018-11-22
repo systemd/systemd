@@ -336,10 +336,9 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
         r = dns_label_unescape(&p, label, sizeof label);
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape host name: %m");
-        if (r == 0) {
-                log_error("Couldn't find a single label in hostname.");
-                return -EINVAL;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Couldn't find a single label in hostname.");
 
 #if HAVE_LIBIDN2
         r = idn2_to_unicode_8z8z(label, &utf8, 0);
@@ -356,10 +355,9 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
         if (k > 0)
                 r = k;
 
-        if (!utf8_is_valid(label)) {
-                log_error("System hostname is not UTF-8 clean.");
-                return -EINVAL;
-        }
+        if (!utf8_is_valid(label))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "System hostname is not UTF-8 clean.");
         decoded = label;
 #else
         decoded = label; /* no decoding */
@@ -369,10 +367,9 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
         if (r < 0)
                 return log_error_errno(r, "Failed to escape host name: %m");
 
-        if (is_localhost(n)) {
-                log_debug("System hostname is 'localhost', ignoring.");
-                return -EINVAL;
-        }
+        if (is_localhost(n))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "System hostname is 'localhost', ignoring.");
 
         r = dns_name_concat(n, "local", mdns_hostname);
         if (r < 0)

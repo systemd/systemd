@@ -806,10 +806,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOCALE:
-                        if (!locale_is_valid(optarg)) {
-                                log_error("Locale %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!locale_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Locale %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_locale, optarg);
                         if (r < 0)
@@ -818,10 +817,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOCALE_MESSAGES:
-                        if (!locale_is_valid(optarg)) {
-                                log_error("Locale %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!locale_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Locale %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_locale_messages, optarg);
                         if (r < 0)
@@ -830,10 +828,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KEYMAP:
-                        if (!keymap_is_valid(optarg)) {
-                                log_error("Keymap %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!keymap_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Keymap %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_keymap, optarg);
                         if (r < 0)
@@ -842,10 +839,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMEZONE:
-                        if (!timezone_is_valid(optarg, LOG_ERR)) {
-                                log_error("Timezone %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!timezone_is_valid(optarg, LOG_ERR))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Timezone %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_timezone, optarg);
                         if (r < 0)
@@ -869,10 +865,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg, true)) {
-                                log_error("Host name %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
+                        if (!hostname_is_valid(optarg, true))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Host name %s is not valid.", optarg);
 
                         hostname_cleanup(optarg);
                         r = free_and_strdup(&arg_hostname, optarg);
@@ -882,10 +877,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MACHINE_ID:
-                        if (sd_id128_from_string(optarg, &arg_machine_id) < 0) {
-                                log_error("Failed to parse machine id %s.", optarg);
-                                return -EINVAL;
-                        }
+                        if (sd_id128_from_string(optarg, &arg_machine_id) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse machine id %s.", optarg);
 
                         break;
 

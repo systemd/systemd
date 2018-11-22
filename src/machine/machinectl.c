@@ -1710,10 +1710,9 @@ static int make_service_name(const char *name, char **ret) {
         assert(name);
         assert(ret);
 
-        if (!machine_name_is_valid(name)) {
-                log_error("Invalid machine name %s.", name);
-                return -EINVAL;
-        }
+        if (!machine_name_is_valid(name))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid machine name %s.", name);
 
         r = unit_name_build("systemd-nspawn", name, ".service", ret);
         if (r < 0)
@@ -2837,10 +2836,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'n':
-                        if (safe_atou(optarg, &arg_lines) < 0) {
-                                log_error("Failed to parse lines '%s'", optarg);
-                                return -EINVAL;
-                        }
+                        if (safe_atou(optarg, &arg_lines) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse lines '%s'", optarg);
                         break;
 
                 case 'o':
@@ -2850,10 +2848,9 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_output = output_mode_from_string(optarg);
-                        if (arg_output < 0) {
-                                log_error("Unknown output '%s'.", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_output < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown output '%s'.", optarg);
                         break;
 
                 case ARG_NO_PAGER:
@@ -2875,10 +2872,9 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_signal = signal_from_string(optarg);
-                        if (arg_signal < 0) {
-                                log_error("Failed to parse signal string %s.", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_signal < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse signal string %s.", optarg);
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -2914,10 +2910,9 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_verify = import_verify_from_string(optarg);
-                        if (arg_verify < 0) {
-                                log_error("Failed to parse --verify= setting: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_verify < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse --verify= setting: %s", optarg);
                         break;
 
                 case ARG_FORCE:
@@ -2925,10 +2920,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FORMAT:
-                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2")) {
-                                log_error("Unknown format: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown format: %s", optarg);
 
                         arg_format = optarg;
                         break;
@@ -2938,10 +2932,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'E':
-                        if (!env_assignment_is_valid(optarg)) {
-                                log_error("Environment assignment invalid: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (!env_assignment_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Environment assignment invalid: %s", optarg);
 
                         r = strv_extend(&arg_setenv, optarg);
                         if (r < 0)
@@ -2951,13 +2944,12 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NUMBER_IPS:
                         if (streq(optarg, "all"))
                                 arg_addrs = ALL_IP_ADDRESSES;
-                        else if (safe_atoi(optarg, &arg_addrs) < 0) {
-                                log_error("Invalid number of IPs");
-                                return -EINVAL;
-                        } else if (arg_addrs < 0) {
-                                log_error("Number of IPs cannot be negative");
-                                return -EINVAL;
-                        }
+                        else if (safe_atoi(optarg, &arg_addrs) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid number of IPs");
+                        else if (arg_addrs < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Number of IPs cannot be negative");
                         break;
 
                 case '?':

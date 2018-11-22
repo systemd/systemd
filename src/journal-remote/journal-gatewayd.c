@@ -921,10 +921,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_KEY:
-                        if (arg_key_pem) {
-                                log_error("Key file specified twice");
-                                return -EINVAL;
-                        }
+                        if (arg_key_pem)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Key file specified twice");
                         r = read_full_file(optarg, &arg_key_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read key file: %m");
@@ -932,10 +931,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CERT:
-                        if (arg_cert_pem) {
-                                log_error("Certificate file specified twice");
-                                return -EINVAL;
-                        }
+                        if (arg_cert_pem)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Certificate file specified twice");
                         r = read_full_file(optarg, &arg_cert_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read certificate file: %m");
@@ -944,18 +942,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TRUST:
 #if HAVE_GNUTLS
-                        if (arg_trust_pem) {
-                                log_error("CA certificate file specified twice");
-                                return -EINVAL;
-                        }
+                        if (arg_trust_pem)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "CA certificate file specified twice");
                         r = read_full_file(optarg, &arg_trust_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read CA certificate file: %m");
                         assert(arg_trust_pem);
                         break;
 #else
-                        log_error("Option --trust is not available.");
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Option --trust is not available.");
 #endif
                 case 'D':
                         arg_directory = optarg;
@@ -968,20 +965,17 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind < argc) {
-                log_error("This program does not take arguments.");
-                return -EINVAL;
-        }
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program does not take arguments.");
 
-        if (!!arg_key_pem != !!arg_cert_pem) {
-                log_error("Certificate and key files must be specified together");
-                return -EINVAL;
-        }
+        if (!!arg_key_pem != !!arg_cert_pem)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Certificate and key files must be specified together");
 
-        if (arg_trust_pem && !arg_key_pem) {
-                log_error("CA certificate can only be used with certificate file");
-                return -EINVAL;
-        }
+        if (arg_trust_pem && !arg_key_pem)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "CA certificate can only be used with certificate file");
 
         return 1;
 }

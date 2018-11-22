@@ -793,8 +793,7 @@ static int on_exit_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         assert(manager);
 
-        log_error_errno(ETIMEDOUT, "Giving up waiting for workers to finish.");
-
+        log_error("Giving up waiting for workers to finish.");
         sd_event_exit(manager->event, -ETIMEDOUT);
 
         return 1;
@@ -956,7 +955,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                         return log_error_errno(errno, "Failed to receive message: %m");
                 } else if (size != sizeof(struct worker_message)) {
-                        log_warning_errno(EIO, "Ignoring worker message with invalid size %zi bytes", size);
+                        log_warning("Ignoring worker message with invalid size %zi bytes", size);
                         continue;
                 }
 
@@ -968,7 +967,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 }
 
                 if (!ucred || ucred->pid <= 0) {
-                        log_warning_errno(EIO, "Ignoring worker message without valid PID");
+                        log_warning("Ignoring worker message without valid PID");
                         continue;
                 }
 
@@ -1612,11 +1611,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         manager->rules = udev_rules_new(arg_resolve_name_timing);
         if (!manager->rules)
-                return log_error_errno(ENOMEM, "Failed to read udev rules");
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to read udev rules");
 
         manager->ctrl = udev_ctrl_new_from_fd(fd_ctrl);
         if (!manager->ctrl)
-                return log_error_errno(EINVAL, "Failed to initialize udev control socket");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize udev control socket");
 
         r = udev_ctrl_enable_receiving(manager->ctrl);
         if (r < 0)

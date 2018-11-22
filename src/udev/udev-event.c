@@ -625,10 +625,9 @@ int udev_event_spawn(struct udev_event *event,
         if (!argv)
                 return log_oom();
 
-        if (isempty(argv[0])) {
-                log_error("Invalid command '%s'", cmd);
-                return -EINVAL;
-        }
+        if (isempty(argv[0]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid command '%s'", cmd);
 
         /* allow programs in /usr/lib/udev/ to be called without the path */
         if (!path_is_absolute(argv[0])) {

@@ -42,8 +42,11 @@ int event_reset_time(
                         return log_debug_errno(r, "sd-event: Failed to get clock id of event source \"%s\": %m", strna((*s)->description ?: description));
 
                 if (c != clock)
-                        return log_debug_errno(EINVAL, "sd-event: Current clock id %i of event source \"%s\" is different from specified one %i.",
-                                               (int) c, strna((*s)->description ?: description), (int) clock);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "sd-event: Current clock id %i of event source \"%s\" is different from specified one %i.",
+                                               (int)c,
+                                               strna((*s)->description ? : description),
+                                               (int)clock);
 
                 r = sd_event_source_set_time(*s, usec);
                 if (r < 0)

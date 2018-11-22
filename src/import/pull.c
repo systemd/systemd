@@ -271,10 +271,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERIFY:
                         arg_verify = import_verify_from_string(optarg);
-                        if (arg_verify < 0) {
-                                log_error("Invalid verification setting '%s'", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_verify < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid verification setting '%s'", optarg);
 
                         break;
 

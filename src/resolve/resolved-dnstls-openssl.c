@@ -174,8 +174,9 @@ int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
                                 char errbuf[256];
 
                                 ERR_error_string_n(error, errbuf, sizeof(errbuf));
-                                log_debug("Failed to invoke SSL_do_handshake: %s", errbuf);
-                                return -ECONNREFUSED;
+                                return log_debug_errno(SYNTHETIC_ERRNO(ECONNREFUSED),
+                                                       "Failed to invoke SSL_do_handshake: %s",
+                                                       errbuf);
                         }
                 }
 

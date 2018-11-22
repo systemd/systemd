@@ -85,10 +85,9 @@ static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out
 
                 r = pcre2_get_error_message(errorcode, buf, sizeof buf);
 
-                log_error("Bad pattern \"%s\": %s",
-                          pattern,
-                          r < 0 ? "unknown error" : (char*) buf);
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Bad pattern \"%s\": %s", pattern,
+                                       r < 0 ? "unknown error" : (char *)buf);
         }
 
         *out = p;
@@ -1070,10 +1069,10 @@ static int add_matches(sd_journal *j, char **args) {
                                 r = add_matches_for_device(j, p);
                                 if (r < 0)
                                         return r;
-                        } else {
-                                log_error("File is neither a device node, nor regular file, nor executable: %s", *i);
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "File is neither a device node, nor regular file, nor executable: %s",
+                                                       *i);
 
                         have_term = true;
                 } else {
@@ -1085,10 +1084,9 @@ static int add_matches(sd_journal *j, char **args) {
                         return log_error_errno(r, "Failed to add match '%s': %m", *i);
         }
 
-        if (!strv_isempty(args) && !have_term) {
-                log_error("\"+\" can only be used between terms");
-                return -EINVAL;
-        }
+        if (!strv_isempty(args) && !have_term)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "\"+\" can only be used between terms");
 
         return 0;
 }
@@ -1179,10 +1177,9 @@ static int discover_next_boot(sd_journal *j,
                 r = sd_journal_previous(j);
         if (r < 0)
                 return r;
-        else if (r == 0) {
-                log_debug("Whoopsie! We found a boot ID but can't read its last entry.");
-                return -ENODATA; /* This shouldn't happen. We just came from this very boot ID. */
-        }
+        else if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
+                                       "Whoopsie! We found a boot ID but can't read its last entry."); /* This shouldn't happen. We just came from this very boot ID. */
 
         r = sd_journal_get_realtime_usec(j, &next_boot->last);
         if (r < 0)
@@ -1833,8 +1830,8 @@ finish:
 
         return r;
 #else
-        log_error("Forward-secure sealing not available.");
-        return -EOPNOTSUPP;
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Forward-secure sealing not available.");
 #endif
 }
 
@@ -2066,10 +2063,9 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
                 return log_error_errno(errno, "Couldn't wait for journal event: %m");
         }
 
-        if (pollfds[1].revents & (POLLHUP|POLLERR)) { /* STDOUT has been closed? */
-                log_debug("Standard output has been closed.");
-                return -ECANCELED;
-        }
+        if (pollfds[1].revents & (POLLHUP|POLLERR)) /* STDOUT has been closed? */
+                return log_debug_errno(SYNTHETIC_ERRNO(ECANCELED),
+                                       "Standard output has been closed.");
 
         r = sd_journal_process(j);
         if (r < 0)

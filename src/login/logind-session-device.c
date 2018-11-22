@@ -175,10 +175,9 @@ static int session_device_start(SessionDevice *sd) {
         switch (sd->type) {
 
         case DEVICE_TYPE_DRM:
-                if (sd->fd < 0) {
-                        log_error("Failed to re-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
-                        return -EBADF;
-                }
+                if (sd->fd < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADF),
+                                               "Failed to re-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
 
                 /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it fails, we
                  * keep the device paused. Maybe at some point we have a drmStealMaster(). */

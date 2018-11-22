@@ -47,10 +47,10 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         r = extract_first_word(&line, &address_str, NULL, EXTRACT_RELAX);
         if (r < 0)
                 return log_error_errno(r, "Couldn't extract address, in line /etc/hosts:%u.", nr);
-        if (r == 0) {
-                log_error("Premature end of line, in line /etc/hosts:%u.", nr);
-                return -EINVAL;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Premature end of line, in line /etc/hosts:%u.",
+                                       nr);
 
         r = in_addr_ifindex_from_string_auto(address_str, &address.family, &address.address, NULL);
         if (r < 0)
@@ -151,10 +151,10 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                 bn->addresses[bn->n_addresses++] = &item->address;
         }
 
-        if (!found) {
-                log_error("Line is missing any host names, in line /etc/hosts:%u.", nr);
-                return -EINVAL;
-        }
+        if (!found)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Line is missing any host names, in line /etc/hosts:%u.",
+                                       nr);
 
         return 0;
 }

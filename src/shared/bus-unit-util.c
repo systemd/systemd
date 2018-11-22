@@ -83,10 +83,8 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
                 int r;                                                  \
                                                                         \
                 r = parse_func(eq);                                     \
-                if (r < 0) {                                            \
-                        log_error("Failed to parse %s: %s", field, eq); \
-                        return -EINVAL;                                 \
-                }                                                       \
+                if (r < 0)                                              \
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s: %s", field, eq);                                 \
                                                                         \
                 r = sd_bus_message_append(m, "(sv)", field,             \
                                           bus_type, (int32_t) r);       \
@@ -277,8 +275,8 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 case '+':
                 case '!':
                         /* The bus API doesn't support +, ! and !! currently, unfortunately. :-( */
-                        log_error("Sorry, but +, ! and !! are currently not supported for transient services.");
-                        return -EOPNOTSUPP;
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Sorry, but +, ! and !! are currently not supported for transient services.");
 
                 default:
                         done = true;
@@ -450,10 +448,9 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", USEC_INFINITY);
                 else {
                         r = parse_permille_unbounded(eq);
-                        if (r == 0) {
-                                log_error("CPU quota too small.");
-                                return -ERANGE;
-                        }
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                                       "CPU quota too small.");
                         if (r < 0)
                                 return log_error_errno(r, "CPU quota '%s' invalid.", eq);
 
@@ -497,10 +494,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         uint64_t bytes;
 
                         e = strchr(eq, ' ');
-                        if (!e) {
-                                log_error("Failed to parse %s value %s.", field, eq);
-                                return -EINVAL;
-                        }
+                        if (!e)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse %s value %s.",
+                                                       field, eq);
 
                         path = strndupa(eq, e - eq);
                         bandwidth = e+1;
@@ -531,10 +528,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         uint64_t u;
 
                         e = strchr(eq, ' ');
-                        if (!e) {
-                                log_error("Failed to parse %s value %s.", field, eq);
-                                return -EINVAL;
-                        }
+                        if (!e)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse %s value %s.",
+                                                       field, eq);
 
                         path = strndupa(eq, e - eq);
                         weight = e+1;
@@ -562,10 +559,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         usec_t usec;
 
                         e = strchr(eq, ' ');
-                        if (!e) {
-                                log_error("Failed to parse %s value %s.", field, eq);
-                                return -EINVAL;
-                        }
+                        if (!e)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse %s value %s.",
+                                                       field, eq);
 
                         path = strndupa(eq, e - eq);
                         target = e+1;
@@ -1125,10 +1122,10 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse argument: %m");
-                                if (r == 0) {
-                                        log_error("Missing argument after ':': %s", eq);
-                                        return -EINVAL;
-                                }
+                                if (r == 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Missing argument after ':': %s",
+                                                               eq);
 
                                 d = destination;
 
@@ -1143,10 +1140,10 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                                 flags = MS_REC;
                                         else if (streq(options, "norbind"))
                                                 flags = 0;
-                                        else {
-                                                log_error("Unknown options: %s", eq);
-                                                return -EINVAL;
-                                        }
+                                        else
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                                       "Unknown options: %s",
+                                                                       eq);
                                 }
                         } else
                                 d = s;
@@ -1204,10 +1201,10 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         r = extract_first_word(&w, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument: %m");
-                        if (r == 0) {
-                                log_error("Failed to parse argument: %s", p);
-                                return -EINVAL;
-                        }
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse argument: %s",
+                                                       p);
 
                         r = sd_bus_message_append(m, "(ss)", path, w);
                         if (r < 0)
@@ -1603,10 +1600,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
         assert(assignment);
 
         eq = strchr(assignment, '=');
-        if (!eq) {
-                log_error("Not an assignment: %s", assignment);
-                return -EINVAL;
-        }
+        if (!eq)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not an assignment: %s", assignment);
 
         field = strndupa(assignment, eq - assignment);
         eq++;
@@ -1709,20 +1705,20 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
         case UNIT_TARGET:
         case UNIT_DEVICE:
         case UNIT_SWAP:
-                log_error("Not supported unit type");
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not supported unit type");
 
         default:
-                log_error("Invalid unit type");
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid unit type");
         }
 
         r = bus_append_unit_property(m, field, eq);
         if (r != 0)
                 return r;
 
-        log_error("Unknown assignment: %s", assignment);
-        return -EINVAL;
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "Unknown assignment: %s", assignment);
 }
 
 int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char **l) {
@@ -2006,8 +2002,8 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
         else if (STR_IN_SET(d->result, "done", "skipped"))
                 return 0;
 
-        log_debug("Unexpected job result, assuming server side newer than us: %s", d->result);
-        return -EIO;
+        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                               "Unexpected job result, assuming server side newer than us: %s", d->result);
 }
 
 int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_args) {

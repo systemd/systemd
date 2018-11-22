@@ -137,10 +137,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option code.");
                 }
 
-        if (!arg_verb) {
-                log_error("Verb argument missing.");
-                return -EINVAL;
-        }
+        if (!arg_verb)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verb argument missing.");
 
         return 0;
 }

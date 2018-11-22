@@ -96,10 +96,10 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
                 }
 
                 imp->scanned = imp->filled;
-                if (imp->scanned >= DATA_SIZE_MAX) {
-                        log_error("Entry is bigger than %u bytes.", DATA_SIZE_MAX);
-                        return -E2BIG;
-                }
+                if (imp->scanned >= DATA_SIZE_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "Entry is bigger than %u bytes.",
+                                               DATA_SIZE_MAX);
 
                 if (imp->passive_fd)
                         /* we have to wait for some data to come to us */
@@ -192,11 +192,10 @@ static int get_data_size(JournalImporter *imp) {
                 return r;
 
         imp->data_size = unaligned_read_le64(data);
-        if (imp->data_size > DATA_SIZE_MAX) {
-                log_error("Stream declares field with size %zu > DATA_SIZE_MAX = %u",
-                          imp->data_size, DATA_SIZE_MAX);
-                return -EINVAL;
-        }
+        if (imp->data_size > DATA_SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Stream declares field with size %zu > DATA_SIZE_MAX = %u",
+                                       imp->data_size, DATA_SIZE_MAX);
         if (imp->data_size == 0)
                 log_warning("Binary field with zero length");
 
@@ -234,8 +233,8 @@ static int get_data_newline(JournalImporter *imp) {
                 int l;
 
                 l = cescape_char(*data, buf);
-                log_error("Expected newline, got '%.*s'", l, buf);
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Expected newline, got '%.*s'", l, buf);
         }
 
         return 1;
@@ -446,12 +445,12 @@ int journal_importer_push_data(JournalImporter *imp, const char *data, size_t si
         assert(imp);
         assert(imp->state != IMPORTER_STATE_EOF);
 
-        if (!realloc_buffer(imp, imp->filled + size)) {
-                log_error("Failed to store received data of size %zu "
-                          "(in addition to existing %zu bytes with %zu filled): %s",
-                          size, imp->size, imp->filled, strerror(ENOMEM));
-                return -ENOMEM;
-        }
+        if (!realloc_buffer(imp, imp->filled + size))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM),
+                                       "Failed to store received data of size %zu "
+                                       "(in addition to existing %zu bytes with %zu filled): %s",
+                                       size, imp->size, imp->filled,
+                                       strerror(ENOMEM));
 
         memcpy(imp->buf + imp->filled, data, size);
         imp->filled += size;

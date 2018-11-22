@@ -224,10 +224,10 @@ int sd_netlink_send(sd_netlink *nl,
 int rtnl_rqueue_make_room(sd_netlink *rtnl) {
         assert(rtnl);
 
-        if (rtnl->rqueue_size >= RTNL_RQUEUE_MAX) {
-                log_debug("rtnl: exhausted the read queue size (%d)", RTNL_RQUEUE_MAX);
-                return -ENOBUFS;
-        }
+        if (rtnl->rqueue_size >= RTNL_RQUEUE_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                       "rtnl: exhausted the read queue size (%d)",
+                                       RTNL_RQUEUE_MAX);
 
         if (!GREEDY_REALLOC(rtnl->rqueue, rtnl->rqueue_allocated, rtnl->rqueue_size + 1))
                 return -ENOMEM;
@@ -238,10 +238,10 @@ int rtnl_rqueue_make_room(sd_netlink *rtnl) {
 int rtnl_rqueue_partial_make_room(sd_netlink *rtnl) {
         assert(rtnl);
 
-        if (rtnl->rqueue_partial_size >= RTNL_RQUEUE_MAX) {
-                log_debug("rtnl: exhausted the partial read queue size (%d)", RTNL_RQUEUE_MAX);
-                return -ENOBUFS;
-        }
+        if (rtnl->rqueue_partial_size >= RTNL_RQUEUE_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                       "rtnl: exhausted the partial read queue size (%d)",
+                                       RTNL_RQUEUE_MAX);
 
         if (!GREEDY_REALLOC(rtnl->rqueue_partial, rtnl->rqueue_partial_allocated,
                             rtnl->rqueue_partial_size + 1))

@@ -638,16 +638,18 @@ static int check_utf8ness_and_warn(
                 _cleanup_free_ char *p = NULL;
 
                 p = utf8_escape_invalid(key);
-                log_error("%s:%u: invalid UTF-8 in key '%s', ignoring.", strna(filename), line, p);
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s:%u: invalid UTF-8 in key '%s', ignoring.",
+                                       strna(filename), line, p);
         }
 
         if (value && !utf8_is_valid(value)) {
                 _cleanup_free_ char *p = NULL;
 
                 p = utf8_escape_invalid(value);
-                log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.", strna(filename), line, key, p);
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.",
+                                       strna(filename), line, key, p);
         }
 
         return 0;

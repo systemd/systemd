@@ -994,10 +994,9 @@ int bus_init_private(Manager *m) {
                 const char *e, *joined;
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
-                if (!e) {
-                        log_error("XDG_RUNTIME_DIR is not set, refusing.");
-                        return -EHOSTDOWN;
-                }
+                if (!e)
+                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                               "XDG_RUNTIME_DIR is not set, refusing.");
 
                 joined = strjoina(e, "/systemd/private");
                 salen = sockaddr_un_set_path(&sa.un, joined);

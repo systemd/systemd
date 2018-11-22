@@ -58,10 +58,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 case 'N':
                         arg_resolve_name_timing = resolve_name_timing_from_string(optarg);
-                        if (arg_resolve_name_timing < 0) {
-                                log_error("--resolve-names= must be early, late or never");
-                                return -EINVAL;
-                        }
+                        if (arg_resolve_name_timing < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--resolve-names= must be early, late or never");
                         break;
                 case 'V':
                         return print_version();
@@ -73,10 +72,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unknown option");
                 }
 
-        if (!argv[optind]) {
-                log_error("syspath parameter missing.");
-                return -EINVAL;
-        }
+        if (!argv[optind])
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "syspath parameter missing.");
 
         /* add /sys if needed */
         if (!startswith(argv[optind], "/sys"))

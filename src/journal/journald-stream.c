@@ -596,10 +596,10 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         assert(s);
 
-        if (revents != EPOLLIN) {
-                log_error("Got invalid event from epoll for stdout server fd: %"PRIx32, revents);
-                return -EIO;
-        }
+        if (revents != EPOLLIN)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Got invalid event from epoll for stdout server fd: %" PRIx32,
+                                       revents);
 
         fd = accept4(s->stdout_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (fd < 0) {

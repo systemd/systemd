@@ -1816,13 +1816,12 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
                 if (r > 0) {
                         char s[DNS_RESOURCE_KEY_STRING_MAX], saux[DNS_RESOURCE_KEY_STRING_MAX];
 
-                        log_debug("Potential cyclic dependency, refusing to add transaction %" PRIu16 " (%s) as dependency for %" PRIu16 " (%s).",
-                                  aux->id,
-                                  dns_resource_key_to_string(t->key, s, sizeof s),
-                                  t->id,
-                                  dns_resource_key_to_string(aux->key, saux, sizeof saux));
-
-                        return -ELOOP;
+                        return log_debug_errno(SYNTHETIC_ERRNO(ELOOP),
+                                               "Potential cyclic dependency, refusing to add transaction %" PRIu16 " (%s) as dependency for %" PRIu16 " (%s).",
+                                               aux->id,
+                                               dns_resource_key_to_string(t->key, s, sizeof s),
+                                               t->id,
+                                               dns_resource_key_to_string(aux->key, saux, sizeof saux));
                 }
         }
 
@@ -2445,8 +2444,8 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                                                 return true;
 
                                         /* A CNAME/DNAME without a parent? That's sooo weird. */
-                                        log_debug("Transaction %" PRIu16 " claims CNAME/DNAME at root. Refusing.", t->id);
-                                        return -EBADMSG;
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "Transaction %" PRIu16 " claims CNAME/DNAME at root. Refusing.", t->id);
                                 }
                         }
 

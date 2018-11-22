@@ -310,10 +310,10 @@ int generator_hook_up_mkswap(
                 return log_oom();
 
         /* Nothing to work on. */
-        if (!is_device_path(node)) {
-                log_error("Cannot format something that is not a device node: %s", node);
-                return -EINVAL;
-        }
+        if (!is_device_path(node))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot format something that is not a device node: %s",
+                                       node);
 
         r = unit_name_from_path_instance("systemd-mkswap", node, ".service", &unit);
         if (r < 0)
@@ -380,15 +380,15 @@ int generator_hook_up_mkfs(
                 return log_oom();
 
         /* Nothing to work on. */
-        if (!is_device_path(node)) {
-                log_error("Cannot format something that is not a device node: %s", node);
-                return -EINVAL;
-        }
+        if (!is_device_path(node))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot format something that is not a device node: %s",
+                                       node);
 
-        if (!type || streq(type, "auto")) {
-                log_error("Cannot format partition %s, filesystem type is not specified", node);
-                return -EINVAL;
-        }
+        if (!type || streq(type, "auto"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot format partition %s, filesystem type is not specified",
+                                       node);
 
         r = unit_name_from_path_instance("systemd-mkfs", node, ".service", &unit);
         if (r < 0)

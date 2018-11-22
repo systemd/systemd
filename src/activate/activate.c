@@ -122,10 +122,9 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
         char **s;
         int r;
 
-        if (arg_inetd && n_fds != 1) {
-                log_error("--inetd only supported for single file descriptors.");
-                return -EINVAL;
-        }
+        if (arg_inetd && n_fds != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--inetd only supported for single file descriptors.");
 
         length = strv_length(arg_setenv);
 
@@ -384,19 +383,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'd':
-                        if (arg_socket_type == SOCK_SEQPACKET) {
-                                log_error("--datagram may not be combined with --seqpacket.");
-                                return -EINVAL;
-                        }
+                        if (arg_socket_type == SOCK_SEQPACKET)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--datagram may not be combined with --seqpacket.");
 
                         arg_socket_type = SOCK_DGRAM;
                         break;
 
                 case ARG_SEQPACKET:
-                        if (arg_socket_type == SOCK_DGRAM) {
-                                log_error("--seqpacket may not be combined with --datagram.");
-                                return -EINVAL;
-                        }
+                        if (arg_socket_type == SOCK_DGRAM)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--seqpacket may not be combined with --datagram.");
 
                         arg_socket_type = SOCK_SEQPACKET;
                         break;
@@ -448,17 +445,15 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind == argc) {
-                log_error("%s: command to execute is missing.",
-                          program_invocation_short_name);
-                return -EINVAL;
-        }
+        if (optind == argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: command to execute is missing.",
+                                       program_invocation_short_name);
 
-        if (arg_socket_type == SOCK_DGRAM && arg_accept) {
-                log_error("Datagram sockets do not accept connections. "
-                          "The --datagram and --accept options may not be combined.");
-                return -EINVAL;
-        }
+        if (arg_socket_type == SOCK_DGRAM && arg_accept)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Datagram sockets do not accept connections. "
+                                       "The --datagram and --accept options may not be combined.");
 
         arg_args = argv + optind;
 

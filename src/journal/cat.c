@@ -86,10 +86,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'p':
                         arg_priority = log_level_from_string(optarg);
-                        if (arg_priority < 0) {
-                                log_error("Failed to parse priority value.");
-                                return -EINVAL;
-                        }
+                        if (arg_priority < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse priority value.");
                         break;
 
                 case ARG_LEVEL_PREFIX: {

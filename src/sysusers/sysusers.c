@@ -1112,10 +1112,10 @@ static int add_group(Item *i) {
                          * r > 0: means the gid does not exist -> fail
                          * r == 0: means the gid exists -> nothing more to do.
                          */
-                        if (r > 0) {
-                                log_error("Failed to create %s: please create GID %d", i->name, i->gid);
-                                return -EINVAL;
-                        }
+                        if (r > 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to create %s: please create GID %d",
+                                                       i->name, i->gid);
                         if (r == 0)
                                 return 0;
                 }
@@ -1839,10 +1839,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_REPLACE:
                         if (!path_is_absolute(optarg) ||
-                            !endswith(optarg, ".conf")) {
-                                log_error("The argument to --replace= must an absolute path to a config file");
-                                return -EINVAL;
-                        }
+                            !endswith(optarg, ".conf"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "The argument to --replace= must an absolute path to a config file");
 
                         arg_replace = optarg;
                         break;
@@ -1862,15 +1861,13 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_replace && arg_cat_config) {
-                log_error("Option --replace= is not supported with --cat-config");
-                return -EINVAL;
-        }
+        if (arg_replace && arg_cat_config)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --replace= is not supported with --cat-config");
 
-        if (arg_replace && optind >= argc) {
-                log_error("When --replace= is given, some configuration items must be specified");
-                return -EINVAL;
-        }
+        if (arg_replace && optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "When --replace= is given, some configuration items must be specified");
 
         return 1;
 }

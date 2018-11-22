@@ -39,10 +39,9 @@ static int delete_rule(const char *rule) {
         e = strchrnul(x+1, x[0]);
         *e = 0;
 
-        if (!filename_is_valid(x + 1)) {
-                log_error("Rule file name '%s' is not valid, refusing.", x+1);
-                return -EINVAL;
-        }
+        if (!filename_is_valid(x + 1))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Rule file name '%s' is not valid, refusing.", x + 1);
 
         fn = strappend("/proc/sys/fs/binfmt_misc/", x+1);
         if (!fn)
@@ -170,10 +169,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_cat_config && argc > optind) {
-                log_error("Positional arguments are not allowed with --cat-config");
-                return -EINVAL;
-        }
+        if (arg_cat_config && argc > optind)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Positional arguments are not allowed with --cat-config");
 
         return 1;
 }

@@ -175,14 +175,12 @@ static int run(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        if (argc != 3) {
-                log_error("This program takes two arguments.");
-                return -EINVAL;
-        }
-        if (!STR_IN_SET(argv[1], "start", "stop")) {
-                log_error("First argument must be either \"start\" or \"stop\".");
-                return -EINVAL;
-        }
+        if (argc != 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes two arguments.");
+        if (!STR_IN_SET(argv[1], "start", "stop"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "First argument must be either \"start\" or \"stop\".");
 
         r = mac_selinux_init();
         if (r < 0)

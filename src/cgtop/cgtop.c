@@ -779,10 +779,10 @@ static int parse_argv(int argc, char *argv[]) {
                                         arg_cpu_type = CPU_TIME;
                                 else if (streq(optarg, "percentage"))
                                         arg_cpu_type = CPU_PERCENT;
-                                else {
-                                        log_error("Unknown argument to --cpu=: %s", optarg);
-                                        return -EINVAL;
-                                }
+                                else
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unknown argument to --cpu=: %s",
+                                                               optarg);
                         } else
                                 arg_cpu_type = CPU_TIME;
 
@@ -799,10 +799,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_sec(optarg, &arg_delay);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse delay parameter '%s': %m", optarg);
-                        if (arg_delay <= 0) {
-                                log_error("Invalid delay parameter '%s'", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_delay <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid delay parameter '%s'",
+                                                       optarg);
 
                         break;
 
@@ -856,10 +856,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_order = ORDER_MEMORY;
                         else if (streq(optarg, "io"))
                                 arg_order = ORDER_IO;
-                        else {
-                                log_error("Invalid argument to --order=: %s", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid argument to --order=: %s",
+                                                       optarg);
                         break;
 
                 case 'k':
@@ -892,10 +892,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (optind == argc - 1)
                 arg_root = argv[optind];
-        else if (optind < argc) {
-                log_error("Too many arguments.");
-                return -EINVAL;
-        }
+        else if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Too many arguments.");
 
         return 1;
 }

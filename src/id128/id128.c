@@ -52,7 +52,8 @@ static int verb_invocation_id(int argc, char **argv, void *userdata) {
         int r;
 
         if (!sd_id128_is_null(arg_app))
-                return log_error_errno(EINVAL, "Verb \"invocation-id\" cannot be combined with --app-specific=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verb \"invocation-id\" cannot be combined with --app-specific=.");
 
         r = sd_id128_get_invocation(&id);
         if (r < 0)

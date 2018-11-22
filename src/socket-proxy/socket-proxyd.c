@@ -505,10 +505,9 @@ static int add_listen_socket(Context *context, int fd) {
         r = sd_is_socket(fd, 0, SOCK_STREAM, 1);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine socket type: %m");
-        if (r == 0) {
-                log_error("Passed in socket is not a stream socket.");
-                return -EINVAL;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Passed in socket is not a stream socket.");
 
         r = fd_nonblock(fd, true);
         if (r < 0)
@@ -592,10 +591,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
-                        if (arg_connections_max < 1) {
-                                log_error("Connection limit is too low.");
-                                return -EINVAL;
-                        }
+                        if (arg_connections_max < 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Connection limit is too low.");
 
                         break;
 
@@ -606,15 +604,13 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (optind >= argc) {
-                log_error("Not enough parameters.");
-                return -EINVAL;
-        }
+        if (optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough parameters.");
 
-        if (argc != optind+1) {
-                log_error("Too many parameters.");
-                return -EINVAL;
-        }
+        if (argc != optind+1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Too many parameters.");
 
         arg_remote_host = argv[optind];
         return 1;

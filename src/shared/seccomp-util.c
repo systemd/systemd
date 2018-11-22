@@ -874,10 +874,10 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
                 const SyscallFilterSet *other;
 
                 other = syscall_filter_set_find(name);
-                if (!other) {
-                        log_debug("Filter set %s is not known!", name);
-                        return -EINVAL;
-                }
+                if (!other)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Filter set %s is not known!",
+                                               name);
 
                 return seccomp_add_syscall_filter_set(seccomp, other, action, exclude, log_missing);
 

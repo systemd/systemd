@@ -58,10 +58,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        if (argc > 1) {
-                log_error("This program takes no arguments.");
-                return -EINVAL;
-        }
+        if (argc > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes no arguments.");
 
         umask(0022);
 

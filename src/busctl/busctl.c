@@ -1257,10 +1257,9 @@ static int verb_monitor(int argc, char **argv, void *userdata) {
 static int verb_capture(int argc, char **argv, void *userdata) {
         int r;
 
-        if (isatty(fileno(stdout)) > 0) {
-                log_error("Refusing to write message data to console, please redirect output to a file.");
-                return -EINVAL;
-        }
+        if (isatty(fileno(stdout)) > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing to write message data to console, please redirect output to a file.");
 
         bus_pcap_header(arg_snaplen, stdout);
 
@@ -1346,10 +1345,9 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                 if (t == 0)
                         break;
-                if (!v) {
-                        log_error("Too few parameters for signature.");
-                        return -EINVAL;
-                }
+                if (!v)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Too few parameters for signature.");
 
                 signature++;
                 p++;
@@ -1539,12 +1537,12 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                 }
 
                 case SD_BUS_TYPE_UNIX_FD:
-                        log_error("UNIX file descriptor not supported as type.");
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "UNIX file descriptor not supported as type.");
 
                 default:
-                        log_error("Unknown signature type %c.", t);
-                        return -EINVAL;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unknown signature type %c.", t);
                 }
 
                 if (r < 0)
@@ -2291,10 +2289,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse size '%s': %m", optarg);
 
-                        if ((uint64_t) (size_t) sz !=  sz) {
-                                log_error("Size out of range.");
-                                return -E2BIG;
-                        }
+                        if ((uint64_t) (size_t) sz !=  sz)
+                                return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                                       "Size out of range.");
 
                         arg_snaplen = (size_t) sz;
                         break;
@@ -2385,10 +2382,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 fputs("short\n"
                                       "pretty\n", stdout);
                                 return 0;
-                        } else {
-                                log_error("Unknown JSON out mode: %s", optarg);
-                                return -EINVAL;
-                        }
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown JSON out mode: %s",
+                                                       optarg);
 
                         break;
 

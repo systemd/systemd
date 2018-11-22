@@ -204,10 +204,10 @@ static int unit_file_find_dirs(
                 return 0;
 
         type = unit_name_to_type(name);
-        if (type < 0) {
-                log_error("Failed to to derive unit type from unit name: %s", name);
-                return -EINVAL;
-        }
+        if (type < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to to derive unit type from unit name: %s",
+                                       name);
 
         if (is_instance) {
                 r = unit_name_to_instance(name, &instance);

@@ -19,10 +19,9 @@ static int make_volatile(const char *path) {
         r = path_is_mount_point(path, NULL, AT_SYMLINK_FOLLOW);
         if (r < 0)
                 return log_error_errno(r, "Couldn't determine whether %s is a mount point: %m", path);
-        if (r == 0) {
-                log_error("%s is not a mount point.", path);
-                return -EINVAL;
-        }
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s is not a mount point.", path);
 
         r = path_is_temporary_fs(path);
         if (r < 0)
@@ -84,10 +83,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        if (argc > 3) {
-                log_error("Too many arguments. Expected directory and mode.");
-                return -EINVAL;
-        }
+        if (argc > 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Too many arguments. Expected directory and mode.");
 
         r = query_volatile_mode(&m);
         if (r < 0)
@@ -106,18 +104,15 @@ static int run(int argc, char *argv[]) {
         else {
                 path = argv[2];
 
-                if (isempty(path)) {
-                        log_error("Directory name cannot be empty.");
-                        return -EINVAL;
-                }
-                if (!path_is_absolute(path)) {
-                        log_error("Directory must be specified as absolute path.");
-                        return -EINVAL;
-                }
-                if (path_equal(path, "/")) {
-                        log_error("Directory cannot be the root directory.");
-                        return -EINVAL;
-                }
+                if (isempty(path))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Directory name cannot be empty.");
+                if (!path_is_absolute(path))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Directory must be specified as absolute path.");
+                if (path_equal(path, "/"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Directory cannot be the root directory.");
         }
 
         if (m != VOLATILE_YES)

@@ -36,10 +36,12 @@ typedef enum LogTarget{
         _LOG_TARGET_INVALID = -1
 } LogTarget;
 
-#define LOG_REALM_PLUS_LEVEL(realm, level)      \
-        ((realm) << 10 | (level))
-#define LOG_REALM_REMOVE_LEVEL(realm_level)     \
-        ((realm_level >> 10))
+/* Note to readers: << and >> have lower precedence than & and | */
+#define LOG_REALM_PLUS_LEVEL(realm, level)  ((realm) << 10 | (level))
+#define LOG_REALM_REMOVE_LEVEL(realm_level) ((realm_level) >> 10)
+#define SYNTHETIC_ERRNO(num)                (1 << 30 | (num))
+#define IS_SYNTHETIC_ERRNO(val)             ((val) >> 30 & 1)
+#define ERRNO_VALUE(val)                    (abs(val) & 255)
 
 void log_set_target(LogTarget target);
 void log_set_max_level_realm(LogRealm realm, int level);
@@ -201,10 +203,10 @@ void log_assert_failed_return_realm(
 #define log_full_errno_realm(realm, level, error, ...)                  \
         ({                                                              \
                 int _level = (level), _e = (error), _realm = (realm);   \
-                (log_get_max_level_realm(_realm) >= LOG_PRI(_level))   \
+                (log_get_max_level_realm(_realm) >= LOG_PRI(_level))    \
                         ? log_internal_realm(LOG_REALM_PLUS_LEVEL(_realm, _level), _e, \
                                              __FILE__, __LINE__, __func__, __VA_ARGS__) \
-                        : -abs(_e);                                     \
+                        : -ERRNO_VALUE(_e);                             \
         })
 
 #define log_full_errno(level, error, ...)                               \

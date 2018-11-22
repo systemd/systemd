@@ -175,10 +175,10 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to replace specifiers: %m");
 
-        if (!dns_service_name_is_valid(name)) {
-                log_debug("Service instance name '%s' is invalid.", name);
-                return -EINVAL;
-        }
+        if (!dns_service_name_is_valid(name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Service instance name '%s' is invalid.",
+                                       name);
 
         *ret_name = TAKE_PTR(name);
 

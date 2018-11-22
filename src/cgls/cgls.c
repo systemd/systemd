@@ -146,10 +146,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_machine && arg_show_unit != SHOW_UNIT_NONE) {
-                log_error("Cannot combine --unit or --user-unit with --machine=.");
-                return -EINVAL;
-        }
+        if (arg_machine && arg_show_unit != SHOW_UNIT_NONE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot combine --unit or --user-unit with --machine=.");
 
         return 1;
 }
