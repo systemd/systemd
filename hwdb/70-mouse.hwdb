@@ -585,6 +585,10 @@ mouse:bluetooth:v045ep07f3:name:Arc Touch Mouse SE:
 mouse:bluetooth:v0000p0000:name:Surface Mouse:
  MOUSE_DPI=2000@2000
 
+# Microsoft Classic IntelliMouse
+mouse:usb:v045ep0823:name:Microsoft Microsoft?? Classic IntelliMouse??:
+ MOUSE_DPI=3200@1000
+
 ##########################################
 # Mionix
 ##########################################
