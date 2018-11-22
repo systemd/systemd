@@ -18,6 +18,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "list.h"
+#include "main-func.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -69,7 +70,7 @@ static void unit_status_info_free(UnitStatusInfo *p) {
         free(p);
 }
 
-static void context_free(Context *c) {
+static void context_clear(Context *c) {
         UnitStatusInfo *p;
 
         assert(c);
@@ -958,8 +959,8 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
-        Context context = {};
+static int run(int argc, char *argv[]) {
+        _cleanup_(context_clear) Context context = {};
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -968,58 +969,44 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                r = -EINVAL;
-                goto finish;
-        }
+        if (argc != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         r = sd_event_default(&event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
         (void) sd_event_set_watchdog(event, true);
 
         r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to install SIGINT handler: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGINT handler: %m");
 
         r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to install SIGTERM handler: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGTERM handler: %m");
 
         r = connect_bus(&context, event, &bus);
         if (r < 0)
-                goto finish;
+                return r;
 
         (void) sd_bus_negotiate_timestamp(bus, true);
 
         r = context_read_data(&context);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read time zone data: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read time zone data: %m");
 
         r = context_parse_ntp_services(&context);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = bus_event_loop_with_idle(event, bus, "org.freedesktop.timedate1", DEFAULT_EXIT_USEC, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to run event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
 
-finish:
-        context_free(&context);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
