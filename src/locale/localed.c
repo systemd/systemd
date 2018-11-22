@@ -19,6 +19,7 @@
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "main-func.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -708,7 +709,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {
                 .locale_mtime = USEC_INFINITY,
                 .vc_mtime = USEC_INFINITY,
@@ -723,42 +724,34 @@ int main(int argc, char *argv[]) {
         umask(0022);
         mac_selinux_init();
 
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                r = -EINVAL;
-                goto finish;
-        }
+        if (argc != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         r = sd_event_default(&event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
 
         (void) sd_event_set_watchdog(event, true);
 
         r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to install SIGINT handler: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGINT handler: %m");
 
         r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to install SIGTERM handler: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGTERM handler: %m");
 
         r = connect_bus(&context, event, &bus);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = bus_event_loop_with_idle(event, bus, "org.freedesktop.locale1", DEFAULT_EXIT_USEC, NULL, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to run event loop: %m");
+                return log_error_errno(r, "Failed to run event loop: %m");
 
-finish:
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
