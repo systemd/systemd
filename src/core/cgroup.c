@@ -1826,9 +1826,24 @@ static bool unit_has_mask_realized(
 
         assert(u);
 
+        /* Returns true if this unit is fully realized. We check four things:
+         *
+         * 1. Whether the cgroup was created at all
+         * 2. Whether the cgroup was created in all the hierarchies we need it to be created in (in case of cgroupsv1)
+         * 3. Whether the cgroup has all the right controllers enabled (in case of cgroupsv2)
+         * 4. Whether the invalidation mask is currently zero
+         *
+         * If you wonder why we mask the target realization and enable mask with CGROUP_MASK_V1/CGROUP_MASK_V2: note
+         * that there are three sets of bitmasks: CGROUP_MASK_V1 (for real cgroupv1 controllers), CGROUP_MASK_V2 (for
+         * real cgroupv2 controllers) and CGROUP_MASK_BPF (for BPF-based pseudo-controllers). Now, cgroup_realized_mask
+         * is only matters for cgroupsv1 controllers, and cgroup_enabled_mask only used for cgroupsv2, and if they
+         * differ in the others, we don't really care. (After all, the cgroup_enabled_mask tracks with controllers are
+         * enabled through cgroup.subtree_control, and since the BPF pseudo-controllers don't show up there, they
+         * simply don't matter. */
+
         return u->cgroup_realized &&
-                u->cgroup_realized_mask == target_mask &&
-                u->cgroup_enabled_mask == enable_mask &&
+                ((u->cgroup_realized_mask ^ target_mask) & CGROUP_MASK_V1) == 0 &&
+                ((u->cgroup_enabled_mask ^ enable_mask) & CGROUP_MASK_V2) == 0 &&
                 u->cgroup_invalidated_mask == 0;
 }
 
