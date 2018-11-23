@@ -208,6 +208,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--working-directory=</option></term>
+
+        <listitem><para>Runs the service process with the specified working directory. Also see
+        <varname>WorkingDirectory=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--same-dir</option></term>
+        <term><option>-d</option></term>
+
+        <listitem><para>Similar to <option>--working-directory=</option> but uses the current working directory of the
+        caller for the service to execute.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
         <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
 
@@ -255,6 +272,15 @@
         uses the <command>echo "hello" > /dev/stderr</command> construct for writing messages to stderr, this might
         cause problems, as this only works if stderr can be re-opened. To mitigate this use the construct <command>echo
         "hello" >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--shell</option></term>
+        <term><option>-S</option></term>
+
+        <listitem><para>A shortcut for <literal>--pty --same-dir --wait --collect --service-type=exec $SHELL</literal>,
+        i.e. requests an interactive shell in the current working directory, running in service context, accessible
+        with a single switch.</para></listitem>
       </varlistentry>
 
       <varlistentry>
