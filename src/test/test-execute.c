@@ -616,13 +616,6 @@ static void test_exec_ambientcapabilities(Manager *m) {
                 return;
         }
 
-#ifdef __SANITIZE_ADDRESS__
-        if (is_run_on_travis_ci()) {
-                log_notice("Skipping %s, see https://github.com/systemd/systemd/issues/10696", __func__);
-                return;
-        }
-#endif
-
         test(m, "exec-ambientcapabilities.service", 0, CLD_EXITED);
         test(m, "exec-ambientcapabilities-merge.service", 0, CLD_EXITED);
 
@@ -765,6 +758,13 @@ int main(int argc, char *argv[]) {
         int r;
 
         test_setup_logging(LOG_DEBUG);
+
+#ifdef __SANITIZE_ADDRESS__
+        if (is_run_on_travis_ci()) {
+                log_notice("Running on TravisCI under ASan, skipping, see https://github.com/systemd/systemd/issues/10696");
+                return EXIT_TEST_SKIP;
+        }
+#endif
 
         (void) unsetenv("USER");
         (void) unsetenv("LOGNAME");
