@@ -15,8 +15,8 @@
 /* Initialize the list's head */
 #define LIST_HEAD_INIT(head)                                            \
         do {                                                            \
-                (head) = NULL; }                                        \
-        while (false)
+                (head) = NULL;                                          \
+        } while (false)
 
 /* Initialize a list item */
 #define LIST_INIT(name,item)                                            \
