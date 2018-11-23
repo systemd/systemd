@@ -2005,7 +2005,8 @@ int unit_realize_cgroup(Unit *u) {
 void unit_release_cgroup(Unit *u) {
         assert(u);
 
-        /* Forgets all cgroup details for this cgroup */
+        /* Forgets all cgroup details for this cgroup — but does *not* destroy the cgroup. This is hence OK to call
+         * when we close down everything for reexecution, where we really want to leave the cgroup in place. */
 
         if (u->cgroup_path) {
                 (void) hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
