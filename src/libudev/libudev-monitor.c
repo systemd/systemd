@@ -69,22 +69,16 @@ _public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, c
         int r;
 
         g = monitor_netlink_group_from_string(name);
-        if (g < 0) {
-                errno = EINVAL;
-                return NULL;
-        }
+        if (g < 0)
+                return_with_errno(NULL, EINVAL);
 
         r = device_monitor_new_full(&m, g, -1);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
+        if (r < 0)
+                return_with_errno(NULL, r);
 
         udev_monitor = new(struct udev_monitor, 1);
-        if (!udev_monitor) {
-                errno = ENOMEM;
-                return NULL;
-        }
+        if (!udev_monitor)
+                return_with_errno(NULL, ENOMEM);
 
         *udev_monitor = (struct udev_monitor) {
                 .udev = udev,
@@ -257,10 +251,8 @@ _public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *ud
         assert_return(udev_monitor, NULL);
 
         r = udev_monitor_receive_sd_device(udev_monitor, &device);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
+        if (r < 0)
+                return_with_errno(NULL, r);
 
         return udev_device_new(udev_monitor->udev, device);
 }

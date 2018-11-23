@@ -54,22 +54,16 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
         int r;
 
         r = sd_device_enumerator_new(&e);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
+        if (r < 0)
+                return_with_errno(NULL, r);
 
         r = sd_device_enumerator_allow_uninitialized(e);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
+        if (r < 0)
+                return_with_errno(NULL, r);
 
         udev_enumerate = new(struct udev_enumerate, 1);
-        if (!udev_enumerate) {
-                errno = ENOMEM;
-                return NULL;
-        }
+        if (!udev_enumerate)
+                return_with_errno(NULL, ENOMEM);
 
         *udev_enumerate = (struct udev_enumerate) {
                 .udev = udev,
@@ -77,7 +71,7 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
                 .enumerator = TAKE_PTR(e),
         };
 
-        udev_list_init(udev, &udev_enumerate->devices_list, false);
+        udev_list_init(&udev_enumerate->devices_list, false);
 
         return udev_enumerate;
 }
@@ -147,12 +141,11 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                         int r;
 
                         r = sd_device_get_syspath(device, &syspath);
-                        if (r < 0) {
-                                errno = -r;
-                                return NULL;
-                        }
+                        if (r < 0)
+                                return_with_errno(NULL, r);
 
-                        udev_list_entry_add(&udev_enumerate->devices_list, syspath, NULL);
+                        if (!udev_list_entry_add(&udev_enumerate->devices_list, syspath, NULL))
+                                return_with_errno(NULL, ENOMEM);
                 }
 
                 udev_enumerate->devices_uptodate = true;
@@ -160,7 +153,7 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
 
         e = udev_list_get_entry(&udev_enumerate->devices_list);
         if (!e)
-                errno = ENODATA;
+                return_with_errno(NULL, ENODATA);
 
         return e;
 }

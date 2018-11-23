@@ -72,10 +72,8 @@ _public_ struct udev *udev_new(void) {
         struct udev *udev;
 
         udev = new(struct udev, 1);
-        if (!udev) {
-                errno = ENOMEM;
-                return NULL;
-        }
+        if (!udev)
+                return_with_errno(NULL, ENOMEM);
 
         *udev = (struct udev) {
                 .n_ref = 1,

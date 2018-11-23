@@ -334,6 +334,12 @@ static inline int __coverity_check__(int condition) {
                 }                                                       \
         } while (false)
 
+#define return_with_errno(r, err)                     \
+        do {                                          \
+                errno = abs(err);                     \
+                return r;                             \
+        } while (false)
+
 #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define INT_TO_PTR(u) ((void *) ((intptr_t) (u)))
 #define PTR_TO_UINT(p) ((unsigned) ((uintptr_t) (p)))

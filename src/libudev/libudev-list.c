@@ -65,9 +65,8 @@ static inline struct udev_list_entry *list_node_to_entry(struct udev_list_node *
         return container_of(node, struct udev_list_entry, node);
 }
 
-void udev_list_init(struct udev *udev, struct udev_list *list, bool unique) {
+void udev_list_init(struct udev_list *list, bool unique) {
         memzero(list, sizeof(struct udev_list));
-        list->udev = udev;
         list->unique = unique;
         udev_list_node_init(&list->node);
 }
@@ -299,16 +298,4 @@ _public_ const char *udev_list_entry_get_value(struct udev_list_entry *list_entr
         if (!list_entry)
                 return NULL;
         return list_entry->value;
-}
-
-int udev_list_entry_get_num(struct udev_list_entry *list_entry) {
-        if (!list_entry)
-                return -EINVAL;
-        return list_entry->num;
-}
-
-void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num) {
-        if (!list_entry)
-                return;
-        list_entry->num = num;
 }

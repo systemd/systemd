@@ -40,23 +40,19 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
         int r;
 
         r = sd_hwdb_new(&hwdb_internal);
-        if (r < 0) {
-                errno = -r;
-                return NULL;
-        }
+        if (r < 0)
+                return_with_errno(NULL, r);
 
         hwdb = new(struct udev_hwdb, 1);
-        if (!hwdb) {
-                errno = ENOMEM;
-                return NULL;
-        }
+        if (!hwdb)
+                return_with_errno(NULL, ENOMEM);
 
         *hwdb = (struct udev_hwdb) {
                 .n_ref = 1,
                 .hwdb = TAKE_PTR(hwdb_internal),
         };
 
-        udev_list_init(udev, &hwdb->properties_list, true);
+        udev_list_init(&hwdb->properties_list, true);
 
         return hwdb;
 }
@@ -111,16 +107,13 @@ _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev
 
         udev_list_cleanup(&hwdb->properties_list);
 
-        SD_HWDB_FOREACH_PROPERTY(hwdb->hwdb, modalias, key, value) {
-                if (!udev_list_entry_add(&hwdb->properties_list, key, value)) {
-                        errno = ENOMEM;
-                        return NULL;
-                }
-        }
+        SD_HWDB_FOREACH_PROPERTY(hwdb->hwdb, modalias, key, value)
+                if (!udev_list_entry_add(&hwdb->properties_list, key, value))
+                        return_with_errno(NULL, ENOMEM);
 
         e = udev_list_get_entry(&hwdb->properties_list);
         if (!e)
-                errno = ENODATA;
+                return_with_errno(NULL, ENODATA);
 
         return e;
 }
