@@ -258,9 +258,8 @@ int curl_glue_new(CurlGlue **glue, sd_event *event) {
 }
 
 int curl_glue_make(CURL **ret, const char *url, void *userdata) {
+        _cleanup_(curl_easy_cleanupp) CURL *c = NULL;
         const char *useragent;
-        CURL *c;
-        int r;
 
         assert(ret);
         assert(url);
@@ -271,33 +270,21 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
 
         /* curl_easy_setopt(c, CURLOPT_VERBOSE, 1L); */
 
-        if (curl_easy_setopt(c, CURLOPT_URL, url) != CURLE_OK) {
-                r = -EIO;
-                goto fail;
-        }
+        if (curl_easy_setopt(c, CURLOPT_URL, url) != CURLE_OK)
+                return -EIO;
 
-        if (curl_easy_setopt(c, CURLOPT_PRIVATE, userdata) != CURLE_OK) {
-                r = -EIO;
-                goto fail;
-        }
+        if (curl_easy_setopt(c, CURLOPT_PRIVATE, userdata) != CURLE_OK)
+                return -EIO;
 
         useragent = strjoina(program_invocation_short_name, "/" PACKAGE_VERSION);
-        if (curl_easy_setopt(c, CURLOPT_USERAGENT, useragent) != CURLE_OK) {
-                r = -EIO;
-                goto fail;
-        }
+        if (curl_easy_setopt(c, CURLOPT_USERAGENT, useragent) != CURLE_OK)
+                return -EIO;
 
-        if (curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L) != CURLE_OK) {
-                r = -EIO;
-                goto fail;
-        }
+        if (curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L) != CURLE_OK)
+                return -EIO;
 
         *ret = c;
         return 0;
-
-fail:
-        curl_easy_cleanup(c);
-        return r;
 }
 
 int curl_glue_add(CurlGlue *g, CURL *c) {
