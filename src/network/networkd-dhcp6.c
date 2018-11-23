@@ -655,9 +655,11 @@ int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set MAC address: %m");
 
-        r = sd_dhcp6_client_set_iaid(client, link->network->iaid);
-        if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set IAID: %m");
+        if (link->network->iaid_set) {
+                r = sd_dhcp6_client_set_iaid(client, link->network->iaid);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set IAID: %m");
+        }
 
         duid = link_get_duid(link);
         if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)

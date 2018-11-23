@@ -226,6 +226,8 @@ struct Network {
         uint32_t iaid;
         DUID duid;
 
+        bool iaid_set;
+
         bool required_for_online; /* Is this network required to be considered online? */
 
         LLDPMode lldp_mode; /* LLDP reception */
@@ -302,6 +304,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_lldp_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_class);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
+CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 /* Legacy IPv4LL support */
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv4ll);
 
