@@ -406,8 +406,9 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         assert(u);
         assert(url);
 
-        memzero(u, sizeof(Uploader));
-        u->input = -1;
+        *u = (Uploader) {
+                .input = -1
+        };
 
         host = STARTSWITH_SET(url, "http://", "https://");
         if (!host) {
