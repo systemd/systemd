@@ -614,15 +614,14 @@ static int create_remoteserver(
 
         if (arg_url) {
                 const char *url;
-                char *hostname, *p;
+                char *hostname;
 
                 if (!strstr(arg_url, "/entries")) {
                         if (endswith(arg_url, "/"))
                                 url = strjoina(arg_url, "entries");
                         else
                                 url = strjoina(arg_url, "/entries");
-                }
-                else
+                } else
                         url = strdupa(arg_url);
 
                 log_info("Spawning curl %s...", url);
@@ -634,11 +633,7 @@ static int create_remoteserver(
                 if (!hostname)
                         hostname = arg_url;
 
-                hostname = strdupa(hostname);
-                if ((p = strchr(hostname, '/')))
-                        *p = '\0';
-                if ((p = strchr(hostname, ':')))
-                        *p = '\0';
+                hostname = strndupa(hostname, strcspn(hostname, "/:"));
 
                 r = journal_remote_add_source(s, fd, hostname, false);
                 if (r < 0)
