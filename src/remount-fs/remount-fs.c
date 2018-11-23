@@ -19,9 +19,32 @@
 #include "strv.h"
 #include "util.h"
 
-/* Goes through /etc/fstab and remounts all API file systems, applying
- * options that are in /etc/fstab that systemd might not have
- * respected */
+/* Goes through /etc/fstab and remounts all API file systems, applying options that are in /etc/fstab that systemd
+ * might not have respected */
+
+static int track_pid(Hashmap **h, const char *path, pid_t pid) {
+        _cleanup_free_ char *c = NULL;
+        int r;
+
+        assert(h);
+        assert(path);
+        assert(pid_is_valid(pid));
+
+        r = hashmap_ensure_allocated(h, NULL);
+        if (r < 0)
+                return log_oom();
+
+        c = strdup(path);
+        if (!c)
+                return log_oom();
+
+        r = hashmap_put(*h, PID_TO_PTR(pid), c);
+        if (r < 0)
+                return log_oom();
+
+        TAKE_PTR(c);
+        return 0;
+}
 
 static int run(int argc, char *argv[]) {
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
@@ -45,14 +68,8 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(errno, "Failed to open /etc/fstab: %m");
         }
 
-        pids = hashmap_new(NULL);
-        if (!pids)
-                return log_oom();
-
         while ((me = getmntent(f))) {
-                _cleanup_free_ char *s = NULL;
                 pid_t pid;
-                int k;
 
                 /* Remount the root fs, /usr and all API VFS */
                 if (!mount_point_is_api(me->mnt_dir) &&
@@ -74,15 +91,9 @@ static int run(int argc, char *argv[]) {
                 }
 
                 /* Parent */
-
-                s = strdup(me->mnt_dir);
-                if (!s)
-                        return log_oom();
-
-                k = hashmap_put(pids, PID_TO_PTR(pid), s);
-                if (k < 0)
-                        return log_oom();
-                TAKE_PTR(s);
+                r = track_pid(&pids, me->mnt_dir, pid);
+                if (r < 0)
+                        return r;
         }
 
         r = 0;
