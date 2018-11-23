@@ -150,8 +150,6 @@ _public_ const char *udev_device_get_subsystem(struct udev_device *udev_device) 
         r = sd_device_get_subsystem(udev_device->device, &subsystem);
         if (r < 0)
                 return_with_errno(NULL, r);
-        if (!subsystem)
-                return_with_errno(NULL, ENODATA);
 
         return subsystem;
 }
