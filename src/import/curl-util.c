@@ -222,23 +222,30 @@ CurlGlue *curl_glue_unref(CurlGlue *g) {
 
 int curl_glue_new(CurlGlue **glue, sd_event *event) {
         _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
+        _cleanup_(curl_multi_cleanupp) CURL *c = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r;
 
-        g = new0(CurlGlue, 1);
-        if (!g)
-                return -ENOMEM;
-
         if (event)
-                g->event = sd_event_ref(event);
+                e = sd_event_ref(event);
         else {
-                r = sd_event_default(&g->event);
+                r = sd_event_default(&e);
                 if (r < 0)
                         return r;
         }
 
-        g->curl = curl_multi_init();
-        if (!g->curl)
+        c = curl_multi_init();
+        if (!c)
                 return -ENOMEM;
+
+        g = new(CurlGlue, 1);
+        if (!g)
+                return -ENOMEM;
+
+        *g = (CurlGlue) {
+                .event = TAKE_PTR(e),
+                .curl = TAKE_PTR(c),
+        };
 
         if (curl_multi_setopt(g->curl, CURLMOPT_SOCKETDATA, g) != CURLM_OK)
                 return -EINVAL;

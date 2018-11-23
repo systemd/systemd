@@ -115,35 +115,45 @@ int raw_pull_new(
                 RawPullFinished on_finished,
                 void *userdata) {
 
+        _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(raw_pull_unrefp) RawPull *i = NULL;
+        _cleanup_free_ char *root = NULL;
+        bool grow;
         int r;
 
         assert(ret);
 
-        i = new0(RawPull, 1);
-        if (!i)
+        root = strdup(image_root ?: "/var/lib/machines");
+        if (!root)
                 return -ENOMEM;
 
-        i->on_finished = on_finished;
-        i->userdata = userdata;
-
-        i->image_root = strdup(image_root ?: "/var/lib/machines");
-        if (!i->image_root)
-                return -ENOMEM;
-
-        i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
+        grow = path_startswith(root, "/var/lib/machines");
 
         if (event)
-                i->event = sd_event_ref(event);
+                e = sd_event_ref(event);
         else {
-                r = sd_event_default(&i->event);
+                r = sd_event_default(&e);
                 if (r < 0)
                         return r;
         }
 
-        r = curl_glue_new(&i->glue, i->event);
+        r = curl_glue_new(&g, e);
         if (r < 0)
                 return r;
+
+        i = new(RawPull, 1);
+        if (!i)
+                return -ENOMEM;
+
+        *i = (RawPull) {
+                .on_finished = on_finished,
+                .userdata = userdata,
+                .image_root = TAKE_PTR(root),
+                .grow_machine_directory = grow,
+                .event = TAKE_PTR(e),
+                .glue = TAKE_PTR(g),
+        };
 
         i->glue->on_finished = pull_job_curl_on_finished;
         i->glue->userdata = i;

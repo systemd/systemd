@@ -101,26 +101,33 @@ int tar_import_new(
                 void *userdata) {
 
         _cleanup_(tar_import_unrefp) TarImport *i = NULL;
+        _cleanup_free_ char *root = NULL;
+        bool grow;
         int r;
 
         assert(ret);
 
-        i = new0(TarImport, 1);
+        root = strdup(image_root ?: "/var/lib/machines");
+        if (!root)
+                return -ENOMEM;
+
+        grow = path_startswith(root, "/var/lib/machines");
+
+        i = new(TarImport, 1);
         if (!i)
                 return -ENOMEM;
 
-        i->input_fd = i->tar_fd = -1;
-        i->on_finished = on_finished;
-        i->userdata = userdata;
+        *i = (TarImport) {
+                .input_fd = -1,
+                .tar_fd = -1,
+                .on_finished = on_finished,
+                .userdata = userdata,
+                .last_percent = (unsigned) -1,
+                .image_root = TAKE_PTR(root),
+                .grow_machine_directory = grow,
+        };
 
         RATELIMIT_INIT(i->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
-        i->last_percent = (unsigned) -1;
-
-        i->image_root = strdup(image_root ?: "/var/lib/machines");
-        if (!i->image_root)
-                return -ENOMEM;
-
-        i->grow_machine_directory = path_startswith(i->image_root, "/var/lib/machines");
 
         if (event)
                 i->event = sd_event_ref(event);

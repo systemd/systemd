@@ -88,17 +88,20 @@ int tar_export_new(
 
         assert(ret);
 
-        e = new0(TarExport, 1);
+        e = new(TarExport, 1);
         if (!e)
                 return -ENOMEM;
 
-        e->output_fd = e->tar_fd = -1;
-        e->on_finished = on_finished;
-        e->userdata = userdata;
-        e->quota_referenced = (uint64_t) -1;
+        *e = (TarExport) {
+                .output_fd = -1,
+                .tar_fd = -1,
+                .on_finished = on_finished,
+                .userdata = userdata,
+                .quota_referenced = (uint64_t) -1,
+                .last_percent = (unsigned) -1,
+        };
 
         RATELIMIT_INIT(e->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
-        e->last_percent = (unsigned) -1;
 
         if (event)
                 e->event = sd_event_ref(event);
