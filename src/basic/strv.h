@@ -144,6 +144,18 @@ void strv_print(char **l);
                 _x && strv_contains(STRV_MAKE(__VA_ARGS__), _x); \
         })
 
+#define STARTSWITH_SET(p, ...)                                  \
+        ({                                                      \
+                const char *_p = (p);                           \
+                char  *_found = NULL, **_i;                     \
+                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
+                        _found = startswith(_p, *_i);           \
+                        if (_found)                             \
+                                break;                          \
+                }                                               \
+                _found;                                         \
+        })
+
 #define FOREACH_STRING(x, ...)                               \
         for (char **_l = ({                                  \
                 char **_ll = STRV_MAKE(__VA_ARGS__);         \
