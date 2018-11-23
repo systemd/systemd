@@ -73,10 +73,8 @@ int status_vprintf(const char *status, ShowStatusFlags flags, const char *format
                         emax = 3;
 
                 e = ellipsize(s, emax, 50);
-                if (e) {
-                        free(s);
-                        s = e;
-                }
+                if (e)
+                        free_and_replace(s, e);
         }
 
         if (prev_ephemeral)
