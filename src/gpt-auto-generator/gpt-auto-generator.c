@@ -558,7 +558,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         assert(key);
 
-        if (STR_IN_SET(key, "systemd.gpt_auto", "rd.systemd.gpt_auto")) {
+        if (proc_cmdline_key_streq(key, "systemd.gpt_auto") ||
+            proc_cmdline_key_streq(key, "rd.systemd.gpt_auto")) {
 
                 r = value ? parse_boolean(value) : 1;
                 if (r < 0)
@@ -566,7 +567,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         arg_enabled = r;
 
-        } else if (streq(key, "root")) {
+        } else if (proc_cmdline_key_streq(key, "root")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -576,7 +577,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 arg_root_enabled = streq(value, "gpt-auto");
 
-        } else if (streq(key, "roothash")) {
+        } else if (proc_cmdline_key_streq(key, "roothash")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -585,9 +586,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 arg_root_enabled = false;
 
-        } else if (streq(key, "rw") && !value)
+        } else if (proc_cmdline_key_streq(key, "rw") && !value)
                 arg_root_rw = true;
-        else if (streq(key, "ro") && !value)
+        else if (proc_cmdline_key_streq(key, "ro") && !value)
                 arg_root_rw = false;
 
         return 0;
