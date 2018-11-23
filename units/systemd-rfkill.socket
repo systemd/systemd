@@ -12,7 +12,8 @@ Description=Load/Save RF Kill Switch Status /dev/rfkill Watch
 Documentation=man:systemd-rfkill.socket(8)
 DefaultDependencies=no
 BindsTo=sys-devices-virtual-misc-rfkill.device
-After=sys-devices-virtual-misc-rfkill.device
+After=sys-devices-virtual-misc-rfkill.device systemd-remount-fs.service
+RequiresMountsFor=/var/lib/systemd/rfkill
 Conflicts=shutdown.target
 Before=shutdown.target
 
