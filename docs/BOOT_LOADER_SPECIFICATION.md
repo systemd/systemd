@@ -52,7 +52,7 @@ For systems where the firmware is able to read file systems directly, `$BOOT` mu
 This specification defines two types of boot loader entries. The first type is
 text based, very simple and suitable for a variety of firmware, architecture
 and image types ("Type #1"). The second type is specific to EFI, but allows
-single-file images that embedd all metadata in the kernel binary itself, which
+single-file images that embed all metadata in the kernel binary itself, which
 is useful to cryptographically sign them as one file for the purpose of
 SecureBoot ("Type #2").
 

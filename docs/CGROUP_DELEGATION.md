@@ -122,7 +122,7 @@ thinking about them as orthogonal won't help you in the long run anyway.
 If you wonder how to detect which of these three modes is currently used, use
 `statfs()` on `/sys/fs/cgroup/`. If it reports `CGROUP2_SUPER_MAGIC` in its
 `.f_type` field, then you are in unified mode. If it reports `TMPFS_MAGIC` then
-you are either in legacy or hybrid mode. To distuingish these two cases, run
+you are either in legacy or hybrid mode. To distinguish these two cases, run
 `statfs()` again on `/sys/fs/cgroup/unified/`. If that succeeds and reports
 `CGROUP2_SUPER_MAGIC` you are in hybrid mode, otherwise not.
 

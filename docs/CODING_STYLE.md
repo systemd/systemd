@@ -394,7 +394,7 @@
 - To determine the length of a constant string `"foo"`, don't bother with
   `sizeof("foo")-1`, please use `strlen()` instead (both gcc and clang optimize
   the call away for fixed strings). The only exception is when declaring an
-  array. In that case use STRLEN, which evalutates to a static constant and
+  array. In that case use STRLEN, which evaluates to a static constant and
   doesn't force the compiler to create a VLA.
 
 - If you want to concatenate two or more strings, consider using `strjoina()`
@@ -457,7 +457,7 @@
   implement the public shared object we provide (sd-bus, sd-login, sd-id128,
   nss-systemd, nss-mymachines, nss-resolve, nss-myhostname, pam_systemd), must
   be located in `src/basic` (those objects are not allowed to link to
-  libsystemd-shared.so). Conversly, anything which is shared between multiple
+  libsystemd-shared.so). Conversely, anything which is shared between multiple
   components and does not need to be in `src/basic/`, should be in
   `src/shared/`.
 
