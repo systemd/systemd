@@ -32,7 +32,7 @@ components:
 * The
   [`systemd-boot-check-no-failures.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-boot-check-no-failures.service.html)
   service is a simple health check tool that determines whether the boot
-  completed successfuly. When enabled it becomes an indirect dependency of
+  completed successfully. When enabled it becomes an indirect dependency of
   `systemd-bless-boot.service` (by means of `boot-complete.target`, see
   below), ensuring that the boot will not be considered successful if there are
   any failed services.
@@ -99,7 +99,7 @@ Here's an example walkthrough of how this all fits together.
    newest boot entry is now tried, i.e. the system automatically reverted back
    to an earlier version.
 
-The above describes the walkthrough when the selected boot entry continously
+The above describes the walkthrough when the selected boot entry continuously
 fails. Let's have a look at an alternative ending to this walkthrough. In this
 scenario the first 4 steps are the same as above:
 
