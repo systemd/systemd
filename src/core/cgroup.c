@@ -1388,53 +1388,14 @@ CGroupMask unit_get_enable_mask(Unit *u) {
         return mask;
 }
 
-/* Recurse from a unit up through its containing slices, propagating
- * mask bits upward. A unit is also member of itself. */
-void unit_update_cgroup_members_masks(Unit *u) {
-        CGroupMask m;
-        bool more;
-
+void unit_invalidate_cgroup_members_masks(Unit *u) {
         assert(u);
 
-        /* Calculate subtree mask */
-        m = unit_get_subtree_mask(u);
+        /* Recurse invalidate the member masks cache all the way up the tree */
+        u->cgroup_members_mask_valid = false;
 
-        /* See if anything changed from the previous invocation. If
-         * not, we're done. */
-        if (u->cgroup_subtree_mask_valid && m == u->cgroup_subtree_mask)
-                return;
-
-        more =
-                u->cgroup_subtree_mask_valid &&
-                ((m & ~u->cgroup_subtree_mask) != 0) &&
-                ((~m & u->cgroup_subtree_mask) == 0);
-
-        u->cgroup_subtree_mask = m;
-        u->cgroup_subtree_mask_valid = true;
-
-        if (UNIT_ISSET(u->slice)) {
-                Unit *s = UNIT_DEREF(u->slice);
-
-                if (more)
-                        /* There's more set now than before. We
-                         * propagate the new mask to the parent's mask
-                         * (not caring if it actually was valid or
-                         * not). */
-
-                        s->cgroup_members_mask |= m;
-
-                else
-                        /* There's less set now than before (or we
-                         * don't know), we need to recalculate
-                         * everything, so let's invalidate the
-                         * parent's members mask */
-
-                        s->cgroup_members_mask_valid = false;
-
-                /* And now make sure that this change also hits our
-                 * grandparents */
-                unit_update_cgroup_members_masks(s);
-        }
+        if (UNIT_ISSET(u->slice))
+                unit_invalidate_cgroup_members_masks(UNIT_DEREF(u->slice));
 }
 
 const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask) {

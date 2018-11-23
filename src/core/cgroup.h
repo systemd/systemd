@@ -154,7 +154,7 @@ CGroupMask unit_get_subtree_mask(Unit *u);
 CGroupMask unit_get_target_mask(Unit *u);
 CGroupMask unit_get_enable_mask(Unit *u);
 
-void unit_update_cgroup_members_masks(Unit *u);
+void unit_invalidate_cgroup_members_masks(Unit *u);
 
 void unit_add_to_cgroup_realize_queue(Unit *u);
 
