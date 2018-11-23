@@ -606,9 +606,8 @@ static int manager_count_external_displays(Manager *m) {
                 return r;
 
         FOREACH_DEVICE(e, d) {
+                const char *status, *enabled, *dash, *nn, *subsys;
                 sd_device *p;
-                const char *status, *enabled, *dash, *nn, *i, *subsys;
-                bool external = false;
 
                 if (sd_device_get_parent(d, &p) < 0)
                         continue;
@@ -631,16 +630,10 @@ static int manager_count_external_displays(Manager *m) {
                         continue;
 
                 dash++;
-                FOREACH_STRING(i, "VGA-", "DVI-I-", "DVI-D-", "DVI-A-"
-                               "Composite-", "SVIDEO-", "Component-",
-                               "DIN-", "DP-", "HDMI-A-", "HDMI-B-", "TV-") {
-
-                        if (startswith(dash, i)) {
-                                external = true;
-                                break;
-                        }
-                }
-                if (!external)
+                if (!STARTSWITH_SET(dash,
+                                    "VGA-", "DVI-I-", "DVI-D-", "DVI-A-"
+                                    "Composite-", "SVIDEO-", "Component-",
+                                    "DIN-", "DP-", "HDMI-A-", "HDMI-B-", "TV-"))
                         continue;
 
                 /* Ignore ports that are not enabled */

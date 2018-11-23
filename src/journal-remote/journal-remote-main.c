@@ -630,10 +630,9 @@ static int create_remoteserver(
                 if (fd < 0)
                         return fd;
 
-                hostname =
-                        startswith(arg_url, "https://") ?:
-                        startswith(arg_url, "http://") ?:
-                        arg_url;
+                hostname = STARTSWITH_SET(arg_url, "https://", "http://");
+                if (!hostname)
+                        hostname = arg_url;
 
                 hostname = strdupa(hostname);
                 if ((p = strchr(hostname, '/')))

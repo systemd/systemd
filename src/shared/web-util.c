@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 #include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 #include "web-util.h"
 
@@ -13,7 +14,7 @@ bool http_etag_is_valid(const char *etag) {
         if (!endswith(etag, "\""))
                 return false;
 
-        if (!startswith(etag, "\"") && !startswith(etag, "W/\""))
+        if (!STARTSWITH_SET(etag, "\"", "W/\""))
                 return false;
 
         return true;
@@ -25,9 +26,7 @@ bool http_url_is_valid(const char *url) {
         if (isempty(url))
                 return false;
 
-        p = startswith(url, "http://");
-        if (!p)
-                p = startswith(url, "https://");
+        p = STARTSWITH_SET(url, "http://", "https://");
         if (!p)
                 return false;
 
@@ -46,12 +45,7 @@ bool documentation_url_is_valid(const char *url) {
         if (http_url_is_valid(url))
                 return true;
 
-        p = startswith(url, "file:/");
-        if (!p)
-                p = startswith(url, "info:");
-        if (!p)
-                p = startswith(url, "man:");
-
+        p = STARTSWITH_SET(url, "file:/", "info:", "man:");
         if (isempty(p))
                 return false;
 

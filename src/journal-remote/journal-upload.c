@@ -25,6 +25,7 @@
 #include "sigbus.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "util.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
@@ -408,7 +409,8 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         memzero(u, sizeof(Uploader));
         u->input = -1;
 
-        if (!(host = startswith(url, "http://")) && !(host = startswith(url, "https://"))) {
+        host = STARTSWITH_SET(url, "http://", "https://");
+        if (!host) {
                 host = url;
                 proto = "https://";
         }

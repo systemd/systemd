@@ -919,8 +919,7 @@ bool valid_device_allow_pattern(const char *path) {
         /* Like valid_device_node_path(), but also allows full-subsystem expressions, like DeviceAllow= and DeviceDeny=
          * accept it */
 
-        if (startswith(path, "block-") ||
-            startswith(path, "char-"))
+        if (STARTSWITH_SET(path, "block-", "char-"))
                 return true;
 
         return valid_device_node_path(path);

@@ -384,12 +384,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         with_timer = with_timer ||
-                                !!startswith(optarg, "OnActiveSec=") ||
-                                !!startswith(optarg, "OnBootSec=") ||
-                                !!startswith(optarg, "OnStartupSec=") ||
-                                !!startswith(optarg, "OnUnitActiveSec=") ||
-                                !!startswith(optarg, "OnUnitInactiveSec=") ||
-                                !!startswith(optarg, "OnCalendar=");
+                                STARTSWITH_SET(optarg,
+                                               "OnActiveSec=",
+                                               "OnBootSec=",
+                                               "OnStartupSec=",
+                                               "OnUnitActiveSec=",
+                                               "OnUnitInactiveSec=",
+                                               "OnCalendar=");
                         break;
 
                 case ARG_PATH_PROPERTY:
