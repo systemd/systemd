@@ -1183,8 +1183,7 @@ static bool file_has_type_prefix(const char *prefix, const char *filename) {
         tilded = strjoina(full, "~");
         atted = strjoina(prefix, "@");
 
-        return streq(filename, full) ||
-               streq(filename, tilded) ||
+        return STR_IN_SET(filename, full, tilded) ||
                startswith(filename, atted);
 }
 
