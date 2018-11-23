@@ -76,7 +76,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
         int r;
 
         uctrl = new0(struct udev_ctrl, 1);
-        if (uctrl == NULL)
+        if (!uctrl)
                 return NULL;
         uctrl->n_ref = 1;
 
@@ -147,7 +147,7 @@ DEFINE_PRIVATE_TRIVIAL_REF_FUNC(struct udev_ctrl, udev_ctrl);
 DEFINE_TRIVIAL_UNREF_FUNC(struct udev_ctrl, udev_ctrl, udev_ctrl_free);
 
 int udev_ctrl_cleanup(struct udev_ctrl *uctrl) {
-        if (uctrl == NULL)
+        if (!uctrl)
                 return 0;
         if (uctrl->cleanup_socket)
                 sockaddr_un_unlink(&uctrl->saddr.un);
@@ -155,7 +155,7 @@ int udev_ctrl_cleanup(struct udev_ctrl *uctrl) {
 }
 
 int udev_ctrl_get_fd(struct udev_ctrl *uctrl) {
-        if (uctrl == NULL)
+        if (!uctrl)
                 return -EINVAL;
         return uctrl->sock;
 }
@@ -166,7 +166,7 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
         int r;
 
         conn = new(struct udev_ctrl_connection, 1);
-        if (conn == NULL)
+        if (!conn)
                 return NULL;
         conn->n_ref = 1;
         conn->uctrl = uctrl;
@@ -220,7 +220,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
         ctrl_msg_wire.magic = UDEV_CTRL_MAGIC;
         ctrl_msg_wire.type = type;
 
-        if (buf != NULL)
+        if (buf)
                 strscpy(ctrl_msg_wire.buf, sizeof(ctrl_msg_wire.buf), buf);
         else
                 ctrl_msg_wire.intval = intval;
@@ -312,7 +312,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
         struct ucred *cred;
 
         uctrl_msg = new0(struct udev_ctrl_msg, 1);
-        if (uctrl_msg == NULL)
+        if (!uctrl_msg)
                 return NULL;
         uctrl_msg->n_ref = 1;
         uctrl_msg->conn = conn;
@@ -357,7 +357,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
 
         cmsg = CMSG_FIRSTHDR(&smsg);
 
-        if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
+        if (!cmsg || cmsg->cmsg_type != SCM_CREDENTIALS) {
                 log_error("no sender credentials received, message ignored");
                 goto err;
         }
