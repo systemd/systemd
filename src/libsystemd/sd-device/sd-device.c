@@ -793,9 +793,9 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                 else if (path_startswith(device->devpath, "/module/"))
                         r = device_set_subsystem(device, "module");
                 else if (!(drivers = strstr(syspath, "/drivers/")) &&
-                         (path_startswith(device->devpath, "/subsystem/") ||
-                          path_startswith(device->devpath, "/class/") ||
-                          path_startswith(device->devpath, "/bus/")))
+                         PATH_STARTSWITH_SET(device->devpath, "/subsystem/",
+                                                              "/class/",
+                                                              "/bus/"))
                         r = device_set_subsystem(device, "subsystem");
                 if (r < 0 && r != -ENOENT)
                         return log_device_debug_errno(device, r, "sd-device: Failed to set subsystem for %s: %m", device->devpath);

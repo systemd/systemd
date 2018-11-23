@@ -7,6 +7,7 @@
 
 #include "macro.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 
 #define PATH_SPLIT_SBIN_BIN(x) x "sbin:" x "bin"

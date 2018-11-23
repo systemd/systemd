@@ -121,9 +121,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * unmount these things, hence don't bother. */
                 if (mount_point_is_api(p) ||
                     mount_point_ignore(p) ||
-                    path_startswith(p, "/dev") ||
-                    path_startswith(p, "/sys") ||
-                    path_startswith(p, "/proc"))
+                    PATH_STARTSWITH_SET(p, "/dev", "/sys", "/proc"))
                         continue;
 
                 /* If we are in a container, don't attempt to
