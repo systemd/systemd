@@ -39,7 +39,7 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static bool arg_root_enabled = true;
-static bool arg_root_rw = false;
+static int arg_root_rw = -1;
 
 static int add_cryptsetup(const char *id, const char *what, bool rw, bool require, char **device) {
         _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL, *id_escaped = NULL, *what_escaped = NULL;
@@ -640,7 +640,7 @@ static int add_root_mount(void) {
                         "/dev/gpt-auto-root",
                         in_initrd() ? "/sysroot" : "/",
                         NULL,
-                        arg_root_rw,
+                        arg_root_rw > 0,
                         NULL,
                         "Root Partition",
                         in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
