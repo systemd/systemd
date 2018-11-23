@@ -71,13 +71,13 @@ static inline bool path_equal_ptr(const char *a, const char *b) {
 
 #define PATH_STARTSWITH_SET(p, ...)                             \
         ({                                                      \
-                char **s;                                       \
-                bool _found = false;                            \
-                STRV_FOREACH(s, STRV_MAKE(__VA_ARGS__))         \
-                        if (path_startswith(p, *s)) {           \
-                               _found = true;                   \
-                               break;                           \
-                        }                                       \
+                const char *_p = (p);                           \
+                char *_found = NULL, **_i;                      \
+                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
+                        _found = path_startswith(_p, *_i);      \
+                        if (_found)                             \
+                                break;                          \
+                }                                               \
                 _found;                                         \
         })
 
