@@ -1615,7 +1615,7 @@ static int unit_create_cgroup(
         (void) unit_watch_cgroup(u);
 
         /* Preserve enabled controllers in delegated units, adjust others. */
-        if (created || !unit_cgroup_delegate(u)) {
+        if (created || !u->cgroup_realized || !unit_cgroup_delegate(u)) {
                 CGroupMask result_mask = 0;
 
                 /* Enable all controllers we need */
