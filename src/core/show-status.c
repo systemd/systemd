@@ -32,7 +32,7 @@ int parse_show_status(const char *v, ShowStatus *ret) {
         return 0;
 }
 
-int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char *format, va_list ap) {
+int status_vprintf(const char *status, ShowStatusFlags flags, const char *format, va_list ap) {
         static const char status_indent[] = "         "; /* "[" STATUS "] " */
         _cleanup_free_ char *s = NULL;
         _cleanup_close_ int fd = -1;
@@ -57,7 +57,7 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
         if (fd < 0)
                 return fd;
 
-        if (ellipse) {
+        if (FLAGS_SET(flags, SHOW_STATUS_ELLIPSIZE)) {
                 char *e;
                 size_t emax, sl;
                 int c;
@@ -94,9 +94,9 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
         iovec[n++] = IOVEC_MAKE_STRING(s);
         iovec[n++] = IOVEC_MAKE_STRING("\n");
 
-        if (prev_ephemeral && !ephemeral)
+        if (prev_ephemeral && !FLAGS_SET(flags, SHOW_STATUS_EPHEMERAL))
                 iovec[n++] = IOVEC_MAKE_STRING(ANSI_ERASE_TO_END_OF_LINE);
-        prev_ephemeral = ephemeral;
+        prev_ephemeral = FLAGS_SET(flags, SHOW_STATUS_EPHEMERAL) ;
 
         if (writev(fd, iovec, n) < 0)
                 return -errno;
@@ -104,14 +104,14 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
         return 0;
 }
 
-int status_printf(const char *status, bool ellipse, bool ephemeral, const char *format, ...) {
+int status_printf(const char *status, ShowStatusFlags flags, const char *format, ...) {
         va_list ap;
         int r;
 
         assert(format);
 
         va_start(ap, format);
-        r = status_vprintf(status, ellipse, ephemeral, format, ap);
+        r = status_vprintf(status, flags, format, ap);
         va_end(ap);
 
         return r;

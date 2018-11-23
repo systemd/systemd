@@ -1371,12 +1371,12 @@ static int status_welcome(void) {
                                "Failed to read os-release file, ignoring: %m");
 
         if (log_get_show_color())
-                return status_printf(NULL, false, false,
+                return status_printf(NULL, 0,
                                      "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
                                      isempty(ansi_color) ? "1" : ansi_color,
                                      isempty(pretty_name) ? "Linux" : pretty_name);
         else
-                return status_printf(NULL, false, false,
+                return status_printf(NULL, 0,
                                      "\nWelcome to %s!\n",
                                      isempty(pretty_name) ? "Linux" : pretty_name);
 }

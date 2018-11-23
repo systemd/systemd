@@ -4156,7 +4156,7 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
                 return;
 
         va_start(ap, format);
-        status_vprintf(status, true, type == STATUS_TYPE_EPHEMERAL, format, ap);
+        status_vprintf(status, SHOW_STATUS_ELLIPSIZE|(type == STATUS_TYPE_EPHEMERAL ? SHOW_STATUS_EPHEMERAL : 0), format, ap);
         va_end(ap);
 }
 
