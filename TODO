@@ -48,9 +48,6 @@ Features:
   inserting them into the kernel keyring. Maybe SecretsDirectory= similar to
   ConfigurationDirectory=.
 
-* systemd-gpt-auto: if we find the root dir mounted read-only and the gpt flag
-  doesn't say so generate job that remounts it writable
-
 * when no locale is configured, default to UEFI's PlatformLang variable
 
 * When logind.conf contains HandleLidSwitch=suspend-then-hibernate and we can't
