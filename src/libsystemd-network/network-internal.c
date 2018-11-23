@@ -371,36 +371,6 @@ int config_parse_hwaddrs(const char *unit,
         return 0;
 }
 
-int config_parse_iaid(const char *unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
-                      unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
-        uint32_t iaid;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atou32(rvalue, &iaid);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Unable to read IAID, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        *((uint32_t *)data) = iaid;
-
-        return 0;
-}
-
 int config_parse_bridge_port_priority(
                 const char *unit,
                 const char *filename,

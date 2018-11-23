@@ -3637,10 +3637,12 @@ int link_update(Link *link, sd_netlink_message *m) {
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not update MAC address in DHCPv6 client: %m");
 
-                                r = sd_dhcp6_client_set_iaid(link->dhcp6_client,
-                                                             link->network->iaid);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not update DHCPv6 IAID: %m");
+                                if (link->network->iaid_set) {
+                                        r = sd_dhcp6_client_set_iaid(link->dhcp6_client,
+                                                                     link->network->iaid);
+                                        if (r < 0)
+                                                return log_link_warning_errno(link, r, "Could not update DHCPv6 IAID: %m");
+                                }
 
                                 r = sd_dhcp6_client_set_duid(link->dhcp6_client,
                                                              duid->type,

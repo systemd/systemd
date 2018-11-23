@@ -1473,3 +1473,35 @@ static const char* const lldp_mode_table[_LLDP_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(lldp_mode, LLDPMode, LLDP_MODE_YES);
+
+int config_parse_iaid(const char *unit,
+                      const char *filename,
+                      unsigned line,
+                      const char *section,
+                      unsigned section_line,
+                      const char *lvalue,
+                      int ltype,
+                      const char *rvalue,
+                      void *data,
+                      void *userdata) {
+        Network *network = data;
+        uint32_t iaid;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        r = safe_atou32(rvalue, &iaid);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Unable to read IAID, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->iaid = iaid;
+        network->iaid_set = true;
+
+        return 0;
+}

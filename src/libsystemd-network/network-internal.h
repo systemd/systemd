@@ -35,7 +35,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_hwaddrs);
 CONFIG_PARSER_PROTOTYPE(config_parse_ifnames);
 CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
-CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_port_priority);
 
 int net_get_unique_predictable_data(sd_device *device, uint64_t *result);

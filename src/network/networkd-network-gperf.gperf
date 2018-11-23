@@ -141,7 +141,7 @@ DHCP.DUIDRawData,                       config_parse_duid_rawdata,              
 DHCP.RouteMetric,                       config_parse_unsigned,                          0,                             offsetof(Network, dhcp_route_metric)
 DHCP.RouteTable,                        config_parse_dhcp_route_table,                  0,                             0
 DHCP.UseTimezone,                       config_parse_bool,                              0,                             offsetof(Network, dhcp_use_timezone)
-DHCP.IAID,                              config_parse_iaid,                              0,                             offsetof(Network, iaid)
+DHCP.IAID,                              config_parse_iaid,                              0,                             0
 DHCP.ListenPort,                        config_parse_uint16,                            0,                             offsetof(Network, dhcp_client_port)
 DHCP.RapidCommit,                       config_parse_bool,                              0,                             offsetof(Network, rapid_commit)
 DHCP.ForceDHCPv6PDOtherInformation,     config_parse_bool,                              0,                             offsetof(Network, dhcp6_force_pd_other_information)
