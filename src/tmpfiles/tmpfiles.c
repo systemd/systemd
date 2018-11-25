@@ -372,48 +372,39 @@ static struct Item* find_glob(OrderedHashmap *h, const char *match) {
         return NULL;
 }
 
-static void load_unix_sockets(void) {
+static int load_unix_sockets(void) {
+        _cleanup_set_free_free_ Set *sockets = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         if (unix_sockets)
-                return;
+                return 0;
 
         /* We maintain a cache of the sockets we found in /proc/net/unix to speed things up a little. */
 
-        unix_sockets = set_new(&path_hash_ops);
-        if (!unix_sockets) {
-                log_oom();
-                return;
-        }
+        sockets = set_new(&path_hash_ops);
+        if (!sockets)
+                return log_oom();
 
         f = fopen("/proc/net/unix", "re");
-        if (!f) {
-                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                               "Failed to open /proc/net/unix, ignoring: %m");
-                goto fail;
-        }
+        if (!f)
+                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                      "Failed to open /proc/net/unix, ignoring: %m");
 
         /* Skip header */
         r = read_line(f, LONG_LINE_MAX, NULL);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to skip /proc/net/unix header line: %m");
-                goto fail;
-        }
-        if (r == 0) {
-                log_warning("Premature end of file reading /proc/net/unix.");
-                goto fail;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to skip /proc/net/unix header line: %m");
+        if (r == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EIO), "Premature end of file reading /proc/net/unix.");
 
         for (;;) {
-                _cleanup_free_ char *line = NULL;
-                char *p, *s;
+                _cleanup_free_ char *line = NULL, *s = NULL;
+                char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to read /proc/net/unix line, ignoring: %m");
-                        goto fail;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to read /proc/net/unix line, ignoring: %m");
                 if (r == 0) /* EOF */
                         break;
 
@@ -433,36 +424,31 @@ static void load_unix_sockets(void) {
                         continue;
 
                 s = strdup(p);
-                if (!s) {
-                        log_oom();
-                        goto fail;
-                }
+                if (!s)
+                        return log_oom();
 
                 path_simplify(s, false);
 
-                r = set_consume(unix_sockets, s);
-                if (r < 0 && r != -EEXIST) {
-                        log_warning_errno(r, "Failed to add AF_UNIX socket to set, ignoring: %m");
-                        goto fail;
-                }
+                r = set_consume(sockets, s);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to add AF_UNIX socket to set, ignoring: %m");
+
+                TAKE_PTR(s);
         }
 
-        return;
-
-fail:
-        unix_sockets = set_free_free(unix_sockets);
+        unix_sockets = TAKE_PTR(sockets);
+        return 1;
 }
 
 static bool unix_socket_alive(const char *fn) {
         assert(fn);
 
-        load_unix_sockets();
+        if (load_unix_sockets() < 0)
+                return true;     /* We don't know, so assume yes */
 
-        if (unix_sockets)
-                return !!set_get(unix_sockets, (char*) fn);
-
-        /* We don't know, so assume yes */
-        return true;
+        return !!set_get(unix_sockets, (char*) fn);
 }
 
 static int dir_is_mount_point(DIR *d, const char *subdir) {
