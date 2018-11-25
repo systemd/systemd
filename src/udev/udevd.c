@@ -1629,7 +1629,8 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize device monitor: %m");
 
-        (void) sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
+        if (fd_uevent < 0)
+                (void) sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
