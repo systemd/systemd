@@ -943,7 +943,6 @@ static int run(int argc, char *argv[]) {
                 arg_iterations = on_tty() ? 0 : 1;
 
         while (!quit) {
-                Hashmap *c;
                 usec_t t;
                 char key;
                 char h[FORMAT_TIMESPAN_MAX];
@@ -957,10 +956,7 @@ static int run(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to refresh: %m");
 
                         hashmap_clear(b);
-
-                        c = a;
-                        a = b;
-                        b = c;
+                        SWAP_TWO(a, b);
 
                         last_refresh = t;
                         immediate_refresh = false;
