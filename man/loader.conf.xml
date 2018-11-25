@@ -23,7 +23,7 @@
 
   <refsynopsisdiv>
     <para><filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>,
-    <filename><replaceable>ESP</replaceable>/loader/loader.conf.d/*.conf</filename>
+    <filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename>
     </para>
   </refsynopsisdiv>
 
@@ -32,9 +32,9 @@
 
     <para>
     <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    will read <filename>/loader/loader.conf</filename> and any files with the
+    will read <filename><replaceable>ESP</replaceable>/loader/loader.conf</filename> and any files with the
     <literal>.conf</literal> extension under
-    <filename>/loader/loader.conf.d/</filename> on the EFI system partition (ESP).
+    <filename><replaceable>ESP</replaceable>/loader/entries/</filename> on the EFI system partition (ESP).
     </para>
 
     <para>Each configuration file must consist of an option name, followed by
@@ -50,7 +50,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The following configuration options are understood:</para>
+    <para>The following configuration options in <filename>loader.conf</filename> are understood:</para>
 
     <variablelist>
       <varlistentry>
