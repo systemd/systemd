@@ -210,9 +210,11 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
                         return r;
         }
 
-        r = device_monitor_enable_receiving(m);
-        if (r < 0)
-                return r;
+        if (!m->bound) {
+                r = device_monitor_enable_receiving(m);
+                if (r < 0)
+                        return r;
+        }
 
         m->callback = callback;
         m->userdata = userdata;
