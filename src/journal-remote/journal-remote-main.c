@@ -24,19 +24,19 @@
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
-static char* arg_url = NULL;
-static char* arg_getter = NULL;
-static char* arg_listen_raw = NULL;
-static char* arg_listen_http = NULL;
-static char* arg_listen_https = NULL;
-static char** arg_files = NULL;
+static const char* arg_url = NULL;
+static const char* arg_getter = NULL;
+static const char* arg_listen_raw = NULL;
+static const char* arg_listen_http = NULL;
+static const char* arg_listen_https = NULL;
+static char** arg_files = NULL; /* Do not free this. */
 static int arg_compress = true;
 static int arg_seal = false;
 static int http_socket = -1, https_socket = -1;
 static char** arg_gnutls_log = NULL;
 
 static JournalWriteSplitMode arg_split_mode = _JOURNAL_WRITE_SPLIT_INVALID;
-static char* arg_output = NULL;
+static const char* arg_output = NULL;
 
 static char *arg_key = NULL;
 static char *arg_cert = NULL;
@@ -633,7 +633,7 @@ static int create_remoteserver(
                 hostname =
                         startswith(arg_url, "https://") ?:
                         startswith(arg_url, "http://") ?:
-                        arg_url;
+                        (char *) arg_url;
 
                 hostname = strdupa(hostname);
                 if ((p = strchr(hostname, '/')))
@@ -1078,26 +1078,26 @@ int main(int argc, char **argv) {
 
         r = parse_config();
         if (r < 0)
-                return EXIT_FAILURE;
+                goto finish;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+                goto finish;
 
         if (arg_listen_http || arg_listen_https) {
                 r = setup_gnutls_logger(arg_gnutls_log);
                 if (r < 0)
-                        return EXIT_FAILURE;
+                        goto finish;
         }
 
         if (arg_listen_https || https_socket >= 0) {
                 if (load_certificates(&key, &cert, &trust) < 0)
-                        return EXIT_FAILURE;
+                        goto finish;
                 s.check_trust = !arg_trust_all;
         }
 
         if (create_remoteserver(&s, key, cert, trust) < 0)
-                return EXIT_FAILURE;
+                goto finish;
 
         r = sd_event_set_watchdog(s.events, true);
         if (r < 0)
@@ -1130,8 +1130,10 @@ int main(int argc, char **argv) {
                    "STATUS=Shutting down after writing %" PRIu64 " entries...", s.event_count);
         log_info("Finishing after writing %" PRIu64 " entries", s.event_count);
 
+finish:
         journal_remote_server_destroy(&s);
 
+        strv_free(arg_gnutls_log);
         free(arg_key);
         free(arg_cert);
         free(arg_trust);
