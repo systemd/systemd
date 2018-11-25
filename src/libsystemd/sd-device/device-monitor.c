@@ -277,7 +277,7 @@ int device_monitor_enable_receiving(sd_device_monitor *m) {
 
         if (!m->bound) {
                 if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
-                        return log_debug_errno(errno, "sd-device-monitor: Failed to bind monitoring socket to event source: %m");
+                        return log_debug_errno(errno, "sd-device-monitor: Failed to bind monitoring socket: %m");
 
                 m->bound = true;
         }
