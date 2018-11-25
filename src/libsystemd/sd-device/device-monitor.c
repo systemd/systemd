@@ -269,11 +269,9 @@ int device_monitor_enable_receiving(sd_device_monitor *m) {
 
         assert_return(m, -EINVAL);
 
-        if (!m->filter_uptodate) {
-                r = sd_device_monitor_filter_update(m);
-                if (r < 0)
-                        return log_debug_errno(r, "sd-device-monitor: Failed to update filter: %m");
-        }
+        r = sd_device_monitor_filter_update(m);
+        if (r < 0)
+                return log_debug_errno(r, "sd-device-monitor: Failed to update filter: %m");
 
         if (!m->bound) {
                 if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
@@ -594,6 +592,9 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
         Iterator it;
 
         assert_return(m, -EINVAL);
+
+        if (m->filter_uptodate)
+                return 0;
 
         if (hashmap_isempty(m->subsystem_filter) &&
             set_isempty(m->tag_filter)) {
