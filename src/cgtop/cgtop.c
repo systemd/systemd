@@ -84,23 +84,13 @@ static enum {
         CPU_TIME,
 } arg_cpu_type = CPU_PERCENT;
 
-static void group_free(Group *g) {
-        assert(g);
+static Group *group_free(Group *g) {
+        if (!g)
+                return NULL;
 
         free(g->path);
-        free(g);
+        return mfree(g);
 }
-
-static void group_hashmap_clear(Hashmap *h) {
-        hashmap_clear_with_destructor(h, group_free);
-}
-
-static void group_hashmap_free(Hashmap *h) {
-        group_hashmap_clear(h);
-        hashmap_free(h);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, group_hashmap_free);
 
 static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64_t t) {
         if (!is_valid)
@@ -908,8 +898,10 @@ static const char* counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(group_hash_ops, char, path_hash_func, path_compare_func, Group, group_free);
+
 static int run(int argc, char *argv[]) {
-        _cleanup_(group_hashmap_freep) Hashmap *a = NULL, *b = NULL;
+        _cleanup_hashmap_free_ Hashmap *a = NULL, *b = NULL;
         unsigned iteration = 0;
         usec_t last_refresh = 0;
         bool quit = false, immediate_refresh = false;
@@ -940,8 +932,8 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to get root control group path: %m");
         log_debug("Cgroup path: %s", root);
 
-        a = hashmap_new(&path_hash_ops);
-        b = hashmap_new(&path_hash_ops);
+        a = hashmap_new(&group_hash_ops);
+        b = hashmap_new(&group_hash_ops);
         if (!a || !b)
                 return log_oom();
 
@@ -964,7 +956,7 @@ static int run(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to refresh: %m");
 
-                        group_hashmap_clear(b);
+                        hashmap_clear(b);
 
                         c = a;
                         a = b;
