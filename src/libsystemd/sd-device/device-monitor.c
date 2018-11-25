@@ -246,7 +246,7 @@ _public_ int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *even
         else {
                 r = sd_event_default(&m->event);
                 if (r < 0)
-                        return 0;
+                        return r;
         }
 
         return 0;
