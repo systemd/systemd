@@ -140,8 +140,7 @@ static int load_group_database(void) {
         if (r < 0)
                 return r;
 
-        errno = 0;
-        while ((gr = fgetgrent(f))) {
+        while ((r = fgetgrent_sane(f, &gr)) > 0) {
                 char *n;
                 int k, q;
 
@@ -164,13 +163,8 @@ static int load_group_database(void) {
 
                 if (k <= 0 && q <= 0)
                         free(n);
-
-                errno = 0;
         }
-        if (!IN_SET(errno, 0, ENOENT))
-                return -errno;
-
-        return 0;
+        return r;
 }
 
 static int make_backup(const char *target, const char *x) {
