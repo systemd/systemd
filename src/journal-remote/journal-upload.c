@@ -762,7 +762,7 @@ static int open_journal(sd_journal **j) {
 }
 
 int main(int argc, char **argv) {
-        Uploader u;
+        _cleanup_(destroy_uploader) Uploader u = {};
         int r;
         bool use_journal;
 
@@ -852,8 +852,6 @@ cleanup:
         sd_notify(false,
                   "STOPPING=1\n"
                   "STATUS=Shutting down...");
-
-        destroy_uploader(&u);
 
 finish:
         return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
