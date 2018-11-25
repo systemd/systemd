@@ -981,7 +981,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        struct MHD_Daemon *d = NULL;
+        _cleanup_(MHD_stop_daemonp) struct MHD_Daemon *d = NULL;
         int r, n;
 
         log_setup_service();
@@ -1067,8 +1067,5 @@ int main(int argc, char *argv[]) {
         r = EXIT_SUCCESS;
 
 finish:
-        if (d)
-                MHD_stop_daemon(d);
-
         return r;
 }
