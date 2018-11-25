@@ -2978,8 +2978,23 @@ foreach tuple : sanitizers
                         prev = name
 
                         if want_tests != 'false' and slow_tests
+                                fuzzer_env = environment()
+                                # The ASan options have been borrowed from https://github.com/google/oss-fuzz/blob/1e67fae34c793a075d4ced2bfa9ac05c3ae5a243/infra/base-images/base-runner/Dockerfile#L50
+                                # except that string_strict_check was replaced with strict_string_checks, which is the correct name, but, to judge from https://github.com/google/oss-fuzz/issues/542,
+                                # is intentionally turned off.
+                                asan_options = ':'.join([
+                                                'alloc_dealloc_mismatch=0:allocator_may_return_null=1',
+                                                'allocator_release_to_os_interval_ms=500:check_malloc_usable_size=0',
+                                                'detect_container_overflow=1:detect_odr_violation=0:detect_leaks=1',
+                                                'detect_stack_use_after_return=1:fast_unwind_on_fatal=0:handle_abort=1',
+                                                'handle_segv=1:handle_sigill=1:max_uar_stack_size_log=16:print_scariness=1',
+                                                'quarantine_size_mb=10:strict_memcmp=1:strict_string_checks=1',
+                                                'strip_path_prefix=/workspace/:symbolize=1:use_sigaltstack=1',
+                                ])
+                                fuzzer_env.prepend('ASAN_OPTIONS', asan_options, separator : ':')
                                 test('@0@:@1@:@2@'.format(b, c, sanitizer),
                                      env,
+                                     env : fuzzer_env,
                                      args : [exe.full_path(),
                                              join_paths(meson.source_root(), p)])
                         endif
