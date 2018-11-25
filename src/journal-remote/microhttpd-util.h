@@ -73,3 +73,5 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
  * interesting events without overwhelming detail.
  */
 int setup_gnutls_logger(char **categories);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct MHD_Daemon*, MHD_stop_daemon);
