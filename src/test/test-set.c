@@ -45,6 +45,24 @@ static void test_set_free_with_destructor(void) {
         assert_se(items[3].seen == 0);
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, void, trivial_hash_func, trivial_compare_func, Item, item_seen);
+
+static void test_set_free_with_hash_ops(void) {
+        Set *m;
+        struct Item items[4] = {};
+        unsigned i;
+
+        assert_se(m = set_new(&item_hash_ops));
+        for (i = 0; i < ELEMENTSOF(items) - 1; i++)
+                assert_se(set_put(m, items + i) == 1);
+
+        m = set_free(m);
+        assert_se(items[0].seen == 1);
+        assert_se(items[1].seen == 1);
+        assert_se(items[2].seen == 1);
+        assert_se(items[3].seen == 0);
+}
+
 static void test_set_put(void) {
         _cleanup_set_free_ Set *m = NULL;
 
@@ -64,6 +82,7 @@ static void test_set_put(void) {
 int main(int argc, const char *argv[]) {
         test_set_steal_first();
         test_set_free_with_destructor();
+        test_set_free_with_hash_ops();
         test_set_put();
 
         return 0;
