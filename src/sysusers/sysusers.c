@@ -12,9 +12,11 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "main-func.h"
 #include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "set.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "specifier.h"
@@ -68,12 +70,27 @@ static OrderedHashmap *users = NULL, *groups = NULL;
 static OrderedHashmap *todo_uids = NULL, *todo_gids = NULL;
 static OrderedHashmap *members = NULL;
 
-static Hashmap *database_uid = NULL, *database_user = NULL;
-static Hashmap *database_gid = NULL, *database_group = NULL;
+static Hashmap *database_by_uid = NULL, *database_by_username = NULL;
+static Hashmap *database_by_gid = NULL, *database_by_groupname = NULL;
+static Set *database_users = NULL, *database_groups = NULL;
 
 static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
 static unsigned n_uid_range = 0;
+
+STATIC_DESTRUCTOR_REGISTER(groups, ordered_hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(users, ordered_hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(members, ordered_hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(todo_uids, ordered_hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(todo_gids, ordered_hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(database_by_uid, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(database_by_username, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(database_users, set_free_freep);
+STATIC_DESTRUCTOR_REGISTER(database_by_gid, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(database_by_groupname, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(database_groups, set_free_freep);
+STATIC_DESTRUCTOR_REGISTER(uid_range, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int load_user_database(void) {
         _cleanup_fclose_ FILE *f = NULL;
@@ -86,11 +103,15 @@ static int load_user_database(void) {
         if (!f)
                 return errno == ENOENT ? 0 : -errno;
 
-        r = hashmap_ensure_allocated(&database_user, &string_hash_ops);
+        r = hashmap_ensure_allocated(&database_by_username, &string_hash_ops);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&database_uid, NULL);
+        r = hashmap_ensure_allocated(&database_by_uid, NULL);
+        if (r < 0)
+                return r;
+
+        r = set_ensure_allocated(&database_users, NULL);
         if (r < 0)
                 return r;
 
@@ -102,21 +123,19 @@ static int load_user_database(void) {
                 if (!n)
                         return -ENOMEM;
 
-                k = hashmap_put(database_user, n, UID_TO_PTR(pw->pw_uid));
-                if (k < 0 && k != -EEXIST) {
+                k = set_put(database_users, n);
+                if (k < 0) {
                         free(n);
                         return k;
                 }
 
-                q = hashmap_put(database_uid, UID_TO_PTR(pw->pw_uid), n);
-                if (q < 0 && q != -EEXIST) {
-                        if (k <= 0)
-                                free(n);
-                        return q;
-                }
+                k = hashmap_put(database_by_username, n, UID_TO_PTR(pw->pw_uid));
+                if (k < 0 && k != -EEXIST)
+                        return k;
 
-                if (k <= 0 && q <= 0)
-                        free(n);
+                q = hashmap_put(database_by_uid, UID_TO_PTR(pw->pw_uid), n);
+                if (q < 0 && q != -EEXIST)
+                        return q;
         }
         return r;
 }
@@ -132,11 +151,15 @@ static int load_group_database(void) {
         if (!f)
                 return errno == ENOENT ? 0 : -errno;
 
-        r = hashmap_ensure_allocated(&database_group, &string_hash_ops);
+        r = hashmap_ensure_allocated(&database_by_groupname, &string_hash_ops);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&database_gid, NULL);
+        r = hashmap_ensure_allocated(&database_by_gid, NULL);
+        if (r < 0)
+                return r;
+
+        r = set_ensure_allocated(&database_groups, NULL);
         if (r < 0)
                 return r;
 
@@ -148,21 +171,19 @@ static int load_group_database(void) {
                 if (!n)
                         return -ENOMEM;
 
-                k = hashmap_put(database_group, n, GID_TO_PTR(gr->gr_gid));
-                if (k < 0 && k != -EEXIST) {
+                k = set_put(database_groups, n);
+                if (k < 0) {
                         free(n);
                         return k;
                 }
 
-                q = hashmap_put(database_gid, GID_TO_PTR(gr->gr_gid), n);
-                if (q < 0 && q != -EEXIST) {
-                        if (k <= 0)
-                                free(n);
-                        return q;
-                }
+                k = hashmap_put(database_by_groupname, n, GID_TO_PTR(gr->gr_gid));
+                if (k < 0 && k != -EEXIST)
+                        return k;
 
-                if (k <= 0 && q <= 0)
-                        free(n);
+                q = hashmap_put(database_by_gid, GID_TO_PTR(gr->gr_gid), n);
+                if (q < 0 && q != -EEXIST)
+                        return q;
         }
         return r;
 }
@@ -816,11 +837,11 @@ static int uid_is_ok(uid_t uid, const char *name, bool check_with_gid) {
         }
 
         /* Let's check the files directly */
-        if (hashmap_contains(database_uid, UID_TO_PTR(uid)))
+        if (hashmap_contains(database_by_uid, UID_TO_PTR(uid)))
                 return 0;
 
         if (check_with_gid) {
-                n = hashmap_get(database_gid, GID_TO_PTR(uid));
+                n = hashmap_get(database_by_gid, GID_TO_PTR(uid));
                 if (n && !streq(n, name))
                         return 0;
         }
@@ -923,7 +944,7 @@ static int add_user(Item *i) {
         assert(i);
 
         /* Check the database directly */
-        z = hashmap_get(database_user, i->name);
+        z = hashmap_get(database_by_username, i->name);
         if (z) {
                 log_debug("User %s already exists.", i->name);
                 i->uid = PTR_TO_UID(z);
@@ -1040,10 +1061,10 @@ static int gid_is_ok(gid_t gid) {
         if (ordered_hashmap_get(todo_uids, UID_TO_PTR(gid)))
                 return 0;
 
-        if (hashmap_contains(database_gid, GID_TO_PTR(gid)))
+        if (hashmap_contains(database_by_gid, GID_TO_PTR(gid)))
                 return 0;
 
-        if (hashmap_contains(database_uid, UID_TO_PTR(gid)))
+        if (hashmap_contains(database_by_uid, UID_TO_PTR(gid)))
                 return 0;
 
         if (!arg_root) {
@@ -1072,7 +1093,7 @@ static int add_group(Item *i) {
         assert(i);
 
         /* Check the database directly */
-        z = hashmap_get(database_group, i->name);
+        z = hashmap_get(database_by_groupname, i->name);
         if (z) {
                 log_debug("Group %s already exists.", i->name);
                 i->gid = PTR_TO_GID(z);
@@ -1221,10 +1242,9 @@ static int process_item(Item *i) {
         }
 }
 
-static void item_free(Item *i) {
-
+static Item* item_free(Item *i) {
         if (!i)
-                return;
+                return NULL;
 
         free(i->name);
         free(i->uid_path);
@@ -1232,10 +1252,11 @@ static void item_free(Item *i) {
         free(i->description);
         free(i->home);
         free(i->shell);
-        free(i);
+        return mfree(i);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Item*, item_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, char, string_hash_func, string_compare_func, Item, item_free);
 
 static int add_implicit(void) {
         char *g, **l;
@@ -1250,7 +1271,7 @@ static int add_implicit(void) {
                         if (!ordered_hashmap_get(users, *m)) {
                                 _cleanup_(item_freep) Item *j = NULL;
 
-                                r = ordered_hashmap_ensure_allocated(&users, &string_hash_ops);
+                                r = ordered_hashmap_ensure_allocated(&users, &item_hash_ops);
                                 if (r < 0)
                                         return log_oom();
 
@@ -1275,7 +1296,7 @@ static int add_implicit(void) {
                       ordered_hashmap_get(groups, g))) {
                         _cleanup_(item_freep) Item *j = NULL;
 
-                        r = ordered_hashmap_ensure_allocated(&groups, &string_hash_ops);
+                        r = ordered_hashmap_ensure_allocated(&groups, &item_hash_ops);
                         if (r < 0)
                                 return log_oom();
 
@@ -1339,6 +1360,8 @@ static bool item_equal(Item *a, Item *b) {
 
         return true;
 }
+
+DEFINE_PRIVATE_HASH_OPS_FULL(members_hash_ops, char, string_hash_func, string_compare_func, free, char*, strv_free);
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
@@ -1530,7 +1553,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                r = ordered_hashmap_ensure_allocated(&members, &string_hash_ops);
+                r = ordered_hashmap_ensure_allocated(&members, &members_hash_ops);
                 if (r < 0)
                         return log_oom();
 
@@ -1572,7 +1595,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                r = ordered_hashmap_ensure_allocated(&users, &string_hash_ops);
+                r = ordered_hashmap_ensure_allocated(&users, &item_hash_ops);
                 if (r < 0)
                         return log_oom();
 
@@ -1623,7 +1646,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                r = ordered_hashmap_ensure_allocated(&groups, &string_hash_ops);
+                r = ordered_hashmap_ensure_allocated(&groups, &item_hash_ops);
                 if (r < 0)
                         return log_oom();
 
@@ -1723,27 +1746,6 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         }
 
         return r;
-}
-
-static void free_database(Hashmap *by_name, Hashmap *by_id) {
-        char *name;
-
-        for (;;) {
-                name = hashmap_first(by_id);
-                if (!name)
-                        break;
-
-                hashmap_remove(by_name, name);
-
-                hashmap_steal_first_key(by_id);
-                free(name);
-        }
-
-        while ((name = hashmap_steal_first_key(by_name)))
-                free(name);
-
-        hashmap_free(by_name);
-        hashmap_free(by_id);
 }
 
 static int cat_config(void) {
@@ -1913,31 +1915,26 @@ static int read_config_files(char **args) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_close_ int lock = -1;
         Iterator iterator;
-        char *n, **v;
         Item *i;
         int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         log_setup_service();
 
-        if (arg_cat_config) {
-                r = cat_config();
-                goto finish;
-        }
+        if (arg_cat_config)
+                return cat_config();
 
         umask(0022);
 
         r = mac_selinux_init();
-        if (r < 0) {
-                log_error_errno(r, "SELinux setup failed: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "SELinux setup failed: %m");
 
         /* If command line arguments are specified along with --replace, read all
          * configuration files and insert the positional arguments at the specified
@@ -1950,48 +1947,38 @@ int main(int argc, char *argv[]) {
         else
                 r = parse_arguments(argv + optind);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Let's tell nss-systemd not to synthesize the "root" and "nobody" entries for it, so that our detection
          * whether the names or UID/GID area already used otherwise doesn't get confused. After all, even though
          * nss-systemd synthesizes these users/groups, they should still appear in /etc/passwd and /etc/group, as the
          * synthesizing logic is merely supposed to be fallback for cases where we run with a completely unpopulated
          * /etc. */
-        if (setenv("SYSTEMD_NSS_BYPASS_SYNTHETIC", "1", 1) < 0) {
-                r = log_error_errno(errno, "Failed to set SYSTEMD_NSS_BYPASS_SYNTHETIC environment variable: %m");
-                goto finish;
-        }
+        if (setenv("SYSTEMD_NSS_BYPASS_SYNTHETIC", "1", 1) < 0)
+                return log_error_errno(errno, "Failed to set SYSTEMD_NSS_BYPASS_SYNTHETIC environment variable: %m");
 
         if (!uid_range) {
                 /* Default to default range of 1..SYSTEM_UID_MAX */
                 r = uid_range_add(&uid_range, &n_uid_range, 1, SYSTEM_UID_MAX);
-                if (r < 0) {
-                        log_oom();
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_oom();
         }
 
         r = add_implicit();
         if (r < 0)
-                goto finish;
+                return r;
 
         lock = take_etc_passwd_lock(arg_root);
-        if (lock < 0) {
-                log_error_errno(lock, "Failed to take /etc/passwd lock: %m");
-                goto finish;
-        }
+        if (lock < 0)
+                return log_error_errno(lock, "Failed to take /etc/passwd lock: %m");
 
         r = load_user_database();
-        if (r < 0) {
-                log_error_errno(r, "Failed to load user database: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to load user database: %m");
 
         r = load_group_database();
-        if (r < 0) {
-                log_error_errno(r, "Failed to read group database: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read group database: %m");
 
         ORDERED_HASHMAP_FOREACH(i, groups, iterator)
                 (void) process_item(i);
@@ -2001,29 +1988,9 @@ int main(int argc, char *argv[]) {
 
         r = write_files();
         if (r < 0)
-                log_error_errno(r, "Failed to write files: %m");
+                return log_error_errno(r, "Failed to write files: %m");
 
-finish:
-        pager_close();
-
-        ordered_hashmap_free_with_destructor(groups, item_free);
-        ordered_hashmap_free_with_destructor(users, item_free);
-
-        while ((v = ordered_hashmap_steal_first_key_and_value(members, (void **) &n))) {
-                strv_free(v);
-                free(n);
-        }
-        ordered_hashmap_free(members);
-
-        ordered_hashmap_free(todo_uids);
-        ordered_hashmap_free(todo_gids);
-
-        free_database(database_user, database_uid);
-        free_database(database_group, database_gid);
-
-        free(uid_range);
-
-        free(arg_root);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
