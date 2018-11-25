@@ -1,8 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# This file is part of systemd.
-#
-# Copyright 2016 Daniel Rusek
 
 # This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
 # Simply invoke "mkosi" in the project directory to build an OS image.
