@@ -64,17 +64,13 @@ struct udev_event *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_net
 }
 
 struct udev_event *udev_event_free(struct udev_event *event) {
-        void *p;
-
         if (!event)
                 return NULL;
 
         sd_device_unref(event->dev);
         sd_device_unref(event->dev_db_clone);
         sd_netlink_unref(event->rtnl);
-        while ((p = hashmap_steal_first_key(event->run_list)))
-                free(p);
-        hashmap_free(event->run_list);
+        hashmap_free_free_key(event->run_list);
         hashmap_free_free_free(event->seclabel_list);
         free(event->program_result);
         free(event->name);

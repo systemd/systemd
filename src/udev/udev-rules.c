@@ -2407,12 +2407,8 @@ int udev_rules_apply_to_event(
                 case TK_A_RUN_PROGRAM: {
                         _cleanup_free_ char *cmd = NULL;
 
-                        if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL)) {
-                                void *p;
-
-                                while ((p = hashmap_steal_first_key(event->run_list)))
-                                        free(p);
-                        }
+                        if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
+                                hashmap_clear_free_key(event->run_list);
 
                         r = hashmap_ensure_allocated(&event->run_list, NULL);
                         if (r < 0)
