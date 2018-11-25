@@ -21,12 +21,12 @@
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
 
-static void dhcp_lease_free(DHCPLease *lease) {
+static DHCPLease *dhcp_lease_free(DHCPLease *lease) {
         if (!lease)
-                return;
+                return NULL;
 
         free(lease->client_id.data);
-        free(lease);
+        return mfree(lease);
 }
 
 /* configures the server's address and subnet, and optionally the pool's size and offset into the subnet
@@ -90,7 +90,7 @@ int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *addres
                         server->bound_leases[server_off - offset] = &server->invalid_lease;
 
                 /* Drop any leases associated with the old address range */
-                hashmap_clear_with_destructor(server->leases_by_client_id, dhcp_lease_free);
+                hashmap_clear(server->leases_by_client_id);
         }
 
         return 0;
@@ -124,11 +124,10 @@ int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b) {
         return memcmp(a->data, b->data, a->length);
 }
 
-DEFINE_PRIVATE_HASH_OPS(client_id_hash_ops, DHCPClientId, client_id_hash_func, client_id_compare_func);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(dhcp_lease_hash_ops, DHCPClientId, client_id_hash_func, client_id_compare_func,
+                                              DHCPLease, dhcp_lease_free);
 
 static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
-        DHCPLease *lease;
-
         assert(server);
 
         log_dhcp_server(server, "UNREF");
@@ -141,8 +140,6 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->dns);
         free(server->ntp);
 
-        while ((lease = hashmap_steal_first(server->leases_by_client_id)))
-                dhcp_lease_free(lease);
         hashmap_free(server->leases_by_client_id);
 
         free(server->bound_leases);
@@ -168,7 +165,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->netmask = htobe32(INADDR_ANY);
         server->ifindex = ifindex;
 
-        server->leases_by_client_id = hashmap_new(&client_id_hash_ops);
+        server->leases_by_client_id = hashmap_new(&dhcp_lease_hash_ops);
         if (!server->leases_by_client_id)
                 return -ENOMEM;
 
