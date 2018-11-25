@@ -848,7 +848,7 @@ int internal_set_ensure_allocated(Set **s, const struct hash_ops *hash_ops  HASH
 
 static void hashmap_free_no_clear(HashmapBase *h) {
         assert(!h->has_indirect);
-        assert(!h->n_direct_entries);
+        assert(h->n_direct_entries == 0);
 
 #if ENABLE_DEBUG_HASHMAP
         assert_se(pthread_mutex_lock(&hashmap_debug_list_mutex) == 0);
