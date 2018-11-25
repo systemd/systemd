@@ -50,6 +50,8 @@ static struct track_item* track_item_free(struct track_item *i) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(track_item_hash_ops, char, string_hash_func, string_compare_func,
+                                              struct track_item, track_item_free);
 
 static void bus_track_add_to_queue(sd_bus_track *track) {
         assert(track);
@@ -150,7 +152,7 @@ static sd_bus_track *track_free(sd_bus_track *track) {
                 LIST_REMOVE(tracks, track->bus->tracks, track);
 
         bus_track_remove_from_queue(track);
-        track->names = hashmap_free_with_destructor(track->names, track_item_free);
+        track->names = hashmap_free(track->names);
         track->bus = sd_bus_unref(track->bus);
 
         if (track->destroy_callback)
@@ -201,7 +203,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
                 return 0;
         }
 
-        r = hashmap_ensure_allocated(&track->names, &string_hash_ops);
+        r = hashmap_ensure_allocated(&track->names, &track_item_hash_ops);
         if (r < 0)
                 return r;
 
@@ -397,7 +399,7 @@ void bus_track_close(sd_bus_track *track) {
                 return;
 
         /* Let's flush out all names */
-        hashmap_clear_with_destructor(track->names, track_item_free);
+        hashmap_clear(track->names);
 
         /* Invoke handler */
         if (track->handler)
