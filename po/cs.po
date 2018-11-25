@@ -2,7 +2,6 @@
 #
 # Czech translation for systemd.
 # Daniel Maixner <xskipy@gmail.com>, 2016.
-# Daniel Rusek <mail@asciiwolf.com>, 2016, 2017.
 #
 msgid ""
 msgstr ""
