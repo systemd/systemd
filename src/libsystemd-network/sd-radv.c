@@ -235,7 +235,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         buf = new0(char, buflen);
         if (!buf)
-                return 0;
+                return -ENOMEM;
 
         r = icmp6_receive(fd, buf, buflen, &src, &timestamp);
         if (r < 0) {
