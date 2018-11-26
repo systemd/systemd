@@ -401,6 +401,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
              '25-bond-active-backup-slave.netdev', '12-dummy.netdev', '23-active-slave.network',
              'routing-policy-rule.network', '25-address-section.network', '25-address-section-miscellaneous.network',
              '25-route-section.network', '25-route-type.network', '25-route-tcp-window-settings.network',
+             '25-route-gateway.network', '25-route-gateway-on-link.network',
              '25-address-link-section.network', '25-ipv6-address-label-section.network', '25-link-section-unmanaged.network',
              '25-sysctl.network']
 
@@ -516,6 +517,51 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'initcwnd 20')
         self.assertRegex(output, 'initrwnd 30')
+
+    def test_ip_route_gateway(self):
+        self.copy_unit_to_networkd_unit_path('25-route-gateway.network', '12-dummy.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('dummy98'))
+
+        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'default')
+        self.assertRegex(output, 'via')
+        self.assertRegex(output, '149.10.124.64')
+        self.assertRegex(output, 'proto')
+        self.assertRegex(output, 'static')
+
+        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'dummy98', 'src', '149.10.124.58']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '149.10.124.48/28')
+        self.assertRegex(output, 'proto')
+        self.assertRegex(output, 'kernel')
+        self.assertRegex(output, 'scope')
+        self.assertRegex(output, 'link')
+
+    def test_ip_route_gateway_on_link(self):
+        self.copy_unit_to_networkd_unit_path('25-route-gateway-on-link.network', '12-dummy.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('dummy98'))
+
+        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'default')
+        self.assertRegex(output, 'via')
+        self.assertRegex(output, '149.10.125.65')
+        self.assertRegex(output, 'proto')
+        self.assertRegex(output, 'static')
+        self.assertRegex(output, 'onlink')
+
+        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'dummy98', 'src', '149.10.124.58']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '149.10.124.48/28')
+        self.assertRegex(output, 'proto')
+        self.assertRegex(output, 'kernel')
+        self.assertRegex(output, 'scope')
+        self.assertRegex(output, 'link')
 
     def test_ip_link_mac_address(self):
         self.copy_unit_to_networkd_unit_path('25-address-link-section.network', '12-dummy.netdev')
