@@ -113,8 +113,7 @@ static sd_radv *radv_free(sd_radv *ra) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv, sd_radv, radv_free);
 
-static int radv_send(sd_radv *ra, const struct in6_addr *dst,
-                     const uint32_t router_lifetime) {
+static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_lifetime) {
         sd_radv_prefix *p;
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
