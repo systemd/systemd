@@ -346,7 +346,7 @@ static void MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
 }
 #endif
 
-RemoteServer* journal_remote_server_destroy(RemoteServer *s) {
+void journal_remote_server_destroy(RemoteServer *s) {
         size_t i;
 
 #if HAVE_MICROHTTPD
@@ -370,7 +370,6 @@ RemoteServer* journal_remote_server_destroy(RemoteServer *s) {
                 journal_remote_server_global = NULL;
 
         /* fds that we're listening on remain open... */
-        return NULL;
 }
 
 /**********************************************************************

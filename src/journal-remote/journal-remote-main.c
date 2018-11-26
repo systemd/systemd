@@ -1062,7 +1062,7 @@ static int load_certificates(char **key, char **cert, char **trust) {
 }
 
 int main(int argc, char **argv) {
-        RemoteServer s = {};
+        _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
         int r;
         _cleanup_free_ char *key = NULL, *cert = NULL, *trust = NULL;
 
@@ -1125,8 +1125,6 @@ int main(int argc, char **argv) {
                    "STOPPING=1\n"
                    "STATUS=Shutting down after writing %" PRIu64 " entries...", s.event_count);
         log_info("Finishing after writing %" PRIu64 " entries", s.event_count);
-
-        journal_remote_server_destroy(&s);
 
         free(arg_key);
         free(arg_cert);
