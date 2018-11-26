@@ -22,14 +22,11 @@
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
-#include <stdbool.h>
 #include <sys/types.h>
 
-#include "sd-ndisc.h"
-
-#include "sd-event.h"
-
 #include "_sd-common.h"
+#include "sd-event.h"
+#include "sd-ndisc.h"
 
 _SD_BEGIN_DECLARATIONS;
 
@@ -61,7 +58,7 @@ int sd_radv_set_router_lifetime(sd_radv *ra, uint32_t router_lifetime);
 int sd_radv_set_managed_information(sd_radv *ra, int managed);
 int sd_radv_set_other_information(sd_radv *ra, int other);
 int sd_radv_set_preference(sd_radv *ra, unsigned preference);
-int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, bool dynamic);
+int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic);
 sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra, const struct in6_addr *prefix,
                                       unsigned char prefixlen);
 int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,

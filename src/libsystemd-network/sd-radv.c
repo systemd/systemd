@@ -503,7 +503,7 @@ _public_ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
         return r;
 }
 
-_public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, bool dynamic) {
+_public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         sd_radv_prefix *cur;
         int r;
         _cleanup_free_ char *addr_p = NULL;
