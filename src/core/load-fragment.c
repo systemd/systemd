@@ -3242,7 +3242,7 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        if (!startswith(resolved, "block-") && !startswith(resolved, "char-")) {
+        if (!STARTSWITH_SET(resolved, "block-", "char-")) {
 
                 r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
                 if (r < 0)

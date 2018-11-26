@@ -57,6 +57,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "strxcpyx.h"
 #include "syslog-util.h"
 #include "udev-builtin.h"
@@ -361,9 +362,7 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
 
-        if (startswith(val, "dm-") ||
-            startswith(val, "md") ||
-            startswith(val, "drbd"))
+        if (STARTSWITH_SET(val, "dm-", "md", "drbd"))
                 return 0;
 
         r = sd_device_get_devtype(dev, &val);

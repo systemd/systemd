@@ -1852,9 +1852,7 @@ char *cg_escape(const char *p) {
          * needs free()! */
 
         if (IN_SET(p[0], 0, '_', '.') ||
-            streq(p, "notify_on_release") ||
-            streq(p, "release_agent") ||
-            streq(p, "tasks") ||
+            STR_IN_SET(p, "notify_on_release", "release_agent", "tasks") ||
             startswith(p, "cgroup."))
                 need_prefix = true;
         else {

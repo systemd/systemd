@@ -1014,11 +1014,8 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
                                 return -ENOMEM;
                 }
         } else {
-                if (startswith(s, "/dev/"))
-                        p = s + 5;
-                else if (startswith(s, "../"))
-                        p = s + 3;
-                else
+                p = PATH_STARTSWITH_SET(s, "/dev/", "../");
+                if (!p)
                         p = s;
 
                 b = strdup(p);

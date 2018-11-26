@@ -25,6 +25,7 @@
 #include "selinux-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unaligned.h"
 
 static bool allow_object_pid(const struct ucred *ucred) {
@@ -337,11 +338,7 @@ void server_process_native_file(
                         return;
                 }
 
-                e = path_startswith(k, "/dev/shm/");
-                if (!e)
-                        e = path_startswith(k, "/tmp/");
-                if (!e)
-                        e = path_startswith(k, "/var/tmp/");
+                e = PATH_STARTSWITH_SET(k, "/dev/shm/", "/tmp/", "/var/tmp/");
                 if (!e) {
                         log_error("Received file outside of allowed directories. Refusing.");
                         return;

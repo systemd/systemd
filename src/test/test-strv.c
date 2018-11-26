@@ -56,6 +56,20 @@ static void test_strptr_in_set(void) {
         assert_se(!STRPTR_IN_SET(NULL, NULL));
 }
 
+static void test_startswith_set(void) {
+        assert_se(!STARTSWITH_SET("foo", "bar", "baz", "waldo"));
+        assert_se(!STARTSWITH_SET("foo", "bar"));
+
+        assert_se(STARTSWITH_SET("abc", "a", "ab", "abc"));
+        assert_se(STARTSWITH_SET("abc", "ax", "ab", "abc"));
+        assert_se(STARTSWITH_SET("abc", "ax", "abx", "abc"));
+        assert_se(!STARTSWITH_SET("abc", "ax", "abx", "abcx"));
+
+        assert_se(streq_ptr(STARTSWITH_SET("foobar", "hhh", "kkk", "foo", "zzz"), "bar"));
+        assert_se(streq_ptr(STARTSWITH_SET("foobar", "hhh", "kkk", "", "zzz"), "foobar"));
+        assert_se(streq_ptr(STARTSWITH_SET("", "hhh", "kkk", "zzz", ""), ""));
+}
+
 static const char* const input_table_multiple[] = {
         "one",
         "two",
@@ -847,6 +861,7 @@ int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_str_in_set();
         test_strptr_in_set();
+        test_startswith_set();
         test_strv_foreach();
         test_strv_foreach_backwards();
         test_strv_foreach_pair();

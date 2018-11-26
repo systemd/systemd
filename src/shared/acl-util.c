@@ -219,14 +219,11 @@ int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want
         STRV_FOREACH(entry, split) {
                 char *p;
 
-                p = startswith(*entry, "default:");
+                p = STARTSWITH_SET(*entry, "default:", "d:");
                 if (!p)
-                        p = startswith(*entry, "d:");
+                        p = *entry;
 
-                if (p)
-                        r = strv_push(&d, p);
-                else
-                        r = strv_push(&a, *entry);
+                r = strv_push(&d, p);
                 if (r < 0)
                         return r;
         }

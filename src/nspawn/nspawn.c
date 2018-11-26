@@ -1427,17 +1427,10 @@ static int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t u
 }
 
 static const char *timezone_from_path(const char *path) {
-        const char *z;
-
-        z = path_startswith(path, "../usr/share/zoneinfo/");
-        if (z)
-                return z;
-
-        z = path_startswith(path, "/usr/share/zoneinfo/");
-        if (z)
-                return z;
-
-        return NULL;
+        return PATH_STARTSWITH_SET(
+                        path,
+                        "../usr/share/zoneinfo/",
+                        "/usr/share/zoneinfo/");
 }
 
 static int setup_timezone(const char *dest) {
