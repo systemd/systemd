@@ -1,5 +1,2 @@
 [Match]
 Name=test1
-
-[Network]
-VLAN=vlan99

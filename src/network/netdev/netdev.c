@@ -705,10 +705,10 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (NETDEV_VTABLE(netdev)->init)
                 NETDEV_VTABLE(netdev)->init(netdev);
 
-        r = config_parse(NULL, filename, file,
-                         NETDEV_VTABLE(netdev)->sections,
-                         config_item_perf_lookup, network_netdev_gperf_lookup,
-                         CONFIG_PARSE_WARN, netdev);
+        r = config_parse_many(filename, network_dirs, dropin_dirname,
+                              NETDEV_VTABLE(netdev)->sections,
+                              config_item_perf_lookup, network_netdev_gperf_lookup,
+                              CONFIG_PARSE_WARN, netdev);
         if (r < 0)
                 return r;
 
