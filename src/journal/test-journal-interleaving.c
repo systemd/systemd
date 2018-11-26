@@ -6,13 +6,14 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "io-util.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "parse-util.h"
 #include "rm-rf.h"
-#include "util.h"
 #include "tests.h"
+#include "util.h"
 
 /* This program tests skipping around in a multi-file journal. */
 
@@ -58,8 +59,7 @@ static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
         previous_ts = ts;
 
         assert_se(asprintf(&p, "NUMBER=%d", n) >= 0);
-        iovec[0].iov_base = p;
-        iovec[0].iov_len = strlen(p);
+        iovec[0] = IOVEC_MAKE_STRING(p);
         assert_ret(journal_file_append_entry(f, &ts, NULL, iovec, 1, seqnum, NULL, NULL));
         free(p);
 }

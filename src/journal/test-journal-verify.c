@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "fd-util.h"
+#include "io-util.h"
 #include "journal-file.h"
 #include "journal-verify.h"
 #include "log.h"
@@ -83,8 +84,7 @@ int main(int argc, char *argv[]) {
 
                 assert_se(asprintf(&test, "RANDOM=%lu", random() % RANDOM_RANGE));
 
-                iovec.iov_base = (void*) test;
-                iovec.iov_len = strlen(test);
+                iovec = IOVEC_MAKE_STRING(test);
 
                 assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 

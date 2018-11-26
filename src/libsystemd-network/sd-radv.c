@@ -9,7 +9,6 @@
 
 #include "sd-radv.h"
 
-#include "macro.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "ether-addr-util.h"
@@ -17,12 +16,14 @@
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
+#include "io-util.h"
+#include "macro.h"
 #include "radv-internal.h"
+#include "random-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
-#include "random-util.h"
 
 _public_ int sd_radv_new(sd_radv **ret) {
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
@@ -159,24 +160,18 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_li
         adv.nd_ra_curhoplimit = ra->hop_limit;
         adv.nd_ra_flags_reserved = ra->flags;
         adv.nd_ra_router_lifetime = htobe16(router_lifetime);
-        iov[msg.msg_iovlen].iov_base = &adv;
-        iov[msg.msg_iovlen].iov_len = sizeof(adv);
-        msg.msg_iovlen++;
+        iov[msg.msg_iovlen++] = IOVEC_MAKE(&adv, sizeof(adv));
 
         /* MAC address is optional, either because the link does not use L2
            addresses or load sharing is desired. See RFC 4861, Section 4.2 */
         if (!ether_addr_is_null(&ra->mac_addr)) {
                 opt_mac.slladdr = ra->mac_addr;
-                iov[msg.msg_iovlen].iov_base = &opt_mac;
-                iov[msg.msg_iovlen].iov_len = sizeof(opt_mac);
-                msg.msg_iovlen++;
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&opt_mac, sizeof(opt_mac));
         }
 
         if (ra->mtu) {
                 opt_mtu.nd_opt_mtu_mtu = htobe32(ra->mtu);
-                iov[msg.msg_iovlen].iov_base = &opt_mtu;
-                iov[msg.msg_iovlen].iov_len = sizeof(opt_mtu);
-                msg.msg_iovlen++;
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&opt_mtu, sizeof(opt_mtu));
         }
 
         LIST_FOREACH(prefix, p, ra->prefixes) {
@@ -192,22 +187,14 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_li
                         else
                                 p->opt.preferred_lifetime = htobe32((p->preferred_until - time_now) / USEC_PER_SEC);
                 }
-                iov[msg.msg_iovlen].iov_base = &p->opt;
-                iov[msg.msg_iovlen].iov_len = sizeof(p->opt);
-                msg.msg_iovlen++;
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&p->opt, sizeof(p->opt));
         }
 
-        if (ra->rdnss) {
-                iov[msg.msg_iovlen].iov_base = ra->rdnss;
-                iov[msg.msg_iovlen].iov_len = ra->rdnss->length * 8;
-                msg.msg_iovlen++;
-        }
+        if (ra->rdnss)
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(ra->rdnss, ra->rdnss->length * 8);
 
-        if (ra->dnssl) {
-                iov[msg.msg_iovlen].iov_base = ra->dnssl;
-                iov[msg.msg_iovlen].iov_len = ra->dnssl->length * 8;
-                msg.msg_iovlen++;
-        }
+        if (ra->dnssl)
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(ra->dnssl, ra->dnssl->length * 8);
 
         if (sendmsg(ra->fd, &msg, 0) < 0)
                 return -errno;

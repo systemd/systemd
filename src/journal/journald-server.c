@@ -1266,8 +1266,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
         if (!GREEDY_REALLOC(s->buffer, s->buffer_size, m))
                 return log_oom();
 
-        iovec.iov_base = s->buffer;
-        iovec.iov_len = s->buffer_size - 1; /* Leave room for trailing NUL we add later */
+        iovec = IOVEC_MAKE(s->buffer, s->buffer_size - 1); /* Leave room for trailing NUL we add later */
 
         n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {

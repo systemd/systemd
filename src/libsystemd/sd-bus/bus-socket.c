@@ -44,8 +44,7 @@ static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
 
                 size -= i->iov_len;
 
-                i->iov_base = NULL;
-                i->iov_len = 0;
+                *i = IOVEC_MAKE(NULL, 0);
 
                 (*idx)++;
         }
@@ -56,9 +55,7 @@ static int append_iovec(sd_bus_message *m, const void *p, size_t sz) {
         assert(p);
         assert(sz > 0);
 
-        m->iovec[m->n_iovec].iov_base = (void*) p;
-        m->iovec[m->n_iovec].iov_len = sz;
-        m->n_iovec++;
+        m->iovec[m->n_iovec++] = IOVEC_MAKE((void*) p, sz);
 
         return 0;
 }
@@ -516,8 +513,7 @@ static int bus_socket_read_auth(sd_bus *b) {
 
         b->rbuffer = p;
 
-        iov.iov_base = (uint8_t*) b->rbuffer + b->rbuffer_size;
-        iov.iov_len = n - b->rbuffer_size;
+        iov = IOVEC_MAKE((uint8_t *)b->rbuffer + b->rbuffer_size, n - b->rbuffer_size);
 
         if (b->prefer_readv)
                 k = readv(b->input_fd, &iov, 1);
@@ -634,12 +630,9 @@ static int bus_socket_start_auth_client(sd_bus *b) {
         else
                 auth_suffix = "\r\nBEGIN\r\n";
 
-        b->auth_iovec[0].iov_base = (void*) auth_prefix;
-        b->auth_iovec[0].iov_len = 1 + strlen(auth_prefix + 1);
-        b->auth_iovec[1].iov_base = (void*) b->auth_buffer;
-        b->auth_iovec[1].iov_len = l * 2;
-        b->auth_iovec[2].iov_base = (void*) auth_suffix;
-        b->auth_iovec[2].iov_len = strlen(auth_suffix);
+        b->auth_iovec[0] = IOVEC_MAKE((void*) auth_prefix, 1 + strlen(auth_prefix + 1));
+        b->auth_iovec[1] = IOVEC_MAKE(b->auth_buffer, l * 2);
+        b->auth_iovec[2] = IOVEC_MAKE_STRING(auth_suffix);
 
         return bus_socket_write_auth(b);
 }
@@ -1146,8 +1139,7 @@ int bus_socket_read_message(sd_bus *bus) {
 
         bus->rbuffer = b;
 
-        iov.iov_base = (uint8_t*) bus->rbuffer + bus->rbuffer_size;
-        iov.iov_len = need - bus->rbuffer_size;
+        iov = IOVEC_MAKE((uint8_t *)bus->rbuffer + bus->rbuffer_size, need - bus->rbuffer_size);
 
         if (bus->prefer_readv)
                 k = readv(bus->input_fd, &iov, 1);
