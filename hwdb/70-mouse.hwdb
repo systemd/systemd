@@ -292,17 +292,17 @@ mouse:usb:v047dp1020:*Kensington Expert Mouse*
 # Lenovo
 ##########################################
 
-# Lenovo Optical USB Mouse
+# Lenovo USB mouse model MO28UOL
+mouse:usb:v04b3p310c:name:USB Optical Mouse:
+ MOUSE_DPI=400@142
+ 
+ # Lenovo Optical USB Mouse
 mouse:usb:v17efp6019:name:Lenovo Optical USB Mouse:
  MOUSE_DPI=1000@125
 
 # Lenovo M-U0025-O
 mouse:usb:v17efp6019:name:Logitech Lenovo USB Optical Mouse:
  MOUSE_DPI=1000@166
-
-# ThinkPad USB Laser Mouse
-mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:
- MOUSE_DPI=1200@125
 
 # Lenovo Precision USB Mouse
 mouse:usb:v17efp6050:name:Lenovo Precision USB Mouse:
@@ -314,6 +314,9 @@ mouse:usb:v17efp601d:name:Primax Lenovo Laser Mouse:
 mouse:usb:v17efp6045:name:Lenovo USB Laser Mouse:
  MOUSE_DPI=1600@125
 
+# ThinkPad USB Laser Mouse
+mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:
+ MOUSE_DPI=1200@125
 
 ##########################################
 # Logitech
@@ -346,10 +349,6 @@ mouse:usb:v046dpc401:name:Logitech USB-PS/2 Trackball:
 # Logitech Cordless MouseMan Optical M-RM63
 mouse:usb:v046dpc501:name:Logitech USB Receiver:
  MOUSE_DPI=800@63
-
-# Lenovo USB mouse model MO28UOL
-mouse:usb:v04b3p310c:name:USB Optical Mouse:
- MOUSE_DPI=400@142
 
 # Logitech M570 trackball
 mouse:usb:v046dp1028:name:Logitech M570:
