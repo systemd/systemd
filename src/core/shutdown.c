@@ -451,8 +451,8 @@ int main(int argc, char *argv[]) {
                 if (r >= 0) {
                         argv[0] = (char*) "/shutdown";
 
-                        setsid();
-                        make_console_stdio();
+                        (void) setsid();
+                        (void) make_console_stdio();
 
                         log_info("Successfully changed into root pivot.\n"
                                  "Returning to initrd...");

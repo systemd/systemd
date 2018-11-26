@@ -1850,7 +1850,7 @@ static int run(int argc, char *argv[]) {
                         return 0;
 
                 /* child */
-                setsid();
+                (void) setsid();
 
                 r = set_oom_score_adjust(-1000);
                 if (r < 0)
