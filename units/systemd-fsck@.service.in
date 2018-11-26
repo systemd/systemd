@@ -12,6 +12,7 @@ Description=File System Check on %f
 Documentation=man:systemd-fsck@.service(8)
 DefaultDependencies=no
 BindsTo=%i.device
+Conflicts=shutdown.target
 After=%i.device systemd-fsck-root.service local-fs-pre.target
 Before=systemd-quotacheck.service shutdown.target
 
