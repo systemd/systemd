@@ -86,16 +86,19 @@ int raw_export_new(
 
         assert(ret);
 
-        e = new0(RawExport, 1);
+        e = new(RawExport, 1);
         if (!e)
                 return -ENOMEM;
 
-        e->output_fd = e->input_fd = -1;
-        e->on_finished = on_finished;
-        e->userdata = userdata;
+        *e = (RawExport) {
+                .output_fd = -1,
+                .input_fd = -1,
+                .on_finished = on_finished,
+                .userdata = userdata,
+                .last_percent = (unsigned) -1,
+        };
 
         RATELIMIT_INIT(e->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
-        e->last_percent = (unsigned) -1;
 
         if (event)
                 e->event = sd_event_ref(event);

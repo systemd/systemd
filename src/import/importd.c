@@ -146,15 +146,17 @@ static int transfer_new(Manager *m, Transfer **ret) {
         if (r < 0)
                 return r;
 
-        t = new0(Transfer, 1);
+        t = new(Transfer, 1);
         if (!t)
                 return -ENOMEM;
 
-        t->type = _TRANSFER_TYPE_INVALID;
-        t->log_fd = -1;
-        t->stdin_fd = -1;
-        t->stdout_fd = -1;
-        t->verify = _IMPORT_VERIFY_INVALID;
+        *t = (Transfer) {
+                .type = _TRANSFER_TYPE_INVALID,
+                .log_fd = -1,
+                .stdin_fd = -1,
+                .stdout_fd = -1,
+                .verify = _IMPORT_VERIFY_INVALID,
+        };
 
         id = m->current_transfer_id + 1;
 

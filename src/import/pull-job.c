@@ -537,27 +537,32 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
 
 int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata) {
         _cleanup_(pull_job_unrefp) PullJob *j = NULL;
+        _cleanup_free_ char *u = NULL;
 
         assert(url);
         assert(glue);
         assert(ret);
 
-        j = new0(PullJob, 1);
+        u = strdup(url);
+        if (u)
+                return -ENOMEM;
+
+        j = new(PullJob, 1);
         if (!j)
                 return -ENOMEM;
 
-        j->state = PULL_JOB_INIT;
-        j->disk_fd = -1;
-        j->userdata = userdata;
-        j->glue = glue;
-        j->content_length = (uint64_t) -1;
-        j->start_usec = now(CLOCK_MONOTONIC);
-        j->compressed_max = j->uncompressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU; /* 64GB safety limit */
-        j->style = VERIFICATION_STYLE_UNSET;
-
-        j->url = strdup(url);
-        if (!j->url)
-                return -ENOMEM;
+        *j = (PullJob) {
+                .state = PULL_JOB_INIT,
+                .disk_fd = -1,
+                .userdata = userdata,
+                .glue = glue,
+                .content_length = (uint64_t) -1,
+                .start_usec = now(CLOCK_MONOTONIC),
+                .compressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
+                .uncompressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
+                .style = VERIFICATION_STYLE_UNSET,
+                .url = TAKE_PTR(u),
+        };
 
         *ret = TAKE_PTR(j);
 

@@ -35,4 +35,5 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
 int curl_parse_http_time(const char *t, usec_t *ret);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(CURL*, curl_easy_cleanup);
+DEFINE_TRIVIAL_CLEANUP_FUNC(CURL*, curl_multi_cleanup);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct curl_slist*, curl_slist_free_all);
