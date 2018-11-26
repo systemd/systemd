@@ -550,9 +550,11 @@ void server_rotate(Server *s) {
                         ordered_hashmap_remove(s->user_journals, k);
         }
 
-        /* Finally, also rotate all user journals we currently do not have open. */
-        r = open_user_journal_directory(s, &d, &path);
-        if (r >= 0) {
+        /* Finally, also rotate all user journals we currently do not have open. (But do so only if we actually have
+         * access to /var, i.e. are not in the log-to-runtime-journal mode). */
+        if (!s->runtime_journal &&
+            open_user_journal_directory(s, &d, &path) >= 0) {
+
                 struct dirent *de;
 
                 FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to enumerate %s, ignoring: %m", path)) {
