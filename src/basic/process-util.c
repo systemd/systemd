@@ -35,6 +35,7 @@
 #include "missing.h"
 #include "process-util.h"
 #include "raw-clone.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -1397,6 +1398,14 @@ int safe_fork_full(
                 r = make_null_stdio();
                 if (r < 0) {
                         log_full_errno(prio, r, "Failed to connect stdin/stdout to /dev/null: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        if (flags & FORK_RLIMIT_NOFILE_SAFE) {
+                r = rlimit_nofile_safe();
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to lower RLIMIT_NOFILE's soft limit to 1K: %m");
                         _exit(EXIT_FAILURE);
                 }
         }

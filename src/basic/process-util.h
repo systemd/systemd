@@ -142,15 +142,16 @@ void reset_cached_pid(void);
 int must_be_root(void);
 
 typedef enum ForkFlags {
-        FORK_RESET_SIGNALS = 1 << 0,
-        FORK_CLOSE_ALL_FDS = 1 << 1,
-        FORK_DEATHSIG      = 1 << 2,
-        FORK_NULL_STDIO    = 1 << 3,
-        FORK_REOPEN_LOG    = 1 << 4,
-        FORK_LOG           = 1 << 5,
-        FORK_WAIT          = 1 << 6,
-        FORK_NEW_MOUNTNS   = 1 << 7,
-        FORK_MOUNTNS_SLAVE = 1 << 8,
+        FORK_RESET_SIGNALS      = 1 << 0, /* Reset all signal handlers and signal mask */
+        FORK_CLOSE_ALL_FDS      = 1 << 1, /* Close all open file descriptors in the child, except for 0,1,2 */
+        FORK_DEATHSIG           = 1 << 2, /* Set PR_DEATHSIG in the child */
+        FORK_NULL_STDIO         = 1 << 3, /* Connect 0,1,2 to /dev/null */
+        FORK_REOPEN_LOG         = 1 << 4, /* Reopen log connection */
+        FORK_LOG                = 1 << 5, /* Log above LOG_DEBUG log level about failures */
+        FORK_WAIT               = 1 << 6, /* Wait until child exited */
+        FORK_NEW_MOUNTNS        = 1 << 7, /* Run child in its own mount namespace */
+        FORK_MOUNTNS_SLAVE      = 1 << 8, /* Make child's mount namespace MS_SLAVE */
+        FORK_RLIMIT_NOFILE_SAFE = 1 << 9, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
 } ForkFlags;
 
 int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid);
