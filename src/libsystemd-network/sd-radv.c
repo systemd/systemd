@@ -145,11 +145,13 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_li
         usec_t time_now;
         int r;
 
+        assert(ra);
+
         r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
                 return r;
 
-        if (dst && !in_addr_is_null(AF_INET6, (union in_addr_union*) dst))
+        if (dst && !IN6_IS_ADDR_UNSPECIFIED(dst))
                 dst_addr.sin6_addr = *dst;
 
         adv.nd_ra_type = ND_ROUTER_ADVERT;
