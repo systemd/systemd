@@ -23,7 +23,9 @@ Janitorial Clean-ups:
 
 Features:
 
-* when we fork off generators and such, lower LIMIT_NOFILE soft limit to 1K
+* Maybe introduce a helper safe_exec() or so, which is to execve() which
+  safe_fork() is to fork(). And then make revert the RLIMIT_NOFILE soft limit
+  to 1K implicitly, unless explicitly opted-out.
 
 * rework seccomp/nnp logic that that even if User= is used in combination with
   a seccomp option we don't have to set NNP. For that, change uid first whil
