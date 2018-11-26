@@ -359,7 +359,7 @@ _public_ int sd_radv_stop(sd_radv *ra) {
 }
 
 _public_ int sd_radv_start(sd_radv *ra) {
-        int r = 0;
+        int r;
 
         assert_return(ra, -EINVAL);
         assert_return(ra->event, -EINVAL);
