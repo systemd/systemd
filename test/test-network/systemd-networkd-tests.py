@@ -153,17 +153,18 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     links =['bridge99', 'bond99', 'bond99', 'vlan99', 'test1', 'macvtap99',
             'macvlan99', 'ipvlan99', 'vxlan99', 'veth99', 'vrf99', 'tun99',
             'tap99', 'vcan99', 'geneve99', 'dummy98', 'ipiptun99', 'sittun99', '6rdtun99',
-            'gretap99', 'vtitun99', 'vti6tun99','ip6tnl99', 'gretun99', 'ip6gretap99', 'wg99', 'dropin-test']
+            'gretap99', 'vtitun99', 'vti6tun99','ip6tnl99', 'gretun99', 'ip6gretap99',
+            'wg99', 'dropin-test', 'erspan-test']
 
     units = ['25-bridge.netdev', '25-bond.netdev', '21-vlan.netdev', '11-dummy.netdev', '21-vlan.network',
              '21-macvtap.netdev', 'macvtap.network', '21-macvlan.netdev', 'macvlan.network', 'vxlan.network',
              '25-vxlan.netdev', '25-ipvlan.netdev', 'ipvlan.network', '25-veth.netdev', '25-vrf.netdev',
              '25-tun.netdev', '25-tun.netdev', '25-vcan.netdev', '25-geneve.netdev', '25-ipip-tunnel.netdev',
-             '25-ip6tnl-tunnel.netdev', '25-ip6gre-tunnel.netdev','25-sit-tunnel.netdev', '25-6rd-tunnel.netdev',
-             '25-gre-tunnel.netdev', '25-gretap-tunnel.netdev', '25-vti-tunnel.netdev', '25-vti6-tunnel.netdev',
-             '12-dummy.netdev', 'gre.network', 'ipip.network', 'ip6gretap.network', 'gretun.network',
-             'ip6tnl.network', '25-tap.netdev', 'vti6.network', 'vti.network', 'gretap.network', 'sit.network',
-             '25-ipip-tunnel-independent.netdev', '25-wireguard.netdev', '6rd.network', '10-dropin-test.netdev']
+             '25-ip6tnl-tunnel.netdev', '25-ip6gre-tunnel.netdev', '25-sit-tunnel.netdev', '25-6rd-tunnel.netdev',
+             '25-erspan-tunnel.netdev', '25-gre-tunnel.netdev', '25-gretap-tunnel.netdev', '25-vti-tunnel.netdev',
+             '25-vti6-tunnel.netdev', '12-dummy.netdev', 'gre.network', 'ipip.network', 'ip6gretap.network',
+             'gretun.network', 'ip6tnl.network', '25-tap.netdev', 'vti6.network', 'vti.network', 'gretap.network',
+             'sit.network', '25-ipip-tunnel-independent.netdev', '25-wireguard.netdev', '6rd.network', '10-dropin-test.netdev']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -382,6 +383,18 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('sittun99'))
+
+    def test_erspan_tunnel(self):
+        self.copy_unit_to_networkd_unit_path('25-erspan-tunnel.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('erspan-test'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'erspan-test']).rstrip().decode('utf-8')
+        print(output)
+        self.assertTrue(output, '172.16.1.200')
+        self.assertTrue(output, '172.16.1.100')
+        self.assertTrue(output, '101')
 
     def test_tunnel_independent(self):
         self.copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev')

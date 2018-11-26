@@ -877,7 +877,7 @@ struct input_mask {
 #define IFLA_IPTUN_MAX  (__IFLA_IPTUN_MAX - 1)
 #endif
 
-#if !HAVE_IFLA_GRE_ENCAP_DPORT
+#if !HAVE_IFLA_GRE_ERSPAN_HWID
 #define IFLA_GRE_UNSPEC 0
 #define IFLA_GRE_LINK 1
 #define IFLA_GRE_IFLAGS 2
@@ -896,8 +896,14 @@ struct input_mask {
 #define IFLA_GRE_ENCAP_FLAGS 15
 #define IFLA_GRE_ENCAP_SPORT 16
 #define IFLA_GRE_ENCAP_DPORT 17
-
-#define __IFLA_GRE_MAX 18
+#define IFLA_GRE_COLLECT_METADATA 18
+#define IFLA_GRE_IGNORE_DF 19
+#define IFLA_GRE_FWMARK 20
+#define IFLA_GRE_ERSPAN_INDEX 21
+#define IFLA_GRE_ERSPAN_VER 22
+#define IFLA_GRE_ERSPAN_DIR 23
+#define IFLA_GRE_ERSPAN_HWID 24
+#define __IFLA_GRE_MAX 25
 
 #define IFLA_GRE_MAX  (__IFLA_GRE_MAX - 1)
 #endif
