@@ -1859,6 +1859,23 @@ static bool unit_has_mask_realized(
                 u->cgroup_invalidated_mask == 0;
 }
 
+static bool unit_has_mask_enables_realized(
+                Unit *u,
+                CGroupMask target_mask,
+                CGroupMask enable_mask) {
+
+        assert(u);
+
+        /* Returns true if all controllers which should be enabled are indeed enabled.
+         *
+         * Unlike unit_has_mask_realized, we don't care about the controllers that are not present, only that anything
+         * we want to add is already added. */
+
+        return u->cgroup_realized &&
+                ((u->cgroup_realized_mask | target_mask) & CGROUP_MASK_V1) == u->cgroup_realized_mask &&
+                ((u->cgroup_enabled_mask | enable_mask) & CGROUP_MASK_V2) == u->cgroup_enabled_mask;
+}
+
 void unit_add_to_cgroup_realize_queue(Unit *u) {
         assert(u);
 
@@ -1879,10 +1896,83 @@ static void unit_remove_from_cgroup_realize_queue(Unit *u) {
         u->in_cgroup_realize_queue = false;
 }
 
+/* Controllers can only be enabled breadth-first, from the root of the
+ * hierarchy downwards to the unit in question. */
+static int unit_realize_cgroup_now_enable(Unit *u, ManagerState state) {
+        CGroupMask target_mask, enable_mask, new_target_mask, new_enable_mask;
+        int r;
+
+        assert(u);
+
+        /* First go deal with this unit's parent, or we won't be able to enable
+         * any new controllers at this layer. */
+        if (UNIT_ISSET(u->slice)) {
+                r = unit_realize_cgroup_now_enable(UNIT_DEREF(u->slice), state);
+                if (r < 0)
+                        return r;
+        }
+
+        target_mask = unit_get_target_mask(u);
+        enable_mask = unit_get_enable_mask(u);
+
+        /* We can only enable in this direction, don't try to disable anything.
+         */
+        if (unit_has_mask_enables_realized(u, target_mask, enable_mask))
+                return 0;
+
+        new_target_mask = u->cgroup_realized_mask | target_mask;
+        new_enable_mask = u->cgroup_enabled_mask | enable_mask;
+
+        r = unit_create_cgroup(u, new_target_mask, new_enable_mask, state);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+
 /* Check if necessary controllers and attributes for a unit are in place.
  *
- * If so, do nothing.
- * If not, create paths, move processes over, and set attributes.
+ * - If so, do nothing.
+ * - If not, create paths, move processes over, and set attributes.
+ *
+ * Controllers can only be *enabled* in a breadth-first way, and *disabled* in
+ * a depth-first way. As such the process looks like this:
+ *
+ * Suppose we have a cgroup hierarchy which looks like this:
+ *
+ *             root
+ *            /    \
+ *           /      \
+ *          /        \
+ *         a          b
+ *        / \        / \
+ *       /   \      /   \
+ *      c     d    e     f
+ *     / \   / \  / \   / \
+ *     h i   j k  l m   n o
+ *
+ * 1. We want to realise cgroup "d" now.
+ * 2. cgroup "a" has DisableController=cpu in the associated unit.
+ * 3. cgroup "k" just started requesting the memory controller.
+ *
+ * To make this work we must do the following in order:
+ *
+ * 1. Disable CPU controller in k, j
+ * 2. Disable CPU controller in d
+ * 3. Enable memory controller in root
+ * 4. Enable memory controller in a
+ * 5. Enable memory controller in d
+ * 6. Enable memory controller in k
+ *
+ * Notice that we need to touch j in one direction, but not the other. We also
+ * don't go beyond d when disabling -- it's up to "a" to get realized if it
+ * wants to disable further. The basic rules are therefore:
+ *
+ * - If you're disabling something, you need to realise all of the cgroups from
+ *   your recursive descendants to the root. This starts from the leaves.
+ * - If you're enabling something, you need to realise from the root cgroup
+ *   downwards, but you don't need to iterate your recursive descendants.
  *
  * Returns 0 on success and < 0 on failure. */
 static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
@@ -1899,9 +1989,9 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         if (unit_has_mask_realized(u, target_mask, enable_mask))
                 return 0;
 
-        /* First, realize parents */
+        /* Enable controllers above us */
         if (UNIT_ISSET(u->slice)) {
-                r = unit_realize_cgroup_now(UNIT_DEREF(u->slice), state);
+                r = unit_realize_cgroup_now_enable(UNIT_DEREF(u->slice), state);
                 if (r < 0)
                         return r;
         }
