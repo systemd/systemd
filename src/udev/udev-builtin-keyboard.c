@@ -193,7 +193,7 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                                 keycode++;
 
                                 release[release_count] = scancode;
-                                if (release_count <  ELEMENTSOF(release)-1)
+                                if (release_count < ELEMENTSOF(release)-1)
                                         release_count++;
 
                                 if (keycode[0] == '\0')

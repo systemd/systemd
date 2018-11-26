@@ -245,7 +245,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
                 pfd[0].fd = uctrl->sock;
                 pfd[0].events = POLLIN;
                 r = poll(pfd, 1, timeout * MSEC_PER_SEC);
-                if (r  < 0) {
+                if (r < 0) {
                         if (errno == EINTR)
                                 continue;
                         err = -errno;
@@ -327,7 +327,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
                 pfd[0].events = POLLIN;
 
                 r = poll(pfd, 1, 10000);
-                if (r  < 0) {
+                if (r < 0) {
                         if (errno == EINTR)
                                 continue;
                         goto err;

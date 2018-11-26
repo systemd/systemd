@@ -203,7 +203,7 @@ struct token {
                         union {
                                 unsigned attr_off;
                                 unsigned rule_goto;
-                                mode_t  mode;
+                                mode_t mode;
                                 uid_t uid;
                                 gid_t gid;
                                 int devlink_prio;
@@ -234,7 +234,7 @@ static const char *operation_str(enum operation_type type) {
                 [OP_REMOVE] =           "remove",
                 [OP_ASSIGN] =           "assign",
                 [OP_ASSIGN_FINAL] =     "assign-final",
-}        ;
+        };
 
         return operation_strs[type];
 }
