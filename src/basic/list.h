@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "macro.h"
+
 /* The head of the linked list. Use this in the structure that shall
  * contain the head of the linked list */
 #define LIST_HEAD(t,name)                                               \
@@ -13,8 +15,8 @@
 /* Initialize the list's head */
 #define LIST_HEAD_INIT(head)                                            \
         do {                                                            \
-                (head) = NULL; }                                        \
-        while (false)
+                (head) = NULL;                                          \
+        } while (false)
 
 /* Initialize a list item */
 #define LIST_INIT(name,item)                                            \
