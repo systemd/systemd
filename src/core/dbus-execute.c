@@ -1795,8 +1795,8 @@ int bus_exec_context_set_transient_property(
 
         } else if (STR_IN_SET(name,
                               "StandardInputFile",
-                              "StandardOutputFile", "StandardOutputFileToCreate", "StandardOutputFileToAppend",
-                              "StandardErrorFile", "StandardErrorFileToCreate", "StandardErrorFileToAppend")) {
+                              "StandardOutputFile", "StandardOutputFileToAppend",
+                              "StandardErrorFile", "StandardErrorFileToAppend")) {
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);
