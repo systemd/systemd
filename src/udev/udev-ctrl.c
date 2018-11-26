@@ -20,6 +20,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "io-util.h"
 #include "socket-util.h"
 #include "strxcpyx.h"
 #include "udev-ctrl.h"
@@ -344,8 +345,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
                 break;
         }
 
-        iov.iov_base = &uctrl_msg->ctrl_msg_wire;
-        iov.iov_len = sizeof(struct udev_ctrl_msg_wire);
+        iov = IOVEC_MAKE(&uctrl_msg->ctrl_msg_wire, sizeof(struct udev_ctrl_msg_wire));
 
         size = recvmsg(conn->sock, &smsg, 0);
         if (size < 0) {

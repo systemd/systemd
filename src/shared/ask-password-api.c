@@ -698,9 +698,7 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                zero(iovec);
-                iovec.iov_base = passphrase;
-                iovec.iov_len = sizeof(passphrase);
+                iovec = IOVEC_MAKE(passphrase, sizeof(passphrase));
 
                 zero(control);
                 zero(msghdr);

@@ -206,8 +206,7 @@ static int server_process_entry(
                         memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
 
                         if (journal_field_valid(p, e - p, false)) {
-                                iovec[n].iov_base = k;
-                                iovec[n].iov_len = (e - p) + 1 + l;
+                                iovec[n] = IOVEC_MAKE(k, (e - p) + 1 + l);
                                 entry_size += iovec[n].iov_len;
                                 n++;
 

@@ -310,10 +310,8 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 struct iovec iov[2];
                 ssize_t ss;
 
-                iov[0].iov_base = &s->write_size;
-                iov[0].iov_len = sizeof(s->write_size);
-                iov[1].iov_base = DNS_PACKET_DATA(s->write_packet);
-                iov[1].iov_len = s->write_packet->size;
+                iov[0] = IOVEC_MAKE(&s->write_size, sizeof(s->write_size));
+                iov[1] = IOVEC_MAKE(DNS_PACKET_DATA(s->write_packet), s->write_packet->size);
 
                 IOVEC_INCREMENT(iov, 2, s->n_written);
 

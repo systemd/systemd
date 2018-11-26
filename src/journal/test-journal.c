@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "io-util.h"
 #include "journal-authenticate.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
@@ -32,16 +33,13 @@ static void test_non_empty(void) {
         assert_se(dual_timestamp_get(&ts));
         assert_se(sd_id128_randomize(&fake_boot_id) == 0);
 
-        iovec.iov_base = (void*) test;
-        iovec.iov_len = strlen(test);
+        iovec = IOVEC_MAKE_STRING(test);
         assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
-        iovec.iov_base = (void*) test2;
-        iovec.iov_len = strlen(test2);
+        iovec = IOVEC_MAKE_STRING(test2);
         assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
-        iovec.iov_base = (void*) test;
-        iovec.iov_len = strlen(test);
+        iovec = IOVEC_MAKE_STRING(test);
         assert_se(journal_file_append_entry(f, &ts, &fake_boot_id, &iovec, 1, NULL, NULL, NULL) == 0);
 
 #if HAVE_GCRYPT
@@ -174,8 +172,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         dual_timestamp_get(&ts);
 
-        iovec.iov_base = (void*) data;
-        iovec.iov_len = data_size;
+        iovec = IOVEC_MAKE(data, data_size);
         assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
 #if HAVE_GCRYPT

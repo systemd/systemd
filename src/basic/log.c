@@ -858,8 +858,7 @@ int log_format_iovec(
                 iovec[(*n)++] = IOVEC_MAKE_STRING(m);
 
                 if (newline_separator) {
-                        iovec[*n].iov_base = (char*) &nl;
-                        iovec[*n].iov_len = 1;
+                        iovec[*n] = IOVEC_MAKE((char *)&nl, 1);
                         (*n)++;
                 }
 

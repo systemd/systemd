@@ -17,8 +17,9 @@
 
 #include "fd-util.h"
 #include "icmp6-util.h"
-#include "socket-util.h"
 #include "in-addr-util.h"
+#include "io-util.h"
+#include "socket-util.h"
 
 #define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT \
         { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
@@ -169,8 +170,7 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
         struct cmsghdr *cmsg;
         ssize_t len;
 
-        iov.iov_base = buffer;
-        iov.iov_len = size;
+        iov = IOVEC_MAKE(buffer, size);
 
         len = recvmsg(fd, &msg, MSG_DONTWAIT);
         if (len < 0)

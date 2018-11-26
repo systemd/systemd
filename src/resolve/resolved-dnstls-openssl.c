@@ -23,8 +23,8 @@ static int dnstls_flush_write_buffer(DnsStream *stream) {
                 assert(stream->dnstls_data.write_buffer->data);
 
                 struct iovec iov[1];
-                iov[0].iov_base = stream->dnstls_data.write_buffer->data;
-                iov[0].iov_len = stream->dnstls_data.write_buffer->length;
+                iov[0] = IOVEC_MAKE(stream->dnstls_data.write_buffer->data,
+                                    stream->dnstls_data.write_buffer->length);
                 ss = dns_stream_writev(stream, iov, 1, DNS_STREAM_WRITE_TLS_DATA);
                 if (ss < 0) {
                         if (ss == -EAGAIN)
