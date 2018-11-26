@@ -981,7 +981,7 @@ skip:
         }
 
         /* remove trailing whitespace */
-        while (linelen > 0 && strchra(sep, line[linelen-1]))
+        while (linelen > 0 && strchra((CHAR8 *)" \t", line[linelen-1]))
                 linelen--;
         line[linelen] = '\0';
 
