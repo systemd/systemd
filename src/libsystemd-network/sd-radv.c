@@ -88,7 +88,8 @@ static void radv_reset(sd_radv *ra) {
 }
 
 static sd_radv *radv_free(sd_radv *ra) {
-        assert(ra);
+        if (!ra)
+                return NULL;
 
         while (ra->prefixes) {
                 sd_radv_prefix *p = ra->prefixes;
