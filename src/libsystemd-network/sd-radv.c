@@ -698,31 +698,29 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
 }
 
 _public_ int sd_radv_prefix_new(sd_radv_prefix **ret) {
-        _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
+        sd_radv_prefix *p;
 
         assert_return(ret, -EINVAL);
 
-        p = new0(sd_radv_prefix, 1);
+        p = new(sd_radv_prefix, 1);
         if (!p)
                 return -ENOMEM;
 
-        p->n_ref = 1;
+        *p = (sd_radv_prefix) {
+                .n_ref = 1,
 
-        p->opt.type = ND_OPT_PREFIX_INFORMATION;
-        p->opt.length = (sizeof(p->opt) - 1) /8 + 1;
+                .opt.type = ND_OPT_PREFIX_INFORMATION,
+                .opt.length = (sizeof(p->opt) - 1)/8 + 1,
+                .opt.prefixlen = 64,
 
-        p->opt.prefixlen = 64;
+                /* RFC 4861, Section 6.2.1 */
+                .opt.flags = ND_OPT_PI_FLAG_ONLINK|ND_OPT_PI_FLAG_AUTO,
 
-        /* RFC 4861, Section 6.2.1 */
-        SET_FLAG(p->opt.flags, ND_OPT_PI_FLAG_ONLINK, true);
-        SET_FLAG(p->opt.flags, ND_OPT_PI_FLAG_AUTO, true);
-        p->opt.preferred_lifetime = htobe32(604800);
-        p->opt.valid_lifetime = htobe32(2592000);
+                .opt.preferred_lifetime = htobe32(604800),
+                .opt.valid_lifetime = htobe32(2592000),
+        };
 
-        LIST_INIT(prefix, p);
-
-        *ret = TAKE_PTR(p);
-
+        *ret = p;
         return 0;
 }
 
