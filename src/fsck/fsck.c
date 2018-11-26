@@ -27,6 +27,7 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
@@ -400,6 +401,8 @@ static int run(int argc, char *argv[]) {
 
                 cmdline[i++] = device;
                 cmdline[i++] = NULL;
+
+                (void) rlimit_nofile_safe();
 
                 execv(cmdline[0], (char**) cmdline);
                 _exit(FSCK_OPERATIONAL_ERROR);

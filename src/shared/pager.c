@@ -19,6 +19,7 @@
 #include "macro.h"
 #include "pager.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"

@@ -21,6 +21,7 @@
 #include "missing.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
@@ -931,6 +932,8 @@ int bus_socket_exec(sd_bus *b) {
 
                 if (rearrange_stdio(s[1], s[1], STDERR_FILENO) < 0)
                         _exit(EXIT_FAILURE);
+
+                (void) rlimit_nofile_safe();
 
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);

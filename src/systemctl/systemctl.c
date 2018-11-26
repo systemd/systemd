@@ -8302,6 +8302,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 /* Hmm, so some other init system is running, we need to forward this request to
                                  * it. For now we simply guess that it is Upstart. */
 
+                                (void) rlimit_nofile_safe();
                                 execv(TELINIT, argv);
 
                                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
