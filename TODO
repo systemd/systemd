@@ -23,6 +23,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* when we fork off generators and such, lower LIMIT_NOFILE soft limit to 1K
+
 * add a concept for automatically loading per-unit secrets off disk and
   inserting them into the kernel keyring. Maybe SecretsDirectory= similar to
   ConfigurationDirectory=.
