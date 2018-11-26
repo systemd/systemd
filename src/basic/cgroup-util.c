@@ -2368,9 +2368,9 @@ int cg_mask_supported(CGroupMask *ret) {
         CGroupMask mask;
         int r;
 
-        /* Determines the mask of supported cgroup controllers. Only
-         * includes controllers we can make sense of and that are
-         * actually accessible. */
+        /* Determines the mask of supported cgroup controllers. Only includes controllers we can make sense of and that
+         * are actually accessible. Only covers real controllers, i.e. not the CGROUP_CONTROLLER_BPF_xyz
+         * pseudo-controllers. */
 
         r = cg_all_unified();
         if (r < 0)
@@ -2595,22 +2595,45 @@ int cg_unified_flush(void) {
         return cg_unified_update();
 }
 
-int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
+int cg_enable_everywhere(
+                CGroupMask supported,
+                CGroupMask mask,
+                const char *p,
+                CGroupMask *ret_result_mask) {
+
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *fs = NULL;
         CGroupController c;
+        CGroupMask ret = 0;
         int r;
 
         assert(p);
 
-        if (supported == 0)
+        if (supported == 0) {
+                if (ret_result_mask)
+                        *ret_result_mask = 0;
                 return 0;
+        }
 
         r = cg_all_unified();
         if (r < 0)
                 return r;
-        if (r == 0) /* on the legacy hiearchy there's no joining of controllers defined */
+        if (r == 0) {
+                /* On the legacy hiearchy there's no concept of "enabling" controllers in cgroups defined. Let's claim
+                 * complete success right away. (If you wonder why we return the full mask here, rather than zero: the
+                 * caller tends to use the returned mask later on to compare if all controllers where properly joined,
+                 * and if not requeues realization. This use is the primary purpose of the return value, hence let's
+                 * minimize surprises here and reduce triggers for re-realization by always saying we fully
+                 * succeeded.) */
+                if (ret_result_mask)
+                        *ret_result_mask = mask & supported & CGROUP_MASK_V2; /* If you wonder why we mask this with
+                                                                               * CGROUP_MASK_V2: The 'supported' mask
+                                                                               * might contain pure-V1 or BPF
+                                                                               * controllers, and we never want to
+                                                                               * claim that we could enable those with
+                                                                               * cgroup.subtree_control */
                 return 0;
+        }
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, p, "cgroup.subtree_control", &fs);
         if (r < 0)
@@ -2635,19 +2658,47 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
 
                         if (!f) {
                                 f = fopen(fs, "we");
-                                if (!f) {
-                                        log_debug_errno(errno, "Failed to open cgroup.subtree_control file of %s: %m", p);
-                                        break;
-                                }
+                                if (!f)
+                                        return log_debug_errno(errno, "Failed to open cgroup.subtree_control file of %s: %m", p);
                         }
 
                         r = write_string_stream(f, s, WRITE_STRING_FILE_DISABLE_BUFFER);
                         if (r < 0) {
-                                log_debug_errno(r, "Failed to enable controller %s for %s (%s): %m", n, p, fs);
+                                log_debug_errno(r, "Failed to %s controller %s for %s (%s): %m",
+                                                FLAGS_SET(mask, bit) ? "enable" : "disable", n, p, fs);
                                 clearerr(f);
+
+                                /* If we can't turn off a controller, leave it on in the reported resulting mask. This
+                                 * happens for example when we attempt to turn off a controller up in the tree that is
+                                 * used down in the tree. */
+                                if (!FLAGS_SET(mask, bit) && r == -EBUSY) /* You might wonder why we check for EBUSY
+                                                                           * only here, and not follow the same logic
+                                                                           * for other errors such as EINVAL or
+                                                                           * EOPNOTSUPP or anything else. That's
+                                                                           * because EBUSY indicates that the
+                                                                           * controllers is currently enabled and
+                                                                           * cannot be disabled because something down
+                                                                           * the hierarchy is still using it. Any other
+                                                                           * error most likely means something like "I
+                                                                           * never heard of this controller" or
+                                                                           * similar. In the former case it's hence
+                                                                           * safe to assume the controller is still on
+                                                                           * after the failed operation, while in the
+                                                                           * latter case it's safer to assume the
+                                                                           * controller is unknown and hence certainly
+                                                                           * not enabled. */
+                                        ret |= bit;
+                        } else {
+                                /* Otherwise, if we managed to turn on a controller, set the bit reflecting that. */
+                                if (FLAGS_SET(mask, bit))
+                                        ret |= bit;
                         }
                 }
         }
+
+        /* Let's return the precise set of controllers now enabled for the cgroup. */
+        if (ret_result_mask)
+                *ret_result_mask = ret;
 
         return 0;
 }

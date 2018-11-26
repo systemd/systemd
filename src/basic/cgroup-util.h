@@ -245,7 +245,7 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_m
 int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids, cg_migrate_callback_t callback, void *userdata);
 int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);
 int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root);
-int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p);
+int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p, CGroupMask *ret_result_mask);
 
 int cg_mask_supported(CGroupMask *ret);
 int cg_mask_from_string(const char *s, CGroupMask *ret);

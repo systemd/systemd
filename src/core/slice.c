@@ -330,7 +330,7 @@ static void slice_enumerate_perpetual(Manager *m) {
         assert(m);
 
         r = slice_make_perpetual(m, SPECIAL_ROOT_SLICE, &u);
-        if (r >= 0 && manager_owns_root_cgroup(m)) {
+        if (r >= 0 && manager_owns_host_root_cgroup(m)) {
                 Slice *s = SLICE(u);
 
                 /* If we are managing the root cgroup then this means our root slice covers the whole system, which

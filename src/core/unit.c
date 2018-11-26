@@ -570,6 +570,14 @@ void unit_free(Unit *u) {
         if (!u)
                 return;
 
+        if (UNIT_ISSET(u->slice)) {
+                /* A unit is being dropped from the tree, make sure our parent slice recalculates the member mask */
+                unit_invalidate_cgroup_members_masks(UNIT_DEREF(u->slice));
+
+                /* And make sure the parent is realized again, updating cgroup memberships */
+                unit_add_to_cgroup_realize_queue(UNIT_DEREF(u->slice));
+        }
+
         u->transient_file = safe_fclose(u->transient_file);
 
         if (!MANAGER_IS_RELOADING(u->manager))
@@ -1155,22 +1163,32 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 (void) cg_mask_to_string(u->cgroup_realized_mask, &s);
                 fprintf(f, "%s\tCGroup realized mask: %s\n", prefix, strnull(s));
         }
+
         if (u->cgroup_enabled_mask != 0) {
                 _cleanup_free_ char *s = NULL;
                 (void) cg_mask_to_string(u->cgroup_enabled_mask, &s);
                 fprintf(f, "%s\tCGroup enabled mask: %s\n", prefix, strnull(s));
         }
+
         m = unit_get_own_mask(u);
         if (m != 0) {
                 _cleanup_free_ char *s = NULL;
                 (void) cg_mask_to_string(m, &s);
                 fprintf(f, "%s\tCGroup own mask: %s\n", prefix, strnull(s));
         }
+
         m = unit_get_members_mask(u);
         if (m != 0) {
                 _cleanup_free_ char *s = NULL;
                 (void) cg_mask_to_string(m, &s);
                 fprintf(f, "%s\tCGroup members mask: %s\n", prefix, strnull(s));
+        }
+
+        m = unit_get_delegate_mask(u);
+        if (m != 0) {
+                _cleanup_free_ char *s = NULL;
+                (void) cg_mask_to_string(m, &s);
+                fprintf(f, "%s\tCGroup delegate mask: %s\n", prefix, strnull(s));
         }
 
         SET_FOREACH(t, u->names, i)
@@ -1537,7 +1555,8 @@ int unit_load(Unit *u) {
                 if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
                         log_unit_warning(u, "JobRunningTimeoutSec= is greater than JobTimeoutSec=, it has no effect.");
 
-                unit_update_cgroup_members_masks(u);
+                /* We finished loading, let's ensure our parents recalculate the members mask */
+                unit_invalidate_cgroup_members_masks(u);
         }
 
         assert((u->load_state != UNIT_MERGED) == !u->merged_into);

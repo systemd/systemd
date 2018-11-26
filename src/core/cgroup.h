@@ -137,8 +137,6 @@ void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix);
 
-CGroupMask cgroup_context_get_mask(CGroupContext *c);
-
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_io_device_weight(CGroupContext *c, CGroupIODeviceWeight *w);
 void cgroup_context_free_io_device_limit(CGroupContext *c, CGroupIODeviceLimit *l);
@@ -153,14 +151,12 @@ CGroupMask unit_get_delegate_mask(Unit *u);
 CGroupMask unit_get_members_mask(Unit *u);
 CGroupMask unit_get_siblings_mask(Unit *u);
 CGroupMask unit_get_subtree_mask(Unit *u);
-
 CGroupMask unit_get_target_mask(Unit *u);
 CGroupMask unit_get_enable_mask(Unit *u);
 
-bool unit_get_needs_bpf_firewall(Unit *u);
-CGroupMask unit_get_bpf_mask(Unit *u);
+void unit_invalidate_cgroup_members_masks(Unit *u);
 
-void unit_update_cgroup_members_masks(Unit *u);
+void unit_add_to_cgroup_realize_queue(Unit *u);
 
 const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask);
 char *unit_default_cgroup_path(Unit *u);
@@ -204,8 +200,8 @@ int unit_reset_ip_accounting(Unit *u);
         cc ? cc->name : false;                          \
         })
 
-bool manager_owns_root_cgroup(Manager *m);
-bool unit_has_root_cgroup(Unit *u);
+bool manager_owns_host_root_cgroup(Manager *m);
+bool unit_has_host_root_cgroup(Unit *u);
 
 int manager_notify_cgroup_empty(Manager *m, const char *group);
 
