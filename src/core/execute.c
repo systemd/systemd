@@ -544,6 +544,30 @@ static int setup_input(
         }
 }
 
+static bool can_inherit_stderr_from_stdout(
+                const ExecContext *context,
+                ExecOutput o,
+                ExecOutput e) {
+
+        assert(context);
+
+        /* Returns true, if given the specified STDERR and STDOUT output we can directly dup() the stdout fd to the
+         * stderr fd */
+
+        if (e == EXEC_OUTPUT_INHERIT)
+                return true;
+        if (e != o)
+                return false;
+
+        if (e == EXEC_OUTPUT_NAMED_FD)
+                return streq_ptr(context->stdio_fdname[STDOUT_FILENO], context->stdio_fdname[STDERR_FILENO]);
+
+        if (IN_SET(e, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND))
+                return streq_ptr(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
+
+        return true;
+}
+
 static int setup_output(
                 const Unit *unit,
                 const ExecContext *context,
@@ -602,7 +626,7 @@ static int setup_output(
                         return fileno;
 
                 /* Duplicate from stdout if possible */
-                if ((e == o && e != EXEC_OUTPUT_NAMED_FD) || e == EXEC_OUTPUT_INHERIT)
+                if (can_inherit_stderr_from_stdout(context, o, e))
                         return dup2(STDOUT_FILENO, fileno) < 0 ? -errno : fileno;
 
                 o = e;
@@ -693,7 +717,6 @@ static int setup_output(
                         flags |= O_APPEND;
 
                 fd = acquire_path(context->stdio_file[fileno], flags, 0666 & ~context->umask);
-
                 if (fd < 0)
                         return fd;
 
