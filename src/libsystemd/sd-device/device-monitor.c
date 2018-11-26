@@ -210,9 +210,11 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
                         return r;
         }
 
-        r = device_monitor_enable_receiving(m);
-        if (r < 0)
-                return r;
+        if (!m->bound) {
+                r = device_monitor_enable_receiving(m);
+                if (r < 0)
+                        return r;
+        }
 
         m->callback = callback;
         m->userdata = userdata;
@@ -246,7 +248,7 @@ _public_ int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *even
         else {
                 r = sd_event_default(&m->event);
                 if (r < 0)
-                        return 0;
+                        return r;
         }
 
         return 0;
@@ -269,15 +271,13 @@ int device_monitor_enable_receiving(sd_device_monitor *m) {
 
         assert_return(m, -EINVAL);
 
-        if (!m->filter_uptodate) {
-                r = sd_device_monitor_filter_update(m);
-                if (r < 0)
-                        return log_debug_errno(r, "sd-device-monitor: Failed to update filter: %m");
-        }
+        r = sd_device_monitor_filter_update(m);
+        if (r < 0)
+                return log_debug_errno(r, "sd-device-monitor: Failed to update filter: %m");
 
         if (!m->bound) {
                 if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
-                        return log_debug_errno(errno, "sd-device-monitor: Failed to bind monitoring socket to event source: %m");
+                        return log_debug_errno(errno, "sd-device-monitor: Failed to bind monitoring socket: %m");
 
                 m->bound = true;
         }
@@ -594,6 +594,9 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
         Iterator it;
 
         assert_return(m, -EINVAL);
+
+        if (m->filter_uptodate)
+                return 0;
 
         if (hashmap_isempty(m->subsystem_filter) &&
             set_isempty(m->tag_filter)) {

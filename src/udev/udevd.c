@@ -1616,9 +1616,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (!manager->ctrl)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize udev control socket");
 
-        r = udev_ctrl_enable_receiving(manager->ctrl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind udev control socket: %m");
+        if (fd_ctrl < 0) {
+                r = udev_ctrl_enable_receiving(manager->ctrl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind udev control socket: %m");
+        }
 
         fd_ctrl = udev_ctrl_get_fd(manager->ctrl);
         if (fd_ctrl < 0)
@@ -1628,7 +1630,8 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize device monitor: %m");
 
-        (void) sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
+        if (fd_uevent < 0)
+                (void) sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
