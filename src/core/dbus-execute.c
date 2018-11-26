@@ -1844,9 +1844,9 @@ int bus_exec_context_set_transient_property(
                                         c->std_error = EXEC_OUTPUT_FILE;
                                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=file:%s", s);
                                 } else {
-                                      assert(streq(name, "StandardErrorFileToAppend"));
-                                      c->std_error = EXEC_OUTPUT_FILE_APPEND;
-                                      unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=append:%s", s);
+                                        assert(streq(name, "StandardErrorFileToAppend"));
+                                        c->std_error = EXEC_OUTPUT_FILE_APPEND;
+                                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=append:%s", s);
                                 }
                         }
                 }
