@@ -25,6 +25,7 @@
 #include "glob-util.h"
 #include "libudev-util.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "stat-util.h"
@@ -466,11 +467,11 @@ static int add_token(struct udev_rules *rules, struct token *token) {
         return 0;
 }
 
-static void log_unknown_owner(int error, const char *entity, const char *owner) {
+static void log_unknown_owner(sd_device *dev, int error, const char *entity, const char *owner) {
         if (IN_SET(abs(error), ENOENT, ESRCH))
-                log_error("Specified %s '%s' unknown", entity, owner);
+                log_device_error(dev, "Specified %s '%s' unknown", entity, owner);
         else
-                log_error_errno(error, "Failed to resolve %s '%s': %m", entity, owner);
+                log_device_error_errno(dev, error, "Failed to resolve %s '%s': %m", entity, owner);
 }
 
 static uid_t add_uid(struct udev_rules *rules, const char *owner) {
@@ -489,7 +490,7 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
         }
         r = get_user_creds(&owner, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
-                log_unknown_owner(r, "user", owner);
+                log_unknown_owner(NULL, r, "user", owner);
 
         /* grow buffer if needed */
         if (rules->uids_cur+1 >= rules->uids_max) {
@@ -532,7 +533,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
         }
         r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
-                log_unknown_owner(r, "group", group);
+                log_unknown_owner(NULL, r, "group", group);
 
         /* grow buffer if needed */
         if (rules->gids_cur+1 >= rules->gids_max) {
@@ -1957,10 +1958,10 @@ int udev_rules_apply_to_event(
 
                         event->program_result = mfree(event->program_result);
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), program, sizeof(program), false);
-                        log_debug("PROGRAM '%s' %s:%u",
-                                  program,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "PROGRAM '%s' %s:%u",
+                                         program,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
 
                         if (udev_event_spawn(event, timeout_usec, true, program, result, sizeof(result)) < 0) {
                                 if (cur->key.op != OP_NOMATCH)
@@ -1972,7 +1973,7 @@ int udev_rules_apply_to_event(
                                 if (IN_SET(esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
                                         count = util_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
                                         if (count > 0)
-                                                log_debug("Replaced %i character(s)" , count);
+                                                log_device_debug(dev, "Replaced %i character(s) from result of '%s'" , count, program);
                                 }
                                 event->program_result = strdup(result);
                                 if (cur->key.op == OP_NOMATCH)
@@ -1993,10 +1994,10 @@ int udev_rules_apply_to_event(
                         char import[UTIL_PATH_SIZE];
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), import, sizeof(import), false);
-                        log_debug("IMPORT '%s' %s:%u",
-                                  import,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "IMPORT '%s' %s:%u",
+                                         import,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
 
                         if (import_program_into_properties(event, timeout_usec, import) != 0)
                                 if (cur->key.op != OP_NOMATCH)
@@ -2009,10 +2010,10 @@ int udev_rules_apply_to_event(
                         if (udev_builtin_run_once(cur->key.builtin_cmd)) {
                                 /* check if we ran already */
                                 if (event->builtin_run & (1 << cur->key.builtin_cmd)) {
-                                        log_debug("IMPORT builtin skip '%s' %s:%u",
-                                                  udev_builtin_name(cur->key.builtin_cmd),
-                                                  rules_str(rules, rule->rule.filename_off),
-                                                  rule->rule.filename_line);
+                                        log_device_debug(dev, "IMPORT builtin skip '%s' %s:%u",
+                                                         udev_builtin_name(cur->key.builtin_cmd),
+                                                         rules_str(rules, rule->rule.filename_off),
+                                                         rule->rule.filename_line);
                                         /* return the result from earlier run */
                                         if (event->builtin_ret & (1 << cur->key.builtin_cmd))
                                                 if (cur->key.op != OP_NOMATCH)
@@ -2024,16 +2025,16 @@ int udev_rules_apply_to_event(
                         }
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), command, sizeof(command), false);
-                        log_debug("IMPORT builtin '%s' %s:%u",
-                                  udev_builtin_name(cur->key.builtin_cmd),
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "IMPORT builtin '%s' %s:%u",
+                                         udev_builtin_name(cur->key.builtin_cmd),
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
 
                         r = udev_builtin_run(dev, cur->key.builtin_cmd, command, false);
                         if (r < 0) {
                                 /* remember failure */
-                                log_debug_errno(r, "IMPORT builtin '%s' fails: %m",
-                                                udev_builtin_name(cur->key.builtin_cmd));
+                                log_device_debug_errno(dev, r, "IMPORT builtin '%s' fails: %m",
+                                                       udev_builtin_name(cur->key.builtin_cmd));
                                 event->builtin_ret |= (1 << cur->key.builtin_cmd);
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
@@ -2059,7 +2060,7 @@ int udev_rules_apply_to_event(
                         key = rules_str(rules, cur->key.value_off);
                         r = proc_cmdline_get_key(key, PROC_CMDLINE_VALUE_OPTIONAL, &value);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to read %s from /proc/cmdline, ignoring: %m", key);
+                                log_device_debug_errno(dev, r, "Failed to read %s from /proc/cmdline, ignoring: %m", key);
                         else if (r > 0) {
                                 imported = true;
 
@@ -2118,13 +2119,13 @@ int udev_rules_apply_to_event(
                         event->owner_set = true;
                         r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
                         if (r < 0) {
-                                log_unknown_owner(r, "user", owner);
+                                log_unknown_owner(dev, r, "user", owner);
                                 event->uid = 0;
                         }
-                        log_debug("OWNER %u %s:%u",
-                                  event->uid,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "OWNER %u %s:%u",
+                                         event->uid,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
                         break;
                 }
                 case TK_A_GROUP: {
@@ -2139,35 +2140,35 @@ int udev_rules_apply_to_event(
                         event->group_set = true;
                         r = get_group_creds(&gr, &event->gid, USER_CREDS_ALLOW_MISSING);
                         if (r < 0) {
-                                log_unknown_owner(r, "group", group);
+                                log_unknown_owner(dev, r, "group", group);
                                 event->gid = 0;
                         }
-                        log_debug("GROUP %u %s:%u",
-                                  event->gid,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "GROUP %u %s:%u",
+                                         event->gid,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
                         break;
                 }
                 case TK_A_MODE: {
-                        char mode_str[UTIL_NAME_SIZE], *endptr;
+                        char mode_str[UTIL_NAME_SIZE];
                         mode_t mode;
 
                         if (event->mode_final)
                                 break;
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), mode_str, sizeof(mode_str), false);
-                        mode = strtol(mode_str, &endptr, 8);
-                        if (endptr[0] != '\0') {
-                                log_error("ignoring invalid mode '%s'", mode_str);
+                        r = parse_mode(mode_str, &mode);
+                        if (r < 0) {
+                                log_device_error_errno(dev, r, "Failed to parse mode '%s': %m", mode_str);
                                 break;
                         }
                         if (cur->key.op == OP_ASSIGN_FINAL)
                                 event->mode_final = true;
                         event->mode_set = true;
                         event->mode = mode;
-                        log_debug("MODE %#o %s:%u",
-                                  event->mode,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "MODE %#o %s:%u",
+                                         event->mode,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
                         break;
                 }
                 case TK_A_OWNER_ID:
@@ -2177,10 +2178,10 @@ int udev_rules_apply_to_event(
                                 event->owner_final = true;
                         event->owner_set = true;
                         event->uid = cur->key.uid;
-                        log_debug("OWNER %u %s:%u",
-                                  event->uid,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "OWNER %u %s:%u",
+                                         event->uid,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
                         break;
                 case TK_A_GROUP_ID:
                         if (event->group_final)
@@ -2189,10 +2190,10 @@ int udev_rules_apply_to_event(
                                 event->group_final = true;
                         event->group_set = true;
                         event->gid = cur->key.gid;
-                        log_debug("GROUP %u %s:%u",
-                                  event->gid,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "GROUP %u %s:%u",
+                                         event->gid,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
                         break;
                 case TK_A_MODE_ID:
                         if (event->mode_final)
@@ -2201,10 +2202,10 @@ int udev_rules_apply_to_event(
                                 event->mode_final = true;
                         event->mode_set = true;
                         event->mode = cur->key.mode;
-                        log_debug("MODE %#o %s:%u",
-                                  event->mode,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "MODE %#o %s:%u",
+                                         event->mode,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
                         break;
                 case TK_A_SECLABEL: {
                         _cleanup_free_ char *name = NULL, *label = NULL;
@@ -2235,10 +2236,10 @@ int udev_rules_apply_to_event(
 
                         name = label = NULL;
 
-                        log_debug("SECLABEL{%s}='%s' %s:%u",
-                                  name, label,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "SECLABEL{%s}='%s' %s:%u",
+                                         name, label,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
                         break;
                 }
                 case TK_A_ENV: {
@@ -2280,7 +2281,7 @@ int udev_rules_apply_to_event(
                                     (*p >= '0' && *p <= '9') ||
                                     IN_SET(*p, '-', '_'))
                                         continue;
-                                log_error("Ignoring invalid tag name '%s'", tag);
+                                log_device_error(dev, "Ignoring invalid tag name '%s'", tag);
                                 break;
                         }
                         if (cur->key.op == OP_REMOVE)
@@ -2303,24 +2304,24 @@ int udev_rules_apply_to_event(
                         if (IN_SET(esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
                                 count = util_replace_chars(name_str, "/");
                                 if (count > 0)
-                                        log_debug("Replaced %i character(s)", count);
+                                        log_device_debug(dev, "Replaced %i character(s) from result of NAME=\"%s\"", count, name);
                         }
                         if (sd_device_get_devnum(dev, NULL) >= 0 &&
                             (sd_device_get_devname(dev, &val) < 0 ||
                              !streq(name_str, val + STRLEN("/dev/")))) {
-                                log_error("NAME=\"%s\" ignored, kernel device nodes cannot be renamed; please fix it in %s:%u\n",
-                                          name,
-                                          rules_str(rules, rule->rule.filename_off),
-                                          rule->rule.filename_line);
+                                log_device_error(dev, "Kernel device nodes cannot be renamed, ignoring NAME=\"%s\"; please fix it in %s:%u\n",
+                                                 name,
+                                                 rules_str(rules, rule->rule.filename_off),
+                                                 rule->rule.filename_line);
                                 break;
                         }
                         if (free_and_strdup(&event->name, name_str) < 0)
                                 return log_oom();
 
-                        log_debug("NAME '%s' %s:%u",
-                                  event->name,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "NAME '%s' %s:%u",
+                                         event->name,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
                         break;
                 }
                 case TK_A_DEVLINK: {
@@ -2343,15 +2344,15 @@ int udev_rules_apply_to_event(
                         else if (esc == ESCAPE_REPLACE)
                                 count = util_replace_chars(temp, "/");
                         if (count > 0)
-                                log_debug("Replaced %i character(s)" , count);
+                                log_device_debug(dev, "Replaced %i character(s) from result of LINK" , count);
                         pos = temp;
                         while (isspace(pos[0]))
                                 pos++;
                         next = strchr(pos, ' ');
                         while (next) {
                                 next[0] = '\0';
-                                log_debug("LINK '%s' %s:%u", pos,
-                                          rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
+                                log_device_debug(dev, "LINK '%s' %s:%u", pos,
+                                                 rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
                                 strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
                                 device_add_devlink(dev, filename);
                                 while (isspace(next[1]))
@@ -2360,8 +2361,8 @@ int udev_rules_apply_to_event(
                                 next = strchr(pos, ' ');
                         }
                         if (pos[0] != '\0') {
-                                log_debug("LINK '%s' %s:%u", pos,
-                                          rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
+                                log_device_debug(dev, "LINK '%s' %s:%u", pos,
+                                                 rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
                                 strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
                                 device_add_devlink(dev, filename);
                         }
@@ -2379,14 +2380,14 @@ int udev_rules_apply_to_event(
                         attr_subst_subdir(attr, sizeof(attr));
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), value, sizeof(value), false);
-                        log_debug("ATTR '%s' writing '%s' %s:%u", attr, value,
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "ATTR '%s' writing '%s' %s:%u", attr, value,
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
                         f = fopen(attr, "we");
                         if (!f)
-                                log_error_errno(errno, "Failed to open ATTR{%s} for writing: %m", attr);
+                                log_device_error_errno(dev, errno, "Failed to open ATTR{%s} for writing: %m", attr);
                         else if (fprintf(f, "%s", value) <= 0)
-                                log_error_errno(errno, "Failed to write ATTR{%s}: %m", attr);
+                                log_device_error_errno(dev, errno, "Failed to write ATTR{%s}: %m", attr);
                         break;
                 }
                 case TK_A_SYSCTL: {
@@ -2395,11 +2396,11 @@ int udev_rules_apply_to_event(
                         udev_event_apply_format(event, rules_str(rules, cur->key.attr_off), filename, sizeof(filename), false);
                         sysctl_normalize(filename);
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), value, sizeof(value), false);
-                        log_debug("SYSCTL '%s' writing '%s' %s:%u", filename, value,
-                                  rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
+                        log_device_debug(dev, "SYSCTL '%s' writing '%s' %s:%u", filename, value,
+                                         rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
                         r = sysctl_write(filename, value);
                         if (r < 0)
-                                log_error_errno(r, "Failed to write SYSCTL{%s}='%s': %m", filename, value);
+                                log_device_error_errno(dev, r, "Failed to write SYSCTL{%s}='%s': %m", filename, value);
                         break;
                 }
                 case TK_A_RUN_BUILTIN:
@@ -2427,10 +2428,10 @@ int udev_rules_apply_to_event(
 
                         cmd = NULL;
 
-                        log_debug("RUN '%s' %s:%u",
-                                  rules_str(rules, cur->key.value_off),
-                                  rules_str(rules, rule->rule.filename_off),
-                                  rule->rule.filename_line);
+                        log_device_debug(dev, "RUN '%s' %s:%u",
+                                         rules_str(rules, cur->key.value_off),
+                                         rules_str(rules, rule->rule.filename_off),
+                                         rule->rule.filename_line);
                         break;
                 }
                 case TK_A_GOTO:
@@ -2445,7 +2446,7 @@ int udev_rules_apply_to_event(
                 case TK_M_PARENTS_MAX:
                 case TK_M_MAX:
                 case TK_UNSET:
-                        log_error("Wrong type %u", cur->type);
+                        log_device_error(dev, "Wrong type %u", cur->type);
                         goto nomatch;
                 }
 
