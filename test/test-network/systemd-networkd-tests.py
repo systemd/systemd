@@ -74,11 +74,15 @@ class Utilities():
     def copy_unit_to_networkd_unit_path(self, *units):
         for unit in units:
             shutil.copy(os.path.join(networkd_ci_path, unit), network_unit_file_path)
+            if (os.path.exists(os.path.join(networkd_ci_path, unit + '.d'))):
+                copytree(os.path.join(networkd_ci_path, unit + '.d'), os.path.join(network_unit_file_path, unit + '.d'))
 
     def remove_unit_from_networkd_path(self, units):
         for unit in units:
             if (os.path.exists(os.path.join(network_unit_file_path, unit))):
                 os.remove(os.path.join(network_unit_file_path, unit))
+                if (os.path.exists(os.path.join(network_unit_file_path, unit + '.d'))):
+                    shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
 
     def start_dnsmasq(self):
         subprocess.check_call('dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range=2600::10,2600::20 --dhcp-range=192.168.5.10,192.168.5.200 -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5', shell=True)
