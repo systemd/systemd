@@ -83,7 +83,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
         if (fd < 0) {
                 uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
                 if (uctrl->sock < 0) {
-                        log_error_errno(errno, "error getting socket: %m");
+                        log_error_errno(errno, "Failed to create socket: %m");
                         udev_ctrl_unref(uctrl);
                         return NULL;
                 }
@@ -98,7 +98,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
          */
         r = setsockopt_int(uctrl->sock, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                log_warning_errno(r, "could not set SO_PASSCRED: %m");
+                log_warning_errno(r, "Failed to set SO_PASSCRED: %m");
 
         uctrl->saddr.un = (struct sockaddr_un) {
                 .sun_family = AF_UNIX,
@@ -124,11 +124,11 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl) {
                 }
 
                 if (err < 0)
-                        return log_error_errno(errno, "bind failed: %m");
+                        return log_error_errno(errno, "Failed to bind socket: %m");
 
                 err = listen(uctrl->sock, 0);
                 if (err < 0)
-                        return log_error_errno(errno, "listen failed: %m");
+                        return log_error_errno(errno, "Failed to listen: %m");
 
                 uctrl->bound = true;
                 uctrl->cleanup_socket = true;
@@ -174,25 +174,25 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
         conn->sock = accept4(uctrl->sock, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
         if (conn->sock < 0) {
                 if (errno != EINTR)
-                        log_error_errno(errno, "unable to receive ctrl connection: %m");
+                        log_error_errno(errno, "Failed to receive ctrl connection: %m");
                 goto err;
         }
 
         /* check peer credential of connection */
         r = getpeercred(conn->sock, &ucred);
         if (r < 0) {
-                log_error_errno(r, "unable to receive credentials of ctrl connection: %m");
+                log_error_errno(r, "Failed to receive credentials of ctrl connection: %m");
                 goto err;
         }
         if (ucred.uid > 0) {
-                log_error("sender uid="UID_FMT", message ignored", ucred.uid);
+                log_error("Sender uid="UID_FMT", message ignored", ucred.uid);
                 goto err;
         }
 
         /* enable receiving of the sender credentials in the messages */
         r = setsockopt_int(conn->sock, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                log_warning_errno(r, "could not set SO_PASSCRED: %m");
+                log_warning_errno(r, "Failed to set SO_PASSCRED: %m");
 
         udev_ctrl_ref(uctrl);
         return conn;
@@ -332,11 +332,11 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
                                 continue;
                         goto err;
                 } else if (r == 0) {
-                        log_error("timeout waiting for ctrl message");
+                        log_error("Timeout waiting for ctrl message");
                         goto err;
                 } else {
                         if (!(pfd[0].revents & POLLIN)) {
-                                log_error_errno(errno, "ctrl connection error: %m");
+                                log_error("Invalid ctrl connection: %m");
                                 goto err;
                         }
                 }
@@ -348,8 +348,8 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
         iov.iov_len = sizeof(struct udev_ctrl_msg_wire);
 
         size = recvmsg(conn->sock, &smsg, 0);
-        if (size <  0) {
-                log_error_errno(errno, "unable to receive ctrl message: %m");
+        if (size < 0) {
+                log_error_errno(errno, "Failed to receive ctrl message: %m");
                 goto err;
         }
 
@@ -358,19 +358,19 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
         cmsg = CMSG_FIRSTHDR(&smsg);
 
         if (!cmsg || cmsg->cmsg_type != SCM_CREDENTIALS) {
-                log_error("no sender credentials received, message ignored");
+                log_error("No sender credentials received, ignoring message");
                 goto err;
         }
 
         cred = (struct ucred *) CMSG_DATA(cmsg);
 
         if (cred->uid != 0) {
-                log_error("sender uid="UID_FMT", message ignored", cred->uid);
+                log_error("Sender uid="UID_FMT", ignoring message", cred->uid);
                 goto err;
         }
 
         if (uctrl_msg->ctrl_msg_wire.magic != UDEV_CTRL_MAGIC) {
-                log_error("message magic 0x%08x doesn't match, ignore it", uctrl_msg->ctrl_msg_wire.magic);
+                log_error("Message magic 0x%08x doesn't match, ignoring", uctrl_msg->ctrl_msg_wire.magic);
                 goto err;
         }
 
