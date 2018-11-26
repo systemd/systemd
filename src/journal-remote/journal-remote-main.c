@@ -6,11 +6,13 @@
 #include "sd-daemon.h"
 
 #include "conf-parser.h"
+#include "daemon-util.h"
 #include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "journal-remote-write.h"
 #include "journal-remote.h"
+#include "main-func.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -24,24 +26,29 @@
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 
-static char* arg_url = NULL;
-static char* arg_getter = NULL;
-static char* arg_listen_raw = NULL;
-static char* arg_listen_http = NULL;
-static char* arg_listen_https = NULL;
-static char** arg_files = NULL;
+static const char* arg_url = NULL;
+static const char* arg_getter = NULL;
+static const char* arg_listen_raw = NULL;
+static const char* arg_listen_http = NULL;
+static const char* arg_listen_https = NULL;
+static char** arg_files = NULL; /* Do not free this. */
 static int arg_compress = true;
 static int arg_seal = false;
 static int http_socket = -1, https_socket = -1;
 static char** arg_gnutls_log = NULL;
 
 static JournalWriteSplitMode arg_split_mode = _JOURNAL_WRITE_SPLIT_INVALID;
-static char* arg_output = NULL;
+static const char* arg_output = NULL;
 
 static char *arg_key = NULL;
 static char *arg_cert = NULL;
 static char *arg_trust = NULL;
 static bool arg_trust_all = false;
+
+STATIC_DESTRUCTOR_REGISTER(arg_gnutls_log, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 
 static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {
         [JOURNAL_WRITE_SPLIT_NONE] = "none",
@@ -615,8 +622,7 @@ static int create_remoteserver(
         }
 
         if (arg_url) {
-                const char *url;
-                char *hostname;
+                const char *url, *hostname;
 
                 if (!strstr(arg_url, "/entries")) {
                         if (endswith(arg_url, "/"))
@@ -637,7 +643,7 @@ static int create_remoteserver(
 
                 hostname = strndupa(hostname, strcspn(hostname, "/:"));
 
-                r = journal_remote_add_source(s, fd, hostname, false);
+                r = journal_remote_add_source(s, fd, (char *) hostname, false);
                 if (r < 0)
                         return r;
         }
@@ -1061,10 +1067,11 @@ static int load_certificates(char **key, char **cert, char **trust) {
         return 0;
 }
 
-int main(int argc, char **argv) {
+static int run(int argc, char **argv) {
+        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
-        int r;
         _cleanup_free_ char *key = NULL, *cert = NULL, *trust = NULL;
+        int r;
 
         log_show_color(true);
         log_parse_environment();
@@ -1074,61 +1081,61 @@ int main(int argc, char **argv) {
 
         r = parse_config();
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+                return r;
 
         if (arg_listen_http || arg_listen_https) {
                 r = setup_gnutls_logger(arg_gnutls_log);
                 if (r < 0)
-                        return EXIT_FAILURE;
+                        return r;
         }
 
         if (arg_listen_https || https_socket >= 0) {
-                if (load_certificates(&key, &cert, &trust) < 0)
-                        return EXIT_FAILURE;
+                r = load_certificates(&key, &cert, &trust);
+                if (r < 0)
+                        return r;
+
                 s.check_trust = !arg_trust_all;
         }
 
-        if (create_remoteserver(&s, key, cert, trust) < 0)
-                return EXIT_FAILURE;
+        r = create_remoteserver(&s, key, cert, trust);
+        if (r < 0)
+                return r;
 
         r = sd_event_set_watchdog(s.events, true);
         if (r < 0)
-                log_error_errno(r, "Failed to enable watchdog: %m");
-        else
-                log_debug("Watchdog is %sd.", enable_disable(r > 0));
+                return log_error_errno(r, "Failed to enable watchdog: %m");
+
+        log_debug("Watchdog is %sd.", enable_disable(r > 0));
 
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid_cached());
-        sd_notify(false,
-                  "READY=1\n"
-                  "STATUS=Processing requests...");
+
+        notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
         while (s.active) {
                 r = sd_event_get_state(s.events);
                 if (r < 0)
-                        break;
+                        return r;
                 if (r == SD_EVENT_FINISHED)
                         break;
 
                 r = sd_event_run(s.events, -1);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to run event loop: %m");
-                        break;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run event loop: %m");
         }
 
-        sd_notifyf(false,
-                   "STOPPING=1\n"
-                   "STATUS=Shutting down after writing %" PRIu64 " entries...", s.event_count);
+        notify_message = NULL;
+        (void) sd_notifyf(false,
+                          "STOPPING=1\n"
+                          "STATUS=Shutting down after writing %" PRIu64 " entries...", s.event_count);
+
         log_info("Finishing after writing %" PRIu64 " entries", s.event_count);
 
-        free(arg_key);
-        free(arg_cert);
-        free(arg_trust);
-
-        return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
