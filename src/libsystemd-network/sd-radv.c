@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "icmp6-util.h"
@@ -114,7 +115,6 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv, sd_radv, radv_free);
 
 static int radv_send(sd_radv *ra, const struct in6_addr *dst,
                      const uint32_t router_lifetime) {
-        static const struct ether_addr mac_zero = {};
         sd_radv_prefix *p;
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
@@ -163,7 +163,7 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst,
 
         /* MAC address is optional, either because the link does not use L2
            addresses or load sharing is desired. See RFC 4861, Section 4.2 */
-        if (memcmp(&mac_zero, &ra->mac_addr, sizeof(mac_zero))) {
+        if (!ether_addr_is_null(&ra->mac_addr)) {
                 opt_mac.slladdr = ra->mac_addr;
                 iov[msg.msg_iovlen].iov_base = &opt_mac;
                 iov[msg.msg_iovlen].iov_len = sizeof(opt_mac);
