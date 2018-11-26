@@ -105,6 +105,7 @@ static int write_fsck_sysroot_service(const char *dir, const char *what) {
                 "BindsTo=%3$s\n"
                 "After=initrd-root-device.target local-fs-pre.target %3$s\n"
                 "Before=shutdown.target\n"
+                "Conflicts=shutdown.target\n"
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
