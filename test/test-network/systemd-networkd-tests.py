@@ -431,7 +431,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
              '25-route-section.network', '25-route-type.network', '25-route-tcp-window-settings.network',
              '25-route-gateway.network', '25-route-gateway-on-link.network',
              '25-address-link-section.network', '25-ipv6-address-label-section.network', '25-link-section-unmanaged.network',
-             '25-sysctl.network']
+             '25-sysctl.network', '25-route-reverse-order.network']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -518,6 +518,17 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.0.1')
         self.assertRegex(output, 'static')
         self.assertRegex(output, '192.168.0.0/24')
+
+    def test_ip_route_reverse(self):
+        self.copy_unit_to_networkd_unit_path('25-route-reverse-order.network', '12-dummy.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('dummy98'))
+
+        output = subprocess.check_output(['ip', '-6', 'route', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '2001:1234:5:8fff:ff:ff:ff:ff')
+        self.assertRegex(output, '2001:1234:5:8f63::1')
 
     def test_ip_route_blackhole_unreachable_prohibit(self):
         self.copy_unit_to_networkd_unit_path('25-route-type.network', '12-dummy.netdev')

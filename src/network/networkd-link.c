@@ -860,16 +860,30 @@ static int link_enter_set_routes(Link *link) {
 
         link_set_state(link, LINK_STATE_SETTING_ROUTES);
 
-        LIST_FOREACH(routes, rt, link->network->static_routes) {
-                r = route_configure(rt, link, route_handler);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not set routes: %m");
-                        link_enter_failed(link);
-                        return r;
+        /* First add the default route i.e. Gateway.*/
+        LIST_FOREACH(routes, rt, link->network->static_routes)
+                if (in_addr_is_null(rt->family, &rt->gw)) {
+                        r = route_configure(rt, link, route_handler);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Could not set routes: %m");
+                                link_enter_failed(link);
+                                return r;
+                        }
+
+                        link->route_messages++;
                 }
 
-                link->route_messages++;
-        }
+        LIST_FOREACH(routes, rt, link->network->static_routes)
+                if (!in_addr_is_null(rt->family, &rt->gw)) {
+                        r = route_configure(rt, link, route_handler);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Could not set routes: %m");
+                                link_enter_failed(link);
+                                return r;
+                        }
+
+                        link->route_messages++;
+                }
 
         if (link->route_messages == 0) {
                 link->static_routes_configured = true;
