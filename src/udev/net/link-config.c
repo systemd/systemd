@@ -370,7 +370,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (r < 0) {
 
                 if (config->port != _NET_DEV_PORT_INVALID)
-                        log_warning_errno(r,  "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
+                        log_warning_errno(r, "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
 
                 if (!eqzero(config->advertise))
                         log_warning_errno(r, "Could not set advertise mode: %m"); /* TODO: include modes in the log message. */

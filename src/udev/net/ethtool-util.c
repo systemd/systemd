@@ -574,7 +574,7 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
 
 /* If autonegotiation is disabled, the speed and duplex represent the fixed link
  * mode and are writable if the driver supports multiple link modes. If it is
- * enabled then they are read-only. If the link  is up they represent the negotiated
+ * enabled then they are read-only. If the link is up they represent the negotiated
  * link mode; if the link is down, the speed is 0, %SPEED_UNKNOWN or the highest
  * enabled speed and @duplex is %DUPLEX_UNKNOWN or the best enabled duplex mode.
  */
