@@ -65,9 +65,6 @@ int prioq_ensure_allocated(Prioq **q, compare_func_t compare_func) {
 }
 
 static void swap(Prioq *q, unsigned j, unsigned k) {
-        void *saved_data;
-        unsigned *saved_idx;
-
         assert(q);
         assert(j < q->n_items);
         assert(k < q->n_items);
@@ -75,12 +72,8 @@ static void swap(Prioq *q, unsigned j, unsigned k) {
         assert(!q->items[j].idx || *(q->items[j].idx) == j);
         assert(!q->items[k].idx || *(q->items[k].idx) == k);
 
-        saved_data = q->items[j].data;
-        saved_idx = q->items[j].idx;
-        q->items[j].data = q->items[k].data;
-        q->items[j].idx = q->items[k].idx;
-        q->items[k].data = saved_data;
-        q->items[k].idx = saved_idx;
+        SWAP_TWO(q->items[j].data, q->items[k].data);
+        SWAP_TWO(q->items[j].idx, q->items[k].idx);
 
         if (q->items[j].idx)
                 *q->items[j].idx = j;

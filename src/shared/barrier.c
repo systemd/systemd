@@ -151,8 +151,6 @@ void barrier_destroy(Barrier *b) {
  * this is currently not needed so it hasn't been implemented.
  */
 void barrier_set_role(Barrier *b, unsigned role) {
-        int fd;
-
         assert(b);
         assert(IN_SET(role, BARRIER_PARENT, BARRIER_CHILD));
         /* make sure this is only called once */
@@ -164,9 +162,7 @@ void barrier_set_role(Barrier *b, unsigned role) {
                 b->pipe[0] = safe_close(b->pipe[0]);
 
                 /* swap me/them for children */
-                fd = b->me;
-                b->me = b->them;
-                b->them = fd;
+                SWAP_TWO(b->me, b->them);
         }
 }
 
