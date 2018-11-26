@@ -100,6 +100,11 @@
           <row><entry><varname>gretap</varname></entry>
           <entry>A Level 2 GRE tunnel over IPv4.</entry></row>
 
+          <row><entry><varname>erspan</varname></entry>
+          <entry>ERSPAN mirrors traffic on one or more source ports and delivers the mirrored traffic to one or more destination ports on another switch.
+          The traffic is encapsulated in generic routing encapsulation (GRE) and is therefore routable across a layer 3 network between the source switch
+          and the destination switch.</entry></row>
+
           <row><entry><varname>ip6gre</varname></entry>
           <entry>A Level 3 GRE tunnel over IPv6.</entry></row>
 
@@ -917,6 +922,22 @@
           <para>Reconfigure the tunnel for <ulink url="https://tools.ietf.org/html/rfc5569">IPv6 Rapid
           Deployment</ulink>, also known as 6rd. The value is an ISP-specific IPv6 prefix with a non-zero length. Only
           applicable to SIT tunnels.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>SerializeTunneledPackets=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. If set to yes, then packets are serialized. Only applies for ERSPAN tunnel.
+          Defaults to unset.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ERSPANIndex=</varname></term>
+        <listitem>
+          <para>Specifies the ERSPAN index field for the interface, an integer in the range 1-1048575 associated with
+          the ERSPAN traffic's source port and direction. This field is mandatory.
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>

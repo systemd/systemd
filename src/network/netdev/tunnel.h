@@ -29,6 +29,7 @@ typedef struct Tunnel {
         int family;
         int ipv6_flowlabel;
         int allow_localremote;
+        int erspan_sequence;
 
         unsigned ttl;
         unsigned tos;
@@ -37,6 +38,7 @@ typedef struct Tunnel {
         uint32_t key;
         uint32_t ikey;
         uint32_t okey;
+        uint32_t erspan_index;
 
         union in_addr_union local;
         union in_addr_union remote;
@@ -65,6 +67,7 @@ DEFINE_NETDEV_CAST(SIT, Tunnel);
 DEFINE_NETDEV_CAST(VTI, Tunnel);
 DEFINE_NETDEV_CAST(VTI6, Tunnel);
 DEFINE_NETDEV_CAST(IP6TNL, Tunnel);
+DEFINE_NETDEV_CAST(ERSPAN, Tunnel);
 extern const NetDevVTable ipip_vtable;
 extern const NetDevVTable sit_vtable;
 extern const NetDevVTable vti_vtable;
@@ -74,6 +77,7 @@ extern const NetDevVTable gretap_vtable;
 extern const NetDevVTable ip6gre_vtable;
 extern const NetDevVTable ip6gretap_vtable;
 extern const NetDevVTable ip6tnl_vtable;
+extern const NetDevVTable erspan_vtable;
 
 const char *ip6tnl_mode_to_string(Ip6TnlMode d) _const_;
 Ip6TnlMode ip6tnl_mode_from_string(const char *d) _pure_;
