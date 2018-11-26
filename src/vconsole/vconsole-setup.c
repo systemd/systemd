@@ -149,7 +149,7 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
                 log_debug("Executing \"%s\"...", strnull(cmd));
         }
 
-        r = safe_fork("(loadkeys)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+        r = safe_fork("(loadkeys)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -192,7 +192,7 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
                 log_debug("Executing \"%s\"...", strnull(cmd));
         }
 
-        r = safe_fork("(setfont)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+        r = safe_fork("(setfont)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
