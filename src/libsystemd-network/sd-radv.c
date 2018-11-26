@@ -229,9 +229,8 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(ra->event);
 
         buflen = next_datagram_size_fd(fd);
-
-        if ((unsigned) buflen < sizeof(struct nd_router_solicit))
-                return log_radv("Too short packet received");
+        if (buflen < 0)
+                return (int) buflen;
 
         buf = new0(char, buflen);
         if (!buf)
@@ -261,6 +260,11 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         break;
                 }
 
+                return 0;
+        }
+
+        if ((size_t) buflen < sizeof(struct nd_router_solicit)) {
+                log_radv("Too short packet received");
                 return 0;
         }
 
