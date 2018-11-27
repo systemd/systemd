@@ -23,10 +23,11 @@
 #include "dns-domain.h"
 #include "event-util.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "random-util.h"
 #include "string-util.h"
-#include "util.h"
 #include "strv.h"
+#include "util.h"
 
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
@@ -1784,8 +1785,7 @@ static int client_receive_message_raw(
         if (!packet)
                 return -ENOMEM;
 
-        iov.iov_base = packet;
-        iov.iov_len = buflen;
+        iov = IOVEC_MAKE(packet, buflen);
 
         len = recvmsg(fd, &msg, 0);
         if (len < 0) {

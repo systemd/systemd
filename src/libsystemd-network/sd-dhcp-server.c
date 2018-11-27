@@ -12,6 +12,7 @@
 #include "dhcp-server-internal.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
+#include "io-util.h"
 #include "sd-id128.h"
 #include "siphash24.h"
 #include "string-util.h"
@@ -943,8 +944,7 @@ static int server_receive_message(sd_event_source *s, int fd,
         if (!message)
                 return -ENOMEM;
 
-        iov.iov_base = message;
-        iov.iov_len = buflen;
+        iov = IOVEC_MAKE(message, buflen);
 
         len = recvmsg(fd, &msg, 0);
         if (len < 0) {

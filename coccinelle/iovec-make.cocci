@@ -22,3 +22,8 @@ expression s;
 @@
 - IOVEC_MAKE(s, strlen(s));
 + IOVEC_MAKE_STRING(s);
+@@
+expression x, y, z;
+@@
+- x = (struct iovec) { .iov_base = y, .iov_len = z };
++ x = IOVEC_MAKE(y, z);

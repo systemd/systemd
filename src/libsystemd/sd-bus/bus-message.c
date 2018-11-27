@@ -554,8 +554,7 @@ int bus_message_from_malloc(
 
         m->n_iovec = 1;
         m->iovec = m->iovec_fixed;
-        m->iovec[0].iov_base = buffer;
-        m->iovec[0].iov_len = length;
+        m->iovec[0] = IOVEC_MAKE(buffer, length);
 
         r = bus_message_parse_fields(m);
         if (r < 0)

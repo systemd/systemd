@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "missing.h"
 #include "mount-util.h"
 #include "set.h"
@@ -541,10 +542,7 @@ int device_monitor_send_device(
         /* add properties list */
         nlh.properties_off = iov[0].iov_len;
         nlh.properties_len = blen;
-        iov[1] = (struct iovec) {
-                .iov_base = (char*) buf,
-                .iov_len = blen,
-        };
+        iov[1] = IOVEC_MAKE((char*) buf, blen);
 
         /*
          * Use custom address for target, or the default one.
