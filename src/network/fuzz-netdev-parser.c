@@ -11,6 +11,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(unlink_tempfilep) char netdev_config[] = "/tmp/fuzz-networkd.XXXXXX";
 
+        if (!getenv("SYSTEMD_LOG_LEVEL"))
+                log_set_max_level(LOG_CRIT);
+
         assert_se(fmkostemp_safe(netdev_config, "r+", &f) == 0);
         if (size != 0)
                 assert_se(fwrite(data, size, 1, f) == 1);
