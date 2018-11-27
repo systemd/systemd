@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "dbus-target.h"
+#include "dbus-unit.h"
 #include "log.h"
 #include "serialize.h"
 #include "special.h"
@@ -17,6 +18,9 @@ static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
 static void target_set_state(Target *t, TargetState state) {
         TargetState old_state;
         assert(t);
+
+        if (t->state != state)
+                bus_unit_send_pending_change_signal(UNIT(t), false);
 
         old_state = t->state;
         t->state = state;

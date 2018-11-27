@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "dbus-swap.h"
+#include "dbus-unit.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "device.h"
@@ -479,6 +480,9 @@ static void swap_set_state(Swap *s, SwapState state) {
         Swap *other;
 
         assert(s);
+
+        if (s->state != state)
+                bus_unit_send_pending_change_signal(UNIT(s), false);
 
         old_state = s->state;
         s->state = state;

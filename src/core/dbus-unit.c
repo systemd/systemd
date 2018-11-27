@@ -1202,6 +1202,27 @@ void bus_unit_send_change_signal(Unit *u) {
         u->sent_dbus_new_signal = true;
 }
 
+void bus_unit_send_pending_change_signal(Unit *u, bool including_new) {
+
+        /* Sends out any pending change signals, but only if they really are pending. This call is used when we are
+         * about to change state in order to force out a PropertiesChanged signal beforehand if there was one pending
+         * so that clients can follow the full state transition */
+
+        if (!u->in_dbus_queue) /* If not enqueued, don't bother */
+                return;
+
+        if (!u->sent_dbus_new_signal && !including_new) /* If the unit was never announced, don't bother, it's fine if
+                                                         * the unit appears in the new state right-away (except if the
+                                                         * caller explicitly asked us to send it anyway) */
+                return;
+
+        if (MANAGER_IS_RELOADING(u->manager)) /* Don't generate unnecessary PropertiesChanged signals for the same unit
+                                               * when we are reloading. */
+                return;
+
+        bus_unit_send_change_signal(u);
+}
+
 static int send_removed_signal(sd_bus *bus, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;

@@ -8,6 +8,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "dbus-path.h"
+#include "dbus-unit.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
@@ -409,6 +410,9 @@ static int path_watch(Path *p) {
 static void path_set_state(Path *p, PathState state) {
         PathState old_state;
         assert(p);
+
+        if (p->state != state)
+                bus_unit_send_pending_change_signal(UNIT(p), false);
 
         old_state = p->state;
         p->state = state;

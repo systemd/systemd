@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "dbus-slice.h"
+#include "dbus-unit.h"
 #include "log.h"
 #include "serialize.h"
 #include "slice.h"
@@ -28,6 +29,9 @@ static void slice_init(Unit *u) {
 static void slice_set_state(Slice *t, SliceState state) {
         SliceState old_state;
         assert(t);
+
+        if (t->state != state)
+                bus_unit_send_pending_change_signal(UNIT(t), false);
 
         old_state = t->state;
         t->state = state;

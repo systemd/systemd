@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "dbus-device.h"
+#include "dbus-unit.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "device.h"
@@ -114,6 +115,9 @@ static void device_done(Unit *u) {
 static void device_set_state(Device *d, DeviceState state) {
         DeviceState old_state;
         assert(d);
+
+        if (d->state != state)
+                bus_unit_send_pending_change_signal(UNIT(d), false);
 
         old_state = d->state;
         d->state = state;

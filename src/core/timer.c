@@ -6,6 +6,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "dbus-timer.h"
+#include "dbus-unit.h"
 #include "fs-util.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -246,6 +247,9 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
 static void timer_set_state(Timer *t, TimerState state) {
         TimerState old_state;
         assert(t);
+
+        if (t->state != state)
+                bus_unit_send_pending_change_signal(UNIT(t), false);
 
         old_state = t->state;
         t->state = state;
