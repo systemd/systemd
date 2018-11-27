@@ -6952,10 +6952,10 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                         assert(!path);
 
                         if (!arg_force) {
-                                log_error("Run 'systemctl edit%s --force %s' to create a new unit.",
-                                          arg_scope == UNIT_FILE_GLOBAL ? " --global" :
-                                          arg_scope == UNIT_FILE_USER ? " --user" : "",
-                                          *name);
+                                log_info("Run 'systemctl edit%s --force --full %s' to create a new unit.",
+                                         arg_scope == UNIT_FILE_GLOBAL ? " --global" :
+                                         arg_scope == UNIT_FILE_USER ? " --user" : "",
+                                         *name);
                                 return -ENOENT;
                         }
 
