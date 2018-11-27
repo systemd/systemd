@@ -6,6 +6,7 @@
 
 #include "generator.h"
 #include "log.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "string-util.h"
 #include "util.h"
@@ -41,32 +42,36 @@ static int add_symlink(const char *service, const char *where) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        int ret = EXIT_SUCCESS;
+static int run(int argc, char *argv[]) {
+        int r = 0, k = 0;
 
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
-        }
+        log_setup_generator();
+
+        if (argc > 1 && argc != 4)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes three or no arguments.");
 
         if (argc > 1)
                 arg_dest = argv[1];
 
-        log_setup_generator();
-
-        if (access(RC_LOCAL_SCRIPT_PATH_START, X_OK) >= 0) {
+        if (access(RC_LOCAL_SCRIPT_PATH_START, X_OK) < 0)
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                               RC_LOCAL_SCRIPT_PATH_START " is not executable: %m");
+        else {
                 log_debug("Automatically adding rc-local.service.");
 
-                if (add_symlink("rc-local.service", "multi-user.target") < 0)
-                        ret = EXIT_FAILURE;
+                r = add_symlink("rc-local.service", "multi-user.target");
         }
 
-        if (access(RC_LOCAL_SCRIPT_PATH_STOP, X_OK) >= 0) {
+        if (access(RC_LOCAL_SCRIPT_PATH_STOP, X_OK) < 0)
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                               RC_LOCAL_SCRIPT_PATH_STOP " is not executable: %m");
+        else {
                 log_debug("Automatically adding halt-local.service.");
 
-                if (add_symlink("halt-local.service", "final.target") < 0)
-                        ret = EXIT_FAILURE;
+                k = add_symlink("halt-local.service", "final.target");
         }
 
-        return ret;
+        return r < 0 ? r : k;
 }
+
+DEFINE_MAIN_FUNCTION(run);
