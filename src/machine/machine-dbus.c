@@ -23,6 +23,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "in-addr-util.h"
+#include "io-util.h"
 #include "local-addresses.h"
 #include "machine-dbus.h"
 #include "machine.h"
@@ -250,8 +251,8 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                                 .msg_iovlen = 2,
                         };
 
-                        iov[0] = (struct iovec) { .iov_base = &family, .iov_len = sizeof(family) };
-                        iov[1] = (struct iovec) { .iov_base = &in_addr, .iov_len = sizeof(in_addr) };
+                        iov[0] = IOVEC_MAKE(&family, sizeof(family));
+                        iov[1] = IOVEC_MAKE(&in_addr, sizeof(in_addr));
 
                         n = recvmsg(pair[0], &mh, 0);
                         if (n < 0)

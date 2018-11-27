@@ -17,6 +17,7 @@
 #include "fileio-label.h"
 #include "hostname-util.h"
 #include "io-util.h"
+#include "io-util.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "ordered-set.h"
@@ -24,8 +25,8 @@
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
-#include "resolved-dnssd.h"
 #include "resolved-dns-stub.h"
+#include "resolved-dnssd.h"
 #include "resolved-etc-hosts.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
@@ -752,20 +753,17 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         if (r < 0)
                 return r;
 
-        iov = (struct iovec) {
-                .iov_base = DNS_PACKET_DATA(p),
-                iov.iov_len = p->allocated,
-        };
+        iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->allocated);
 
         l = recvmsg(fd, &mh, 0);
-        if (l == 0)
-                return 0;
         if (l < 0) {
                 if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
 
                 return -errno;
         }
+        if (l == 0)
+                return 0;
 
         assert(!(mh.msg_flags & MSG_CTRUNC));
         assert(!(mh.msg_flags & MSG_TRUNC));
@@ -934,10 +932,7 @@ static int manager_ipv4_send(
         assert(port > 0);
         assert(p);
 
-        iov = (struct iovec) {
-                .iov_base = DNS_PACKET_DATA(p),
-                .iov_len = p->size,
-        };
+        iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->size);
 
         sa = (union sockaddr_union) {
                 .in.sin_family = AF_INET,
@@ -995,10 +990,7 @@ static int manager_ipv6_send(
         assert(port > 0);
         assert(p);
 
-        iov = (struct iovec) {
-                .iov_base = DNS_PACKET_DATA(p),
-                .iov_len = p->size,
-        };
+        iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->size);
 
         sa = (union sockaddr_union) {
                 .in6.sin6_family = AF_INET6,

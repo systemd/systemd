@@ -262,10 +262,13 @@ static int send_addrinfo_reply(
         if (ai)
                 freeaddrinfo(ai);
 
-        iov[0] = (struct iovec) { .iov_base = &resp, .iov_len = sizeof(AddrInfoResponse) };
-        iov[1] = (struct iovec) { .iov_base = &buffer, .iov_len = resp.header.length - sizeof(AddrInfoResponse) };
+        iov[0] = IOVEC_MAKE(&resp, sizeof(AddrInfoResponse));
+        iov[1] = IOVEC_MAKE(&buffer, resp.header.length - sizeof(AddrInfoResponse));
 
-        mh = (struct msghdr) { .msg_iov = iov, .msg_iovlen = ELEMENTSOF(iov) };
+        mh = (struct msghdr) {
+                .msg_iov = iov,
+                .msg_iovlen = ELEMENTSOF(iov)
+        };
 
         if (sendmsg(out_fd, &mh, MSG_NOSIGNAL) < 0)
                 return -errno;
@@ -303,11 +306,14 @@ static int send_nameinfo_reply(
                 ._h_errno = _h_errno,
         };
 
-        iov[0] = (struct iovec) { .iov_base = &resp, .iov_len = sizeof(NameInfoResponse) };
-        iov[1] = (struct iovec) { .iov_base = (void*) host, .iov_len = hl };
-        iov[2] = (struct iovec) { .iov_base = (void*) serv, .iov_len = sl };
+        iov[0] = IOVEC_MAKE(&resp, sizeof(NameInfoResponse));
+        iov[1] = IOVEC_MAKE((void*) host, hl);
+        iov[2] = IOVEC_MAKE((void*) serv, sl);
 
-        mh = (struct msghdr) { .msg_iov = iov, .msg_iovlen = ELEMENTSOF(iov) };
+        mh = (struct msghdr) {
+                .msg_iov = iov,
+                .msg_iovlen = ELEMENTSOF(iov)
+        };
 
         if (sendmsg(out_fd, &mh, MSG_NOSIGNAL) < 0)
                 return -errno;
@@ -951,11 +957,11 @@ _public_ int sd_resolve_getaddrinfo(
                 .ai_protocol = hints ? hints->ai_protocol : 0,
         };
 
-        iov[mh.msg_iovlen++] = (struct iovec) { .iov_base = &req, .iov_len = sizeof(AddrInfoRequest) };
+        iov[mh.msg_iovlen++] = IOVEC_MAKE(&req, sizeof(AddrInfoRequest));
         if (node)
-                iov[mh.msg_iovlen++] = (struct iovec) { .iov_base = (void*) node, .iov_len = req.node_len };
+                iov[mh.msg_iovlen++] = IOVEC_MAKE((void*) node, req.node_len);
         if (service)
-                iov[mh.msg_iovlen++] = (struct iovec) { .iov_base = (void*) service, .iov_len = req.service_len };
+                iov[mh.msg_iovlen++] = IOVEC_MAKE((void*) service, req.service_len);
         mh.msg_iov = iov;
 
         if (sendmsg(resolve->fds[REQUEST_SEND_FD], &mh, MSG_NOSIGNAL) < 0)
@@ -1023,10 +1029,13 @@ _public_ int sd_resolve_getnameinfo(
                 .getserv = !!(get & SD_RESOLVE_GET_SERVICE),
         };
 
-        iov[0] = (struct iovec) { .iov_base = &req, .iov_len = sizeof(NameInfoRequest) };
-        iov[1] = (struct iovec) { .iov_base = (void*) sa, .iov_len = salen };
+        iov[0] = IOVEC_MAKE(&req, sizeof(NameInfoRequest));
+        iov[1] = IOVEC_MAKE((void*) sa, salen);
 
-        mh = (struct msghdr) { .msg_iov = iov, .msg_iovlen = ELEMENTSOF(iov) };
+        mh = (struct msghdr) {
+                .msg_iov = iov,
+                .msg_iovlen = ELEMENTSOF(iov)
+        };
 
         if (sendmsg(resolve->fds[REQUEST_SEND_FD], &mh, MSG_NOSIGNAL) < 0)
                 return -errno;
