@@ -6297,9 +6297,9 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (carries_install_info == 0 && !ignore_carries_install_info)
-                log_warning("The unit files have no installation config (WantedBy, RequiredBy, Also, Alias\n"
-                            "settings in the [Install] section, and DefaultInstance for template units).\n"
-                            "This means they are not meant to be enabled using systemctl.\n"
+                log_warning("The unit files have no installation config (WantedBy=, RequiredBy=, Also=,\n"
+                            "Alias= settings in the [Install] section, and DefaultInstance= for template\n"
+                            "units). This means they are not meant to be enabled using systemctl.\n"
                             "Possible reasons for having this kind of units are:\n"
                             "1) A unit may be statically enabled by being symlinked from another unit's\n"
                             "   .wants/ or .requires/ directory.\n"
