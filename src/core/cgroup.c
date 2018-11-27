@@ -375,6 +375,26 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
         return 0;
 }
 
+static void cgroup_xattr_apply(Unit *u) {
+        char ids[SD_ID128_STRING_MAX];
+        int r;
+
+        assert(u);
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
+        if (sd_id128_is_null(u->invocation_id))
+                return;
+
+        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
+                         "trusted.invocation_id",
+                         sd_id128_to_string(u->invocation_id, ids), 32,
+                         0);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Failed to set invocation ID on control group %s, ignoring: %m", u->cgroup_path);
+}
+
 static int lookup_block_device(const char *p, dev_t *ret) {
         struct stat st = {};
         int r;
@@ -1597,7 +1617,8 @@ int unit_pick_cgroup_path(Unit *u) {
 static int unit_create_cgroup(
                 Unit *u,
                 CGroupMask target_mask,
-                CGroupMask enable_mask) {
+                CGroupMask enable_mask,
+                ManagerState state) {
 
         bool created;
         int r;
@@ -1664,6 +1685,10 @@ static int unit_create_cgroup(
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to migrate cgroup from to %s, ignoring: %m", u->cgroup_path);
         }
+
+        /* Set attributes */
+        cgroup_context_apply(u, target_mask, state);
+        cgroup_xattr_apply(u);
 
         return 0;
 }
@@ -1806,26 +1831,6 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         return r;
 }
 
-static void cgroup_xattr_apply(Unit *u) {
-        char ids[SD_ID128_STRING_MAX];
-        int r;
-
-        assert(u);
-
-        if (!MANAGER_IS_SYSTEM(u->manager))
-                return;
-
-        if (sd_id128_is_null(u->invocation_id))
-                return;
-
-        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
-                         "trusted.invocation_id",
-                         sd_id128_to_string(u->invocation_id, ids), 32,
-                         0);
-        if (r < 0)
-                log_unit_debug_errno(u, r, "Failed to set invocation ID on control group %s, ignoring: %m", u->cgroup_path);
-}
-
 static bool unit_has_mask_realized(
                 Unit *u,
                 CGroupMask target_mask,
@@ -1901,14 +1906,10 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
                         return r;
         }
 
-        /* And then do the real work */
-        r = unit_create_cgroup(u, target_mask, enable_mask);
+        /* Now actually deal with the cgroup we were trying to realise and set attributes */
+        r = unit_create_cgroup(u, target_mask, enable_mask, state);
         if (r < 0)
                 return r;
-
-        /* Finally, apply the necessary attributes. */
-        cgroup_context_apply(u, target_mask, state);
-        cgroup_xattr_apply(u);
 
         /* Now, reset the invalidation mask */
         u->cgroup_invalidated_mask = 0;
