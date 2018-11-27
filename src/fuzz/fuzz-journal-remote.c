@@ -29,6 +29,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size <= 2)
                 return 0;
 
+        if (!getenv("SYSTEMD_LOG_LEVEL"))
+                log_set_max_level(LOG_CRIT);
+
         assert_se((fdin = memfd_new_and_map("fuzz-journal-remote", size, &mem)) >= 0);
         memcpy(mem, data, size);
         assert_se(munmap(mem, size) == 0);
