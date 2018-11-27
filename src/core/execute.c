@@ -2762,6 +2762,37 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
 
 static char *exec_command_line(char **argv);
 
+static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **ret) {
+        bool using_subcgroup;
+        char *p;
+
+        assert(params);
+        assert(ret);
+
+        if (!params->cgroup_path)
+                return -EINVAL;
+
+        /* If we are called for a unit where cgroup delegation is on, and the payload created its own populated
+         * subcgroup (which we expect it to do, after all it asked for delegation), then we cannot place the control
+         * processes started after the main unit's process in the unit's main cgroup because it is now an inner one,
+         * and inner cgroups may not contain processes. Hence, if delegation is on, and this is a control process,
+         * let's use ".control" as subcgroup instead. Note that we do so only for ExecStartPost=, ExecReload=,
+         * ExecStop=, ExecStopPost=, i.e. for the commands where the main process is already forked. For ExecStartPre=
+         * this is not necessary, the cgroup is still empty. We distinguish these cases with the EXEC_CONTROL_CGROUP
+         * flag, which is only passed for the former statements, not for the latter. */
+
+        using_subcgroup = FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP|EXEC_CGROUP_DELEGATE|EXEC_IS_CONTROL);
+        if (using_subcgroup)
+                p = strjoin(params->cgroup_path, "/.control");
+        else
+                p = strdup(params->cgroup_path);
+        if (!p)
+                return -ENOMEM;
+
+        *ret = p;
+        return using_subcgroup;
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -2994,10 +3025,18 @@ static int exec_child(
         }
 
         if (params->cgroup_path) {
-                r = cg_attach_everywhere(params->cgroup_supported, params->cgroup_path, 0, NULL, NULL);
+                _cleanup_free_ char *p = NULL;
+
+                r = exec_parameters_get_cgroup_path(params, &p);
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
-                        return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", params->cgroup_path);
+                        return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
+                }
+
+                r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
+                if (r < 0) {
+                        *exit_status = EXIT_CGROUP;
+                        return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", p);
                 }
         }
 
@@ -3569,6 +3608,7 @@ int exec_spawn(Unit *unit,
                pid_t *ret) {
 
         int socket_fd, r, named_iofds[3] = { -1, -1, -1 }, *fds = NULL;
+        _cleanup_free_ char *subcgroup_path = NULL;
         _cleanup_strv_free_ char **files_env = NULL;
         size_t n_storage_fds = 0, n_socket_fds = 0;
         _cleanup_free_ char *line = NULL;
@@ -3621,6 +3661,17 @@ int exec_spawn(Unit *unit,
                    LOG_UNIT_ID(unit),
                    LOG_UNIT_INVOCATION_ID(unit));
 
+        if (params->cgroup_path) {
+                r = exec_parameters_get_cgroup_path(params, &subcgroup_path);
+                if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to acquire subcgroup path: %m");
+                if (r > 0) { /* We are using a child cgroup */
+                        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path);
+                        if (r < 0)
+                                return log_unit_error_errno(unit, r, "Failed to create control group '%s': %m", subcgroup_path);
+                }
+        }
+
         pid = fork();
         if (pid < 0)
                 return log_unit_error_errno(unit, errno, "Failed to fork: %m");
@@ -3658,13 +3709,11 @@ int exec_spawn(Unit *unit,
 
         log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
 
-        /* We add the new process to the cgroup both in the child (so
-         * that we can be sure that no user code is ever executed
-         * outside of the cgroup) and in the parent (so that we can be
-         * sure that when we kill the cgroup the process will be
-         * killed too). */
-        if (params->cgroup_path)
-                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, pid);
+        /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
+         * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
+         * process will be killed too). */
+        if (subcgroup_path)
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pid);
 
         exec_status_start(&command->exec_status, pid);
 

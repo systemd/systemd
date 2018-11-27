@@ -244,6 +244,19 @@ So, if you want to do your own raw cgroups kernel level access, then allocate a
 scope unit, or a service unit (or just use the service unit you already have
 for your service code), and turn on delegation for it.
 
+(OK, here's one caveat: if you turn on delegation for a service, and that
+service has `ExecStartPost=`, `ExecReload=`, `ExecStop=` or `ExecStopPost=`
+set, then these commands will be executed within the `.control/` sub-cgroup of
+your service's cgroup. This is necessary because by turning on delegation we
+have to assume that the cgroup delegated to your service is now an *inner*
+cgroup, which means that it may not directly contain any processes. Hence, if
+your service has any of these four settings set, you must be prepared that a
+`.control/` subcgroup might appear, managed by the service manager. This also
+means that your service code should have moved itself further down the cgroup
+tree by the time it notifies the service manager about start-up readiness, so
+that the service's main cgroup is definitely an inner node by the time the
+service manager might start `ExecStartPost=`.)
+
 ## Three Scenarios
 
 Let's say you write a container manager, and you wonder what to do regarding
