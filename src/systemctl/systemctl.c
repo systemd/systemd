@@ -2415,7 +2415,7 @@ static void warn_unit_file_changed(const char *name) {
                     arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
 }
 
-static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **unit_path) {
+static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **ret_unit_path) {
         char **p;
 
         assert(lp);
@@ -2437,8 +2437,8 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
                 if (r < 0)
                         return log_error_errno(r, "Failed to access path \"%s\": %m", path);
 
-                if (unit_path)
-                        *unit_path = TAKE_PTR(lpath);
+                if (ret_unit_path)
+                        *ret_unit_path = TAKE_PTR(lpath);
 
                 return 1;
         }
