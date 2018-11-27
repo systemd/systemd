@@ -58,6 +58,7 @@
     <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
     <command>nss-mymachines</command> correctly:</para>
 
+    <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
     <programlisting>passwd:         compat <command>mymachines</command> systemd
 group:          compat <command>mymachines</command> systemd
 shadow:         compat
