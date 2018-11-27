@@ -222,7 +222,7 @@
         <term><varname>ARP=</varname></term>
         <listitem>
           <para>A boolean. Enables or disables the ARP (low-level Address Resolution Protocol)
-          for this interface. Defaults to unset, which means that the kernel default will be used.</para>
+          for this interface. When unset, the kernel's default will be used.</para>
           <para> For example, disabling ARP is useful when creating multiple MACVLAN or VLAN virtual
           interfaces atop a single lower-level physical interface, which will then only serve as a
           link/"bridge" device aggregating traffic to the same physical link and not participate in
@@ -626,7 +626,7 @@
         <varlistentry>
           <term><varname>IPv6DuplicateAddressDetection=</varname></term>
           <listitem><para>Configures the amount of IPv6 Duplicate
-          Address Detection (DAD) probes to send. Defaults to unset.
+          Address Detection (DAD) probes to send. When unset, the kernel's default will be used.
         </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -634,7 +634,7 @@
           <listitem><para>Configures IPv6 Hop Limit. For each router that
           forwards the packet, the hop limit is decremented by 1. When the
           hop limit field reaches zero, the packet is discarded.
-          Defaults to unset.
+          When unset, the kernel's default will be used.
         </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -643,7 +643,7 @@
           usually a router, answers ARP requests intended for another machine. By "faking" its identity,
           the router accepts responsibility for routing packets to the "real" destination. (see <ulink
           url="https://tools.ietf.org/html/rfc1027">RFC 1027</ulink>.
-          Defaults to unset.
+          When unset, the kernel's default will be used.
         </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -658,7 +658,7 @@
           which can also be shown by <command>ip -6 neighbour show proxy</command>.
           systemd-networkd will control the per-interface `proxy_ndp` switch for each configured
           interface depending on this option.
-          Defautls to unset.
+          When unset, the kernel's default will be used.
         </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -667,7 +667,7 @@
           proxied. This option may be specified more than once. systemd-networkd will add the
           <option>IPv6ProxyNDPAddress=</option> entries to the kernel's IPv6 neighbor proxy table.
           This option implies <option>IPv6ProxyNDP=yes</option> but has no effect if
-          <option>IPv6ProxyNDP</option> has been set to false. Defaults to unset.
+          <option>IPv6ProxyNDP</option> has been set to false. When unset, the kernel's default will be used.
         </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -688,7 +688,7 @@
         <varlistentry>
           <term><varname>IPv6MTUBytes=</varname></term>
           <listitem><para>Configures IPv6 maximum transmission unit (MTU).
-          An integer greater than or equal to 1280 bytes. Defaults to unset.
+          An integer greater than or equal to 1280 bytes. When unset, the kernel's default will be used.
           </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -1102,7 +1102,7 @@
             <para>The TCP initial congestion window is used during the start of a TCP connection. During the start of a TCP
             session, when a client requests a resource, the server's initial congestion window determines how many data bytes
             will be sent during the initial burst of data. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual
-            suffixes K, M, G are supported and are understood to the base of 1024. Defaults to unset.
+            suffixes K, M, G are supported and are understood to the base of 1024. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
@@ -1112,14 +1112,14 @@
             <para>The TCP initial advertised receive window is the amount of receive data (in bytes) that can initally be buffered at one time
             on a connection. The sending host can send only that amount of data before waiting for an acknowledgment and window update
             from the receiving host. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual suffixes K, M, G are supported
-            and are understood to the base of 1024. Defaults to unset.
+            and are understood to the base of 1024. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>QuickAck=</varname></term>
           <listitem>
-            <para>Takes a boolean argument. When true enables TCP quick ack mode for the route. Defaults to unset.
+            <para>Takes a boolean argument. When true enables TCP quick ack mode for the route. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
@@ -1584,8 +1584,7 @@
 
         <listitem><para>Configures the IPv6 router lifetime in seconds. If set,
         this host also announces itself in Router Advertisements as an IPv6
-        router for the network link. Defaults to unset, which means the host is
-        not acting as a router.</para>
+        router for the network link. When unset, the host is not acting as a router.</para>
         </listitem>
       </varlistentry>
 
@@ -1701,7 +1700,7 @@
           <listitem>
             <para>A boolean. Controls whether the bridge should flood
             traffic for which an FDB entry is missing and the destination
-            is unknown through this port. Defaults to unset.
+            is unknown through this port. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
@@ -1709,16 +1708,16 @@
           <term><varname>HairPin=</varname></term>
           <listitem>
             <para>A boolean. Configures whether traffic may be sent back
-            out of the port on which it was received. Defaults to unset. When this
-            flag is false, and the bridge will not forward traffic back
-            out of the receiving port.</para>
+            out of the port on which it was received. When this flag is false, and the bridge
+            will not forward traffic back out of the receiving port.
+            When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>UseBPDU=</varname></term>
           <listitem>
             <para>A boolean. Configures whether STP Bridge Protocol Data Units will be
-            processed by the bridge port. Defaults to unset.</para>
+            processed by the bridge port. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1726,7 +1725,7 @@
           <listitem>
             <para>A boolean. This flag allows the bridge to immediately stop multicast
             traffic on a port that receives an IGMP Leave message. It is only used with
-            IGMP snooping if enabled on the bridge. Defaults to unset.</para>
+            IGMP snooping if enabled on the bridge. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1734,7 +1733,7 @@
           <listitem>
             <para>A boolean. Configures whether a given port is allowed to
             become a root port. Only used when STP is enabled on the bridge.
-            Defaults to unset.</para>
+            When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

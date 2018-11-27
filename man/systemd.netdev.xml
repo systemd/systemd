@@ -372,7 +372,7 @@
             If enabled, the kernel will send general ICMP queries from a zero source address.
             This feature should allow faster convergence on startup, but it causes some
             multicast-aware switches to misbehave and disrupt forwarding of multicast packets.
-            When unset, the kernel's default setting applies.
+            When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
@@ -381,7 +381,7 @@
           <listitem>
             <para>A boolean. This setting controls the IFLA_BR_MCAST_SNOOPING option in the kernel.
             If enabled, IGMP snooping monitors the Internet Group Management Protocol (IGMP) traffic
-            between hosts and multicast routers. When unset, the kernel's default setting applies.
+            between hosts and multicast routers. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
@@ -389,16 +389,15 @@
           <term><varname>VLANFiltering=</varname></term>
           <listitem>
             <para>A boolean. This setting controls the IFLA_BR_VLAN_FILTERING option in the kernel.
-            If enabled, the bridge will be started in VLAN-filtering mode. When unset, the kernel's
-            default setting applies.
+            If enabled, the bridge will be started in VLAN-filtering mode. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
           <varlistentry>
           <term><varname>STP=</varname></term>
           <listitem>
-            <para>A boolean. This enables the bridge's Spanning Tree Protocol (STP). When unset,
-            the kernel's default setting applies.
+            <para>A boolean. This enables the bridge's Spanning Tree Protocol (STP).
+            When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
@@ -424,8 +423,9 @@
           <term><varname>GVRP=</varname></term>
           <listitem>
             <para>The Generic VLAN Registration Protocol (GVRP) is a protocol that
-            allows automatic learning of VLANs on a network. A boolean. When unset,
-            the kernel's default setting applies.</para>
+            allows automatic learning of VLANs on a network. A boolean.
+            When unset, the kernel's default will be used.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -434,8 +434,8 @@
             <para>Multiple VLAN Registration Protocol (MVRP) formerly known as GARP VLAN
             Registration Protocol (GVRP) is a standards-based Layer 2 network protocol,
             for automatic configuration of VLAN information on switches. It was defined
-            in the 802.1ak amendment to 802.1Q-2005. A boolean. When unset, the kernel's
-            default setting applies.</para>
+            in the 802.1ak amendment to 802.1Q-2005. A boolean. When unset, the kernel's default will be used.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -443,14 +443,14 @@
           <listitem>
             <para>The VLAN loose binding mode, in which only the operational state is passed
             from the parent to the associated VLANs, but the VLAN device state is not changed.
-            A boolean. When unset, the kernel's default setting applies.</para>
+            A boolean. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>ReorderHeader=</varname></term>
           <listitem>
             <para>The VLAN reorder header is set VLAN interfaces behave like physical interfaces.
-            A boolean. When unset, the kernel's default setting applies.</para>
+            A boolean. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -884,7 +884,7 @@
         <term><varname>AllowLocalRemote=</varname></term>
         <listitem>
           <para>A boolean. When true allows tunnel traffic on <varname>ip6tnl</varname> devices where the remote endpoint is a local host address.
-          Defaults to unset.
+          When unset, the kernel's default will be used.
           </para>
         </listitem>
       </varlistentry>
@@ -928,7 +928,7 @@
         <term><varname>SerializeTunneledPackets=</varname></term>
         <listitem>
           <para>Takes a boolean value. If set to yes, then packets are serialized. Only applies for ERSPAN tunnel.
-          Defaults to unset.
+          When unset, the kernel's default will be used.
           </para>
         </listitem>
       </varlistentry>
