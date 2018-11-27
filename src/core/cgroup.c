@@ -1416,6 +1416,31 @@ CGroupMask unit_get_siblings_mask(Unit *u) {
         return unit_get_subtree_mask(u); /* we are the top-level slice */
 }
 
+CGroupMask unit_get_disable_mask(Unit *u) {
+        CGroupContext *c;
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return 0;
+
+        return c->disable_controllers;
+}
+
+CGroupMask unit_get_ancestor_disable_mask(Unit *u) {
+        CGroupMask mask;
+
+        assert(u);
+        mask = unit_get_disable_mask(u);
+
+        /* Returns the mask of controllers which are marked as forcibly
+         * disabled in any ancestor unit or the unit in question. */
+
+        if (UNIT_ISSET(u->slice))
+                mask |= unit_get_ancestor_disable_mask(UNIT_DEREF(u->slice));
+
+        return mask;
+}
+
 CGroupMask unit_get_subtree_mask(Unit *u) {
 
         /* Returns the mask of this subtree, meaning of the group
@@ -1859,6 +1884,23 @@ static bool unit_has_mask_realized(
                 u->cgroup_invalidated_mask == 0;
 }
 
+static bool unit_has_mask_disables_realized(
+                Unit *u,
+                CGroupMask target_mask,
+                CGroupMask enable_mask) {
+
+        assert(u);
+
+        /* Returns true if all controllers which should be disabled are indeed disabled.
+         *
+         * Unlike unit_has_mask_realized, we don't care what was enabled, only that anything we want to remove is
+         * already removed. */
+
+        return !u->cgroup_realized ||
+                (FLAGS_SET(u->cgroup_realized_mask, target_mask & CGROUP_MASK_V1) &&
+                 FLAGS_SET(u->cgroup_enabled_mask, enable_mask & CGROUP_MASK_V2));
+}
+
 static bool unit_has_mask_enables_realized(
                 Unit *u,
                 CGroupMask target_mask,
@@ -1930,6 +1972,54 @@ static int unit_realize_cgroup_now_enable(Unit *u, ManagerState state) {
         return 0;
 }
 
+/* Controllers can only be disabled depth-first, from the leaves of the
+ * hierarchy upwards to the unit in question. */
+static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
+        Iterator i;
+        Unit *m;
+        void *v;
+
+        assert(u);
+
+        if (u->type != UNIT_SLICE)
+                return 0;
+
+        HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE], i) {
+                CGroupMask target_mask, enable_mask, new_target_mask, new_enable_mask;
+                int r;
+
+                if (UNIT_DEREF(m->slice) != u)
+                        continue;
+
+                /* The cgroup for this unit might not actually be fully
+                 * realised yet, in which case it isn't holding any controllers
+                 * open anyway. */
+                if (!m->cgroup_path)
+                        continue;
+
+                /* We must disable those below us first in order to release the
+                 * controller. */
+                if (m->type == UNIT_SLICE)
+                        (void) unit_realize_cgroup_now_disable(m, state);
+
+                target_mask = unit_get_target_mask(m);
+                enable_mask = unit_get_enable_mask(m);
+
+                /* We can only disable in this direction, don't try to enable
+                 * anything. */
+                if (unit_has_mask_disables_realized(m, target_mask, enable_mask))
+                        continue;
+
+                new_target_mask = m->cgroup_realized_mask & target_mask;
+                new_enable_mask = m->cgroup_enabled_mask & enable_mask;
+
+                r = unit_create_cgroup(m, new_target_mask, new_enable_mask, state);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
 
 /* Check if necessary controllers and attributes for a unit are in place.
  *
@@ -1989,7 +2079,12 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         if (unit_has_mask_realized(u, target_mask, enable_mask))
                 return 0;
 
-        /* Enable controllers above us */
+        /* Disable controllers below us, if there are any */
+        r = unit_realize_cgroup_now_disable(u, state);
+        if (r < 0)
+                return r;
+
+        /* Enable controllers above us, if there are any */
         if (UNIT_ISSET(u->slice)) {
                 r = unit_realize_cgroup_now_enable(UNIT_DEREF(u->slice), state);
                 if (r < 0)
