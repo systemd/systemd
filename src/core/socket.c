@@ -468,9 +468,7 @@ static int socket_verify(Socket *s) {
         return 0;
 }
 
-static void peer_address_hash_func(const void *p, struct siphash *state) {
-        const SocketPeer *s = p;
-
+static void peer_address_hash_func(const SocketPeer *s, struct siphash *state) {
         assert(s);
 
         if (s->peer.sa.sa_family == AF_INET)
@@ -483,8 +481,7 @@ static void peer_address_hash_func(const void *p, struct siphash *state) {
                 assert_not_reached("Unknown address family.");
 }
 
-static int peer_address_compare_func(const void *a, const void *b) {
-        const SocketPeer *x = a, *y = b;
+static int peer_address_compare_func(const SocketPeer *x, const SocketPeer *y) {
         int r;
 
         r = CMP(x->peer.sa.sa_family, y->peer.sa.sa_family);
@@ -502,10 +499,7 @@ static int peer_address_compare_func(const void *a, const void *b) {
         assert_not_reached("Black sheep in the family!");
 }
 
-const struct hash_ops peer_address_hash_ops = {
-        .hash = peer_address_hash_func,
-        .compare = peer_address_compare_func
-};
+DEFINE_PRIVATE_HASH_OPS(peer_address_hash_ops, SocketPeer, peer_address_hash_func, peer_address_compare_func);
 
 static int socket_load(Unit *u) {
         Socket *s = SOCKET(u);

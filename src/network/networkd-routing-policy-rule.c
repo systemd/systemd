@@ -56,9 +56,7 @@ void routing_policy_rule_free(RoutingPolicyRule *rule) {
         free(rule);
 }
 
-static void routing_policy_rule_hash_func(const void *b, struct siphash *state) {
-        const RoutingPolicyRule *rule = b;
-
+static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
         assert(rule);
 
         siphash24_compress(&rule->family, sizeof(rule->family), state);
@@ -94,8 +92,7 @@ static void routing_policy_rule_hash_func(const void *b, struct siphash *state) 
         }
 }
 
-static int routing_policy_rule_compare_func(const void *_a, const void *_b) {
-        const RoutingPolicyRule *a = _a, *b = _b;
+static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
         int r;
 
         r = CMP(a->family, b->family);
@@ -157,10 +154,7 @@ static int routing_policy_rule_compare_func(const void *_a, const void *_b) {
         }
 }
 
-const struct hash_ops routing_policy_rule_hash_ops = {
-        .hash = routing_policy_rule_hash_func,
-        .compare = routing_policy_rule_compare_func
-};
+DEFINE_PRIVATE_HASH_OPS(routing_policy_rule_hash_ops, RoutingPolicyRule, routing_policy_rule_hash_func, routing_policy_rule_compare_func);
 
 int routing_policy_rule_get(Manager *m,
                             int family,

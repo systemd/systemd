@@ -322,22 +322,15 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static void ndisc_rdnss_hash_func(const void *p, struct siphash *state) {
-        const NDiscRDNSS *x = p;
-
+static void ndisc_rdnss_hash_func(const NDiscRDNSS *x, struct siphash *state) {
         siphash24_compress(&x->address, sizeof(x->address), state);
 }
 
-static int ndisc_rdnss_compare_func(const void *_a, const void *_b) {
-        const NDiscRDNSS *a = _a, *b = _b;
-
+static int ndisc_rdnss_compare_func(const NDiscRDNSS *a, const NDiscRDNSS *b) {
         return memcmp(&a->address, &b->address, sizeof(a->address));
 }
 
-static const struct hash_ops ndisc_rdnss_hash_ops = {
-        .hash = ndisc_rdnss_hash_func,
-        .compare = ndisc_rdnss_compare_func
-};
+DEFINE_PRIVATE_HASH_OPS(ndisc_rdnss_hash_ops, NDiscRDNSS, ndisc_rdnss_hash_func, ndisc_rdnss_compare_func);
 
 static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         uint32_t lifetime;
@@ -411,22 +404,15 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static void ndisc_dnssl_hash_func(const void *p, struct siphash *state) {
-        const NDiscDNSSL *x = p;
-
+static void ndisc_dnssl_hash_func(const NDiscDNSSL *x, struct siphash *state) {
         siphash24_compress(NDISC_DNSSL_DOMAIN(x), strlen(NDISC_DNSSL_DOMAIN(x)), state);
 }
 
-static int ndisc_dnssl_compare_func(const void *_a, const void *_b) {
-        const NDiscDNSSL *a = _a, *b = _b;
-
+static int ndisc_dnssl_compare_func(const NDiscDNSSL *a, const NDiscDNSSL *b) {
         return strcmp(NDISC_DNSSL_DOMAIN(a), NDISC_DNSSL_DOMAIN(b));
 }
 
-static const struct hash_ops ndisc_dnssl_hash_ops = {
-        .hash = ndisc_dnssl_hash_func,
-        .compare = ndisc_dnssl_compare_func
-};
+DEFINE_PRIVATE_HASH_OPS(ndisc_dnssl_hash_ops, NDiscDNSSL, ndisc_dnssl_hash_func, ndisc_dnssl_compare_func);
 
 static void ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         _cleanup_strv_free_ char **l = NULL;

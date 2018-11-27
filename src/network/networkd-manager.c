@@ -1250,24 +1250,17 @@ static int dhcp6_route_add_handler(sd_netlink *nl, sd_netlink_message *m, void *
         return 0;
 }
 
-static void dhcp6_prefixes_hash_func(const void *p, struct siphash *state) {
-        const struct in6_addr *addr = p;
-
-        assert(p);
+static void dhcp6_prefixes_hash_func(const struct in6_addr *addr, struct siphash *state) {
+        assert(addr);
 
         siphash24_compress(addr, sizeof(*addr), state);
 }
 
-static int dhcp6_prefixes_compare_func(const void *_a, const void *_b) {
-        const struct in6_addr *a = _a, *b = _b;
-
+static int dhcp6_prefixes_compare_func(const struct in6_addr *a, const struct in6_addr *b) {
         return memcmp(a, b, sizeof(*a));
 }
 
-static const struct hash_ops dhcp6_prefixes_hash_ops = {
-        .hash = dhcp6_prefixes_hash_func,
-        .compare = dhcp6_prefixes_compare_func,
-};
+DEFINE_PRIVATE_HASH_OPS(dhcp6_prefixes_hash_ops, struct in6_addr, dhcp6_prefixes_hash_func, dhcp6_prefixes_compare_func);
 
 int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
         _cleanup_free_ char *buf = NULL;

@@ -595,9 +595,7 @@ bool dns_server_limited_domains(DnsServer *server) {
         return domain_restricted;
 }
 
-static void dns_server_hash_func(const void *p, struct siphash *state) {
-        const DnsServer *s = p;
-
+static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
         assert(s);
 
         siphash24_compress(&s->family, sizeof(s->family), state);
@@ -605,8 +603,7 @@ static void dns_server_hash_func(const void *p, struct siphash *state) {
         siphash24_compress(&s->ifindex, sizeof(s->ifindex), state);
 }
 
-static int dns_server_compare_func(const void *a, const void *b) {
-        const DnsServer *x = a, *y = b;
+static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
         int r;
 
         r = CMP(x->family, y->family);
@@ -624,10 +621,7 @@ static int dns_server_compare_func(const void *a, const void *b) {
         return 0;
 }
 
-const struct hash_ops dns_server_hash_ops = {
-        .hash = dns_server_hash_func,
-        .compare = dns_server_compare_func
-};
+DEFINE_HASH_OPS(dns_server_hash_ops, DnsServer, dns_server_hash_func, dns_server_compare_func);
 
 void dns_server_unlink_all(DnsServer *first) {
         DnsServer *next;

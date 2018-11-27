@@ -28,21 +28,15 @@ char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR
         return buffer;
 }
 
-int ether_addr_compare(const void *a, const void *b) {
-        assert(a);
-        assert(b);
-
+int ether_addr_compare(const struct ether_addr *a, const struct ether_addr *b) {
         return memcmp(a, b, ETH_ALEN);
 }
 
-static void ether_addr_hash_func(const void *p, struct siphash *state) {
+static void ether_addr_hash_func(const struct ether_addr *p, struct siphash *state) {
         siphash24_compress(p, sizeof(struct ether_addr), state);
 }
 
-const struct hash_ops ether_addr_hash_ops = {
-        .hash = ether_addr_hash_func,
-        .compare = ether_addr_compare
-};
+DEFINE_HASH_OPS(ether_addr_hash_ops, struct ether_addr, ether_addr_hash_func, ether_addr_compare);
 
 int ether_addr_from_string(const char *s, struct ether_addr *ret) {
         size_t pos = 0, n, field;

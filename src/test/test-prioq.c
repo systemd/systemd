@@ -48,22 +48,15 @@ struct test {
         unsigned idx;
 };
 
-static int test_compare(const void *a, const void *b) {
-        const struct test *x = a, *y = b;
-
+static int test_compare(const struct test *x, const struct test *y) {
         return CMP(x->value, y->value);
 }
 
-static void test_hash(const void *a, struct siphash *state) {
-        const struct test *x = a;
-
+static void test_hash(const struct test *x, struct siphash *state) {
         siphash24_compress(&x->value, sizeof(x->value), state);
 }
 
-static const struct hash_ops test_hash_ops = {
-        .hash = test_hash,
-        .compare = test_compare
-};
+DEFINE_PRIVATE_HASH_OPS(test_hash_ops, struct test, test_hash, test_compare);
 
 static void test_struct(void) {
         _cleanup_(prioq_freep) Prioq *q = NULL;
@@ -73,7 +66,7 @@ static void test_struct(void) {
 
         srand(0);
 
-        assert_se(q = prioq_new(test_compare));
+        assert_se(q = prioq_new((compare_func_t) test_compare));
         assert_se(s = set_new(&test_hash_ops));
 
         for (i = 0; i < SET_SIZE; i++) {

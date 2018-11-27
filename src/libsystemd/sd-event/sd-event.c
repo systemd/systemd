@@ -1371,8 +1371,7 @@ static int event_make_inotify_data(
         return 1;
 }
 
-static int inode_data_compare(const void *a, const void *b) {
-        const struct inode_data *x = a, *y = b;
+static int inode_data_compare(const struct inode_data *x, const struct inode_data *y) {
         int r;
 
         assert(x);
@@ -1385,19 +1384,14 @@ static int inode_data_compare(const void *a, const void *b) {
         return CMP(x->ino, y->ino);
 }
 
-static void inode_data_hash_func(const void *p, struct siphash *state) {
-        const struct inode_data *d = p;
-
-        assert(p);
+static void inode_data_hash_func(const struct inode_data *d, struct siphash *state) {
+        assert(d);
 
         siphash24_compress(&d->dev, sizeof(d->dev), state);
         siphash24_compress(&d->ino, sizeof(d->ino), state);
 }
 
-const struct hash_ops inode_data_hash_ops = {
-        .hash = inode_data_hash_func,
-        .compare = inode_data_compare
-};
+DEFINE_PRIVATE_HASH_OPS(inode_data_hash_ops, struct inode_data, inode_data_hash_func, inode_data_compare);
 
 static void event_free_inode_data(
                 sd_event *e,

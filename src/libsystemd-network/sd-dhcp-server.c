@@ -102,9 +102,7 @@ int sd_dhcp_server_is_running(sd_dhcp_server *server) {
         return !!server->receive_message;
 }
 
-void client_id_hash_func(const void *p, struct siphash *state) {
-        const DHCPClientId *id = p;
-
+void client_id_hash_func(const DHCPClientId *id, struct siphash *state) {
         assert(id);
         assert(id->length);
         assert(id->data);
@@ -113,12 +111,8 @@ void client_id_hash_func(const void *p, struct siphash *state) {
         siphash24_compress(id->data, id->length, state);
 }
 
-int client_id_compare_func(const void *_a, const void *_b) {
-        const DHCPClientId *a, *b;
+int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b) {
         int r;
-
-        a = _a;
-        b = _b;
 
         assert(!a->length || a->data);
         assert(!b->length || b->data);
@@ -130,10 +124,7 @@ int client_id_compare_func(const void *_a, const void *_b) {
         return memcmp(a->data, b->data, a->length);
 }
 
-static const struct hash_ops client_id_hash_ops = {
-        .hash = client_id_hash_func,
-        .compare = client_id_compare_func
-};
+DEFINE_PRIVATE_HASH_OPS(client_id_hash_ops, DHCPClientId, client_id_hash_func, client_id_compare_func);
 
 static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         DHCPLease *lease;

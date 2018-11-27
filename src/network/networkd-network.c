@@ -21,15 +21,12 @@
 #include "strv.h"
 #include "util.h"
 
-static void network_config_hash_func(const void *p, struct siphash *state) {
-        const NetworkConfigSection *c = p;
-
+static void network_config_hash_func(const NetworkConfigSection *c, struct siphash *state) {
         siphash24_compress(c->filename, strlen(c->filename), state);
         siphash24_compress(&c->line, sizeof(c->line), state);
 }
 
-static int network_config_compare_func(const void *a, const void *b) {
-        const NetworkConfigSection *x = a, *y = b;
+static int network_config_compare_func(const NetworkConfigSection *x, const NetworkConfigSection *y) {
         int r;
 
         r = strcmp(x->filename, y->filename);
@@ -39,10 +36,7 @@ static int network_config_compare_func(const void *a, const void *b) {
         return CMP(x->line, y->line);
 }
 
-const struct hash_ops network_config_hash_ops = {
-        .hash = network_config_hash_func,
-        .compare = network_config_compare_func,
-};
+DEFINE_HASH_OPS(network_config_hash_ops, NetworkConfigSection, network_config_hash_func, network_config_compare_func);
 
 int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s) {
         NetworkConfigSection *cs;
