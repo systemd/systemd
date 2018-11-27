@@ -2249,6 +2249,7 @@ typedef struct JsonStack {
         size_t n_elements, n_elements_allocated;
         unsigned line_before;
         unsigned column_before;
+        size_t n_suppress; /* When building: if > 0, suppress this many subsequent elements. If == (size_t) -1, suppress all subsequent elements */
 } JsonStack;
 
 static void json_stack_release(JsonStack *s) {
@@ -2656,6 +2657,8 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
         for (;;) {
                 _cleanup_(json_variant_unrefp) JsonVariant *add = NULL;
+                size_t n_subtract = 0; /* how much to subtract from current->n_suppress, i.e. how many elements would
+                                        * have been added to the current variant */
                 JsonStack *current;
                 int command;
 
@@ -2679,9 +2682,13 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         p = va_arg(ap, const char *);
 
-                        r = json_variant_new_string(&add, p);
-                        if (r < 0)
-                                goto finish;
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, p);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
 
                         if (current->expect == EXPECT_TOPLEVEL)
                                 current->expect = EXPECT_END;
@@ -2703,9 +2710,13 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         j = va_arg(ap, intmax_t);
 
-                        r = json_variant_new_integer(&add, j);
-                        if (r < 0)
-                                goto finish;
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_integer(&add, j);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
 
                         if (current->expect == EXPECT_TOPLEVEL)
                                 current->expect = EXPECT_END;
@@ -2727,9 +2738,13 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         j = va_arg(ap, uintmax_t);
 
-                        r = json_variant_new_unsigned(&add, j);
-                        if (r < 0)
-                                goto finish;
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_unsigned(&add, j);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
 
                         if (current->expect == EXPECT_TOPLEVEL)
                                 current->expect = EXPECT_END;
@@ -2751,9 +2766,13 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         d = va_arg(ap, long double);
 
-                        r = json_variant_new_real(&add, d);
-                        if (r < 0)
-                                goto finish;
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_real(&add, d);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
 
                         if (current->expect == EXPECT_TOPLEVEL)
                                 current->expect = EXPECT_END;
@@ -2775,9 +2794,13 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         b = va_arg(ap, int);
 
-                        r = json_variant_new_boolean(&add, b);
-                        if (r < 0)
-                                goto finish;
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_boolean(&add, b);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
 
                         if (current->expect == EXPECT_TOPLEVEL)
                                 current->expect = EXPECT_END;
@@ -2796,9 +2819,13 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 goto finish;
                         }
 
-                        r = json_variant_new_null(&add);
-                        if (r < 0)
-                                goto finish;
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_null(&add);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
 
                         if (current->expect == EXPECT_TOPLEVEL)
                                 current->expect = EXPECT_END;
@@ -2816,11 +2843,15 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 goto finish;
                         }
 
+                        /* Note that we don't care for current->n_suppress here, after all the variant is already
+                         * allocated anyway... */
                         add = va_arg(ap, JsonVariant*);
                         if (!add)
                                 add = JSON_VARIANT_MAGIC_NULL;
                         else
                                 json_variant_ref(add);
+
+                        n_subtract = 1;
 
                         if (current->expect == EXPECT_TOPLEVEL)
                                 current->expect = EXPECT_END;
@@ -2841,13 +2872,17 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         l = va_arg(ap, const char *);
 
-                        if (!l)
-                                add = JSON_VARIANT_MAGIC_NULL;
-                        else {
+                        if (l) {
+                                /* Note that we don't care for current->n_suppress here, we should generate parsing
+                                 * errors even in suppressed object properties */
+
                                 r = json_parse(l, &add, NULL, NULL);
                                 if (r < 0)
                                         goto finish;
-                        }
+                        } else
+                                add = JSON_VARIANT_MAGIC_NULL;
+
+                        n_subtract = 1;
 
                         if (current->expect == EXPECT_TOPLEVEL)
                                 current->expect = EXPECT_END;
@@ -2881,6 +2916,10 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         stack[n_stack++] = (JsonStack) {
                                 .expect = EXPECT_ARRAY_ELEMENT,
+                                .n_suppress = current->n_suppress != 0 ? (size_t) -1 : 0, /* if we shall suppress the
+                                                                                           * new array, then we should
+                                                                                           * also suppress all array
+                                                                                           * members */
                         };
 
                         break;
@@ -2893,9 +2932,13 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         assert(n_stack > 1);
 
-                        r = json_variant_new_array(&add, current->elements, current->n_elements);
-                        if (r < 0)
-                                goto finish;
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_array(&add, current->elements, current->n_elements);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
 
                         json_stack_release(current);
                         n_stack--, current--;
@@ -2912,9 +2955,13 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         l = va_arg(ap, char **);
 
-                        r = json_variant_new_array_strv(&add, l);
-                        if (r < 0)
-                                goto finish;
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_array_strv(&add, l);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
 
                         if (current->expect == EXPECT_TOPLEVEL)
                                 current->expect = EXPECT_END;
@@ -2948,6 +2995,10 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         stack[n_stack++] = (JsonStack) {
                                 .expect = EXPECT_OBJECT_KEY,
+                                .n_suppress = current->n_suppress != 0 ? (size_t) -1 : 0, /* if we shall suppress the
+                                                                                           * new object, then we should
+                                                                                           * also suppress all object
+                                                                                           * members */
                         };
 
                         break;
@@ -2961,9 +3012,13 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         assert(n_stack > 1);
 
-                        r = json_variant_new_object(&add, current->elements, current->n_elements);
-                        if (r < 0)
-                                goto finish;
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_object(&add, current->elements, current->n_elements);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
 
                         json_stack_release(current);
                         n_stack--, current--;
@@ -2980,21 +3035,63 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         n = va_arg(ap, const char *);
 
-                        r = json_variant_new_string(&add, n);
-                        if (r < 0)
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        current->expect = EXPECT_OBJECT_VALUE;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_CONDITION: {
+                        const char *n;
+                        bool b;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
                                 goto finish;
+                        }
+
+                        b = va_arg(ap, int);
+                        n = va_arg(ap, const char *);
+
+                        if (b && current->n_suppress == 0) {
+                                r = json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1; /* we generated one item */
+
+                        if (!b && current->n_suppress != (size_t) -1)
+                                current->n_suppress += 2; /* Suppress this one and the next item */
 
                         current->expect = EXPECT_OBJECT_VALUE;
                         break;
                 }}
 
-                if (add) {
+                /* If a variant was generated, add it to our current variant, but only if we are not supposed to suppress additions */
+                if (add && current->n_suppress == 0) {
                         if (!GREEDY_REALLOC(current->elements, current->n_elements_allocated, current->n_elements + 1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
 
                         current->elements[current->n_elements++] = TAKE_PTR(add);
+                }
+
+                /* If we are supposed to suppress items, let's subtract how many items where generated from that
+                 * counter. Except if the counter is (size_t) -1, i.e. we shall suppress an infinite number of elements
+                 * on this stack level */
+                if (current->n_suppress != (size_t) -1) {
+                        if (current->n_suppress <= n_subtract) /* Saturated */
+                                current->n_suppress = 0;
+                        else
+                                current->n_suppress -= n_subtract;
                 }
         }
 
