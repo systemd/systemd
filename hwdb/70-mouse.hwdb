@@ -295,8 +295,8 @@ mouse:usb:v047dp1020:*Kensington Expert Mouse*
 # Lenovo USB mouse model MO28UOL
 mouse:usb:v04b3p310c:name:USB Optical Mouse:
  MOUSE_DPI=400@142
- 
- # Lenovo Optical USB Mouse
+
+# Lenovo Optical USB Mouse
 mouse:usb:v17efp6019:name:Lenovo Optical USB Mouse:
  MOUSE_DPI=1000@125
 
