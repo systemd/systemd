@@ -1048,11 +1048,14 @@ static int install_info_add(
         if (r < 0)
                 return r;
 
-        i = new0(UnitFileInstallInfo, 1);
+        i = new(UnitFileInstallInfo, 1);
         if (!i)
                 return -ENOMEM;
-        i->type = _UNIT_FILE_TYPE_INVALID;
-        i->auxiliary = auxiliary;
+
+        *i = (UnitFileInstallInfo) {
+                .type = _UNIT_FILE_TYPE_INVALID,
+                .auxiliary = auxiliary,
+        };
 
         i->name = strdup(name);
         if (!i->name) {
