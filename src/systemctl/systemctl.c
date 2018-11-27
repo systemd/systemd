@@ -6901,10 +6901,8 @@ static int run_editor(char **paths) {
                                 args[i] = editor_args[i];
                 }
 
-                STRV_FOREACH_PAIR(original_path, tmp_path, paths) {
-                        args[i] = *tmp_path;
-                        i++;
-                }
+                STRV_FOREACH_PAIR(original_path, tmp_path, paths)
+                        args[i++] = *tmp_path;
                 args[i] = NULL;
 
                 if (n_editor_args > 0)
