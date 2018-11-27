@@ -6301,14 +6301,15 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                            "Alias= settings in the [Install] section, and DefaultInstance= for template\n"
                            "units). This means they are not meant to be enabled using systemctl.\n"
                            "Possible reasons for having this kind of units are:\n"
-                           "1) A unit may be statically enabled by being symlinked from another unit's\n"
-                           "   .wants/ or .requires/ directory.\n"
-                           "2) A unit's purpose may be to act as a helper for some other unit which has\n"
-                           "   a requirement dependency on it.\n"
-                           "3) A unit may be started when needed via activation (socket, path, timer,\n"
-                           "   D-Bus, udev, scripted systemctl call, ...).\n"
-                           "4) In case of template units, the unit is meant to be enabled with some\n"
-                           "   instance name specified.");
+                           "%1$s A unit may be statically enabled by being symlinked from another unit's\n"
+                           "  .wants/ or .requires/ directory.\n"
+                           "%1$s A unit's purpose may be to act as a helper for some other unit which has\n"
+                           "  a requirement dependency on it.\n"
+                           "%1$s A unit may be started when needed via activation (socket, path, timer,\n"
+                           "  D-Bus, udev, scripted systemctl call, ...).\n"
+                           "%1$s In case of template units, the unit is meant to be enabled with some\n"
+                           "  instance name specified.",
+                           special_glyph(BULLET));
 
         if (arg_now && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
                 sd_bus *bus;
