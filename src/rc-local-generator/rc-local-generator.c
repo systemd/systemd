@@ -53,13 +53,19 @@ static int run(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[1];
 
-        if (access(RC_LOCAL_SCRIPT_PATH_START, X_OK) >= 0) {
+        if (access(RC_LOCAL_SCRIPT_PATH_START, X_OK) < 0)
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                               RC_LOCAL_SCRIPT_PATH_START " is not executable: %m");
+        else {
                 log_debug("Automatically adding rc-local.service.");
 
                 r = add_symlink("rc-local.service", "multi-user.target");
         }
 
-        if (access(RC_LOCAL_SCRIPT_PATH_STOP, X_OK) >= 0) {
+        if (access(RC_LOCAL_SCRIPT_PATH_STOP, X_OK) < 0)
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                               RC_LOCAL_SCRIPT_PATH_STOP " is not executable: %m");
+        else {
                 log_debug("Automatically adding halt-local.service.");
 
                 k = add_symlink("halt-local.service", "final.target");
