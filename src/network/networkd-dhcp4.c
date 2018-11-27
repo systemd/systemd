@@ -4,7 +4,6 @@
 #include <linux/if.h>
 
 #include "alloc-util.h"
-#include "dhcp-lease-internal.h"
 #include "hostname-util.h"
 #include "parse-util.h"
 #include "netdev/vrf.h"
@@ -87,11 +86,14 @@ static int link_set_dhcp_routes(Link *link) {
                 log_link_debug_errno(link, n, "DHCP error: could not get routes: %m");
 
         for (i = 0; i < n; i++) {
-                if (static_routes[i]->option == SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE)
+                switch (sd_dhcp_route_get_option(static_routes[i])) {
+                case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
                         classless_route = true;
-
-                if (static_routes[i]->option == SD_DHCP_OPTION_STATIC_ROUTE)
+                        break;
+                case SD_DHCP_OPTION_STATIC_ROUTE:
                         static_route = true;
+                        break;
+                }
         }
 
         for (i = 0; i < n; i++) {
@@ -99,7 +101,8 @@ static int link_set_dhcp_routes(Link *link) {
 
                 /* if the DHCP server returns both a Classless Static Routes option and a Static Routes option,
                    the DHCP client MUST ignore the Static Routes option. */
-                if (classless_route && static_routes[i]->option == SD_DHCP_OPTION_STATIC_ROUTE)
+                if (classless_route &&
+                    sd_dhcp_route_get_option(static_routes[i]) != SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE)
                         continue;
 
                 r = route_new(&route);
