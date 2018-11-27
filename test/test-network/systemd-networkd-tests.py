@@ -427,9 +427,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
     units = ['12-dummy.netdev', 'test-static.network', 'configure-without-carrier.network', '11-dummy.netdev',
              '23-primary-slave.network', '23-test1-bond199.network', '11-dummy.netdev', '23-bond199.network',
              '25-bond-active-backup-slave.netdev', '12-dummy.netdev', '23-active-slave.network',
-             'routing-policy-rule.network', '25-address-section.network', '25-address-section-miscellaneous.network',
-             '25-route-section.network', '25-route-type.network', '25-route-tcp-window-settings.network',
-             '25-route-gateway.network', '25-route-gateway-on-link.network',
+             'routing-policy-rule.network', '25-fibrule-port-range.network', '25-address-section.network',
+             '25-address-section-miscellaneous.network', '25-route-section.network', '25-route-type.network',
+             '25-route-tcp-window-settings.network', '25-route-gateway.network', '25-route-gateway-on-link.network',
              '25-address-link-section.network', '25-ipv6-address-label-section.network', '25-link-section-unmanaged.network',
              '25-sysctl.network']
 
@@ -494,6 +494,20 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'tos (?:0x08|throughput)\s')
         self.assertRegex(output, 'iif test1')
         self.assertRegex(output, 'oif test1')
+        self.assertRegex(output, 'lookup 7')
+
+    def test_routing_policy_rule_port_range(self):
+        self.copy_unit_to_networkd_unit_path('25-fibrule-port-range.network', '11-dummy.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('test1'))
+        output = subprocess.check_output(['ip', 'rule']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '111')
+        self.assertRegex(output, 'from 192.168.100.18')
+        self.assertRegex(output, '1123-1150')
+        self.assertRegex(output, '3224-3290')
+        self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
 
     def test_address_preferred_lifetime_zero_ipv6(self):

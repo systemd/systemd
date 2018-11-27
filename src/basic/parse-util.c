@@ -710,6 +710,26 @@ int parse_ip_port(const char *s, uint16_t *ret) {
         return 0;
 }
 
+int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high) {
+        unsigned l, h;
+        int r;
+
+        r = parse_range(s, &l, &h);
+        if (r < 0)
+                return r;
+
+        if (l <= 0 || l > 65535 || h <= 0 || h > 65535)
+                return -EINVAL;
+
+        if (h < l)
+                return -EINVAL;
+
+        *low = l;
+        *high = h;
+
+        return 0;
+}
+
 int parse_dev(const char *s, dev_t *ret) {
         unsigned x, y;
         dev_t d;

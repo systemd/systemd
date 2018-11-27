@@ -150,6 +150,9 @@ From=
 TypeOfService=
 Priority=
 FirewallMark=
+SourcePort=
+DestinationPort=
+Protocol=
 [IPv6PrefixDelegation]
 RouterPreference=
 DNSLifetimeSec=
