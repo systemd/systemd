@@ -4928,7 +4928,7 @@ void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid) {
 
         r = unit_ref_uid_gid(u, uid, gid);
         if (r > 0)
-                bus_unit_send_change_signal(u);
+                unit_add_to_dbus_queue(u);
 }
 
 int unit_set_invocation_id(Unit *u, sd_id128_t id) {
