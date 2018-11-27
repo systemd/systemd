@@ -1,5 +1,6 @@
 #pragma once
 
+#include "alloc-util.h"
 #include "macro.h"
 
 /* A framework for registering static variables that shall be freed on shutdown of a process. It's a bit like gcc's
@@ -9,7 +10,7 @@
 
 typedef struct StaticDestructor {
         void *data;
-        void (*destroy)(void *p);
+        free_func_t destroy;
 } StaticDestructor;
 
 #define STATIC_DESTRUCTOR_REGISTER(variable, func) \
