@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "icmp6-util.h"
@@ -87,7 +88,8 @@ static void radv_reset(sd_radv *ra) {
 }
 
 static sd_radv *radv_free(sd_radv *ra) {
-        assert(ra);
+        if (!ra)
+                return NULL;
 
         while (ra->prefixes) {
                 sd_radv_prefix *p = ra->prefixes;
@@ -112,9 +114,7 @@ static sd_radv *radv_free(sd_radv *ra) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv, sd_radv, radv_free);
 
-static int radv_send(sd_radv *ra, const struct in6_addr *dst,
-                     const uint32_t router_lifetime) {
-        static const struct ether_addr mac_zero = {};
+static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_lifetime) {
         sd_radv_prefix *p;
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
@@ -146,11 +146,13 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst,
         usec_t time_now;
         int r;
 
+        assert(ra);
+
         r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
                 return r;
 
-        if (dst && !in_addr_is_null(AF_INET6, (union in_addr_union*) dst))
+        if (dst && !IN6_IS_ADDR_UNSPECIFIED(dst))
                 dst_addr.sin6_addr = *dst;
 
         adv.nd_ra_type = ND_ROUTER_ADVERT;
@@ -163,7 +165,7 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst,
 
         /* MAC address is optional, either because the link does not use L2
            addresses or load sharing is desired. See RFC 4861, Section 4.2 */
-        if (memcmp(&mac_zero, &ra->mac_addr, sizeof(mac_zero))) {
+        if (!ether_addr_is_null(&ra->mac_addr)) {
                 opt_mac.slladdr = ra->mac_addr;
                 iov[msg.msg_iovlen].iov_base = &opt_mac;
                 iov[msg.msg_iovlen].iov_len = sizeof(opt_mac);
@@ -227,13 +229,12 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(ra->event);
 
         buflen = next_datagram_size_fd(fd);
-
-        if ((unsigned) buflen < sizeof(struct nd_router_solicit))
-                return log_radv("Too short packet received");
+        if (buflen < 0)
+                return (int) buflen;
 
         buf = new0(char, buflen);
         if (!buf)
-                return 0;
+                return -ENOMEM;
 
         r = icmp6_receive(fd, buf, buflen, &src, &timestamp);
         if (r < 0) {
@@ -262,13 +263,18 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 return 0;
         }
 
+        if ((size_t) buflen < sizeof(struct nd_router_solicit)) {
+                log_radv("Too short packet received");
+                return 0;
+        }
+
         (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &src, &addr);
 
         r = radv_send(ra, &src, ra->lifetime);
         if (r < 0)
-                log_radv_errno(r, "Unable to send solicited Router Advertisement to %s: %m", addr);
+                log_radv_errno(r, "Unable to send solicited Router Advertisement to %s: %m", strnull(addr));
         else
-                log_radv("Sent solicited Router Advertisement to %s", addr);
+                log_radv("Sent solicited Router Advertisement to %s", strnull(addr));
 
         return 0;
 }
@@ -353,7 +359,7 @@ _public_ int sd_radv_stop(sd_radv *ra) {
 }
 
 _public_ int sd_radv_start(sd_radv *ra) {
-        int r = 0;
+        int r;
 
         assert_return(ra, -EINVAL);
         assert_return(ra->event, -EINVAL);
@@ -497,7 +503,7 @@ _public_ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
         return r;
 }
 
-_public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, bool dynamic) {
+_public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         sd_radv_prefix *cur;
         int r;
         _cleanup_free_ char *addr_p = NULL;
@@ -692,31 +698,29 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
 }
 
 _public_ int sd_radv_prefix_new(sd_radv_prefix **ret) {
-        _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
+        sd_radv_prefix *p;
 
         assert_return(ret, -EINVAL);
 
-        p = new0(sd_radv_prefix, 1);
+        p = new(sd_radv_prefix, 1);
         if (!p)
                 return -ENOMEM;
 
-        p->n_ref = 1;
+        *p = (sd_radv_prefix) {
+                .n_ref = 1,
 
-        p->opt.type = ND_OPT_PREFIX_INFORMATION;
-        p->opt.length = (sizeof(p->opt) - 1) /8 + 1;
+                .opt.type = ND_OPT_PREFIX_INFORMATION,
+                .opt.length = (sizeof(p->opt) - 1)/8 + 1,
+                .opt.prefixlen = 64,
 
-        p->opt.prefixlen = 64;
+                /* RFC 4861, Section 6.2.1 */
+                .opt.flags = ND_OPT_PI_FLAG_ONLINK|ND_OPT_PI_FLAG_AUTO,
 
-        /* RFC 4861, Section 6.2.1 */
-        SET_FLAG(p->opt.flags, ND_OPT_PI_FLAG_ONLINK, true);
-        SET_FLAG(p->opt.flags, ND_OPT_PI_FLAG_AUTO, true);
-        p->opt.preferred_lifetime = htobe32(604800);
-        p->opt.valid_lifetime = htobe32(2592000);
+                .opt.preferred_lifetime = htobe32(604800),
+                .opt.valid_lifetime = htobe32(2592000),
+        };
 
-        LIST_INIT(prefix, p);
-
-        *ret = TAKE_PTR(p);
-
+        *ret = p;
         return 0;
 }
 
