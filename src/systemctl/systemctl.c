@@ -2452,30 +2452,43 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **re
 static int unit_find_template_path(
                 const char *unit_name,
                 LookupPaths *lp,
-                char **fragment_path,
-                char **template) {
+                char **ret_fragment_path,
+                char **ret_template) {
 
-        _cleanup_free_ char *_template = NULL;
+        _cleanup_free_ char *t = NULL, *f = NULL;
         int r;
 
         /* Returns 1 if a fragment was found, 0 if not found, negative on error. */
 
-        r = unit_file_find_path(lp, unit_name, fragment_path);
-        if (r != 0)
-                return r; /* error or found a real unit */
+        r = unit_file_find_path(lp, unit_name, &f);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (ret_fragment_path)
+                        *ret_fragment_path = TAKE_PTR(f);
+                if (ret_template)
+                        *ret_template = NULL;
+                return r; /* found a real unit */
+        }
 
-        r = unit_name_template(unit_name, &_template);
-        if (r == -EINVAL)
+        r = unit_name_template(unit_name, &t);
+        if (r == -EINVAL) {
+                if (ret_fragment_path)
+                        *ret_fragment_path = NULL;
+                if (ret_template)
+                        *ret_template = NULL;
+
                 return 0; /* not a template, does not exist */
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to determine template name: %m");
 
-        r = unit_file_find_path(lp, _template, fragment_path);
+        r = unit_file_find_path(lp, t, ret_fragment_path);
         if (r < 0)
                 return r;
 
-        if (template)
-                *template = TAKE_PTR(_template);
+        if (ret_template)
+                *ret_template = r > 0 ? TAKE_PTR(t) : NULL;
 
         return r;
 }
