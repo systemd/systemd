@@ -70,17 +70,25 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         FILE *f = NULL;
 
+        /* To judge from https://oss-fuzz.com/testcase?key=5642013043589120, unshare/mount can fail.
+         * It isn't critical so let's ignore it for now to see how it goes */
+        (void) setup_mount_namespace();
+
+        assert_se(runtime_dir = setup_fake_runtime_dir());
+
+        if (setup_fake_filesystems(runtime_dir) < 0) {
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+                return EXIT_TEST_SKIP;
+#else
+                abort();
+#endif
+        }
+
         if (!getenv("SYSTEMD_LOG_LEVEL")) {
                 log_set_max_level_realm(LOG_REALM_UDEV, LOG_CRIT);
                 log_set_max_level_realm(LOG_REALM_SYSTEMD, LOG_CRIT);
         }
 
-        if (setup_mount_namespace() < 0)
-                return EXIT_TEST_SKIP;
-
-        assert_se(runtime_dir = setup_fake_runtime_dir());
-
-        assert_se(setup_fake_filesystems(runtime_dir) >= 0);
         assert_se(mkdir_p("/etc/udev/rules.d", 0755) >= 0);
         f = fopen("/etc/udev/rules.d/fuzz.rules", "we");
         assert_se(f);
