@@ -6797,7 +6797,8 @@ static int unit_file_create_new(
                 char **ret_new_path,
                 char **ret_tmp_path) {
 
-        char *tmp_new_path, *tmp_tmp_path, *ending;
+        _cleanup_free_ char *new_path = NULL, *tmp_path = NULL;
+        const char *ending;
         int r;
 
         assert(unit_name);
@@ -6805,18 +6806,16 @@ static int unit_file_create_new(
         assert(ret_tmp_path);
 
         ending = strjoina(unit_name, suffix);
-        r = get_file_to_edit(paths, ending, &tmp_new_path);
+        r = get_file_to_edit(paths, ending, &new_path);
         if (r < 0)
                 return r;
 
-        r = create_edit_temp_file(tmp_new_path, tmp_new_path, &tmp_tmp_path);
-        if (r < 0) {
-                free(tmp_new_path);
+        r = create_edit_temp_file(new_path, new_path, &tmp_path);
+        if (r < 0)
                 return r;
-        }
 
-        *ret_new_path = tmp_new_path;
-        *ret_tmp_path = tmp_tmp_path;
+        *ret_new_path = TAKE_PTR(new_path);
+        *ret_tmp_path = TAKE_PTR(tmp_path);
 
         return 0;
 }
