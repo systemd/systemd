@@ -45,6 +45,7 @@ typedef enum {
         TREE_SPACE,
         TRIANGULAR_BULLET,
         BLACK_CIRCLE,
+        BULLET,
         ARROW,
         MDASH,
         ELLIPSIS,

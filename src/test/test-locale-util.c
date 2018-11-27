@@ -77,6 +77,7 @@ static void dump_special_glyphs(void) {
         dump_glyph(TREE_SPACE);
         dump_glyph(TRIANGULAR_BULLET);
         dump_glyph(BLACK_CIRCLE);
+        dump_glyph(BULLET);
         dump_glyph(ARROW);
         dump_glyph(MDASH);
         dump_glyph(ELLIPSIS);
