@@ -364,11 +364,10 @@
       <varlistentry>
         <term><varname>AutoNegotiation=</varname></term>
         <listitem>
-          <para>Enables or disables automatic negotiation of transmission parameters.
+          <para>Takes a boolean. If set to yes, automatic negotiation of transmission parameters is enabled.
           Autonegotiation is a procedure by which two connected ethernet devices choose
           common transmission parameters, such as speed, duplex mode, and flow control.
-          Takes a boolean value. Unset by default, which means that the kernel default
-          will be used.</para>
+          When unset, the kernel's default will be used.</para>
 
           <para>Note that if autonegotiation is enabled, speed, duplex and advertise settings are
           read-only. If autonegotation is disabled, speed, duplex and advertise settings are writable
@@ -552,41 +551,36 @@
       <varlistentry>
         <term><varname>TCPSegmentationOffload=</varname></term>
         <listitem>
-          <para>The TCP Segmentation Offload (TSO) when true enables
-          TCP segmentation offload. Takes a boolean value.
-          Defaults to "unset".</para>
+          <para>Takes a boolean. If set to true, the TCP Segmentation Offload (TSO) is enabled.
+          When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
        <varlistentry>
       <term><varname>TCP6SegmentationOffload=</varname></term>
         <listitem>
-          <para>The TCP6 Segmentation Offload (tx-tcp6-segmentation) when true enables
-          TCP6 segmentation offload. Takes a boolean value.
-          Defaults to "unset".</para>
+          <para>Takes a boolean. If set to true, the TCP6 Segmentation Offload (tx-tcp6-segmentation) is enabled.
+          When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>GenericSegmentationOffload=</varname></term>
         <listitem>
-          <para>The Generic Segmentation Offload (GSO) when true enables
-          generic segmentation offload. Takes a boolean value.
-          Defaults to "unset".</para>
+          <para>Takes a boolean. If set to true, the Generic Segmentation Offload (GSO) is enabled.
+          When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
     <varlistentry>
         <term><varname>GenericReceiveOffload=</varname></term>
         <listitem>
-          <para>The Generic Receive Offload (GRO) when true enables
-          generic receive offload. Takes a boolean value.
-          Defaults to "unset".</para>
+          <para>Takes a boolean. If set to true, the Generic Receive Offload (GRO) is enabled.
+          When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>LargeReceiveOffload=</varname></term>
         <listitem>
-          <para>The Large Receive Offload (LRO) when true enables
-          large receive offload. Takes a boolean value.
-          Defaults to "unset".</para>
+          <para>Takes a boolean. If set to true, the Large Receive Offload (LRO) is enabled.
+          When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

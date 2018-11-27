@@ -368,37 +368,36 @@
         <varlistentry>
           <term><varname>MulticastQuerier=</varname></term>
           <listitem>
-            <para>A boolean. This setting controls the IFLA_BR_MCAST_QUERIER option in the kernel.
+            <para>Takes a boolean. This setting controls the IFLA_BR_MCAST_QUERIER option in the kernel.
             If enabled, the kernel will send general ICMP queries from a zero source address.
             This feature should allow faster convergence on startup, but it causes some
             multicast-aware switches to misbehave and disrupt forwarding of multicast packets.
-            When unset, the kernel's default setting applies.
+            When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>MulticastSnooping=</varname></term>
           <listitem>
-            <para>A boolean. This setting controls the IFLA_BR_MCAST_SNOOPING option in the kernel.
+            <para>Takes a boolean. This setting controls the IFLA_BR_MCAST_SNOOPING option in the kernel.
             If enabled, IGMP snooping monitors the Internet Group Management Protocol (IGMP) traffic
-            between hosts and multicast routers. When unset, the kernel's default setting applies.
+            between hosts and multicast routers. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>VLANFiltering=</varname></term>
           <listitem>
-            <para>A boolean. This setting controls the IFLA_BR_VLAN_FILTERING option in the kernel.
-            If enabled, the bridge will be started in VLAN-filtering mode. When unset, the kernel's
-            default setting applies.
+            <para>Takes a boolean. This setting controls the IFLA_BR_VLAN_FILTERING option in the kernel.
+            If enabled, the bridge will be started in VLAN-filtering mode. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
           <varlistentry>
           <term><varname>STP=</varname></term>
           <listitem>
-            <para>A boolean. This enables the bridge's Spanning Tree Protocol (STP). When unset,
-            the kernel's default setting applies.
+            <para>Takes a boolean. This enables the bridge's Spanning Tree Protocol (STP).
+            When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
@@ -423,34 +422,35 @@
         <varlistentry>
           <term><varname>GVRP=</varname></term>
           <listitem>
-            <para>The Generic VLAN Registration Protocol (GVRP) is a protocol that
-            allows automatic learning of VLANs on a network. A boolean. When unset,
-            the kernel's default setting applies.</para>
+            <para>Takes a boolean. The Generic VLAN Registration Protocol (GVRP) is a protocol that
+            allows automatic learning of VLANs on a network.
+            When unset, the kernel's default will be used.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>MVRP=</varname></term>
           <listitem>
-            <para>Multiple VLAN Registration Protocol (MVRP) formerly known as GARP VLAN
+            <para>Takes a boolean. Multiple VLAN Registration Protocol (MVRP) formerly known as GARP VLAN
             Registration Protocol (GVRP) is a standards-based Layer 2 network protocol,
             for automatic configuration of VLAN information on switches. It was defined
-            in the 802.1ak amendment to 802.1Q-2005. A boolean. When unset, the kernel's
-            default setting applies.</para>
+            in the 802.1ak amendment to 802.1Q-2005. When unset, the kernel's default will be used.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>LooseBinding=</varname></term>
           <listitem>
-            <para>The VLAN loose binding mode, in which only the operational state is passed
+            <para>Takes a boolean. The VLAN loose binding mode, in which only the operational state is passed
             from the parent to the associated VLANs, but the VLAN device state is not changed.
-            A boolean. When unset, the kernel's default setting applies.</para>
+            When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>ReorderHeader=</varname></term>
           <listitem>
-            <para>The VLAN reorder header is set VLAN interfaces behave like physical interfaces.
-            A boolean. When unset, the kernel's default setting applies.</para>
+            <para>Takes a boolean. The VLAN reorder header is set VLAN interfaces behave like physical interfaces.
+            When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -559,7 +559,7 @@
       <varlistentry>
         <term><varname>MacLearning=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables dynamic MAC learning
+          <para>Takes a boolean. When true, enables dynamic MAC learning
           to discover remote MAC addresses.</para>
         </listitem>
       </varlistentry>
@@ -579,7 +579,7 @@
       <varlistentry>
         <term><varname>ReduceARPProxy=</varname></term>
         <listitem>
-          <para>A boolean. When true, bridge-connected VXLAN tunnel
+          <para>Takes a boolean. When true, bridge-connected VXLAN tunnel
           endpoint answers ARP requests from the local bridge on behalf
           of remote Distributed Overlay Virtual Ethernet
           <ulink url="https://en.wikipedia.org/wiki/Distributed_Overlay_Virtual_Ethernet">
@@ -589,58 +589,58 @@
       <varlistentry>
         <term><varname>L2MissNotification=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables netlink LLADDR miss
+          <para>Takes a boolean. When true, enables netlink LLADDR miss
           notifications.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>L3MissNotification=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables netlink IP address miss
+          <para>Takes a boolean. When true, enables netlink IP address miss
           notifications.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RouteShortCircuit=</varname></term>
         <listitem>
-          <para>A boolean. When true, route short circuiting is turned
+          <para>Takes a boolean. When true, route short circuiting is turned
           on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDPChecksum=</varname></term>
         <listitem>
-          <para>A boolean. When true, transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
+          <para>Takes a boolean. When true, transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumTx=</varname></term>
         <listitem>
-          <para>A boolean. When true, sending zero checksums in VXLAN/IPv6 is turned on.</para>
+          <para>Takes a boolean. When true, sending zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumRx=</varname></term>
         <listitem>
-          <para>A boolean. When true, receiving zero checksums in VXLAN/IPv6 is turned on.</para>
+          <para>Takes a boolean. When true, receiving zero checksums in VXLAN/IPv6 is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RemoteChecksumTx=</varname></term>
         <listitem>
-          <para>A boolean. When true, remote transmit checksum offload of VXLAN is turned on.</para>
+          <para>Takes a boolean. When true, remote transmit checksum offload of VXLAN is turned on.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RemoteChecksumRx=</varname></term>
         <listitem>
-          <para>A boolean. When true, remote receive checksum offload in VXLAN is turned on.</para>
+          <para>Takes a boolean. When true, remote receive checksum offload in VXLAN is turned on.</para>
         </listitem>
       </varlistentry>
     <varlistentry>
       <term><varname>GroupPolicyExtension=</varname></term>
       <listitem>
-        <para>A boolean. When true, it enables Group Policy VXLAN extension security label mechanism
+        <para>Takes a boolean. When true, it enables Group Policy VXLAN extension security label mechanism
         across network peers based on VXLAN. For details about the Group Policy VXLAN, see the
         <ulink url="https://tools.ietf.org/html/draft-smith-vxlan-group-policy">
         VXLAN Group Policy </ulink> document. Defaults to false.</para>
@@ -709,19 +709,19 @@
       <varlistentry>
         <term><varname>UDPChecksum=</varname></term>
         <listitem>
-          <para>A boolean. When true, specifies if UDP checksum is calculated for transmitted packets over IPv4.</para>
+          <para>Takes a boolean. When true, specifies if UDP checksum is calculated for transmitted packets over IPv4.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumTx=</varname></term>
         <listitem>
-          <para>A boolean. When true, skip UDP checksum calculation for transmitted packets over IPv6.</para>
+          <para>Takes a boolean. When true, skip UDP checksum calculation for transmitted packets over IPv6.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumRx=</varname></term>
         <listitem>
-          <para>A boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
+          <para>Takes a boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
         </listitem>
       </varlistentry>
     <varlistentry>
@@ -792,7 +792,7 @@
       <varlistentry>
         <term><varname>DiscoverPathMTU=</varname></term>
         <listitem>
-          <para>A boolean. When true, enables Path MTU Discovery on
+          <para>Takes a boolean. When true, enables Path MTU Discovery on
           the tunnel.</para>
         </listitem>
       </varlistentry>
@@ -812,7 +812,7 @@
       <varlistentry>
         <term><varname>CopyDSCP=</varname></term>
         <listitem>
-          <para>A boolean. When true, the Differentiated Service Code
+          <para>Takes a boolean. When true, the Differentiated Service Code
           Point (DSCP) field will be copied to the inner header from
           outer header during the decapsulation of an IPv6 tunnel
           packet. DSCP is a field in an IP packet that enables different
@@ -875,7 +875,7 @@
       <varlistentry>
         <term><varname>Independent=</varname></term>
         <listitem>
-          <para>A boolean. When true tunnel does not require .network file. Created as "tunnel@NONE".
+          <para>Takes a boolean. When true tunnel does not require .network file. Created as "tunnel@NONE".
           Defaults to <literal>false</literal>.
           </para>
         </listitem>
@@ -883,15 +883,15 @@
       <varlistentry>
         <term><varname>AllowLocalRemote=</varname></term>
         <listitem>
-          <para>A boolean. When true allows tunnel traffic on <varname>ip6tnl</varname> devices where the remote endpoint is a local host address.
-          Defaults to unset.
+          <para>Takes a boolean. When true allows tunnel traffic on <varname>ip6tnl</varname> devices where the remote endpoint is a local host address.
+          When unset, the kernel's default will be used.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>FooOverUDP=</varname></term>
         <listitem>
-          <para>A boolean. Specifies whether <varname>FooOverUDP=</varname> tunnel is to be configured.
+          <para>Takes a boolean. Specifies whether <varname>FooOverUDP=</varname> tunnel is to be configured.
           Defaults to false. For more detail information see
           <ulink url="https://lwn.net/Articles/614348">Foo over UDP</ulink></para>
         </listitem>
@@ -927,8 +927,8 @@
       <varlistentry>
         <term><varname>SerializeTunneledPackets=</varname></term>
         <listitem>
-          <para>Takes a boolean value. If set to yes, then packets are serialized. Only applies for ERSPAN tunnel.
-          Defaults to unset.
+          <para>Takes a boolean. If set to yes, then packets are serialized. Only applies for ERSPAN tunnel.
+          When unset, the kernel's default will be used.
           </para>
         </listitem>
       </varlistentry>
@@ -1033,7 +1033,7 @@
     <variablelist class='network-directives'>
       <varlistentry>
         <term><varname>OneQueue=</varname></term>
-        <listitem><para>Takes a boolean argument. Configures whether
+        <listitem><para>Takes a boolean. Configures whether
         all packets are queued at the device (enabled), or a fixed
         number of packets are queued at the device and the rest at the
         <literal>qdisc</literal>. Defaults to
@@ -1042,7 +1042,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>MultiQueue=</varname></term>
-        <listitem><para>Takes a boolean argument. Configures whether
+        <listitem><para>Takes a boolean. Configures whether
         to use multiple file descriptors (queues) to parallelize
         packets sending and receiving. Defaults to
         <literal>no</literal>.</para>
@@ -1050,7 +1050,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>PacketInfo=</varname></term>
-        <listitem><para>Takes a boolean argument. Configures whether
+        <listitem><para>Takes a boolean. Configures whether
         packets should be prepended with four extra bytes (two flag
         bytes and two protocol bytes). If disabled, it indicates that
         the packets will be pure IP packets. Defaults to
@@ -1059,7 +1059,7 @@
       </varlistentry>
       <varlistentry>
         <term><varname>VNetHeader=</varname></term>
-        <listitem><para>Takes a boolean argument. Configures
+        <listitem><para>Takes a boolean. Configures
         IFF_VNET_HDR flag for a tap device. It allows sending
         and receiving larger Generic Segmentation Offload (GSO)
         packets. This may increase throughput significantly.
@@ -1440,7 +1440,7 @@
       <varlistentry>
         <term><varname>AllSlavesActive=</varname></term>
         <listitem>
-          <para>A boolean. Specifies that duplicate frames (received on inactive ports)
+          <para>Takes a boolean. Specifies that duplicate frames (received on inactive ports)
           should be dropped when false, or delivered when true. Normally, bonding will drop
           duplicate frames (received on inactive ports), which is desirable for
           most users. But there are some times it is nice to allow duplicate
