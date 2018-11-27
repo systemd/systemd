@@ -6827,7 +6827,7 @@ static int unit_file_create_copy(
                 char **ret_new_path,
                 char **ret_tmp_path) {
 
-        char *tmp_new_path, *tmp_tmp_path;
+        _cleanup_free_ char *new_path = NULL, *tmp_path = NULL;
         int r;
 
         assert(fragment_path);
@@ -6835,33 +6835,28 @@ static int unit_file_create_copy(
         assert(ret_new_path);
         assert(ret_tmp_path);
 
-        r = get_file_to_edit(paths, unit_name, &tmp_new_path);
+        r = get_file_to_edit(paths, unit_name, &new_path);
         if (r < 0)
                 return r;
 
-        if (!path_equal(fragment_path, tmp_new_path) && access(tmp_new_path, F_OK) == 0) {
+        if (!path_equal(fragment_path, new_path) && access(new_path, F_OK) >= 0) {
                 char response;
 
-                r = ask_char(&response, "yn", "\"%s\" already exists. Overwrite with \"%s\"? [(y)es, (n)o] ", tmp_new_path, fragment_path);
-                if (r < 0) {
-                        free(tmp_new_path);
+                r = ask_char(&response, "yn", "\"%s\" already exists. Overwrite with \"%s\"? [(y)es, (n)o] ", new_path, fragment_path);
+                if (r < 0)
                         return r;
-                }
                 if (response != 'y') {
                         log_warning("%s ignored", unit_name);
-                        free(tmp_new_path);
                         return -EKEYREJECTED;
                 }
         }
 
-        r = create_edit_temp_file(tmp_new_path, fragment_path, &tmp_tmp_path);
-        if (r < 0) {
-                free(tmp_new_path);
+        r = create_edit_temp_file(new_path, fragment_path, &tmp_path);
+        if (r < 0)
                 return r;
-        }
 
-        *ret_new_path = tmp_new_path;
-        *ret_tmp_path = tmp_tmp_path;
+        *ret_new_path = TAKE_PTR(new_path);
+        *ret_tmp_path = TAKE_PTR(tmp_path);
 
         return 0;
 }
