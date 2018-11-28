@@ -312,7 +312,7 @@ static int mount_add_mount_dependencies(Mount *m) {
 }
 
 static int mount_add_device_dependencies(Mount *m) {
-        bool device_wants_mount = false;
+        bool device_wants_mount;
         UnitDependencyMask mask;
         MountParameters *p;
         UnitDependency dep;
@@ -342,8 +342,8 @@ static int mount_add_device_dependencies(Mount *m) {
         if (path_equal(m->where, "/"))
                 return 0;
 
-        if (mount_is_auto(p) && !mount_is_automount(p) && MANAGER_IS_SYSTEM(UNIT(m)->manager))
-                device_wants_mount = true;
+        device_wants_mount =
+                mount_is_auto(p) && !mount_is_automount(p) && MANAGER_IS_SYSTEM(UNIT(m)->manager);
 
         /* Mount units from /proc/self/mountinfo are not bound to devices
          * by default since they're subject to races when devices are
