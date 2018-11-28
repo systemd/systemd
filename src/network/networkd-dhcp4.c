@@ -216,8 +216,7 @@ static int dhcp_lease_lost(Link *link) {
                                         assert_se(sd_dhcp_route_get_destination(routes[i], &route->dst.in) >= 0);
                                         assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &route->dst_prefixlen) >= 0);
 
-                                        route_remove(route, link,
-                                                     link_route_remove_handler);
+                                        route_remove(route, link, NULL);
                                 }
                         }
                 }
@@ -237,8 +236,7 @@ static int dhcp_lease_lost(Link *link) {
                                 route_gw->dst_prefixlen = 32;
                                 route_gw->scope = RT_SCOPE_LINK;
 
-                                route_remove(route_gw, link,
-                                             link_route_remove_handler);
+                                route_remove(route_gw, link, NULL);
                         }
 
                         r = route_new(&route);
@@ -246,8 +244,7 @@ static int dhcp_lease_lost(Link *link) {
                                 route->family = AF_INET;
                                 route->gw.in = gateway;
 
-                                route_remove(route, link,
-                                             link_route_remove_handler);
+                                route_remove(route, link, NULL);
                         }
                 }
 

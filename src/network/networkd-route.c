@@ -378,6 +378,24 @@ void route_update(Route *route,
         route->type = type;
 }
 
+static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -ESRCH)
+                log_link_warning_errno(link, r, "Could not drop route: %m");
+
+        return 1;
+}
+
 int route_remove(Route *route, Link *link,
                  sd_netlink_message_handler_t callback) {
 
@@ -454,7 +472,8 @@ int route_remove(Route *route, Link *link,
                         return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
         }
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, callback,
+        r = sd_netlink_call_async(link->manager->rtnl, NULL, req,
+                                  callback ?: route_remove_handler,
                                   link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
@@ -470,7 +489,7 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
 
         assert(route);
 
-        r = route_remove(route, route->link, link_route_remove_handler);
+        r = route_remove(route, route->link, NULL);
         if (r < 0)
                 log_warning_errno(r, "Could not remove route: %m");
         else

@@ -140,8 +140,6 @@ void link_drop(Link *link);
 int link_up(Link *link);
 int link_down(Link *link);
 
-int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
-
 void link_enter_failed(Link *link);
 int link_initialized(Link *link, sd_device *device);
 

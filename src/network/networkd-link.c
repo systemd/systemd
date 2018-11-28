@@ -892,24 +892,6 @@ static int link_enter_set_routes(Link *link) {
         return 0;
 }
 
-int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -ESRCH)
-                log_link_warning_errno(link, r, "Could not drop route: %m");
-
-        return 1;
-}
-
 static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         Link *link = userdata;
         int r;
@@ -2662,7 +2644,7 @@ static int link_drop_foreign_config(Link *link) {
                         if (r < 0)
                                 return r;
                 } else {
-                        r = route_remove(route, link, link_route_remove_handler);
+                        r = route_remove(route, link, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -2701,7 +2683,7 @@ static int link_drop_config(Link *link) {
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
 
-                r = route_remove(route, link, link_route_remove_handler);
+                r = route_remove(route, link, NULL);
                 if (r < 0)
                         return r;
         }
