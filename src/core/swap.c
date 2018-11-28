@@ -1160,13 +1160,13 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
                 Swap *swap = SWAP(u);
 
                 if (!swap->is_active) {
-                        /* This has just been deactivated */
 
                         swap_unset_proc_swaps(swap);
 
                         switch (swap->state) {
 
                         case SWAP_ACTIVE:
+                                /* This has just been deactivated */
                                 swap_enter_dead(swap, SWAP_SUCCESS);
                                 break;
 
