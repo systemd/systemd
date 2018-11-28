@@ -68,20 +68,16 @@ static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
                       MOUNT_UNMOUNTING_SIGKILL);
 }
 
-static bool mount_needs_network(const char *options, const char *fstype) {
-        if (fstab_test_option(options, "_netdev\0"))
-                return true;
-
-        if (fstype && fstype_is_network(fstype))
-                return true;
-
-        return false;
-}
-
 static bool mount_is_network(const MountParameters *p) {
         assert(p);
 
-        return mount_needs_network(p->options, p->fstype);
+        if (fstab_test_option(p->options, "_netdev\0"))
+                return true;
+
+        if (p->fstype && fstype_is_network(p->fstype))
+                return true;
+
+        return false;
 }
 
 static bool mount_is_loop(const MountParameters *p) {
