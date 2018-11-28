@@ -1057,6 +1057,17 @@ fail:
         mount_enter_dead_or_mounted(m, MOUNT_SUCCESS);
 }
 
+static void mount_cycle_clear(Mount *m) {
+        assert(m);
+
+        /* Clear all state we shall forget for this new cycle */
+
+        m->result = MOUNT_SUCCESS;
+        m->reload_result = MOUNT_SUCCESS;
+        exec_command_reset_status_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
+        UNIT(m)->reset_accounting = true;
+}
+
 static int mount_start(Unit *u) {
         Mount *m = MOUNT(u);
         int r;
@@ -1087,13 +1098,9 @@ static int mount_start(Unit *u) {
         if (r < 0)
                 return r;
 
-        m->result = MOUNT_SUCCESS;
-        m->reload_result = MOUNT_SUCCESS;
-        exec_command_reset_status_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
-
-        u->reset_accounting = true;
-
+        mount_cycle_clear(m);
         mount_enter_mounting(m);
+
         return 1;
 }
 
@@ -1841,10 +1848,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                         switch (mount->state) {
 
                         case MOUNT_MOUNTED:
-                                /* This has just been unmounted by
-                                 * somebody else, follow the state
-                                 * change. */
-                                mount->result = MOUNT_SUCCESS; /* make sure we forget any earlier umount failures */
+                                /* This has just been unmounted by somebody else, follow the state change. */
                                 mount_enter_dead(mount, MOUNT_SUCCESS);
                                 break;
 
@@ -1863,7 +1867,8 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
                                 /* This has just been mounted by somebody else, follow the state change, but let's
                                  * generate a new invocation ID for this implicitly and automatically. */
-                                (void) unit_acquire_invocation_id(UNIT(mount));
+                                (void) unit_acquire_invocation_id(u);
+                                mount_cycle_clear(mount);
                                 mount_enter_mounted(mount, MOUNT_SUCCESS);
                                 break;
 
