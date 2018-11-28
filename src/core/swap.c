@@ -491,7 +491,7 @@ static int swap_process_new(Manager *m, const char *device, int prio, bool set_f
                 swap_setup_unit(m, devlink, device, prio, set_flags);
         }
 
-        return r;
+        return 0;
 }
 
 static void swap_set_state(Swap *s, SwapState state) {
