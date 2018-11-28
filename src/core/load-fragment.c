@@ -65,7 +65,7 @@ static int supported_socket_protocol_from_string(const char *s) {
 
         r = socket_protocol_from_name(s);
         if (r < 0)
-                return -EINVAL;
+                return r;
         if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP))
                 return -EPROTONOSUPPORT;
 
@@ -2871,8 +2871,8 @@ int config_parse_address_families(
                 }
 
                 af = af_from_name(word);
-                if (af <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                if (af < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, af,
                                    "Failed to parse address family, ignoring: %s", word);
                         continue;
                 }

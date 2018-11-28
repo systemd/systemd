@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <errno.h>
 #include <net/if_arp.h>
 #include <string.h>
 
@@ -29,7 +30,7 @@ int arphrd_from_name(const char *name) {
 
         sc = lookup_arphrd(name, strlen(name));
         if (!sc)
-                return 0;
+                return -EINVAL;
 
         return sc->id;
 }

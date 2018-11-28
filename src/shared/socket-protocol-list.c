@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <errno.h>
 #include <netinet/in.h>
 #include <string.h>
 
@@ -29,7 +30,7 @@ int socket_protocol_from_name(const char *name) {
 
         sc = lookup_socket_protocol(name, strlen(name));
         if (!sc)
-                return 0;
+                return -EINVAL;
 
         return sc->id;
 }

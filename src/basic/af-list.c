@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <errno.h>
 #include <string.h>
 #include <sys/socket.h>
 
@@ -29,7 +30,7 @@ int af_from_name(const char *name) {
 
         sc = lookup_af(name, strlen(name));
         if (!sc)
-                return AF_UNSPEC;
+                return -EINVAL;
 
         return sc->id;
 }
