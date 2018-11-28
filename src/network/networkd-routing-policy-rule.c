@@ -404,7 +404,8 @@ int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *lin
                         return log_error_errno(r, "Could not set destination prefix length: %m");
         }
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, m, callback,
+        r = sd_netlink_call_async(link->manager->rtnl, NULL, m,
+                                  callback ?: routing_policy_rule_remove_handler,
                                   link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
@@ -461,7 +462,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         return 0;
 }
 
-int link_routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
@@ -597,7 +598,8 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, sd_netlin
 
         rule->link = link;
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, m, callback,
+        r = sd_netlink_call_async(link->manager->rtnl, NULL, m,
+                                  callback ?: routing_policy_rule_handler,
                                   link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
@@ -1239,7 +1241,7 @@ void routing_policy_rule_purge(Manager *m, Link *link) {
                 existing = set_get(m->rules_foreign, rule);
                 if (existing) {
 
-                        r = routing_policy_rule_remove(rule, link, routing_policy_rule_remove_handler);
+                        r = routing_policy_rule_remove(rule, link, NULL);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not remove routing policy rules: %m");
                                 continue;
