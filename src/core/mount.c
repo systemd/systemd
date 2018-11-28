@@ -1454,17 +1454,26 @@ typedef struct {
 } MountSetupFlags;
 
 static int mount_setup_new_unit(
-                Unit *u,
+                Manager *m,
+                const char *name,
                 const char *what,
                 const char *where,
                 const char *options,
                 const char *fstype,
-                MountSetupFlags *flags) {
+                MountSetupFlags *flags,
+                Unit **ret) {
 
+        _cleanup_(unit_freep) Unit *u = NULL;
         int r;
 
-        assert(u);
+        assert(m);
+        assert(name);
         assert(flags);
+        assert(ret);
+
+        r = unit_new_for_name(m, sizeof(Mount), name, &u);
+        if (r < 0)
+                return r;
 
         u->source_path = strdup("/proc/self/mountinfo");
         MOUNT(u)->where = strdup(where);
@@ -1499,6 +1508,7 @@ static int mount_setup_new_unit(
         flags->just_mounted = true;
         flags->just_changed = true;
 
+        *ret = TAKE_PTR(u);
         return 0;
 }
 
@@ -1602,20 +1612,12 @@ static int mount_setup_unit(
                 return r;
 
         u = manager_get_unit(m, e);
-        if (!u) {
-                /* First time we see this mount point meaning that it's
-                 * not been initiated by a mount unit but rather by the
-                 * sysadmin having called mount(8) directly. */
-                r = unit_new_for_name(m, sizeof(Mount), e, &u);
-                if (r < 0)
-                        goto fail;
-
-                r = mount_setup_new_unit(u, what, where, options, fstype, &flags);
-                if (r < 0)
-                        unit_free(u);
-        } else
+        if (u)
                 r = mount_setup_existing_unit(u, what, where, options, fstype, &flags);
-
+        else
+                /* First time we see this mount point meaning that it's not been initiated by a mount unit but rather
+                 * by the sysadmin having called mount(8) directly. */
+                r = mount_setup_new_unit(m, e, what, where, options, fstype, &flags, &u);
         if (r < 0)
                 goto fail;
 
