@@ -54,9 +54,6 @@ typedef struct PortableChange {
 PortableMetadata *portable_metadata_unref(PortableMetadata *i);
 DEFINE_TRIVIAL_CLEANUP_FUNC(PortableMetadata*, portable_metadata_unref);
 
-Hashmap *portable_metadata_hashmap_unref(Hashmap *h);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, portable_metadata_hashmap_unref);
-
 int portable_metadata_hashmap_to_sorted_array(Hashmap *unit_files, PortableMetadata ***ret);
 
 int portable_extract(const char *image, char **matches, PortableMetadata **ret_os_release, Hashmap **ret_unit_files, sd_bus_error *error);

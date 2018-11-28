@@ -92,21 +92,6 @@ PortableMetadata *portable_metadata_unref(PortableMetadata *i) {
         return mfree(i);
 }
 
-Hashmap *portable_metadata_hashmap_unref(Hashmap *h) {
-
-        for (;;) {
-                PortableMetadata *i;
-
-                i = hashmap_steal_first(h);
-                if (!i)
-                        break;
-
-                portable_metadata_unref(i);
-        }
-
-        return hashmap_free(h);
-}
-
 static int compare_metadata(PortableMetadata *const *x, PortableMetadata *const *y) {
         return strcmp((*x)->name, (*y)->name);
 }
@@ -232,6 +217,9 @@ static int recv_item(
         return 0;
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(portable_metadata_hash_ops, char, string_hash_func, string_compare_func,
+                                              PortableMetadata, portable_metadata_unref);
+
 static int extract_now(
                 const char *where,
                 char **matches,
@@ -239,7 +227,7 @@ static int extract_now(
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files) {
 
-        _cleanup_(portable_metadata_hashmap_unrefp) Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_close_ int os_release_fd = -1;
@@ -286,7 +274,7 @@ static int extract_now(
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire lookup paths: %m");
 
-        unit_files = hashmap_new(&string_hash_ops);
+        unit_files = hashmap_new(&portable_metadata_hash_ops);
         if (!unit_files)
                 return -ENOMEM;
 
@@ -362,7 +350,7 @@ static int portable_extract_by_path(
                 Hashmap **ret_unit_files,
                 sd_bus_error *error) {
 
-        _cleanup_(portable_metadata_hashmap_unrefp) Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata* os_release = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         int r;
@@ -432,7 +420,7 @@ static int portable_extract_by_path(
 
                 seq[1] = safe_close(seq[1]);
 
-                unit_files = hashmap_new(&string_hash_ops);
+                unit_files = hashmap_new(&portable_metadata_hash_ops);
                 if (!unit_files)
                         return -ENOMEM;
 
@@ -986,7 +974,7 @@ int portable_attach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
-        _cleanup_(portable_metadata_hashmap_unrefp) Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(image_unrefp) Image *image = NULL;
         PortableMetadata *item;

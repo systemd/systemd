@@ -93,7 +93,7 @@ int bus_image_common_get_metadata(
                 sd_bus_error *error) {
 
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_(portable_metadata_hashmap_unrefp) Hashmap *unit_files = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ PortableMetadata **sorted = NULL;
         _cleanup_strv_free_ char **matches = NULL;
