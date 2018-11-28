@@ -543,6 +543,10 @@ static int mount_add_extras(Mount *m) {
 
         assert(m);
 
+        /* Note: this call might be called after we already have been loaded once (and even when it has already been
+         * activated), in case data from /proc/self/mountinfo has changed. This means all code here needs to be ready
+         * to run with an already set up unit. */
+
         if (u->fragment_path)
                 m->from_fragment = true;
 
