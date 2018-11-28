@@ -15,6 +15,7 @@ import threading
 from shutil import copytree
 
 network_unit_file_path='/run/systemd/network'
+networkd_runtime_directory='/run/systemd/netif'
 networkd_ci_path='/run/networkd-ci'
 network_sysctl_ipv6_path='/proc/sys/net/ipv6/conf'
 network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
@@ -118,7 +119,12 @@ class Utilities():
             os.remove(dnsmasq_log_file)
 
     def start_networkd(self):
-        subprocess.check_call('systemctl restart systemd-networkd', shell=True)
+        if (os.path.exists(os.path.join(networkd_runtime_directory, 'state'))):
+            subprocess.check_call('systemctl stop systemd-networkd', shell=True)
+            os.remove(os.path.join(networkd_runtime_directory, 'state'))
+            subprocess.check_call('systemctl start systemd-networkd', shell=True)
+        else:
+            subprocess.check_call('systemctl restart systemd-networkd', shell=True)
         time.sleep(5)
 
 global ip
