@@ -850,6 +850,11 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata
 }
 
 static int link_enter_set_routes(Link *link) {
+        enum {
+                PHASE_NON_GATEWAY, /* First phase: Routes without a gateway */
+                PHASE_GATEWAY,     /* Second phase: Routes with a gateway */
+                _PHASE_MAX
+        } phase;
         Route *rt;
         int r;
 
@@ -861,21 +866,13 @@ static int link_enter_set_routes(Link *link) {
 
         link_set_state(link, LINK_STATE_SETTING_ROUTES);
 
-        /* First add the default route i.e. Gateway.*/
-        LIST_FOREACH(routes, rt, link->network->static_routes)
-                if (in_addr_is_null(rt->family, &rt->gw)) {
-                        r = route_configure(rt, link, route_handler);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Could not set routes: %m");
-                                link_enter_failed(link);
-                                return r;
-                        }
+        /* First add the routes that enable us to talk to gateways, then add in the others that need a gateway. */
+        for (phase = 0; phase < _PHASE_MAX; phase++)
+                LIST_FOREACH(routes, rt, link->network->static_routes) {
 
-                        link->route_messages++;
-                }
+                        if (in_addr_is_null(rt->family, &rt->gw) != (phase == PHASE_NON_GATEWAY))
+                                continue;
 
-        LIST_FOREACH(routes, rt, link->network->static_routes)
-                if (!in_addr_is_null(rt->family, &rt->gw)) {
                         r = route_configure(rt, link, route_handler);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not set routes: %m");
