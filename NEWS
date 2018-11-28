@@ -70,6 +70,15 @@ CHANGES WITH 240 in spe:
           glibc is going to make it available too. This locale enables UTF-8
           mode by default, which appears appropriate for 2018.
 
+        * The "net.ipv4.conf.all.rp_filter" sysctl will now be set to 2 by
+          default. This effectively switches the RFC3704 Reverse Path filtering
+          from Strict mode to Loose mode. This is more appropriate for hosts
+          that have multiple links with routes to the same networks (e.g.
+          a client with a Wi-Fi and Ethernet both connected to the internet).
+
+          Consult the kernel documetnation for details on this sysctl:
+          https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt
+
 CHANGES WITH 239:
 
         * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
