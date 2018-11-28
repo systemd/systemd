@@ -31,7 +31,7 @@ CHANGES WITH 240 in spe:
           userspace processes is set to 1024 (soft) and 4096
           (hard). Previously, systemd passed this on unmodified to all
           processes it forked off. With this systemd release the hard limit
-          systemd passes on is increased to 256K, overriding the kernel's
+          systemd passes on is increased to 512K, overriding the kernel's
           defaults and substantially increasing the number of simultaneous file
           descriptors unprivileged userspace processes can allocate. Note that
           the soft limit remains at 1024 for compatibility reasons: the
@@ -50,7 +50,19 @@ CHANGES WITH 240 in spe:
           hard limit during initialization. Of course, when doing that they
           must do this acknowledging the fact that they cannot use select()
           anymore (and neither can any shared library they use — or any shared
-          library used by any shared library they use and so on).
+          library used by any shared library they use and so on). Which default
+          hard limit is most appropriate is of course hard to decide. However,
+          given reports that ~300K file descriptors are used in real-life
+          applications we believe 512K is sufficiently high as new default for
+          now. Note that there are also reports that using very high hard
+          limits (e.g. 1G) is problematic: some software allocates large arrays
+          with one element for each potential file descriptor (Java, …) — a
+          high hard limit thus triggers excessively large memory allocations in
+          these applications. Hopefully, the new default of 512K is a good
+          middle ground: higher than what real-life applications currently
+          need, and low enough for not triggering excessively large allocations
+          in problematic software. (And yes, somebody should fix Java, to not
+          require such excessive allocations.)
 
         * The fs.nr_open and fs.file-max sysctls are now automatically bumped
           to the highest possible values, as separate accounting of file
