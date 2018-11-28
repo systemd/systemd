@@ -24,13 +24,9 @@ static bool dhcp6_get_prefix_delegation(Link *link) {
         if (!link->network)
                 return false;
 
-        if (!IN_SET(link->network->router_prefix_delegation,
-                            RADV_PREFIX_DELEGATION_DHCP6,
-                            RADV_PREFIX_DELEGATION_BOTH)) {
-                return false;
-        }
-
-        return true;
+        return IN_SET(link->network->router_prefix_delegation,
+                      RADV_PREFIX_DELEGATION_DHCP6,
+                      RADV_PREFIX_DELEGATION_BOTH);
 }
 
 static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
