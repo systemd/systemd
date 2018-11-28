@@ -45,6 +45,8 @@ Most generic unit settings are available for transient units.
 ✓ StartLimitAction=ACTION
 ✓ FailureAction=
 ✓ SuccessAction=
+✓ FailureActionExitStatus=
+✓ SuccessActionExitStatus=
 ✓ AddRef=
 ✓ RebootArgument=STRING
 ✓ ConditionPathExists=

@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+<refentry id="systemd-run-generator">
+
+  <refentryinfo>
+    <title>systemd-run-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-run-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-run-generator</refname>
+    <refpurpose>Generator for invoking commands specified on the kernel command line as system service</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-run-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-run-generator</filename> is a generator
+    that reads the kernel command line and understands three
+    options:</para>
+
+    <para>If the <option>systemd.run=</option> option is specified and followed by a command line, a unit named
+    <filename>kernel-command-line.service</filename> is generated for it and booted into. The service has
+    <varname>Type=oneshot</varname> set, and has <varname>SuccessAction=exit</varname> and
+    <varname>FailureAction=exit</varname> configured by default, thus ensuring that the system is shut down as soon as
+    the command completes. The exit status of the command line is propagated to the invoking container manager, if
+    this applies (which might propagate this further, to the calling shell — e.g.
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>7</manvolnum></citerefentry> does this). If
+    this option is used multiple times the unit file will contain multiple <varname>ExecStart=</varname> lines, to
+    execute all commands in order. The command is started as regular service, i.e. with
+    <varname>DefaultDependencies=</varname> on. </para>
+
+    <para>Use <option>systemd.run_success_action=</option> and <option>systemd.run_failure_action=</option> to tweak
+    how to react to the process completing. In particular assigning <literal>none</literal> will leave the system
+    running after the command completes. For further details on supported arguments, see
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para><filename>systemd-run-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <para>Use a command like the following to add a user to the user database inside a container run with
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>7</manvolnum></citerefentry>:</para>
+
+    <programlisting># systemd-nspawn -D mycontainer -b systemd.run='"adduser test"'</programlisting>
+    <para>(Note the requirement for double quoting in the command line above. The first level of quoting ('') is
+    processed and removed by the command shell used to invoke <command>systemd-nspawn</command>. The second level of
+    quoting ("") is propagated to the kernel command line of the container and processed and removed by
+    <command>systemd-run-generator</command>. Both together make sure both words of the specified command line
+    <command>adduser test</command> end up in the generated unit file together and are neither split apart by the
+    command shell nor by the generator.)</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

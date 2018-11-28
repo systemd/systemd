@@ -96,6 +96,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->ref_gid = GID_INVALID;
         u->cpu_usage_last = NSEC_INFINITY;
         u->cgroup_invalidated_mask |= CGROUP_MASK_BPF_FIREWALL;
+        u->failure_action_exit_status = u->success_action_exit_status = -1;
 
         u->ip_accounting_ingress_map_fd = -1;
         u->ip_accounting_egress_map_fd = -1;
@@ -1225,8 +1226,12 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (u->failure_action != EMERGENCY_ACTION_NONE)
                 fprintf(f, "%s\tFailure Action: %s\n", prefix, emergency_action_to_string(u->failure_action));
+        if (u->failure_action_exit_status >= 0)
+                fprintf(f, "%s\tFailure Action Exit Status: %i\n", prefix, u->failure_action_exit_status);
         if (u->success_action != EMERGENCY_ACTION_NONE)
                 fprintf(f, "%s\tSuccess Action: %s\n", prefix, emergency_action_to_string(u->success_action));
+        if (u->success_action_exit_status >= 0)
+                fprintf(f, "%s\tSuccess Action Exit Status: %i\n", prefix, u->success_action_exit_status);
 
         if (u->job_timeout != USEC_INFINITY)
                 fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout, 0));
@@ -1673,7 +1678,7 @@ int unit_start_limit_test(Unit *u) {
 
         return emergency_action(u->manager, u->start_limit_action,
                                 EMERGENCY_ACTION_IS_WATCHDOG|EMERGENCY_ACTION_WARN,
-                                u->reboot_arg, reason);
+                                u->reboot_arg, -1, reason);
 }
 
 bool unit_shall_confirm_spawn(Unit *u) {
@@ -2483,10 +2488,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
                         reason = strjoina("unit ", u->id, " failed");
-                        (void) emergency_action(m, u->failure_action, 0, u->reboot_arg, reason);
+                        (void) emergency_action(m, u->failure_action, 0, u->reboot_arg, unit_failure_action_exit_status(u), reason);
                 } else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && ns == UNIT_INACTIVE) {
                         reason = strjoina("unit ", u->id, " succeeded");
-                        (void) emergency_action(m, u->success_action, 0, u->reboot_arg, reason);
+                        (void) emergency_action(m, u->success_action, 0, u->reboot_arg, unit_success_action_exit_status(u), reason);
                 }
         }
 
@@ -5516,6 +5521,54 @@ void unit_log_process_exit(
                    "COMMAND=%s", strna(command),
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u));
+}
+
+int unit_exit_status(Unit *u) {
+        assert(u);
+
+        /* Returns the exit status to propagate for the most recent cycle of this unit. Returns a value in the range
+         * 0…255 if there's something to propagate. EOPNOTSUPP if the concept does not apply to this unit type, ENODATA
+         * if no data is currently known (for example because the unit hasn't deactivated yet) and EBADE if the main
+         * service process has exited abnormally (signal/coredump). */
+
+        if (!UNIT_VTABLE(u)->exit_status)
+                return -EOPNOTSUPP;
+
+        return UNIT_VTABLE(u)->exit_status(u);
+}
+
+int unit_failure_action_exit_status(Unit *u) {
+        int r;
+
+        assert(u);
+
+        /* Returns the exit status to propagate on failure, or an error if there's nothing to propagate */
+
+        if (u->failure_action_exit_status >= 0)
+                return u->failure_action_exit_status;
+
+        r = unit_exit_status(u);
+        if (r == -EBADE) /* Exited, but not cleanly (i.e. by signal or such) */
+                return 255;
+
+        return r;
+}
+
+int unit_success_action_exit_status(Unit *u) {
+        int r;
+
+        assert(u);
+
+        /* Returns the exit status to propagate on success, or an error if there's nothing to propagate */
+
+        if (u->success_action_exit_status >= 0)
+                return u->success_action_exit_status;
+
+        r = unit_exit_status(u);
+        if (r == -EBADE) /* Exited, but not cleanly (i.e. by signal or such) */
+                return 255;
+
+        return r;
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {

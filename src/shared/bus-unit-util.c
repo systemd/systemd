@@ -1557,6 +1557,25 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
 
                 return bus_append_safe_atou(m, field, eq);
 
+        if (STR_IN_SET(field, "SuccessActionExitStatus", "FailureActionExitStatus")) {
+
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "i", -1);
+                else {
+                        uint8_t u;
+
+                        r = safe_atou8(eq, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s=%s", field, eq);
+
+                        r = sd_bus_message_append(m, "(sv)", field, "i", (int) u);
+                }
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         if (unit_dependency_from_string(field) >= 0 ||
             STR_IN_SET(field, "Documentation", "RequiresMountsFor"))
 

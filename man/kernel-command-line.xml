@@ -92,6 +92,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.run=</varname></term>
+        <term><varname>systemd.run_success_action=</varname></term>
+        <term><varname>systemd.run_failure_action=</varname></term>
+        <listitem>
+          <para>Additional parameters understood by
+          <citerefentry><refentrytitle>systemd-run-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>, to
+          run a command line specified on the kernel command line as system service after booting up.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.early_core_pattern=</varname></term>
         <listitem>
           <para>During early boot, the generation of core dump files is disabled until a core dump handler (if any)

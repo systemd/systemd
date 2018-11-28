@@ -226,8 +226,9 @@ typedef struct Unit {
         RateLimit start_limit;
         EmergencyAction start_limit_action;
 
-        EmergencyAction failure_action;
-        EmergencyAction success_action;
+        /* What to do on failure or success */
+        EmergencyAction success_action, failure_action;
+        int success_action_exit_status, failure_action_exit_status;
         char *reboot_arg;
 
         /* Make sure we never enter endless loops with the check unneeded logic, or the BindsTo= logic */
@@ -529,6 +530,10 @@ typedef struct UnitVTable {
         /* Returns true if the unit currently needs access to the console */
         bool (*needs_console)(Unit *u);
 
+        /* Returns the exit status to propagate in case of FailureAction=exit/SuccessAction=exit; usually returns the
+         * exit code of the "main" process of the service or similar. */
+        int (*exit_status)(Unit *u);
+
         /* Like the enumerate() callback further down, but only enumerates the perpetual units, i.e. all units that
          * unconditionally exist and are always active. The main reason to keep both enumeration functions separate is
          * philosophical: the state of perpetual units should be put in place by coldplug(), while the state of those
@@ -812,6 +817,10 @@ static inline void unit_log_result(Unit *u, bool success, const char *result) {
 }
 
 void unit_log_process_exit(Unit *u, int level, const char *kind, const char *command, int code, int status);
+
+int unit_exit_status(Unit *u);
+int unit_success_action_exit_status(Unit *u);
+int unit_failure_action_exit_status(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
