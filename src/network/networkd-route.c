@@ -378,8 +378,7 @@ void route_update(Route *route,
         route->type = type;
 }
 
-static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(m);
@@ -397,7 +396,7 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
 }
 
 int route_remove(Route *route, Link *link,
-                 sd_netlink_message_handler_t callback) {
+                 link_netlink_message_handler_t callback) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
@@ -472,9 +471,9 @@ int route_remove(Route *route, Link *link,
                         return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
         }
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req,
-                                  callback ?: route_remove_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               callback ?: route_remove_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -501,7 +500,7 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
 int route_configure(
                 Route *route,
                 Link *link,
-                sd_netlink_message_handler_t callback) {
+                link_netlink_message_handler_t callback) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
@@ -655,8 +654,8 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_METRICS attribute: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, callback,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 

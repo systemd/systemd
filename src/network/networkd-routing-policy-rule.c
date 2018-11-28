@@ -341,8 +341,7 @@ int routing_policy_rule_add_foreign(Manager *m,
         return routing_policy_rule_add_internal(m, &m->rules_foreign, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, sport, dport, ret);
 }
 
-static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(m);
@@ -361,7 +360,7 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
         return 1;
 }
 
-int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *link, sd_netlink_message_handler_t callback) {
+int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -404,9 +403,9 @@ int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *lin
                         return log_error_errno(r, "Could not set destination prefix length: %m");
         }
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, m,
-                                  callback ?: routing_policy_rule_remove_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, m,
+                               callback ?: routing_policy_rule_remove_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -462,8 +461,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         return 0;
 }
 
-static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(rtnl);
@@ -490,7 +488,7 @@ static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, sd_netlink_message_handler_t callback, bool update) {
+int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback, bool update) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -598,9 +596,9 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, sd_netlin
 
         rule->link = link;
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, m,
-                                  callback ?: routing_policy_rule_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, m,
+                               callback ?: routing_policy_rule_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 

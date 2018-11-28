@@ -45,8 +45,8 @@ struct Route {
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
 int route_new(Route **ret);
 void route_free(Route *route);
-int route_configure(Route *route, Link *link, sd_netlink_message_handler_t callback);
-int route_remove(Route *route, Link *link, sd_netlink_message_handler_t callback);
+int route_configure(Route *route, Link *link, link_netlink_message_handler_t callback);
+int route_remove(Route *route, Link *link, link_netlink_message_handler_t callback);
 
 int route_get(Link *link, int family, const union in_addr_union *dst, unsigned char dst_prefixlen, unsigned char tos, uint32_t priority, uint32_t table, Route **ret);
 int route_add(Link *link, int family, const union in_addr_union *dst, unsigned char dst_prefixlen, unsigned char tos, uint32_t priority, uint32_t table, Route **ret);

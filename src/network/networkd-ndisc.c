@@ -16,8 +16,7 @@
 #define NDISC_RDNSS_MAX 64U
 #define NDISC_PREFIX_LFT_MIN 7200U
 
-static int ndisc_netlink_message_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int ndisc_netlink_message_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);

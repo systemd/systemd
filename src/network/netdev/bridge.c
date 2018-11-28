@@ -9,8 +9,7 @@
 #include "vlan-util.h"
 
 /* callback for brige netdev's parameter set */
-static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        NetDev *netdev = userdata;
+static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
         int r;
 
         assert(netdev);
@@ -129,8 +128,8 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
-        r = sd_netlink_call_async(netdev->manager->rtnl, NULL, req, netdev_bridge_set_handler,
-                                  netdev_destroy_callback, netdev, 0, __func__);
+        r = netlink_call_async(netdev->manager->rtnl, NULL, req, netdev_bridge_set_handler,
+                               netdev_destroy_callback, netdev);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 

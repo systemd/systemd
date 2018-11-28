@@ -87,8 +87,7 @@ int fdb_entry_new_static(
         return 0;
 }
 
-static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -147,8 +146,8 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         }
 
         /* send message to the kernel to update its internal static MAC table. */
-        r = sd_netlink_call_async(rtnl, NULL, req, set_fdb_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(rtnl, NULL, req, set_fdb_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

@@ -53,8 +53,8 @@ void routing_policy_rule_free(RoutingPolicyRule *rule);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RoutingPolicyRule*, routing_policy_rule_free);
 
-int routing_policy_rule_configure(RoutingPolicyRule *address, Link *link, sd_netlink_message_handler_t callback, bool update);
-int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *link, sd_netlink_message_handler_t callback);
+int routing_policy_rule_configure(RoutingPolicyRule *address, Link *link, link_netlink_message_handler_t callback, bool update);
+int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *link, link_netlink_message_handler_t callback);
 
 int routing_policy_rule_add(Manager *m, int family, const union in_addr_union *from, uint8_t from_prefixlen, const union in_addr_union *to, uint8_t to_prefixlen,
                             uint8_t tos, uint32_t fwmark, uint32_t table, const char *iif, const char *oif, uint8_t protocol, const struct fib_rule_port_range *sport,

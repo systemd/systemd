@@ -428,8 +428,7 @@ int address_get(Link *link,
         return -ENOENT;
 }
 
-static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(m);
@@ -449,7 +448,7 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
 int address_remove(
                 Address *address,
                 Link *link,
-                sd_netlink_message_handler_t callback) {
+                link_netlink_message_handler_t callback) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_free_ char *b = NULL;
@@ -483,9 +482,9 @@ int address_remove(
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req,
-                                  callback ?: address_remove_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               callback ?: address_remove_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -558,7 +557,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
 int address_configure(
                 Address *address,
                 Link *link,
-                sd_netlink_message_handler_t callback,
+                link_netlink_message_handler_t callback,
                 bool update) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
@@ -664,8 +663,8 @@ int address_configure(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, callback,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+                               link_netlink_destroy_callback, link);
         if (r < 0) {
                 address_release(address);
                 return log_error_errno(r, "Could not send rtnetlink message: %m");

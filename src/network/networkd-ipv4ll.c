@@ -51,8 +51,7 @@ static int ipv4ll_address_lost(Link *link) {
         return 0;
 }
 
-static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -72,8 +71,7 @@ static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
         return 1;
 }
 
-static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);

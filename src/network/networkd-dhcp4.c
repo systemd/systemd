@@ -14,9 +14,7 @@
 #include "string-util.h"
 #include "sysctl-util.h"
 
-static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
-                               void *userdata) {
-        Link *link = userdata;
+static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -300,9 +298,7 @@ static int dhcp_lease_lost(Link *link) {
         return 0;
 }
 
-static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
-                                 void *userdata) {
-        Link *link = userdata;
+static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
