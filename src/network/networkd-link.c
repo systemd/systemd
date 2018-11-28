@@ -941,33 +941,6 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         return 1;
 }
 
-static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        assert(rtnl);
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-        assert(link->address_label_messages > 0);
-
-        link->address_label_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                log_link_warning_errno(link, r, "could not set address label: %m");
-        else if (r >= 0)
-                manager_rtnl_process_address(rtnl, m, link->manager);
-
-        if (link->address_label_messages == 0)
-                log_link_debug(link, "Addresses label set");
-
-        return 1;
-}
-
 static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         size_t n_addresses = 0, n_allocated = 0;
@@ -1106,7 +1079,7 @@ static int link_enter_set_addresses(Link *link) {
         }
 
         LIST_FOREACH(labels, label, link->network->address_labels) {
-                r = address_label_configure(label, link, address_label_handler, false);
+                r = address_label_configure(label, link, NULL, false);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not set address label: %m");
                         link_enter_failed(link);

@@ -79,6 +79,33 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         return 0;
 }
 
+static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(rtnl);
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+        assert(link->address_label_messages > 0);
+
+        link->address_label_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST)
+                log_link_warning_errno(link, r, "could not set address label: %m");
+        else if (r >= 0)
+                manager_rtnl_process_address(rtnl, m, link->manager);
+
+        if (link->address_label_messages == 0)
+                log_link_debug(link, "Addresses label set");
+
+        return 1;
+}
+
 int address_label_configure(
                 AddressLabel *label,
                 Link *link,
@@ -111,7 +138,8 @@ int address_label_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, callback,
+        r = sd_netlink_call_async(link->manager->rtnl, NULL, req,
+                                  callback ?: address_label_handler,
                                   link_netlink_destroy_callback, link, 0, __func__);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
