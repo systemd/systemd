@@ -186,6 +186,45 @@ if conf.get('HAVE_KMOD') == 1
         shared_sources += files('module-util.c')
 endif
 
+generate_socket_protocol_list = find_program('generate-socket-protocol-list.sh')
+socket_protocol_list_txt = custom_target(
+        'socket-protocol-list.txt',
+        output : 'socket-protocol-list.txt',
+        command : [generate_socket_protocol_list, cpp],
+        capture : true)
+
+fname = 'socket-protocol-from-name.gperf'
+gperf_file = custom_target(
+        fname,
+        input : socket_protocol_list_txt,
+        output : fname,
+        command : [generate_gperfs, 'socket_protocol', 'IPPROTO_', '@INPUT@'],
+        capture : true)
+
+fname = 'socket-protocol-from-name.h'
+target1 = custom_target(
+        fname,
+        input : gperf_file,
+        output : fname,
+        command : [gperf,
+                   '-L', 'ANSI-C', '-t', '--ignore-case',
+                   '-N', 'lookup_socket_protocol',
+                   '-H', 'hash_socket_protocol_name',
+                   '-p', '-C',
+                   '@INPUT@'],
+        capture : true)
+
+fname = 'socket-protocol-to-name.h'
+awkscript = 'socket-protocol-to-name.awk'
+target2 = custom_target(
+        fname,
+        input : [awkscript, socket_protocol_list_txt],
+        output : fname,
+        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+shared_sources += [target1, target2]
+
 libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 
 libshared_deps = [threads,
