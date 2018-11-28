@@ -861,10 +861,8 @@ static int path_open_parent_safe(const char *path) {
         if (!dn)
                 return log_oom();
 
-        fd = chase_symlinks(dn, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
-        if (fd == -ENOLINK)
-                return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
-        if (fd < 0)
+        fd = chase_symlinks(dn, NULL, CHASE_OPEN|CHASE_SAFE|CHASE_WARN, NULL);
+        if (fd < 0 && fd != -ENOLINK)
                 return log_error_errno(fd, "Failed to validate path %s: %m", path);
 
         return fd;
@@ -884,10 +882,8 @@ static int path_open_safe(const char *path) {
                                        "Failed to open invalid path '%s'.",
                                        path);
 
-        fd = chase_symlinks(path, NULL, CHASE_OPEN|CHASE_SAFE|CHASE_NOFOLLOW, NULL);
-        if (fd == -ENOLINK)
-                return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
-        if (fd < 0)
+        fd = chase_symlinks(path, NULL, CHASE_OPEN|CHASE_SAFE|CHASE_WARN|CHASE_NOFOLLOW, NULL);
+        if (fd < 0 && fd != -ENOLINK)
                 return log_error_errno(fd, "Failed to validate path %s: %m", path);
 
         return fd;
