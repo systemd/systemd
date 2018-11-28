@@ -1421,6 +1421,32 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         return 0;
 }
 
+static int update_parameters_proc_self_mount_info(
+                Mount *m,
+                const char *what,
+                const char *options,
+                const char *fstype) {
+
+        MountParameters *p;
+        int r, q, w;
+
+        p = &m->parameters_proc_self_mountinfo;
+
+        r = free_and_strdup(&p->what, what);
+        if (r < 0)
+                return r;
+
+        q = free_and_strdup(&p->options, options);
+        if (q < 0)
+                return q;
+
+        w = free_and_strdup(&p->fstype, fstype);
+        if (w < 0)
+                return w;
+
+        return r > 0 || q > 0 || w > 0;
+}
+
 typedef struct {
         bool is_mounted;
         bool just_mounted;
@@ -1435,7 +1461,7 @@ static int mount_setup_new_unit(
                 const char *fstype,
                 MountSetupFlags *flags) {
 
-        MountParameters *p;
+        int r;
 
         assert(u);
         assert(flags);
@@ -1447,17 +1473,16 @@ static int mount_setup_new_unit(
 
         /* Make sure to initialize those fields before mount_is_extrinsic(). */
         MOUNT(u)->from_proc_self_mountinfo = true;
-        p = &MOUNT(u)->parameters_proc_self_mountinfo;
 
-        p->what = strdup(what);
-        p->options = strdup(options);
-        p->fstype = strdup(fstype);
-        if (!p->what || !p->options || !p->fstype)
-                return -ENOMEM;
+        r = update_parameters_proc_self_mount_info(MOUNT(u), what, options, fstype);
+        if (r < 0)
+                return r;
 
         if (!mount_is_extrinsic(MOUNT(u))) {
+                MountParameters *p;
                 const char *target;
-                int r;
+
+                p = &MOUNT(u)->parameters_proc_self_mountinfo;
 
                 target = mount_is_network(p) ? SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
                 r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, true, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
@@ -1485,9 +1510,9 @@ static int mount_setup_existing_unit(
                 const char *fstype,
                 MountSetupFlags *flags) {
 
-        MountParameters *p;
         bool load_extras = false;
-        int r1, r2, r3;
+        MountParameters *p;
+        int r;
 
         assert(u);
         assert(flags);
@@ -1498,20 +1523,17 @@ static int mount_setup_existing_unit(
                         return -ENOMEM;
         }
 
-        /* Make sure to initialize those fields before mount_is_extrinsic(). */
-        p = &MOUNT(u)->parameters_proc_self_mountinfo;
+        r = update_parameters_proc_self_mount_info(MOUNT(u), what, options, fstype);
+        if (r < 0)
+                return r;
 
-        r1 = free_and_strdup(&p->what, what);
-        r2 = free_and_strdup(&p->options, options);
-        r3 = free_and_strdup(&p->fstype, fstype);
-        if (r1 < 0 || r2 < 0 || r3 < 0)
-                return -ENOMEM;
-
-        flags->just_changed = r1 > 0 || r2 > 0 || r3 > 0;
+        flags->just_changed = r > 0;
         flags->is_mounted = true;
         flags->just_mounted = !MOUNT(u)->from_proc_self_mountinfo || MOUNT(u)->just_mounted;
 
         MOUNT(u)->from_proc_self_mountinfo = true;
+
+        p = &MOUNT(u)->parameters_proc_self_mountinfo;
 
         if (!mount_is_extrinsic(MOUNT(u)) && mount_is_network(p)) {
                 /* _netdev option may have shown up late, or on a
