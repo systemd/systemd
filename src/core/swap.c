@@ -1111,7 +1111,6 @@ static int swap_dispatch_timer(sd_event_source *source, usec_t usec, void *userd
 
 static int swap_load_proc_swaps(Manager *m, bool set_flags) {
         unsigned i;
-        int r = 0;
 
         assert(m);
 
@@ -1143,12 +1142,10 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
 
                 device_found_node(m, d, DEVICE_FOUND_SWAP, DEVICE_FOUND_SWAP);
 
-                k = swap_process_new(m, d, prio, set_flags);
-                if (k < 0)
-                        r = k;
+                (void) swap_process_new(m, d, prio, set_flags);
         }
 
-        return r;
+        return 0;
 }
 
 static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
