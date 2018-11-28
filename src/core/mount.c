@@ -207,11 +207,9 @@ static void mount_unwatch_control_pid(Mount *m) {
 static void mount_parameters_done(MountParameters *p) {
         assert(p);
 
-        free(p->what);
-        free(p->options);
-        free(p->fstype);
-
-        p->what = p->options = p->fstype = NULL;
+        p->what = mfree(p->what);
+        p->options = mfree(p->options);
+        p->fstype = mfree(p->fstype);
 }
 
 static void mount_done(Unit *u) {
