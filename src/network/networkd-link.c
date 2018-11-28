@@ -1214,24 +1214,6 @@ static int link_enter_set_addresses(Link *link) {
         return 0;
 }
 
-int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_warning_errno(link, r, "Could not drop address: %m");
-
-        return 1;
-}
-
 static int link_set_bridge_vlan(Link *link) {
         int r = 0;
 
@@ -2664,7 +2646,7 @@ static int link_drop_foreign_config(Link *link) {
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to add address: %m");
                 } else {
-                        r = address_remove(address, link, link_address_remove_handler);
+                        r = address_remove(address, link, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -2700,7 +2682,7 @@ static int link_drop_config(Link *link) {
                 if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1)
                         continue;
 
-                r = address_remove(address, link, link_address_remove_handler);
+                r = address_remove(address, link, NULL);
                 if (r < 0)
                         return r;
 

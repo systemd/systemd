@@ -261,7 +261,7 @@ static int dhcp_lease_lost(Link *link) {
                         address->in_addr.in = addr;
                         address->prefixlen = prefixlen;
 
-                        address_remove(address, link, link_address_remove_handler);
+                        address_remove(address, link, NULL);
                 }
         }
 
