@@ -1048,11 +1048,14 @@ static int install_info_add(
         if (r < 0)
                 return r;
 
-        i = new0(UnitFileInstallInfo, 1);
+        i = new(UnitFileInstallInfo, 1);
         if (!i)
                 return -ENOMEM;
-        i->type = _UNIT_FILE_TYPE_INVALID;
-        i->auxiliary = auxiliary;
+
+        *i = (UnitFileInstallInfo) {
+                .type = _UNIT_FILE_TYPE_INVALID,
+                .auxiliary = auxiliary,
+        };
 
         i->name = strdup(name);
         if (!i->name) {
@@ -1749,11 +1752,15 @@ static int install_info_symlink_wants(
         if (strv_isempty(list))
                 return 0;
 
-        if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) && i->default_instance) {
+        if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE)) {
                 UnitFileInstallInfo instance = {
                         .type = _UNIT_FILE_TYPE_INVALID,
                 };
                 _cleanup_free_ char *path = NULL;
+
+                /* If this is a template, and we have no instance, don't do anything */
+                if (!i->default_instance)
+                        return 1;
 
                 r = unit_name_replace_instance(i->name, i->default_instance, &buf);
                 if (r < 0)

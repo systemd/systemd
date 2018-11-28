@@ -365,6 +365,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [TREE_SPACE]         = "  ",
                         [TRIANGULAR_BULLET]  = ">",
                         [BLACK_CIRCLE]       = "*",
+                        [BULLET]             = "*",
                         [ARROW]              = "->",
                         [MDASH]              = "-",
                         [ELLIPSIS]           = "...",
@@ -381,6 +382,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [TREE_SPACE]         = "  ",                       /*    */
                         [TRIANGULAR_BULLET]  = "\342\200\243",             /* ‣ */
                         [BLACK_CIRCLE]       = "\342\227\217",             /* ● */
+                        [BULLET]             = "\342\200\242",             /* • */
                         [ARROW]              = "\342\206\222",             /* → */
                         [MDASH]              = "\342\200\223",             /* – */
                         [ELLIPSIS]           = "\342\200\246",             /* … */
