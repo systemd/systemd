@@ -570,6 +570,7 @@ int address_configure(
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
+        assert(callback);
 
         /* If this is a new address, then refuse adding more than the limit */
         if (address_get(link, address->family, &address->in_addr, address->prefixlen, NULL) <= 0 &&

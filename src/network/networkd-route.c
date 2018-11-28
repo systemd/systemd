@@ -513,6 +513,7 @@ int route_configure(
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
         assert(IN_SET(route->family, AF_INET, AF_INET6));
+        assert(callback);
 
         if (route_get(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL) <= 0 &&
             set_size(link->routes) >= routes_max())
