@@ -12,6 +12,20 @@ struct hash_ops {
         compare_func_t compare;
 };
 
+#define _DEFINE_HASH_OPS(uq, name, type, hash_func, compare_func, scope) \
+        _unused_ static void (* UNIQ_T(static_hash_wrapper, uq))(const type *, struct siphash *) = hash_func; \
+        _unused_ static int (* UNIQ_T(static_compare_wrapper, uq))(const type *, const type *) = compare_func; \
+        scope const struct hash_ops name = {                            \
+                .hash = (hash_func_t) hash_func,                        \
+                .compare = (compare_func_t) compare_func,               \
+        }
+
+#define DEFINE_HASH_OPS(name, type, hash_func, compare_func)            \
+        _DEFINE_HASH_OPS(UNIQ, name, type, hash_func, compare_func,)
+
+#define DEFINE_PRIVATE_HASH_OPS(name, type, hash_func, compare_func)    \
+        _DEFINE_HASH_OPS(UNIQ, name, type, hash_func, compare_func, static)
+
 void string_hash_func(const void *p, struct siphash *state);
 int string_compare_func(const void *a, const void *b) _pure_;
 extern const struct hash_ops string_hash_ops;
