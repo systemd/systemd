@@ -101,6 +101,9 @@ RoutingPolicyRule.From,                 config_parse_routing_policy_rule_prefix,
 RoutingPolicyRule.To,                   config_parse_routing_policy_rule_prefix,        0,                             0
 RoutingPolicyRule.IncomingInterface,    config_parse_routing_policy_rule_device,        0,                             0
 RoutingPolicyRule.OutgoingInterface,    config_parse_routing_policy_rule_device,        0,                             0
+RoutingPolicyRule.Protocol,             config_parse_routing_policy_rule_protocol,      0,                             0
+RoutingPolicyRule.SourcePort,           config_parse_routing_policy_rule_port_range,    0,                             0
+RoutingPolicyRule.DestinationPort,      config_parse_routing_policy_rule_port_range,    0,                             0
 Route.Gateway,                          config_parse_gateway,                           0,                             0
 Route.Destination,                      config_parse_destination,                       0,                             0
 Route.Source,                           config_parse_destination,                       0,                             0

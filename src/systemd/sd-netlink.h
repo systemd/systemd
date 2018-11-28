@@ -85,6 +85,7 @@ int sd_netlink_message_open_container(sd_netlink_message *m, unsigned short type
 int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned short type, const char *key);
 int sd_netlink_message_close_container(sd_netlink_message *m);
 
+int sd_netlink_message_read(sd_netlink_message *m, unsigned short type, size_t size, void *data);
 int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, const char **data);
 int sd_netlink_message_read_u8(sd_netlink_message *m, unsigned short type, uint8_t *data);
 int sd_netlink_message_read_u16(sd_netlink_message *m, unsigned short type, uint16_t *data);

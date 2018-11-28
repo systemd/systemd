@@ -562,6 +562,25 @@ static int netlink_message_read_internal(sd_netlink_message *m, unsigned short t
         return RTA_PAYLOAD(rta);
 }
 
+int sd_netlink_message_read(sd_netlink_message *m, unsigned short type, size_t size, void *data) {
+        void *attr_data;
+        int r;
+
+        assert_return(m, -EINVAL);
+
+        r = netlink_message_read_internal(m, type, &attr_data, NULL);
+        if (r < 0)
+                return r;
+
+        if ((size_t) r < size)
+                return -EIO;
+
+        if (data)
+                memcpy(data, attr_data, size);
+
+        return 0;
+}
+
 int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, const char **data) {
         int r;
         void *attr_data;

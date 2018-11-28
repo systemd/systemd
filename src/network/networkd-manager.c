@@ -697,7 +697,8 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
 }
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
-        uint8_t tos = 0, to_prefixlen = 0, from_prefixlen = 0;
+        uint8_t tos = 0, to_prefixlen = 0, from_prefixlen = 0, protocol = 0;
+        struct fib_rule_port_range sport = {}, dport = {};
         union in_addr_union to = {}, from = {};
         RoutingPolicyRule *rule = NULL;
         uint32_t fwmark = 0, table = 0;
@@ -829,12 +830,30 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 return 0;
         }
 
-        (void) routing_policy_rule_get(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, &rule);
+        r = sd_netlink_message_read_u8(message, FRA_IP_PROTO, &protocol);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_IP_PROTO attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read(message, FRA_SPORT_RANGE, sizeof(sport), (void *) &sport);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_SPORT_RANGE attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read(message, FRA_DPORT_RANGE, sizeof(dport), (void *) &dport);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_DPORT_RANGE attribute, ignoring: %m");
+                return 0;
+        }
+
+        (void) routing_policy_rule_get(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, &sport, &dport, &rule);
 
         switch (type) {
         case RTM_NEWRULE:
                 if (!rule) {
-                        r = routing_policy_rule_add_foreign(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, &rule);
+                        r = routing_policy_rule_add_foreign(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, &sport, &dport, &rule);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not add rule, ignoring: %m");
                                 return 0;

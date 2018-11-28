@@ -641,6 +641,10 @@ static const NLType rtnl_routing_policy_rule_types[] = {
         [FRA_PAD]                 = { .type = NETLINK_TYPE_U32 },
         [FRA_L3MDEV]              = { .type = NETLINK_TYPE_U64 },
         [FRA_UID_RANGE]           = { .size = sizeof(struct fib_rule_uid_range) },
+        [FRA_PROTOCOL]            = { .type = NETLINK_TYPE_U8 },
+        [FRA_IP_PROTO]            = { .type = NETLINK_TYPE_U8 },
+        [FRA_SPORT_RANGE]         = { .size = sizeof(struct fib_rule_port_range) },
+        [FRA_DPORT_RANGE]         = { .size = sizeof(struct fib_rule_port_range) },
 };
 
 static const NLTypeSystem rtnl_routing_policy_rule_type_system = {

@@ -9,6 +9,7 @@
 #include <linux/audit.h>
 #include <linux/capability.h>
 #include <linux/falloc.h>
+#include <linux/fib_rules.h>
 #include <linux/if_link.h>
 #include <linux/input.h>
 #include <linux/loop.h>
@@ -988,7 +989,7 @@ struct input_mask {
 #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
 #endif
 
-#if !HAVE_FRA_UID_RANGE
+#if !HAVE_FRA_DPORT_RANGE
 #define FRA_UNSPEC 0
 #define FRA_DST 1
 #define FRA_SRC 2
@@ -1010,7 +1011,11 @@ struct input_mask {
 #define FRA_PAD 18
 #define FRA_L3MDEV 19
 #define FRA_UID_RANGE 20
-#define __FRA_MAX 12
+#define FRA_PROTOCOL 21
+#define FRA_IP_PROTO 22
+#define FRA_SPORT_RANGE 23
+#define FRA_DPORT_RANGE 24
+#define __FRA_MAX 25
 
 #define FRA_MAX (__FRA_MAX - 1)
 #endif
@@ -1307,6 +1312,15 @@ typedef int32_t key_serial_t;
 struct fib_rule_uid_range {
         __u32 start;
         __u32 end;
+};
+
+#endif
+
+#if ! HAVE_STRUCT_FIB_RULE_PORT_RANGE
+
+struct fib_rule_port_range {
+        __u16 start;
+        __u16 end;
 };
 
 #endif

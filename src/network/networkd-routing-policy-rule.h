@@ -2,6 +2,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <linux/fib_rules.h>
 #include <stdbool.h>
 
 #include "in-addr-util.h"
@@ -24,6 +25,7 @@ struct RoutingPolicyRule {
         NetworkConfigSection *section;
 
         uint8_t tos;
+        uint8_t protocol;
 
         uint32_t table;
         uint32_t fwmark;
@@ -40,6 +42,9 @@ struct RoutingPolicyRule {
         union in_addr_union to;
         union in_addr_union from;
 
+        struct fib_rule_port_range sport;
+        struct fib_rule_port_range dport;
+
         LIST_FIELDS(RoutingPolicyRule, rules);
 };
 
@@ -54,11 +59,14 @@ int link_routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message
 int link_routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
 
 int routing_policy_rule_add(Manager *m, int family, const union in_addr_union *from, uint8_t from_prefixlen, const union in_addr_union *to, uint8_t to_prefixlen,
-                            uint8_t tos, uint32_t fwmark, uint32_t table, const char *iif, const char *oif, RoutingPolicyRule **ret);
+                            uint8_t tos, uint32_t fwmark, uint32_t table, const char *iif, const char *oif, uint8_t protocol, const struct fib_rule_port_range *sport,
+                            const struct fib_rule_port_range *dport, RoutingPolicyRule **ret);
 int routing_policy_rule_add_foreign(Manager *m, int family, const union in_addr_union *from, uint8_t from_prefixlen, const union in_addr_union *to, uint8_t to_prefixlen,
-                                    uint8_t tos, uint32_t fwmark, uint32_t table, const char *iif, const char *oif, RoutingPolicyRule **ret);
+                                    uint8_t tos, uint32_t fwmark, uint32_t table, const char *iif, const char *oif, uint8_t protocol, const struct fib_rule_port_range *sport,
+                                    const struct fib_rule_port_range *dport, RoutingPolicyRule **ret);
 int routing_policy_rule_get(Manager *m, int family, const union in_addr_union *from, uint8_t from_prefixlen, const union in_addr_union *to, uint8_t to_prefixlen, uint8_t tos,
-                            uint32_t fwmark, uint32_t table, const char *iif, const char *oif, RoutingPolicyRule **ret);
+                            uint32_t fwmark, uint32_t table, const char *iif, const char *oif, uint8_t protocol, struct fib_rule_port_range *sport,
+                            struct fib_rule_port_range *dport, RoutingPolicyRule **ret);
 int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule);
 int routing_policy_serialize_rules(Set *rules, FILE *f);
 int routing_policy_load_rules(const char *state_file, Set **rules);
@@ -70,3 +78,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_fwmark_mask);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_device);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_port_range);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_protocol);

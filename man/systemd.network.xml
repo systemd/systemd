@@ -992,6 +992,27 @@
             <para>Specifies the outgoing device to match. The outgoing interface is only available for packets originating from local sockets that are bound to a device.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>SourcePort=</varname></term>
+          <listitem>
+            <para>Specifies the source IP port or IP port range match in forwarding information base (FIB) rules.
+            A port range is specified by the lower and upper port separated by a dash. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DestinationPort=</varname></term>
+          <listitem>
+            <para>Specifies the destination IP port or IP port range match in forwarding information base (FIB) rules.
+            A port range is specified by the lower and upper port separated by a dash. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Protocol=</varname></term>
+          <listitem>
+            <para>Specifies the protocol to match in forwarding information base (FIB) rules. Accepted values are tcp, udp and sctp.
+            Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
