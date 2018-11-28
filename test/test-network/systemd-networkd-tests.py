@@ -45,8 +45,14 @@ def setUpModule():
     shutil.rmtree(networkd_ci_path)
     copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_path)
 
+    subprocess.check_call('systemctl stop systemd-networkd.socket', shell=True)
+
 def tearDownModule():
     shutil.rmtree(networkd_ci_path)
+
+    subprocess.check_call('systemctl stop systemd-networkd.service', shell=True)
+    subprocess.check_call('systemctl start systemd-networkd.socket', shell=True)
+    subprocess.check_call('systemctl start systemd-networkd.service', shell=True)
 
 class Utilities():
     dhcp_server_data = []
