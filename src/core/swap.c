@@ -337,7 +337,7 @@ static int swap_add_extras(Swap *s) {
 
 static int swap_load(Unit *u) {
         Swap *s = SWAP(u);
-        int r;
+        int r, q;
 
         assert(s);
         assert(u->load_state == UNIT_STUB);
@@ -347,16 +347,18 @@ static int swap_load(Unit *u) {
                 r = unit_load_fragment_and_dropin_optional(u);
         else
                 r = unit_load_fragment_and_dropin(u);
+
+        /* Add in some extras, and do so either when we successfully loaded something or when /proc/swaps is already
+         * active. */
+        if (u->load_state == UNIT_LOADED || s->from_proc_swaps)
+                q = swap_add_extras(s);
+        else
+                q = 0;
+
         if (r < 0)
                 return r;
-
-        if (u->load_state == UNIT_LOADED) {
-
-                r = swap_add_extras(s);
-                if (r < 0)
-                        return r;
-
-        }
+        if (q < 0)
+                return q;
 
         return swap_verify(s);
 }
