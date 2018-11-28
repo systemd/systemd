@@ -425,7 +425,6 @@ decl_headers = '''
 
 foreach decl : ['char16_t',
                 'char32_t',
-                'struct ethtool_link_settings',
                 'struct fib_rule_uid_range',
                 'struct statx',
                ]
