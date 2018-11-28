@@ -383,7 +383,6 @@ static int swap_setup_unit(
                 return log_unit_error_errno(u, r, "Failed to generate unit name from path: %m");
 
         u = manager_get_unit(m, e);
-
         if (u &&
             SWAP(u)->from_proc_swaps &&
             !path_equal(SWAP(u)->parameters_proc_swaps.what, what_proc_swaps))
@@ -416,6 +415,13 @@ static int swap_setup_unit(
                         r = -ENOMEM;
                         goto fail;
                 }
+        }
+
+        /* The unit is definitely around now, mark it as loaded if it was previously referenced but could not be
+         * loaded. After all we can load it now, from the data in /proc/swaps. */
+        if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_ERROR)) {
+                u->load_state = UNIT_LOADED;
+                u->load_error = 0;
         }
 
         if (set_flags) {
