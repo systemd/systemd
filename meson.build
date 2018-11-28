@@ -1388,6 +1388,8 @@ includes = include_directories('src/basic',
 
 add_project_arguments('-include', 'config.h', language : 'c')
 
+generate_gperfs = find_program('tools/generate-gperfs.py')
+
 subdir('po')
 subdir('catalog')
 subdir('src/systemd')

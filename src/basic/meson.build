@@ -179,8 +179,6 @@ basic_sources = files('''
 
 missing_h = files('missing.h')
 
-generate_gperfs = find_program('generate-gperfs.py')
-
 generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
         'af-list.txt',
