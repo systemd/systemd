@@ -39,7 +39,7 @@ typedef enum {SD_GENL_ID_CTRL, SD_GENL_WIREGUARD, SD_GENL_FOU} sd_genl_family;
 /* callback */
 
 typedef int (*sd_netlink_message_handler_t)(sd_netlink *nl, sd_netlink_message *m, void *userdata);
-typedef void (*sd_netlink_destroy_t)(void *userdata);
+typedef _sd_destroy_t sd_netlink_destroy_t;
 
 /* bus */
 int sd_netlink_new_from_netlink(sd_netlink **nl, int fd);

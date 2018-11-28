@@ -77,7 +77,7 @@ typedef int (*sd_event_child_handler_t)(sd_event_source *s, const siginfo_t *si,
 typedef void* sd_event_child_handler_t;
 #endif
 typedef int (*sd_event_inotify_handler_t)(sd_event_source *s, const struct inotify_event *event, void *userdata);
-typedef void (*sd_event_destroy_t)(void *userdata);
+typedef _sd_destroy_t sd_event_destroy_t;
 
 int sd_event_default(sd_event **e);
 
