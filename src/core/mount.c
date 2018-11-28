@@ -1609,7 +1609,7 @@ static int mount_setup_unit(
 
         r = unit_name_from_path(where, ".mount", &e);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to generate unit name from path '%s': %m", where);
 
         u = manager_get_unit(m, e);
         if (u)
@@ -1619,7 +1619,7 @@ static int mount_setup_unit(
                  * by the sysadmin having called mount(8) directly. */
                 r = mount_setup_new_unit(m, e, what, where, options, fstype, &flags, &u);
         if (r < 0)
-                goto fail;
+                return log_warning_errno(r, "Failed to set up mount unit: %m");
 
         if (set_flags) {
                 MOUNT(u)->is_mounted = flags.is_mounted;
@@ -1631,8 +1631,6 @@ static int mount_setup_unit(
                 unit_add_to_dbus_queue(u);
 
         return 0;
-fail:
-        return log_warning_errno(r, "Failed to set up mount unit: %m");
 }
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
