@@ -316,6 +316,22 @@ static void test_build(void) {
 
         a = json_variant_unref(a);
         b = json_variant_unref(b);
+
+        assert_se(json_build(&a, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("x", JSON_BUILD_STRING("y")),
+                                             JSON_BUILD_PAIR("z", JSON_BUILD_STRING("a")),
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_STRING("c"))
+                             )) >= 0);
+
+        assert_se(json_build(&b, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("x", JSON_BUILD_STRING("y")),
+                                             JSON_BUILD_PAIR_CONDITION(false, "p", JSON_BUILD_STRING("q")),
+                                             JSON_BUILD_PAIR_CONDITION(true, "z", JSON_BUILD_STRING("a")),
+                                             JSON_BUILD_PAIR_CONDITION(false, "j", JSON_BUILD_ARRAY(JSON_BUILD_STRING("k"), JSON_BUILD_STRING("u"), JSON_BUILD_STRING("i"))),
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_STRING("c"))
+                             )) >= 0);
+
+        assert_se(json_variant_equal(a, b));
 }
 
 static void test_source(void) {

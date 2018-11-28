@@ -177,6 +177,7 @@ enum {
         _JSON_BUILD_OBJECT_BEGIN,
         _JSON_BUILD_OBJECT_END,
         _JSON_BUILD_PAIR,
+        _JSON_BUILD_PAIR_CONDITION,
         _JSON_BUILD_NULL,
         _JSON_BUILD_VARIANT,
         _JSON_BUILD_LITERAL,
@@ -192,6 +193,7 @@ enum {
 #define JSON_BUILD_ARRAY(...) _JSON_BUILD_ARRAY_BEGIN, __VA_ARGS__, _JSON_BUILD_ARRAY_END
 #define JSON_BUILD_OBJECT(...) _JSON_BUILD_OBJECT_BEGIN, __VA_ARGS__, _JSON_BUILD_OBJECT_END
 #define JSON_BUILD_PAIR(n, ...) _JSON_BUILD_PAIR, ({ const char *_x = n; _x; }), __VA_ARGS__
+#define JSON_BUILD_PAIR_CONDITION(c, n, ...) _JSON_BUILD_PAIR_CONDITION, ({ bool _x = c; _x; }), ({ const char *_x = n; _x; }), __VA_ARGS__
 #define JSON_BUILD_NULL _JSON_BUILD_NULL
 #define JSON_BUILD_VARIANT(v) _JSON_BUILD_VARIANT, ({ JsonVariant *_x = v; _x; })
 #define JSON_BUILD_LITERAL(l) _JSON_BUILD_LITERAL, ({ const char *_x = l; _x; })

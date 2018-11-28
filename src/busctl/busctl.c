@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "bus-dump.h"
 #include "bus-internal.h"
+#include "bus-message.h"
 #include "bus-signature.h"
 #include "bus-type.h"
 #include "bus-util.h"
@@ -61,6 +62,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
 #define NAME_IS_ACQUIRED INT_TO_PTR(1)
 #define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
+
+static int json_transform_message(sd_bus_message *m, JsonVariant **ret);
+static void json_dump_with_flags(JsonVariant *v, FILE *f);
 
 static int acquire_bus(bool set_monitor, sd_bus **ret) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
@@ -1132,6 +1136,43 @@ static int message_pcap(sd_bus_message *m, FILE *f) {
         return bus_message_pcap_frame(m, arg_snaplen, f);
 }
 
+static int message_json(sd_bus_message *m, FILE *f) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+        char e[2];
+        int r;
+
+        r = json_transform_message(m, &v);
+        if (r < 0)
+                return r;
+
+        e[0] = m->header->endian;
+        e[1] = 0;
+
+        r = json_build(&w, JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("type", JSON_BUILD_STRING(bus_message_type_to_string(m->header->type))),
+                                       JSON_BUILD_PAIR("endian", JSON_BUILD_STRING(e)),
+                                       JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(m->header->flags)),
+                                       JSON_BUILD_PAIR("version", JSON_BUILD_INTEGER(m->header->version)),
+                                       JSON_BUILD_PAIR_CONDITION(m->priority != 0, "priority", JSON_BUILD_INTEGER(m->priority)),
+                                       JSON_BUILD_PAIR("cookie", JSON_BUILD_INTEGER(BUS_MESSAGE_COOKIE(m))),
+                                       JSON_BUILD_PAIR_CONDITION(m->reply_cookie != 0, "reply_cookie", JSON_BUILD_INTEGER(m->reply_cookie)),
+                                       JSON_BUILD_PAIR_CONDITION(m->sender, "sender", JSON_BUILD_STRING(m->sender)),
+                                       JSON_BUILD_PAIR_CONDITION(m->destination, "destination", JSON_BUILD_STRING(m->destination)),
+                                       JSON_BUILD_PAIR_CONDITION(m->path, "path", JSON_BUILD_STRING(m->path)),
+                                       JSON_BUILD_PAIR_CONDITION(m->interface, "interface", JSON_BUILD_STRING(m->interface)),
+                                       JSON_BUILD_PAIR_CONDITION(m->member, "member", JSON_BUILD_STRING(m->member)),
+                                       JSON_BUILD_PAIR_CONDITION(m->monotonic != 0, "monotonic", JSON_BUILD_INTEGER(m->monotonic)),
+                                       JSON_BUILD_PAIR_CONDITION(m->realtime != 0, "realtime", JSON_BUILD_INTEGER(m->realtime)),
+                                       JSON_BUILD_PAIR_CONDITION(m->seqnum != 0, "seqnum", JSON_BUILD_INTEGER(m->seqnum)),
+                                       JSON_BUILD_PAIR_CONDITION(m->error.name, "error_name", JSON_BUILD_STRING(m->error.name)),
+                                       JSON_BUILD_PAIR("payload", JSON_BUILD_VARIANT(v))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        json_dump_with_flags(w, f);
+        return 0;
+}
+
 static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f)) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
@@ -1251,7 +1292,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
 }
 
 static int verb_monitor(int argc, char **argv, void *userdata) {
-        return monitor(argc, argv, message_dump);
+        return monitor(argc, argv, arg_json != JSON_OFF ? message_json : message_dump);
 }
 
 static int verb_capture(int argc, char **argv, void *userdata) {
@@ -2038,7 +2079,7 @@ static int get_property(int argc, char **argv, void *userdata) {
 
                         json_dump_with_flags(v, stdout);
 
-                } else if (arg_verbose)  {
+                } else if (arg_verbose) {
                         (void) pager_open(arg_pager_flags);
 
                         r = bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_SUBTREE_ONLY);
