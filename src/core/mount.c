@@ -954,7 +954,6 @@ static void mount_enter_mounting(Mount *m) {
         (void) mkdir_p_label(m->where, m->directory_mode);
 
         unit_warn_if_dir_nonempty(UNIT(m), m->where);
-
         unit_warn_leftover_processes(UNIT(m));
 
         m->control_command_id = MOUNT_EXEC_MOUNT;
@@ -1158,6 +1157,7 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "state", mount_state_to_string(m->state));
         (void) serialize_item(f, "result", mount_result_to_string(m->result));
         (void) serialize_item(f, "reload-result", mount_result_to_string(m->reload_result));
+        (void) serialize_item_format(f, "n-retry-umount", "%u", m->n_retry_umount);
 
         if (m->control_pid > 0)
                 (void) serialize_item_format(f, "control-pid", PID_FMT, m->control_pid);
@@ -1170,6 +1170,7 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int mount_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Mount *m = MOUNT(u);
+        int r;
 
         assert(u);
         assert(key);
@@ -1183,6 +1184,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
                         log_unit_debug(u, "Failed to parse state value: %s", value);
                 else
                         m->deserialized_state = state;
+
         } else if (streq(key, "result")) {
                 MountResult f;
 
@@ -1200,6 +1202,12 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
                         log_unit_debug(u, "Failed to parse reload result value: %s", value);
                 else if (f != MOUNT_SUCCESS)
                         m->reload_result = f;
+
+        } else if (streq(key, "n-retry-umount")) {
+
+                r = safe_atou(value, &m->n_retry_umount);
+                if (r < 0)
+                        log_unit_debug(u, "Failed to parse n-retry-umount value: %s", value);
 
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
