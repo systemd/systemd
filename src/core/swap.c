@@ -273,9 +273,71 @@ static int swap_load_devnode(Swap *s) {
         return swap_set_devnode(s, p);
 }
 
-static int swap_load(Unit *u) {
+static int swap_add_extras(Swap *s) {
         int r;
+
+        assert(s);
+
+        if (UNIT(s)->fragment_path)
+                s->from_fragment = true;
+
+        if (!s->what) {
+                if (s->parameters_fragment.what)
+                        s->what = strdup(s->parameters_fragment.what);
+                else if (s->parameters_proc_swaps.what)
+                        s->what = strdup(s->parameters_proc_swaps.what);
+                else {
+                        r = unit_name_to_path(UNIT(s)->id, &s->what);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (!s->what)
+                        return -ENOMEM;
+        }
+
+        path_simplify(s->what, false);
+
+        if (!UNIT(s)->description) {
+                r = unit_set_description(UNIT(s), s->what);
+                if (r < 0)
+                        return r;
+        }
+
+        r = unit_require_mounts_for(UNIT(s), s->what, UNIT_DEPENDENCY_IMPLICIT);
+        if (r < 0)
+                return r;
+
+        r = swap_add_device_dependencies(s);
+        if (r < 0)
+                return r;
+
+        r = swap_load_devnode(s);
+        if (r < 0)
+                return r;
+
+        r = unit_patch_contexts(UNIT(s));
+        if (r < 0)
+                return r;
+
+        r = unit_add_exec_dependencies(UNIT(s), &s->exec_context);
+        if (r < 0)
+                return r;
+
+        r = unit_set_default_slice(UNIT(s));
+        if (r < 0)
+                return r;
+
+        r = swap_add_default_dependencies(s);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int swap_load(Unit *u) {
         Swap *s = SWAP(u);
+        int r;
 
         assert(s);
         assert(u->load_state == UNIT_STUB);
@@ -290,59 +352,10 @@ static int swap_load(Unit *u) {
 
         if (u->load_state == UNIT_LOADED) {
 
-                if (UNIT(s)->fragment_path)
-                        s->from_fragment = true;
-
-                if (!s->what) {
-                        if (s->parameters_fragment.what)
-                                s->what = strdup(s->parameters_fragment.what);
-                        else if (s->parameters_proc_swaps.what)
-                                s->what = strdup(s->parameters_proc_swaps.what);
-                        else {
-                                r = unit_name_to_path(u->id, &s->what);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (!s->what)
-                                return -ENOMEM;
-                }
-
-                path_simplify(s->what, false);
-
-                if (!UNIT(s)->description) {
-                        r = unit_set_description(u, s->what);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = unit_require_mounts_for(UNIT(s), s->what, UNIT_DEPENDENCY_IMPLICIT);
+                r = swap_add_extras(s);
                 if (r < 0)
                         return r;
 
-                r = swap_add_device_dependencies(s);
-                if (r < 0)
-                        return r;
-
-                r = swap_load_devnode(s);
-                if (r < 0)
-                        return r;
-
-                r = unit_patch_contexts(u);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_exec_dependencies(u, &s->exec_context);
-                if (r < 0)
-                        return r;
-
-                r = unit_set_default_slice(u);
-                if (r < 0)
-                        return r;
-
-                r = swap_add_default_dependencies(s);
-                if (r < 0)
-                        return r;
         }
 
         return swap_verify(s);
