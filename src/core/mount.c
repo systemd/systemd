@@ -125,11 +125,11 @@ static bool mount_is_bound_to_device(const Mount *m) {
         return fstab_test_option(p->options, "x-systemd.device-bound\0");
 }
 
-static bool needs_quota(const MountParameters *p) {
+static bool mount_needs_quota(const MountParameters *p) {
         assert(p);
 
-        /* Quotas are not enabled on network filesystems,
-         * but we want them, for example, on storage connected via iscsi */
+        /* Quotas are not enabled on network filesystems, but we want them, for example, on storage connected via
+         * iscsi. We hence don't use mount_is_network() here, as that would also return true for _netdev devices. */
         if (p->fstype && fstype_is_network(p->fstype))
                 return false;
 
@@ -377,7 +377,7 @@ static int mount_add_quota_dependencies(Mount *m) {
         if (!p)
                 return 0;
 
-        if (!needs_quota(p))
+        if (!mount_needs_quota(p))
                 return 0;
 
         mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT;
