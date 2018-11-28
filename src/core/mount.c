@@ -1475,13 +1475,13 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
-        u->source_path = strdup("/proc/self/mountinfo");
-        MOUNT(u)->where = strdup(where);
-        if (!u->source_path || !MOUNT(u)->where)
-                return -ENOMEM;
+        r = free_and_strdup(&u->source_path, "/proc/self/mountinfo");
+        if (r < 0)
+                return r;
 
-        /* Make sure to initialize those fields before mount_is_extrinsic(). */
-        MOUNT(u)->from_proc_self_mountinfo = true;
+        r = free_and_strdup(&MOUNT(u)->where, where);
+        if (r < 0)
+                return r;
 
         r = update_parameters_proc_self_mount_info(MOUNT(u), what, options, fstype);
         if (r < 0)
