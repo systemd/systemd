@@ -1210,12 +1210,10 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
                         log_unit_debug(u, "Failed to parse n-retry-umount value: %s", value);
 
         } else if (streq(key, "control-pid")) {
-                pid_t pid;
 
-                if (parse_pid(value, &pid) < 0)
+                if (parse_pid(value, &m->control_pid) < 0)
                         log_unit_debug(u, "Failed to parse control-pid value: %s", value);
-                else
-                        m->control_pid = pid;
+
         } else if (streq(key, "control-command")) {
                 MountExecCommand id;
 
