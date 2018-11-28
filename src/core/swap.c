@@ -813,6 +813,14 @@ fail:
         swap_enter_dead_or_active(s, SWAP_FAILURE_RESOURCES);
 }
 
+static void swap_cycle_clear(Swap *s) {
+        assert(s);
+
+        s->result = SWAP_SUCCESS;
+        exec_command_reset_status_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
+        UNIT(s)->reset_accounting = true;
+}
+
 static int swap_start(Unit *u) {
         Swap *s = SWAP(u), *other;
         int r;
@@ -852,11 +860,7 @@ static int swap_start(Unit *u) {
         if (r < 0)
                 return r;
 
-        s->result = SWAP_SUCCESS;
-        exec_command_reset_status_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
-
-        u->reset_accounting = true;
-
+        swap_cycle_clear(s);
         swap_enter_activating(s);
         return 1;
 }
@@ -1183,7 +1187,8 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
 
                         case SWAP_DEAD:
                         case SWAP_FAILED:
-                                (void) unit_acquire_invocation_id(UNIT(swap));
+                                (void) unit_acquire_invocation_id(u);
+                                swap_cycle_clear(swap);
                                 swap_enter_active(swap, SWAP_SUCCESS);
                                 break;
 
