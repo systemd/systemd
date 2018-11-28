@@ -1,6 +1,7 @@
 # systemd Documentation
 
 * [Automatic Boot Assessment](https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT)
+* [Locking Block Device Access](https://systemd.io/BLOCK_DEVICE_LOCKING)
 * [The Boot Loader Interface](https://systemd.io/BOOT_LOADER_INTERFACE)
 * [The Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION)
 * [Control Group APIs and Delegation](https://systemd.io/CGROUP_DELEGATION)
