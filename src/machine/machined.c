@@ -25,6 +25,9 @@
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(machine_hash_ops, void, trivial_hash_func, trivial_compare_func,
+                                              Machine, machine_free);
+
 static int manager_new(Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
@@ -37,7 +40,7 @@ static int manager_new(Manager **ret) {
 
         m->machines = hashmap_new(&string_hash_ops);
         m->machine_units = hashmap_new(&string_hash_ops);
-        m->machine_leaders = hashmap_new(NULL);
+        m->machine_leaders = hashmap_new(&machine_hash_ops);
 
         if (!m->machines || !m->machine_units || !m->machine_leaders)
                 return -ENOMEM;
@@ -61,8 +64,6 @@ static int manager_new(Manager **ret) {
 }
 
 static Manager* manager_unref(Manager *m) {
-        Machine *machine;
-
         if (!m)
                 return NULL;
 
@@ -70,9 +71,6 @@ static Manager* manager_unref(Manager *m) {
                 operation_free(m->operations);
 
         assert(m->n_operations == 0);
-
-        while ((machine = hashmap_first(m->machines)))
-                machine_free(machine);
 
         hashmap_free(m->machines);
         hashmap_free(m->machine_units);
