@@ -177,7 +177,6 @@ int config_parse_capability(
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                int cap;
 
                 r = extract_first_word(&rvalue, &word, NULL, 0);
                 if (r < 0) {
@@ -187,13 +186,13 @@ int config_parse_capability(
                 if (r == 0)
                         break;
 
-                cap = capability_from_name(word);
-                if (cap < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse capability, ignoring: %s", word);
+                r = capability_from_name(word);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse capability, ignoring: %s", word);
                         continue;
                 }
 
-                u |= UINT64_C(1) << cap;
+                u |= UINT64_C(1) << r;
         }
 
         if (u == 0)

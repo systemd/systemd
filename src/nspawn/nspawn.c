@@ -774,17 +774,14 @@ static int parse_argv(int argc, char *argv[]) {
                                         else
                                                 minus = (uint64_t) -1;
                                 } else {
-                                        int cap;
-
-                                        cap = capability_from_name(t);
-                                        if (cap < 0)
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                                       "Failed to parse capability %s.", t);
+                                        r = capability_from_name(t);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse capability %s.", t);
 
                                         if (c == ARG_CAPABILITY)
-                                                plus |= 1ULL << (uint64_t) cap;
+                                                plus |= 1ULL << r;
                                         else
-                                                minus |= 1ULL << (uint64_t) cap;
+                                                minus |= 1ULL << r;
                                 }
                         }
 

@@ -1517,8 +1517,8 @@ int bus_exec_context_set_transient_property(
                                 int af;
 
                                 af = af_from_name(*s);
-                                if (af <= 0)
-                                        return -EINVAL;
+                                if (af < 0)
+                                        return af;
 
                                 if (!invert == c->address_families_whitelist) {
                                         r = set_put(c->address_families, INT_TO_PTR(af));
