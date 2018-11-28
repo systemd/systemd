@@ -34,6 +34,13 @@ typedef struct MountParameters {
         char *fstype;
 } MountParameters;
 
+/* Used while looking for mount points that vanished or got added from/to /proc/self/mountinfo */
+typedef enum MountProcFlags {
+        MOUNT_PROC_IS_MOUNTED   = 1 << 0,
+        MOUNT_PROC_JUST_MOUNTED = 1 << 1,
+        MOUNT_PROC_JUST_CHANGED = 1 << 2,
+} MountProcFlags;
+
 struct Mount {
         Unit meta;
 
@@ -45,11 +52,7 @@ struct Mount {
         bool from_proc_self_mountinfo:1;
         bool from_fragment:1;
 
-        /* Used while looking for mount points that vanished or got
-         * added from/to /proc/self/mountinfo */
-        bool is_mounted:1;
-        bool just_mounted:1;
-        bool just_changed:1;
+        MountProcFlags proc_flags;
 
         bool sloppy_options;
 

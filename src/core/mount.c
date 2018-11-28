@@ -1447,12 +1447,6 @@ static int update_parameters_proc_self_mount_info(
         return r > 0 || q > 0 || w > 0;
 }
 
-typedef struct {
-        bool is_mounted;
-        bool just_mounted;
-        bool just_changed;
-} MountSetupFlags;
-
 static int mount_setup_new_unit(
                 Manager *m,
                 const char *name,
@@ -1460,7 +1454,7 @@ static int mount_setup_new_unit(
                 const char *where,
                 const char *options,
                 const char *fstype,
-                MountSetupFlags *flags,
+                MountProcFlags *ret_flags,
                 Unit **ret) {
 
         _cleanup_(unit_freep) Unit *u = NULL;
@@ -1468,7 +1462,7 @@ static int mount_setup_new_unit(
 
         assert(m);
         assert(name);
-        assert(flags);
+        assert(ret_flags);
         assert(ret);
 
         r = unit_new_for_name(m, sizeof(Mount), name, &u);
@@ -1496,10 +1490,7 @@ static int mount_setup_new_unit(
          * loaded in now. */
         unit_add_to_load_queue(u);
 
-        flags->is_mounted = true;
-        flags->just_mounted = true;
-        flags->just_changed = true;
-
+        *ret_flags = MOUNT_PROC_IS_MOUNTED | MOUNT_PROC_JUST_MOUNTED | MOUNT_PROC_JUST_CHANGED;
         *ret = TAKE_PTR(u);
         return 0;
 }
@@ -1510,8 +1501,9 @@ static int mount_setup_existing_unit(
                 const char *where,
                 const char *options,
                 const char *fstype,
-                MountSetupFlags *flags) {
+                MountProcFlags *ret_flags) {
 
+        MountProcFlags flags = MOUNT_PROC_IS_MOUNTED;
         int r;
 
         assert(u);
@@ -1526,12 +1518,13 @@ static int mount_setup_existing_unit(
         r = update_parameters_proc_self_mount_info(MOUNT(u), what, options, fstype);
         if (r < 0)
                 return r;
+        if (r > 0)
+                flags |= MOUNT_PROC_JUST_CHANGED;
 
-        flags->just_changed = r > 0;
-        flags->is_mounted = true;
-        flags->just_mounted = !MOUNT(u)->from_proc_self_mountinfo || MOUNT(u)->just_mounted;
-
-        MOUNT(u)->from_proc_self_mountinfo = true;
+        if (!MOUNT(u)->from_proc_self_mountinfo) {
+                flags |= MOUNT_PROC_JUST_MOUNTED;
+                MOUNT(u)->from_proc_self_mountinfo = true;
+        }
 
         if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_ERROR)) {
                 /* The unit was previously not found or otherwise not loaded. Now that the unit shows up in
@@ -1539,10 +1532,10 @@ static int mount_setup_existing_unit(
                 u->load_state = UNIT_LOADED;
                 u->load_error = 0;
 
-                flags->just_changed = true;
+                flags |= MOUNT_PROC_JUST_CHANGED;
         }
 
-        if (flags->just_changed) {
+        if (FLAGS_SET(flags, MOUNT_PROC_JUST_CHANGED)) {
                 /* If things changed, then make sure that all deps are regenerated. Let's
                  * first remove all automatic deps, and then add in the new ones. */
 
@@ -1553,6 +1546,7 @@ static int mount_setup_existing_unit(
                         return r;
         }
 
+        *ret_flags = flags;
         return 0;
 }
 
@@ -1565,7 +1559,7 @@ static int mount_setup_unit(
                 bool set_flags) {
 
         _cleanup_free_ char *e = NULL;
-        MountSetupFlags flags;
+        MountProcFlags flags;
         Unit *u;
         int r;
 
@@ -1601,14 +1595,12 @@ static int mount_setup_unit(
         if (r < 0)
                 return log_warning_errno(r, "Failed to set up mount unit: %m");
 
-        if (set_flags) {
-                MOUNT(u)->is_mounted = flags.is_mounted;
-                MOUNT(u)->just_mounted = flags.just_mounted;
-                MOUNT(u)->just_changed = flags.just_changed;
-        }
-
-        if (flags.just_changed)
+        /* If the mount changed properties or state, let's notify our clients */
+        if (flags & (MOUNT_PROC_JUST_CHANGED|MOUNT_PROC_JUST_MOUNTED))
                 unit_add_to_dbus_queue(u);
+
+        if (set_flags)
+                MOUNT(u)->proc_flags = flags;
 
         return 0;
 }
@@ -1718,7 +1710,7 @@ static void mount_enumerate_perpetual(Manager *m) {
 static bool mount_is_mounted(Mount *m) {
         assert(m);
 
-        return UNIT(m)->perpetual || m->is_mounted;
+        return UNIT(m)->perpetual || FLAGS_SET(m->proc_flags, MOUNT_PROC_IS_MOUNTED);
 }
 
 static void mount_enumerate(Manager *m) {
@@ -1818,11 +1810,8 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
         r = mount_load_proc_self_mountinfo(m, true);
         if (r < 0) {
                 /* Reset flags, just in case, for later calls */
-                LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
-                        Mount *mount = MOUNT(u);
-
-                        mount->is_mounted = mount->just_mounted = mount->just_changed = false;
-                }
+                LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
+                        MOUNT(u)->proc_flags = 0;
 
                 return 0;
         }
@@ -1863,7 +1852,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                                 break;
                         }
 
-                } else if (mount->just_mounted || mount->just_changed) {
+                } else if (mount->proc_flags & (MOUNT_PROC_JUST_MOUNTED|MOUNT_PROC_JUST_CHANGED)) {
 
                         /* A mount point was added or changed */
 
@@ -1904,7 +1893,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                 }
 
                 /* Reset the flags for later calls */
-                mount->is_mounted = mount->just_mounted = mount->just_changed = false;
+                mount->proc_flags = 0;
         }
 
         SET_FOREACH(what, gone, i) {
