@@ -16,15 +16,16 @@
 #include "tests.h"
 #include "udev.h"
 
-static const struct fakefs {
+static struct fakefs {
         const char *target;
         bool ignore_mount_error;
+        bool is_mounted;
 } fakefss[] = {
-        { "/sys",                    false },
-        { "/dev",                    false },
-        { "/run",                    false },
-        { "/etc",                    false },
-        { UDEVLIBEXECDIR "/rules.d", true },
+        { "/sys",                    false, false },
+        { "/dev",                    false, false },
+        { "/run",                    false, false },
+        { "/etc",                    false, false },
+        { UDEVLIBEXECDIR "/rules.d", true, false },
 };
 
 static int setup_mount_namespace(void) {
@@ -45,23 +46,30 @@ static int setup_mount_namespace(void) {
 }
 
 static int setup_fake_filesystems(const char *runtime_dir) {
-        for (unsigned i = 0; i < ELEMENTSOF(fakefss); i++)
+        for (unsigned i = 0; i < ELEMENTSOF(fakefss); i++) {
                 if (mount(runtime_dir, fakefss[i].target, NULL, MS_BIND, NULL) < 0) {
                         log_full_errno(fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR, errno, "Failed to mount %s: %m", fakefss[i].target);
                         if (!fakefss[i].ignore_mount_error)
                                 return -errno;
-                }
+                } else
+                        fakefss[i].is_mounted = true;
+        }
 
         return 0;
 }
 
 static int cleanup_fake_filesystems(const char *runtime_dir) {
-        for (unsigned i = 0; i < ELEMENTSOF(fakefss); i++)
+        for (unsigned i = 0; i < ELEMENTSOF(fakefss); i++) {
+                if (!fakefss[i].is_mounted)
+                        continue;
+
                 if (umount(fakefss[i].target) < 0) {
                         log_full_errno(fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR, errno, "Failed to umount %s: %m", fakefss[i].target);
                         if (!fakefss[i].ignore_mount_error)
                                 return -errno;
-                }
+                } else
+                        fakefss[i].is_mounted = false;
+        }
         return 0;
 }
 
@@ -70,17 +78,21 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         FILE *f = NULL;
 
+        (void) setup_mount_namespace();
+
+        assert_se(runtime_dir = setup_fake_runtime_dir());
+
+        if (setup_fake_filesystems(runtime_dir) < 0) {
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+                return EXIT_TEST_SKIP;
+#endif
+        }
+
         if (!getenv("SYSTEMD_LOG_LEVEL")) {
                 log_set_max_level_realm(LOG_REALM_UDEV, LOG_CRIT);
                 log_set_max_level_realm(LOG_REALM_SYSTEMD, LOG_CRIT);
         }
 
-        if (setup_mount_namespace() < 0)
-                return EXIT_TEST_SKIP;
-
-        assert_se(runtime_dir = setup_fake_runtime_dir());
-
-        assert_se(setup_fake_filesystems(runtime_dir) >= 0);
         assert_se(mkdir_p("/etc/udev/rules.d", 0755) >= 0);
         f = fopen("/etc/udev/rules.d/fuzz.rules", "we");
         assert_se(f);
