@@ -74,6 +74,8 @@ EncapsulationLimit=
 TTL=
 FOUSourcePort=
 IPv6RapidDeploymentPrefix=
+ERSPANIndex=
+SerializeTunneledPackets=
 [VXLAN]
 UDP6ZeroChecksumRx=
 ARPProxy=

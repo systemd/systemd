@@ -50,6 +50,7 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC meson --werror -Dtests=unsafe -Dslow-tests=true build
             $DOCKER_EXEC ninja -v -C build
             $DOCKER_EXEC ninja -C build test
+            $DOCKER_EXEC tools/check-directives.sh
             ;;
         RUN_ASAN)
             $DOCKER_EXEC git clean -dxff
