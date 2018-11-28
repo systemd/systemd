@@ -14,14 +14,14 @@ import socket
 import threading
 from shutil import copytree
 
-network_unit_file_path='/var/run/systemd/network'
-networkd_ci_path='/var/run/networkd-ci'
+network_unit_file_path='/run/systemd/network'
+networkd_ci_path='/run/networkd-ci'
 network_sysctl_ipv6_path='/proc/sys/net/ipv6/conf'
 network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
 
-dnsmasq_config_file='/var/run/networkd-ci/test-dnsmasq.conf'
-dnsmasq_pid_file='/var/run/networkd-ci/test-test-dnsmasq.pid'
-dnsmasq_log_file='/var/run/networkd-ci/test-dnsmasq-log-file'
+dnsmasq_config_file='/run/networkd-ci/test-dnsmasq.conf'
+dnsmasq_pid_file='/run/networkd-ci/test-test-dnsmasq.pid'
+dnsmasq_log_file='/run/networkd-ci/test-dnsmasq-log-file'
 
 def is_module_available(module_name):
     lsmod_output = subprocess.check_output('lsmod', universal_newlines=True)
