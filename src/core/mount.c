@@ -1487,6 +1487,13 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
+        /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the time we load
+         * the unit file for it (and thus add in extra deps right after) we know what source to attributes the deps
+         * to.*/
+        MOUNT(u)->from_proc_self_mountinfo = true;
+
+        /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything else is
+         * loaded in now. */
         unit_add_to_load_queue(u);
 
         flags->is_mounted = true;
