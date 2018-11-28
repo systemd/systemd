@@ -77,8 +77,7 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->machines);
         hashmap_free(m->machine_units);
         hashmap_free(m->machine_leaders);
-
-        hashmap_free_with_destructor(m->image_cache, image_unref);
+        hashmap_free(m->image_cache);
 
         sd_event_source_unref(m->image_cache_defer_event);
 

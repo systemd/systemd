@@ -131,7 +131,7 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
 
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         Manager *m = userdata;
         Image *image;
         Iterator i;
@@ -140,7 +140,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(m);
 
-        images = hashmap_new(&string_hash_ops);
+        images = hashmap_new(&image_hash_ops);
         if (!images)
                 return -ENOMEM;
 

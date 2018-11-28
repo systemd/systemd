@@ -693,7 +693,7 @@ not_found:
 }
 
 int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
         size_t n_allocated = 0, n = 0;
         Manager *m = userdata;
@@ -705,7 +705,7 @@ int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, cha
         assert(path);
         assert(nodes);
 
-        images = hashmap_new(&string_hash_ops);
+        images = hashmap_new(&image_hash_ops);
         if (!images)
                 return -ENOMEM;
 

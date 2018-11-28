@@ -70,6 +70,8 @@ static Image *image_free(Image *i) {
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Image, image, image_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(image_hash_ops, char, string_hash_func, string_compare_func,
+                                      Image, image_unref);
 
 static char **image_settings_path(Image *image) {
         _cleanup_strv_free_ char **l = NULL;
