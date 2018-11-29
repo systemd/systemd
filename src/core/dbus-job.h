@@ -12,6 +12,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *job, sd_bus_error *erro
 int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 void bus_job_send_change_signal(Job *j);
+void bus_job_send_pending_change_signal(Job *j, bool including_new);
 void bus_job_send_removed_signal(Job *j);
 
 int bus_job_coldplug_bus_track(Job *j);

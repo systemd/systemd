@@ -1321,6 +1321,9 @@ int bus_unit_queue_job(
         if (!path)
                 return -ENOMEM;
 
+        /* Before we send the method reply, force out the announcement JobNew for this job */
+        bus_job_send_pending_change_signal(j, true);
+
         return sd_bus_reply_method_return(message, "o", path);
 }
 

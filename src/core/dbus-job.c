@@ -189,6 +189,21 @@ void bus_job_send_change_signal(Job *j) {
         j->sent_dbus_new_signal = true;
 }
 
+void bus_job_send_pending_change_signal(Job *j, bool including_new) {
+        assert(j);
+
+        if (!j->in_dbus_queue)
+                return;
+
+        if (!j->sent_dbus_new_signal && !including_new)
+                return;
+
+        if (MANAGER_IS_RELOADING(j->unit->manager))
+                return;
+
+        bus_job_send_change_signal(j);
+}
+
 static int send_removed_signal(sd_bus *bus, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
