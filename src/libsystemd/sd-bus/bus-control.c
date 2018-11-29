@@ -430,7 +430,7 @@ _public_ int sd_bus_get_name_creds(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_unique = NULL, *reply = NULL;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
-        const char *unique = NULL;
+        const char *unique;
         pid_t pid = 0;
         int r;
 
@@ -459,9 +459,12 @@ _public_ int sd_bus_get_name_creds(
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        /* Only query the owner if the caller wants to know it or if
-         * the caller just wants to check whether a name exists */
-        if ((mask & SD_BUS_CREDS_UNIQUE_NAME) || mask == 0) {
+        /* If the name is unique anyway, we can use it directly */
+        unique = name[0] == ':' ? name : NULL;
+
+        /* Only query the owner if the caller wants to know it and the name is not unique anyway, or if the caller just
+         * wants to check whether a name exists */
+        if ((FLAGS_SET(mask, SD_BUS_CREDS_UNIQUE_NAME) && !unique) || mask == 0) {
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.DBus",
@@ -483,6 +486,7 @@ _public_ int sd_bus_get_name_creds(
         if (mask != 0) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 bool need_pid, need_uid, need_selinux, need_separate_calls;
+
                 c = bus_creds_new();
                 if (!c)
                         return -ENOMEM;
