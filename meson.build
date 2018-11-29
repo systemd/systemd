@@ -396,7 +396,7 @@ if cc.compiles('''
            struct timespec now;
            return 0;
    }
-''', name : '-Werror=shadow with local shadowing')
+''', args: '-Werror=shadow', name : '-Werror=shadow with local shadowing')
         add_project_arguments('-Werror=shadow', language : 'c')
 endif
 
