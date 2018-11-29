@@ -665,7 +665,7 @@ _public_ int sd_bus_get_name_creds(
                                                 NULL,
                                                 &reply,
                                                 "s",
-                                                unique ? unique : name);
+                                                unique ?: name);
                                 if (r < 0)
                                         return r;
 
@@ -692,7 +692,7 @@ _public_ int sd_bus_get_name_creds(
                                                 &error,
                                                 &reply,
                                                 "s",
-                                                unique ? unique : name);
+                                                unique ?: name);
                                 if (r < 0) {
                                         if (!sd_bus_error_has_name(&error, "org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown"))
                                                 return r;
