@@ -331,7 +331,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                 name,
                                 0,
                                 "",
-                                "",
+                                " ",
                                 arg_addrs,
                                 &addresses);
 
