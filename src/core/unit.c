@@ -4986,6 +4986,7 @@ int unit_acquire_invocation_id(Unit *u) {
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to set invocation ID for unit: %m");
 
+        unit_add_to_dbus_queue(u);
         return 0;
 }
 
