@@ -634,15 +634,15 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         return r;
 }
 
-static bool safe_transition(const struct stat *a, const struct stat *b) {
+static bool unsafe_transition(const struct stat *a, const struct stat *b) {
         /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to
          * privileged files or directories. Why bother? So that unprivileged code can't symlink to privileged files
          * making us believe we read something safe even though it isn't safe in the specific context we open it in. */
 
         if (a->st_uid == 0) /* Transitioning from privileged to unprivileged is always fine */
-                return true;
+                return false;
 
-        return a->st_uid == b->st_uid; /* Otherwise we need to stay within the same UID */
+        return a->st_uid != b->st_uid; /* Otherwise we need to stay within the same UID */
 }
 
 static int log_unsafe_transition(int a, int b, const char *path, unsigned flags) {
@@ -837,7 +837,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                 if (fstat(fd_parent, &st) < 0)
                                         return -errno;
 
-                                if (!safe_transition(&previous_stat, &st))
+                                if (unsafe_transition(&previous_stat, &st))
                                         return log_unsafe_transition(fd, fd_parent, path, flags);
 
                                 previous_stat = st;
@@ -878,7 +878,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 if (fstat(child, &st) < 0)
                         return -errno;
                 if ((flags & CHASE_SAFE) &&
-                    !safe_transition(&previous_stat, &st))
+                    unsafe_transition(&previous_stat, &st))
                         return log_unsafe_transition(fd, child, path, flags);
 
                 previous_stat = st;
@@ -917,7 +917,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                         if (fstat(fd, &st) < 0)
                                                 return -errno;
 
-                                        if (!safe_transition(&previous_stat, &st))
+                                        if (unsafe_transition(&previous_stat, &st))
                                                 return log_unsafe_transition(child, fd, path, flags);
 
                                         previous_stat = st;
