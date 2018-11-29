@@ -55,7 +55,7 @@ take a `LOCK_EX` *exclusive* lock instead. For further details, see the
 And please keep in mind: BSD file locks (`flock()`) and POSIX file locks
 (`lockf()`, `F_SETLK`, …) are different concepts, and in their effect
 orthogonal. The scheme discussed above uses the former and not the latter,
-because the these types of locks more closely match the required semantics.
+because these types of locks more closely match the required semantics.
 
 Summarizing: it is recommended to take `LOCK_EX` BSD file locks when
 manipulating block devices in all tools that change file system block devices
