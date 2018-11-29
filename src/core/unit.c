@@ -1637,6 +1637,8 @@ static bool unit_condition_test(Unit *u) {
         dual_timestamp_get(&u->condition_timestamp);
         u->condition_result = unit_condition_test_list(u, u->conditions, condition_type_to_string);
 
+        unit_add_to_dbus_queue(u);
+
         return u->condition_result;
 }
 
@@ -1645,6 +1647,8 @@ static bool unit_assert_test(Unit *u) {
 
         dual_timestamp_get(&u->assert_timestamp);
         u->assert_result = unit_condition_test_list(u, u->asserts, assert_type_to_string);
+
+        unit_add_to_dbus_queue(u);
 
         return u->assert_result;
 }
