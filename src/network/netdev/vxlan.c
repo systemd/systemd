@@ -129,7 +129,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_PORT attribute: %m");
 
-        if (v->port_range.low || v->port_range.high) {
+        if (v->port_range.low != 0 || v->port_range.high != 0) {
                 struct ifla_vxlan_port_range port_range;
 
                 port_range.low = htobe16(v->port_range.low);
@@ -214,9 +214,8 @@ int config_parse_port_range(const char *unit,
                             const char *rvalue,
                             void *data,
                             void *userdata) {
-        _cleanup_free_ char *word = NULL;
         VxLan *v = userdata;
-        unsigned low, high;
+        uint16_t low, high;
         int r;
 
         assert(filename);
@@ -224,30 +223,10 @@ int config_parse_port_range(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = extract_first_word(&rvalue, &word, NULL, 0);
+        r = parse_ip_port_range(rvalue, &low, &high);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract VXLAN port range, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (r == 0)
-                return 0;
-
-        r = parse_range(word, &low, &high);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse VXLAN port range '%s'", word);
-                return 0;
-        }
-
-        if (low <= 0 || low > 65535 || high <= 0 || high > 65535) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse VXLAN port range '%s'. Port should be greater than 0 and less than 65535.", word);
-                return 0;
-        }
-
-        if (high < low) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse VXLAN port range '%s'. Port range %u .. %u not valid", word, low, high);
+                           "Failed to parse VXLAN port range '%s'. Port should be greater than 0 and less than 65535.", rvalue);
                 return 0;
         }
 
