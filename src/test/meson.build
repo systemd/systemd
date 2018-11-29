@@ -646,6 +646,11 @@ tests += [
          [],
          []],
 
+        [['src/test/test-ip-protocol-list.c',
+          shared_generated_gperf_headers],
+         [],
+         []],
+
         [['src/test/test-journal-importer.c'],
          [],
          []],
