@@ -348,7 +348,7 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get the value of property 'ACTION': %m");
 
-        if (streq(val, "remove"))
+        if (STR_IN_SET(val, "remove", "unbind"))
                 return 0;
 
         r = sd_device_get_subsystem(dev, &val);

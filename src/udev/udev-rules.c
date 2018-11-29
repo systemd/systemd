@@ -1742,9 +1742,10 @@ int udev_rules_apply_to_event(
         if (r < 0)
                 return r;
 
-        can_set_name = (!streq(action, "remove") &&
-                        (sd_device_get_devnum(dev, NULL) >= 0 ||
-                         sd_device_get_ifindex(dev, NULL) >= 0));
+        can_set_name =
+                !STR_IN_SET(action, "remove", "unbind") &&
+                (sd_device_get_devnum(dev, NULL) >= 0 ||
+                 sd_device_get_ifindex(dev, NULL) >= 0);
 
         /* loop through token list, match, run actions or forward to next rule */
         cur = &rules->tokens[0];

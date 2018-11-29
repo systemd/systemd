@@ -827,7 +827,7 @@ int udev_event_execute_rules(struct udev_event *event,
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get property 'ACTION': %m");
 
-        if (streq(action, "remove")) {
+        if (STR_IN_SET(action, "remove", "unbind")) {
                 event_execute_rules_on_remove(event, timeout_usec, properties_list, rules);
                 return 0;
         }

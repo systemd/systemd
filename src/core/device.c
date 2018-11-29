@@ -891,7 +891,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
         /* A change event can signal that a device is becoming ready, in particular if
          * the device is using the SYSTEMD_READY logic in udev
          * so we need to reach the else block of the follwing if, even for change events */
-        if (streq(action, "remove"))  {
+        if (STR_IN_SET(action, "remove", "unbind"))  {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to process swap device remove event, ignoring: %m");

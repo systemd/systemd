@@ -245,7 +245,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
         assert(m);
 
         if (sd_device_get_property_value(d, "ACTION", &action) >= 0 &&
-            streq(action, "remove")) {
+            STR_IN_SET(action, "remove", "unbind")) {
                 const char *syspath;
 
                 r = sd_device_get_syspath(d, &syspath);
@@ -316,7 +316,7 @@ int manager_process_button_device(Manager *m, sd_device *d) {
                 return r;
 
         if (sd_device_get_property_value(d, "ACTION", &action) >= 0 &&
-            streq(action, "remove")) {
+            STR_IN_SET(action, "remove", "unbind")) {
 
                 b = hashmap_get(m->buttons, sysname);
                 if (!b)
