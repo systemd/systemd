@@ -703,7 +703,7 @@ _public_ int sd_bus_get_name_creds(
                                         if (r < 0)
                                                 return r;
 
-                                        c->label = strndup(p, sz);
+                                        c->label = memdup_suffix0(p, sz);
                                         if (!c->label)
                                                 return -ENOMEM;
 
