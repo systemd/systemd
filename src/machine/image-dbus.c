@@ -169,7 +169,7 @@ int bus_image_method_clone(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        r = safe_fork("(imgclone)", FORK_RESET_SIGNALS, &child);
+        r = safe_fork("(sd-imgclone)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
