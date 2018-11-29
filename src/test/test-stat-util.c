@@ -9,7 +9,7 @@
 #include "fileio.h"
 #include "macro.h"
 #include "missing.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "stat-util.h"
 
 static void test_files_same(void) {

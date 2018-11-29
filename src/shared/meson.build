@@ -98,6 +98,8 @@ shared_sources = files('''
         machine-pool.h
         main-func.h
         module-util.h
+        mount-util.c
+        mount-util.h
         nsflags.c
         nsflags.h
         os-util.c
@@ -235,6 +237,7 @@ libshared_deps = [threads,
                   libgcrypt,
                   libiptc,
                   libkmod,
+                  libmount,
                   libseccomp,
                   libselinux,
                   libidn,

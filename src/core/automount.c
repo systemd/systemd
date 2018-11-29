@@ -23,6 +23,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mount.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

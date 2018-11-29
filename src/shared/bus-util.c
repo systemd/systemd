@@ -28,7 +28,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "missing.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"

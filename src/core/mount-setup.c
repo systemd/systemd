@@ -20,7 +20,7 @@
 #include "missing.h"
 #include "mkdir.h"
 #include "mount-setup.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "smack-util.h"

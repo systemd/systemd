@@ -20,6 +20,7 @@
 #include "missing.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "namespace.h"
 #include "path-util.h"
 #include "selinux-util.h"

@@ -41,7 +41,7 @@
 #include "macro.h"
 #include "missing.h"
 #include "mkdir.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-lookup.h"

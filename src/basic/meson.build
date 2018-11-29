@@ -94,8 +94,8 @@ basic_sources = files('''
         mkdir-label.c
         mkdir.c
         mkdir.h
-        mount-util.c
-        mount-util.h
+        mountpoint-util.c
+        mountpoint-util.h
         nss-util.h
         ordered-set.c
         ordered-set.h
@@ -257,7 +257,6 @@ libbasic = static_library(
         include_directories : includes,
         dependencies : [threads,
                         libcap,
-                        libmount,
                         libselinux,
                         libm],
         c_args : ['-fvisibility=default'],

@@ -18,6 +18,7 @@
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"

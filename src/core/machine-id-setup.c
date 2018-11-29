@@ -15,7 +15,7 @@
 #include "machine-id-setup.h"
 #include "macro.h"
 #include "mkdir.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "stat-util.h"

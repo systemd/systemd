@@ -30,7 +30,7 @@
 #include "ima-util.h"
 #include "list.h"
 #include "macro.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"

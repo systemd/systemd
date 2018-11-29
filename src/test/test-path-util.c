@@ -6,7 +6,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "macro.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
