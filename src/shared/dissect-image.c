@@ -26,6 +26,7 @@
 #include "id128-util.h"
 #include "linux-3.13/dm-ioctl.h"
 #include "missing.h"
+#include "mountpoint-util.h"
 #include "mount-util.h"
 #include "os-util.h"
 #include "path-util.h"

@@ -96,6 +96,8 @@ basic_sources = files('''
         mkdir.h
         mount-util.c
         mount-util.h
+        mountpoint-util.c
+        mountpoint-util.h
         nss-util.h
         ordered-set.c
         ordered-set.h

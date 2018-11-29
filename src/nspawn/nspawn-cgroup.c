@@ -8,6 +8,7 @@
 #include "fs-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "nspawn-cgroup.h"
 #include "nspawn-mount.h"
 #include "path-util.h"

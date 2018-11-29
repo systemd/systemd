@@ -24,7 +24,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "missing.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"

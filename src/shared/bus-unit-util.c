@@ -17,7 +17,7 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "locale-util.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
 #include "path-util.h"

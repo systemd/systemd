@@ -7,6 +7,7 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"

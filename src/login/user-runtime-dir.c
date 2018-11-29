@@ -10,7 +10,7 @@
 #include "label.h"
 #include "main-func.h"
 #include "mkdir.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"

@@ -17,6 +17,7 @@
 #include "fstab-util.h"
 #include "main-func.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"

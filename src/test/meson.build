@@ -213,6 +213,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-mountpoint-util.c'],
+         [],
+         []],
+
         [['src/test/test-exec-util.c'],
          [],
          []],

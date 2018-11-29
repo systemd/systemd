@@ -38,7 +38,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "missing.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

@@ -27,7 +27,7 @@
 #include "ioprio.h"
 #include "journal-util.h"
 #include "missing.h"
-#include "mount-util.h"
+#include "mountpoint-util.h"
 #include "namespace.h"
 #include "parse-util.h"
 #include "path-util.h"

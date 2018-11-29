@@ -60,6 +60,7 @@
 #include "missing.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "netlink-util.h"
 #include "nspawn-cgroup.h"
 #include "nspawn-def.h"
