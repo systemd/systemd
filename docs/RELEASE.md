@@ -1,4 +1,4 @@
-# Steps to a successful release
+# Steps to a Successful Release
 
 1. Add all items to NEWS
 2. Update the contributors list in NEWS ("make git-contrib")
