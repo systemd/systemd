@@ -2443,6 +2443,9 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **re
                 return 1;
         }
 
+        if (ret_unit_path)
+                *ret_unit_path = NULL;
+
         return 0;
 }
 
