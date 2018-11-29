@@ -35,12 +35,21 @@
     <para><command>nss-mymachines</command> is a plug-in module for the GNU Name Service Switch (NSS) functionality of
     the GNU C Library (<command>glibc</command>), providing hostname resolution for the names of containers running
     locally that are registered with
-    <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  The
+    <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. The
     container names are resolved to the IP addresses of the specific container, ordered by their scope. This
-    functionality only applies to containers using network namespacing.</para>
+    functionality only applies to containers using network namespacing (see the description of
+    <option>--private-network</option> in
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
+    Note that the name that is resolved is the one registered with <command>systemd-machined</command>, which
+    may be different than the hostname configured inside of the container.</para>
 
-    <para>The module also resolves user and group IDs used by containers to user and group names indicating the
-    container name, and back. This functionality only applies to containers using user namespacing.</para>
+    <para>The module also provides name resolution for user and group identifiers mapped to containers. All names from
+    the range allocated to a given container <replaceable>container</replaceable> are exposed on the host as
+    <literal>vu-<replaceable>container</replaceable>-<replaceable>uid</replaceable></literal> and
+    <literal>vg-<replaceable>container</replaceable>-<replaceable>gid</replaceable></literal> (see example below). This
+    functionality only applies to containers using user namespacing (see the description of
+    <option>--private-users</option> in
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
 
     <para>To activate the NSS module, add <literal>mymachines</literal> to the lines starting with
     <literal>hosts:</literal>, <literal>passwd:</literal> and <literal>group:</literal> in
@@ -53,7 +62,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Configuration in <filename>/etc/nsswitch.conf</filename></title>
 
     <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
     <command>nss-mymachines</command> correctly:</para>
@@ -76,10 +85,73 @@ netgroup:       nis</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>Mappings provided by <filename>nss-mymachines</filename></title>
+
+    <para>The container <literal>rawhide</literal> is spawned using
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
+    </para>
+
+    <programlisting># systemd-nspawn -M rawhide --boot --network-veth --private-users=pick
+Spawning container rawhide on /var/lib/machines/rawhide.
+Selected user namespace base 20119552 and range 65536.
+...
+
+$ machinectl --max-addresses=3
+MACHINE CLASS     SERVICE        OS     VERSION ADDRESSES
+rawhide container systemd-nspawn fedora 30      169.254.40.164 fe80::94aa:3aff:fe7b:d4b9
+
+$ getent passwd vu-rawhide-0 vu-rawhide-81
+vu-rawhide-0:*:20119552:65534:vu-rawhide-0:/:/sbin/nologin
+vu-rawhide-81:*:20119633:65534:vu-rawhide-81:/:/sbin/nologin
+
+$ getent group vg-rawhide-0 vg-rawhide-81
+vg-rawhide-0:*:20119552:
+vg-rawhide-81:*:20119633:
+
+$ ps -o user:15,pid,tty,command -e|grep '^vu-rawhide'
+vu-rawhide-0      692 ?        /usr/lib/systemd/systemd
+vu-rawhide-0      731 ?        /usr/lib/systemd/systemd-journald
+vu-rawhide-192    734 ?        /usr/lib/systemd/systemd-networkd
+vu-rawhide-193    738 ?        /usr/lib/systemd/systemd-resolved
+vu-rawhide-0      742 ?        /usr/lib/systemd/systemd-logind
+vu-rawhide-81     744 ?        /usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+vu-rawhide-0      746 ?        /usr/sbin/sshd -D ...
+vu-rawhide-0      752 ?        /usr/lib/systemd/systemd --user
+vu-rawhide-0      753 ?        (sd-pam)
+vu-rawhide-0     1628 ?        login -- zbyszek
+vu-rawhide-1000  1630 ?        /usr/lib/systemd/systemd --user
+vu-rawhide-1000  1631 ?        (sd-pam)
+vu-rawhide-1000  1637 pts/8    -zsh
+
+$ ping -c1 rawhide
+PING rawhide(fe80::94aa:3aff:fe7b:d4b9%ve-rawhide (fe80::94aa:3aff:fe7b:d4b9%ve-rawhide)) 56 data bytes
+64 bytes from fe80::94aa:3aff:fe7b:d4b9%ve-rawhide (fe80::94aa:3aff:fe7b:d4b9%ve-rawhide): icmp_seq=1 ttl=64 time=0.045 ms
+...
+$ ping -c1 -4 rawhide
+PING rawhide (169.254.40.164) 56(84) bytes of data.
+64 bytes from 169.254.40.164 (169.254.40.164): icmp_seq=1 ttl=64 time=0.064 ms
+...
+
+# machinectl shell rawhide /sbin/ip a
+Connected to machine rawhide. Press ^] three times within 1s to exit session.
+1: lo: &lt;LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    ...
+2: host0@if21: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether 96:aa:3a:7b:d4:b9 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 169.254.40.164/16 brd 169.254.255.255 scope link host0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::94aa:3aff:fe7b:d4b9/64 scope link
+       valid_lft forever preferred_lft forever
+Connection to machine rawhide terminated.
+</programlisting>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

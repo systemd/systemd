@@ -332,7 +332,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                 name,
                                 0,
                                 "",
-                                "",
+                                " ",
                                 arg_addrs,
                                 &addresses);
 
@@ -475,20 +475,6 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         return 0;
 }
 
-static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *prefix, const char *prefix2, int n_addr) {
-        _cleanup_free_ char *s = NULL;
-        int r;
-
-        r = call_get_addresses(bus, name, ifi, prefix, prefix2, n_addr, &s);
-        if (r < 0)
-                return r;
-
-        if (r > 0)
-                fputs(s, stdout);
-
-        return r;
-}
-
 static int print_os_release(sd_bus *bus, const char *method, const char *name, const char *prefix) {
         _cleanup_free_ char *pretty = NULL;
         int r;
@@ -561,6 +547,7 @@ static void machine_status_info_clear(MachineStatusInfo *info) {
 static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX];
         char since2[FORMAT_TIMESTAMP_MAX];
+        _cleanup_free_ char *addresses = NULL;
         const char *s1, *s2;
         int ifi = -1;
 
@@ -630,11 +617,12 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 fputc('\n', stdout);
         }
 
-        if (print_addresses(bus, i->name, ifi,
-                            "\t Address: ",
-                            "\n\t          ",
-                            ALL_IP_ADDRESSES) > 0)
+        if (call_get_addresses(bus, i->name, ifi,
+                               "\t Address: ", "\n\t          ", ALL_IP_ADDRESSES,
+                               &addresses) > 0) {
+                fputs(addresses, stdout);
                 fputc('\n', stdout);
+        }
 
         print_os_release(bus, "GetMachineOSRelease", i->name, "\t      OS: ");
 
