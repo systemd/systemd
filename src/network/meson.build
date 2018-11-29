@@ -64,6 +64,8 @@ sources = files('''
         networkd-manager.h
         networkd-ndisc.c
         networkd-ndisc.h
+        networkd-neighbor.c
+        networkd-neighbor.h
         networkd-radv.c
         networkd-radv.h
         networkd-network-bus.c

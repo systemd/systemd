@@ -907,6 +907,31 @@
       </variablelist>
   </refsect1>
 
+  <refsect1>
+    <title>[Neighbor] Section Options</title>
+      <para>A <literal>[Neighbor]</literal> section accepts the
+      following keys. The neighbor section adds a permanent, static
+      entry to the neighbor table (IPv6) or ARP table (IPv4) for
+      the given hardware address on the links matched for the network.
+      Specify several <literal>[Neighbor]</literal> sections to configure
+      several static neighbors.</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Address=</varname></term>
+          <listitem>
+            <para>The IP address of the neighbor.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MACAddress=</varname></term>
+          <listitem>
+            <para>The hardware address of the neighbor.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
     <refsect1>
     <title>[IPv6AddressLabel] Section Options</title>
 

@@ -210,6 +210,7 @@ int network_load_one(Manager *manager, const char *filename) {
                               "Link\0"
                               "Network\0"
                               "Address\0"
+                              "Neighbor\0"
                               "IPv6AddressLabel\0"
                               "RoutingPolicyRule\0"
                               "Route\0"
@@ -300,6 +301,7 @@ void network_free(Network *network) {
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
         RoutingPolicyRule *rule;
         FdbEntry *fdb_entry;
+        Neighbor *neighbor;
         AddressLabel *label;
         Prefix *prefix;
         Address *address;
@@ -350,6 +352,9 @@ void network_free(Network *network) {
         while ((ipv6_proxy_ndp_address = network->ipv6_proxy_ndp_addresses))
                 ipv6_proxy_ndp_address_free(ipv6_proxy_ndp_address);
 
+        while ((neighbor = network->neighbors))
+                neighbor_free(neighbor);
+
         while ((label = network->address_labels))
                 address_label_free(label);
 
@@ -362,6 +367,7 @@ void network_free(Network *network) {
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         hashmap_free(network->fdb_entries_by_section);
+        hashmap_free(network->neighbors_by_section);
         hashmap_free(network->address_labels_by_section);
         hashmap_free(network->prefixes_by_section);
         hashmap_free(network->rules_by_section);

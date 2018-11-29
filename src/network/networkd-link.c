@@ -20,6 +20,7 @@
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
+#include "networkd-neighbor.h"
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
 #include "set.h"
@@ -744,6 +745,9 @@ void link_check_ready(Link *link) {
         if (!link->addresses_configured)
                 return;
 
+        if (!link->neighbors_configured)
+                return;
+
         if (!link->static_routes_configured)
                 return;
 
@@ -886,6 +890,34 @@ static int link_request_set_routes(Link *link) {
                 link_check_ready(link);
         } else
                 log_link_debug(link, "Setting routes");
+
+        return 0;
+}
+
+static int link_request_set_neighbors(Link *link) {
+        Neighbor *neighbor;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->state != _LINK_STATE_INVALID);
+
+        link_set_state(link, LINK_STATE_CONFIGURING);
+
+        LIST_FOREACH(neighbors, neighbor, link->network->neighbors) {
+                r = neighbor_configure(neighbor, link, NULL);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Could not set neighbor: %m");
+                        link_enter_failed(link);
+                        return r;
+                }
+        }
+
+        if (link->neighbor_messages == 0) {
+                link->neighbors_configured = true;
+                link_check_ready(link);
+        } else
+                log_link_debug(link, "Setting neighbors");
 
         return 0;
 }
@@ -1046,6 +1078,8 @@ static int link_request_set_addresses(Link *link) {
                 return r;
 
         link_set_state(link, LINK_STATE_CONFIGURING);
+
+        link_request_set_neighbors(link);
 
         LIST_FOREACH(addresses, ad, link->network->static_addresses) {
                 r = address_configure(ad, link, address_handler, false);
