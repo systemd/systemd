@@ -1,4 +1,4 @@
-# Coding style
+# Coding Style
 
 - 8ch indent, no tabs, except for files in `man/` which are 2ch indent,
   and still no tabs.
