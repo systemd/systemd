@@ -10,6 +10,7 @@
 #include "bus-util.h"
 #include "def.h"
 #include "fd-util.h"
+#include "float.h"
 #include "hostname-util.h"
 #include "import-util.h"
 #include "machine-pool.h"
@@ -21,6 +22,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -34,6 +36,7 @@ typedef struct Manager Manager;
 typedef enum TransferType {
         TRANSFER_IMPORT_TAR,
         TRANSFER_IMPORT_RAW,
+        TRANSFER_IMPORT_FS,
         TRANSFER_EXPORT_TAR,
         TRANSFER_EXPORT_RAW,
         TRANSFER_PULL_TAR,
@@ -94,6 +97,7 @@ struct Manager {
 static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
         [TRANSFER_IMPORT_TAR] = "import-tar",
         [TRANSFER_IMPORT_RAW] = "import-raw",
+        [TRANSFER_IMPORT_FS] = "import-fs",
         [TRANSFER_EXPORT_TAR] = "export-tar",
         [TRANSFER_EXPORT_RAW] = "export-raw",
         [TRANSFER_PULL_TAR] = "pull-tar",
@@ -156,6 +160,7 @@ static int transfer_new(Manager *m, Transfer **ret) {
                 .stdin_fd = -1,
                 .stdout_fd = -1,
                 .verify = _IMPORT_VERIFY_INVALID,
+                .progress_percent= (unsigned) -1,
         };
 
         id = m->current_transfer_id + 1;
@@ -177,6 +182,15 @@ static int transfer_new(Manager *m, Transfer **ret) {
         return 0;
 }
 
+static double transfer_percent_as_double(Transfer *t) {
+        assert(t);
+
+        if (t->progress_percent == (unsigned) -1)
+                return -DBL_MAX;
+
+        return (double) t->progress_percent / 100.0;
+}
+
 static void transfer_send_log_line(Transfer *t, const char *line) {
         int r, priority = LOG_INFO;
 
@@ -196,7 +210,7 @@ static void transfer_send_log_line(Transfer *t, const char *line) {
                         priority,
                         line);
         if (r < 0)
-                log_error_errno(r, "Cannot emit message: %m");
+                log_warning_errno(r, "Cannot emit log message signal, ignoring: %m");
  }
 
 static void transfer_send_logs(Transfer *t, bool flush) {
@@ -301,17 +315,16 @@ static int transfer_on_pid(sd_event_source *s, const siginfo_t *si, void *userda
 
         if (si->si_code == CLD_EXITED) {
                 if (si->si_status != 0)
-                        log_error("Import process failed with exit code %i.", si->si_status);
+                        log_error("Transfer process failed with exit code %i.", si->si_status);
                 else {
-                        log_debug("Import process succeeded.");
+                        log_debug("Transfer process succeeded.");
                         success = true;
                 }
 
         } else if (IN_SET(si->si_code, CLD_KILLED, CLD_DUMPED))
-
-                log_error("Import process terminated by signal %s.", signal_to_string(si->si_status));
+                log_error("Transfer process terminated by signal %s.", signal_to_string(si->si_status));
         else
-                log_error("Import process failed due to unknown reason.");
+                log_error("Transfer process failed due to unknown reason.");
 
         t->pid = 0;
 
@@ -326,14 +339,12 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
         assert(t);
 
         l = read(fd, t->log_message + t->log_message_size, sizeof(t->log_message) - t->log_message_size);
+        if (l < 0)
+                log_error_errno(errno, "Failed to read log message: %m");
         if (l <= 0) {
                 /* EOF/read error. We just close the pipe here, and
                  * close the watch, waiting for the SIGCHLD to arrive,
                  * before we do anything else. */
-
-                if (l < 0)
-                        log_error_errno(errno, "Failed to read log message: %m");
-
                 t->log_event_source = sd_event_source_unref(t->log_event_source);
                 return 0;
         }
@@ -360,7 +371,7 @@ static int transfer_start(Transfer *t) {
                 return r;
         if (r == 0) {
                 const char *cmd[] = {
-                        NULL, /* systemd-import, systemd-export or systemd-pull */
+                        NULL, /* systemd-import, systemd-import-fs, systemd-export or systemd-pull */
                         NULL, /* tar, raw  */
                         NULL, /* --verify= */
                         NULL, /* verify argument */
@@ -393,17 +404,52 @@ static int transfer_start(Transfer *t) {
                         _exit(EXIT_FAILURE);
                 }
 
-                if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_IMPORT_RAW))
-                        cmd[k++] = SYSTEMD_IMPORT_PATH;
-                else if (IN_SET(t->type, TRANSFER_EXPORT_TAR, TRANSFER_EXPORT_RAW))
-                        cmd[k++] = SYSTEMD_EXPORT_PATH;
-                else
-                        cmd[k++] = SYSTEMD_PULL_PATH;
+                switch (t->type) {
 
-                if (IN_SET(t->type, TRANSFER_IMPORT_TAR, TRANSFER_EXPORT_TAR, TRANSFER_PULL_TAR))
+                case TRANSFER_IMPORT_TAR:
+                case TRANSFER_IMPORT_RAW:
+                        cmd[k++] = SYSTEMD_IMPORT_PATH;
+                        break;
+
+                case TRANSFER_IMPORT_FS:
+                        cmd[k++] = SYSTEMD_IMPORT_FS_PATH;
+                        break;
+
+                case TRANSFER_EXPORT_TAR:
+                case TRANSFER_EXPORT_RAW:
+                        cmd[k++] = SYSTEMD_EXPORT_PATH;
+                        break;
+
+                case TRANSFER_PULL_TAR:
+                case TRANSFER_PULL_RAW:
+                        cmd[k++] = SYSTEMD_PULL_PATH;
+                        break;
+
+                default:
+                        assert_not_reached("Unexpected transfer type");
+                }
+
+                switch (t->type) {
+
+                case TRANSFER_IMPORT_TAR:
+                case TRANSFER_EXPORT_TAR:
+                case TRANSFER_PULL_TAR:
                         cmd[k++] = "tar";
-                else
+                        break;
+
+                case TRANSFER_IMPORT_RAW:
+                case TRANSFER_EXPORT_RAW:
+                case TRANSFER_PULL_RAW:
                         cmd[k++] = "raw";
+                        break;
+
+                case TRANSFER_IMPORT_FS:
+                        cmd[k++] = "run";
+                        break;
+
+                default:
+                        break;
+                }
 
                 if (t->verify != _IMPORT_VERIFY_INVALID) {
                         cmd[k++] = "--verify";
@@ -513,7 +559,6 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         struct ucred *ucred = NULL;
         Manager *m = userdata;
         struct cmsghdr *cmsg;
-        unsigned percent;
         char *p, *e;
         Transfer *t;
         Iterator i;
@@ -569,15 +614,15 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         e = strchrnul(p, '\n');
         *e = 0;
 
-        r = safe_atou(p, &percent);
-        if (r < 0 || percent > 100) {
+        r = parse_percent(p);
+        if (r < 0) {
                 log_warning("Got invalid percent value, ignoring.");
                 return 0;
         }
 
-        t->progress_percent = percent;
+        t->progress_percent = (unsigned) r;
 
-        log_debug("Got percentage from client: %u%%", percent);
+        log_debug("Got percentage from client: %u%%", t->progress_percent);
         return 0;
 }
 
@@ -636,12 +681,9 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *remote)
         assert(type >= 0);
         assert(type < _TRANSFER_TYPE_MAX);
 
-        HASHMAP_FOREACH(t, m->transfers, i) {
-
-                if (t->type == type &&
-                    streq_ptr(t->remote, remote))
+        HASHMAP_FOREACH(t, m->transfers, i)
+                if (t->type == type && streq_ptr(t->remote, remote))
                         return t;
-        }
 
         return NULL;
 }
@@ -675,10 +717,14 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
         if (!machine_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
 
-        r = setup_machine_directory((uint64_t) -1, error);
+        r = setup_machine_directory(error);
         if (r < 0)
                 return r;
 
@@ -689,6 +735,72 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
                 return r;
 
         t->type = type;
+        t->force_local = force;
+        t->read_only = read_only;
+
+        t->local = strdup(local);
+        if (!t->local)
+                return -ENOMEM;
+
+        t->stdin_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (t->stdin_fd < 0)
+                return -errno;
+
+        r = transfer_start(t);
+        if (r < 0)
+                return r;
+
+        object = t->object_path;
+        id = t->id;
+        t = NULL;
+
+        return sd_bus_reply_method_return(msg, "uo", id, object);
+}
+
+static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+        int fd, force, read_only, r;
+        const char *local, *object;
+        Manager *m = userdata;
+        uint32_t id;
+
+        assert(msg);
+        assert(m);
+
+        r = bus_verify_polkit_async(
+                        msg,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.import1.import",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = sd_bus_message_read(msg, "hsbb", &fd, &local, &force, &read_only);
+        if (r < 0)
+                return r;
+
+        r = fd_verify_directory(fd);
+        if (r < 0)
+                return r;
+
+        if (!machine_name_is_valid(local))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
+
+        r = setup_machine_directory(error);
+        if (r < 0)
+                return r;
+
+        r = transfer_new(m, &t);
+        if (r < 0)
+                return r;
+
+        t->type = TRANSFER_IMPORT_FS;
         t->force_local = force;
         t->read_only = read_only;
 
@@ -742,6 +854,10 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         if (!machine_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
 
         type = streq_ptr(sd_bus_message_get_member(msg), "ExportTar") ? TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
 
@@ -821,7 +937,7 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         if (v < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown verification mode %s", verify);
 
-        r = setup_machine_directory((uint64_t) -1, error);
+        r = setup_machine_directory(error);
         if (r < 0)
                 return r;
 
@@ -886,7 +1002,7 @@ static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_err
                                 transfer_type_to_string(t->type),
                                 t->remote,
                                 t->local,
-                                (double) t->progress_percent / 100.0,
+                                transfer_percent_as_double(t),
                                 t->object_path);
                 if (r < 0)
                         return r;
@@ -982,7 +1098,7 @@ static int property_get_progress(
         assert(reply);
         assert(t);
 
-        return sd_bus_message_append(reply, "d", (double) t->progress_percent / 100.0);
+        return sd_bus_message_append(reply, "d", transfer_percent_as_double(t));
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, transfer_type, TransferType);
@@ -1005,6 +1121,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("ImportTar", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ImportRaw", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ImportFileSystem", "hsbb", "uo", method_import_fs, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ExportTar", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ExportRaw", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("PullTar", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),

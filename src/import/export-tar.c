@@ -141,6 +141,26 @@ static void tar_export_report_progress(TarExport *e) {
         e->last_percent = percent;
 }
 
+static int tar_export_finish(TarExport *e) {
+        int r;
+
+        assert(e);
+        assert(e->tar_fd >= 0);
+
+        if (e->tar_pid > 0) {
+                r = wait_for_terminate_and_check("tar", e->tar_pid, WAIT_LOG);
+                e->tar_pid = 0;
+                if (r < 0)
+                        return r;
+                if (r != EXIT_SUCCESS)
+                        return -EPROTO;
+        }
+
+        e->tar_fd = safe_close(e->tar_fd);
+
+        return 0;
+}
+
 static int tar_export_process(TarExport *e) {
         ssize_t l;
         int r;
@@ -156,7 +176,7 @@ static int tar_export_process(TarExport *e) {
 
                         e->tried_splice = true;
                 } else if (l == 0) {
-                        r = 0;
+                        r = tar_export_finish(e);
                         goto finish;
                 } else {
                         e->written_uncompressed += l;
@@ -172,7 +192,7 @@ static int tar_export_process(TarExport *e) {
                 uint8_t input[COPY_BUFFER_SIZE];
 
                 if (e->eof) {
-                        r = 0;
+                        r = tar_export_finish(e);
                         goto finish;
                 }
 

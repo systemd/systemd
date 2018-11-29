@@ -96,7 +96,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 
                 fd = STDIN_FILENO;
 
-                (void) readlink_malloc("/proc/self/fd/0", &pretty);
+                (void) fd_get_path(fd, &pretty);
                 log_info("Importing '%s', saving as '%s'.", strna(pretty), local);
         }
 
@@ -192,7 +192,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
 
                 fd = STDIN_FILENO;
 
-                (void) readlink_malloc("/proc/self/fd/0", &pretty);
+                (void) fd_get_path(fd, &pretty);
                 log_info("Importing '%s', saving as '%s'.", strempty(pretty), local);
         }
 

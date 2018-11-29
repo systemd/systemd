@@ -22,3 +22,11 @@ static inline void rm_rf_physical_and_free(char *p) {
         free(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_physical_and_free);
+
+/* Similar as above, but also has magic btrfs subvolume powers */
+static inline void rm_rf_subvolume_and_free(char *p) {
+        PROTECT_ERRNO;
+        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+        free(p);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_subvolume_and_free);

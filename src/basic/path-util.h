@@ -133,6 +133,7 @@ int parse_path_argument_and_warn(const char *path, bool suppress_root, char **ar
 
 char* dirname_malloc(const char *path);
 const char *last_path_component(const char *path);
+int path_extract_filename(const char *p, char **ret);
 
 bool filename_is_valid(const char *p) _pure_;
 bool path_is_valid(const char *p) _pure_;

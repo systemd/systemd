@@ -160,7 +160,7 @@ int import_assign_pool_quota_and_warn(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up default quota hierarchy for %s: %m", path);
         if (r > 0)
-                log_info("Set up default quota hierarchy for %s.", path);
+                log_debug("Set up default quota hierarchy for %s.", path);
 
         return 0;
 }

@@ -74,7 +74,6 @@ static int pull_job_restart(PullJob *j) {
         j->payload_allocated = 0;
         j->written_compressed = 0;
         j->written_uncompressed = 0;
-        j->written_since_last_grow = 0;
 
         r = pull_job_begin(j);
         if (r < 0)
@@ -224,11 +223,6 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
 
         if (j->disk_fd >= 0) {
 
-                if (j->grow_machine_directory && j->written_since_last_grow >= GROW_INTERVAL_BYTES) {
-                        j->written_since_last_grow = 0;
-                        grow_machine_directory();
-                }
-
                 if (j->allow_sparse)
                         n = sparse_write(j->disk_fd, p, sz, 64);
                 else {
@@ -250,7 +244,6 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
         }
 
         j->written_uncompressed += sz;
-        j->written_since_last_grow += sz;
 
         return 0;
 }
@@ -576,9 +569,6 @@ int pull_job_begin(PullJob *j) {
 
         if (j->state != PULL_JOB_INIT)
                 return -EBUSY;
-
-        if (j->grow_machine_directory)
-                grow_machine_directory();
 
         r = curl_glue_make(&j->curl, j->url, j);
         if (r < 0)

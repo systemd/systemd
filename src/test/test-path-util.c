@@ -406,6 +406,7 @@ static void test_file_in_same_dir(void) {
 }
 
 static void test_last_path_component(void) {
+        assert_se(last_path_component(NULL) == NULL);
         assert_se(streq(last_path_component("a/b/c"), "c"));
         assert_se(streq(last_path_component("a/b/c/"), "c/"));
         assert_se(streq(last_path_component("/"), "/"));
@@ -422,6 +423,45 @@ static void test_last_path_component(void) {
         assert_se(streq(last_path_component("a/"), "a/"));
         assert_se(streq(last_path_component("/a"), "a"));
         assert_se(streq(last_path_component("/a/"), "a/"));
+}
+
+static void test_path_extract_filename_one(const char *input, const char *output, int ret) {
+        _cleanup_free_ char *k = NULL;
+        int r;
+
+        r = path_extract_filename(input, &k);
+        log_info("%s → %s/%s [expected: %s/%s]", strnull(input), strnull(k), strerror(-r), strnull(output), strerror(-ret));
+        assert_se(streq_ptr(k, output));
+        assert_se(r == ret);
+}
+
+static void test_path_extract_filename(void) {
+        test_path_extract_filename_one(NULL, NULL, -EINVAL);
+        test_path_extract_filename_one("a/b/c", "c", 0);
+        test_path_extract_filename_one("a/b/c/", "c", 0);
+        test_path_extract_filename_one("/", NULL, -EINVAL);
+        test_path_extract_filename_one("//", NULL, -EINVAL);
+        test_path_extract_filename_one("///", NULL, -EINVAL);
+        test_path_extract_filename_one(".", NULL, -EINVAL);
+        test_path_extract_filename_one("./.", NULL, -EINVAL);
+        test_path_extract_filename_one("././", NULL, -EINVAL);
+        test_path_extract_filename_one("././/", NULL, -EINVAL);
+        test_path_extract_filename_one("/foo/a", "a", 0);
+        test_path_extract_filename_one("/foo/a/", "a", 0);
+        test_path_extract_filename_one("", NULL, -EINVAL);
+        test_path_extract_filename_one("a", "a", 0);
+        test_path_extract_filename_one("a/", "a", 0);
+        test_path_extract_filename_one("/a", "a", 0);
+        test_path_extract_filename_one("/a/", "a", 0);
+        test_path_extract_filename_one("/////////////a/////////////", "a", 0);
+        test_path_extract_filename_one("xx/.", NULL, -EINVAL);
+        test_path_extract_filename_one("xx/..", NULL, -EINVAL);
+        test_path_extract_filename_one("..", NULL, -EINVAL);
+        test_path_extract_filename_one("/..", NULL, -EINVAL);
+        test_path_extract_filename_one("../", NULL, -EINVAL);
+        test_path_extract_filename_one(".", NULL, -EINVAL);
+        test_path_extract_filename_one("/.", NULL, -EINVAL);
+        test_path_extract_filename_one("./", NULL, -EINVAL);
 }
 
 static void test_filename_is_valid(void) {
@@ -542,6 +582,7 @@ int main(int argc, char **argv) {
         test_prefix_root();
         test_file_in_same_dir();
         test_last_path_component();
+        test_path_extract_filename();
         test_filename_is_valid();
         test_hidden_or_backup_file();
         test_skip_dev_prefix();

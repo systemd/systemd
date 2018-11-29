@@ -52,7 +52,6 @@ struct TarPull {
 
         char *local;
         bool force_local;
-        bool grow_machine_directory;
         bool settings;
 
         pid_t tar_pid;
@@ -112,7 +111,6 @@ int tar_pull_new(
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(tar_pull_unrefp) TarPull *i = NULL;
         _cleanup_free_ char *root = NULL;
-        bool grow;
         int r;
 
         assert(ret);
@@ -120,8 +118,6 @@ int tar_pull_new(
         root = strdup(image_root ?: "/var/lib/machines");
         if (!root)
                 return -ENOMEM;
-
-        grow = path_startswith(root, "/var/lib/machines");
 
         if (event)
                 e = sd_event_ref(event);
@@ -143,7 +139,6 @@ int tar_pull_new(
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .image_root = TAKE_PTR(root),
-                .grow_machine_directory = grow,
                 .event = TAKE_PTR(e),
                 .glue = TAKE_PTR(g),
         };
@@ -512,7 +507,6 @@ int tar_pull_start(
         i->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
         i->tar_job->on_progress = tar_pull_job_on_progress;
         i->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
-        i->tar_job->grow_machine_directory = i->grow_machine_directory;
 
         r = pull_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
         if (r < 0)

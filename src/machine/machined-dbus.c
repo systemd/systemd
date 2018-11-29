@@ -41,14 +41,9 @@ static int property_get_pool_usage(
 
         _cleanup_close_ int fd = -1;
         uint64_t usage = (uint64_t) -1;
-        struct stat st;
 
         assert(bus);
         assert(reply);
-
-        /* We try to read the quota info from /var/lib/machines, as
-         * well as the usage of the loopback file
-         * /var/lib/machines.raw, and pick the larger value. */
 
         fd = open("/var/lib/machines", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd >= 0) {
@@ -56,11 +51,6 @@ static int property_get_pool_usage(
 
                 if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
                         usage = q.referenced;
-        }
-
-        if (stat("/var/lib/machines.raw", &st) >= 0) {
-                if (usage == (uint64_t) -1 || st.st_blocks * 512ULL > usage)
-                        usage = st.st_blocks * 512ULL;
         }
 
         return sd_bus_message_append(reply, "t", usage);
@@ -77,14 +67,9 @@ static int property_get_pool_limit(
 
         _cleanup_close_ int fd = -1;
         uint64_t size = (uint64_t) -1;
-        struct stat st;
 
         assert(bus);
         assert(reply);
-
-        /* We try to read the quota limit from /var/lib/machines, as
-         * well as the size of the loopback file
-         * /var/lib/machines.raw, and pick the smaller value. */
 
         fd = open("/var/lib/machines", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd >= 0) {
@@ -92,11 +77,6 @@ static int property_get_pool_limit(
 
                 if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
                         size = q.referenced_max;
-        }
-
-        if (stat("/var/lib/machines.raw", &st) >= 0) {
-                if (size == (uint64_t) -1 || (uint64_t) st.st_size < size)
-                        size = st.st_size;
         }
 
         return sd_bus_message_append(reply, "t", size);
@@ -877,18 +857,9 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
                 return 1; /* Will call us back */
 
         /* Set up the machine directory if necessary */
-        r = setup_machine_directory(limit, error);
+        r = setup_machine_directory(error);
         if (r < 0)
                 return r;
-
-        /* Resize the backing loopback device, if there is one, except if we asked to drop any limit */
-        if (limit != (uint64_t) -1) {
-                r = btrfs_resize_loopback("/var/lib/machines", limit, false);
-                if (r == -ENOTTY)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
-                if (r < 0 && r != -ENODEV) /* ignore ENODEV, as that's what is returned if the file system is not on loopback */
-                        return sd_bus_error_set_errnof(error, r, "Failed to adjust loopback limit: %m");
-        }
 
         (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, limit);
 

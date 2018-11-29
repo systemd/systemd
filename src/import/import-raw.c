@@ -37,7 +37,6 @@ struct RawImport {
         char *local;
         bool force_local;
         bool read_only;
-        bool grow_machine_directory;
 
         char *temp_path;
         char *final_path;
@@ -46,8 +45,6 @@ struct RawImport {
         int output_fd;
 
         ImportCompress compress;
-
-        uint64_t written_since_last_grow;
 
         sd_event_source *input_event_source;
 
@@ -95,7 +92,6 @@ int raw_import_new(
 
         _cleanup_(raw_import_unrefp) RawImport *i = NULL;
         _cleanup_free_ char *root = NULL;
-        bool grow;
         int r;
 
         assert(ret);
@@ -103,8 +99,6 @@ int raw_import_new(
         root = strdup(image_root ?: "/var/lib/machines");
         if (!root)
                 return -ENOMEM;
-
-        grow = path_startswith(root, "/var/lib/machines");
 
         i = new(RawImport, 1);
         if (!i)
@@ -117,7 +111,6 @@ int raw_import_new(
                 .userdata = userdata,
                 .last_percent = (unsigned) -1,
                 .image_root = TAKE_PTR(root),
-                .grow_machine_directory = grow,
         };
 
         RATELIMIT_INIT(i->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
@@ -307,11 +300,6 @@ static int raw_import_write(const void *p, size_t sz, void *userdata) {
         RawImport *i = userdata;
         ssize_t n;
 
-        if (i->grow_machine_directory && i->written_since_last_grow >= GROW_INTERVAL_BYTES) {
-                i->written_since_last_grow = 0;
-                grow_machine_directory();
-        }
-
         n = sparse_write(i->output_fd, p, sz, 64);
         if (n < 0)
                 return (int) n;
@@ -319,7 +307,6 @@ static int raw_import_write(const void *p, size_t sz, void *userdata) {
                 return -EIO;
 
         i->written_uncompressed += sz;
-        i->written_since_last_grow += sz;
 
         return 0;
 }

@@ -95,7 +95,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
                 fd = STDOUT_FILENO;
 
-                (void) readlink_malloc("/proc/self/fd/1", &pretty);
+                (void) fd_get_path(fd, &pretty);
                 log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
         }
 
@@ -172,7 +172,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
                 fd = STDOUT_FILENO;
 
-                (void) readlink_malloc("/proc/self/fd/1", &pretty);
+                (void) fd_get_path(fd, &pretty);
                 log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
         }
 
