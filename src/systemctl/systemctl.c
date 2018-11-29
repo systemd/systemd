@@ -2415,7 +2415,7 @@ static void warn_unit_file_changed(const char *name) {
                     arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
 }
 
-static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **unit_path) {
+static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **ret_unit_path) {
         char **p;
 
         assert(lp);
@@ -2437,11 +2437,14 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
                 if (r < 0)
                         return log_error_errno(r, "Failed to access path \"%s\": %m", path);
 
-                if (unit_path)
-                        *unit_path = TAKE_PTR(lpath);
+                if (ret_unit_path)
+                        *ret_unit_path = TAKE_PTR(lpath);
 
                 return 1;
         }
+
+        if (ret_unit_path)
+                *ret_unit_path = NULL;
 
         return 0;
 }
@@ -2449,30 +2452,43 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
 static int unit_find_template_path(
                 const char *unit_name,
                 LookupPaths *lp,
-                char **fragment_path,
-                char **template) {
+                char **ret_fragment_path,
+                char **ret_template) {
 
-        _cleanup_free_ char *_template = NULL;
+        _cleanup_free_ char *t = NULL, *f = NULL;
         int r;
 
         /* Returns 1 if a fragment was found, 0 if not found, negative on error. */
 
-        r = unit_file_find_path(lp, unit_name, fragment_path);
-        if (r != 0)
-                return r; /* error or found a real unit */
+        r = unit_file_find_path(lp, unit_name, &f);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (ret_fragment_path)
+                        *ret_fragment_path = TAKE_PTR(f);
+                if (ret_template)
+                        *ret_template = NULL;
+                return r; /* found a real unit */
+        }
 
-        r = unit_name_template(unit_name, &_template);
-        if (r == -EINVAL)
+        r = unit_name_template(unit_name, &t);
+        if (r == -EINVAL) {
+                if (ret_fragment_path)
+                        *ret_fragment_path = NULL;
+                if (ret_template)
+                        *ret_template = NULL;
+
                 return 0; /* not a template, does not exist */
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to determine template name: %m");
 
-        r = unit_file_find_path(lp, _template, fragment_path);
+        r = unit_file_find_path(lp, t, ret_fragment_path);
         if (r < 0)
                 return r;
 
-        if (template)
-                *template = TAKE_PTR(_template);
+        if (ret_template)
+                *ret_template = r > 0 ? TAKE_PTR(t) : NULL;
 
         return r;
 }
@@ -2481,32 +2497,58 @@ static int unit_find_paths(
                 sd_bus *bus,
                 const char *unit_name,
                 LookupPaths *lp,
-                char **fragment_path,
-                char ***dropin_paths) {
+                bool force_client_side,
+                char **ret_fragment_path,
+                char ***ret_dropin_paths) {
 
-        _cleanup_free_ char *path = NULL;
         _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free_ char *path = NULL;
         int r;
 
         /**
-         * Finds where the unit is defined on disk. Returns 0 if the unit
-         * is not found. Returns 1 if it is found, and sets
-         * - the path to the unit in *path, if it exists on disk,
-         * - and a strv of existing drop-ins in *dropins,
-         *   if the arg is not NULL and any dropins were found.
+         * Finds where the unit is defined on disk. Returns 0 if the unit is not found. Returns 1 if it is found, and
+         * sets:
+         * - the path to the unit in *ret_frament_path, if it exists on disk,
+         * - and a strv of existing drop-ins in *ret_dropin_paths, if the arg is not NULL and any dropins were found.
+         *
+         * Returns -ERFKILL if the unit is masked, and -EKEYREJECTED if the unit file could not be loaded for some
+         * reason (the latter only applies if we are going through the service manager)
          */
 
         assert(unit_name);
-        assert(fragment_path);
+        assert(ret_fragment_path);
         assert(lp);
 
-        if (!install_client_side() && !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
+        /* Go via the bus to acquire the path, unless we are explicitly told not to, or when the unit name is a template */
+        if (!force_client_side &&
+            !install_client_side() &&
+            !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *unit = NULL;
+                _cleanup_free_ char *load_state = NULL, *unit = NULL;
 
                 unit = unit_dbus_path_from_name(unit_name);
                 if (!unit)
                         return log_oom();
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                unit,
+                                "org.freedesktop.systemd1.Unit",
+                                "LoadState",
+                                &error,
+                                &load_state);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get LoadState: %s", bus_error_message(&error, r));
+
+                if (streq(load_state, "masked"))
+                        return -ERFKILL;
+                if (streq(load_state, "not-found")) {
+                        r = 0;
+                        goto not_found;
+                }
+                if (!streq(load_state, "loaded"))
+                        return -EKEYREJECTED;
 
                 r = sd_bus_get_property_string(
                                 bus,
@@ -2519,7 +2561,7 @@ static int unit_find_paths(
                 if (r < 0)
                         return log_error_errno(r, "Failed to get FragmentPath: %s", bus_error_message(&error, r));
 
-                if (dropin_paths) {
+                if (ret_dropin_paths) {
                         r = sd_bus_get_property_strv(
                                         bus,
                                         "org.freedesktop.systemd1",
@@ -2542,7 +2584,6 @@ static int unit_find_paths(
                 r = unit_find_template_path(unit_name, lp, &path, &template);
                 if (r < 0)
                         return r;
-
                 if (r > 0) {
                         if (null_or_empty_path(path))
                                 /* The template is masked. Let's cut the process short. */
@@ -2566,25 +2607,29 @@ static int unit_find_paths(
                 if (r < 0)
                         return log_error_errno(r, "Failed to add unit name: %m");
 
-                if (dropin_paths) {
-                        r = unit_file_find_dropin_conf_paths(arg_root, lp->search_path,
-                                                             NULL, names, &dropins);
+                if (ret_dropin_paths) {
+                        r = unit_file_find_dropin_conf_paths(arg_root, lp->search_path, NULL, names, &dropins);
                         if (r < 0)
                                 return r;
                 }
         }
 
-        r = 0;
+                r = 0;
 
         if (!isempty(path)) {
-                *fragment_path = TAKE_PTR(path);
+                *ret_fragment_path = TAKE_PTR(path);
                 r = 1;
+        } else
+                *ret_fragment_path = NULL;
+
+        if (ret_dropin_paths) {
+                if (!strv_isempty(dropins)) {
+                        *ret_dropin_paths = TAKE_PTR(dropins);
+                        r = 1;
+                } else
+                        *ret_dropin_paths = NULL;
         }
 
-        if (dropin_paths && !strv_isempty(dropins)) {
-                *dropin_paths = TAKE_PTR(dropins);
-                r = 1;
-        }
  not_found:
         if (r == 0 && !arg_force)
                 log_error("No files found for %s.", unit_name);
@@ -5374,9 +5419,16 @@ static int cat(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *fragment_path = NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
 
-                r = unit_find_paths(bus, *name, &lp, &fragment_path, &dropin_paths);
+                r = unit_find_paths(bus, *name, &lp, false, &fragment_path, &dropin_paths);
                 if (r == -ERFKILL) {
-                        printf("%s# unit %s is masked%s\n",
+                        printf("%s# Unit %s is masked%s.\n",
+                               ansi_highlight_magenta(),
+                               *name,
+                               ansi_normal());
+                        continue;
+                }
+                if (r == -EKEYREJECTED) {
+                        printf("%s# Unit %s could not be loaded.%s\n",
                                ansi_highlight_magenta(),
                                *name,
                                ansi_normal());
@@ -5384,7 +5436,7 @@ static int cat(int argc, char *argv[], void *userdata) {
                 }
                 if (r < 0)
                         return r;
-                else if (r == 0)
+                if (r == 0)
                         return -ENOENT;
 
                 if (first)
@@ -6781,7 +6833,8 @@ static int unit_file_create_new(
                 char **ret_new_path,
                 char **ret_tmp_path) {
 
-        char *tmp_new_path, *tmp_tmp_path, *ending;
+        _cleanup_free_ char *new_path = NULL, *tmp_path = NULL;
+        const char *ending;
         int r;
 
         assert(unit_name);
@@ -6789,18 +6842,16 @@ static int unit_file_create_new(
         assert(ret_tmp_path);
 
         ending = strjoina(unit_name, suffix);
-        r = get_file_to_edit(paths, ending, &tmp_new_path);
+        r = get_file_to_edit(paths, ending, &new_path);
         if (r < 0)
                 return r;
 
-        r = create_edit_temp_file(tmp_new_path, tmp_new_path, &tmp_tmp_path);
-        if (r < 0) {
-                free(tmp_new_path);
+        r = create_edit_temp_file(new_path, new_path, &tmp_path);
+        if (r < 0)
                 return r;
-        }
 
-        *ret_new_path = tmp_new_path;
-        *ret_tmp_path = tmp_tmp_path;
+        *ret_new_path = TAKE_PTR(new_path);
+        *ret_tmp_path = TAKE_PTR(tmp_path);
 
         return 0;
 }
@@ -6812,7 +6863,7 @@ static int unit_file_create_copy(
                 char **ret_new_path,
                 char **ret_tmp_path) {
 
-        char *tmp_new_path, *tmp_tmp_path;
+        _cleanup_free_ char *new_path = NULL, *tmp_path = NULL;
         int r;
 
         assert(fragment_path);
@@ -6820,33 +6871,26 @@ static int unit_file_create_copy(
         assert(ret_new_path);
         assert(ret_tmp_path);
 
-        r = get_file_to_edit(paths, unit_name, &tmp_new_path);
+        r = get_file_to_edit(paths, unit_name, &new_path);
         if (r < 0)
                 return r;
 
-        if (!path_equal(fragment_path, tmp_new_path) && access(tmp_new_path, F_OK) == 0) {
+        if (!path_equal(fragment_path, new_path) && access(new_path, F_OK) >= 0) {
                 char response;
 
-                r = ask_char(&response, "yn", "\"%s\" already exists. Overwrite with \"%s\"? [(y)es, (n)o] ", tmp_new_path, fragment_path);
-                if (r < 0) {
-                        free(tmp_new_path);
+                r = ask_char(&response, "yn", "\"%s\" already exists. Overwrite with \"%s\"? [(y)es, (n)o] ", new_path, fragment_path);
+                if (r < 0)
                         return r;
-                }
-                if (response != 'y') {
-                        log_warning("%s ignored", unit_name);
-                        free(tmp_new_path);
-                        return -EKEYREJECTED;
-                }
+                if (response != 'y')
+                        return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED), "%s skipped.", unit_name);
         }
 
-        r = create_edit_temp_file(tmp_new_path, fragment_path, &tmp_tmp_path);
-        if (r < 0) {
-                free(tmp_new_path);
+        r = create_edit_temp_file(new_path, fragment_path, &tmp_path);
+        if (r < 0)
                 return r;
-        }
 
-        *ret_new_path = tmp_new_path;
-        *ret_tmp_path = tmp_tmp_path;
+        *ret_new_path = TAKE_PTR(new_path);
+        *ret_tmp_path = TAKE_PTR(tmp_path);
 
         return 0;
 }
@@ -6885,6 +6929,7 @@ static int run_editor(char **paths) {
                         n_editor_args = strv_length(editor_args);
                         argc += n_editor_args - 1;
                 }
+
                 args = newa(const char*, argc + 1);
 
                 if (n_editor_args > 0) {
@@ -6893,10 +6938,8 @@ static int run_editor(char **paths) {
                                 args[i] = editor_args[i];
                 }
 
-                STRV_FOREACH_PAIR(original_path, tmp_path, paths) {
-                        args[i] = *tmp_path;
-                        i++;
-                }
+                STRV_FOREACH_PAIR(original_path, tmp_path, paths)
+                        args[i++] = *tmp_path;
                 args[i] = NULL;
 
                 if (n_editor_args > 0)
@@ -6938,7 +6981,15 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL, *tmp_name = NULL;
                 const char *unit_name;
 
-                r = unit_find_paths(bus, *name, &lp, &path, NULL);
+                r = unit_find_paths(bus, *name, &lp, false, &path, NULL);
+                if (r == -EKEYREJECTED) {
+                        /* If loading of the unit failed server side complete, then the server won't tell us the unit
+                         * file path. In that case, find the file client side. */
+                        log_debug_errno(r, "Unit '%s' was not loaded correctly, retrying client-side.", *name);
+                        r = unit_find_paths(bus, *name, &lp, true, &path, NULL);
+                }
+                if (r == -ERFKILL)
+                        return log_error_errno(r, "Unit '%s' masked, cannot edit.", *name);
                 if (r < 0)
                         return r;
 
@@ -6946,10 +6997,10 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                         assert(!path);
 
                         if (!arg_force) {
-                                log_error("Run 'systemctl edit%s --force %s' to create a new unit.",
-                                          arg_scope == UNIT_FILE_GLOBAL ? " --global" :
-                                          arg_scope == UNIT_FILE_USER ? " --user" : "",
-                                          *name);
+                                log_info("Run 'systemctl edit%s --force --full %s' to create a new unit.",
+                                         arg_scope == UNIT_FILE_GLOBAL ? " --global" :
+                                         arg_scope == UNIT_FILE_USER ? " --user" : "",
+                                         *name);
                                 return -ENOENT;
                         }
 
@@ -6989,6 +7040,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 r = strv_push_pair(paths, new_path, tmp_path);
                 if (r < 0)
                         return log_oom();
+
                 new_path = tmp_path = NULL;
         }
 
@@ -7029,7 +7081,6 @@ static int edit(int argc, char *argv[], void *userdata) {
                 r = unit_is_masked(bus, &lp, *tmp);
                 if (r < 0)
                         return r;
-
                 if (r > 0) {
                         log_error("Cannot edit %s: unit is masked.", *tmp);
                         return -EINVAL;
