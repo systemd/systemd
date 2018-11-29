@@ -1007,9 +1007,9 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>Protocol=</varname></term>
+          <term><varname>IPProtocol=</varname></term>
           <listitem>
-            <para>Specifies the protocol to match in forwarding information base (FIB) rules. Accepted values are tcp, udp and sctp.
+            <para>Specifies the IP protocol to match in forwarding information base (FIB) rules. Accepted values are <literal>tcp</literal>, <literal>udp</literal> and <literal>sctp</literal>.
             Defaults to unset.</para>
           </listitem>
         </varlistentry>

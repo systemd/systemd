@@ -152,7 +152,7 @@ Priority=
 FirewallMark=
 SourcePort=
 DestinationPort=
-Protocol=
+IPProtocol=
 [IPv6PrefixDelegation]
 RouterPreference=
 DNSLifetimeSec=

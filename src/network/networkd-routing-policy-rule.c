@@ -932,7 +932,7 @@ int config_parse_routing_policy_rule_port_range(
         return 0;
 }
 
-int config_parse_routing_policy_rule_protocol(
+int config_parse_routing_policy_rule_ip_protocol(
                 const char *unit,
                 const char *filename,
                 unsigned line,

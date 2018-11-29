@@ -8,4 +8,4 @@ From= 192.168.100.18
 Priority=111
 SourcePort = 1123-1150
 DestinationPort = 3224-3290
-Protocol = tcp
+IPProtocol = tcp
