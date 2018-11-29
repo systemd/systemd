@@ -2341,6 +2341,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
         m = u->manager;
 
+        /* Let's enqueue the change signal early. In case this unit has a job associated we want that this unit is in
+         * the bus queue, so that any job change signal queued will force out the unit change signal first. */
+        unit_add_to_dbus_queue(u);
+
         /* Update timestamps for state changes */
         if (!MANAGER_IS_RELOADING(m)) {
                 dual_timestamp_get(&u->state_change_timestamp);
@@ -2499,7 +2503,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                 }
         }
 
-        unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
 }
 
