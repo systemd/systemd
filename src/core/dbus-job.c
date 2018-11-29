@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "dbus-job.h"
+#include "dbus-unit.h"
 #include "dbus.h"
 #include "job.h"
 #include "log.h"
@@ -173,6 +174,9 @@ void bus_job_send_change_signal(Job *j) {
 
         assert(j);
 
+        /* Make sure that any change signal on the unit is reflected before we send out the change signal on the job */
+        bus_unit_send_pending_change_signal(j->unit, true);
+
         if (j->in_dbus_queue) {
                 LIST_REMOVE(dbus_queue, j->manager->dbus_job_queue, j);
                 j->in_dbus_queue = false;
@@ -221,6 +225,9 @@ void bus_job_send_removed_signal(Job *j) {
 
         if (!j->sent_dbus_new_signal)
                 bus_job_send_change_signal(j);
+
+        /* Make sure that any change signal on the unit is reflected before we send out the change signal on the job */
+        bus_unit_send_pending_change_signal(j->unit, true);
 
         r = bus_foreach_bus(j->manager, j->bus_track, send_removed_signal, j);
         if (r < 0)
