@@ -56,7 +56,7 @@ static int no_quit_on_interrupt(int exe_name_fd, const char *less_opts) {
         file = fdopen(exe_name_fd, "r");
         if (!file) {
                 safe_close(exe_name_fd);
-                return log_debug_errno(errno, "Failed to create FILE object: %m");
+                return log_error_errno(errno, "Failed to create FILE object: %m");
         }
 
         /* Find the last line */
@@ -65,7 +65,7 @@ static int no_quit_on_interrupt(int exe_name_fd, const char *less_opts) {
 
                 r = read_line(file, LONG_LINE_MAX, &t);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to read from socket: %m");
                 if (r == 0)
                         break;
 
@@ -97,7 +97,7 @@ int pager_open(PagerFlags flags) {
                 return 0;
 
         if (!is_main_thread())
-                return -EPERM;
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Pager invoked from wrong thread.");
 
         pager = getenv("SYSTEMD_PAGER");
         if (!pager)
@@ -106,7 +106,7 @@ int pager_open(PagerFlags flags) {
         if (pager) {
                 pager_args = strv_split(pager, WHITESPACE);
                 if (!pager_args)
-                        return -ENOMEM;
+                        return log_oom();
 
                 /* If the pager is explicitly turned off, honour it */
                 if (strv_isempty(pager_args) || strv_equal(pager_args, STRV_MAKE("cat")))
@@ -140,11 +140,17 @@ int pager_open(PagerFlags flags) {
 
                 /* In the child start the pager */
 
-                (void) dup2(fd[0], STDIN_FILENO);
+                if (dup2(fd[0], STDIN_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to duplicate file descriptor to STDIN: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
                 safe_close_pair(fd);
 
-                if (setenv("LESS", less_opts, 1) < 0)
+                if (setenv("LESS", less_opts, 1) < 0) {
+                        log_error_errno(errno, "Failed to set environment variable LESS: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 /* Initialize a good charset for less. This is
                  * particularly important if we output UTF-8
@@ -153,14 +159,21 @@ int pager_open(PagerFlags flags) {
                 if (!less_charset && is_locale_utf8())
                         less_charset = "utf-8";
                 if (less_charset &&
-                    setenv("LESSCHARSET", less_charset, 1) < 0)
+                    setenv("LESSCHARSET", less_charset, 1) < 0) {
+                        log_error_errno(errno, "Failed to set environment variable LESSCHARSET: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 if (pager_args) {
-                        if (loop_write(exe_name_pipe[1], pager_args[0], strlen(pager_args[0]) + 1, false) < 0)
+                        r = loop_write(exe_name_pipe[1], pager_args[0], strlen(pager_args[0]) + 1, false);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to write pager name to socket: %m");
                                 _exit(EXIT_FAILURE);
+                        }
 
                         execvp(pager_args[0], pager_args);
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed execute %s, using fallback pagers: %m", pager_args[0]);
                 }
 
                 /* Debian's alternatives command for pagers is
@@ -170,13 +183,21 @@ int pager_open(PagerFlags flags) {
                  * is similar to this one anyway, but is
                  * Debian-specific. */
                 FOREACH_STRING(exe, "pager", "less", "more") {
-                        if (loop_write(exe_name_pipe[1], exe, strlen(exe) + 1, false) < 0)
+                        r = loop_write(exe_name_pipe[1], exe, strlen(exe) + 1, false);
+                        if (r  < 0) {
+                                log_error_errno(r, "Failed to write pager name to socket: %m");
                                 _exit(EXIT_FAILURE);
+                        }
                         execlp(exe, exe, NULL);
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed execute %s, using next fallback pager: %m", exe);
                 }
 
-                if (loop_write(exe_name_pipe[1], "(built-in)", strlen("(built-in") + 1, false) < 0)
+                r = loop_write(exe_name_pipe[1], "(built-in)", strlen("(built-in") + 1, false);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to write pager name to socket: %m");
                         _exit(EXIT_FAILURE);
+                }
                 pager_fallback();
                 /* not reached */
         }
