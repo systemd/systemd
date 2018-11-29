@@ -958,14 +958,9 @@ int config_parse_routing_policy_rule_ip_protocol(
         if (r < 0)
                 return r;
 
-        r = ip_protocol_from_name(rvalue);
+        r = parse_ip_protocol(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse routing policy rule protocol, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (!IN_SET(r, IPPROTO_TCP, IPPROTO_UDP, IPPROTO_SCTP)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid protocol '%s'. Protocol should be tcp/udp/sctp, ignoring", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IP protocol '%s' for routing policy rule, ignoring: %m", rvalue);
                 return 0;
         }
 
