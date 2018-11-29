@@ -2,7 +2,7 @@
 
 # run a command on remove events
 ACTION=="remove", ENV{REMOVE_CMD}!="", RUN+="$env{REMOVE_CMD}"
-ACTION=="remove", GOTO="default_end"
+ACTION=="remove|unbind", GOTO="default_end"
 
 SUBSYSTEM=="virtio-ports", KERNEL=="vport*", ATTR{name}=="?*", SYMLINK+="virtio-ports/$attr{name}"
 

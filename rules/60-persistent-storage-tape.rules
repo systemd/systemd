@@ -2,7 +2,7 @@
 
 # persistent storage links: /dev/tape/{by-id,by-path}
 
-ACTION=="remove", GOTO="persistent_storage_tape_end"
+ACTION=="remove|unbind", GOTO="persistent_storage_tape_end"
 ENV{UDEV_DISABLE_PERSISTENT_STORAGE_RULES_FLAG}=="1", GOTO="persistent_storage_tape_end"
 
 # type 8 devices are "Medium Changers"

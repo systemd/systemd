@@ -7,7 +7,7 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-ACTION=="remove", GOTO="uaccess_end"
+ACTION=="remove|unbind", GOTO="uaccess_end"
 ENV{MAJOR}=="", GOTO="uaccess_end"
 
 # PTP/MTP protocol devices, cameras, portable media players

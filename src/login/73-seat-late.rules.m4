@@ -7,7 +7,7 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-ACTION=="remove", GOTO="seat_late_end"
+ACTION=="remove|unbind", GOTO="seat_late_end"
 
 ENV{ID_SEAT}=="", ENV{ID_AUTOSEAT}=="1", ENV{ID_FOR_SEAT}!="", ENV{ID_SEAT}="seat-$env{ID_FOR_SEAT}"
 ENV{ID_SEAT}=="", IMPORT{parent}="ID_SEAT"
