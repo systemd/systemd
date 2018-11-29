@@ -34,6 +34,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio.h"
+#include "ip-protocol-list.h"
 #include "journal-util.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -48,7 +49,6 @@
 #include "securebits.h"
 #include "securebits-util.h"
 #include "signal-util.h"
-#include "socket-protocol-list.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -57,13 +57,13 @@
 #include "user-util.h"
 #include "web-util.h"
 
-static int supported_socket_protocol_from_string(const char *s) {
+static int socket_protocol_from_string(const char *s) {
         int r;
 
         if (isempty(s))
                 return IPPROTO_IP;
 
-        r = socket_protocol_from_name(s);
+        r = ip_protocol_from_name(s);
         if (r < 0)
                 return r;
         if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP))
@@ -72,7 +72,7 @@ static int supported_socket_protocol_from_string(const char *s) {
         return r;
 }
 
-DEFINE_CONFIG_PARSE(config_parse_socket_protocol, supported_socket_protocol_from_string, "Failed to parse socket protocol");
+DEFINE_CONFIG_PARSE(config_parse_socket_protocol, socket_protocol_from_string, "Failed to parse socket protocol");
 DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string, "Failed to parse secure bits");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode, "Failed to parse garbage collection mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");
