@@ -6845,10 +6845,8 @@ static int unit_file_create_copy(
                 r = ask_char(&response, "yn", "\"%s\" already exists. Overwrite with \"%s\"? [(y)es, (n)o] ", new_path, fragment_path);
                 if (r < 0)
                         return r;
-                if (response != 'y') {
-                        log_warning("%s ignored", unit_name);
-                        return -EKEYREJECTED;
-                }
+                if (response != 'y')
+                        return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED), "%s skipped.", unit_name);
         }
 
         r = create_edit_temp_file(new_path, fragment_path, &tmp_path);
