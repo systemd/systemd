@@ -217,7 +217,7 @@ static int catalog_entry_lang(const char* filename, int line,
         size_t c;
 
         c = strlen(t);
-        if (c == 0)
+        if (c < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "[%s:%u] Language too short.",
                                        filename, line);
