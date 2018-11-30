@@ -240,19 +240,8 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         r = strv_insert(strv, i, t);
         if (r < 0)
                 free(t);
+
         return r;
-}
-
-int conf_files_insert_nulstr(char ***strv, const char *root, const char *dirs, const char *path) {
-        _cleanup_strv_free_ char **d = NULL;
-
-        assert(strv);
-
-        d = strv_split_nulstr(dirs);
-        if (!d)
-                return -ENOMEM;
-
-        return conf_files_insert(strv, root, d, path);
 }
 
 int conf_files_list_strv(char ***strv, const char *suffix, const char *root, unsigned flags, const char* const* dirs) {
