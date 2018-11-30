@@ -2261,11 +2261,12 @@ static int process_item(Item *i, OperationMask operation) {
 
         i->done |= operation;
 
-        r = chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS, NULL);
+        r = chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS|CHASE_WARN, NULL);
         if (r == -EREMOTE) {
-                log_debug_errno(r, "Item '%s' is below autofs, skipping.", i->path);
+                log_notice_errno(r, "Skipping %s", i->path);
                 return 0;
-        } else if (r < 0)
+        }
+        if (r < 0)
                 log_debug_errno(r, "Failed to determine whether '%s' is below autofs, ignoring: %m", i->path);
 
         r = FLAGS_SET(operation, OPERATION_CREATE) ? create_item(i) : 0;

@@ -659,6 +659,19 @@ static int log_unsafe_transition(int a, int b, const char *path, unsigned flags)
                                  n1, special_glyph(ARROW), n2, path);
 }
 
+static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
+        _cleanup_free_ char *n1 = NULL;
+
+        if (!FLAGS_SET(flags, CHASE_WARN))
+                return -EREMOTE;
+
+        (void) fd_get_path(fd, &n1);
+
+        return log_warning_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                 "Detected autofs mount point %s during canonicalization of %s.",
+                                 n1, path);
+}
+
 int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret) {
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
@@ -722,6 +735,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * 4. With CHASE_SAFE: in this case the path must not contain unsafe transitions, i.e. transitions from
          *    unprivileged to privileged files or directories. In such cases the return value is -ENOLINK. If
          *    CHASE_WARN is also set a warning describing the unsafe transition is emitted.
+         *
+         * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, the path normalization is
+         *    aborted and -EREMOTE is returned. If CHASE_WARN is also set a warning showing the path of the mount point
+         *    is emitted.
          *
          * */
 
@@ -885,7 +902,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 if ((flags & CHASE_NO_AUTOFS) &&
                     fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
-                        return -EREMOTE;
+                        return log_autofs_mount_point(child, path, flags);
 
                 if (S_ISLNK(st.st_mode) && !((flags & CHASE_NOFOLLOW) && isempty(todo))) {
                         char *joined;
