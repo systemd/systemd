@@ -741,6 +741,9 @@ void link_check_ready(Link *link) {
         if (!link->network)
                 return;
 
+        if (!link->addresses_configured)
+                return;
+
         if (!link->static_routes_configured)
                 return;
 
@@ -854,6 +857,8 @@ static int link_enter_set_routes(Link *link) {
 
         assert(link);
         assert(link->network);
+        assert(link->addresses_configured);
+        assert(link->address_messages == 0);
         assert(link->state == LINK_STATE_SETTING_ADDRESSES);
 
         (void) link_set_routing_policy_rule(link);
@@ -910,6 +915,7 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
 
         if (link->address_messages == 0) {
                 log_link_debug(link, "Addresses set");
+                link->addresses_configured = true;
                 link_enter_set_routes(link);
         }
 
@@ -1181,9 +1187,10 @@ static int link_enter_set_addresses(Link *link) {
                 log_link_debug(link, "Offering DHCPv4 leases");
         }
 
-        if (link->address_messages == 0)
+        if (link->address_messages == 0) {
+                link->addresses_configured = true;
                 link_enter_set_routes(link);
-        else
+        } else
                 log_link_debug(link, "Setting addresses");
 
         return 0;
