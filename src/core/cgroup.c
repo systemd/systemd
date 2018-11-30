@@ -924,7 +924,7 @@ static void cgroup_context_apply(
                         blkio_weight = cgroup_context_blkio_weight(c, state);
                         weight = cgroup_weight_blkio_to_io(blkio_weight);
 
-                        log_cgroup_compat(u, "Applying [Startup]BlockIOWeight %" PRIu64 " as [Startup]IOWeight %" PRIu64,
+                        log_cgroup_compat(u, "Applying [Startup]BlockIOWeight=%" PRIu64 " as [Startup]IOWeight=%" PRIu64,
                                           blkio_weight, weight);
                 } else
                         weight = CGROUP_WEIGHT_DEFAULT;
@@ -953,7 +953,7 @@ static void cgroup_context_apply(
                         LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
                                 weight = cgroup_weight_blkio_to_io(w->weight);
 
-                                log_cgroup_compat(u, "Applying BlockIODeviceWeight %" PRIu64 " as IODeviceWeight %" PRIu64 " for %s",
+                                log_cgroup_compat(u, "Applying BlockIODeviceWeight=%" PRIu64 " as IODeviceWeight=%" PRIu64 " for %s",
                                                   w->weight, weight, w->path);
 
                                 cgroup_apply_io_device_weight(u, w->path, weight);
@@ -969,7 +969,7 @@ static void cgroup_context_apply(
                                 limits[CGROUP_IO_RBPS_MAX] = b->rbps;
                                 limits[CGROUP_IO_WBPS_MAX] = b->wbps;
 
-                                log_cgroup_compat(u, "Applying BlockIO{Read|Write}Bandwidth %" PRIu64 " %" PRIu64 " as IO{Read|Write}BandwidthMax for %s",
+                                log_cgroup_compat(u, "Applying BlockIO{Read|Write}Bandwidth=%" PRIu64 " %" PRIu64 " as IO{Read|Write}BandwidthMax= for %s",
                                                   b->rbps, b->wbps, b->path);
 
                                 cgroup_apply_io_device_limit(u, b->path, limits);
@@ -995,7 +995,7 @@ static void cgroup_context_apply(
                                 io_weight = cgroup_context_io_weight(c, state);
                                 weight = cgroup_weight_io_to_blkio(cgroup_context_io_weight(c, state));
 
-                                log_cgroup_compat(u, "Applying [Startup]IOWeight %" PRIu64 " as [Startup]BlockIOWeight %" PRIu64,
+                                log_cgroup_compat(u, "Applying [Startup]IOWeight=%" PRIu64 " as [Startup]BlockIOWeight=%" PRIu64,
                                                   io_weight, weight);
                         } else if (has_blockio)
                                 weight = cgroup_context_blkio_weight(c, state);
@@ -1011,7 +1011,7 @@ static void cgroup_context_apply(
                                 LIST_FOREACH(device_weights, w, c->io_device_weights) {
                                         weight = cgroup_weight_io_to_blkio(w->weight);
 
-                                        log_cgroup_compat(u, "Applying IODeviceWeight %" PRIu64 " as BlockIODeviceWeight %" PRIu64 " for %s",
+                                        log_cgroup_compat(u, "Applying IODeviceWeight=%" PRIu64 " as BlockIODeviceWeight=%" PRIu64 " for %s",
                                                           w->weight, weight, w->path);
 
                                         cgroup_apply_blkio_device_weight(u, w->path, weight);
@@ -1031,7 +1031,7 @@ static void cgroup_context_apply(
                                 CGroupIODeviceLimit *l;
 
                                 LIST_FOREACH(device_limits, l, c->io_device_limits) {
-                                        log_cgroup_compat(u, "Applying IO{Read|Write}Bandwidth %" PRIu64 " %" PRIu64 " as BlockIO{Read|Write}BandwidthMax for %s",
+                                        log_cgroup_compat(u, "Applying IO{Read|Write}Bandwidth=%" PRIu64 " %" PRIu64 " as BlockIO{Read|Write}BandwidthMax= for %s",
                                                           l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX], l->path);
 
                                         cgroup_apply_blkio_device_limit(u, l->path, l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX]);
