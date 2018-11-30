@@ -6,7 +6,6 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "ordered-set.h"
 #include "resolved-conf.h"

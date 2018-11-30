@@ -14,7 +14,7 @@
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
-#include "fileio-label.h"
+#include "fileio.h"
 #include "hostname-util.h"
 #include "io-util.h"
 #include "io-util.h"

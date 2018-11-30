@@ -8,7 +8,7 @@
 #include "copy.h"
 #include "def.h"
 #include "fd-util.h"
-#include "fileio-label.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"

@@ -22,6 +22,7 @@
 #include "execute.h"
 #include "fd-util.h"
 #include "fileio-label.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "id128-util.h"
