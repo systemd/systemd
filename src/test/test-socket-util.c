@@ -44,56 +44,64 @@ static void test_ifname_valid(void) {
         assert(!ifname_valid("xxxxxxxxxxxxxxxx"));
 }
 
-static void test_socket_address_parse_one(const char *in, int ret, int family) {
+static void test_socket_address_parse_one(const char *in, int ret, int family, const char *expected) {
         SocketAddress a;
+        _cleanup_free_ char *out = NULL;
         int r;
 
         r = socket_address_parse(&a, in);
-        log_info("\"%s\" → %s", in, r >= 0 ? "✓" : "✗");
-        assert_se(r == ret);
         if (r >= 0)
+                assert_se(socket_address_print(&a, &out) >= 0);
+
+        log_info("\"%s\" → %s → \"%s\" (expect \"%s\")", in,
+                 r >= 0 ? "✓" : "✗", empty_to_dash(out), r >= 0 ? expected ?: in : "-");
+        assert_se(r == ret);
+        if (r >= 0) {
                 assert_se(a.sockaddr.sa.sa_family == family);
+                assert_se(streq(out, expected ?: in));
+        }
 }
 
 static void test_socket_address_parse(void) {
         log_info("/* %s */", __func__);
 
-        test_socket_address_parse_one("junk", -EINVAL, 0);
-        test_socket_address_parse_one("192.168.1.1", -EINVAL, 0);
-        test_socket_address_parse_one(".168.1.1", -EINVAL, 0);
-        test_socket_address_parse_one("989.168.1.1", -EINVAL, 0);
-        test_socket_address_parse_one("192.168.1.1:65536", -ERANGE, 0);
-        test_socket_address_parse_one("192.168.1.1:0", -EINVAL, 0);
-        test_socket_address_parse_one("0", -EINVAL, 0);
-        test_socket_address_parse_one("65536", -ERANGE, 0);
+        test_socket_address_parse_one("junk", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("192.168.1.1", -EINVAL, 0, NULL);
+        test_socket_address_parse_one(".168.1.1", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("989.168.1.1", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("192.168.1.1:65536", -ERANGE, 0, NULL);
+        test_socket_address_parse_one("192.168.1.1:0", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("0", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("65536", -ERANGE, 0, NULL);
 
         const int default_family = socket_ipv6_is_supported() ? AF_INET6 : AF_INET;
 
-        test_socket_address_parse_one("65535", 0, default_family);
+        test_socket_address_parse_one("65535", 0, default_family, "[::]:65535");
 
         /* The checks below will pass even if ipv6 is disabled in
          * kernel. The underlying glibc's inet_pton() is just a string
          * parser and doesn't make any syscalls. */
 
-        test_socket_address_parse_one("[::1]", -EINVAL, 0);
-        test_socket_address_parse_one("[::1]8888", -EINVAL, 0);
-        test_socket_address_parse_one("::1", -EINVAL, 0);
-        test_socket_address_parse_one("[::1]:0", -EINVAL, 0);
-        test_socket_address_parse_one("[::1]:65536", -ERANGE, 0);
-        test_socket_address_parse_one("[a:b:1]:8888", -EINVAL, 0);
+        test_socket_address_parse_one("[::1]", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("[::1]8888", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("::1", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("[::1]:0", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("[::1]:65536", -ERANGE, 0, NULL);
+        test_socket_address_parse_one("[a:b:1]:8888", -EINVAL, 0, NULL);
 
-        test_socket_address_parse_one("8888", 0, default_family);
-        test_socket_address_parse_one("[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888", 0, AF_INET6);
-        test_socket_address_parse_one("[::1]:8888", 0, AF_INET6);
-        test_socket_address_parse_one("192.168.1.254:8888", 0, AF_INET);
-        test_socket_address_parse_one("/foo/bar", 0, AF_UNIX);
-        test_socket_address_parse_one("@abstract", 0, AF_UNIX);
+        test_socket_address_parse_one("8888", 0, default_family, "[::]:8888");
+        test_socket_address_parse_one("[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888", 0, AF_INET6,
+                                      "[2001:db8:0:85a3::ac1f:8001]:8888");
+        test_socket_address_parse_one("[::1]:8888", 0, AF_INET6, NULL);
+        test_socket_address_parse_one("192.168.1.254:8888", 0, AF_INET, NULL);
+        test_socket_address_parse_one("/foo/bar", 0, AF_UNIX, NULL);
+        test_socket_address_parse_one("@abstract", 0, AF_UNIX, NULL);
 
-        test_socket_address_parse_one("vsock::1234", 0, AF_VSOCK);
-        test_socket_address_parse_one("vsock:2:1234", 0, AF_VSOCK);
-        test_socket_address_parse_one("vsock:2:1234x", -EINVAL, 0);
-        test_socket_address_parse_one("vsock:2x:1234", -EINVAL, 0);
-        test_socket_address_parse_one("vsock:2", -EINVAL, 0);
+        test_socket_address_parse_one("vsock:2:1234", 0, AF_VSOCK, NULL);
+        test_socket_address_parse_one("vsock::1234", 0, AF_VSOCK, "vsock:4294967295:1234");
+        test_socket_address_parse_one("vsock:2:1234x", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("vsock:2x:1234", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("vsock:2", -EINVAL, 0, NULL);
 }
 
 static void test_socket_address_parse_netlink(void) {
