@@ -209,7 +209,5 @@ int bus_message_new_synthetic_error(sd_bus *bus, uint64_t serial, const sd_bus_e
 
 int bus_message_remarshal(sd_bus *bus, sd_bus_message **m);
 
-int bus_message_append_sender(sd_bus_message *m, const char *sender);
-
 void bus_message_set_sender_driver(sd_bus *bus, sd_bus_message *m);
 void bus_message_set_sender_local(sd_bus *bus, sd_bus_message *m);

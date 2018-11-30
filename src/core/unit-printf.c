@@ -286,35 +286,3 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
 
         return specifier_printf(format, table, u, ret);
 }
-
-int unit_full_printf_strv(Unit *u, char **l, char ***ret) {
-        size_t n;
-        char **r, **i, **j;
-        int q;
-
-        /* Applies unit_full_printf to every entry in l */
-
-        assert(u);
-
-        n = strv_length(l);
-        r = new(char*, n+1);
-        if (!r)
-                return -ENOMEM;
-
-        for (i = l, j = r; *i; i++, j++) {
-                q = unit_full_printf(u, *i, j);
-                if (q < 0)
-                        goto fail;
-        }
-
-        *j = NULL;
-        *ret = r;
-        return 0;
-
-fail:
-        for (j--; j >= r; j--)
-                free(*j);
-
-        free(r);
-        return q;
-}

@@ -542,43 +542,6 @@ fail:
         return r;
 }
 
-static int bus_match_find_compare_value(
-                struct bus_match_node *where,
-                enum bus_match_node_type t,
-                uint8_t value_u8,
-                const char *value_str,
-                struct bus_match_node **ret) {
-
-        struct bus_match_node *c, *n;
-
-        assert(where);
-        assert(IN_SET(where->type, BUS_MATCH_ROOT, BUS_MATCH_VALUE));
-        assert(BUS_MATCH_IS_COMPARE(t));
-        assert(ret);
-
-        for (c = where->child; c && c->type != t; c = c->next)
-                ;
-
-        if (!c)
-                return 0;
-
-        if (t == BUS_MATCH_MESSAGE_TYPE)
-                n = hashmap_get(c->compare.children, UINT_TO_PTR(value_u8));
-        else if (BUS_MATCH_CAN_HASH(t))
-                n = hashmap_get(c->compare.children, value_str);
-        else {
-                for (n = c->child; n && !value_node_same(n, t, value_u8, value_str); n = n->next)
-                        ;
-        }
-
-        if (n) {
-                *ret = n;
-                return 1;
-        }
-
-        return 0;
-}
-
 static int bus_match_add_leaf(
                 struct bus_match_node *where,
                 struct match_callback *callback) {
@@ -605,34 +568,6 @@ static int bus_match_add_leaf(
         where->child = n;
 
         return 1;
-}
-
-static int bus_match_find_leaf(
-                struct bus_match_node *where,
-                sd_bus_message_handler_t callback,
-                void *userdata,
-                struct bus_match_node **ret) {
-
-        struct bus_match_node *c;
-
-        assert(where);
-        assert(IN_SET(where->type, BUS_MATCH_ROOT, BUS_MATCH_VALUE));
-        assert(ret);
-
-        for (c = where->child; c; c = c->next) {
-                sd_bus_slot *s;
-
-                s = container_of(c->leaf.callback, sd_bus_slot, match_callback);
-
-                if (c->type == BUS_MATCH_LEAF &&
-                    c->leaf.callback->callback == callback &&
-                    s->userdata == userdata) {
-                        *ret = c;
-                        return 1;
-                }
-        }
-
-        return 0;
 }
 
 enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n) {
@@ -1011,43 +946,6 @@ int bus_match_remove(
                         break;
         }
 
-        return 1;
-}
-
-int bus_match_find(
-                struct bus_match_node *root,
-                struct bus_match_component *components,
-                unsigned n_components,
-                sd_bus_message_handler_t callback,
-                void *userdata,
-                struct match_callback **ret) {
-
-        struct bus_match_node *n, **gc;
-        unsigned i;
-        int r;
-
-        assert(root);
-        assert(ret);
-
-        gc = newa(struct bus_match_node*, n_components);
-
-        n = root;
-        for (i = 0; i < n_components; i++) {
-                r = bus_match_find_compare_value(
-                                n, components[i].type,
-                                components[i].value_u8, components[i].value_str,
-                                &n);
-                if (r <= 0)
-                        return r;
-
-                gc[i] = n;
-        }
-
-        r = bus_match_find_leaf(n, callback, userdata, &n);
-        if (r <= 0)
-                return r;
-
-        *ret = n->leaf.callback;
         return 1;
 }
 

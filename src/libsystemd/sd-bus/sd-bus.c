@@ -194,7 +194,6 @@ static sd_bus* bus_free(sd_bus *b) {
         free(b->auth_buffer);
         free(b->address);
         free(b->machine);
-        free(b->cgroup_root);
         free(b->description);
         free(b->patch_sender);
 
@@ -3927,24 +3926,6 @@ _public_ int sd_bus_get_description(sd_bus *bus, const char **description) {
                 *description = NULL;
 
         return 0;
-}
-
-int bus_get_root_path(sd_bus *bus) {
-        int r;
-
-        if (bus->cgroup_root)
-                return 0;
-
-        r = cg_get_root_path(&bus->cgroup_root);
-        if (r == -ENOENT) {
-                bus->cgroup_root = strdup("/");
-                if (!bus->cgroup_root)
-                        return -ENOMEM;
-
-                r = 0;
-        }
-
-        return r;
 }
 
 _public_ int sd_bus_get_scope(sd_bus *bus, const char **scope) {

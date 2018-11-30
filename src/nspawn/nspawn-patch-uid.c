@@ -479,10 +479,6 @@ finish:
         return r;
 }
 
-int fd_patch_uid(int fd, uid_t shift, uid_t range) {
-        return fd_patch_uid_internal(fd, false, shift, range);
-}
-
 int path_patch_uid(const char *path, uid_t shift, uid_t range) {
         int fd;
 

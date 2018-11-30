@@ -3,5 +3,3 @@
 
 const char *socket_protocol_to_name(int id);
 int socket_protocol_from_name(const char *name);
-
-int socket_protocol_max(void);

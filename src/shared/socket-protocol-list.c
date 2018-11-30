@@ -34,7 +34,3 @@ int socket_protocol_from_name(const char *name) {
 
         return sc->id;
 }
-
-int socket_protocol_max(void) {
-        return ELEMENTSOF(socket_protocol_names);
-}
