@@ -366,7 +366,7 @@ int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode)
                 if (r < 0)
                         return r;
 
-                path = abspath = path_join_many(p, path);
+                path = abspath = path_join(p, path);
                 if (!path)
                         return -ENOMEM;
         }

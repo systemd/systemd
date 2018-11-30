@@ -232,23 +232,38 @@ static void test_prefixes(void) {
 
 static void test_path_join(void) {
 
-#define test_join(root, path, rest, expected) {  \
+#define test_join(expected, ...) {        \
                 _cleanup_free_ char *z = NULL;   \
-                z = path_join_many(strempty(root), path, rest); \
+                z = path_join(__VA_ARGS__); \
+                log_debug("got \"%s\", expected \"%s\"", z, expected); \
                 assert_se(streq(z, expected));   \
         }
 
-        test_join("/root", "/a/b", "/c", "/root/a/b/c");
-        test_join("/root", "a/b", "c", "/root/a/b/c");
-        test_join("/root", "/a/b", "c", "/root/a/b/c");
-        test_join("/root", "/", "c", "/root/c");
-        test_join("/root", "/", NULL, "/root/");
+        test_join("/root/a/b/c", "/root", "/a/b", "/c");
+        test_join("/root/a/b/c", "/root", "a/b", "c");
+        test_join("/root/a/b/c", "/root", "/a/b", "c");
+        test_join("/root/c",     "/root", "/", "c");
+        test_join("/root/",      "/root", "/", NULL);
 
-        test_join(NULL, "/a/b", "/c", "/a/b/c");
-        test_join(NULL, "a/b", "c", "a/b/c");
-        test_join(NULL, "/a/b", "c", "/a/b/c");
-        test_join(NULL, "/", "c", "/c");
-        test_join(NULL, "/", NULL, "/");
+        test_join("/a/b/c", "", "/a/b", "/c");
+        test_join("a/b/c",  "", "a/b", "c");
+        test_join("/a/b/c", "", "/a/b", "c");
+        test_join("/c",     "", "/", "c");
+        test_join("/",      "", "/", NULL);
+
+        test_join("", "", NULL);
+
+        test_join("foo/bar", "foo", "bar");
+        test_join("foo/bar", "", "foo", "bar");
+        test_join("foo/bar", "", "foo", "", "bar", "");
+        test_join("foo/bar", "", "", "", "", "foo", "", "", "", "bar", "", "", "");
+
+        test_join("//foo///bar//",         "", "/", "", "/foo/", "", "/", "", "/bar/", "", "/", "");
+        test_join("/foo/bar/",             "/", "foo", "/", "bar", "/");
+        test_join("foo/bar/baz",           "foo", "bar", "baz");
+        test_join("foo/bar/baz",           "foo/", "bar", "/baz");
+        test_join("foo//bar//baz",         "foo/", "/bar/", "/baz");
+        test_join("//foo////bar////baz//", "//foo/", "///bar/", "///baz//");
 }
 
 static void test_fsck_exists(void) {
@@ -567,43 +582,6 @@ static void test_path_startswith_set(void) {
         assert_se(streq_ptr(PATH_STARTSWITH_SET("/foo2/bar", "/foo/quux", "", "/zzz"), NULL));
 }
 
-static void test_path_join_many(void) {
-        char *j;
-
-        assert_se(streq_ptr(j = path_join_many("", NULL), ""));
-        free(j);
-
-        assert_se(streq_ptr(j = path_join_many("foo", NULL), "foo"));
-        free(j);
-
-        assert_se(streq_ptr(j = path_join_many("foo", "bar"), "foo/bar"));
-        free(j);
-
-        assert_se(streq_ptr(j = path_join_many("", "foo", "", "bar", ""), "foo/bar"));
-        free(j);
-
-        assert_se(streq_ptr(j = path_join_many("", "", "", "", "foo", "", "", "", "bar", "", "", ""), "foo/bar"));
-        free(j);
-
-        assert_se(streq_ptr(j = path_join_many("", "/", "", "/foo/", "", "/", "", "/bar/", "", "/", ""), "//foo///bar//"));
-        free(j);
-
-        assert_se(streq_ptr(j = path_join_many("/", "foo", "/", "bar", "/"), "/foo/bar/"));
-        free(j);
-
-        assert_se(streq_ptr(j = path_join_many("foo", "bar", "baz"), "foo/bar/baz"));
-        free(j);
-
-        assert_se(streq_ptr(j = path_join_many("foo/", "bar", "/baz"), "foo/bar/baz"));
-        free(j);
-
-        assert_se(streq_ptr(j = path_join_many("foo/", "/bar/", "/baz"), "foo//bar//baz"));
-        free(j);
-
-        assert_se(streq_ptr(j = path_join_many("//foo/", "///bar/", "///baz//"), "//foo////bar////baz//"));
-        free(j);
-}
-
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
@@ -625,7 +603,6 @@ int main(int argc, char **argv) {
         test_skip_dev_prefix();
         test_empty_or_root();
         test_path_startswith_set();
-        test_path_join_many();
 
         test_systemd_installation_has_version(argv[1]); /* NULL is OK */
 

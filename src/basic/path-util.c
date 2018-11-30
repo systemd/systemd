@@ -110,7 +110,7 @@ int path_make_absolute_cwd(const char *p, char **ret) {
                 if (r < 0)
                         return r;
 
-                c = path_join_many(cwd, p);
+                c = path_join(cwd, p);
         }
         if (!c)
                 return -ENOMEM;
@@ -481,7 +481,7 @@ bool path_equal_or_files_same(const char *a, const char *b, int flags) {
         return path_equal(a, b) || files_same(a, b, flags) > 0;
 }
 
-char* path_join_many_internal(const char *first, ...) {
+char* path_join_internal(const char *first, ...) {
         char *joined, *q;
         const char *p;
         va_list ap;
@@ -499,9 +499,9 @@ char* path_join_many_internal(const char *first, ...) {
          *
          * Examples:
          *
-         * path_join_many("foo", "bar") → "foo/bar"
-         * path_join_many("foo/", "bar") → "foo/bar"
-         * path_join_many("", "foo", "", "bar", "") → "foo/bar" */
+         * path_join("foo", "bar") → "foo/bar"
+         * path_join("foo/", "bar") → "foo/bar"
+         * path_join("", "foo", "", "bar", "") → "foo/bar" */
 
         sz = strlen(first);
         va_start(ap, first);

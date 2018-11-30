@@ -35,7 +35,7 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
                 if (arg_dry_run)
                         continue;
 
-                filename = path_join_many(syspath, "uevent");
+                filename = path_join(syspath, "uevent");
                 if (!filename)
                         return log_oom();
 

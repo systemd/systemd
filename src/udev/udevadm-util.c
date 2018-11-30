@@ -14,7 +14,7 @@ int find_device(const char *id, const char *prefix, sd_device **ret) {
         assert(ret);
 
         if (prefix && !path_startswith(id, prefix)) {
-                buf = path_join_many(prefix, id);
+                buf = path_join(prefix, id);
                 if (!buf)
                         return -ENOMEM;
                 id = buf;

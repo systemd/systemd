@@ -2425,7 +2425,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **re
                 _cleanup_free_ char *path = NULL, *lpath = NULL;
                 int r;
 
-                path = path_join_many(*p, unit_name);
+                path = path_join(*p, unit_name);
                 if (!path)
                         return log_oom();
 
@@ -3516,9 +3516,9 @@ static int load_kexec_kernel(void) {
                 return -EINVAL;
         }
 
-        kernel = path_join_many(where, e->kernel);
+        kernel = path_join(where, e->kernel);
         if (!strv_isempty(e->initrd))
-                initrd = path_join_many(where, *e->initrd);
+                initrd = path_join(where, *e->initrd);
         options = strv_join(e->options, " ");
         if (!options)
                 return log_oom();
@@ -5975,7 +5975,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (found_native && streq(verb, "is-enabled"))
                         continue;
 
-                p = path_join_many(strempty(arg_root), SYSTEM_SYSVINIT_PATH, name);
+                p = path_join(strempty(arg_root), SYSTEM_SYSVINIT_PATH, name);
                 if (!p)
                         return log_oom();
 

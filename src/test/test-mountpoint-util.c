@@ -123,9 +123,9 @@ static void test_path_is_mount_point(void) {
 
         /* file mountpoints */
         assert_se(mkdtemp(tmp_dir) != NULL);
-        file1 = path_join_many(tmp_dir, "file1");
+        file1 = path_join(tmp_dir, "file1");
         assert_se(file1);
-        file2 = path_join_many(tmp_dir, "file2");
+        file2 = path_join(tmp_dir, "file2");
         assert_se(file2);
         fd = open(file1, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
         assert_se(fd > 0);
@@ -133,10 +133,10 @@ static void test_path_is_mount_point(void) {
         fd = open(file2, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
         assert_se(fd > 0);
         close(fd);
-        link1 = path_join_many(tmp_dir, "link1");
+        link1 = path_join(tmp_dir, "link1");
         assert_se(link1);
         assert_se(symlink("file1", link1) == 0);
-        link2 = path_join_many(tmp_dir, "link2");
+        link2 = path_join(tmp_dir, "link2");
         assert_se(link1);
         assert_se(symlink("file2", link2) == 0);
 
@@ -146,16 +146,16 @@ static void test_path_is_mount_point(void) {
         assert_se(path_is_mount_point(link1, NULL, 0) == 0);
 
         /* directory mountpoints */
-        dir1 = path_join_many(tmp_dir, "dir1");
+        dir1 = path_join(tmp_dir, "dir1");
         assert_se(dir1);
         assert_se(mkdir(dir1, 0755) == 0);
-        dirlink1 = path_join_many(tmp_dir, "dirlink1");
+        dirlink1 = path_join(tmp_dir, "dirlink1");
         assert_se(dirlink1);
         assert_se(symlink("dir1", dirlink1) == 0);
-        dirlink1file = path_join_many(tmp_dir, "dirlink1file");
+        dirlink1file = path_join(tmp_dir, "dirlink1file");
         assert_se(dirlink1file);
         assert_se(symlink("dirlink1/file", dirlink1file) == 0);
-        dir2 = path_join_many(tmp_dir, "dir2");
+        dir2 = path_join(tmp_dir, "dir2");
         assert_se(dir2);
         assert_se(mkdir(dir2, 0755) == 0);
 
@@ -165,7 +165,7 @@ static void test_path_is_mount_point(void) {
         assert_se(path_is_mount_point(dirlink1, NULL, 0) == 0);
 
         /* file in subdirectory mountpoints */
-        dir1file = path_join_many(dir1, "file");
+        dir1file = path_join(dir1, "file");
         assert_se(dir1file);
         fd = open(dir1file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
         assert_se(fd > 0);
@@ -206,7 +206,7 @@ static void test_path_is_mount_point(void) {
                 assert_se(rlt == 1);
 
                 /* dirs */
-                dir2file = path_join_many(dir2, "file");
+                dir2file = path_join(dir2, "file");
                 assert_se(dir2file);
                 fd = open(dir2file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
                 assert_se(fd > 0);
