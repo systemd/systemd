@@ -619,10 +619,6 @@ int bus_connect_user_systemd(sd_bus **_bus) {
         if (r < 0)
                 return sd_bus_default_user(_bus);
 
-        r = bus_check_peercred(bus);
-        if (r < 0)
-                return r;
-
         *_bus = TAKE_PTR(bus);
 
         return 0;
