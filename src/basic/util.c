@@ -23,6 +23,7 @@
 #include "def.h"
 #include "device-nodes.h"
 #include "dirent-util.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"

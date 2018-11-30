@@ -5,8 +5,8 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "env-file.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "hostname-util.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"

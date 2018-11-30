@@ -11,6 +11,7 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "clean-ipc.h"
+#include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"

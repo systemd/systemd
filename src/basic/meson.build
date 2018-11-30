@@ -40,6 +40,8 @@ basic_sources = files('''
         device-nodes.h
         dirent-util.c
         dirent-util.h
+        env-file.c
+        env-file.h
         env-util.c
         env-util.h
         errno-list.c

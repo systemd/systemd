@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "env-file.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"

@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
 #include "fd-util.h"

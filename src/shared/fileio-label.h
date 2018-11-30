@@ -11,6 +11,5 @@ int write_string_file_atomic_label_ts(const char *fn, const char *line, struct t
 static inline int write_string_file_atomic_label(const char *fn, const char *line) {
         return write_string_file_atomic_label_ts(fn, line, NULL);
 }
-int write_env_file_label(const char *fname, char **l);
 
 int create_shutdown_run_nologin_or_warn(void);

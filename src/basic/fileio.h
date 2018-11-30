@@ -44,16 +44,6 @@ int read_full_stream(FILE *f, char **contents, size_t *size);
 
 int verify_file(const char *fn, const char *blob, bool accept_extra_nl);
 
-int parse_env_filev(FILE *f, const char *fname, va_list ap);
-int parse_env_file_sentinel(FILE *f, const char *fname, ...) _sentinel_;
-#define parse_env_file(f, fname, ...) parse_env_file_sentinel(f, fname, __VA_ARGS__, NULL)
-int load_env_file(FILE *f, const char *fname, char ***l);
-int load_env_file_pairs(FILE *f, const char *fname, char ***l);
-
-int merge_env_file(char ***env, FILE *f, const char *fname);
-
-int write_env_file(const char *fname, char **l);
-
 int executable_is_script(const char *path, char **interpreter);
 
 int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field);

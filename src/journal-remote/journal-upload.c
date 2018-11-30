@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"

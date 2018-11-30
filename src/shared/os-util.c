@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "os-util.h"
-#include "strv.h"
-#include "fileio.h"
 #include "string-util.h"
+#include "strv.h"
 
 int path_is_os_tree(const char *path) {
         int r;

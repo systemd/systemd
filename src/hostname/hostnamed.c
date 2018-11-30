@@ -9,6 +9,8 @@
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "def.h"
+#include "env-file-label.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "fileio-label.h"
 #include "fileio.h"

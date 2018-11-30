@@ -16,6 +16,7 @@
 #include "audit-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"

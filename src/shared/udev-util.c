@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "fileio.h"
+#include "env-file.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-table.h"

@@ -17,6 +17,7 @@
 #include "device-nodes.h"
 #include "device-util.h"
 #include "dissect-image.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

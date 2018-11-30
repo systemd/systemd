@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "env-file.h"
 #include "env-util.h"
-#include "fileio.h"
 #include "locale-setup.h"
 #include "locale-util.h"
 #include "proc-cmdline.h"

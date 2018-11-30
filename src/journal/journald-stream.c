@@ -12,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "dirent-util.h"
+#include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"

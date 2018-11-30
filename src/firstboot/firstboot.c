@@ -22,6 +22,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "copy.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

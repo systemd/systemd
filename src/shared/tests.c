@@ -14,8 +14,8 @@
 #undef basename
 
 #include "alloc-util.h"
+#include "env-file.h"
 #include "env-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "path-util.h"

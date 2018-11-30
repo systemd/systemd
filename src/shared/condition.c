@@ -31,6 +31,7 @@
 #include "list.h"
 #include "macro.h"
 #include "mountpoint-util.h"
+#include "env-file.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"

@@ -16,6 +16,7 @@
 #include "dhcp-lease-internal.h"
 #include "dhcp-protocol.h"
 #include "dns-domain.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
