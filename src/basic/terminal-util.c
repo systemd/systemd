@@ -979,53 +979,56 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
         return 0;
 }
 
-int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
-        char fn[STRLEN("/dev/char/") + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *b = NULL;
-        _cleanup_free_ char *s = NULL;
-        const char *p;
+int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
+        _cleanup_free_ char *fn = NULL, *b = NULL;
         dev_t devnr;
-        int k;
+        int r;
 
-        assert(r);
+        r = get_ctty_devnr(pid, &devnr);
+        if (r < 0)
+                return r;
 
-        k = get_ctty_devnr(pid, &devnr);
-        if (k < 0)
-                return k;
+        r = device_path_make_canonical(S_IFCHR, devnr, &fn);
+        if (r < 0) {
+                if (r != -ENOENT) /* No symlink for this in /dev/char/? */
+                        return r;
 
-        sprintf(fn, "/dev/char/%u:%u", major(devnr), minor(devnr));
-
-        k = readlink_malloc(fn, &s);
-        if (k < 0) {
-
-                if (k != -ENOENT)
-                        return k;
-
-                /* This is an ugly hack */
                 if (major(devnr) == 136) {
+                        /* This is an ugly hack: PTY devices are not listed in /dev/char/, as they don't follow the
+                         * Linux device model. This means we have no nice way to match them up against their actual
+                         * device node. Let's hence do the check by the fixed, assigned major number. Normally we try
+                         * to avoid such fixed major/minor matches, but there appears to nother nice way to handle
+                         * this. */
+
                         if (asprintf(&b, "pts/%u", minor(devnr)) < 0)
                                 return -ENOMEM;
                 } else {
-                        /* Probably something like the ptys which have no
-                         * symlink in /dev/char. Let's return something
-                         * vaguely useful. */
+                        /* Probably something similar to the ptys which have no symlink in /dev/char/. Let's return
+                         * something vaguely useful. */
 
-                        b = strdup(fn + 5);
-                        if (!b)
-                                return -ENOMEM;
+                        r = device_path_make_major_minor(S_IFCHR, devnr, &fn);
+                        if (r < 0)
+                                return r;
                 }
-        } else {
-                p = PATH_STARTSWITH_SET(s, "/dev/", "../");
-                if (!p)
-                        p = s;
-
-                b = strdup(p);
-                if (!b)
-                        return -ENOMEM;
         }
 
-        *r = b;
-        if (_devnr)
-                *_devnr = devnr;
+        if (!b) {
+                const char *w;
+
+                w = path_startswith(fn, "/dev/");
+                if (w) {
+                        b = strdup(w);
+                        if (!b)
+                                return -ENOMEM;
+                } else
+                        b = TAKE_PTR(fn);
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(b);
+
+        if (ret_devnr)
+                *ret_devnr = devnr;
 
         return 0;
 }

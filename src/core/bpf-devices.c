@@ -84,6 +84,32 @@ int cgroup_bpf_whitelist_major(BPFProgram *prog, int type, int major, const char
         return r;
 }
 
+int cgroup_bpf_whitelist_class(BPFProgram *prog, int type, const char *acc) {
+        struct bpf_insn insn[] = {
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 5), /* compare device type */
+                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
+                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, 0),
+                BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 1), /* compare access type */
+                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
+        };
+        int r, access;
+
+        assert(prog);
+        assert(acc);
+
+        access = bpf_access_type(acc);
+        if (access <= 0)
+                return -EINVAL;
+
+        insn[2].imm = access;
+
+        r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
+        if (r < 0)
+                log_error_errno(r, "Extending device control BPF program failed: %m");
+
+        return r;
+}
+
 int cgroup_init_device_bpf(BPFProgram **ret, CGroupDevicePolicy policy, bool whitelist) {
         struct bpf_insn pre_insn[] = {
                 /* load device type to r2 */

@@ -220,8 +220,9 @@ int dissect_image(
                                         return -ENOMEM;
                         }
 
-                        if (asprintf(&n, "/dev/block/%u:%u", major(st.st_rdev), minor(st.st_rdev)) < 0)
-                                return -ENOMEM;
+                        r = device_path_make_major_minor(st.st_mode, st.st_rdev, &n);
+                        if (r < 0)
+                                return r;
 
                         m->partitions[PARTITION_ROOT] = (DissectedPartition) {
                                 .found = true,

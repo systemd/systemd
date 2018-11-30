@@ -481,18 +481,68 @@ bool path_equal_or_files_same(const char *a, const char *b, int flags) {
         return path_equal(a, b) || files_same(a, b, flags) > 0;
 }
 
-char* path_join(const char *root, const char *path, const char *rest) {
-        assert(path);
+char* path_join_many_internal(const char *first, ...) {
+        char *joined, *q;
+        const char *p;
+        va_list ap;
+        bool slash;
+        size_t sz;
 
-        if (!isempty(root))
-                return strjoin(root, endswith(root, "/") ? "" : "/",
-                               path[0] == '/' ? path+1 : path,
-                               rest ? (endswith(path, "/") ? "" : "/") : NULL,
-                               rest && rest[0] == '/' ? rest+1 : rest);
-        else
-                return strjoin(path,
-                               rest ? (endswith(path, "/") ? "" : "/") : NULL,
-                               rest && rest[0] == '/' ? rest+1 : rest);
+        assert(first);
+
+        /* Joins all listed strings until NULL and places an "/" between them unless the strings end/begin already with
+         * one so that it is unnecessary. Note that "/" which are already duplicate won't be removed. The string
+         * returned is hence always equal or longer than the sum of the lengths of each individual string.
+         *
+         * Note: any listed empty string is simply skipped. This can be useful for concatenating strings of which some
+         * are optional.
+         *
+         * Examples:
+         *
+         * path_join_many("foo", "bar") → "foo/bar"
+         * path_join_many("foo/", "bar") → "foo/bar"
+         * path_join_many("", "foo", "", "bar", "") → "foo/bar" */
+
+        sz = strlen(first);
+        va_start(ap, first);
+        while ((p = va_arg(ap, char*))) {
+
+                if (*p == 0) /* Skip empty items */
+                        continue;
+
+                sz += 1 + strlen(p);
+        }
+        va_end(ap);
+
+        joined = new(char, sz + 1);
+        if (!joined)
+                return NULL;
+
+        if (first[0] != 0) {
+                q = stpcpy(joined, first);
+                slash = endswith(first, "/");
+        } else {
+                /* Skip empty items */
+                joined[0] = 0;
+                q = joined;
+                slash = true; /* no need to generate a slash anymore */
+        }
+
+        va_start(ap, first);
+        while ((p = va_arg(ap, char*))) {
+
+                if (*p == 0) /* Skip empty items */
+                        continue;
+
+                if (!slash && p[0] != '/')
+                        *(q++) = '/';
+
+                q = stpcpy(q, p);
+                slash = endswith(p, "/");
+        }
+        va_end(ap);
+
+        return joined;
 }
 
 int find_binary(const char *name, char **ret) {

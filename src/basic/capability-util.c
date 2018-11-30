@@ -359,3 +359,128 @@ bool ambient_capabilities_supported(void) {
 
         return cache;
 }
+
+int capability_quintet_enforce(const CapabilityQuintet *q) {
+        _cleanup_cap_free_ cap_t c = NULL;
+        int r;
+
+        if (q->ambient != (uint64_t) -1) {
+                unsigned long i;
+                bool changed = false;
+
+                c = cap_get_proc();
+                if (!c)
+                        return -errno;
+
+                /* In order to raise the ambient caps set we first need to raise the matching inheritable + permitted
+                 * cap */
+                for (i = 0; i <= cap_last_cap(); i++) {
+                        uint64_t m = UINT64_C(1) << i;
+                        cap_value_t cv = (cap_value_t) i;
+                        cap_flag_value_t old_value_inheritable, old_value_permitted;
+
+                        if ((q->ambient & m) == 0)
+                                continue;
+
+                        if (cap_get_flag(c, cv, CAP_INHERITABLE, &old_value_inheritable) < 0)
+                                return -errno;
+                        if (cap_get_flag(c, cv, CAP_PERMITTED, &old_value_permitted) < 0)
+                                return -errno;
+
+                        if (old_value_inheritable == CAP_SET && old_value_permitted == CAP_SET)
+                                continue;
+
+                        if (cap_set_flag(c, CAP_INHERITABLE, 1, &cv, CAP_SET) < 0)
+                                return -errno;
+
+                        if (cap_set_flag(c, CAP_PERMITTED, 1, &cv, CAP_SET) < 0)
+                                return -errno;
+
+                        changed = true;
+                }
+
+                if (changed)
+                        if (cap_set_proc(c) < 0)
+                                return -errno;
+
+                r = capability_ambient_set_apply(q->ambient, false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (q->inheritable != (uint64_t) -1 || q->permitted != (uint64_t) -1 || q->effective != (uint64_t) -1) {
+                bool changed = false;
+                unsigned long i;
+
+                if (!c) {
+                        c = cap_get_proc();
+                        if (!c)
+                                return -errno;
+                }
+
+                for (i = 0; i <= cap_last_cap(); i++) {
+                        uint64_t m = UINT64_C(1) << i;
+                        cap_value_t cv = (cap_value_t) i;
+
+                        if (q->inheritable != (uint64_t) -1) {
+                                cap_flag_value_t old_value, new_value;
+
+                                if (cap_get_flag(c, cv, CAP_INHERITABLE, &old_value) < 0)
+                                        return -errno;
+
+                                new_value = (q->inheritable & m) ? CAP_SET : CAP_CLEAR;
+
+                                if (old_value != new_value) {
+                                        changed = true;
+
+                                        if (cap_set_flag(c, CAP_INHERITABLE, 1, &cv, new_value) < 0)
+                                                return -errno;
+                                }
+                        }
+
+                        if (q->permitted != (uint64_t) -1) {
+                                cap_flag_value_t old_value, new_value;
+
+                                if (cap_get_flag(c, cv, CAP_PERMITTED, &old_value) < 0)
+                                        return -errno;
+
+                                new_value = (q->permitted & m) ? CAP_SET : CAP_CLEAR;
+
+                                if (old_value != new_value) {
+                                        changed = true;
+
+                                        if (cap_set_flag(c, CAP_PERMITTED, 1, &cv, new_value) < 0)
+                                                return -errno;
+                                }
+                        }
+
+                        if (q->effective != (uint64_t) -1) {
+                                cap_flag_value_t old_value, new_value;
+
+                                if (cap_get_flag(c, cv, CAP_EFFECTIVE, &old_value) < 0)
+                                        return -errno;
+
+                                new_value = (q->effective & m) ? CAP_SET : CAP_CLEAR;
+
+                                if (old_value != new_value) {
+                                        changed = true;
+
+                                        if (cap_set_flag(c, CAP_EFFECTIVE, 1, &cv, new_value) < 0)
+                                                return -errno;
+                                }
+                        }
+                }
+
+                if (changed)
+                        if (cap_set_proc(c) < 0)
+                                return -errno;
+        }
+
+        if (q->bounding != (uint64_t) -1) {
+                r = capability_bounding_set_drop(q->bounding, false);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}

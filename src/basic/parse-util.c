@@ -16,6 +16,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 
 int parse_boolean(const char *v) {
@@ -731,17 +732,30 @@ int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high) {
 }
 
 int parse_dev(const char *s, dev_t *ret) {
+        const char *major;
         unsigned x, y;
-        dev_t d;
+        size_t n;
+        int r;
 
-        if (sscanf(s, "%u:%u", &x, &y) != 2)
+        n = strspn(s, DIGITS);
+        if (n == 0)
+                return -EINVAL;
+        if (s[n] != ':')
                 return -EINVAL;
 
-        d = makedev(x, y);
-        if ((unsigned) major(d) != x || (unsigned) minor(d) != y)
-                return -EINVAL;
+        major = strndupa(s, n);
+        r = safe_atou(major, &x);
+        if (r < 0)
+                return r;
 
-        *ret = d;
+        r = safe_atou(s + n + 1, &y);
+        if (r < 0)
+                return r;
+
+        if (!DEVICE_MAJOR_VALID(x) || !DEVICE_MINOR_VALID(y))
+                return -ERANGE;
+
+        *ret = makedev(x, y);
         return 0;
 }
 

@@ -405,7 +405,7 @@ static int verify_esp(
                 sd_id128_t *ret_uuid) {
 #if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        char t[DEV_NUM_PATH_MAX];
+        _cleanup_free_ char *node = NULL;
         const char *v;
 #endif
         uint64_t pstart = 0, psize = 0;
@@ -469,9 +469,11 @@ static int verify_esp(
                 goto finish;
 
 #if HAVE_BLKID
-        xsprintf_dev_num_path(t, "block", st.st_dev);
+        r = device_path_make_major_minor(S_IFBLK, st.st_dev, &node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format major/minor device path: %m");
         errno = 0;
-        b = blkid_new_probe_from_filename(t);
+        b = blkid_new_probe_from_filename(node);
         if (!b)
                 return log_error_errno(errno ?: ENOMEM, "Failed to open file system \"%s\": %m", p);
 

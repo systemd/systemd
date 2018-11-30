@@ -9,6 +9,7 @@
 #include "label.h"
 #include "log.h"
 #include "path-util.h"
+#include "umask-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -50,6 +51,64 @@ int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
                 if (uid != UID_INVALID || gid != GID_INVALID)
                         if (lchown(n, uid, gid) < 0)
                                 log_debug_errno(errno, "Failed to chown %s: %m", n);
+        }
+
+        return 0;
+}
+
+int make_inaccessible_nodes(const char *root, uid_t uid, gid_t gid) {
+        static const struct {
+                const char *name;
+                mode_t mode;
+        } table[] = {
+                { "/run/systemd",                   S_IFDIR  | 0755 },
+                { "/run/systemd/inaccessible",      S_IFDIR  | 0000 },
+                { "/run/systemd/inaccessible/reg",  S_IFREG  | 0000 },
+                { "/run/systemd/inaccessible/dir",  S_IFDIR  | 0000 },
+                { "/run/systemd/inaccessible/fifo", S_IFIFO  | 0000 },
+                { "/run/systemd/inaccessible/sock", S_IFSOCK | 0000 },
+
+                /* The following two are likely to fail if we lack the privs for it (for example in an userns
+                 * environment, if CAP_SYS_MKNOD is missing, or if a device node policy prohibit major/minor of 0
+                 * device nodes to be created). But that's entirely fine. Consumers of these files should carry
+                 * fallback to use a different node then, for example /run/systemd/inaccessible/sock, which is close
+                 * enough in behaviour and semantics for most uses. */
+                { "/run/systemd/inaccessible/chr",  S_IFCHR  | 0000 },
+                { "/run/systemd/inaccessible/blk",  S_IFBLK  | 0000 },
+        };
+
+        _cleanup_umask_ mode_t u;
+        size_t i;
+        int r;
+
+        u = umask(0000);
+
+        /* Set up inaccessible (and empty) file nodes of all types. This are used to as mount sources for over-mounting
+         * ("masking") file nodes that shall become inaccessible and empty for specific containers or services. We try
+         * to lock down these nodes as much as we can, but otherwise try to match them as closely as possible with the
+         * underlying file, i.e. in the best case we offer the same node type as the underlying node. */
+
+        for (i = 0; i < ELEMENTSOF(table); i++) {
+                _cleanup_free_ char *path = NULL;
+
+                path = prefix_root(root, table[i].name);
+                if (!path)
+                        return log_oom();
+
+                if (S_ISDIR(table[i].mode))
+                        r = mkdir(path, table[i].mode & 07777);
+                else
+                        r = mknod(path, table[i].mode, makedev(0, 0));
+                if (r < 0) {
+                        if (errno != EEXIST)
+                                log_debug_errno(errno, "Failed to create '%s', ignoring: %m", path);
+                        continue;
+                }
+
+                if (uid != UID_INVALID || gid != GID_INVALID) {
+                        if (lchown(path, uid, gid) < 0)
+                                log_debug_errno(errno, "Failed to chown '%s': %m", path);
+                }
         }
 
         return 0;

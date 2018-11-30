@@ -19,6 +19,7 @@
 #include "process-util.h"
 #include "procfs-util.h"
 #include "special.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -375,16 +376,23 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
-        struct stat st;
+        struct stat st = {};
         int r;
 
         assert(p);
         assert(ret);
 
-        if (stat(p, &st) < 0)
-                return log_warning_errno(errno, "Couldn't stat device '%s': %m", p);
+        r = device_path_parse_major_minor(p, &st.st_mode, &st.st_rdev);
+        if (r == -ENODEV) { /* not a parsable device node, need to go to disk */
+                if (stat(p, &st) < 0)
+                        return log_warning_errno(errno, "Couldn't stat device '%s': %m", p);
+        } else if (r < 0)
+                return log_warning_errno(r, "Failed to parse major/minor from path '%s': %m", p);
 
-        if (S_ISBLK(st.st_mode))
+        if (S_ISCHR(st.st_mode)) {
+                log_warning("Device node '%s' is a character device, but block device needed.", p);
+                return -ENOTBLK;
+        } else if (S_ISBLK(st.st_mode))
                 *ret = st.st_rdev;
         else if (major(st.st_dev) != 0)
                 *ret = st.st_dev; /* If this is not a device node then use the block device this file is stored on */
@@ -408,30 +416,27 @@ static int lookup_block_device(const char *p, dev_t *ret) {
 }
 
 static int whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc) {
-        struct stat st;
-        bool ignore_notfound;
+        struct stat st = {};
         int r;
 
         assert(path);
         assert(acc);
 
-        if (node[0] == '-') {
-                /* Non-existent paths starting with "-" must be silently ignored */
-                node++;
-                ignore_notfound = true;
-        } else
-                ignore_notfound = false;
+        /* Some special handling for /dev/block/%u:%u, /dev/char/%u:%u, /run/systemd/inaccessible/chr and
+         * /run/systemd/inaccessible/blk paths. Instead of stat()ing these we parse out the major/minor directly. This
+         * means clients can use these path without the device node actually around */
+        r = device_path_parse_major_minor(node, &st.st_mode, &st.st_rdev);
+        if (r < 0) {
+                if (r != -ENODEV)
+                        return log_warning_errno(r, "Couldn't parse major/minor from device path '%s': %m", node);
 
-        if (stat(node, &st) < 0) {
-                if (errno == ENOENT && ignore_notfound)
-                        return 0;
+                if (stat(node, &st) < 0)
+                        return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
 
-                return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
-        }
-
-        if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
-                log_warning("%s is not a device.", node);
-                return -ENODEV;
+                if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
+                        log_warning("%s is not a device.", node);
+                        return -ENODEV;
+                }
         }
 
         if (cg_all_unified() > 0) {
@@ -463,13 +468,56 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
 
 static int whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc) {
         _cleanup_fclose_ FILE *f = NULL;
-        char *p, *w;
+        char buf[2+DECIMAL_STR_MAX(unsigned)+3+4];
         bool good = false;
+        unsigned maj;
         int r;
 
         assert(path);
         assert(acc);
         assert(IN_SET(type, 'b', 'c'));
+
+        if (streq(name, "*")) {
+                /* If the name is a wildcard, then apply this list to all devices of this type */
+
+                if (cg_all_unified() > 0) {
+                        if (!prog)
+                                return 0;
+
+                        (void) cgroup_bpf_whitelist_class(prog, type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK, acc);
+                } else {
+                        xsprintf(buf, "%c *:* %s", type, acc);
+
+                        r = cg_set_attribute("devices", path, "devices.allow", buf);
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set devices.allow on %s: %m", path);
+                        return 0;
+                }
+        }
+
+        if (safe_atou(name, &maj) >= 0 && DEVICE_MAJOR_VALID(maj)) {
+                /* The name is numeric and suitable as major. In that case, let's take is major, and create the entry
+                 * directly */
+
+                if (cg_all_unified() > 0) {
+                        if (!prog)
+                                return 0;
+
+                        (void) cgroup_bpf_whitelist_major(prog,
+                                                          type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
+                                                          maj, acc);
+                } else {
+                        xsprintf(buf, "%c %u:* %s", type, maj, acc);
+
+                        r = cg_set_attribute("devices", path, "devices.allow", buf);
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set devices.allow on %s: %m", path);
+                }
+
+                return 0;
+        }
 
         f = fopen("/proc/devices", "re");
         if (!f)
@@ -477,7 +525,7 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                unsigned maj;
+                char *w, *p;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
@@ -530,8 +578,6 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
                                                           type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
                                                           maj, acc);
                 } else {
-                        char buf[2+DECIMAL_STR_MAX(unsigned)+3+4];
-
                         sprintf(buf,
                                 "%c %u:* %s",
                                 type,
@@ -1098,8 +1144,8 @@ static void cgroup_context_apply(
                                 "/dev/tty\0" "rwm\0"
                                 "/dev/ptmx\0" "rwm\0"
                                 /* Allow /run/systemd/inaccessible/{chr,blk} devices for mapping InaccessiblePaths */
-                                "-/run/systemd/inaccessible/chr\0" "rwm\0"
-                                "-/run/systemd/inaccessible/blk\0" "rwm\0";
+                                "/run/systemd/inaccessible/chr\0" "rwm\0"
+                                "/run/systemd/inaccessible/blk\0" "rwm\0";
 
                         const char *x, *y;
 
@@ -1133,7 +1179,7 @@ static void cgroup_context_apply(
                         else if ((val = startswith(a->path, "char-")))
                                 (void) whitelist_major(prog, path, val, 'c', acc);
                         else
-                                log_unit_debug(u, "Ignoring device %s while writing cgroup attribute.", a->path);
+                                log_unit_debug(u, "Ignoring device '%s' while writing cgroup attribute.", a->path);
                 }
 
                 r = cgroup_apply_device_bpf(u, prog, c->device_policy, c->device_allow);
