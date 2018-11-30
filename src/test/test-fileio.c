@@ -6,7 +6,6 @@
 
 #include "alloc-util.h"
 #include "ctype.h"
-#include "def.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
