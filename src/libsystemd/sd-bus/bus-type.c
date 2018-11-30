@@ -30,32 +30,6 @@ bool bus_type_is_valid(char c) {
         return !!memchr(valid, c, sizeof(valid));
 }
 
-bool bus_type_is_valid_in_signature(char c) {
-        static const char valid[] = {
-                SD_BUS_TYPE_BYTE,
-                SD_BUS_TYPE_BOOLEAN,
-                SD_BUS_TYPE_INT16,
-                SD_BUS_TYPE_UINT16,
-                SD_BUS_TYPE_INT32,
-                SD_BUS_TYPE_UINT32,
-                SD_BUS_TYPE_INT64,
-                SD_BUS_TYPE_UINT64,
-                SD_BUS_TYPE_DOUBLE,
-                SD_BUS_TYPE_STRING,
-                SD_BUS_TYPE_OBJECT_PATH,
-                SD_BUS_TYPE_SIGNATURE,
-                SD_BUS_TYPE_ARRAY,
-                SD_BUS_TYPE_VARIANT,
-                SD_BUS_TYPE_STRUCT_BEGIN,
-                SD_BUS_TYPE_STRUCT_END,
-                SD_BUS_TYPE_DICT_ENTRY_BEGIN,
-                SD_BUS_TYPE_DICT_ENTRY_END,
-                SD_BUS_TYPE_UNIX_FD
-        };
-
-        return !!memchr(valid, c, sizeof(valid));
-}
-
 bool bus_type_is_basic(char c) {
         static const char valid[] = {
                 SD_BUS_TYPE_BYTE,

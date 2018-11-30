@@ -205,35 +205,3 @@ EFI_STATUS security_policy_install(void) {
 
         return EFI_SUCCESS;
 }
-
-EFI_STATUS security_policy_uninstall(void) {
-        EFI_STATUS status;
-
-        if (esfas) {
-                EFI_SECURITY_PROTOCOL *security_protocol;
-
-                status = uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &security_protocol_guid, NULL, (VOID**) &security_protocol);
-
-                if (status != EFI_SUCCESS)
-                        return status;
-
-                security_protocol->FileAuthenticationState = esfas;
-                esfas = NULL;
-        } else
-                /* nothing installed */
-                return EFI_NOT_STARTED;
-
-        if (es2fa) {
-                EFI_SECURITY2_PROTOCOL *security2_protocol;
-
-                status = uefi_call_wrapper(BS->LocateProtocol, 3, (EFI_GUID*) &security2_protocol_guid, NULL, (VOID**) &security2_protocol);
-
-                if (status != EFI_SUCCESS)
-                        return status;
-
-                security2_protocol->FileAuthentication = es2fa;
-                es2fa = NULL;
-        }
-
-        return EFI_SUCCESS;
-}

@@ -38,7 +38,6 @@ enum {
 int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
 
 int bus_message_map_all_properties(sd_bus_message *m, const struct bus_properties_map *map, unsigned flags, sd_bus_error *error, void *userdata);
-int bus_message_map_properties_changed(sd_bus_message *m, const struct bus_properties_map *map, unsigned flags, sd_bus_error *error, void *userdata);
 int bus_map_all_properties(sd_bus *bus, const char *destination, const char *path, const struct bus_properties_map *map,
                            unsigned flags, sd_bus_error *error, sd_bus_message **reply, void *userdata);
 

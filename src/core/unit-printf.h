@@ -5,4 +5,3 @@
 
 int unit_name_printf(Unit *u, const char* text, char **ret);
 int unit_full_printf(Unit *u, const char *text, char **ret);
-int unit_full_printf_strv(Unit *u, char **l, char ***ret);

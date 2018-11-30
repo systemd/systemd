@@ -66,8 +66,6 @@ int bus_match_run(sd_bus *bus, struct bus_match_node *root, sd_bus_message *m);
 int bus_match_add(struct bus_match_node *root, struct bus_match_component *components, unsigned n_components, struct match_callback *callback);
 int bus_match_remove(struct bus_match_node *root, struct match_callback *callback);
 
-int bus_match_find(struct bus_match_node *root, struct bus_match_component *components, unsigned n_components, sd_bus_message_handler_t callback, void *userdata, struct match_callback **ret);
-
 void bus_match_free(struct bus_match_node *node);
 
 void bus_match_dump(struct bus_match_node *node, unsigned level);

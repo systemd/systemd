@@ -277,26 +277,6 @@ int show_cgroup_and_extra(
         return show_extra_pids(controller, path, prefix, n_columns, extra_pids, n_extra_pids, flags);
 }
 
-int show_cgroup_and_extra_by_spec(
-                const char *spec,
-                const char *prefix,
-                unsigned n_columns,
-                const pid_t extra_pids[],
-                unsigned n_extra_pids,
-                OutputFlags flags) {
-
-        _cleanup_free_ char *controller = NULL, *path = NULL;
-        int r;
-
-        assert(spec);
-
-        r = cg_split_spec(spec, &controller, &path);
-        if (r < 0)
-                return r;
-
-        return show_cgroup_and_extra(controller, path, prefix, n_columns, extra_pids, n_extra_pids, flags);
-}
-
 int show_cgroup_get_unit_path_and_warn(
                 sd_bus *bus,
                 const char *unit,
