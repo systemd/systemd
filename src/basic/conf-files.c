@@ -235,7 +235,7 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
 
         t = path_join(root, path, NULL);
         if (!t)
-                return log_oom();
+                return -ENOMEM;
 
         r = strv_insert(strv, i, t);
         if (r < 0)
