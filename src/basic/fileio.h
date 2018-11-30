@@ -66,27 +66,13 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *root
 int fflush_and_check(FILE *f);
 int fflush_sync_and_check(FILE *f);
 
-int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
-int mkostemp_safe(char *pattern);
-int fmkostemp_safe(char *pattern, const char *mode, FILE**_f);
-
-int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
-int tempfn_random(const char *p, const char *extra, char **ret);
-int tempfn_random_child(const char *p, const char *extra, char **ret);
-
 int write_timestamp_file_atomic(const char *fn, usec_t n);
 int read_timestamp_file(const char *fn, usec_t *ret);
 
 int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space);
 
-int open_tmpfile_unlinkable(const char *directory, int flags);
-int open_tmpfile_linkable(const char *target, int flags, char **ret_path);
 int open_serialization_fd(const char *ident);
 
-int link_tmpfile(int fd, const char *path, const char *target);
-
 int read_nul_string(FILE *f, char **ret);
-
-int mkdtemp_malloc(const char *template, char **ret);
 
 int read_line(FILE *f, size_t limit, char **ret);

@@ -19,6 +19,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 int seat_new(Seat** ret, Manager *m, const char *id) {

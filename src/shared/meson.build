@@ -139,6 +139,8 @@ shared_sources = files('''
         switch-root.h
         sysctl-util.c
         sysctl-util.h
+        tmpfile-util-label.c
+        tmpfile-util-label.h
         tomoyo-util.c
         tomoyo-util.h
         udev-util.c

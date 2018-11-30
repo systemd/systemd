@@ -16,6 +16,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static void test_parse_env_file(void) {

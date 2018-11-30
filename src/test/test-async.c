@@ -3,8 +3,8 @@
 #include <unistd.h>
 
 #include "async.h"
-#include "fileio.h"
 #include "macro.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static bool test_async = false;

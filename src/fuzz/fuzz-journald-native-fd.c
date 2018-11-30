@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
-#include "fuzz.h"
 #include "fuzz-journald.h"
+#include "fuzz.h"
 #include "journald-native.h"
 #include "memfd-util.h"
 #include "process-util.h"
+#include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         Server s;

@@ -7,10 +7,10 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "id128-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)

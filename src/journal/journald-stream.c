@@ -31,6 +31,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "tmpfile-util.h"
 #include "unit-name.h"
 
 #define STDOUT_STREAMS_MAX 4096

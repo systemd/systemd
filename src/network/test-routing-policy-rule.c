@@ -10,6 +10,7 @@
 #include "networkd-manager.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_rule_serialization(const char *title, const char *ruleset, const char *expected) {
         char pattern[] = "/tmp/systemd-test-routing-policy-rule.XXXXXX",

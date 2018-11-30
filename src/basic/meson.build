@@ -159,6 +159,8 @@ basic_sources = files('''
         terminal-util.h
         time-util.c
         time-util.h
+        tmpfile-util.c
+        tmpfile-util.h
         umask-util.h
         unaligned.h
         unit-def.c

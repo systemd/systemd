@@ -5,8 +5,8 @@
 
 #include "fd-util.h"
 #include "fdset.h"
-#include "fileio.h"
 #include "macro.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static void test_fdset_new_fill(void) {

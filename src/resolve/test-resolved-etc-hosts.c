@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "resolved-etc-hosts.h"
+#include "tmpfile-util.h"
 
 static void test_parse_etc_hosts_system(void) {
         _cleanup_fclose_ FILE *f = NULL;

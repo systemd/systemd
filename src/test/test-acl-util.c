@@ -7,8 +7,8 @@
 
 #include "acl-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 
 static void test_add_acls_for_user(void) {

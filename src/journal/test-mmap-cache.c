@@ -6,9 +6,9 @@
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "fileio.h"
 #include "macro.h"
 #include "mmap-cache.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 int main(int argc, char *argv[]) {

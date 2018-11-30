@@ -25,6 +25,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "util.h"
 #include "virt.h"
 

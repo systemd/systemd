@@ -5,11 +5,11 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "tests.h"
 #include "macro.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tests.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static void test_default_term_for_tty(void) {

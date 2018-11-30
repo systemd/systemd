@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "install.h"
 #include "log.h"
@@ -18,6 +17,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "util.h"
 

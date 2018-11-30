@@ -20,6 +20,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util-label.h"
 #include "uid-range.h"
 #include "user-util.h"
 #include "utf8.h"

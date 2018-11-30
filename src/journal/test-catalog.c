@@ -11,13 +11,13 @@
 #include "catalog.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "fileio.h"
 #include "log.h"
 #include "macro.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static char** catalog_dirs = NULL;

@@ -23,6 +23,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "util.h"
+#include "tmpfile-util.h"
 
 int close_nointr(int fd) {
         assert(fd >= 0);

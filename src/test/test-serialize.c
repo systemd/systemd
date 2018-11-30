@@ -8,6 +8,7 @@
 #include "serialize.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 char long_string[LONG_LINE_MAX+1];
 

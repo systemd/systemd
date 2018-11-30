@@ -17,6 +17,7 @@
 #include "lookup3.h"
 #include "macro.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static void draw_progress(uint64_t p, usec_t *last_usec) {

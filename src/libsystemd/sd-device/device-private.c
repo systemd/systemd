@@ -24,6 +24,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "util.h"
 

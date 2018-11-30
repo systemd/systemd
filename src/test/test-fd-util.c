@@ -11,8 +11,9 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "string-util.h"
-#include "util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
+#include "util.h"
 
 static void test_close_many(void) {
         int fds[3];

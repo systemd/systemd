@@ -15,6 +15,7 @@
 #include "clock-util.h"
 #include "def.h"
 #include "fileio-label.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "list.h"

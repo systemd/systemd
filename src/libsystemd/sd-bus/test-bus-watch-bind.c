@@ -8,7 +8,6 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -16,6 +15,7 @@
 #include "rm-rf.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 
 static int method_foobar(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Got Foobar() call.");

@@ -33,6 +33,7 @@
 #include "special.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"

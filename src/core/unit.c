@@ -48,6 +48,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "umask-util.h"
 #include "unit-name.h"
 #include "unit.h"

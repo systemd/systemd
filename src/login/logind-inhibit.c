@@ -15,6 +15,7 @@
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "util.h"
 

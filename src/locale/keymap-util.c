@@ -17,6 +17,7 @@
 #include "mkdir.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 
 static bool startswith_comma(const char *s, const char *prefix) {
         s = startswith(s, prefix);

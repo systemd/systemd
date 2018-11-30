@@ -16,6 +16,7 @@
 #include "resolved-mdns.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 
 int link_new(Manager *m, Link **ret, int ifindex) {
         _cleanup_(link_freep) Link *l = NULL;
