@@ -189,11 +189,12 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
          * - do nothing if our new entry matches the existing entry,
          * - replace the existing entry if our new entry has higher priority.
          */
-        size_t i;
+        size_t i, n;
         char *t;
         int r;
 
-        for (i = 0; i < strv_length(*strv); i++) {
+        n = strv_length(*strv);
+        for (i = 0; i < n; i++) {
                 int c;
 
                 c = base_cmp((char* const*) *strv + i, (char* const*) &path);
@@ -234,24 +235,13 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
 
         t = path_join(root, path);
         if (!t)
-                return log_oom();
+                return -ENOMEM;
 
         r = strv_insert(strv, i, t);
         if (r < 0)
                 free(t);
+
         return r;
-}
-
-int conf_files_insert_nulstr(char ***strv, const char *root, const char *dirs, const char *path) {
-        _cleanup_strv_free_ char **d = NULL;
-
-        assert(strv);
-
-        d = strv_split_nulstr(dirs);
-        if (!d)
-                return -ENOMEM;
-
-        return conf_files_insert(strv, root, d, path);
 }
 
 int conf_files_list_strv(char ***strv, const char *suffix, const char *root, unsigned flags, const char* const* dirs) {
