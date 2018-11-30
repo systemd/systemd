@@ -672,12 +672,12 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
                 break;
 
         case AF_VSOCK:
-                if (include_port)
-                        r = asprintf(&p,
-                                     "vsock:%u:%u",
-                                     sa->vm.svm_cid,
-                                     sa->vm.svm_port);
-                else
+                if (include_port) {
+                        if (sa->vm.svm_cid == VMADDR_CID_ANY)
+                                r = asprintf(&p, "vsock::%u", sa->vm.svm_port);
+                        else
+                                r = asprintf(&p, "vsock:%u:%u", sa->vm.svm_cid, sa->vm.svm_port);
+                } else
                         r = asprintf(&p, "vsock:%u", sa->vm.svm_cid);
                 if (r < 0)
                         return -ENOMEM;

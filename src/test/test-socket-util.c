@@ -98,7 +98,7 @@ static void test_socket_address_parse(void) {
         test_socket_address_parse_one("@abstract", 0, AF_UNIX, NULL);
 
         test_socket_address_parse_one("vsock:2:1234", 0, AF_VSOCK, NULL);
-        test_socket_address_parse_one("vsock::1234", 0, AF_VSOCK, "vsock:4294967295:1234");
+        test_socket_address_parse_one("vsock::1234", 0, AF_VSOCK, NULL);
         test_socket_address_parse_one("vsock:2:1234x", -EINVAL, 0, NULL);
         test_socket_address_parse_one("vsock:2x:1234", -EINVAL, 0, NULL);
         test_socket_address_parse_one("vsock:2", -EINVAL, 0, NULL);
