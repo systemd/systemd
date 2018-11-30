@@ -371,8 +371,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "lookup_dcookie\0"
                 "perf_event_open\0"
-                "process_vm_readv\0"
-                "process_vm_writev\0"
                 "ptrace\0"
                 "rtas\0"
 #ifdef __NR_s390_runtime_instr

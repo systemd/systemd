@@ -20,7 +20,8 @@
 #include "string-util.h"
 
 int parse_boolean(const char *v) {
-        assert(v);
+        if (!v)
+                return -EINVAL;
 
         if (streq(v, "1") || strcaseeq(v, "yes") || strcaseeq(v, "y") || strcaseeq(v, "true") || strcaseeq(v, "t") || strcaseeq(v, "on"))
                 return 1;

@@ -16,6 +16,7 @@
 
 #include "def.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "locale-util.h"
@@ -347,6 +348,24 @@ bool keymap_is_valid(const char *name) {
         return true;
 }
 
+static bool emoji_enabled(void) {
+        static int cached_emoji_enabled = -1;
+
+        if (cached_emoji_enabled < 0) {
+                int val;
+
+                val = getenv_bool("SYSTEMD_EMOJI");
+                if (val < 0)
+                        cached_emoji_enabled =
+                                is_locale_utf8() &&
+                                !STRPTR_IN_SET(getenv("TERM"), "dumb", "linux");
+                else
+                        cached_emoji_enabled = val;
+        }
+
+        return cached_emoji_enabled;
+}
+
 const char *special_glyph(SpecialGlyph code) {
 
         /* A list of a number of interesting unicode glyphs we can use to decorate our output. It's probably wise to be
@@ -359,40 +378,56 @@ const char *special_glyph(SpecialGlyph code) {
         static const char* const draw_table[2][_SPECIAL_GLYPH_MAX] = {
                 /* ASCII fallback */
                 [false] = {
-                        [TREE_VERTICAL]      = "| ",
-                        [TREE_BRANCH]        = "|-",
-                        [TREE_RIGHT]         = "`-",
-                        [TREE_SPACE]         = "  ",
-                        [TRIANGULAR_BULLET]  = ">",
-                        [BLACK_CIRCLE]       = "*",
-                        [BULLET]             = "*",
-                        [ARROW]              = "->",
-                        [MDASH]              = "-",
-                        [ELLIPSIS]           = "...",
-                        [MU]                 = "u",
-                        [CHECK_MARK]         = "+",
-                        [CROSS_MARK]         = "-",
+                        [TREE_VERTICAL]           = "| ",
+                        [TREE_BRANCH]             = "|-",
+                        [TREE_RIGHT]              = "`-",
+                        [TREE_SPACE]              = "  ",
+                        [TRIANGULAR_BULLET]       = ">",
+                        [BLACK_CIRCLE]            = "*",
+                        [BULLET]                  = "*",
+                        [ARROW]                   = "->",
+                        [MDASH]                   = "-",
+                        [ELLIPSIS]                = "...",
+                        [MU]                      = "u",
+                        [CHECK_MARK]              = "+",
+                        [CROSS_MARK]              = "-",
+                        [ECSTATIC_SMILEY]         = ":-]",
+                        [HAPPY_SMILEY]            = ":-}",
+                        [SLIGHTLY_HAPPY_SMILEY]   = ":-)",
+                        [NEUTRAL_SMILEY]          = ":-|",
+                        [SLIGHTLY_UNHAPPY_SMILEY] = ":-(",
+                        [UNHAPPY_SMILEY]          = ":-{️",
+                        [DEPRESSED_SMILEY]        = ":-[",
                 },
 
                 /* UTF-8 */
                 [true] = {
-                        [TREE_VERTICAL]      = "\342\224\202 ",            /* │  */
-                        [TREE_BRANCH]        = "\342\224\234\342\224\200", /* ├─ */
-                        [TREE_RIGHT]         = "\342\224\224\342\224\200", /* └─ */
-                        [TREE_SPACE]         = "  ",                       /*    */
-                        [TRIANGULAR_BULLET]  = "\342\200\243",             /* ‣ */
-                        [BLACK_CIRCLE]       = "\342\227\217",             /* ● */
-                        [BULLET]             = "\342\200\242",             /* • */
-                        [ARROW]              = "\342\206\222",             /* → */
-                        [MDASH]              = "\342\200\223",             /* – */
-                        [ELLIPSIS]           = "\342\200\246",             /* … */
-                        [MU]                 = "\316\274",                 /* μ */
-                        [CHECK_MARK]         = "\342\234\223",             /* ✓ */
-                        [CROSS_MARK]         = "\342\234\227",             /* ✗ */
+                        [TREE_VERTICAL]           = "\342\224\202 ",            /* │  */
+                        [TREE_BRANCH]             = "\342\224\234\342\224\200", /* ├─ */
+                        [TREE_RIGHT]              = "\342\224\224\342\224\200", /* └─ */
+                        [TREE_SPACE]              = "  ",                       /*    */
+                        [TRIANGULAR_BULLET]       = "\342\200\243",             /* ‣ */
+                        [BLACK_CIRCLE]            = "\342\227\217",             /* ● */
+                        [BULLET]                  = "\342\200\242",             /* • */
+                        [ARROW]                   = "\342\206\222",             /* → */
+                        [MDASH]                   = "\342\200\223",             /* – */
+                        [ELLIPSIS]                = "\342\200\246",             /* … */
+                        [MU]                      = "\316\274",                 /* μ */
+                        [CHECK_MARK]              = "\342\234\223",             /* ✓ */
+                        [CROSS_MARK]              = "\342\234\227",             /* ✗ */
+                        [ECSTATIC_SMILEY]         = "\360\237\230\207",         /* 😇 */
+                        [HAPPY_SMILEY]            = "\360\237\230\200",         /* 😀 */
+                        [SLIGHTLY_HAPPY_SMILEY]   = "\360\237\231\202",         /* 🙂 */
+                        [NEUTRAL_SMILEY]          = "\360\237\230\220",         /* 😐 */
+                        [SLIGHTLY_UNHAPPY_SMILEY] = "\360\237\231\201",         /* 🙁 */
+                        [UNHAPPY_SMILEY]          = "\360\237\230\250",         /* 😨️️ */
+                        [DEPRESSED_SMILEY]        = "\360\237\244\242",         /* 🤢 */
                 },
         };
 
-        return draw_table[is_locale_utf8()][code];
+        assert(code < _SPECIAL_GLYPH_MAX);
+
+        return draw_table[code >= _SPECIAL_GLYPH_FIRST_SMILEY ? emoji_enabled() : is_locale_utf8()][code];
 }
 
 void locale_variables_free(char*l[_VARIABLE_LC_MAX]) {

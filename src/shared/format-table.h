@@ -15,6 +15,8 @@ typedef enum TableDataType {
         TABLE_TIMESPAN,
         TABLE_SIZE,
         TABLE_UINT32,
+        TABLE_UINT64,
+        TABLE_PERCENT,
         _TABLE_DATA_TYPE_MAX,
         _TABLE_DATA_TYPE_INVALID = -1,
 } TableDataType;
@@ -42,6 +44,9 @@ int table_set_weight(Table *t, TableCell *cell, unsigned weight);
 int table_set_align_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_ellipsize_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_color(Table *t, TableCell *cell, const char *color);
+int table_set_url(Table *t, TableCell *cell, const char *color);
+
+int table_update(Table *t, TableCell *cell, TableDataType type, const void *data);
 
 int table_add_many_internal(Table *t, TableDataType first_type, ...);
 #define table_add_many(t, ...) table_add_many_internal(t, __VA_ARGS__, _TABLE_DATA_TYPE_MAX)
@@ -50,6 +55,7 @@ void table_set_header(Table *table, bool b);
 void table_set_width(Table *t, size_t width);
 int table_set_display(Table *t, size_t first_column, ...);
 int table_set_sort(Table *t, size_t first_column, ...);
+int table_set_reverse(Table *t, size_t column, bool b);
 
 int table_print(Table *t, FILE *f);
 int table_format(Table *t, char **ret);
@@ -60,3 +66,8 @@ static inline TableCell* TABLE_HEADER_CELL(size_t i) {
 
 size_t table_get_rows(Table *t);
 size_t table_get_columns(Table *t);
+
+TableCell *table_get_cell(Table *t, size_t row, size_t column);
+
+const void *table_get(Table *t, TableCell *cell);
+const void *table_get_at(Table *t, size_t row, size_t column);

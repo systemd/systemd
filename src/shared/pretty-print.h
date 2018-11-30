@@ -3,6 +3,8 @@
 
 void print_separator(void);
 
+int file_url_from_path(const char *path, char **ret);
+
 int terminal_urlify(const char *url, const char *text, char **ret);
 int terminal_urlify_path(const char *path, const char *text, char **ret);
 int terminal_urlify_man(const char *page, const char *section, char **ret);

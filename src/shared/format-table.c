@@ -9,6 +9,7 @@
 #include "gunicode.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -58,6 +59,7 @@ typedef struct TableData {
         unsigned align_percent;     /* 0 … 100, where to pad with spaces when expanding is needed. 0: left-aligned, 100: right-aligned */
 
         const char *color;          /* ANSI color string to use for this cell. When written to terminal should not move cursor. Will automatically be reset after the cell */
+        char *url;                  /* A URL to use for a clickable hyperlink */
         char *formatted;            /* A cached textual representation of the cell data, before ellipsation/alignment */
 
         union {
@@ -68,6 +70,8 @@ typedef struct TableData {
                 uint64_t size;
                 char string[0];
                 uint32_t uint32;
+                uint64_t uint64;
+                int percent;        /* we use 'int' as datatype for percent values in order to match the result of parse_percent() */
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -103,6 +107,8 @@ struct Table {
 
         size_t *sort_map;     /* The columns to order rows by, in order of preference. */
         size_t n_sort_map;
+
+        bool *reverse_map;
 };
 
 Table *table_new_raw(size_t n_columns) {
@@ -175,6 +181,8 @@ static TableData *table_data_free(TableData *d) {
         assert(d);
 
         free(d->formatted);
+        free(d->url);
+
         return mfree(d);
 }
 
@@ -193,6 +201,7 @@ Table *table_unref(Table *t) {
         free(t->data);
         free(t->display_map);
         free(t->sort_map);
+        free(t->reverse_map);
 
         return mfree(t);
 }
@@ -215,10 +224,14 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return sizeof(usec_t);
 
         case TABLE_SIZE:
+        case TABLE_UINT64:
                 return sizeof(uint64_t);
 
         case TABLE_UINT32:
                 return sizeof(uint32_t);
+
+        case TABLE_PERCENT:
+                return sizeof(int);
 
         default:
                 assert_not_reached("Uh? Unexpected cell type");
@@ -262,7 +275,7 @@ static bool table_data_matches(
         if (k != l)
                 return false;
 
-        return memcmp(data, d->data, l) == 0;
+        return memcmp_safe(data, d->data, l) == 0;
 }
 
 static TableData *table_data_new(
@@ -376,6 +389,7 @@ int table_dup_cell(Table *t, TableCell *cell) {
 }
 
 static int table_dedup_cell(Table *t, TableCell *cell) {
+        _cleanup_free_ char *curl = NULL;
         TableData *nd, *od;
         size_t i;
 
@@ -394,9 +408,25 @@ static int table_dedup_cell(Table *t, TableCell *cell) {
 
         assert(od->n_ref > 1);
 
-        nd = table_data_new(od->type, od->data, od->minimum_width, od->maximum_width, od->weight, od->align_percent, od->ellipsize_percent);
+        if (od->url) {
+                curl = strdup(od->url);
+                if (!curl)
+                        return -ENOMEM;
+        }
+
+        nd = table_data_new(
+                        od->type,
+                        od->data,
+                        od->minimum_width,
+                        od->maximum_width,
+                        od->weight,
+                        od->align_percent,
+                        od->ellipsize_percent);
         if (!nd)
                 return -ENOMEM;
+
+        nd->color = od->color;
+        nd->url = TAKE_PTR(curl);
 
         table_data_unref(od);
         t->data[i] = nd;
@@ -524,6 +554,66 @@ int table_set_color(Table *t, TableCell *cell, const char *color) {
         return 0;
 }
 
+int table_set_url(Table *t, TableCell *cell, const char *url) {
+        _cleanup_free_ char *copy = NULL;
+        int r;
+
+        assert(t);
+        assert(cell);
+
+        if (url) {
+                copy = strdup(url);
+                if (!copy)
+                        return -ENOMEM;
+        }
+
+        r = table_dedup_cell(t, cell);
+        if (r < 0)
+                return r;
+
+        return free_and_replace(table_get_data(t, cell)->url, copy);
+}
+
+int table_update(Table *t, TableCell *cell, TableDataType type, const void *data) {
+        _cleanup_free_ char *curl = NULL;
+        TableData *nd, *od;
+        size_t i;
+
+        assert(t);
+        assert(cell);
+
+        i = TABLE_CELL_TO_INDEX(cell);
+        if (i >= t->n_cells)
+                return -ENXIO;
+
+        assert_se(od = t->data[i]);
+
+        if (od->url) {
+                curl = strdup(od->url);
+                if (!curl)
+                        return -ENOMEM;
+        }
+
+        nd = table_data_new(
+                        type,
+                        data,
+                        od->minimum_width,
+                        od->maximum_width,
+                        od->weight,
+                        od->align_percent,
+                        od->ellipsize_percent);
+        if (!nd)
+                return -ENOMEM;
+
+        nd->color = od->color;
+        nd->url = TAKE_PTR(curl);
+
+        table_data_unref(od);
+        t->data[i] = nd;
+
+        return 0;
+}
+
 int table_add_many_internal(Table *t, TableDataType first_type, ...) {
         TableDataType type;
         va_list ap;
@@ -542,6 +632,8 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         uint64_t size;
                         usec_t usec;
                         uint32_t uint32;
+                        uint64_t uint64;
+                        int percent;
                         bool b;
                 } buffer;
 
@@ -574,6 +666,16 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_UINT32:
                         buffer.uint32 = va_arg(ap, uint32_t);
                         data = &buffer.uint32;
+                        break;
+
+                case TABLE_UINT64:
+                        buffer.uint64 = va_arg(ap, uint64_t);
+                        data = &buffer.uint64;
+                        break;
+
+                case TABLE_PERCENT:
+                        buffer.percent = va_arg(ap, int);
+                        data = &buffer.percent;
                         break;
 
                 case _TABLE_DATA_TYPE_MAX:
@@ -699,6 +801,12 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_UINT32:
                         return CMP(a->uint32, b->uint32);
 
+                case TABLE_UINT64:
+                        return CMP(a->uint64, b->uint64);
+
+                case TABLE_PERCENT:
+                        return CMP(a->percent, b->percent);
+
                 default:
                         ;
                 }
@@ -732,7 +840,7 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
 
                 r = cell_data_compare(d, *a, dd, *b);
                 if (r != 0)
-                        return r;
+                        return t->reverse_map && t->reverse_map[t->sort_map[i]] ? -r : r;
         }
 
         /* Order identical lines by the order there were originally added in */
@@ -809,6 +917,30 @@ static const char *table_data_format(TableData *d) {
                 break;
         }
 
+        case TABLE_UINT64: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->uint64) + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%" PRIu64, d->uint64);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_PERCENT: {
+                _cleanup_free_ char *p;
+
+                p = new(char, DECIMAL_STR_WIDTH(d->percent) + 2);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "%i%%" , d->percent);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
         default:
                 assert_not_reached("Unexpected type?");
         }
@@ -838,11 +970,13 @@ static int table_data_requested_width(TableData *d, size_t *ret) {
         return 0;
 }
 
-static char *align_string_mem(const char *str, size_t new_length, unsigned percent) {
-        size_t w = 0, space, lspace, old_length;
+static char *align_string_mem(const char *str, const char *url, size_t new_length, unsigned percent) {
+        size_t w = 0, space, lspace, old_length, clickable_length;
+        _cleanup_free_ char *clickable = NULL;
         const char *p;
         char *ret;
         size_t i;
+        int r;
 
         /* As with ellipsize_mem(), 'old_length' is a byte size while 'new_length' is a width in character cells */
 
@@ -850,6 +984,15 @@ static char *align_string_mem(const char *str, size_t new_length, unsigned perce
         assert(percent <= 100);
 
         old_length = strlen(str);
+
+        if (url) {
+                r = terminal_urlify(url, str, &clickable);
+                if (r < 0)
+                        return NULL;
+
+                clickable_length = strlen(clickable);
+        } else
+                clickable_length = old_length;
 
         /* Determine current width on screen */
         p = str;
@@ -867,23 +1010,23 @@ static char *align_string_mem(const char *str, size_t new_length, unsigned perce
 
         /* Already wider than the target, if so, don't do anything */
         if (w >= new_length)
-                return strndup(str, old_length);
+                return clickable ? TAKE_PTR(clickable) : strdup(str);
 
         /* How much spaces shall we add? An how much on the left side? */
         space = new_length - w;
         lspace = space * percent / 100U;
 
-        ret = new(char, space + old_length + 1);
+        ret = new(char, space + clickable_length + 1);
         if (!ret)
                 return NULL;
 
         for (i = 0; i < lspace; i++)
                 ret[i] = ' ';
-        memcpy(ret + lspace, str, old_length);
-        for (i = lspace + old_length; i < space + old_length; i++)
+        memcpy(ret + lspace, clickable ?: str, clickable_length);
+        for (i = lspace + clickable_length; i < space + clickable_length; i++)
                 ret[i] = ' ';
 
-        ret[space + old_length] = 0;
+        ret[space + clickable_length] = 0;
         return ret;
 }
 
@@ -1136,23 +1279,41 @@ int table_print(Table *t, FILE *f) {
                         } else if (l < width[j]) {
                                 /* Field is shorter than allocated space. Let's align with spaces */
 
-                                buffer = align_string_mem(field, width[j], d->align_percent);
+                                buffer = align_string_mem(field, d->url, width[j], d->align_percent);
                                 if (!buffer)
                                         return -ENOMEM;
 
                                 field = buffer;
                         }
 
+                        if (l >= width[j] && d->url) {
+                                _cleanup_free_ char *clickable = NULL;
+
+                                r = terminal_urlify(d->url, field, &clickable);
+                                if (r < 0)
+                                        return r;
+
+                                free_and_replace(buffer, clickable);
+                                field = buffer;
+                        }
+
+                        if (row == t->data) /* underline header line fully, including the column separator */
+                                fputs(ansi_underline(), f);
+
                         if (j > 0)
                                 fputc(' ', f); /* column separator */
 
-                        if (d->color)
+                        if (d->color && colors_enabled()) {
+                                if (row == t->data) /* first undo header underliner */
+                                        fputs(ANSI_NORMAL, f);
+
                                 fputs(d->color, f);
+                        }
 
                         fputs(field, f);
 
-                        if (d->color)
-                                fputs(ansi_normal(), f);
+                        if (colors_enabled() && (d->color || row == t->data))
+                                fputs(ANSI_NORMAL, f);
                 }
 
                 fputc('\n', f);
@@ -1198,4 +1359,58 @@ size_t table_get_columns(Table *t) {
 
         assert(t->n_columns > 0);
         return t->n_columns;
+}
+
+int table_set_reverse(Table *t, size_t column, bool b) {
+        assert(t);
+        assert(column < t->n_columns);
+
+        if (!t->reverse_map) {
+                if (!b)
+                        return 0;
+
+                t->reverse_map = new0(bool, t->n_columns);
+                if (!t->reverse_map)
+                        return -ENOMEM;
+        }
+
+        t->reverse_map[column] = b;
+        return 0;
+}
+
+TableCell *table_get_cell(Table *t, size_t row, size_t column) {
+        size_t i;
+
+        assert(t);
+
+        if (column >= t->n_columns)
+                return NULL;
+
+        i = row * t->n_columns + column;
+        if (i >= t->n_cells)
+                return NULL;
+
+        return TABLE_INDEX_TO_CELL(i);
+}
+
+const void *table_get(Table *t, TableCell *cell) {
+        TableData *d;
+
+        assert(t);
+
+        d = table_get_data(t, cell);
+        if (!d)
+                return NULL;
+
+        return d->data;
+}
+
+const void* table_get_at(Table *t, size_t row, size_t column) {
+        TableCell *cell;
+
+        cell = table_get_cell(t, row, column);
+        if (!cell)
+                return NULL;
+
+        return table_get(t, cell);
 }

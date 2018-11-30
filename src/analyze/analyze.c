@@ -12,14 +12,15 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "analyze-security.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "calendarspec.h"
-#include "def.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "glob-util.h"
@@ -169,7 +170,7 @@ static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *in
                         't', val);
 
         if (r < 0)
-                return log_error_errno(r, "Failed to parse reply: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Failed to parse reply: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -192,7 +193,7 @@ static int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char 
                         &error,
                         strv);
         if (r < 0)
-                return log_error_errno(r, "Failed to get unit property %s: %s", property, bus_error_message(&error, -r));
+                return log_error_errno(r, "Failed to get unit property %s: %s", property, bus_error_message(&error, r));
 
         return 0;
 }
@@ -355,7 +356,7 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                         &error, &reply,
                         NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
         if (r < 0)
@@ -978,7 +979,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
                         &reply,
                         "s");
         if (r < 0)
-                return log_error_errno(r, "Failed to get ID: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Failed to get ID: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "s", &id);
         if (r < 0)
@@ -1238,7 +1239,7 @@ static int dot(int argc, char *argv[], void *userdata) {
                        &reply,
                        "");
         if (r < 0)
-                log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, -r));
+                log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
         if (r < 0)
@@ -1340,15 +1341,16 @@ static int dump(int argc, char *argv[], void *userdata) {
 }
 
 static int cat_config(int argc, char *argv[], void *userdata) {
-        char **arg;
+        char **arg, **list;
         int r;
 
         (void) pager_open(arg_pager_flags);
 
-        STRV_FOREACH(arg, argv + 1) {
+        list = strv_skip(argv, 1);
+        STRV_FOREACH(arg, list) {
                 const char *t = NULL;
 
-                if (arg != argv + 1)
+                if (arg != list)
                         print_separator();
 
                 if (path_is_absolute(*arg)) {
@@ -1783,6 +1785,19 @@ static int do_verify(int argc, char *argv[], void *userdata) {
         return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
 }
 
+static int do_security(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
+
+        (void) pager_open(arg_pager_flags);
+
+        return analyze_security(bus, strv_skip(argv, 1), 0);
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1827,6 +1842,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  calendar SPEC...         Validate repetitive calendar time events\n"
                "  service-watchdogs [BOOL] Get/set service watchdog state\n"
                "  timespan SPAN...         Validate a time span\n"
+               "  security [UNIT...]       Analyze security of unit\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -2014,6 +2030,7 @@ static int run(int argc, char *argv[]) {
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
                 { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
                 { "timespan",          2,        VERB_ANY, 0,            dump_timespan          },
+                { "security",          VERB_ANY, VERB_ANY, 0,            do_security            },
                 {}
         };
 
