@@ -57,13 +57,10 @@
 #include "user-util.h"
 #include "web-util.h"
 
-static int socket_protocol_from_string(const char *s) {
+static int parse_socket_protocol(const char *s) {
         int r;
 
-        if (isempty(s))
-                return IPPROTO_IP;
-
-        r = ip_protocol_from_name(s);
+        r = parse_ip_protocol(s);
         if (r < 0)
                 return r;
         if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP))
@@ -72,7 +69,7 @@ static int socket_protocol_from_string(const char *s) {
         return r;
 }
 
-DEFINE_CONFIG_PARSE(config_parse_socket_protocol, socket_protocol_from_string, "Failed to parse socket protocol");
+DEFINE_CONFIG_PARSE(config_parse_socket_protocol, parse_socket_protocol, "Failed to parse socket protocol");
 DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string, "Failed to parse secure bits");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode, "Failed to parse garbage collection mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");

@@ -103,7 +103,7 @@ DEFINE_BUS_APPEND_PARSE("i", parse_errno);
 DEFINE_BUS_APPEND_PARSE("i", sched_policy_from_string);
 DEFINE_BUS_APPEND_PARSE("i", secure_bits_from_string);
 DEFINE_BUS_APPEND_PARSE("i", signal_from_string);
-DEFINE_BUS_APPEND_PARSE("i", ip_protocol_from_name);
+DEFINE_BUS_APPEND_PARSE("i", parse_ip_protocol);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, ioprio_parse_priority);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, parse_nice);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, safe_atoi);
@@ -1466,7 +1466,7 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
 
         if (streq(field, "SocketProtocol"))
 
-                return bus_append_ip_protocol_from_name(m, field, eq);
+                return bus_append_parse_ip_protocol(m, field, eq);
 
         if (STR_IN_SET(field,
                        "ListenStream", "ListenDatagram", "ListenSequentialPacket", "ListenNetlink",
