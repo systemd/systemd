@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        test_path = path_join(NULL, get_testdata_dir(), "test-path");
+        test_path = path_join(get_testdata_dir(), "test-path");
         assert_se(set_unit_path(test_path) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 

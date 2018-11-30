@@ -200,10 +200,10 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 return log_device_debug_errno(dev, r, "Failed to get id_filename: %m");
 
         util_path_encode(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
-        dirname = path_join(NULL, "/run/udev/links/", name_enc);
+        dirname = path_join("/run/udev/links/", name_enc);
         if (!dirname)
                 return log_oom();
-        filename = path_join(NULL, dirname, id_filename);
+        filename = path_join(dirname, id_filename);
         if (!filename)
                 return log_oom();
 

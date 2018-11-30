@@ -16,7 +16,7 @@ static void test_mount_points_list(const char *fname) {
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/self/mountinfo");
 
         if (fname)
-                fname = testdata_fname = path_join(NULL, get_testdata_dir(), fname);
+                fname = testdata_fname = path_join(get_testdata_dir(), fname);
 
         LIST_HEAD_INIT(mp_list_head);
         assert_se(mount_points_list_get(fname, &mp_list_head) >= 0);
@@ -38,7 +38,7 @@ static void test_swap_list(const char *fname) {
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/swaps");
 
         if (fname)
-                fname = testdata_fname = path_join(NULL, get_testdata_dir(), fname);
+                fname = testdata_fname = path_join(get_testdata_dir(), fname);
 
         LIST_HEAD_INIT(mp_list_head);
         assert_se(swap_list_get(fname, &mp_list_head) >= 0);

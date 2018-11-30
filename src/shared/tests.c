@@ -46,7 +46,7 @@ static void load_testdata_env(void) {
         assert_se(readlink_and_make_absolute("/proc/self/exe", &s) >= 0);
         dirname(s);
 
-        envpath = path_join(NULL, s, "systemd-runtest.env");
+        envpath = path_join(s, "systemd-runtest.env");
         if (load_env_file_pairs(NULL, envpath, &pairs) < 0)
                 return;
 

@@ -633,7 +633,7 @@ int udev_event_spawn(struct udev_event *event,
         if (!path_is_absolute(argv[0])) {
                 char *program;
 
-                program = path_join(NULL, UDEVLIBEXECDIR, argv[0]);
+                program = path_join(UDEVLIBEXECDIR, argv[0]);
                 if (!program)
                         return log_oom();
 

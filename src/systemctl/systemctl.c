@@ -2425,7 +2425,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **re
                 _cleanup_free_ char *path = NULL, *lpath = NULL;
                 int r;
 
-                path = path_join(NULL, *p, unit_name);
+                path = path_join(*p, unit_name);
                 if (!path)
                         return log_oom();
 
@@ -3516,9 +3516,9 @@ static int load_kexec_kernel(void) {
                 return -EINVAL;
         }
 
-        kernel = path_join(NULL, where, e->kernel);
+        kernel = path_join(where, e->kernel);
         if (!strv_isempty(e->initrd))
-                initrd = path_join(NULL, where, *e->initrd);
+                initrd = path_join(where, *e->initrd);
         options = strv_join(e->options, " ");
         if (!options)
                 return log_oom();

@@ -1844,7 +1844,7 @@ static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
                         else {
                                 _cleanup_free_ char *de_path = NULL;
 
-                                de_path = path_join(NULL, path, de->d_name);
+                                de_path = path_join(path, de->d_name);
                                 if (!de_path)
                                         q = log_oom();
                                 else

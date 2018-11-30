@@ -110,7 +110,7 @@ int path_make_absolute_cwd(const char *p, char **ret) {
                 if (r < 0)
                         return r;
 
-                c = path_join(NULL, cwd, p);
+                c = path_join(cwd, p);
         }
         if (!c)
                 return -ENOMEM;
@@ -481,44 +481,39 @@ bool path_equal_or_files_same(const char *a, const char *b, int flags) {
         return path_equal(a, b) || files_same(a, b, flags) > 0;
 }
 
-char* path_join_many_internal(const char *first, ...) {
+char* path_join_internal(const char *first, ...) {
         char *joined, *q;
         const char *p;
         va_list ap;
         bool slash;
         size_t sz;
 
-        assert(first);
-
-        /* Joins all listed strings until NULL and places an "/" between them unless the strings end/begin already with
-         * one so that it is unnecessary. Note that "/" which are already duplicate won't be removed. The string
-         * returned is hence always equal or longer than the sum of the lengths of each individual string.
+        /* Joins all listed strings until the sentinel and places a "/" between them unless the strings end/begin
+         * already with one so that it is unnecessary. Note that slashes which are already duplicate won't be
+         * removed. The string returned is hence always equal to or longer than the sum of the lengths of each
+         * individual string.
          *
          * Note: any listed empty string is simply skipped. This can be useful for concatenating strings of which some
          * are optional.
          *
          * Examples:
          *
-         * path_join_many("foo", "bar") → "foo/bar"
-         * path_join_many("foo/", "bar") → "foo/bar"
-         * path_join_many("", "foo", "", "bar", "") → "foo/bar" */
+         * path_join("foo", "bar") → "foo/bar"
+         * path_join("foo/", "bar") → "foo/bar"
+         * path_join("", "foo", "", "bar", "") → "foo/bar" */
 
-        sz = strlen(first);
+        sz = strlen_ptr(first);
         va_start(ap, first);
-        while ((p = va_arg(ap, char*))) {
-
-                if (*p == 0) /* Skip empty items */
-                        continue;
-
-                sz += 1 + strlen(p);
-        }
+        while ((p = va_arg(ap, char*)) != (const char*) -1)
+                if (!isempty(p))
+                        sz += 1 + strlen(p);
         va_end(ap);
 
         joined = new(char, sz + 1);
         if (!joined)
                 return NULL;
 
-        if (first[0] != 0) {
+        if (!isempty(first)) {
                 q = stpcpy(joined, first);
                 slash = endswith(first, "/");
         } else {
@@ -529,9 +524,8 @@ char* path_join_many_internal(const char *first, ...) {
         }
 
         va_start(ap, first);
-        while ((p = va_arg(ap, char*))) {
-
-                if (*p == 0) /* Skip empty items */
+        while ((p = va_arg(ap, char*)) != (const char*) -1) {
+                if (isempty(p))
                         continue;
 
                 if (!slash && p[0] != '/')
