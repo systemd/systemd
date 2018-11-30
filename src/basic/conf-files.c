@@ -189,11 +189,12 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
          * - do nothing if our new entry matches the existing entry,
          * - replace the existing entry if our new entry has higher priority.
          */
-        size_t i;
+        size_t i, n;
         char *t;
         int r;
 
-        for (i = 0; i < strv_length(*strv); i++) {
+        n = strv_length(*strv);
+        for (i = 0; i < n; i++) {
                 int c;
 
                 c = base_cmp((char* const*) *strv + i, (char* const*) &path);
