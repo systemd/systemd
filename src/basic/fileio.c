@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -14,7 +15,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "ctype.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
