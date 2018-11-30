@@ -71,8 +71,6 @@ int read_timestamp_file(const char *fn, usec_t *ret);
 
 int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space);
 
-int open_serialization_fd(const char *ident);
-
 int read_nul_string(FILE *f, char **ret);
 
 int read_line(FILE *f, size_t limit, char **ret);
