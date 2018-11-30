@@ -114,7 +114,7 @@ FILE* safe_fclose(FILE *f) {
         if (f) {
                 PROTECT_ERRNO;
 
-                assert_se(fclose_nointr(f) != EBADF);
+                assert_se(fclose_nointr(f) != -EBADF);
         }
 
         return NULL;
