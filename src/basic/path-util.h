@@ -49,8 +49,8 @@ char* path_startswith(const char *path, const char *prefix) _pure_;
 int path_compare(const char *a, const char *b) _pure_;
 bool path_equal(const char *a, const char *b) _pure_;
 bool path_equal_or_files_same(const char *a, const char *b, int flags);
-char* path_join_internal(const char *first, ...) _sentinel_;
-#define path_join(x, ...) path_join_internal(x, __VA_ARGS__, NULL)
+char* path_join_internal(const char *first, ...);
+#define path_join(x, ...) path_join_internal(x, __VA_ARGS__, (const char*) -1)
 
 char* path_simplify(char *path, bool kill_dots);
 

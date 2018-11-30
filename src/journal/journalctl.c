@@ -2110,7 +2110,7 @@ int main(int argc, char *argv[]) {
         case ACTION_UPDATE_CATALOG: {
                 _cleanup_free_ char *database;
 
-                database = path_join(strempty(arg_root), CATALOG_DATABASE);
+                database = path_join(arg_root, CATALOG_DATABASE);
                 if (!database) {
                         r = log_oom();
                         goto finish;

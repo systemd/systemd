@@ -251,10 +251,19 @@ static void test_path_join(void) {
         test_join("/c",     "", "/", "c");
         test_join("/",      "", "/", NULL);
 
+        test_join("/a/b/c", NULL, "/a/b", "/c");
+        test_join("a/b/c",  NULL, "a/b", "c");
+        test_join("/a/b/c", NULL, "/a/b", "c");
+        test_join("/c",     NULL, "/", "c");
+        test_join("/",      NULL, "/", NULL);
+
         test_join("", "", NULL);
+        test_join("", NULL, "");
+        test_join("", NULL, NULL);
 
         test_join("foo/bar", "foo", "bar");
         test_join("foo/bar", "", "foo", "bar");
+        test_join("foo/bar", NULL, "foo", NULL, "bar");
         test_join("foo/bar", "", "foo", "", "bar", "");
         test_join("foo/bar", "", "", "", "", "foo", "", "", "", "bar", "", "", "");
 

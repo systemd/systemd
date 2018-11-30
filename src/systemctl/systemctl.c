@@ -5975,7 +5975,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (found_native && streq(verb, "is-enabled"))
                         continue;
 
-                p = path_join(strempty(arg_root), SYSTEM_SYSVINIT_PATH, name);
+                p = path_join(arg_root, SYSTEM_SYSVINIT_PATH, name);
                 if (!p)
                         return log_oom();
 
