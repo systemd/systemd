@@ -503,6 +503,10 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         if (!p)
                 return -EINVAL;
 
+        /* Refuse prefixes that don't have a prefix set */
+        if (IN6_IS_ADDR_UNSPECIFIED(&p->opt.in6_addr))
+                return -ENOEXEC;
+
         LIST_FOREACH(prefix, cur, ra->prefixes) {
 
                 r = in_addr_prefix_intersect(AF_INET6,

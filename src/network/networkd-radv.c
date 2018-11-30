@@ -494,9 +494,16 @@ int radv_configure(Link *link) {
         if (IN_SET(link->network->router_prefix_delegation,
                    RADV_PREFIX_DELEGATION_STATIC,
                    RADV_PREFIX_DELEGATION_BOTH)) {
+
                 LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
                         r = sd_radv_add_prefix(link->radv, p->radv_prefix, false);
-                        if (r != -EEXIST && r < 0)
+                        if (r == -EEXIST)
+                                continue;
+                        if (r == -ENOEXEC) {
+                                log_link_warning_errno(link, r, "[IPv6Prefix] section configured without Prefix= setting, ignoring section.");
+                                continue;
+                        }
+                        if (r < 0)
                                 return r;
                 }
         }
