@@ -57,8 +57,8 @@ available functionality:
     automatically enable a git commit hook that ensures whitespace cleanliness.
 
 14. [LGTM](https://lgtm.com/) analyzes every commit pushed to master. The list
-    of active alerts can be found at
-    https://lgtm.com/projects/g/systemd/systemd/alerts/?mode=list.
+    of active alerts can be found
+    [here](https://lgtm.com/projects/g/systemd/systemd/alerts/?mode=list).
 
 Access to Coverity and oss-fuzz reports is limited. Please reach out to the
 maintainers if you need access.
