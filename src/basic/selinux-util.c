@@ -366,11 +366,9 @@ int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode)
                 if (r < 0)
                         return r;
 
-                abspath = path_join(NULL, p, path);
-                if (!abspath)
+                path = abspath = path_join_many(p, path);
+                if (!path)
                         return -ENOMEM;
-
-                path = abspath;
         }
 
         r = selinux_create_file_prepare_abspath(path, mode);

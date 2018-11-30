@@ -781,7 +781,7 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("cgroupfs not available");
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
-        test_execute_path = path_join(NULL, get_testdata_dir(), "test-execute");
+        test_execute_path = path_join_many(get_testdata_dir(), "test-execute");
         assert_se(set_unit_path(test_execute_path) >= 0);
 
         /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test

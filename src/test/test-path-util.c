@@ -234,7 +234,7 @@ static void test_path_join(void) {
 
 #define test_join(root, path, rest, expected) {  \
                 _cleanup_free_ char *z = NULL;   \
-                z = path_join(root, path, rest); \
+                z = path_join_many(strempty(root), path, rest); \
                 assert_se(streq(z, expected));   \
         }
 

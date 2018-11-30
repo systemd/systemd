@@ -217,7 +217,7 @@ int conf_files_cat(const char *root, const char *name) {
         if (r < 0)
                 return log_error_errno(r, "Failed to query file list: %m");
 
-        path = path_join(root, "/etc", name);
+        path = path_join_many(strempty(root), "/etc", name);
         if (!path)
                 return log_oom();
 

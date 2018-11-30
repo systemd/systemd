@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
                 N = argc - 1;
                 fnames = argv + 1;
         } else {
-                pkts_glob = path_join(NULL, get_testdata_dir(), "test-resolve/*.pkts");
+                pkts_glob = path_join_many(get_testdata_dir(), "test-resolve/*.pkts");
                 assert_se(glob(pkts_glob, GLOB_NOSORT, NULL, &g) == 0);
                 N = g.gl_pathc;
                 fnames = g.gl_pathv;

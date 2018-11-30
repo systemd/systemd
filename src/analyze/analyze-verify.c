@@ -43,10 +43,7 @@ static int prepare_filename(const char *filename, char **ret) {
         if (!dir)
                 return -ENOMEM;
 
-        if (with_instance)
-                c = path_join(NULL, dir, with_instance);
-        else
-                c = path_join(NULL, dir, name);
+        c = path_join_many(dir, with_instance ?: name);
         if (!c)
                 return -ENOMEM;
 

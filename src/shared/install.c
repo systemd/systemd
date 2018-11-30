@@ -1464,7 +1464,7 @@ static int unit_file_search(
         STRV_FOREACH(p, paths->search_path) {
                 char *path;
 
-                path = path_join(NULL, *p, dropin_dir_name);
+                path = path_join_many(*p, dropin_dir_name);
                 if (!path)
                         return -ENOMEM;
 
@@ -1478,7 +1478,7 @@ static int unit_file_search(
                 STRV_FOREACH(p, paths->search_path) {
                         char *path;
 
-                        path = path_join(NULL, *p, dropin_template_dir_name);
+                        path = path_join_many(*p, dropin_template_dir_name);
                         if (!path)
                                 return -ENOMEM;
 
