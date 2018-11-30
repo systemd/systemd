@@ -39,7 +39,7 @@ int socket_address_listen(
 
         assert(a);
 
-        r = socket_address_verify(a);
+        r = socket_address_verify(a, true);
         if (r < 0)
                 return r;
 

@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -62,6 +63,9 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
         }
 }
 
+#define SUN_PATH_LEN (sizeof(((struct sockaddr_un){}).sun_path))
+assert_cc(sizeof(((struct sockaddr_un){}).sun_path) == 108);
+
 static void test_socket_address_parse(void) {
         log_info("/* %s */", __func__);
 
@@ -95,13 +99,60 @@ static void test_socket_address_parse(void) {
         test_socket_address_parse_one("[::1]:8888", 0, AF_INET6, NULL);
         test_socket_address_parse_one("192.168.1.254:8888", 0, AF_INET, NULL);
         test_socket_address_parse_one("/foo/bar", 0, AF_UNIX, NULL);
+        test_socket_address_parse_one("/", 0, AF_UNIX, NULL);
         test_socket_address_parse_one("@abstract", 0, AF_UNIX, NULL);
+
+        {
+                char aaa[SUN_PATH_LEN + 1] = "@";
+
+                memset(aaa + 1, 'a', SUN_PATH_LEN - 1);
+                char_array_0(aaa);
+
+                test_socket_address_parse_one(aaa, -EINVAL, 0, NULL);
+
+                aaa[SUN_PATH_LEN - 1] = '\0';
+                test_socket_address_parse_one(aaa, 0, AF_UNIX, NULL);
+        }
 
         test_socket_address_parse_one("vsock:2:1234", 0, AF_VSOCK, NULL);
         test_socket_address_parse_one("vsock::1234", 0, AF_VSOCK, NULL);
         test_socket_address_parse_one("vsock:2:1234x", -EINVAL, 0, NULL);
         test_socket_address_parse_one("vsock:2x:1234", -EINVAL, 0, NULL);
         test_socket_address_parse_one("vsock:2", -EINVAL, 0, NULL);
+}
+
+static void test_socket_print_unix_one(const char *in, size_t len_in, const char *expected) {
+        _cleanup_free_ char *out = NULL, *c = NULL;
+
+        SocketAddress a = { .sockaddr = { .un = { .sun_family = AF_UNIX } },
+                            .size = offsetof(struct sockaddr_un, sun_path) + len_in,
+                            .type = SOCK_STREAM,
+        };
+        memcpy(a.sockaddr.un.sun_path, in, len_in);
+
+        assert_se(socket_address_print(&a, &out) >= 0);
+        assert_se(c = cescape(in));
+        log_info("\"%s\" → \"%s\" (expect \"%s\")", in, out, expected);
+        assert_se(streq(out, expected));
+}
+
+static void test_socket_print_unix(void) {
+        log_info("/* %s */", __func__);
+
+        /* Some additional tests for abstract addresses which we don't parse */
+
+        test_socket_print_unix_one("\0\0\0\0", 4, "@\\000\\000\\000");
+        test_socket_print_unix_one("@abs", 5, "@abs");
+        test_socket_print_unix_one("\n", 2, "\\n");
+        test_socket_print_unix_one("", 1, "<unnamed>");
+        test_socket_print_unix_one("\0", 1, "<unnamed>");
+        test_socket_print_unix_one("\0_________________________there's 108 characters in this string_____________________________________________", 108,
+                                   "@_________________________there\\'s 108 characters in this string_____________________________________________");
+        test_socket_print_unix_one("////////////////////////////////////////////////////////////////////////////////////////////////////////////", 108,
+                                   "////////////////////////////////////////////////////////////////////////////////////////////////////////////");
+        test_socket_print_unix_one("////////////////////////////////////////////////////////////////////////////////////////////////////////////", 109,
+                                   "////////////////////////////////////////////////////////////////////////////////////////////////////////////");
+        test_socket_print_unix_one("\0\a\b\n\255", 6, "@\\a\\b\\n\\255\\000");
 }
 
 static void test_socket_address_parse_netlink(void) {
@@ -748,6 +799,7 @@ int main(int argc, char *argv[]) {
         test_ifname_valid();
 
         test_socket_address_parse();
+        test_socket_print_unix();
         test_socket_address_parse_netlink();
         test_socket_address_equal();
         test_socket_address_get_path();
