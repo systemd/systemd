@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -20,6 +21,8 @@
 #include "tests.h"
 
 static void test_ifname_valid(void) {
+        log_info("/* %s */", __func__);
+
         assert(ifname_valid("foo"));
         assert(ifname_valid("eth0"));
 
@@ -42,60 +45,120 @@ static void test_ifname_valid(void) {
         assert(!ifname_valid("xxxxxxxxxxxxxxxx"));
 }
 
-static void test_socket_address_parse(void) {
+static void test_socket_address_parse_one(const char *in, int ret, int family, const char *expected) {
         SocketAddress a;
+        _cleanup_free_ char *out = NULL;
+        int r;
 
-        assert_se(socket_address_parse(&a, "junk") < 0);
-        assert_se(socket_address_parse(&a, "192.168.1.1") < 0);
-        assert_se(socket_address_parse(&a, ".168.1.1") < 0);
-        assert_se(socket_address_parse(&a, "989.168.1.1") < 0);
-        assert_se(socket_address_parse(&a, "192.168.1.1:65536") < 0);
-        assert_se(socket_address_parse(&a, "192.168.1.1:0") < 0);
-        assert_se(socket_address_parse(&a, "0") < 0);
-        assert_se(socket_address_parse(&a, "65536") < 0);
+        r = socket_address_parse(&a, in);
+        if (r >= 0)
+                assert_se(socket_address_print(&a, &out) >= 0);
 
-        assert_se(socket_address_parse(&a, "65535") >= 0);
+        log_info("\"%s\" → %s → \"%s\" (expect \"%s\")", in,
+                 r >= 0 ? "✓" : "✗", empty_to_dash(out), r >= 0 ? expected ?: in : "-");
+        assert_se(r == ret);
+        if (r >= 0) {
+                assert_se(a.sockaddr.sa.sa_family == family);
+                assert_se(streq(out, expected ?: in));
+        }
+}
+
+#define SUN_PATH_LEN (sizeof(((struct sockaddr_un){}).sun_path))
+assert_cc(sizeof(((struct sockaddr_un){}).sun_path) == 108);
+
+static void test_socket_address_parse(void) {
+        log_info("/* %s */", __func__);
+
+        test_socket_address_parse_one("junk", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("192.168.1.1", -EINVAL, 0, NULL);
+        test_socket_address_parse_one(".168.1.1", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("989.168.1.1", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("192.168.1.1:65536", -ERANGE, 0, NULL);
+        test_socket_address_parse_one("192.168.1.1:0", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("0", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("65536", -ERANGE, 0, NULL);
+
+        const int default_family = socket_ipv6_is_supported() ? AF_INET6 : AF_INET;
+
+        test_socket_address_parse_one("65535", 0, default_family, "[::]:65535");
 
         /* The checks below will pass even if ipv6 is disabled in
          * kernel. The underlying glibc's inet_pton() is just a string
          * parser and doesn't make any syscalls. */
 
-        assert_se(socket_address_parse(&a, "[::1]") < 0);
-        assert_se(socket_address_parse(&a, "[::1]8888") < 0);
-        assert_se(socket_address_parse(&a, "::1") < 0);
-        assert_se(socket_address_parse(&a, "[::1]:0") < 0);
-        assert_se(socket_address_parse(&a, "[::1]:65536") < 0);
-        assert_se(socket_address_parse(&a, "[a:b:1]:8888") < 0);
+        test_socket_address_parse_one("[::1]", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("[::1]8888", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("::1", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("[::1]:0", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("[::1]:65536", -ERANGE, 0, NULL);
+        test_socket_address_parse_one("[a:b:1]:8888", -EINVAL, 0, NULL);
 
-        assert_se(socket_address_parse(&a, "8888") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == (socket_ipv6_is_supported() ? AF_INET6 : AF_INET));
+        test_socket_address_parse_one("8888", 0, default_family, "[::]:8888");
+        test_socket_address_parse_one("[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888", 0, AF_INET6,
+                                      "[2001:db8:0:85a3::ac1f:8001]:8888");
+        test_socket_address_parse_one("[::1]:8888", 0, AF_INET6, NULL);
+        test_socket_address_parse_one("192.168.1.254:8888", 0, AF_INET, NULL);
+        test_socket_address_parse_one("/foo/bar", 0, AF_UNIX, NULL);
+        test_socket_address_parse_one("/", 0, AF_UNIX, NULL);
+        test_socket_address_parse_one("@abstract", 0, AF_UNIX, NULL);
 
-        assert_se(socket_address_parse(&a, "[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == AF_INET6);
+        {
+                char aaa[SUN_PATH_LEN + 1] = "@";
 
-        assert_se(socket_address_parse(&a, "[::1]:8888") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == AF_INET6);
+                memset(aaa + 1, 'a', SUN_PATH_LEN - 1);
+                char_array_0(aaa);
 
-        assert_se(socket_address_parse(&a, "192.168.1.254:8888") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == AF_INET);
+                test_socket_address_parse_one(aaa, -EINVAL, 0, NULL);
 
-        assert_se(socket_address_parse(&a, "/foo/bar") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == AF_UNIX);
+                aaa[SUN_PATH_LEN - 1] = '\0';
+                test_socket_address_parse_one(aaa, 0, AF_UNIX, NULL);
+        }
 
-        assert_se(socket_address_parse(&a, "@abstract") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == AF_UNIX);
+        test_socket_address_parse_one("vsock:2:1234", 0, AF_VSOCK, NULL);
+        test_socket_address_parse_one("vsock::1234", 0, AF_VSOCK, NULL);
+        test_socket_address_parse_one("vsock:2:1234x", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("vsock:2x:1234", -EINVAL, 0, NULL);
+        test_socket_address_parse_one("vsock:2", -EINVAL, 0, NULL);
+}
 
-        assert_se(socket_address_parse(&a, "vsock::1234") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == AF_VSOCK);
-        assert_se(socket_address_parse(&a, "vsock:2:1234") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == AF_VSOCK);
-        assert_se(socket_address_parse(&a, "vsock:2:1234x") < 0);
-        assert_se(socket_address_parse(&a, "vsock:2x:1234") < 0);
-        assert_se(socket_address_parse(&a, "vsock:2") < 0);
+static void test_socket_print_unix_one(const char *in, size_t len_in, const char *expected) {
+        _cleanup_free_ char *out = NULL, *c = NULL;
+
+        SocketAddress a = { .sockaddr = { .un = { .sun_family = AF_UNIX } },
+                            .size = offsetof(struct sockaddr_un, sun_path) + len_in,
+                            .type = SOCK_STREAM,
+        };
+        memcpy(a.sockaddr.un.sun_path, in, len_in);
+
+        assert_se(socket_address_print(&a, &out) >= 0);
+        assert_se(c = cescape(in));
+        log_info("\"%s\" → \"%s\" (expect \"%s\")", in, out, expected);
+        assert_se(streq(out, expected));
+}
+
+static void test_socket_print_unix(void) {
+        log_info("/* %s */", __func__);
+
+        /* Some additional tests for abstract addresses which we don't parse */
+
+        test_socket_print_unix_one("\0\0\0\0", 4, "@\\000\\000\\000");
+        test_socket_print_unix_one("@abs", 5, "@abs");
+        test_socket_print_unix_one("\n", 2, "\\n");
+        test_socket_print_unix_one("", 1, "<unnamed>");
+        test_socket_print_unix_one("\0", 1, "<unnamed>");
+        test_socket_print_unix_one("\0_________________________there's 108 characters in this string_____________________________________________", 108,
+                                   "@_________________________there\\'s 108 characters in this string_____________________________________________");
+        test_socket_print_unix_one("////////////////////////////////////////////////////////////////////////////////////////////////////////////", 108,
+                                   "////////////////////////////////////////////////////////////////////////////////////////////////////////////");
+        test_socket_print_unix_one("////////////////////////////////////////////////////////////////////////////////////////////////////////////", 109,
+                                   "////////////////////////////////////////////////////////////////////////////////////////////////////////////");
+        test_socket_print_unix_one("\0\a\b\n\255", 6, "@\\a\\b\\n\\255\\000");
 }
 
 static void test_socket_address_parse_netlink(void) {
         SocketAddress a;
+
+        log_info("/* %s */", __func__);
 
         assert_se(socket_address_parse_netlink(&a, "junk") < 0);
         assert_se(socket_address_parse_netlink(&a, "") < 0);
@@ -120,8 +183,9 @@ static void test_socket_address_parse_netlink(void) {
 }
 
 static void test_socket_address_equal(void) {
-        SocketAddress a;
-        SocketAddress b;
+        SocketAddress a, b;
+
+        log_info("/* %s */", __func__);
 
         assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
         assert_se(socket_address_parse(&b, "192.168.1.1:888") >= 0);
@@ -171,6 +235,8 @@ static void test_socket_address_equal(void) {
 static void test_socket_address_get_path(void) {
         SocketAddress a;
 
+        log_info("/* %s */", __func__);
+
         assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
         assert_se(!socket_address_get_path(&a));
 
@@ -190,6 +256,8 @@ static void test_socket_address_get_path(void) {
 static void test_socket_address_is(void) {
         SocketAddress a;
 
+        log_info("/* %s */", __func__);
+
         assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
         assert_se(socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
         assert_se(!socket_address_is(&a, "route", SOCK_STREAM));
@@ -199,6 +267,8 @@ static void test_socket_address_is(void) {
 static void test_socket_address_is_netlink(void) {
         SocketAddress a;
 
+        log_info("/* %s */", __func__);
+
         assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
         assert_se(socket_address_is_netlink(&a, "route 10"));
         assert_se(!socket_address_is_netlink(&a, "192.168.1.1:8888"));
@@ -206,8 +276,9 @@ static void test_socket_address_is_netlink(void) {
 }
 
 static void test_in_addr_is_null(void) {
-
         union in_addr_union i = {};
+
+        log_info("/* %s */", __func__);
 
         assert_se(in_addr_is_null(AF_INET, &i) == true);
         assert_se(in_addr_is_null(AF_INET6, &i) == true);
@@ -229,6 +300,7 @@ static void test_in_addr_prefix_intersect_one(unsigned f, const char *a, unsigne
 }
 
 static void test_in_addr_prefix_intersect(void) {
+        log_info("/* %s */", __func__);
 
         test_in_addr_prefix_intersect_one(AF_INET, "255.255.255.255", 32, "255.255.255.254", 32, 0);
         test_in_addr_prefix_intersect_one(AF_INET, "255.255.255.255", 0, "255.255.255.255", 32, 1);
@@ -270,6 +342,7 @@ static void test_in_addr_prefix_next_one(unsigned f, const char *before, unsigne
 }
 
 static void test_in_addr_prefix_next(void) {
+        log_info("/* %s */", __func__);
 
         test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 24, "192.168.1.0");
         test_in_addr_prefix_next_one(AF_INET, "192.168.0.0", 16, "192.169.0.0");
@@ -289,7 +362,6 @@ static void test_in_addr_prefix_next(void) {
 
         test_in_addr_prefix_next_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, NULL);
         test_in_addr_prefix_next_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ff00", 120, NULL);
-
 }
 
 static void test_in_addr_to_string_one(int f, const char *addr) {
@@ -303,6 +375,8 @@ static void test_in_addr_to_string_one(int f, const char *addr) {
 }
 
 static void test_in_addr_to_string(void) {
+        log_info("/* %s */", __func__);
+
         test_in_addr_to_string_one(AF_INET, "192.168.0.1");
         test_in_addr_to_string_one(AF_INET, "10.11.12.13");
         test_in_addr_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
@@ -327,6 +401,8 @@ static void test_in_addr_ifindex_to_string_one(int f, const char *a, int ifindex
 }
 
 static void test_in_addr_ifindex_to_string(void) {
+        log_info("/* %s */", __func__);
+
         test_in_addr_ifindex_to_string_one(AF_INET, "192.168.0.1", 7, "192.168.0.1");
         test_in_addr_ifindex_to_string_one(AF_INET, "10.11.12.13", 9, "10.11.12.13");
         test_in_addr_ifindex_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 10, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
@@ -342,6 +418,7 @@ static void test_in_addr_ifindex_from_string_auto(void) {
         int family, ifindex;
         union in_addr_union ua;
 
+        log_info("/* %s */", __func__);
         /* Most in_addr_ifindex_from_string_auto() invocations have already been tested above, but let's test some more */
 
         assert_se(in_addr_ifindex_from_string_auto("fe80::17", &family, &ua, &ifindex) >= 0);
@@ -385,6 +462,9 @@ static void test_sockaddr_equal(void) {
                 .vm.svm_port = 0,
                 .vm.svm_cid = VMADDR_CID_ANY,
         };
+
+        log_info("/* %s */", __func__);
+
         assert_se(sockaddr_equal(&a, &a));
         assert_se(sockaddr_equal(&a, &b));
         assert_se(sockaddr_equal(&d, &d));
@@ -395,6 +475,8 @@ static void test_sockaddr_equal(void) {
 }
 
 static void test_sockaddr_un_len(void) {
+        log_info("/* %s */", __func__);
+
         static const struct sockaddr_un fs = {
                 .sun_family = AF_UNIX,
                 .sun_path = "/foo/bar/waldo",
@@ -413,6 +495,8 @@ static void test_in_addr_is_multicast(void) {
         union in_addr_union a, b;
         int f;
 
+        log_info("/* %s */", __func__);
+
         assert_se(in_addr_from_string_auto("192.168.3.11", &f, &a) >= 0);
         assert_se(in_addr_is_multicast(f, &a) == 0);
 
@@ -428,6 +512,8 @@ static void test_in_addr_is_multicast(void) {
 
 static void test_getpeercred_getpeergroups(void) {
         int r;
+
+        log_info("/* %s */", __func__);
 
         r = safe_fork("(getpeercred)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         assert_se(r >= 0);
@@ -497,6 +583,8 @@ static void test_passfd_read(void) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         int r;
 
+        log_info("/* %s */", __func__);
+
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(passfd_read)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
@@ -543,6 +631,8 @@ static void test_passfd_contents_read(void) {
         static const char file_contents[] = "test contents in the file";
         static const char wire_contents[] = "test contents on the wire";
         int r;
+
+        log_info("/* %s */", __func__);
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
@@ -595,6 +685,8 @@ static void test_receive_nopassfd(void) {
         static const char wire_contents[] = "no fd passed here";
         int r;
 
+        log_info("/* %s */", __func__);
+
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(receive_nopassfd)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
@@ -631,6 +723,8 @@ static void test_send_nodata_nofd(void) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         int r;
 
+        log_info("/* %s */", __func__);
+
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(send_nodata_nofd)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
@@ -663,6 +757,8 @@ static void test_send_nodata_nofd(void) {
 static void test_send_emptydata(void) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         int r;
+
+        log_info("/* %s */", __func__);
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
@@ -698,12 +794,12 @@ static void test_send_emptydata(void) {
 }
 
 int main(int argc, char *argv[]) {
-
         test_setup_logging(LOG_DEBUG);
 
         test_ifname_valid();
 
         test_socket_address_parse();
+        test_socket_print_unix();
         test_socket_address_parse_netlink();
         test_socket_address_equal();
         test_socket_address_get_path();
