@@ -249,11 +249,11 @@ static void test_chase_symlinks(void) {
                 assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) >= 0);
 
                 assert_se(chown(q, 0, 0) >= 0);
-                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) == -EPERM);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) == -ENOLINK);
 
                 assert_se(rmdir(q) >= 0);
                 assert_se(symlink("/etc/passwd", q) >= 0);
-                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) == -EPERM);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) == -ENOLINK);
 
                 assert_se(chown(p, 0, 0) >= 0);
                 assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) >= 0);

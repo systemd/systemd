@@ -862,7 +862,7 @@ static int path_open_parent_safe(const char *path) {
                 return log_oom();
 
         fd = chase_symlinks(dn, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
-        if (fd == -EPERM)
+        if (fd == -ENOLINK)
                 return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to validate path %s: %m", path);
@@ -885,7 +885,7 @@ static int path_open_safe(const char *path) {
                                        path);
 
         fd = chase_symlinks(path, NULL, CHASE_OPEN|CHASE_SAFE|CHASE_NOFOLLOW, NULL);
-        if (fd == -EPERM)
+        if (fd == -ENOLINK)
                 return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to validate path %s: %m", path);
