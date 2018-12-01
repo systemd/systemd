@@ -118,12 +118,23 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink
                 r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, &t->sixrd_prefix);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_6RD_PREFIX attribute: %m");
+
                 /* u16 is deliberate here, even though we're passing a netmask that can never be >128. The kernel is
                  * expecting to receive the prefixlen as a u16.
                  */
                 r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, t->sixrd_prefixlen);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_6RD_PREFIXLEN attribute: %m");
+        }
+
+        if (t->isatap >= 0) {
+                uint16_t flags = 0;
+
+                SET_FLAG(flags, SIT_ISATAP, t->isatap);
+
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_FLAGS, flags);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_FLAGS attribute: %m");
         }
 
         return r;
@@ -761,6 +772,7 @@ static void sit_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
+        t->isatap = -1;
 }
 
 static void vti_init(NetDev *n) {

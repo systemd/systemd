@@ -73,6 +73,7 @@ Tunnel.Encapsulation,              config_parse_fou_encap_type,          0,     
 Tunnel.IPv6RapidDeploymentPrefix,  config_parse_6rd_prefix,              0,                             0
 Tunnel.ERSPANIndex,                config_parse_uint32,                  0,                             offsetof(Tunnel, erspan_index)
 Tunnel.SerializeTunneledPackets,   config_parse_tristate,                0,                             offsetof(Tunnel, erspan_sequence)
+Tunnel.ISATAP,                     config_parse_tristate,                0,                             offsetof(Tunnel, isatap)
 FooOverUDP.Protocol,               config_parse_uint8,                   0,                             offsetof(FouTunnel, fou_protocol)
 FooOverUDP.Encapsulation,          config_parse_fou_encap_type,          0,                             offsetof(FouTunnel, fou_encap_type)
 FooOverUDP.Port,                   config_parse_ip_port,                 0,                             offsetof(FouTunnel, port)
