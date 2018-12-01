@@ -263,7 +263,7 @@
         for details.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
+      <varlistentry id='device-timeout'>
         <term><option>x-systemd.device-timeout=</option></term>
 
         <listitem><para>Configure how long systemd should wait for a
@@ -303,7 +303,7 @@
       <varlistentry>
         <term><option>x-systemd.makefs</option></term>
 
-        <listitem><para>The file system or swap structure will be initialized
+        <listitem><para>The file system will be initialized
         on the device. If the device is not "empty", i.e. it contains any signature,
         the operation will be skipped. It is hence expected that this option
         remains set even after the device has been initalized.</para>
