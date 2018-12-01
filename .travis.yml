@@ -17,10 +17,10 @@ stages:
 jobs:
     include:
         - stage: Build & test
-          name: Fedora Rawhide
+          name: Fedora Latest
           language: bash
           env:
-              - FEDORA_RELEASE="rawhide"
+              - FEDORA_RELEASE="latest"
               - CONT_NAME="systemd-fedora-$FEDORA_RELEASE"
               - DOCKER_EXEC="docker exec -ti $CONT_NAME"
           before_install:
@@ -36,10 +36,10 @@ jobs:
           after_script:
               - $CI_MANAGERS/fedora.sh CLEANUP
 
-        - name: Fedora Rawhide (ASan+UBSan)
+        - name: Fedora Latest (ASan+UBSan)
           language: bash
           env:
-              - FEDORA_RELEASE="rawhide"
+              - FEDORA_RELEASE="latest"
               - CONT_NAME="systemd-fedora-$FEDORA_RELEASE"
               - DOCKER_EXEC="docker exec -ti $CONT_NAME"
           before_install:
