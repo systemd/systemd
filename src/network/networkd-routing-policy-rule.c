@@ -1066,14 +1066,14 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                 }
 
                 if (rule->sport.start != 0 || rule->sport.end != 0) {
-                        fprintf(f, "%ssourcesport=%hhu-%hhu",
+                        fprintf(f, "%ssourcesport=%hu-%hu",
                                 space ? " " : "",
                                 rule->sport.start, rule->sport.end);
                         space = true;
                 }
 
                 if (rule->dport.start != 0 || rule->dport.end != 0) {
-                        fprintf(f, "%sdestinationport=%hhu-%hhu",
+                        fprintf(f, "%sdestinationport=%hu-%hu",
                                 space ? " " : "",
                                 rule->dport.start, rule->dport.end);
                         space = true;
