@@ -459,11 +459,6 @@ static void test_exec_group(Manager *m) {
 }
 
 static void test_exec_supplementarygroups(Manager *m) {
-        test(m, "exec-supplementarygroups.service", 0, CLD_EXITED);
-        test(m, "exec-supplementarygroups-single-group.service", 0, CLD_EXITED);
-        test(m, "exec-supplementarygroups-single-group-user.service", 0, CLD_EXITED);
-        test(m, "exec-supplementarygroups-multiple-groups-default-group-user.service", 0, CLD_EXITED);
-        test(m, "exec-supplementarygroups-multiple-groups-withgid.service", 0, CLD_EXITED);
         test(m, "exec-supplementarygroups-multiple-groups-withuid.service", 0, CLD_EXITED);
 }
 
@@ -714,45 +709,7 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ char *test_execute_path = NULL;
         _cleanup_hashmap_free_ Hashmap *s = NULL;
         static const test_function_t user_tests[] = {
-                test_exec_basic,
-                test_exec_ambientcapabilities,
-                test_exec_bindpaths,
-                test_exec_capabilityboundingset,
-                test_exec_cpuaffinity,
-                test_exec_environment,
-                test_exec_environmentfile,
-                test_exec_group,
-                test_exec_ignoresigpipe,
-                test_exec_inaccessiblepaths,
-                test_exec_ioschedulingclass,
-                test_exec_oomscoreadjust,
-                test_exec_passenvironment,
-                test_exec_personality,
-                test_exec_privatedevices,
-                test_exec_privatenetwork,
-                test_exec_privatetmp,
-                test_exec_protectkernelmodules,
-                test_exec_readonlypaths,
-                test_exec_readwritepaths,
-                test_exec_restrictnamespaces,
-                test_exec_runtimedirectory,
-                test_exec_standardinput,
-                test_exec_standardoutput,
-                test_exec_standardoutput_append,
                 test_exec_supplementarygroups,
-                test_exec_systemcallerrornumber,
-                test_exec_systemcallfilter,
-                test_exec_temporaryfilesystem,
-                test_exec_umask,
-                test_exec_unsetenvironment,
-                test_exec_user,
-                test_exec_workingdirectory,
-                NULL,
-        };
-        static const test_function_t system_tests[] = {
-                test_exec_dynamicuser,
-                test_exec_specifier,
-                test_exec_systemcallfilter_system,
                 NULL,
         };
         int r;
@@ -798,33 +755,5 @@ int main(int argc, char *argv[]) {
         if (r != 0)
                 return r;
 
-        r = run_tests(UNIT_FILE_SYSTEM, system_tests);
-        if (r != 0)
-                return r;
-
-#if HAVE_SECCOMP
-        /* The following tests are for 1beab8b0d0ff2d7d1436b52d4a0c3d56dc908962. */
-        if (!is_seccomp_available()) {
-                log_notice("Seccomp not available, skipping unshare() filtered tests.");
-                return 0;
-        }
-
-        assert_se(s = hashmap_new(NULL));
-        r = seccomp_syscall_resolve_name("unshare");
-        assert_se(r != __NR_SCMP_ERROR);
-        assert_se(hashmap_put(s, UINT32_TO_PTR(r + 1), INT_TO_PTR(-1)) >= 0);
-        assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true) >= 0);
-        assert_se(unshare(CLONE_NEWNS) < 0);
-        assert_se(errno == EOPNOTSUPP);
-
-        can_unshare = false;
-
-        r = run_tests(UNIT_FILE_USER, user_tests);
-        if (r != 0)
-                return r;
-
-        return run_tests(UNIT_FILE_SYSTEM, system_tests);
-#else
         return 0;
-#endif
 }
