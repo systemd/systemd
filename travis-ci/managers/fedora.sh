@@ -49,7 +49,7 @@ for phase in "${PHASES[@]}"; do
             # Build systemd
             $DOCKER_EXEC meson -Dtests=unsafe -Dslow-tests=true build
             $DOCKER_EXEC ninja -v -C build
-            $DOCKER_EXEC strace -tt -T -s500 -f -v -yy ./build/test-execute
+            $DOCKER_EXEC bash -c './build/test-execute; journalctl -b --no-pager'
             ;;
         RUN_ASAN)
             $DOCKER_EXEC git clean -dxff
