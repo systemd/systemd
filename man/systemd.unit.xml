@@ -912,8 +912,6 @@
       <varlistentry>
         <term><varname>JobTimeoutSec=</varname></term>
         <term><varname>JobRunningTimeoutSec=</varname></term>
-        <term><varname>JobTimeoutAction=</varname></term>
-        <term><varname>JobTimeoutRebootArgument=</varname></term>
 
         <listitem><para>When a job for this unit is queued, a time-out <varname>JobTimeoutSec=</varname> may be
         configured. Similarly, <varname>JobRunningTimeoutSec=</varname> starts counting when the queued job is actually
@@ -925,12 +923,20 @@
         no effect on the unit itself, only on the job that might be pending for it. Or in other words: unit-specific
         timeouts are useful to abort unit state changes, and revert them. The job timeout set with this option however
         is useful to abort only the job waiting for the unit state to change.</para>
+        </listitem>
+      </varlistentry>
 
-        <para><varname>JobTimeoutAction=</varname> optionally configures an additional action to take when the time-out
-        is hit. It takes the same values as <varname>StartLimitAction=</varname>. Defaults to <option>none</option>.
+      <varlistentry>
+        <term><varname>JobTimeoutAction=</varname></term>
+        <term><varname>JobTimeoutRebootArgument=</varname></term>
+
+        <listitem><para><varname>JobTimeoutAction=</varname> optionally configures an additional action to take when
+        the time-out is hit, see description of <varname>JobTimeoutSec=</varname> and
+        <varname>JobRunningTimeoutSec=</varname> above. It takes the same values as
+        <varname>StartLimitAction=</varname>. Defaults to <option>none</option>.
         <varname>JobTimeoutRebootArgument=</varname> configures an optional reboot string to pass to the
-        <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        system call.</para></listitem>
+        <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
