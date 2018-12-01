@@ -10,6 +10,8 @@
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 
+#include "io-util.h"
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(SSL*, SSL_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(BIO*, BIO_free);
 
