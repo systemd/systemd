@@ -4,8 +4,8 @@
 
 #include "conf-files.h"
 #include "def.h"
+#include "env-file.h"
 #include "escape.h"
-#include "fileio.h"
 #include "log.h"
 #include "path-lookup.h"
 

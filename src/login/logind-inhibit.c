@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -15,6 +16,7 @@
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "util.h"
 

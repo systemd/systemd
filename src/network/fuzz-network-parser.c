@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "fuzz.h"
 #include "networkd-manager.h"
+#include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(manager_freep) Manager *manager = NULL;

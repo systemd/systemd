@@ -16,6 +16,7 @@
 #include "os-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 int import_make_read_only_fd(int fd) {

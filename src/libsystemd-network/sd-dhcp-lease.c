@@ -16,6 +16,7 @@
 #include "dhcp-lease-internal.h"
 #include "dhcp-protocol.h"
 #include "dns-domain.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
@@ -26,6 +27,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "unaligned.h"
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {

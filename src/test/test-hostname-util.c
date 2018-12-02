@@ -4,6 +4,7 @@
 #include "fileio.h"
 #include "hostname-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static void test_hostname_is_valid(void) {

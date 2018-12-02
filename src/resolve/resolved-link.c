@@ -6,6 +6,7 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing.h"
@@ -16,6 +17,7 @@
 #include "resolved-mdns.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 
 int link_new(Manager *m, Link **ret, int ifindex) {
         _cleanup_(link_freep) Link *l = NULL;

@@ -6,7 +6,6 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "label.h"
 #include "mkdir.h"
@@ -20,6 +19,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "util.h"
 

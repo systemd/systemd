@@ -6,7 +6,6 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
-#include "fileio-label.h"
 #include "fileio.h"
 #include "ordered-set.h"
 #include "resolved-conf.h"
@@ -14,6 +13,7 @@
 #include "resolved-resolv-conf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util-label.h"
 
 /* A resolv.conf file containing the DNS server and domain data we learnt from uplink, i.e. the full uplink data */
 #define PRIVATE_UPLINK_RESOLV_CONF "/run/systemd/resolve/resolv.conf"

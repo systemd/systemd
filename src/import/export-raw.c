@@ -15,13 +15,13 @@
 #include "copy.h"
 #include "export-raw.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "import-common.h"
 #include "missing.h"
 #include "ratelimit.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 #define COPY_BUFFER_SIZE (16*1024)

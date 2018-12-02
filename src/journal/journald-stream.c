@@ -12,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "dirent-util.h"
+#include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -31,6 +32,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "tmpfile-util.h"
 #include "unit-name.h"
 
 #define STDOUT_STREAMS_MAX 4096

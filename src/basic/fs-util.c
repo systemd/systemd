@@ -13,7 +13,6 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
@@ -27,6 +26,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "util.h"
 

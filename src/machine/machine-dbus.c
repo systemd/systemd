@@ -17,9 +17,9 @@
 #include "bus-label.h"
 #include "bus-util.h"
 #include "copy.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "in-addr-util.h"
@@ -34,6 +34,7 @@
 #include "signal-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);

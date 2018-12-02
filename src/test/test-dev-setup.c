@@ -2,10 +2,10 @@
 
 #include "capability-util.h"
 #include "dev-setup.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "tmpfile-util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;

@@ -7,6 +7,8 @@
 
 #include "bus-util.h"
 #include "def.h"
+#include "env-file.h"
+#include "env-file-label.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio-label.h"
@@ -17,6 +19,7 @@
 #include "mkdir.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 
 static bool startswith_comma(const char *s, const char *prefix) {
         s = startswith(s, prefix);

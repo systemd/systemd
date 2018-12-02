@@ -24,6 +24,7 @@
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 const char * const catalog_file_dirs[] = {

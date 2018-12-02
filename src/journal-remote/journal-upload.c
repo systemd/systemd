@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -26,6 +27,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"

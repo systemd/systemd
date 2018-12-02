@@ -10,6 +10,7 @@
 #include "bus-util.h"
 #include "dhcp-identifier.h"
 #include "dhcp-lease-internal.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "netlink-util.h"
@@ -25,6 +26,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "util.h"
 #include "virt.h"
 

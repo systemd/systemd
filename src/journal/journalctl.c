@@ -62,6 +62,7 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "unit-name.h"
 #include "user-util.h"
 

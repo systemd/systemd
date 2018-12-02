@@ -3,8 +3,8 @@
 #include <unistd.h>
 
 #include "async.h"
-#include "fileio.h"
 #include "macro.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static bool test_async = false;
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
         assert_se(fcntl(fd, F_GETFD) == -1);
         assert_se(test_async);
 
-        unlink(name);
+        (void) unlink(name);
 
         return 0;
 }

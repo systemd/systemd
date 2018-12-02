@@ -6,11 +6,11 @@
 #include "btrfs-util.h"
 #include "export-tar.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "import-common.h"
 #include "process-util.h"
 #include "ratelimit.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 #define COPY_BUFFER_SIZE (16*1024)

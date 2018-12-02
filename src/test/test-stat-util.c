@@ -6,12 +6,12 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "macro.h"
 #include "missing.h"
 #include "mountpoint-util.h"
-#include "stat-util.h"
 #include "path-util.h"
+#include "stat-util.h"
+#include "tmpfile-util.h"
 
 static void test_files_same(void) {
         _cleanup_close_ int fd = -1;

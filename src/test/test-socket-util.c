@@ -9,7 +9,6 @@
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -17,8 +16,9 @@
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
+#include "util.h"
 
 static void test_ifname_valid(void) {
         log_info("/* %s */", __func__);

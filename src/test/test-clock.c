@@ -12,6 +12,7 @@
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
+#include "tmpfile-util.h"
 
 static void test_clock_is_localtime(void) {
         _cleanup_(unlink_tempfilep) char adjtime[] = "/tmp/test-adjtime.XXXXXX";

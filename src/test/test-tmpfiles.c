@@ -14,6 +14,7 @@
 #include "process-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 int main(int argc, char** argv) {

@@ -26,6 +26,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 
 static const char profile_dirs[] = CONF_PATHS_NULSTR("systemd/portable/profile");

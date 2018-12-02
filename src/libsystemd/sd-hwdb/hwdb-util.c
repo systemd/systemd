@@ -16,6 +16,7 @@
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 
 static const char *default_hwdb_bin_dir = "/etc/udev";
 static const char * const conf_file_dirs[] = {

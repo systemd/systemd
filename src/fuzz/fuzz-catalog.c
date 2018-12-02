@@ -2,9 +2,9 @@
 
 #include "catalog.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "fuzz.h"
+#include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-catalog.XXXXXX";

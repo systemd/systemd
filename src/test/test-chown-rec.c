@@ -4,11 +4,11 @@
 
 #include "alloc-util.h"
 #include "chown-recursive.h"
-#include "fileio.h"
 #include "log.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static const uint8_t acl[] = {
         0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x07, 0x00,

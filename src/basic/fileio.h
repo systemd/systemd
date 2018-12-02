@@ -44,16 +44,6 @@ int read_full_stream(FILE *f, char **contents, size_t *size);
 
 int verify_file(const char *fn, const char *blob, bool accept_extra_nl);
 
-int parse_env_filev(FILE *f, const char *fname, va_list ap);
-int parse_env_file_sentinel(FILE *f, const char *fname, ...) _sentinel_;
-#define parse_env_file(f, fname, ...) parse_env_file_sentinel(f, fname, __VA_ARGS__, NULL)
-int load_env_file(FILE *f, const char *fname, char ***l);
-int load_env_file_pairs(FILE *f, const char *fname, char ***l);
-
-int merge_env_file(char ***env, FILE *f, const char *fname);
-
-int write_env_file(const char *fname, char **l);
-
 int executable_is_script(const char *path, char **interpreter);
 
 int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field);
@@ -66,27 +56,11 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *root
 int fflush_and_check(FILE *f);
 int fflush_sync_and_check(FILE *f);
 
-int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
-int mkostemp_safe(char *pattern);
-int fmkostemp_safe(char *pattern, const char *mode, FILE**_f);
-
-int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
-int tempfn_random(const char *p, const char *extra, char **ret);
-int tempfn_random_child(const char *p, const char *extra, char **ret);
-
 int write_timestamp_file_atomic(const char *fn, usec_t n);
 int read_timestamp_file(const char *fn, usec_t *ret);
 
 int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space);
 
-int open_tmpfile_unlinkable(const char *directory, int flags);
-int open_tmpfile_linkable(const char *target, int flags, char **ret_path);
-int open_serialization_fd(const char *ident);
-
-int link_tmpfile(int fd, const char *path, const char *target);
-
 int read_nul_string(FILE *f, char **ret);
-
-int mkdtemp_malloc(const char *template, char **ret);
 
 int read_line(FILE *f, size_t limit, char **ret);

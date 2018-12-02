@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
@@ -23,6 +24,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 /* Put this test here for a lack of better place */

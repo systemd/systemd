@@ -7,12 +7,12 @@
 #include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 #if HAVE_XZ

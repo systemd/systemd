@@ -20,35 +20,6 @@ int write_string_file_atomic_label_ts(const char *fn, const char *line, struct t
         return r;
 }
 
-int write_env_file_label(const char *fname, char **l) {
-        int r;
-
-        r = mac_selinux_create_file_prepare(fname, S_IFREG);
-        if (r < 0)
-                return r;
-
-        r = write_env_file(fname, l);
-
-        mac_selinux_create_file_clear();
-
-        return r;
-}
-
-int fopen_temporary_label(const char *target,
-                          const char *path, FILE **f, char **temp_path) {
-        int r;
-
-        r = mac_selinux_create_file_prepare(target, S_IFREG);
-        if (r < 0)
-                return r;
-
-        r = fopen_temporary(path, f, temp_path);
-
-        mac_selinux_create_file_clear();
-
-        return r;
-}
-
 int create_shutdown_run_nologin_or_warn(void) {
         int r;
 

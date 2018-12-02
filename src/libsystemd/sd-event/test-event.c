@@ -6,7 +6,6 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
@@ -17,6 +16,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "util.h"
 
 static int prepare_handler(sd_event_source *s, void *userdata) {
