@@ -5,21 +5,13 @@
 #include "hash-funcs.h"
 #include "path-util.h"
 
-void string_hash_func(const void *p, struct siphash *state) {
+void string_hash_func(const char *p, struct siphash *state) {
         siphash24_compress(p, strlen(p) + 1, state);
 }
 
-int string_compare_func(const void *a, const void *b) {
-        return strcmp(a, b);
-}
+DEFINE_HASH_OPS(string_hash_ops, char, string_hash_func, string_compare_func);
 
-const struct hash_ops string_hash_ops = {
-        .hash = string_hash_func,
-        .compare = string_compare_func
-};
-
-void path_hash_func(const void *p, struct siphash *state) {
-        const char *q = p;
+void path_hash_func(const char *q, struct siphash *state) {
         size_t n;
 
         assert(q);
@@ -57,14 +49,11 @@ void path_hash_func(const void *p, struct siphash *state) {
         }
 }
 
-int path_compare_func(const void *a, const void *b) {
+int path_compare_func(const char *a, const char *b) {
         return path_compare(a, b);
 }
 
-const struct hash_ops path_hash_ops = {
-        .hash = path_hash_func,
-        .compare = path_compare_func
-};
+DEFINE_HASH_OPS(path_hash_ops, char, path_hash_func, path_compare_func);
 
 void trivial_hash_func(const void *p, struct siphash *state) {
         siphash24_compress(&p, sizeof(p), state);
@@ -79,36 +68,24 @@ const struct hash_ops trivial_hash_ops = {
         .compare = trivial_compare_func
 };
 
-void uint64_hash_func(const void *p, struct siphash *state) {
+void uint64_hash_func(const uint64_t *p, struct siphash *state) {
         siphash24_compress(p, sizeof(uint64_t), state);
 }
 
-int uint64_compare_func(const void *_a, const void *_b) {
-        uint64_t a, b;
-        a = *(const uint64_t*) _a;
-        b = *(const uint64_t*) _b;
-        return CMP(a, b);
+int uint64_compare_func(const uint64_t *a, const uint64_t *b) {
+        return CMP(*a, *b);
 }
 
-const struct hash_ops uint64_hash_ops = {
-        .hash = uint64_hash_func,
-        .compare = uint64_compare_func
-};
+DEFINE_HASH_OPS(uint64_hash_ops, uint64_t, uint64_hash_func, uint64_compare_func);
 
 #if SIZEOF_DEV_T != 8
-void devt_hash_func(const void *p, struct siphash *state) {
+void devt_hash_func(const dev_t *p, struct siphash *state) {
         siphash24_compress(p, sizeof(dev_t), state);
 }
 
-int devt_compare_func(const void *_a, const void *_b) {
-        dev_t a, b;
-        a = *(const dev_t*) _a;
-        b = *(const dev_t*) _b;
-        return CMP(a, b);
+int devt_compare_func(const dev_t *a, const dev_t *b) {
+        return CMP(*a, *b);
 }
 
-const struct hash_ops devt_hash_ops = {
-        .hash = devt_hash_func,
-        .compare = devt_compare_func
-};
+DEFINE_HASH_OPS(devt_hash_ops, dev_t, devt_hash_func, devt_compare_func);
 #endif
