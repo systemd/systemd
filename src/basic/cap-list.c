@@ -22,7 +22,7 @@ const char *capability_to_name(int id) {
         if (id < 0)
                 return NULL;
 
-        if (id >= (int) ELEMENTSOF(capability_names))
+        if ((size_t) id >= ELEMENTSOF(capability_names))
                 return NULL;
 
         return capability_names[id];
@@ -37,7 +37,7 @@ int capability_from_name(const char *name) {
         /* Try to parse numeric capability */
         r = safe_atoi(name, &i);
         if (r >= 0) {
-                if (i >= 0 && i < (int) ELEMENTSOF(capability_names))
+                if (i >= 0 && (size_t) i < ELEMENTSOF(capability_names))
                         return i;
                 else
                         return -EINVAL;

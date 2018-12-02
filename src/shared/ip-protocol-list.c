@@ -17,7 +17,7 @@ const char *ip_protocol_to_name(int id) {
         if (id < 0)
                 return NULL;
 
-        if (id >= (int) ELEMENTSOF(ip_protocol_names))
+        if ((size_t) id >= ELEMENTSOF(ip_protocol_names))
                 return NULL;
 
         return ip_protocol_names[id];

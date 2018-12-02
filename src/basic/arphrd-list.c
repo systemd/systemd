@@ -17,7 +17,7 @@ const char *arphrd_to_name(int id) {
         if (id <= 0)
                 return NULL;
 
-        if (id >= (int) ELEMENTSOF(arphrd_names))
+        if ((size_t) id >= ELEMENTSOF(arphrd_names))
                 return NULL;
 
         return arphrd_names[id];

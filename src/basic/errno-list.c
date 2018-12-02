@@ -17,7 +17,7 @@ const char *errno_to_name(int id) {
         if (id < 0)
                 id = -id;
 
-        if (id >= (int) ELEMENTSOF(errno_names))
+        if ((size_t) id >= ELEMENTSOF(errno_names))
                 return NULL;
 
         return errno_names[id];
