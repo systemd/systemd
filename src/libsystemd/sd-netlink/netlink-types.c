@@ -21,7 +21,7 @@
 #include <linux/fou.h>
 #endif
 
-#if HAVE_VXCAN_INFO_PEER
+#if HAVE_LINUX_CAN_VXCAN_H
 #include <linux/can/vxcan.h>
 #endif
 
