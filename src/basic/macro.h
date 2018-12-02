@@ -60,6 +60,17 @@
 #  endif
 #endif
 
+#if !defined(HAS_FEATURE_ADDRESS_SANITIZER)
+#  if defined(__has_feature)
+#    if __has_feature(address_sanitizer)
+#      define HAS_FEATURE_ADDRESS_SANITIZER 1
+#    endif
+#  endif
+#  if !defined(HAS_FEATURE_ADDRESS_SANITIZER)
+#    define HAS_FEATURE_ADDRESS_SANITIZER 0
+#  endif
+#endif
+
 /* Temporarily disable some warnings */
 #define DISABLE_WARNING_FORMAT_NONLITERAL                               \
         _Pragma("GCC diagnostic push");                                 \
