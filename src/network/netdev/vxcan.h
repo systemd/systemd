@@ -3,10 +3,6 @@
 
 typedef struct VxCan VxCan;
 
-#if HAVE_VXCAN_INFO_PEER
-#include <linux/can/vxcan.h>
-#endif
-
 #include "netdev/netdev.h"
 
 struct VxCan {
