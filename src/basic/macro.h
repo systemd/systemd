@@ -15,6 +15,8 @@
 #  define _alloc_(...) __attribute__ ((__alloc_size__(__VA_ARGS__)))
 #endif
 #define _sentinel_ __attribute__ ((__sentinel__))
+#define _section_(x) __attribute__((__section__(x)))
+#define _used_ __attribute__((__used__))
 #define _unused_ __attribute__ ((__unused__))
 #define _destructor_ __attribute__ ((__destructor__))
 #define _pure_ __attribute__ ((__pure__))
@@ -28,7 +30,9 @@
 #define _public_ __attribute__ ((__visibility__("default")))
 #define _hidden_ __attribute__ ((__visibility__("hidden")))
 #define _weakref_(x) __attribute__((__weakref__(#x)))
+#define _align_(x) __attribute__((__aligned__(x)))
 #define _alignas_(x) __attribute__((__aligned__(__alignof(x))))
+#define _alignptr_ __attribute__((__aligned__(sizeof(void*))))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
 #if __GNUC__ >= 7
 #define _fallthrough_ __attribute__((__fallthrough__))
