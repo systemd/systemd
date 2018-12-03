@@ -177,6 +177,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-static-destruct.c'],
+         [],
+         []],
+
         [['src/test/test-sigbus.c'],
          [],
          []],
