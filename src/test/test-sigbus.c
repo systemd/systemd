@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-#ifdef __SANITIZE_ADDRESS__
+#if HAS_FEATURE_ADDRESS_SANITIZER
         return log_tests_skipped("address-sanitizer is enabled");
 #endif
 #if HAVE_VALGRIND_VALGRIND_H

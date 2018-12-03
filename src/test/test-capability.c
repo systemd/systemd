@@ -20,7 +20,7 @@
 static uid_t test_uid = -1;
 static gid_t test_gid = -1;
 
-#ifdef __SANITIZE_ADDRESS__
+#if HAS_FEATURE_ADDRESS_SANITIZER
 /* Keep CAP_SYS_PTRACE when running under Address Sanitizer */
 static const uint64_t test_flags = UINT64_C(1) << CAP_SYS_PTRACE;
 #else
