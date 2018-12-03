@@ -150,17 +150,17 @@ struct json_variant_foreach_state {
 
 int json_variant_get_source(JsonVariant *v, const char **ret_source, unsigned *ret_line, unsigned *ret_column);
 
-enum {
+typedef enum JsonFormatFlags {
         JSON_FORMAT_NEWLINE = 1 << 0, /* suffix with newline */
         JSON_FORMAT_PRETTY  = 1 << 1, /* add internal whitespace to appeal to human readers */
         JSON_FORMAT_COLOR   = 1 << 2, /* insert ANSI color sequences */
         JSON_FORMAT_SOURCE  = 1 << 3, /* prefix with source filename/line/column */
         JSON_FORMAT_SSE     = 1 << 4, /* prefix/suffix with W3C server-sent events */
         JSON_FORMAT_SEQ     = 1 << 5, /* prefix/suffix with RFC 7464 application/json-seq */
-};
+} JsonFormatFlags;
 
-int json_variant_format(JsonVariant *v, unsigned flags, char **ret);
-void json_variant_dump(JsonVariant *v, unsigned flags, FILE *f, const char *prefix);
+int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret);
+void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const char *prefix);
 
 int json_parse(const char *string, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
 int json_parse_continue(const char **p, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
