@@ -162,6 +162,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .fast_leave = -1,
                 .allow_port_to_be_root = -1,
                 .unicast_flood = -1,
+                .multicast_to_unicast = -1,
                 .priority = LINK_BRIDGE_PORT_PRIORITY_INVALID,
 
                 .lldp_mode = LLDP_MODE_ROUTERS_ONLY,

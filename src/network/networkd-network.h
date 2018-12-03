@@ -183,6 +183,7 @@ struct Network {
         int fast_leave;
         int allow_port_to_be_root;
         int unicast_flood;
+        int multicast_to_unicast;
         uint32_t cost;
         uint16_t priority;
 

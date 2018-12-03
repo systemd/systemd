@@ -1421,7 +1421,12 @@ static int link_set_bridge(Link *link) {
                 r = sd_netlink_message_append_u8(req, IFLA_BRPORT_UNICAST_FLOOD, link->network->unicast_flood);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_UNICAST_FLOOD attribute: %m");
+        }
 
+        if (link->network->multicast_to_unicast >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MCAST_TO_UCAST, link->network->multicast_to_unicast);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MCAST_TO_UCAST attribute: %m");
         }
 
         if (link->network->cost != 0) {
@@ -1429,6 +1434,7 @@ static int link_set_bridge(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_COST attribute: %m");
         }
+
         if (link->network->priority != LINK_BRIDGE_PORT_PRIORITY_INVALID) {
                 r = sd_netlink_message_append_u16(req, IFLA_BRPORT_PRIORITY, link->network->priority);
                 if (r < 0)

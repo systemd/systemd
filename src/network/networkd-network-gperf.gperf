@@ -162,6 +162,7 @@ Bridge.HairPin,                         config_parse_tristate,                  
 Bridge.FastLeave,                       config_parse_tristate,                          0,                             offsetof(Network, fast_leave)
 Bridge.AllowPortToBeRoot,               config_parse_tristate,                          0,                             offsetof(Network, allow_port_to_be_root)
 Bridge.UnicastFlood,                    config_parse_tristate,                          0,                             offsetof(Network, unicast_flood)
+Bridge.MulticastToUnicast,              config_parse_tristate,                          0,                             offsetof(Network, multicast_to_unicast)
 Bridge.Priority,                        config_parse_bridge_port_priority,              0,                             offsetof(Network, priority)
 BridgeFDB.MACAddress,                   config_parse_fdb_hwaddr,                        0,                             0
 BridgeFDB.VLANId,                       config_parse_fdb_vlan_id,                       0,                             0

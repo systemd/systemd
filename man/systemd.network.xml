@@ -1724,6 +1724,15 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>MulticastToUnicast=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Multicast to unicast works on top of the multicast snooping feature of
+            the bridge. Which means unicast copies are only delivered to hosts which are interested in it.
+            When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>HairPin=</varname></term>
           <listitem>
             <para>Takes a boolean. Configures whether traffic may be sent back
