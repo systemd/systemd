@@ -17,7 +17,7 @@ const char *af_to_name(int id) {
         if (id <= 0)
                 return NULL;
 
-        if (id >= (int) ELEMENTSOF(af_names))
+        if ((size_t) id >= ELEMENTSOF(af_names))
                 return NULL;
 
         return af_names[id];

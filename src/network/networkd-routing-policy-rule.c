@@ -6,11 +6,11 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "fileio.h"
+#include "ip-protocol-list.h"
 #include "networkd-routing-policy-rule.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
-#include "socket-protocol-list.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -932,7 +932,7 @@ int config_parse_routing_policy_rule_port_range(
         return 0;
 }
 
-int config_parse_routing_policy_rule_protocol(
+int config_parse_routing_policy_rule_ip_protocol(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -958,14 +958,9 @@ int config_parse_routing_policy_rule_protocol(
         if (r < 0)
                 return r;
 
-        r = socket_protocol_from_name(rvalue);
+        r = parse_ip_protocol(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse routing policy rule protocol, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (!IN_SET(r, IPPROTO_TCP, IPPROTO_UDP, IPPROTO_SCTP)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid protocol '%s'. Protocol should be tcp/udp/sctp, ignoring", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IP protocol '%s' for routing policy rule, ignoring: %m", rvalue);
                 return 0;
         }
 

@@ -24,6 +24,7 @@
 #include "fs-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
+#include "ip-protocol-list.h"
 #include "label.h"
 #include "log.h"
 #include "missing.h"
@@ -35,7 +36,6 @@
 #include "serialize.h"
 #include "signal-util.h"
 #include "smack-util.h"
-#include "socket-protocol-list.h"
 #include "socket.h"
 #include "special.h"
 #include "string-table.h"
@@ -814,7 +814,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->trigger_limit.interval, USEC_PER_SEC),
                 prefix, s->trigger_limit.burst);
 
-        str = socket_protocol_to_name(s->socket_protocol);
+        str = ip_protocol_to_name(s->socket_protocol);
         if (str)
                 fprintf(f, "%sSocketProtocol: %s\n", prefix, str);
 
