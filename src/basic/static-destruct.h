@@ -21,10 +21,14 @@ typedef struct StaticDestructor {
                 typeof(variable) *q = p;                                \
                 func(q);                                                \
         }                                                               \
-        /* The actual destructor structure */                           \
+        /* The actual destructor structure we place in a special section to find it */ \
         _section_("SYSTEMD_STATIC_DESTRUCT")                            \
+        /* We pick pointer alignment, since that is apparently what gcc does for static variables */ \
         _alignptr_                                                      \
+        /* Make sure this is not dropped from the image because not explicitly referenced */ \
         _used_                                                          \
+        /* Make sure that AddressSanitizer doesn't pad this variable: we want everything in this section packed next to each other so that we can enumerate it. */ \
+        _variable_no_sanitize_address_                                  \
         static const StaticDestructor UNIQ_T(static_destructor_entry, uq) = { \
                 .data = &(variable),                                    \
                 .destroy = UNIQ_T(static_destructor_wrapper, uq),       \
