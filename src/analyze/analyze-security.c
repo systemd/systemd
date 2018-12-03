@@ -254,13 +254,13 @@ static int assess_protect_system(
         assert(ret_description);
 
         badness = 10;
-        description = "Service has full access the OS file hierarchy";
+        description = "Service has full access to the OS file hierarchy";
 
         r = parse_boolean(info->protect_system);
         if (r < 0) {
                 if (streq_ptr(info->protect_system, "full")) {
                         badness = 3;
-                        description = "Service has very limited write access to OS file hierarchy";
+                        description = "Service has very limited write access to the OS file hierarchy";
                 } else if (streq_ptr(info->protect_system, "strict")) {
                         badness = 0;
                         description = "Service has strict read-only access to the OS file hierarchy";
