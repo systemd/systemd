@@ -1414,3 +1414,166 @@ const void* table_get_at(Table *t, size_t row, size_t column) {
 
         return table_get(t, cell);
 }
+
+static int table_data_to_json(TableData *d, JsonVariant **ret) {
+
+        switch (d->type) {
+
+        case TABLE_EMPTY:
+                return json_variant_new_null(ret);
+
+        case TABLE_STRING:
+                return json_variant_new_string(ret, d->string);
+
+        case TABLE_BOOLEAN:
+                return json_variant_new_boolean(ret, d->boolean);
+
+        case TABLE_TIMESTAMP:
+                if (d->timestamp == USEC_INFINITY)
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_unsigned(ret, d->timestamp);
+
+        case TABLE_TIMESPAN:
+                if (d->timespan == USEC_INFINITY)
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_unsigned(ret, d->timespan);
+
+        case TABLE_SIZE:
+                if (d->size == (size_t) -1)
+                        return json_variant_new_null(ret);
+
+                return json_variant_new_unsigned(ret, d->size);
+
+        case TABLE_UINT32:
+                return json_variant_new_unsigned(ret, d->uint32);
+
+        case TABLE_UINT64:
+                return json_variant_new_unsigned(ret, d->uint64);
+
+        case TABLE_PERCENT:
+                return json_variant_new_integer(ret, d->percent);
+
+        default:
+                return -EINVAL;
+        }
+}
+
+int table_to_json(Table *t, JsonVariant **ret) {
+        JsonVariant **rows = NULL, **elements = NULL;
+        _cleanup_free_ size_t *sorted = NULL;
+        size_t n_rows, i, j, display_columns;
+        int r;
+
+        assert(t);
+
+        /* Ensure we have no incomplete rows */
+        assert(t->n_cells % t->n_columns == 0);
+
+        n_rows = t->n_cells / t->n_columns;
+        assert(n_rows > 0); /* at least the header row must be complete */
+
+        if (t->sort_map) {
+                /* If sorting is requested, let's calculate an index table we use to lookup the actual index to display with. */
+
+                sorted = new(size_t, n_rows);
+                if (!sorted) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                for (i = 0; i < n_rows; i++)
+                        sorted[i] = i * t->n_columns;
+
+                typesafe_qsort_r(sorted, n_rows, table_data_compare, t);
+        }
+
+        if (t->display_map)
+                display_columns = t->n_display_map;
+        else
+                display_columns = t->n_columns;
+        assert(display_columns > 0);
+
+        elements = new0(JsonVariant*, display_columns * 2);
+        if (!elements) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        for (j = 0; j < display_columns; j++) {
+                TableData *d;
+
+                assert_se(d = t->data[t->display_map ? t->display_map[j] : j]);
+
+                r = table_data_to_json(d, elements + j*2);
+                if (r < 0)
+                        goto finish;
+        }
+
+        rows = new0(JsonVariant*, n_rows-1);
+        if (!rows) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        for (i = 1; i < n_rows; i++) {
+                TableData **row;
+
+                if (sorted)
+                        row = t->data + sorted[i];
+                else
+                        row = t->data + i * t->n_columns;
+
+                for (j = 0; j < display_columns; j++) {
+                        TableData *d;
+                        size_t k;
+
+                        assert_se(d = row[t->display_map ? t->display_map[j] : j]);
+
+                        k = j*2+1;
+                        elements[k] = json_variant_unref(elements[k]);
+
+                        r = table_data_to_json(d, elements + k);
+                        if (r < 0)
+                                goto finish;
+                }
+
+                r = json_variant_new_object(rows + i - 1, elements, display_columns * 2);
+                if (r < 0)
+                        goto finish;
+        }
+
+        r = json_variant_new_array(ret, rows, n_rows - 1);
+
+finish:
+        if (rows) {
+                json_variant_unref_many(rows, n_rows-1);
+                free(rows);
+        }
+
+        if (elements) {
+                json_variant_unref_many(elements, display_columns*2);
+                free(elements);
+        }
+
+        return r;
+}
+
+int table_print_json(Table *t, FILE *f, JsonFormatFlags flags) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        int r;
+
+        assert(t);
+
+        if (!f)
+                f = stdout;
+
+        r = table_to_json(t, &v);
+        if (r < 0)
+                return r;
+
+        json_variant_dump(v, flags, f, NULL);
+
+        return fflush_and_check(f);
+}

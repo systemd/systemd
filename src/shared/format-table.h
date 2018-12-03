@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+#include "json.h"
 #include "macro.h"
 
 typedef enum TableDataType {
@@ -71,3 +72,6 @@ TableCell *table_get_cell(Table *t, size_t row, size_t column);
 
 const void *table_get(Table *t, TableCell *cell);
 const void *table_get_at(Table *t, size_t row, size_t column);
+
+int table_to_json(Table *t, JsonVariant **ret);
+int table_print_json(Table *t, FILE *f, unsigned json_flags);
