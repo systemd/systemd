@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <ctype.h>
 #include <stdio_ext.h>
 
 #include "alloc-util.h"
@@ -57,6 +58,8 @@ typedef struct TableData {
         unsigned weight;            /* the horizontal weight for this column, in case the table is expanded/compressed */
         unsigned ellipsize_percent; /* 0 … 100, where to place the ellipsis when compression is needed */
         unsigned align_percent;     /* 0 … 100, where to pad with spaces when expanding is needed. 0: left-aligned, 100: right-aligned */
+
+        bool uppercase;             /* Uppercase string on display */
 
         const char *color;          /* ANSI color string to use for this cell. When written to terminal should not move cursor. Will automatically be reset after the cell */
         char *url;                  /* A URL to use for a clickable hyperlink */
@@ -132,6 +135,7 @@ Table *table_new_raw(size_t n_columns) {
 Table *table_new_internal(const char *first_header, ...) {
         _cleanup_(table_unrefp) Table *t = NULL;
         size_t n_columns = 1;
+        const char *h;
         va_list ap;
         int r;
 
@@ -139,8 +143,6 @@ Table *table_new_internal(const char *first_header, ...) {
 
         va_start(ap, first_header);
         for (;;) {
-                const char *h;
-
                 h = va_arg(ap, const char*);
                 if (!h)
                         break;
@@ -153,19 +155,18 @@ Table *table_new_internal(const char *first_header, ...) {
         if (!t)
                 return NULL;
 
-        r = table_add_cell(t, NULL, TABLE_STRING, first_header);
-        if (r < 0)
-                return NULL;
-
         va_start(ap, first_header);
-        for (;;) {
-                const char *h;
+        for (h = first_header; h; h = va_arg(ap, const char*)) {
+                TableCell *cell;
 
-                h = va_arg(ap, const char*);
-                if (!h)
-                        break;
+                r = table_add_cell(t, &cell, TABLE_STRING, h);
+                if (r < 0) {
+                        va_end(ap);
+                        return NULL;
+                }
 
-                r = table_add_cell(t, NULL, TABLE_STRING, h);
+                /* Make the table header uppercase */
+                r = table_set_uppercase(t, cell, true);
                 if (r < 0) {
                         va_end(ap);
                         return NULL;
@@ -427,6 +428,7 @@ static int table_dedup_cell(Table *t, TableCell *cell) {
 
         nd->color = od->color;
         nd->url = TAKE_PTR(curl);
+        nd->uppercase = od->uppercase;
 
         table_data_unref(od);
         t->data[i] = nd;
@@ -574,6 +576,27 @@ int table_set_url(Table *t, TableCell *cell, const char *url) {
         return free_and_replace(table_get_data(t, cell)->url, copy);
 }
 
+int table_set_uppercase(Table *t, TableCell *cell, bool b) {
+        TableData *d;
+        int r;
+
+        assert(t);
+        assert(cell);
+
+        r = table_dedup_cell(t, cell);
+        if (r < 0)
+                return r;
+
+        assert_se(d = table_get_data(t, cell));
+
+        if (d->uppercase == b)
+                return 0;
+
+        d->formatted = mfree(d->formatted);
+        d->uppercase = b;
+        return 1;
+}
+
 int table_update(Table *t, TableCell *cell, TableDataType type, const void *data) {
         _cleanup_free_ char *curl = NULL;
         TableData *nd, *od;
@@ -607,6 +630,7 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
 
         nd->color = od->color;
         nd->url = TAKE_PTR(curl);
+        nd->uppercase = od->uppercase;
 
         table_data_unref(od);
         t->data[i] = nd;
@@ -858,6 +882,20 @@ static const char *table_data_format(TableData *d) {
                 return "";
 
         case TABLE_STRING:
+                if (d->uppercase) {
+                        char *p, *q;
+
+                        d->formatted = new(char, strlen(d->string) + 1);
+                        if (!d->formatted)
+                                return NULL;
+
+                        for (p = d->string, q = d->formatted; *p; p++, q++)
+                                *q = (char) toupper((unsigned char) *p);
+                        *q = 0;
+
+                        return d->formatted;
+                }
+
                 return d->string;
 
         case TABLE_BOOLEAN:
