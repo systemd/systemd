@@ -114,9 +114,7 @@ void address_free(Address *address) {
         free(address);
 }
 
-static void address_hash_func(const void *b, struct siphash *state) {
-        const Address *a = b;
-
+static void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->family, sizeof(a->family), state);
@@ -149,8 +147,7 @@ static void address_hash_func(const void *b, struct siphash *state) {
         }
 }
 
-static int address_compare_func(const void *c1, const void *c2) {
-        const Address *a1 = c1, *a2 = c2;
+static int address_compare_func(const Address *a1, const Address *a2) {
         int r;
 
         r = CMP(a1->family, a2->family);
@@ -194,10 +191,7 @@ static int address_compare_func(const void *c1, const void *c2) {
         }
 }
 
-static const struct hash_ops address_hash_ops = {
-        .hash = address_hash_func,
-        .compare = address_compare_func
-};
+DEFINE_PRIVATE_HASH_OPS(address_hash_ops, Address, address_hash_func, address_compare_func);
 
 bool address_equal(Address *a1, Address *a2) {
         if (a1 == a2)

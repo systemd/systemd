@@ -326,7 +326,7 @@ bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
 int dns_txt_item_new_empty(DnsTxtItem **ret);
 
-void dns_resource_record_hash_func(const void *i, struct siphash *state);
+void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops;

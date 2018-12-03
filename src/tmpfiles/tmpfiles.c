@@ -39,6 +39,7 @@
 #include "label.h"
 #include "log.h"
 #include "macro.h"
+#include "main-func.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
@@ -171,6 +172,13 @@ static char *arg_replace = NULL;
 
 static OrderedHashmap *items = NULL, *globs = NULL;
 static Set *unix_sockets = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(items, ordered_hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(globs, ordered_hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(unix_sockets, set_free_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_include_prefixes, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int specifier_machine_id_safe(char specifier, void *data, void *userdata, char **ret);
 static int specifier_directory(char specifier, void *data, void *userdata, char **ret);
@@ -372,48 +380,39 @@ static struct Item* find_glob(OrderedHashmap *h, const char *match) {
         return NULL;
 }
 
-static void load_unix_sockets(void) {
+static int load_unix_sockets(void) {
+        _cleanup_set_free_free_ Set *sockets = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         if (unix_sockets)
-                return;
+                return 0;
 
         /* We maintain a cache of the sockets we found in /proc/net/unix to speed things up a little. */
 
-        unix_sockets = set_new(&path_hash_ops);
-        if (!unix_sockets) {
-                log_oom();
-                return;
-        }
+        sockets = set_new(&path_hash_ops);
+        if (!sockets)
+                return log_oom();
 
         f = fopen("/proc/net/unix", "re");
-        if (!f) {
-                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                               "Failed to open /proc/net/unix, ignoring: %m");
-                goto fail;
-        }
+        if (!f)
+                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                      "Failed to open /proc/net/unix, ignoring: %m");
 
         /* Skip header */
         r = read_line(f, LONG_LINE_MAX, NULL);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to skip /proc/net/unix header line: %m");
-                goto fail;
-        }
-        if (r == 0) {
-                log_warning("Premature end of file reading /proc/net/unix.");
-                goto fail;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to skip /proc/net/unix header line: %m");
+        if (r == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EIO), "Premature end of file reading /proc/net/unix.");
 
         for (;;) {
-                _cleanup_free_ char *line = NULL;
-                char *p, *s;
+                _cleanup_free_ char *line = NULL, *s = NULL;
+                char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to read /proc/net/unix line, ignoring: %m");
-                        goto fail;
-                }
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to read /proc/net/unix line, ignoring: %m");
                 if (r == 0) /* EOF */
                         break;
 
@@ -433,36 +432,31 @@ static void load_unix_sockets(void) {
                         continue;
 
                 s = strdup(p);
-                if (!s) {
-                        log_oom();
-                        goto fail;
-                }
+                if (!s)
+                        return log_oom();
 
                 path_simplify(s, false);
 
-                r = set_consume(unix_sockets, s);
-                if (r < 0 && r != -EEXIST) {
-                        log_warning_errno(r, "Failed to add AF_UNIX socket to set, ignoring: %m");
-                        goto fail;
-                }
+                r = set_consume(sockets, s);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to add AF_UNIX socket to set, ignoring: %m");
+
+                TAKE_PTR(s);
         }
 
-        return;
-
-fail:
-        unix_sockets = set_free_free(unix_sockets);
+        unix_sockets = TAKE_PTR(sockets);
+        return 1;
 }
 
 static bool unix_socket_alive(const char *fn) {
         assert(fn);
 
-        load_unix_sockets();
+        if (load_unix_sockets() < 0)
+                return true;     /* We don't know, so assume yes */
 
-        if (unix_sockets)
-                return !!set_get(unix_sockets, (char*) fn);
-
-        /* We don't know, so assume yes */
-        return true;
+        return !!set_get(unix_sockets, (char*) fn);
 }
 
 static int dir_is_mount_point(DIR *d, const char *subdir) {
@@ -2332,18 +2326,18 @@ static void item_free_contents(Item *i) {
 #endif
 }
 
-static void item_array_free(ItemArray *a) {
+static ItemArray* item_array_free(ItemArray *a) {
         size_t n;
 
         if (!a)
-                return;
+                return NULL;
 
         for (n = 0; n < a->n_items; n++)
                 item_free_contents(a->items + n);
 
         set_free(a->children);
         free(a->items);
-        free(a);
+        return mfree(a);
 }
 
 static int item_compare(const Item *a, const Item *b) {
@@ -3163,9 +3157,11 @@ static int link_parent(ItemArray *a) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_array_hash_ops, char, string_hash_func, string_compare_func,
+                                              ItemArray, item_array_free);
+
+static int run(int argc, char *argv[]) {
         _cleanup_strv_free_ char **config_dirs = NULL;
-        int r, k, r_process = 0;
         bool invalid_config = false;
         Iterator iterator;
         ItemArray *a;
@@ -3174,25 +3170,22 @@ int main(int argc, char *argv[]) {
                 PHASE_CREATE,
                 _PHASE_MAX
         } phase;
+        int r, k;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         log_setup_service();
 
         if (arg_user) {
                 r = user_config_paths(&config_dirs);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to initialize configuration directory list: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize configuration directory list: %m");
         } else {
                 config_dirs = strv_split_nulstr(CONF_PATHS_NULSTR("tmpfiles.d"));
-                if (!config_dirs) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!config_dirs)
+                        return log_oom();
         }
 
         if (DEBUG_LOGGING) {
@@ -3206,21 +3199,17 @@ int main(int argc, char *argv[]) {
         if (arg_cat_config) {
                 (void) pager_open(arg_pager_flags);
 
-                r = cat_config(config_dirs, argv + optind);
-                goto finish;
+                return cat_config(config_dirs, argv + optind);
         }
 
         umask(0022);
 
         mac_selinux_init();
 
-        items = ordered_hashmap_new(&string_hash_ops);
-        globs = ordered_hashmap_new(&string_hash_ops);
-
-        if (!items || !globs) {
-                r = log_oom();
-                goto finish;
-        }
+        items = ordered_hashmap_new(&item_array_hash_ops);
+        globs = ordered_hashmap_new(&item_array_hash_ops);
+        if (!items || !globs)
+                return log_oom();
 
         /* If command line arguments are specified along with --replace, read all
          * configuration files and insert the positional arguments at the specified
@@ -3233,18 +3222,18 @@ int main(int argc, char *argv[]) {
         else
                 r = parse_arguments(config_dirs, argv + optind, &invalid_config);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Let's now link up all child/parent relationships */
         ORDERED_HASHMAP_FOREACH(a, items, iterator) {
                 r = link_parent(a);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
         ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
                 r = link_parent(a);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         /* If multiple operations are requested, let's first run the remove/clean operations, and only then the create
@@ -3265,38 +3254,25 @@ int main(int argc, char *argv[]) {
                 /* The non-globbing ones usually create things, hence we apply them first */
                 ORDERED_HASHMAP_FOREACH(a, items, iterator) {
                         k = process_item_array(a, op);
-                        if (k < 0 && r_process == 0)
-                                r_process = k;
+                        if (k < 0 && r >= 0)
+                                r = k;
                 }
 
                 /* The globbing ones usually alter things, hence we apply them second. */
                 ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
                         k = process_item_array(a, op);
-                        if (k < 0 && r_process == 0)
-                                r_process = k;
+                        if (k < 0 && r >= 0)
+                                r = k;
                 }
         }
 
-finish:
-        pager_close();
-
-        ordered_hashmap_free_with_destructor(items, item_array_free);
-        ordered_hashmap_free_with_destructor(globs, item_array_free);
-
-        free(arg_include_prefixes);
-        free(arg_exclude_prefixes);
-        free(arg_root);
-
-        set_free_free(unix_sockets);
-
-        mac_selinux_finish();
-
-        if (r < 0 || ERRNO_IS_RESOURCE(-r_process))
-                return EXIT_FAILURE;
-        else if (invalid_config)
+        if (ERRNO_IS_RESOURCE(-r))
+                return r;
+        if (invalid_config)
                 return EX_DATAERR;
-        else if (r_process < 0)
+        if (r < 0)
                 return EX_CANTCREAT;
-        else
-                return EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

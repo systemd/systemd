@@ -282,9 +282,7 @@ int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *
         return dns_name_endswith(dns_resource_key_name(key), dns_resource_key_name(soa));
 }
 
-static void dns_resource_key_hash_func(const void *i, struct siphash *state) {
-        const DnsResourceKey *k = i;
-
+static void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state) {
         assert(k);
 
         dns_name_hash_func(dns_resource_key_name(k), state);
@@ -292,8 +290,7 @@ static void dns_resource_key_hash_func(const void *i, struct siphash *state) {
         siphash24_compress(&k->type, sizeof(k->type), state);
 }
 
-static int dns_resource_key_compare_func(const void *a, const void *b) {
-        const DnsResourceKey *x = a, *y = b;
+static int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y) {
         int ret;
 
         ret = dns_name_compare_func(dns_resource_key_name(x), dns_resource_key_name(y));
@@ -311,10 +308,7 @@ static int dns_resource_key_compare_func(const void *a, const void *b) {
         return 0;
 }
 
-const struct hash_ops dns_resource_key_hash_ops = {
-        .hash = dns_resource_key_hash_func,
-        .compare = dns_resource_key_compare_func
-};
+DEFINE_HASH_OPS(dns_resource_key_hash_ops, DnsResourceKey, dns_resource_key_hash_func, dns_resource_key_compare_func);
 
 char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size) {
         const char *c, *t;
@@ -1343,9 +1337,7 @@ int dns_resource_record_is_synthetic(DnsResourceRecord *rr) {
         return !r;
 }
 
-void dns_resource_record_hash_func(const void *i, struct siphash *state) {
-        const DnsResourceRecord *rr = i;
-
+void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *state) {
         assert(rr);
 
         dns_resource_key_hash_func(rr->key, state);
@@ -1486,13 +1478,12 @@ void dns_resource_record_hash_func(const void *i, struct siphash *state) {
         }
 }
 
-static int dns_resource_record_compare_func(const void *a, const void *b) {
-        const DnsResourceRecord *x = a, *y = b;
-        int ret;
+static int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y) {
+        int r;
 
-        ret = dns_resource_key_compare_func(x->key, y->key);
-        if (ret != 0)
-                return ret;
+        r = dns_resource_key_compare_func(x->key, y->key);
+        if (r != 0)
+                return r;
 
         if (dns_resource_record_equal(x, y))
                 return 0;
@@ -1502,10 +1493,7 @@ static int dns_resource_record_compare_func(const void *a, const void *b) {
         return CMP(x, y);
 }
 
-const struct hash_ops dns_resource_record_hash_ops = {
-        .hash = dns_resource_record_hash_func,
-        .compare = dns_resource_record_compare_func,
-};
+DEFINE_HASH_OPS(dns_resource_record_hash_ops, DnsResourceRecord, dns_resource_record_hash_func, dns_resource_record_compare_func);
 
 DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *copy = NULL;

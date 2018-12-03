@@ -16,7 +16,7 @@ static int image_cache_flush(sd_event_source *s, void *userdata) {
         assert(s);
         assert(m);
 
-        hashmap_clear_with_destructor(m->image_cache, image_unref);
+        hashmap_clear(m->image_cache);
         return 0;
 }
 
@@ -25,7 +25,7 @@ static int manager_image_cache_initialize(Manager *m) {
 
         assert(m);
 
-        r = hashmap_ensure_allocated(&m->image_cache, &string_hash_ops);
+        r = hashmap_ensure_allocated(&m->image_cache, &image_hash_ops);
         if (r < 0)
                 return r;
 

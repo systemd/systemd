@@ -21,13 +21,11 @@ static inline int ordered_set_ensure_allocated(OrderedSet **s, const struct hash
 }
 
 static inline OrderedSet* ordered_set_free(OrderedSet *s) {
-        ordered_hashmap_free((OrderedHashmap*) s);
-        return NULL;
+        return (OrderedSet*) ordered_hashmap_free((OrderedHashmap*) s);
 }
 
 static inline OrderedSet* ordered_set_free_free(OrderedSet *s) {
-        ordered_hashmap_free_free((OrderedHashmap*) s);
-        return NULL;
+        return (OrderedSet*) ordered_hashmap_free_free((OrderedHashmap*) s);
 }
 
 static inline int ordered_set_put(OrderedSet *s, void *p) {

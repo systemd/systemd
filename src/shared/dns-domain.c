@@ -460,8 +460,7 @@ finish:
         return 0;
 }
 
-void dns_name_hash_func(const void *s, struct siphash *state) {
-        const char *p = s;
+void dns_name_hash_func(const char *p, struct siphash *state) {
         int r;
 
         assert(p);
@@ -484,15 +483,15 @@ void dns_name_hash_func(const void *s, struct siphash *state) {
         string_hash_func("", state);
 }
 
-int dns_name_compare_func(const void *a, const void *b) {
+int dns_name_compare_func(const char *a, const char *b) {
         const char *x, *y;
         int r, q;
 
         assert(a);
         assert(b);
 
-        x = (const char *) a + strlen(a);
-        y = (const char *) b + strlen(b);
+        x = a + strlen(a);
+        y = b + strlen(b);
 
         for (;;) {
                 char la[DNS_LABEL_MAX], lb[DNS_LABEL_MAX];
@@ -511,10 +510,7 @@ int dns_name_compare_func(const void *a, const void *b) {
         }
 }
 
-const struct hash_ops dns_name_hash_ops = {
-        .hash = dns_name_hash_func,
-        .compare = dns_name_compare_func
-};
+DEFINE_HASH_OPS(dns_name_hash_ops, char, dns_name_hash_func, dns_name_compare_func);
 
 int dns_name_equal(const char *x, const char *y) {
         int r, q;

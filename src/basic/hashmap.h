@@ -22,6 +22,8 @@
 
 #define HASH_KEY_SIZE 16
 
+typedef void* (*hashmap_destroy_t)(void *p);
+
 /* The base type for all hashmap and set types. Many functions in the
  * implementation take (HashmapBase*) parameters and are run-time polymorphic,
  * though the API is not meant to be polymorphic (do not call functions
@@ -87,25 +89,33 @@ OrderedHashmap *internal_ordered_hashmap_new(const struct hash_ops *hash_ops  HA
 #define hashmap_new(ops) internal_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 #define ordered_hashmap_new(ops) internal_ordered_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 
-HashmapBase *internal_hashmap_free(HashmapBase *h);
+HashmapBase *internal_hashmap_free(HashmapBase *h, free_func_t default_free_key, free_func_t default_free_value);
 static inline Hashmap *hashmap_free(Hashmap *h) {
-        return (void*)internal_hashmap_free(HASHMAP_BASE(h));
+        return (void*) internal_hashmap_free(HASHMAP_BASE(h), NULL, NULL);
 }
 static inline OrderedHashmap *ordered_hashmap_free(OrderedHashmap *h) {
-        return (void*)internal_hashmap_free(HASHMAP_BASE(h));
+        return (void*) internal_hashmap_free(HASHMAP_BASE(h), NULL, NULL);
 }
 
-HashmapBase *internal_hashmap_free_free(HashmapBase *h);
 static inline Hashmap *hashmap_free_free(Hashmap *h) {
-        return (void*)internal_hashmap_free_free(HASHMAP_BASE(h));
+        return (void*) internal_hashmap_free(HASHMAP_BASE(h), NULL, free);
 }
 static inline OrderedHashmap *ordered_hashmap_free_free(OrderedHashmap *h) {
-        return (void*)internal_hashmap_free_free(HASHMAP_BASE(h));
+        return (void*) internal_hashmap_free(HASHMAP_BASE(h), NULL, free);
 }
 
-Hashmap *hashmap_free_free_free(Hashmap *h);
+static inline Hashmap *hashmap_free_free_key(Hashmap *h) {
+        return (void*) internal_hashmap_free(HASHMAP_BASE(h), free, NULL);
+}
+static inline OrderedHashmap *ordered_hashmap_free_free_key(OrderedHashmap *h) {
+        return (void*) internal_hashmap_free(HASHMAP_BASE(h), free, NULL);
+}
+
+static inline Hashmap *hashmap_free_free_free(Hashmap *h) {
+        return (void*) internal_hashmap_free(HASHMAP_BASE(h), free, free);
+}
 static inline OrderedHashmap *ordered_hashmap_free_free_free(OrderedHashmap *h) {
-        return (void*)hashmap_free_free_free(PLAIN_HASHMAP(h));
+        return (void*) internal_hashmap_free(HASHMAP_BASE(h), free, free);
 }
 
 IteratedCache *iterated_cache_free(IteratedCache *cache);
@@ -258,25 +268,33 @@ static inline bool ordered_hashmap_iterate(OrderedHashmap *h, Iterator *i, void 
         return internal_hashmap_iterate(HASHMAP_BASE(h), i, value, key);
 }
 
-void internal_hashmap_clear(HashmapBase *h);
+void internal_hashmap_clear(HashmapBase *h, free_func_t default_free_key, free_func_t default_free_value);
 static inline void hashmap_clear(Hashmap *h) {
-        internal_hashmap_clear(HASHMAP_BASE(h));
+        internal_hashmap_clear(HASHMAP_BASE(h), NULL, NULL);
 }
 static inline void ordered_hashmap_clear(OrderedHashmap *h) {
-        internal_hashmap_clear(HASHMAP_BASE(h));
+        internal_hashmap_clear(HASHMAP_BASE(h), NULL, NULL);
 }
 
-void internal_hashmap_clear_free(HashmapBase *h);
 static inline void hashmap_clear_free(Hashmap *h) {
-        internal_hashmap_clear_free(HASHMAP_BASE(h));
+        internal_hashmap_clear(HASHMAP_BASE(h), NULL, free);
 }
 static inline void ordered_hashmap_clear_free(OrderedHashmap *h) {
-        internal_hashmap_clear_free(HASHMAP_BASE(h));
+        internal_hashmap_clear(HASHMAP_BASE(h), NULL, free);
 }
 
-void hashmap_clear_free_free(Hashmap *h);
+static inline void hashmap_clear_free_key(Hashmap *h) {
+        internal_hashmap_clear(HASHMAP_BASE(h), free, NULL);
+}
+static inline void ordered_hashmap_clear_free_key(OrderedHashmap *h) {
+        internal_hashmap_clear(HASHMAP_BASE(h), free, NULL);
+}
+
+static inline void hashmap_clear_free_free(Hashmap *h) {
+        internal_hashmap_clear(HASHMAP_BASE(h), free, free);
+}
 static inline void ordered_hashmap_clear_free_free(OrderedHashmap *h) {
-        hashmap_clear_free_free(PLAIN_HASHMAP(h));
+        internal_hashmap_clear(HASHMAP_BASE(h), free, free);
 }
 
 /*

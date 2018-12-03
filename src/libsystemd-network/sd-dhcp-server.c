@@ -21,12 +21,12 @@
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
 
-static void dhcp_lease_free(DHCPLease *lease) {
+static DHCPLease *dhcp_lease_free(DHCPLease *lease) {
         if (!lease)
-                return;
+                return NULL;
 
         free(lease->client_id.data);
-        free(lease);
+        return mfree(lease);
 }
 
 /* configures the server's address and subnet, and optionally the pool's size and offset into the subnet
@@ -90,7 +90,7 @@ int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *addres
                         server->bound_leases[server_off - offset] = &server->invalid_lease;
 
                 /* Drop any leases associated with the old address range */
-                hashmap_clear_with_destructor(server->leases_by_client_id, dhcp_lease_free);
+                hashmap_clear(server->leases_by_client_id);
         }
 
         return 0;
@@ -102,9 +102,7 @@ int sd_dhcp_server_is_running(sd_dhcp_server *server) {
         return !!server->receive_message;
 }
 
-void client_id_hash_func(const void *p, struct siphash *state) {
-        const DHCPClientId *id = p;
-
+void client_id_hash_func(const DHCPClientId *id, struct siphash *state) {
         assert(id);
         assert(id->length);
         assert(id->data);
@@ -113,12 +111,8 @@ void client_id_hash_func(const void *p, struct siphash *state) {
         siphash24_compress(id->data, id->length, state);
 }
 
-int client_id_compare_func(const void *_a, const void *_b) {
-        const DHCPClientId *a, *b;
+int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b) {
         int r;
-
-        a = _a;
-        b = _b;
 
         assert(!a->length || a->data);
         assert(!b->length || b->data);
@@ -130,14 +124,10 @@ int client_id_compare_func(const void *_a, const void *_b) {
         return memcmp(a->data, b->data, a->length);
 }
 
-static const struct hash_ops client_id_hash_ops = {
-        .hash = client_id_hash_func,
-        .compare = client_id_compare_func
-};
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(dhcp_lease_hash_ops, DHCPClientId, client_id_hash_func, client_id_compare_func,
+                                              DHCPLease, dhcp_lease_free);
 
 static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
-        DHCPLease *lease;
-
         assert(server);
 
         log_dhcp_server(server, "UNREF");
@@ -150,8 +140,6 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->dns);
         free(server->ntp);
 
-        while ((lease = hashmap_steal_first(server->leases_by_client_id)))
-                dhcp_lease_free(lease);
         hashmap_free(server->leases_by_client_id);
 
         free(server->bound_leases);
@@ -177,7 +165,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->netmask = htobe32(INADDR_ANY);
         server->ifindex = ifindex;
 
-        server->leases_by_client_id = hashmap_new(&client_id_hash_ops);
+        server->leases_by_client_id = hashmap_new(&dhcp_lease_hash_ops);
         if (!server->leases_by_client_id)
                 return -ENOMEM;
 

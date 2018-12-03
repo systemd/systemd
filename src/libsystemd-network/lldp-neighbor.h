@@ -80,7 +80,7 @@ static inline void* LLDP_NEIGHBOR_TLV_DATA(const sd_lldp_neighbor *n) {
         return ((uint8_t*) LLDP_NEIGHBOR_RAW(n)) + n->rindex + 2;
 }
 
-extern const struct hash_ops lldp_neighbor_id_hash_ops;
+extern const struct hash_ops lldp_neighbor_hash_ops;
 int lldp_neighbor_id_compare_func(const LLDPNeighborID *x, const LLDPNeighborID *y);
 int lldp_neighbor_prioq_compare_func(const void *a, const void *b);
 

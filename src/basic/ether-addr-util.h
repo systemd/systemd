@@ -12,7 +12,7 @@
 #define ETHER_ADDR_TO_STRING_MAX (3*6)
 char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]);
 
-int ether_addr_compare(const void *a, const void *b);
+int ether_addr_compare(const struct ether_addr *a, const struct ether_addr *b);
 static inline bool ether_addr_equal(const struct ether_addr *a, const struct ether_addr *b) {
         return ether_addr_compare(a, b) == 0;
 }

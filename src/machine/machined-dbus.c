@@ -464,7 +464,7 @@ static int method_get_machine_os_release(sd_bus_message *message, void *userdata
 
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         Manager *m = userdata;
         Image *image;
         Iterator i;
@@ -473,7 +473,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(m);
 
-        images = hashmap_new(&string_hash_ops);
+        images = hashmap_new(&image_hash_ops);
         if (!images)
                 return -ENOMEM;
 
@@ -741,7 +741,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
-                _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
+                _cleanup_hashmap_free_ Hashmap *images = NULL;
                 bool success = true;
                 Image *image;
                 Iterator i;
@@ -749,7 +749,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                images = hashmap_new(&string_hash_ops);
+                images = hashmap_new(&image_hash_ops);
                 if (!images) {
                         r = -ENOMEM;
                         goto child_fail;

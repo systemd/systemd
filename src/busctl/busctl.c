@@ -713,8 +713,7 @@ typedef struct Member {
         uint64_t flags;
 } Member;
 
-static void member_hash_func(const void *p, struct siphash *state) {
-        const Member *m = p;
+static void member_hash_func(const Member *m, struct siphash *state) {
         uint64_t arity = 1;
 
         assert(m);
@@ -921,12 +920,9 @@ static int on_property(const char *interface, const char *name, const char *sign
         return 0;
 }
 
-static int introspect(int argc, char **argv, void *userdata) {
-        static const struct hash_ops member_hash_ops = {
-                .hash = member_hash_func,
-                .compare = (__compar_fn_t) member_compare_func,
-        };
+DEFINE_PRIVATE_HASH_OPS(member_hash_ops, Member, member_hash_func, member_compare_func);
 
+static int introspect(int argc, char **argv, void *userdata) {
         static const XMLIntrospectOps ops = {
                 .on_interface = on_interface,
                 .on_method = on_method,

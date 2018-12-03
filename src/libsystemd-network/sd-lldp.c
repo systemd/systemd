@@ -27,12 +27,9 @@ static const char * const lldp_event_table[_SD_LLDP_EVENT_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(lldp_event, sd_lldp_event);
 
 static void lldp_flush_neighbors(sd_lldp *lldp) {
-        sd_lldp_neighbor *n;
-
         assert(lldp);
 
-        while ((n = hashmap_first(lldp->neighbor_by_id)))
-                lldp_neighbor_unlink(n);
+        hashmap_clear(lldp->neighbor_by_id);
 }
 
 static void lldp_callback(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n) {
@@ -375,7 +372,7 @@ _public_ int sd_lldp_new(sd_lldp **ret) {
                 .capability_mask = (uint16_t) -1,
         };
 
-        lldp->neighbor_by_id = hashmap_new(&lldp_neighbor_id_hash_ops);
+        lldp->neighbor_by_id = hashmap_new(&lldp_neighbor_hash_ops);
         if (!lldp->neighbor_by_id)
                 return -ENOMEM;
 

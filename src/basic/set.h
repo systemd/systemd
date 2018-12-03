@@ -9,13 +9,11 @@ Set *internal_set_new(const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
 #define set_new(ops) internal_set_new(ops HASHMAP_DEBUG_SRC_ARGS)
 
 static inline Set *set_free(Set *s) {
-        internal_hashmap_free(HASHMAP_BASE(s));
-        return NULL;
+        return (Set*) internal_hashmap_free(HASHMAP_BASE(s), NULL, NULL);
 }
 
 static inline Set *set_free_free(Set *s) {
-        internal_hashmap_free_free(HASHMAP_BASE(s));
-        return NULL;
+        return (Set*) internal_hashmap_free(HASHMAP_BASE(s), free, NULL);
 }
 
 /* no set_free_free_free */
@@ -76,11 +74,11 @@ static inline unsigned set_buckets(Set *s) {
 bool set_iterate(Set *s, Iterator *i, void **value);
 
 static inline void set_clear(Set *s) {
-        internal_hashmap_clear(HASHMAP_BASE(s));
+        internal_hashmap_clear(HASHMAP_BASE(s), NULL, NULL);
 }
 
 static inline void set_clear_free(Set *s) {
-        internal_hashmap_clear_free(HASHMAP_BASE(s));
+        internal_hashmap_clear(HASHMAP_BASE(s), free, NULL);
 }
 
 /* no set_clear_free_free */

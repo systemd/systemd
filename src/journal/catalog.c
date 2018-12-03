@@ -50,9 +50,7 @@ typedef struct CatalogItem {
         le64_t offset;
 } CatalogItem;
 
-static void catalog_hash_func(const void *p, struct siphash *state) {
-        const CatalogItem *i = p;
-
+static void catalog_hash_func(const CatalogItem *i, struct siphash *state) {
         siphash24_compress(&i->id, sizeof(i->id), state);
         siphash24_compress(i->language, strlen(i->language), state);
 }
@@ -70,10 +68,7 @@ static int catalog_compare_func(const CatalogItem *a, const CatalogItem *b) {
         return strcmp(a->language, b->language);
 }
 
-const struct hash_ops catalog_hash_ops = {
-        .hash = catalog_hash_func,
-        .compare = (comparison_fn_t) catalog_compare_func,
-};
+DEFINE_HASH_OPS(catalog_hash_ops, CatalogItem, catalog_hash_func, catalog_compare_func);
 
 static bool next_header(const char **s) {
         const char *e;

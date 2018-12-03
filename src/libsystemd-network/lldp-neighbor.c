@@ -9,9 +9,7 @@
 #include "lldp-neighbor.h"
 #include "unaligned.h"
 
-static void lldp_neighbor_id_hash_func(const void *p, struct siphash *state) {
-        const LLDPNeighborID *id = p;
-
+static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash *state) {
         siphash24_compress(id->chassis_id, id->chassis_id_size, state);
         siphash24_compress(&id->chassis_id_size, sizeof(id->chassis_id_size), state);
         siphash24_compress(id->port_id, id->port_id_size, state);
@@ -36,10 +34,8 @@ int lldp_neighbor_id_compare_func(const LLDPNeighborID *x, const LLDPNeighborID 
         return CMP(x->port_id_size, y->port_id_size);
 }
 
-const struct hash_ops lldp_neighbor_id_hash_ops = {
-        .hash = lldp_neighbor_id_hash_func,
-        .compare = (__compar_fn_t) lldp_neighbor_id_compare_func,
-};
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(lldp_neighbor_hash_ops, LLDPNeighborID, lldp_neighbor_id_hash_func, lldp_neighbor_id_compare_func,
+                                      sd_lldp_neighbor, lldp_neighbor_unlink);
 
 int lldp_neighbor_prioq_compare_func(const void *a, const void *b) {
         const sd_lldp_neighbor *x = a, *y = b;

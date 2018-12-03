@@ -72,8 +72,9 @@ fail:
         return mfree(m);
 }
 
-void machine_free(Machine *m) {
-        assert(m);
+Machine* machine_free(Machine *m) {
+        if (!m)
+                return NULL;
 
         while (m->operations)
                 operation_free(m->operations);
@@ -100,7 +101,7 @@ void machine_free(Machine *m) {
         free(m->service);
         free(m->root_directory);
         free(m->netif);
-        free(m);
+        return mfree(m);
 }
 
 int machine_save(Machine *m) {

@@ -13,6 +13,7 @@
 #include "hashmap.h"
 #include "id128-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -39,6 +40,10 @@ static bool arg_whitelist = false;
 static Hashmap *arg_disks = NULL;
 static char *arg_default_options = NULL;
 static char *arg_default_keyfile = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_disks, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_default_options, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_default_keyfile, freep);
 
 static int generate_keydev_mount(const char *name, const char *keydev, char **unit, char **mount) {
         _cleanup_free_ char *u = NULL, *what = NULL, *where = NULL, *name_escaped = NULL;
@@ -310,13 +315,16 @@ static int create_disk(
         return 0;
 }
 
-static void crypt_device_free(crypto_device *d) {
+static crypto_device* crypt_device_free(crypto_device *d) {
+        if (!d)
+                return NULL;
+
         free(d->uuid);
         free(d->keyfile);
         free(d->keydev);
         free(d->name);
         free(d->options);
-        free(d);
+        return mfree(d);
 }
 
 static crypto_device *get_crypto_device(const char *uuid) {
@@ -569,50 +577,40 @@ static int add_proc_cmdline_devices(void) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(crypt_device_hash_ops, char, string_hash_func, string_compare_func,
+                                              crypto_device, crypt_device_free);
+
+static int run(int argc, char *argv[]) {
         int r;
 
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
-        }
+        if (argc > 1 && argc != 4)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes three or no arguments.");
 
         if (argc > 1)
                 arg_dest = argv[1];
 
         log_setup_generator();
 
-        arg_disks = hashmap_new(&string_hash_ops);
-        if (!arg_disks) {
-                r = log_oom();
-                goto finish;
-        }
+        arg_disks = hashmap_new(&crypt_device_hash_ops);
+        if (!arg_disks)
+                return log_oom();
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to parse kernel command line: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse kernel command line: %m");
 
-        if (!arg_enabled) {
-                r = 0;
-                goto finish;
-        }
+        if (!arg_enabled)
+                return 0;
 
         r = add_crypttab_devices();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = add_proc_cmdline_devices();
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = 0;
-
-finish:
-        hashmap_free_with_destructor(arg_disks, crypt_device_free);
-        free(arg_default_options);
-        free(arg_default_keyfile);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

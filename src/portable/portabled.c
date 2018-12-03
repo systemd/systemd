@@ -47,7 +47,7 @@ static int manager_new(Manager **ret) {
 static Manager* manager_unref(Manager *m) {
         assert(m);
 
-        hashmap_free_with_destructor(m->image_cache, image_unref);
+        hashmap_free(m->image_cache);
 
         sd_event_source_unref(m->image_cache_defer_event);
 
