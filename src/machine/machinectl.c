@@ -300,7 +300,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Could not get machines: %s", bus_error_message(&error, r));
 
-        table = table_new("MACHINE", "CLASS", "SERVICE", "OS", "VERSION", "ADDRESSES");
+        table = table_new("machine", "class", "service", "os", "version", "addresses");
         if (!table)
                 return log_oom();
 
@@ -380,7 +380,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Could not get images: %s", bus_error_message(&error, r));
 
-        table = table_new("NAME", "TYPE", "RO", "USAGE", "CREATED", "MODIFIED");
+        table = table_new("name", "type", "ro", "usage", "created", "modified");
         if (!table)
                 return log_oom();
 
