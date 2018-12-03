@@ -588,6 +588,12 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                         return log_error_errno(r, "Could not append FRA_DPORT_RANGE attribute: %m");
         }
 
+        if (rule->invert_rule) {
+                r = sd_rtnl_message_routing_policy_rule_set_flags(m, FIB_RULE_INVERT);
+                if (r < 0)
+                        return log_error_errno(r, "Could not append FIB_RULE_INVERT attribute: %m");
+        }
+
         rule->link = link;
 
         r = netlink_call_async(link->manager->rtnl, NULL, m,
@@ -953,6 +959,45 @@ int config_parse_routing_policy_rule_ip_protocol(
         }
 
         n->protocol = r;
+
+        n = NULL;
+
+        return 0;
+}
+
+int config_parse_routing_policy_rule_invert(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule invert, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        n->invert_rule = r;
 
         n = NULL;
 

@@ -179,6 +179,8 @@ int sd_rtnl_message_routing_policy_rule_set_rtm_dst_prefixlen(sd_netlink_message
 int sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(sd_netlink_message *m, unsigned char *len);
 int sd_rtnl_message_routing_policy_rule_set_rtm_type(sd_netlink_message *m, unsigned char type);
 int sd_rtnl_message_routing_policy_rule_get_rtm_type(sd_netlink_message *m, unsigned char *type);
+int sd_rtnl_message_routing_policy_rule_set_flags(sd_netlink_message *m, unsigned flags);
+int sd_rtnl_message_routing_policy_rule_get_flags(sd_netlink_message *m, unsigned *flags);
 
 /* genl */
 int sd_genl_socket_open(sd_netlink **nl);

@@ -1015,6 +1015,12 @@
             Defaults to unset.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>InvertRule=</varname></term>
+          <listitem>
+            <para>A boolean. Specifies wheather the rule to be inverted. Defaults to false.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

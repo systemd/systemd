@@ -153,6 +153,7 @@ FirewallMark=
 SourcePort=
 DestinationPort=
 IPProtocol=
+InvertRule=
 [IPv6PrefixDelegation]
 RouterPreference=
 DNSLifetimeSec=
