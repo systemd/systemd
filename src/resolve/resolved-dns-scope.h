@@ -18,7 +18,8 @@ typedef struct DnsScope DnsScope;
 typedef enum DnsScopeMatch {
         DNS_SCOPE_NO,
         DNS_SCOPE_MAYBE,
-        DNS_SCOPE_YES,
+        DNS_SCOPE_YES_BASE, /* Add the number of matching labels to this */
+        DNS_SCOPE_YES_END = DNS_SCOPE_YES_BASE + DNS_N_LABELS_MAX,
         _DNS_SCOPE_MATCH_MAX,
         _DNS_SCOPE_MATCH_INVALID = -1
 } DnsScopeMatch;

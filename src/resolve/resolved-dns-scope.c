@@ -459,8 +459,24 @@ int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *add
         return dns_scope_socket(s, SOCK_STREAM, family, address, server, port, ret_socket_address);
 }
 
-DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
+DnsScopeMatch dns_scope_good_domain(
+                DnsScope *s,
+                int ifindex,
+                uint64_t flags,
+                const char *domain) {
+
         DnsSearchDomain *d;
+
+        /* This returns the following return values:
+         *
+         *    DNS_SCOPE_NO         → This scope is not suitable for lookups of this domain, at all
+         *    DNS_SCOPE_MAYBE      → This scope is suitable, but only if nothing else wants it
+         *    DNS_SCOPE_YES_BASE+n → This scope is suitable, and 'n' suffix labels match
+         *
+         *  (The idea is that the caller will only use the scopes with the longest 'n' returned. If no scopes return
+         *  DNS_SCOPE_YES_BASE+n, then it should use those which returned DNS_SCOPE_MAYBE. It should never use those
+         *  which returned DNS_SCOPE_NO.)
+         */
 
         assert(s);
         assert(domain);
@@ -497,6 +513,7 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
 
         case DNS_PROTOCOL_DNS: {
                 DnsServer *dns_server;
+                int n_best = -1;
 
                 /* Never route things to scopes that lack DNS servers */
                 dns_server = dns_scope_get_dns_server(s);
@@ -507,8 +524,22 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                  * we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means other wildcard scopes
                  * won't be considered anymore. */
                 LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
-                        if (dns_name_endswith(domain, d->name) > 0)
-                                return DNS_SCOPE_YES;
+                        if (dns_name_endswith(domain, d->name) > 0) {
+                                int c;
+
+                                c = dns_name_count_labels(d->name);
+                                if (c < 0)
+                                        continue;
+
+                                if (c > n_best)
+                                        n_best = c;
+                        }
+
+                /* Let's return the number of labels in the best matching result */
+                if (n_best >= 0) {
+                        assert(n_best <= DNS_SCOPE_YES_END - DNS_SCOPE_YES_BASE);
+                        return DNS_SCOPE_YES_BASE + n_best;
+                }
 
                 /* If the DNS server has route-only domains, don't send other requests to it. This would be a privacy
                  * violation, will most probably fail anyway, and adds unnecessary load. */
