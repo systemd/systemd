@@ -34,7 +34,7 @@ static int ipv4ll_address_lost(Link *link) {
         address->prefixlen = 16;
         address->scope = RT_SCOPE_LINK;
 
-        address_remove(address, link, link_address_remove_handler);
+        address_remove(address, link, NULL);
 
         r = route_new(&route);
         if (r < 0)
@@ -44,15 +44,14 @@ static int ipv4ll_address_lost(Link *link) {
         route->scope = RT_SCOPE_LINK;
         route->priority = IPV4LL_ROUTE_METRIC;
 
-        route_remove(route, link, link_route_remove_handler);
+        route_remove(route, link, NULL);
 
         link_check_ready(link);
 
         return 0;
 }
 
-static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -72,8 +71,7 @@ static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
         return 1;
 }
 
-static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);

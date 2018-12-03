@@ -5,13 +5,13 @@
 
 #include "conf-parser.h"
 #include "list.h"
+#include "../networkd-link.h"
 #include "time-util.h"
 
 typedef struct netdev_join_callback netdev_join_callback;
-typedef struct Link Link;
 
 struct netdev_join_callback {
-        sd_netlink_message_handler_t callback;
+        link_netlink_message_handler_t callback;
         Link *link;
 
         LIST_FIELDS(netdev_join_callback, callbacks);
@@ -153,13 +153,13 @@ void netdev_drop(NetDev *netdev);
 
 NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);
-void netdev_destroy_callback(void *userdata);
+DEFINE_TRIVIAL_DESTRUCTOR(netdev_destroy_callback, NetDev, netdev_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_get_mac(const char *ifname, struct ether_addr **ret);
-int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t cb);
+int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;

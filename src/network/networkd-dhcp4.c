@@ -14,9 +14,7 @@
 #include "string-util.h"
 #include "sysctl-util.h"
 
-static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
-                               void *userdata) {
-        Link *link = userdata;
+static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -216,8 +214,7 @@ static int dhcp_lease_lost(Link *link) {
                                         assert_se(sd_dhcp_route_get_destination(routes[i], &route->dst.in) >= 0);
                                         assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &route->dst_prefixlen) >= 0);
 
-                                        route_remove(route, link,
-                                                     link_route_remove_handler);
+                                        route_remove(route, link, NULL);
                                 }
                         }
                 }
@@ -237,8 +234,7 @@ static int dhcp_lease_lost(Link *link) {
                                 route_gw->dst_prefixlen = 32;
                                 route_gw->scope = RT_SCOPE_LINK;
 
-                                route_remove(route_gw, link,
-                                             link_route_remove_handler);
+                                route_remove(route_gw, link, NULL);
                         }
 
                         r = route_new(&route);
@@ -246,8 +242,7 @@ static int dhcp_lease_lost(Link *link) {
                                 route->family = AF_INET;
                                 route->gw.in = gateway;
 
-                                route_remove(route, link,
-                                             link_route_remove_handler);
+                                route_remove(route, link, NULL);
                         }
                 }
 
@@ -261,7 +256,7 @@ static int dhcp_lease_lost(Link *link) {
                         address->in_addr.in = addr;
                         address->prefixlen = prefixlen;
 
-                        address_remove(address, link, link_address_remove_handler);
+                        address_remove(address, link, NULL);
                 }
         }
 
@@ -303,9 +298,7 @@ static int dhcp_lease_lost(Link *link) {
         return 0;
 }
 
-static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
-                                 void *userdata) {
-        Link *link = userdata;
+static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);

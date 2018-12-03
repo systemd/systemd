@@ -126,12 +126,14 @@ typedef struct Link {
         Hashmap *bound_to_links;
 } Link;
 
+typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
+
 DUID *link_get_duid(Link *link);
 int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
 
 Link *link_unref(Link *link);
 Link *link_ref(Link *link);
-void link_netlink_destroy_callback(void *userdata);
+DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
 
 int link_get(Manager *m, int ifindex, Link **ret);
 int link_add(Manager *manager, sd_netlink_message *message, Link **ret);
@@ -139,9 +141,6 @@ void link_drop(Link *link);
 
 int link_up(Link *link);
 int link_down(Link *link);
-
-int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
-int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata);
 
 void link_enter_failed(Link *link);
 int link_initialized(Link *link, sd_device *device);

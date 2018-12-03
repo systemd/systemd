@@ -24,13 +24,9 @@ static bool dhcp6_get_prefix_delegation(Link *link) {
         if (!link->network)
                 return false;
 
-        if (!IN_SET(link->network->router_prefix_delegation,
-                            RADV_PREFIX_DELEGATION_DHCP6,
-                            RADV_PREFIX_DELEGATION_BOTH)) {
-                return false;
-        }
-
-        return true;
+        return IN_SET(link->network->router_prefix_delegation,
+                      RADV_PREFIX_DELEGATION_DHCP6,
+                      RADV_PREFIX_DELEGATION_BOTH);
 }
 
 static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
@@ -100,8 +96,7 @@ static int dhcp6_pd_prefix_assign(Link *link, struct in6_addr *prefix,
         return sd_radv_start(radv);
 }
 
-static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -247,8 +242,7 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
         return 0;
 }
 
-static int dhcp6_route_handler(sd_netlink *nl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int dhcp6_route_handler(sd_netlink *nl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -406,9 +400,7 @@ int dhcp6_request_prefix_delegation(Link *link) {
         return 0;
 }
 
-static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
-                                 void *userdata) {
-        Link *link = userdata;
+static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);

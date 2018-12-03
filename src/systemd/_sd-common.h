@@ -23,6 +23,8 @@
 #  error "Do not include _sd-common.h directly; it is a private header."
 #endif
 
+typedef void (*_sd_destroy_t)(void *userdata);
+
 #ifndef _sd_printf_
 #  if __GNUC__ >= 4
 #    define _sd_printf_(a,b) __attribute__ ((__format__(printf, a, b)))

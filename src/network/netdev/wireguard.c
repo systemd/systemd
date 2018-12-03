@@ -300,7 +300,7 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
                         return 0;
                 }
 
-                r = sd_event_source_set_destroy_callback(s, netdev_destroy_callback);
+                r = sd_event_source_set_destroy_callback(s, (sd_event_destroy_t) netdev_destroy_callback);
                 if (r < 0) {
                         log_netdev_warning_errno(netdev, r, "Failed to set destroy callback to event source: %m");
                         return 0;

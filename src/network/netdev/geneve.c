@@ -2,12 +2,14 @@
 
 #include <net/if.h>
 
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "extract-word.h"
 #include "geneve.h"
+#include "netlink-util.h"
 #include "parse-util.h"
-#include "sd-netlink.h"
 #include "string-util.h"
 #include "strv.h"
 #include "missing.h"
@@ -17,8 +19,7 @@
 #define DEFAULT_GENEVE_DESTINATION_PORT 6081
 
 /* callback for geneve netdev's created without a backing Link */
-static int geneve_netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        NetDev *netdev = userdata;
+static int geneve_netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
         int r;
 
         assert(netdev);
@@ -136,8 +137,8 @@ static int netdev_geneve_create(NetDev *netdev) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-        r = sd_netlink_call_async(netdev->manager->rtnl, NULL, m, geneve_netdev_create_handler,
-                                  netdev_destroy_callback, netdev, 0, __func__);
+        r = netlink_call_async(netdev->manager->rtnl, NULL, m, geneve_netdev_create_handler,
+                               netdev_destroy_callback, netdev);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 

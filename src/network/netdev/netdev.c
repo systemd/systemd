@@ -191,14 +191,6 @@ static NetDev *netdev_free(NetDev *netdev) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(NetDev, netdev, netdev_free);
 
-void netdev_destroy_callback(void *userdata) {
-        NetDev *netdev = userdata;
-
-        assert(userdata);
-
-        netdev_unref(netdev);
-}
-
 void netdev_drop(NetDev *netdev) {
         if (!netdev || netdev->state == NETDEV_STATE_LINGER)
                 return;
@@ -242,7 +234,7 @@ static int netdev_enter_failed(NetDev *netdev) {
         return 0;
 }
 
-static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_handler_t callback) {
+static int netdev_enslave_ready(NetDev *netdev, Link* link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -269,8 +261,8 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_h
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_MASTER attribute: %m");
 
-        r = sd_netlink_call_async(netdev->manager->rtnl, NULL, req, callback,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(netdev->manager->rtnl, NULL, req, callback,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
@@ -314,8 +306,7 @@ static int netdev_enter_ready(NetDev *netdev) {
 }
 
 /* callback for netdev's created without a backing Link */
-static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        NetDev *netdev = userdata;
+static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
         int r;
 
         assert(netdev);
@@ -336,7 +327,7 @@ static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, void *
         return 1;
 }
 
-static int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t callback) {
+static int netdev_enslave(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         int r;
 
         assert(netdev);
@@ -512,8 +503,7 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
         return 0;
 }
 
-static int netdev_create(NetDev *netdev, Link *link,
-                         sd_netlink_message_handler_t callback) {
+static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         int r;
 
         assert(netdev);
@@ -580,15 +570,15 @@ static int netdev_create(NetDev *netdev, Link *link,
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
                 if (link) {
-                        r = sd_netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
-                                                  link_netlink_destroy_callback, link, 0, __func__);
+                        r = netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
+                                               link_netlink_destroy_callback, link);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
                         link_ref(link);
                 } else {
-                        r = sd_netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
-                                                  netdev_destroy_callback, netdev, 0, __func__);
+                        r = netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
+                                               netdev_destroy_callback, netdev);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
@@ -604,7 +594,7 @@ static int netdev_create(NetDev *netdev, Link *link,
 }
 
 /* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
-int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t callback) {
+int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         int r;
 
         assert(netdev);

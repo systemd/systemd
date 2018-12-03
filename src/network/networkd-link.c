@@ -592,14 +592,6 @@ static Link *link_free(Link *link) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Link, link, link_free);
 
-void link_netlink_destroy_callback(void *userdata) {
-        Link *link = userdata;
-
-        assert(userdata);
-
-        link_unref(link);
-}
-
 int link_get(Manager *m, int ifindex, Link **ret) {
         Link *link;
 
@@ -803,7 +795,7 @@ static int link_set_routing_policy_rule(Link *link) {
                         continue;
                 }
 
-                r = routing_policy_rule_configure(rule, link, link_routing_policy_rule_handler, false);
+                r = routing_policy_rule_configure(rule, link, NULL, false);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not set routing policy rules: %m");
                         link_enter_failed(link);
@@ -823,8 +815,7 @@ static int link_set_routing_policy_rule(Link *link) {
         return 0;
 }
 
-static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -894,26 +885,7 @@ static int link_enter_set_routes(Link *link) {
         return 0;
 }
 
-int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -ESRCH)
-                log_link_warning_errno(link, r, "Could not drop route: %m");
-
-        return 1;
-}
-
-static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(rtnl);
@@ -939,33 +911,6 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
                 log_link_debug(link, "Addresses set");
                 link_enter_set_routes(link);
         }
-
-        return 1;
-}
-
-static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        assert(rtnl);
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-        assert(link->address_label_messages > 0);
-
-        link->address_label_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                log_link_warning_errno(link, r, "could not set address label: %m");
-        else if (r >= 0)
-                manager_rtnl_process_address(rtnl, m, link->manager);
-
-        if (link->address_label_messages == 0)
-                log_link_debug(link, "Addresses label set");
 
         return 1;
 }
@@ -1108,7 +1053,7 @@ static int link_enter_set_addresses(Link *link) {
         }
 
         LIST_FOREACH(labels, label, link->network->address_labels) {
-                r = address_label_configure(label, link, address_label_handler, false);
+                r = address_label_configure(label, link, NULL, false);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not set address label: %m");
                         link_enter_failed(link);
@@ -1243,24 +1188,6 @@ static int link_enter_set_addresses(Link *link) {
         return 0;
 }
 
-int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_warning_errno(link, r, "Could not drop address: %m");
-
-        return 1;
-}
-
 static int link_set_bridge_vlan(Link *link) {
         int r = 0;
 
@@ -1287,8 +1214,7 @@ static int link_set_proxy_arp(Link *link) {
         return 0;
 }
 
-static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -1306,8 +1232,7 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userd
 
 static int link_configure_after_setting_mtu(Link *link);
 
-static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(m);
@@ -1368,8 +1293,8 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append MTU: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, set_mtu_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, set_mtu_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1379,8 +1304,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
         return 0;
 }
 
-static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(m);
@@ -1439,8 +1363,8 @@ static int link_set_flags(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, set_flags_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, set_flags_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1515,8 +1439,8 @@ static int link_set_bridge(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, link_set_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_set_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1568,8 +1492,8 @@ static int link_bond_set(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, set_flags_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, set_flags_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r,  "Could not send rtnetlink message: %m");
 
@@ -1768,8 +1692,7 @@ bool link_has_carrier(Link *link) {
         return false;
 }
 
-static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -1861,8 +1784,8 @@ int link_up(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1887,8 +1810,8 @@ static int link_up_can(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1977,8 +1900,8 @@ static int link_set_can(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to close netlink container: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, m, link_set_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, m, link_set_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -1997,8 +1920,7 @@ static int link_set_can(Link *link) {
         return r;
 }
 
-static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -2035,8 +1957,8 @@ int link_down(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, link_down_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_down_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -2343,8 +2265,7 @@ static int link_joined(Link *link) {
         return link_enter_set_addresses(link);
 }
 
-static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        Link *link = userdata;
+static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
@@ -2693,7 +2614,7 @@ static int link_drop_foreign_config(Link *link) {
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to add address: %m");
                 } else {
-                        r = address_remove(address, link, link_address_remove_handler);
+                        r = address_remove(address, link, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -2709,7 +2630,7 @@ static int link_drop_foreign_config(Link *link) {
                         if (r < 0)
                                 return r;
                 } else {
-                        r = route_remove(route, link, link_route_remove_handler);
+                        r = route_remove(route, link, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -2729,7 +2650,7 @@ static int link_drop_config(Link *link) {
                 if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1)
                         continue;
 
-                r = address_remove(address, link, link_address_remove_handler);
+                r = address_remove(address, link, NULL);
                 if (r < 0)
                         return r;
 
@@ -2748,7 +2669,7 @@ static int link_drop_config(Link *link) {
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
 
-                r = route_remove(route, link, link_route_remove_handler);
+                r = route_remove(route, link, NULL);
                 if (r < 0)
                         return r;
         }
@@ -3167,8 +3088,8 @@ static int link_initialized_and_synced(Link *link) {
         return 1;
 }
 
-static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        (void) link_initialized_and_synced(userdata);
+static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        (void) link_initialized_and_synced(link);
         return 1;
 }
 
@@ -3201,8 +3122,8 @@ int link_initialized(Link *link, sd_device *device) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(link->manager->rtnl, NULL, req, link_initialized_handler,
-                                  link_netlink_destroy_callback, link, 0, __func__);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_initialized_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
 

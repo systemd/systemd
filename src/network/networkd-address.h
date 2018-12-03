@@ -54,8 +54,8 @@ int address_add(Link *link, int family, const union in_addr_union *in_addr, unsi
 int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
 int address_update(Address *address, unsigned char flags, unsigned char scope, const struct ifa_cacheinfo *cinfo);
 int address_drop(Address *address);
-int address_configure(Address *address, Link *link, sd_netlink_message_handler_t callback, bool update);
-int address_remove(Address *address, Link *link, sd_netlink_message_handler_t callback);
+int address_configure(Address *address, Link *link, link_netlink_message_handler_t callback, bool update);
+int address_remove(Address *address, Link *link, link_netlink_message_handler_t callback);
 bool address_equal(Address *a1, Address *a2);
 bool address_is_ready(const Address *a);
 

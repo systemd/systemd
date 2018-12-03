@@ -42,7 +42,7 @@ typedef struct sd_resolve_query sd_resolve_query;
 /* A callback on completion */
 typedef int (*sd_resolve_getaddrinfo_handler_t)(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata);
 typedef int (*sd_resolve_getnameinfo_handler_t)(sd_resolve_query *q, int ret, const char *host, const char *serv, void *userdata);
-typedef void (*sd_resolve_destroy_t)(void *userdata);
+typedef _sd_destroy_t sd_resolve_destroy_t;
 
 enum {
         SD_RESOLVE_GET_HOST    = 1 << 0,
