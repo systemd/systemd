@@ -24,6 +24,10 @@ typedef enum OutputMode {
         _OUTPUT_MODE_INVALID = -1
 } OutputMode;
 
+static inline bool OUTPUT_MODE_IS_JSON(OutputMode m) {
+        return IN_SET(m, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ);
+}
+
 /* The output flags definitions are shared by the logs and process tree output. Some apply to both, some only to the
  * logs output, others only to the process tree output. */
 
