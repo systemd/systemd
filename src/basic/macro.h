@@ -61,7 +61,9 @@
 #endif
 
 #if !defined(HAS_FEATURE_ADDRESS_SANITIZER)
-#  if defined(__has_feature)
+#  ifdef __SANITIZE_ADDRESS__
+#      define HAS_FEATURE_ADDRESS_SANITIZER 1
+#  elif defined(__has_feature)
 #    if __has_feature(address_sanitizer)
 #      define HAS_FEATURE_ADDRESS_SANITIZER 1
 #    endif
