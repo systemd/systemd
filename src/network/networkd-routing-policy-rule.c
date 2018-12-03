@@ -802,8 +802,8 @@ int config_parse_routing_policy_rule_prefix(
 
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
-        union in_addr_union buffer;
-        uint8_t prefixlen;
+        union in_addr_union *buffer;
+        uint8_t *prefixlen;
         int r;
 
         assert(filename);
@@ -816,24 +816,18 @@ int config_parse_routing_policy_rule_prefix(
         if (r < 0)
                 return r;
 
-        r = in_addr_prefix_from_string(rvalue, AF_INET, &buffer, &prefixlen);
-        if (r < 0) {
-                r = in_addr_prefix_from_string(rvalue, AF_INET6, &buffer, &prefixlen);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "RPDB rule prefix is invalid, ignoring assignment: %s", rvalue);
-                        return 0;
-                }
-
-                n->family = AF_INET6;
-        } else
-                n->family = AF_INET;
-
         if (streq(lvalue, "To")) {
-                n->to = buffer;
-                n->to_prefixlen = prefixlen;
+                buffer = &n->to;
+                prefixlen = &n->to_prefixlen;
         } else {
-                n->from = buffer;
-                n->from_prefixlen = prefixlen;
+                buffer = &n->from;
+                prefixlen = &n->from_prefixlen;
+        }
+
+        r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "RPDB rule prefix is invalid, ignoring assignment: %s", rvalue);
+                return 0;
         }
 
         n = NULL;
@@ -1118,8 +1112,6 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                 for (;;) {
                         _cleanup_free_ char *word = NULL, *a = NULL, *b = NULL;
-                        union in_addr_union buffer;
-                        uint8_t prefixlen;
 
                         r = extract_first_word(&p, &word, NULL, 0);
                         if (r < 0)
@@ -1132,26 +1124,23 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                 continue;
 
                         if (STR_IN_SET(a, "from", "to")) {
-
-                                r = in_addr_prefix_from_string(b, AF_INET, &buffer, &prefixlen);
-                                if (r < 0) {
-                                        r = in_addr_prefix_from_string(b, AF_INET6, &buffer, &prefixlen);
-                                        if (r < 0) {
-                                                log_error_errno(r, "RPDB rule prefix is invalid, ignoring assignment: %s", b);
-                                                continue;
-                                        }
-
-                                        rule->family = AF_INET6;
-                                } else
-                                        rule->family = AF_INET;
+                                union in_addr_union *buffer;
+                                uint8_t *prefixlen;
 
                                 if (streq(a, "to")) {
-                                        rule->to = buffer;
-                                        rule->to_prefixlen = prefixlen;
+                                        buffer = &rule->to;
+                                        prefixlen = &rule->to_prefixlen;
                                 } else {
-                                        rule->from = buffer;
-                                        rule->from_prefixlen = prefixlen;
+                                        buffer = &rule->from;
+                                        prefixlen = &rule->from_prefixlen;
                                 }
+
+                                r = in_addr_prefix_from_string_auto(b, &rule->family, buffer, prefixlen);
+                                if (r < 0) {
+                                        log_error_errno(r, "RPDB rule prefix is invalid, ignoring assignment: %s", b);
+                                        continue;
+                                }
+
                         } else if (streq(a, "tos")) {
                                 r = safe_atou8(b, &rule->tos);
                                 if (r < 0) {
