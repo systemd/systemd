@@ -270,6 +270,14 @@ static bool table_data_matches(
         if (d->ellipsize_percent != ellipsize_percent)
                 return false;
 
+        /* If a color/url/uppercase flag is set, refuse to merge */
+        if (d->color)
+                return false;
+        if (d->url)
+                return false;
+        if (d->uppercase)
+                return false;
+
         k = table_data_size(type, data);
         l = table_data_size(d->type, d->data);
 
