@@ -1585,6 +1585,9 @@ void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const cha
 
         print_source(f, v, flags, false);
 
+        if (((flags & (JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_COLOR)) == JSON_FORMAT_COLOR_AUTO) && colors_enabled())
+                flags |= JSON_FORMAT_COLOR;
+
         if (flags & JSON_FORMAT_SSE)
                 fputs("data: ", f);
         if (flags & JSON_FORMAT_SEQ)
