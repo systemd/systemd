@@ -736,6 +736,27 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>DisableControllers=</varname></term>
+
+        <listitem>
+          <para>Disables controllers from being enabled for a unit's children. If a controller listed is already in use
+          in its subtree, the controller will be removed from the subtree. This can be used to avoid child units being
+          able to implicitly or explicitly enable a controller. Defaults to not disabling any controllers.</para>
+
+          <para>It may not be possible to successfully disable a controller if the unit or any child of the unit in
+          question delegates controllers to its children, as any delegated subtree of the cgroup hierarchy is unmanaged
+          by systemd.</para>
+
+          <para>Multiple controllers may be specified, separated by spaces. You may also pass
+          <varname>DisableControllers=</varname> multiple times, in which case each new instance adds another controller
+          to disable. Passing <varname>DisableControllers=</varname> by itself with no controller name present resets
+          the disabled controller list.</para>
+
+          <para>Valid controllers are <option>cpu</option>, <option>cpuacct</option>, <option>io</option>,
+          <option>blkio</option>, <option>memory</option>, <option>devices</option>, and <option>pids</option>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

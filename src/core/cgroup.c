@@ -375,6 +375,26 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
         return 0;
 }
 
+static void cgroup_xattr_apply(Unit *u) {
+        char ids[SD_ID128_STRING_MAX];
+        int r;
+
+        assert(u);
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
+        if (sd_id128_is_null(u->invocation_id))
+                return;
+
+        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
+                         "trusted.invocation_id",
+                         sd_id128_to_string(u->invocation_id, ids), 32,
+                         0);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Failed to set invocation ID on control group %s, ignoring: %m", u->cgroup_path);
+}
+
 static int lookup_block_device(const char *p, dev_t *ret) {
         struct stat st = {};
         int r;
@@ -1326,7 +1346,7 @@ CGroupMask unit_get_own_mask(Unit *u) {
         if (!c)
                 return 0;
 
-        return cgroup_context_get_mask(c) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u);
+        return (cgroup_context_get_mask(c) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u)) & ~unit_get_ancestor_disable_mask(u);
 }
 
 CGroupMask unit_get_delegate_mask(Unit *u) {
@@ -1396,6 +1416,31 @@ CGroupMask unit_get_siblings_mask(Unit *u) {
         return unit_get_subtree_mask(u); /* we are the top-level slice */
 }
 
+CGroupMask unit_get_disable_mask(Unit *u) {
+        CGroupContext *c;
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return 0;
+
+        return c->disable_controllers;
+}
+
+CGroupMask unit_get_ancestor_disable_mask(Unit *u) {
+        CGroupMask mask;
+
+        assert(u);
+        mask = unit_get_disable_mask(u);
+
+        /* Returns the mask of controllers which are marked as forcibly
+         * disabled in any ancestor unit or the unit in question. */
+
+        if (UNIT_ISSET(u->slice))
+                mask |= unit_get_ancestor_disable_mask(UNIT_DEREF(u->slice));
+
+        return mask;
+}
+
 CGroupMask unit_get_subtree_mask(Unit *u) {
 
         /* Returns the mask of this subtree, meaning of the group
@@ -1416,6 +1461,7 @@ CGroupMask unit_get_target_mask(Unit *u) {
 
         mask = unit_get_own_mask(u) | unit_get_members_mask(u) | unit_get_siblings_mask(u);
         mask &= u->manager->cgroup_supported;
+        mask &= ~unit_get_ancestor_disable_mask(u);
 
         return mask;
 }
@@ -1430,6 +1476,7 @@ CGroupMask unit_get_enable_mask(Unit *u) {
 
         mask = unit_get_members_mask(u);
         mask &= u->manager->cgroup_supported;
+        mask &= ~unit_get_ancestor_disable_mask(u);
 
         return mask;
 }
@@ -1597,7 +1644,8 @@ int unit_pick_cgroup_path(Unit *u) {
 static int unit_create_cgroup(
                 Unit *u,
                 CGroupMask target_mask,
-                CGroupMask enable_mask) {
+                CGroupMask enable_mask,
+                ManagerState state) {
 
         bool created;
         int r;
@@ -1664,6 +1712,10 @@ static int unit_create_cgroup(
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to migrate cgroup from to %s, ignoring: %m", u->cgroup_path);
         }
+
+        /* Set attributes */
+        cgroup_context_apply(u, target_mask, state);
+        cgroup_xattr_apply(u);
 
         return 0;
 }
@@ -1806,26 +1858,6 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         return r;
 }
 
-static void cgroup_xattr_apply(Unit *u) {
-        char ids[SD_ID128_STRING_MAX];
-        int r;
-
-        assert(u);
-
-        if (!MANAGER_IS_SYSTEM(u->manager))
-                return;
-
-        if (sd_id128_is_null(u->invocation_id))
-                return;
-
-        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
-                         "trusted.invocation_id",
-                         sd_id128_to_string(u->invocation_id, ids), 32,
-                         0);
-        if (r < 0)
-                log_unit_debug_errno(u, r, "Failed to set invocation ID on control group %s, ignoring: %m", u->cgroup_path);
-}
-
 static bool unit_has_mask_realized(
                 Unit *u,
                 CGroupMask target_mask,
@@ -1854,6 +1886,40 @@ static bool unit_has_mask_realized(
                 u->cgroup_invalidated_mask == 0;
 }
 
+static bool unit_has_mask_disables_realized(
+                Unit *u,
+                CGroupMask target_mask,
+                CGroupMask enable_mask) {
+
+        assert(u);
+
+        /* Returns true if all controllers which should be disabled are indeed disabled.
+         *
+         * Unlike unit_has_mask_realized, we don't care what was enabled, only that anything we want to remove is
+         * already removed. */
+
+        return !u->cgroup_realized ||
+                (FLAGS_SET(u->cgroup_realized_mask, target_mask & CGROUP_MASK_V1) &&
+                 FLAGS_SET(u->cgroup_enabled_mask, enable_mask & CGROUP_MASK_V2));
+}
+
+static bool unit_has_mask_enables_realized(
+                Unit *u,
+                CGroupMask target_mask,
+                CGroupMask enable_mask) {
+
+        assert(u);
+
+        /* Returns true if all controllers which should be enabled are indeed enabled.
+         *
+         * Unlike unit_has_mask_realized, we don't care about the controllers that are not present, only that anything
+         * we want to add is already added. */
+
+        return u->cgroup_realized &&
+                ((u->cgroup_realized_mask | target_mask) & CGROUP_MASK_V1) == (u->cgroup_realized_mask & CGROUP_MASK_V1) &&
+                ((u->cgroup_enabled_mask | enable_mask) & CGROUP_MASK_V2) == (u->cgroup_enabled_mask & CGROUP_MASK_V2);
+}
+
 void unit_add_to_cgroup_realize_queue(Unit *u) {
         assert(u);
 
@@ -1874,10 +1940,127 @@ static void unit_remove_from_cgroup_realize_queue(Unit *u) {
         u->in_cgroup_realize_queue = false;
 }
 
+/* Controllers can only be enabled breadth-first, from the root of the
+ * hierarchy downwards to the unit in question. */
+static int unit_realize_cgroup_now_enable(Unit *u, ManagerState state) {
+        CGroupMask target_mask, enable_mask, new_target_mask, new_enable_mask;
+        int r;
+
+        assert(u);
+
+        /* First go deal with this unit's parent, or we won't be able to enable
+         * any new controllers at this layer. */
+        if (UNIT_ISSET(u->slice)) {
+                r = unit_realize_cgroup_now_enable(UNIT_DEREF(u->slice), state);
+                if (r < 0)
+                        return r;
+        }
+
+        target_mask = unit_get_target_mask(u);
+        enable_mask = unit_get_enable_mask(u);
+
+        /* We can only enable in this direction, don't try to disable anything.
+         */
+        if (unit_has_mask_enables_realized(u, target_mask, enable_mask))
+                return 0;
+
+        new_target_mask = u->cgroup_realized_mask | target_mask;
+        new_enable_mask = u->cgroup_enabled_mask | enable_mask;
+
+        return unit_create_cgroup(u, new_target_mask, new_enable_mask, state);
+}
+
+/* Controllers can only be disabled depth-first, from the leaves of the
+ * hierarchy upwards to the unit in question. */
+static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
+        Iterator i;
+        Unit *m;
+        void *v;
+
+        assert(u);
+
+        if (u->type != UNIT_SLICE)
+                return 0;
+
+        HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE], i) {
+                CGroupMask target_mask, enable_mask, new_target_mask, new_enable_mask;
+                int r;
+
+                if (UNIT_DEREF(m->slice) != u)
+                        continue;
+
+                /* The cgroup for this unit might not actually be fully
+                 * realised yet, in which case it isn't holding any controllers
+                 * open anyway. */
+                if (!m->cgroup_path)
+                        continue;
+
+                /* We must disable those below us first in order to release the
+                 * controller. */
+                if (m->type == UNIT_SLICE)
+                        (void) unit_realize_cgroup_now_disable(m, state);
+
+                target_mask = unit_get_target_mask(m);
+                enable_mask = unit_get_enable_mask(m);
+
+                /* We can only disable in this direction, don't try to enable
+                 * anything. */
+                if (unit_has_mask_disables_realized(m, target_mask, enable_mask))
+                        continue;
+
+                new_target_mask = m->cgroup_realized_mask & target_mask;
+                new_enable_mask = m->cgroup_enabled_mask & enable_mask;
+
+                r = unit_create_cgroup(m, new_target_mask, new_enable_mask, state);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 /* Check if necessary controllers and attributes for a unit are in place.
  *
- * If so, do nothing.
- * If not, create paths, move processes over, and set attributes.
+ * - If so, do nothing.
+ * - If not, create paths, move processes over, and set attributes.
+ *
+ * Controllers can only be *enabled* in a breadth-first way, and *disabled* in
+ * a depth-first way. As such the process looks like this:
+ *
+ * Suppose we have a cgroup hierarchy which looks like this:
+ *
+ *             root
+ *            /    \
+ *           /      \
+ *          /        \
+ *         a          b
+ *        / \        / \
+ *       /   \      /   \
+ *      c     d    e     f
+ *     / \   / \  / \   / \
+ *     h i   j k  l m   n o
+ *
+ * 1. We want to realise cgroup "d" now.
+ * 2. cgroup "a" has DisableControllers=cpu in the associated unit.
+ * 3. cgroup "k" just started requesting the memory controller.
+ *
+ * To make this work we must do the following in order:
+ *
+ * 1. Disable CPU controller in k, j
+ * 2. Disable CPU controller in d
+ * 3. Enable memory controller in root
+ * 4. Enable memory controller in a
+ * 5. Enable memory controller in d
+ * 6. Enable memory controller in k
+ *
+ * Notice that we need to touch j in one direction, but not the other. We also
+ * don't go beyond d when disabling -- it's up to "a" to get realized if it
+ * wants to disable further. The basic rules are therefore:
+ *
+ * - If you're disabling something, you need to realise all of the cgroups from
+ *   your recursive descendants to the root. This starts from the leaves.
+ * - If you're enabling something, you need to realise from the root cgroup
+ *   downwards, but you don't need to iterate your recursive descendants.
  *
  * Returns 0 on success and < 0 on failure. */
 static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
@@ -1894,21 +2077,22 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         if (unit_has_mask_realized(u, target_mask, enable_mask))
                 return 0;
 
-        /* First, realize parents */
+        /* Disable controllers below us, if there are any */
+        r = unit_realize_cgroup_now_disable(u, state);
+        if (r < 0)
+                return r;
+
+        /* Enable controllers above us, if there are any */
         if (UNIT_ISSET(u->slice)) {
-                r = unit_realize_cgroup_now(UNIT_DEREF(u->slice), state);
+                r = unit_realize_cgroup_now_enable(UNIT_DEREF(u->slice), state);
                 if (r < 0)
                         return r;
         }
 
-        /* And then do the real work */
-        r = unit_create_cgroup(u, target_mask, enable_mask);
+        /* Now actually deal with the cgroup we were trying to realise and set attributes */
+        r = unit_create_cgroup(u, target_mask, enable_mask, state);
         if (r < 0)
                 return r;
-
-        /* Finally, apply the necessary attributes. */
-        cgroup_context_apply(u, target_mask, state);
-        cgroup_xattr_apply(u);
 
         /* Now, reset the invalidation mask */
         u->cgroup_invalidated_mask = 0;

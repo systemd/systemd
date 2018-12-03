@@ -118,6 +118,8 @@ struct CGroupContext {
 
         bool delegate;
         CGroupMask delegate_controllers;
+
+        CGroupMask disable_controllers;
 };
 
 /* Used when querying IP accounting data */
@@ -151,6 +153,9 @@ CGroupMask unit_get_delegate_mask(Unit *u);
 CGroupMask unit_get_members_mask(Unit *u);
 CGroupMask unit_get_siblings_mask(Unit *u);
 CGroupMask unit_get_subtree_mask(Unit *u);
+CGroupMask unit_get_disable_mask(Unit *u);
+CGroupMask unit_get_ancestor_disable_mask(Unit *u);
+
 CGroupMask unit_get_target_mask(Unit *u);
 CGroupMask unit_get_enable_mask(Unit *u);
 
