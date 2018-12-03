@@ -132,13 +132,13 @@ typedef struct {
         UINT16 HeaderVersion;
         UINT32 PCRIndex;
         UINT32 EventType;
-} __attribute__ ((packed)) EFI_TCG2_EVENT_HEADER;
+} __attribute__((packed)) EFI_TCG2_EVENT_HEADER;
 
 typedef struct tdEFI_TCG2_EVENT {
         UINT32 Size;
         EFI_TCG2_EVENT_HEADER Header;
         UINT8 Event[1];
-} __attribute__ ((packed)) EFI_TCG2_EVENT;
+} __attribute__((packed)) EFI_TCG2_EVENT;
 
 typedef EFI_STATUS(EFIAPI * EFI_TCG2_GET_CAPABILITY) (IN EFI_TCG2_PROTOCOL * This,
                                                       IN OUT EFI_TCG2_BOOT_SERVICE_CAPABILITY * ProtocolCapability);

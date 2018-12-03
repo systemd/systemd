@@ -25,7 +25,7 @@
 
 #ifndef _sd_printf_
 #  if __GNUC__ >= 4
-#    define _sd_printf_(a,b) __attribute__ ((__format__(printf, a, b)))
+#    define _sd_printf_(a,b) __attribute__((__format__(printf, a, b)))
 #  else
 #    define _sd_printf_(a,b)
 #  endif
