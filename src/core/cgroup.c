@@ -1346,7 +1346,7 @@ CGroupMask unit_get_own_mask(Unit *u) {
         if (!c)
                 return 0;
 
-        return cgroup_context_get_mask(c) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u);
+        return (cgroup_context_get_mask(c) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u)) & ~unit_get_ancestor_disable_mask(u);
 }
 
 CGroupMask unit_get_delegate_mask(Unit *u) {
@@ -1461,6 +1461,7 @@ CGroupMask unit_get_target_mask(Unit *u) {
 
         mask = unit_get_own_mask(u) | unit_get_members_mask(u) | unit_get_siblings_mask(u);
         mask &= u->manager->cgroup_supported;
+        mask &= ~unit_get_ancestor_disable_mask(u);
 
         return mask;
 }
@@ -1475,6 +1476,7 @@ CGroupMask unit_get_enable_mask(Unit *u) {
 
         mask = unit_get_members_mask(u);
         mask &= u->manager->cgroup_supported;
+        mask &= ~unit_get_ancestor_disable_mask(u);
 
         return mask;
 }
@@ -1914,8 +1916,8 @@ static bool unit_has_mask_enables_realized(
          * we want to add is already added. */
 
         return u->cgroup_realized &&
-                ((u->cgroup_realized_mask | target_mask) & CGROUP_MASK_V1) == u->cgroup_realized_mask &&
-                ((u->cgroup_enabled_mask | enable_mask) & CGROUP_MASK_V2) == u->cgroup_enabled_mask;
+                ((u->cgroup_realized_mask | target_mask) & CGROUP_MASK_V1) == (u->cgroup_realized_mask & CGROUP_MASK_V1) &&
+                ((u->cgroup_enabled_mask | enable_mask) & CGROUP_MASK_V2) == (u->cgroup_enabled_mask & CGROUP_MASK_V2);
 }
 
 void unit_add_to_cgroup_realize_queue(Unit *u) {
@@ -1965,11 +1967,7 @@ static int unit_realize_cgroup_now_enable(Unit *u, ManagerState state) {
         new_target_mask = u->cgroup_realized_mask | target_mask;
         new_enable_mask = u->cgroup_enabled_mask | enable_mask;
 
-        r = unit_create_cgroup(u, new_target_mask, new_enable_mask, state);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return unit_create_cgroup(u, new_target_mask, new_enable_mask, state);
 }
 
 /* Controllers can only be disabled depth-first, from the leaves of the
@@ -2043,7 +2041,7 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
  *     h i   j k  l m   n o
  *
  * 1. We want to realise cgroup "d" now.
- * 2. cgroup "a" has DisableController=cpu in the associated unit.
+ * 2. cgroup "a" has DisableControllers=cpu in the associated unit.
  * 3. cgroup "k" just started requesting the memory controller.
  *
  * To make this work we must do the following in order:

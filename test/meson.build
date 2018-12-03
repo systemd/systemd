@@ -18,6 +18,8 @@ test_data_files = '''
         hwdb/10-bad.hwdb
         journal-data/journal-1.txt
         journal-data/journal-2.txt
+        nomem.slice
+        nomemleaf.service
         parent-deep.slice
         parent.slice
         sched_idle_bad.service

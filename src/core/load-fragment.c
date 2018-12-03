@@ -4323,6 +4323,41 @@ int config_parse_exit_status(
         return 0;
 }
 
+int config_parse_disable_controllers(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int r;
+        CGroupContext *c = data;
+        CGroupMask disabled_mask;
+
+        /* 1. If empty, make all controllers eligible for use again.
+         * 2. If non-empty, merge all listed controllers, space separated. */
+
+        if (isempty(rvalue)) {
+                c->disable_controllers = 0;
+                return 0;
+        }
+
+        r = cg_mask_from_string(rvalue, &disabled_mask);
+        if (r < 0 || disabled_mask <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid cgroup string: %s, ignoring", rvalue);
+                return 0;
+        }
+
+        c->disable_controllers |= disabled_mask;
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {

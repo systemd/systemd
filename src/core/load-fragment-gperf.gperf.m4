@@ -192,6 +192,7 @@ $1.BlockIOWriteBandwidth,        config_parse_blockio_bandwidth,     0,         
 $1.TasksAccounting,              config_parse_bool,                  0,                             offsetof($1, cgroup_context.tasks_accounting)
 $1.TasksMax,                     config_parse_tasks_max,             0,                             offsetof($1, cgroup_context.tasks_max)
 $1.Delegate,                     config_parse_delegate,              0,                             offsetof($1, cgroup_context)
+$1.DisableControllers,           config_parse_disable_controllers,   0,                             offsetof($1, cgroup_context)
 $1.IPAccounting,                 config_parse_bool,                  0,                             offsetof($1, cgroup_context.ip_accounting)
 $1.IPAddressAllow,               config_parse_ip_address_access,     0,                             offsetof($1, cgroup_context.ip_address_allow)
 $1.IPAddressDeny,                config_parse_ip_address_access,     0,                             offsetof($1, cgroup_context.ip_address_deny)
