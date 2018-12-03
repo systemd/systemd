@@ -20,7 +20,7 @@ typedef enum DnsScopeMatch {
         DNS_SCOPE_MAYBE,
         DNS_SCOPE_YES,
         _DNS_SCOPE_MATCH_MAX,
-        _DNS_SCOPE_INVALID = -1
+        _DNS_SCOPE_MATCH_INVALID = -1
 } DnsScopeMatch;
 
 struct DnsScope {
