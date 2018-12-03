@@ -884,7 +884,7 @@ static const char *table_data_format(TableData *d) {
                 if (!p)
                         return NULL;
 
-                if (!format_timespan(p, FORMAT_TIMESPAN_MAX, d->timestamp, 0))
+                if (!format_timespan(p, FORMAT_TIMESPAN_MAX, d->timespan, 0))
                         return "n/a";
 
                 d->formatted = TAKE_PTR(p);
