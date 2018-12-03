@@ -90,7 +90,6 @@ static int bus_error_name_to_errno(const char *name) {
                         }
 
         m = ALIGN_TO_PTR(__start_SYSTEMD_BUS_ERROR_MAP, sizeof(void*));
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
         while (m < __stop_SYSTEMD_BUS_ERROR_MAP) {
                 /* For magic ELF error maps, the end marker might
                  * appear in the middle of things, since multiple maps
@@ -108,7 +107,6 @@ static int bus_error_name_to_errno(const char *name) {
 
                 m++;
         }
-#endif
 
         return EIO;
 }
