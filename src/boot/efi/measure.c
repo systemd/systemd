@@ -346,7 +346,6 @@ EFI_STATUS tpm_log_event(UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UIN
                 else
                         log_fmt = EFI_TCG2_EVENT_LOG_FORMAT_TCG_1_2;
 
-                uefi_call_wrapper(BS->Stall, 1, 2000 * 1000);
                 return tpm2_measure_to_pcr_and_event_log(tpm2, pcrindex, buffer, buffer_size, description, log_fmt);
         }
 
