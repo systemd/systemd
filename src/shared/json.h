@@ -274,9 +274,9 @@ int json_log_internal(JsonVariant *variant, int level, int error, const char *fi
 
 #define JSON_VARIANT_STRING_CONST(x) _JSON_VARIANT_STRING_CONST(UNIQ, (x))
 
-#define _JSON_VARIANT_STRING_CONST(xq, x)                                       \
+#define _JSON_VARIANT_STRING_CONST(xq, x)                               \
         ({                                                              \
-                __attribute__((__aligned__(2))) static const char UNIQ_T(json_string_const, xq)[] = (x); \
+                _align_(2) static const char UNIQ_T(json_string_const, xq)[] = (x); \
                 assert((((uintptr_t) UNIQ_T(json_string_const, xq)) & 1) == 0); \
                 (JsonVariant*) ((uintptr_t) UNIQ_T(json_string_const, xq) + 1); \
         })

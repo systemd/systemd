@@ -22,10 +22,14 @@ typedef struct StaticDestructor {
                 typeof(variable) *q = p;                                \
                 func(q);                                                \
         }                                                               \
-        /* The actual destructor structure */                           \
-        __attribute__ ((__section__("SYSTEMD_STATIC_DESTRUCT")))        \
-        __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)))            \
-        __attribute__ ((__used__))                                      \
+        /* The actual destructor structure we place in a special section to find it */ \
+        _section_("SYSTEMD_STATIC_DESTRUCT")                            \
+        /* We pick pointer alignment, since that is apparently what gcc does for static variables */ \
+        _alignptr_                                                      \
+        /* Make sure this is not dropped from the image because not explicitly referenced */ \
+        _used_                                                          \
+        /* Make sure that AddressSanitizer doesn't pad this variable: we want everything in this section packed next to each other so that we can enumerate it. */ \
+        _variable_no_sanitize_address_                                  \
         static const StaticDestructor UNIQ_T(static_destructor_entry, uq) = { \
                 .data = &(variable),                                    \
                 .destroy = UNIQ_T(static_destructor_wrapper, uq),       \
@@ -33,8 +37,8 @@ typedef struct StaticDestructor {
 
 /* Beginning and end of our section listing the destructors. We define these as weak as we want this to work even if
  * there's not a single destructor is defined in which case the section will be missing. */
-extern const struct StaticDestructor __attribute__((__weak__)) __start_SYSTEMD_STATIC_DESTRUCT[];
-extern const struct StaticDestructor __attribute__((__weak__)) __stop_SYSTEMD_STATIC_DESTRUCT[];
+extern const struct StaticDestructor _weak_ __start_SYSTEMD_STATIC_DESTRUCT[];
+extern const struct StaticDestructor _weak_ __stop_SYSTEMD_STATIC_DESTRUCT[];
 
 /* The function to destroy everything. (Note that this must be static inline, as it's key that it remains in the same
  * linking unit as the variables we want to destroy. */
@@ -44,9 +48,9 @@ static inline void static_destruct(void) {
         if (!__start_SYSTEMD_STATIC_DESTRUCT)
                 return;
 
-        d = ALIGN_TO_PTR(__start_SYSTEMD_STATIC_DESTRUCT, __BIGGEST_ALIGNMENT__);
+        d = ALIGN_TO_PTR(__start_SYSTEMD_STATIC_DESTRUCT, sizeof(void*));
         while (d < __stop_SYSTEMD_STATIC_DESTRUCT) {
                 d->destroy(d->data);
-                d = ALIGN_TO_PTR(d + 1, __BIGGEST_ALIGNMENT__);
+                d = ALIGN_TO_PTR(d + 1, sizeof(void*));
         }
 }

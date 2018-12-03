@@ -1172,7 +1172,7 @@ void reset_cached_pid(void) {
  * headers. __register_atfork() is mostly equivalent to pthread_atfork(), but doesn't require us to link against
  * libpthread, as it is part of glibc anyway. */
 extern int __register_atfork(void (*prepare) (void), void (*parent) (void), void (*child) (void), void *dso_handle);
-extern void* __dso_handle __attribute__ ((__weak__));
+extern void* __dso_handle _weak_;
 
 pid_t getpid_cached(void) {
         static bool installed = false;

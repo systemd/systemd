@@ -759,7 +759,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-#ifdef __SANITIZE_ADDRESS__
+#if HAS_FEATURE_ADDRESS_SANITIZER
         if (is_run_on_travis_ci()) {
                 log_notice("Running on TravisCI under ASan, skipping, see https://github.com/systemd/systemd/issues/10696");
                 return EXIT_TEST_SKIP;

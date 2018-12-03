@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
         log_info("message size = %zu, contents =\n%s", sz, h);
 
 #if HAVE_GLIB
-#ifndef __SANITIZE_ADDRESS__
+#if !HAS_FEATURE_ADDRESS_SANITIZER
         {
                 GDBusMessage *g;
                 char *p;

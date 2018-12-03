@@ -319,7 +319,7 @@ uint32_t jenkins_hashlittle( const void *key, size_t length, uint32_t initval)
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !VALGRIND && !defined(__SANITIZE_ADDRESS__)
+#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER
 
     switch(length)
     {
@@ -504,7 +504,7 @@ void jenkins_hashlittle2(
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !VALGRIND && !defined(__SANITIZE_ADDRESS__)
+#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER
 
     switch(length)
     {
@@ -680,7 +680,7 @@ uint32_t jenkins_hashbig( const void *key, size_t length, uint32_t initval)
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !VALGRIND && !defined(__SANITIZE_ADDRESS__)
+#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER
 
     switch(length)
     {
