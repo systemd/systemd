@@ -678,8 +678,7 @@ int config_parse_gateway(
 
         Network *network = userdata;
         _cleanup_(route_freep) Route *n = NULL;
-        union in_addr_union buffer;
-        int r, f;
+        int r;
 
         assert(filename);
         assert(section);
@@ -697,14 +696,12 @@ int config_parse_gateway(
         if (r < 0)
                 return r;
 
-        r = in_addr_from_string_auto(rvalue, &f, &buffer);
+        r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Route is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        n->family = f;
-        n->gw = buffer;
         TAKE_PTR(n);
 
         return 0;
@@ -724,8 +721,7 @@ int config_parse_preferred_src(
 
         Network *network = userdata;
         _cleanup_(route_freep) Route *n = NULL;
-        union in_addr_union buffer;
-        int r, f;
+        int r;
 
         assert(filename);
         assert(section);
@@ -737,15 +733,13 @@ int config_parse_preferred_src(
         if (r < 0)
                 return r;
 
-        r = in_addr_from_string_auto(rvalue, &f, &buffer);
+        r = in_addr_from_string_auto(rvalue, &n->family, &n->prefsrc);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Preferred source is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        n->family = f;
-        n->prefsrc = buffer;
         TAKE_PTR(n);
 
         return 0;
@@ -765,8 +759,8 @@ int config_parse_destination(
 
         Network *network = userdata;
         _cleanup_(route_freep) Route *n = NULL;
-        union in_addr_union buffer;
-        unsigned char prefixlen;
+        union in_addr_union *buffer;
+        unsigned char *prefixlen;
         int r;
 
         assert(filename);
@@ -779,28 +773,22 @@ int config_parse_destination(
         if (r < 0)
                 return r;
 
-        r = in_addr_prefix_from_string(rvalue, AF_INET, &buffer, &prefixlen);
-        if (r < 0) {
-                r = in_addr_prefix_from_string(rvalue, AF_INET6, &buffer, &prefixlen);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Route %s= prefix is invalid, ignoring assignment: %s",
-                                   lvalue, rvalue);
-                        return 0;
-                }
-
-                n->family = AF_INET6;
-        } else
-                n->family = AF_INET;
-
         if (streq(lvalue, "Destination")) {
-                n->dst = buffer;
-                n->dst_prefixlen = prefixlen;
+                buffer = &n->dst;
+                prefixlen = &n->dst_prefixlen;
         } else if (streq(lvalue, "Source")) {
-                n->src = buffer;
-                n->src_prefixlen = prefixlen;
+                buffer = &n->src;
+                prefixlen = &n->src_prefixlen;
         } else
                 assert_not_reached(lvalue);
+
+        r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Route %s= prefix is invalid, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
 
         TAKE_PTR(n);
         return 0;
