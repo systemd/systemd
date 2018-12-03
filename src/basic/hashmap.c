@@ -276,7 +276,7 @@ static const struct hashmap_type_info hashmap_type_info[_HASHMAP_TYPE_MAX] = {
 };
 
 #if VALGRIND
-__attribute__((destructor)) static void cleanup_pools(void) {
+_destructor_ static void cleanup_pools(void) {
         _cleanup_free_ char *t = NULL;
         int r;
 
