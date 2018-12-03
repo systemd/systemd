@@ -22,9 +22,9 @@ typedef struct StaticDestructor {
                 func(q);                                                \
         }                                                               \
         /* The actual destructor structure */                           \
-        __attribute__ ((__section__("SYSTEMD_STATIC_DESTRUCT")))        \
-        __attribute__ ((__aligned__(__BIGGEST_ALIGNMENT__)))            \
-        __attribute__ ((__used__))                                      \
+        _section_("SYSTEMD_STATIC_DESTRUCT")                            \
+        _alignptr_                                                      \
+        _used_                                                          \
         static const StaticDestructor UNIQ_T(static_destructor_entry, uq) = { \
                 .data = &(variable),                                    \
                 .destroy = UNIQ_T(static_destructor_wrapper, uq),       \
@@ -43,9 +43,9 @@ static inline void static_destruct(void) {
         if (!__start_SYSTEMD_STATIC_DESTRUCT)
                 return;
 
-        d = ALIGN_TO_PTR(__start_SYSTEMD_STATIC_DESTRUCT, __BIGGEST_ALIGNMENT__);
+        d = ALIGN_TO_PTR(__start_SYSTEMD_STATIC_DESTRUCT, sizeof(void*));
         while (d < __stop_SYSTEMD_STATIC_DESTRUCT) {
                 d->destroy(d->data);
-                d = ALIGN_TO_PTR(d + 1, __BIGGEST_ALIGNMENT__);
+                d = ALIGN_TO_PTR(d + 1, sizeof(void*));
         }
 }

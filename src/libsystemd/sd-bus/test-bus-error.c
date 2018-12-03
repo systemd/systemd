@@ -113,18 +113,18 @@ static void test_error(void) {
         assert_se(!sd_bus_error_is_set(&error));
 }
 
-extern const sd_bus_error_map __start_BUS_ERROR_MAP[];
-extern const sd_bus_error_map __stop_BUS_ERROR_MAP[];
+extern const sd_bus_error_map __start_SYSTEMD_BUS_ERROR_MAP[];
+extern const sd_bus_error_map __stop_SYSTEMD_BUS_ERROR_MAP[];
 
 static void dump_mapping_table(void) {
         const sd_bus_error_map *m;
 
         printf("----- errno mappings ------\n");
-        m = __start_BUS_ERROR_MAP;
-        while (m < __stop_BUS_ERROR_MAP) {
+        m = ALIGN_TO_PTR(__start_SYSTEMD_BUS_ERROR_MAP, sizeof(void*));
+        while (m < __stop_SYSTEMD_BUS_ERROR_MAP) {
 
                 if (m->code == BUS_ERROR_MAP_END_MARKER) {
-                        m = ALIGN8_PTR(m+1);
+                        m = ALIGN_TO_PTR(m + 1, sizeof(void*));
                         continue;
                 }
 
