@@ -301,6 +301,27 @@ clear:
         return r;
 }
 
+static int link_update_default_route(Link *l) {
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dns_default_route(l->ifindex);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->default_route = r > 0;
+        return 0;
+
+clear:
+        l->default_route = -1;
+        return r;
+}
+
 static int link_update_llmnr_support(Link *l) {
         _cleanup_free_ char *b = NULL;
         int r;
@@ -617,6 +638,10 @@ static void link_read_settings(Link *l) {
         r = link_update_search_domains(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+
+        r = link_update_default_route(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read default route setting for interface %s, proceeding anyway: %m", l->name);
 }
 
 int link_update(Link *l) {
