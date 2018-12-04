@@ -500,7 +500,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to list images: %s", bus_error_message(&error, r));
 
-        table = table_new("NAME", "TYPE", "RO", "CRTIME", "MTIME", "USAGE", "STATE");
+        table = table_new("name", "type", "ro", "crtime", "mtime", "usage", "state");
         if (!table)
                 return log_oom();
 

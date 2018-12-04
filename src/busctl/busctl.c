@@ -1939,7 +1939,7 @@ static void json_dump_with_flags(JsonVariant *v, FILE *f) {
 
         json_variant_dump(v,
                           (arg_json == JSON_PRETTY ? JSON_FORMAT_PRETTY : JSON_FORMAT_NEWLINE) |
-                          colors_enabled() * JSON_FORMAT_COLOR,
+                          JSON_FORMAT_COLOR_AUTO,
                           f, NULL);
 }
 

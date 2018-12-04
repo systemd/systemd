@@ -1399,7 +1399,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
         int r;
 
         if (!FLAGS_SET(flags, ANALYZE_SECURITY_SHORT)) {
-                details_table = table_new("", "NAME", "DESCRIPTION", "WEIGHT", "BADNESS", "RANGE", "EXPOSURE");
+                details_table = table_new(" ", "name", "description", "weight", "badness", "range", "exposure");
                 if (!details_table)
                         return log_oom();
 
@@ -1973,7 +1973,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
         assert(bus);
 
         if (strv_length(units) != 1) {
-                overview_table = table_new("UNIT", "EXPOSURE", "PREDICATE", "HAPPY");
+                overview_table = table_new("unit", "exposure", "predicate", "happy");
                 if (!overview_table)
                         return log_oom();
         }

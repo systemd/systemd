@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+#include "json.h"
 #include "macro.h"
 
 typedef enum TableDataType {
@@ -45,6 +46,7 @@ int table_set_align_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_ellipsize_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_color(Table *t, TableCell *cell, const char *color);
 int table_set_url(Table *t, TableCell *cell, const char *color);
+int table_set_uppercase(Table *t, TableCell *cell, bool b);
 
 int table_update(Table *t, TableCell *cell, TableDataType type, const void *data);
 
@@ -71,3 +73,6 @@ TableCell *table_get_cell(Table *t, size_t row, size_t column);
 
 const void *table_get(Table *t, TableCell *cell);
 const void *table_get_at(Table *t, size_t row, size_t column);
+
+int table_to_json(Table *t, JsonVariant **ret);
+int table_print_json(Table *t, FILE *f, unsigned json_flags);

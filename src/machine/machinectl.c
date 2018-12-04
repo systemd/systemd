@@ -259,7 +259,10 @@ static int show_table(Table *table, const char *word) {
 
                 table_set_header(table, arg_legend);
 
-                r = table_print(table, NULL);
+                if (OUTPUT_MODE_IS_JSON(arg_output))
+                        r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO);
+                else
+                        r = table_print(table, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to show table: %m");
         }
@@ -297,7 +300,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Could not get machines: %s", bus_error_message(&error, r));
 
-        table = table_new("MACHINE", "CLASS", "SERVICE", "OS", "VERSION", "ADDRESSES");
+        table = table_new("machine", "class", "service", "os", "version", "addresses");
         if (!table)
                 return log_oom();
 
@@ -377,7 +380,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Could not get images: %s", bus_error_message(&error, r));
 
-        table = table_new("NAME", "TYPE", "RO", "USAGE", "CREATED", "MODIFIED");
+        table = table_new("name", "type", "ro", "usage", "created", "modified");
         if (!table)
                 return log_oom();
 
@@ -2921,6 +2924,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_output < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown output '%s'.", optarg);
+
+                        if (OUTPUT_MODE_IS_JSON(arg_output))
+                                arg_legend = false;
                         break;
 
                 case ARG_NO_PAGER:

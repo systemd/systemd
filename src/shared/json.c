@@ -1236,7 +1236,7 @@ int json_variant_get_source(JsonVariant *v, const char **ret_source, unsigned *r
         return 0;
 }
 
-static int print_source(FILE *f, JsonVariant *v, unsigned flags, bool whitespace) {
+static int print_source(FILE *f, JsonVariant *v, JsonFormatFlags flags, bool whitespace) {
         size_t w, k;
 
         if (!FLAGS_SET(flags, JSON_FORMAT_SOURCE|JSON_FORMAT_PRETTY))
@@ -1289,7 +1289,7 @@ static int print_source(FILE *f, JsonVariant *v, unsigned flags, bool whitespace
         return 0;
 }
 
-static int json_format(FILE *f, JsonVariant *v, unsigned flags, const char *prefix) {
+static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const char *prefix) {
         int r;
 
         assert(f);
@@ -1546,7 +1546,7 @@ static int json_format(FILE *f, JsonVariant *v, unsigned flags, const char *pref
         return 0;
 }
 
-int json_variant_format(JsonVariant *v, unsigned flags, char **ret) {
+int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         _cleanup_free_ char *s = NULL;
         size_t sz = 0;
         int r;
@@ -1576,7 +1576,7 @@ int json_variant_format(JsonVariant *v, unsigned flags, char **ret) {
         return (int) sz;
 }
 
-void json_variant_dump(JsonVariant *v, unsigned flags, FILE *f, const char *prefix) {
+void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const char *prefix) {
         if (!v)
                 return;
 
@@ -1584,6 +1584,9 @@ void json_variant_dump(JsonVariant *v, unsigned flags, FILE *f, const char *pref
                 f = stdout;
 
         print_source(f, v, flags, false);
+
+        if (((flags & (JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_COLOR)) == JSON_FORMAT_COLOR_AUTO) && colors_enabled())
+                flags |= JSON_FORMAT_COLOR;
 
         if (flags & JSON_FORMAT_SSE)
                 fputs("data: ", f);

@@ -946,10 +946,7 @@ static int output_json(
         }
 
         json_variant_dump(object,
-                          (mode == OUTPUT_JSON_SSE    ? JSON_FORMAT_SSE :
-                           mode == OUTPUT_JSON_SEQ    ? JSON_FORMAT_SEQ :
-                           mode == OUTPUT_JSON_PRETTY ? JSON_FORMAT_PRETTY :
-                                                        JSON_FORMAT_NEWLINE) |
+                          output_mode_to_json_format_flags(mode) |
                           (FLAGS_SET(flags, OUTPUT_COLOR) ? JSON_FORMAT_COLOR : 0),
                           f, NULL);
 

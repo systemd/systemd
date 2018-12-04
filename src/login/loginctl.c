@@ -101,7 +101,10 @@ static int show_table(Table *table, const char *word) {
 
                 table_set_header(table, arg_legend);
 
-                r = table_print(table, NULL);
+                if (OUTPUT_MODE_IS_JSON(arg_output))
+                        r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO);
+                else
+                        r = table_print(table, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to show table: %m");
         }
@@ -143,7 +146,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("SESSION", "UID", "USER", "SEAT", "TTY");
+        table = table_new("session", "uid", "user", "seat", "tty");
         if (!table)
                 return log_oom();
 
@@ -224,7 +227,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("UID", "USER");
+        table = table_new("uid", "user");
         if (!table)
                 return log_oom();
 
@@ -281,7 +284,7 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("SEAT");
+        table = table_new("seat");
         if (!table)
                 return log_oom();
 
@@ -1434,6 +1437,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_output < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown output '%s'.", optarg);
+
+                        if (OUTPUT_MODE_IS_JSON(arg_output))
+                                arg_legend = false;
+
                         break;
 
                 case ARG_NO_PAGER:
