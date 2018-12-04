@@ -557,14 +557,16 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         off = ansi_normal();
                 }
 
-                if (arg_all)
+                if (arg_all || strv_contains(arg_states, "inactive"))
                         printf("%s%u loaded units listed.%s\n"
                                "To show all installed unit files use 'systemctl list-unit-files'.\n",
                                on, n_shown, off);
-                else
+                else if (!arg_states)
                         printf("%s%u loaded units listed.%s Pass --all to see loaded but inactive units, too.\n"
                                "To show all installed unit files use 'systemctl list-unit-files'.\n",
                                on, n_shown, off);
+                else
+                        printf("%u loaded units listed.\n", n_shown);
         }
 
         return 0;
