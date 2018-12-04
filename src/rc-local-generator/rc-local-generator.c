@@ -40,6 +40,21 @@ static int add_symlink(const char *service, const char *where) {
         return 1;
 }
 
+static int check_executable(const char *path) {
+        assert(path);
+
+        if (access(path, X_OK) < 0) {
+                if (errno == ENOENT)
+                        return log_debug_errno(errno, "%s does not exist, skipping.", path);
+                if (errno == EACCES)
+                        return log_info_errno(errno, "%s is not marked executable, skipping.", path);
+
+                return log_warning_errno(errno, "Couldn't determine if %s exists and is executable, skipping: %m", path);
+        }
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         int r = 0, k = 0;
 
@@ -51,19 +66,13 @@ static int run(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[1];
 
-        if (access(RC_LOCAL_SCRIPT_PATH_START, X_OK) < 0)
-                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                               RC_LOCAL_SCRIPT_PATH_START " is not executable: %m");
-        else {
+        if (check_executable(RC_LOCAL_SCRIPT_PATH_START) >= 0) {
                 log_debug("Automatically adding rc-local.service.");
 
                 r = add_symlink("rc-local.service", "multi-user.target");
         }
 
-        if (access(RC_LOCAL_SCRIPT_PATH_STOP, X_OK) < 0)
-                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                               RC_LOCAL_SCRIPT_PATH_STOP " is not executable: %m");
-        else {
+        if (check_executable(RC_LOCAL_SCRIPT_PATH_STOP) >= 0) {
                 log_debug("Automatically adding halt-local.service.");
 
                 k = add_symlink("halt-local.service", "final.target");
