@@ -186,30 +186,6 @@ struct sockaddr_vm {
 #define SCM_SECURITY 0x03
 #endif
 
-#ifndef PR_SET_NO_NEW_PRIVS
-#define PR_SET_NO_NEW_PRIVS 38
-#endif
-
-#ifndef PR_SET_CHILD_SUBREAPER
-#define PR_SET_CHILD_SUBREAPER 36
-#endif
-
-#ifndef PR_SET_MM_ARG_START
-#define PR_SET_MM_ARG_START 8
-#endif
-
-#ifndef PR_SET_MM_ARG_END
-#define PR_SET_MM_ARG_END 9
-#endif
-
-#ifndef PR_SET_MM_ENV_START
-#define PR_SET_MM_ENV_START 10
-#endif
-
-#ifndef PR_SET_MM_ENV_END
-#define PR_SET_MM_ENV_END 11
-#endif
-
 #ifndef DM_DEFERRED_REMOVE
 #define DM_DEFERRED_REMOVE (1 << 17)
 #endif
@@ -327,22 +303,6 @@ struct sockaddr_vm {
 #define KCMP_FILE 0
 #endif
 
-#ifndef PR_CAP_AMBIENT
-#define PR_CAP_AMBIENT 47
-#endif
-
-#ifndef PR_CAP_AMBIENT_IS_SET
-#define PR_CAP_AMBIENT_IS_SET 1
-#endif
-
-#ifndef PR_CAP_AMBIENT_RAISE
-#define PR_CAP_AMBIENT_RAISE 2
-#endif
-
-#ifndef PR_CAP_AMBIENT_CLEAR_ALL
-#define PR_CAP_AMBIENT_CLEAR_ALL 4
-#endif
-
 #if !HAVE_CHAR32_T
 #define char32_t uint32_t
 #endif
@@ -394,5 +354,6 @@ struct sockaddr_vm {
 #include "missing_input.h"
 #include "missing_magic.h"
 #include "missing_network.h"
+#include "missing_prctl.h"
 
 #include "missing_syscall.h"

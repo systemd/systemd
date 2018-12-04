@@ -103,6 +103,7 @@ basic_sources = files('''
         missing_keyctl.h
         missing_magic.h
         missing_network.h
+        missing_prctl.h
         missing_securebits.h
         missing_stat.h
         missing_syscall.h
