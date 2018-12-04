@@ -20,7 +20,7 @@ enum in6_addr_gen_mode {
 #if !HAVE_IN6_ADDR_GEN_MODE_RANDOM /* linux@cc9da6cc4f56e05cc9e591459fe0192727ff58b3 (4.5) */
 #define IN6_ADDR_GEN_MODE_RANDOM         3
 #endif
-#endif
+#endif /* !HAVE_IFLA_INET6_ADDR_GEN_MODE */
 
 #if !HAVE_IFLA_IPVLAN_MODE /* linux@2ad7bf3638411cb547f2823df08166c13ab04269 (3.19) */
 enum {
@@ -41,15 +41,22 @@ enum ipvlan_mode {
 #define IPVLAN_MODE_L3S   2
 #define IPVLAN_MODE_MAX   3
 #endif
-#if !HAVE_IFLA_IPVLAN_FLAGS /* linux@a190d04db93710ae166749055b6985397c6d13f5, fe89aa6b250c1011ccf425fbb7998e96bd54263f (4.15) */
+#if !HAVE_IFLA_IPVLAN_FLAGS /* linux@a190d04db93710ae166749055b6985397c6d13f5 (4.15) */
 #define IFLA_IPVLAN_FLAGS 2
 
 #undef  IFLA_IPVLAN_MAX
 #define IFLA_IPVLAN_MAX   2
-
-#define IPVLAN_F_PRIVATE 0x01
-#define IPVLAN_F_VEPA    0x02
 #endif
+#endif /* !HAVE_IFLA_IPVLAN_MODE */
+
+/* linux@a190d04db93710ae166749055b6985397c6d13f5 (4.15) */
+#ifndef IPVLAN_F_PRIVATE
+#define IPVLAN_F_PRIVATE 0x01
+#endif
+
+/* linux@fe89aa6b250c1011ccf425fbb7998e96bd54263f (4.15) */
+#ifndef IPVLAN_F_VEPA
+#define IPVLAN_F_VEPA    0x02
 #endif
 
 #if !HAVE_IFLA_PHYS_PORT_ID /* linux@66cae9ed6bc46b8cc57a9693f99f69926f3cc7ef (3.12) */
