@@ -281,18 +281,16 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 #if ENABLE_DNS_OVER_TLS
         if (s->encrypted) {
                 r = dnstls_stream_on_io(s, revents);
-
                 if (r == DNSTLS_STREAM_CLOSED)
                         return 0;
-                else if (r == -EAGAIN)
+                if (r == -EAGAIN)
                         return dns_stream_update_io(s);
-                else if (r < 0) {
+                if (r < 0)
                         return dns_stream_complete(s, -r);
-                } else {
-                        r = dns_stream_update_io(s);
-                        if (r < 0)
-                                return r;
-                }
+
+                r = dns_stream_update_io(s);
+                if (r < 0)
+                        return r;
         }
 #endif
 
