@@ -553,6 +553,10 @@ static int on_stream_packet(DnsStream *s) {
         return 0;
 }
 
+static uint16_t dns_port_for_feature_level(DnsServerFeatureLevel level) {
+        return DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ? 853 : 53;
+}
+
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
         _cleanup_close_ int fd = -1;
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
@@ -580,7 +584,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) == t->server->stream->encrypted))
                         s = dns_stream_ref(t->server->stream);
                 else
-                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? 853 : 53, &sa);
+                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_port_for_feature_level(t->current_feature_level), &sa);
 
                 break;
 
