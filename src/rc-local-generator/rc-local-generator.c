@@ -21,7 +21,6 @@ static const char *arg_dest = "/tmp";
 
 static int add_symlink(const char *service, const char *where) {
         const char *from, *to;
-        int r;
 
         assert(service);
         assert(where);
@@ -31,8 +30,7 @@ static int add_symlink(const char *service, const char *where) {
 
         (void) mkdir_parents_label(to, 0755);
 
-        r = symlink(from, to);
-        if (r < 0) {
+        if (symlink(from, to) < 0) {
                 if (errno == EEXIST)
                         return 0;
 
