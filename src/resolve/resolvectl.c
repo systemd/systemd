@@ -2952,7 +2952,7 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "domain",                VERB_ANY, VERB_ANY, 0,            verb_domain           },
                 { "llmnr",                 VERB_ANY, 3,        0,            verb_llmnr            },
                 { "mdns",                  VERB_ANY, 3,        0,            verb_mdns             },
-                { "dnsovertls",            VERB_ANY, 3,        0,            verb_dns_over_tls      },
+                { "dnsovertls",            VERB_ANY, 3,        0,            verb_dns_over_tls     },
                 { "dnssec",                VERB_ANY, 3,        0,            verb_dnssec           },
                 { "nta",                   VERB_ANY, VERB_ANY, 0,            verb_nta              },
                 { "revert",                VERB_ANY, 2,        0,            verb_revert_link      },
