@@ -51,6 +51,8 @@ struct Link {
         LIST_HEAD(DnsSearchDomain, search_domains);
         unsigned n_search_domains;
 
+        int default_route;
+
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
         DnsOverTlsMode dns_over_tls_mode;

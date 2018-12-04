@@ -228,11 +228,11 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
                 return;
         }
 
-        /* Check if the scope this DNS server belongs to is limited to particular domains; resolv.conf does not have a
-         * syntax to express that, so it must not appear as a global name server to avoid routing unrelated domains to
-         * it (which is a privacy violation, will most probably fail anyway, and adds unnecessary load) */
+        /* Check if the scope this DNS server belongs to is suitable as 'default' route for lookups; resolv.conf does
+         * not have a syntax to express that, so it must not appear as a global name server to avoid routing unrelated
+         * domains to it (which is a privacy violation, will most probably fail anyway, and adds unnecessary load) */
         scope = dns_server_scope(s);
-        if (scope && dns_scope_has_route_only_domains(scope)) {
+        if (scope && !dns_scope_is_default_route(scope)) {
                 log_debug("Scope of DNS server %s has only route-only domains, not using as global name server", dns_server_string(s));
                 return;
         }

@@ -554,9 +554,8 @@ DnsScopeMatch dns_scope_good_domain(
                         return DNS_SCOPE_YES_BASE + n_best;
                 }
 
-                /* If the DNS server has route-only domains, don't send other requests to it. This would be a privacy
-                 * violation, will most probably fail anyway, and adds unnecessary load. */
-                if (dns_scope_has_route_only_domains(s))
+                /* See if this scope is suitable as default route. */
+                if (!dns_scope_is_default_route(s))
                         return DNS_SCOPE_NO;
 
                 /* Exclude link-local IP ranges */
@@ -1392,15 +1391,17 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
         return 0;
 }
 
-bool dns_scope_has_route_only_domains(DnsScope *scope) {
+static bool dns_scope_has_route_only_domains(DnsScope *scope) {
         DnsSearchDomain *domain, *first;
         bool route_only = false;
 
-        /* Check if the scope has any route-only domains except for "~.", i. e. whether it should only be
-         * used for particular domains */
+        assert(scope);
+        assert(scope->protocol == DNS_PROTOCOL_DNS);
 
-        if (scope->protocol != DNS_PROTOCOL_DNS)
-                return false;
+        /* Returns 'true' if this scope is suitable for queries to specific domains only. For that we check
+         * if there are any route-only domains on this interface, as a heuristic to discern VPN-style links
+         * from non-VPN-style links. Returns 'false' for all other cases, i.e. if the scope is intended to
+         * take queries to arbitrary domains, i.e. has no routing domains set. */
 
         if (scope->link)
                 first = scope->link->search_domains;
@@ -1408,7 +1409,10 @@ bool dns_scope_has_route_only_domains(DnsScope *scope) {
                 first = scope->manager->search_domains;
 
         LIST_FOREACH(domains, domain, first) {
-                /* "." means "any domain", thus the interface takes any kind of traffic. */
+                /* "." means "any domain", thus the interface takes any kind of traffic. Thus, we exit early
+                 * here, as it doesn't really matter whether this link has any route-only domains or not,
+                 * "~."  really trumps everything and clearly indicates that this interface shall receive all
+                 * traffic it can get. */
                 if (dns_name_is_root(DNS_SEARCH_DOMAIN_NAME(domain)))
                         return false;
 
@@ -1417,4 +1421,25 @@ bool dns_scope_has_route_only_domains(DnsScope *scope) {
         }
 
         return route_only;
+}
+
+bool dns_scope_is_default_route(DnsScope *scope) {
+        assert(scope);
+
+        /* Only use DNS scopes as default routes */
+        if (scope->protocol != DNS_PROTOCOL_DNS)
+                return false;
+
+        /* The global DNS scope is always suitable as default route */
+        if (!scope->link)
+                return true;
+
+        /* Honour whatever is explicitly configured. This is really the best approach, and trumps any
+         * automatic logic. */
+        if (scope->link->default_route >= 0)
+                return scope->link->default_route;
+
+        /* Otherwise check if we have any route-only domains, as a sensible heuristic: if so, let's not
+         * volunteer as default route. */
+        return !dns_scope_has_route_only_domains(scope);
 }
