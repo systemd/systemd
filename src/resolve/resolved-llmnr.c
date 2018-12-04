@@ -260,18 +260,21 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
 }
 
 static int on_llmnr_stream_packet(DnsStream *s) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         DnsScope *scope;
 
         assert(s);
-        assert(s->read_packet);
 
-        scope = manager_find_scope(s->manager, s->read_packet);
+        p = dns_stream_take_read_packet(s);
+        assert(p);
+
+        scope = manager_find_scope(s->manager, p);
         if (!scope)
                 log_debug("Got LLMNR TCP packet on unknown scope. Ignoring.");
-        else if (dns_packet_validate_query(s->read_packet) > 0) {
-                log_debug("Got LLMNR TCP query packet for id %u", DNS_PACKET_ID(s->read_packet));
+        else if (dns_packet_validate_query(p) > 0) {
+                log_debug("Got LLMNR TCP query packet for id %u", DNS_PACKET_ID(p));
 
-                dns_scope_process_query(scope, s, s->read_packet);
+                dns_scope_process_query(scope, s, p);
         } else
                 log_debug("Invalid LLMNR TCP packet, ignoring.");
 

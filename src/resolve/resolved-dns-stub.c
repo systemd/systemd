@@ -437,13 +437,17 @@ static int manager_dns_stub_udp_fd(Manager *m) {
 }
 
 static int on_dns_stub_stream_packet(DnsStream *s) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+
         assert(s);
-        assert(s->read_packet);
 
-        if (dns_packet_validate_query(s->read_packet) > 0) {
-                log_debug("Got DNS stub TCP query packet for id %u", DNS_PACKET_ID(s->read_packet));
+        p = dns_stream_take_read_packet(s);
+        assert(p);
 
-                dns_stub_process_query(s->manager, s, s->read_packet);
+        if (dns_packet_validate_query(p) > 0) {
+                log_debug("Got DNS stub TCP query packet for id %u", DNS_PACKET_ID(p));
+
+                dns_stub_process_query(s->manager, s, p);
         } else
                 log_debug("Invalid DNS stub TCP packet, ignoring.");
 

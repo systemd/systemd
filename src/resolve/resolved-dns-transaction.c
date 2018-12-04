@@ -532,27 +532,25 @@ static int on_stream_complete(DnsStream *s, int error) {
 
 static int dns_stream_on_packet(DnsStream *s) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        int r = 0;
         DnsTransaction *t;
 
+        assert(s);
+
         /* Take ownership of packet to be able to receive new packets */
-        p = TAKE_PTR(s->read_packet);
-        s->n_read = 0;
+        p = dns_stream_take_read_packet(s);
+        assert(p);
 
         t = hashmap_get(s->manager->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
+        if (t)
+                return dns_transaction_on_stream_packet(t, p);
 
         /* Ignore incorrect transaction id as transaction can have been canceled */
-        if (t)
-                r = dns_transaction_on_stream_packet(t, p);
-        else {
-                if (dns_packet_validate_reply(p) <= 0) {
-                        log_debug("Invalid TCP reply packet.");
-                        on_stream_complete(s, 0);
-                }
-                return 0;
+        if (dns_packet_validate_reply(p) <= 0) {
+                log_debug("Invalid TCP reply packet.");
+                on_stream_complete(s, 0);
         }
 
-        return r;
+        return 0;
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
