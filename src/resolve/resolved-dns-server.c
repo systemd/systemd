@@ -43,16 +43,18 @@ int dns_server_new(
                         return -E2BIG;
         }
 
-        s = new0(DnsServer, 1);
+        s = new(DnsServer, 1);
         if (!s)
                 return -ENOMEM;
 
-        s->n_ref = 1;
-        s->manager = m;
-        s->type = type;
-        s->family = family;
-        s->address = *in_addr;
-        s->ifindex = ifindex;
+        *s = (DnsServer) {
+                .n_ref = 1,
+                .manager = m,
+                .type = type,
+                .family = family,
+                .address = *in_addr,
+                .ifindex = ifindex,
+        };
 
         dns_server_reset_features(s);
 
