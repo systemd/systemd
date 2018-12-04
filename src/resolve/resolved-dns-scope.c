@@ -30,15 +30,17 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         assert(m);
         assert(ret);
 
-        s = new0(DnsScope, 1);
+        s = new(DnsScope, 1);
         if (!s)
                 return -ENOMEM;
 
-        s->manager = m;
-        s->link = l;
-        s->protocol = protocol;
-        s->family = family;
-        s->resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC;
+        *s = (DnsScope) {
+                .manager = m,
+                .link = l,
+                .protocol = protocol,
+                .family = family,
+                .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
+        };
 
         if (protocol == DNS_PROTOCOL_DNS) {
                 /* Copy DNSSEC mode from the link if it is set there,
