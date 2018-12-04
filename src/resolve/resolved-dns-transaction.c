@@ -503,11 +503,7 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsPacket *p) {
 }
 
 static int on_stream_complete(DnsStream *s, int error) {
-        _cleanup_(dns_stream_unrefp) DnsStream *p = NULL;
-
-        /* Do not let new transactions use this stream */
-        if (s->server && s->server->stream == s)
-                p = TAKE_PTR(s->server->stream);
+        assert(s);
 
         if (ERRNO_IS_DISCONNECT(error) && s->protocol != DNS_PROTOCOL_LLMNR) {
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");

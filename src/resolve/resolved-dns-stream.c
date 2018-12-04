@@ -64,6 +64,8 @@ static int dns_stream_complete(DnsStream *s, int error) {
 #endif
                 dns_stream_stop(s);
 
+        dns_stream_detach(s);
+
         if (s->complete)
                 s->complete(s, error);
         else /* the default action if no completion function is set is to close the stream */
