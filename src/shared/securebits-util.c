@@ -5,7 +5,6 @@
 
 #include "alloc-util.h"
 #include "extract-word.h"
-#include "securebits.h"
 #include "securebits-util.h"
 #include "string-util.h"
 

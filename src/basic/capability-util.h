@@ -7,6 +7,7 @@
 #include <sys/types.h>
 
 #include "macro.h"
+#include "missing_capability.h"
 #include "util.h"
 
 #define CAP_ALL (uint64_t) -1

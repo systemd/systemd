@@ -9,6 +9,7 @@
 #include "bus-util.h"
 #include "logind-seat.h"
 #include "logind.h"
+#include "missing_capability.h"
 #include "strv.h"
 #include "user-util.h"
 #include "util.h"

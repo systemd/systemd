@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "missing_network.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"

@@ -11,6 +11,7 @@
 #include "logind-session-device.h"
 #include "logind-session.h"
 #include "logind.h"
+#include "missing_capability.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "strv.h"

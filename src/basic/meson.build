@@ -17,7 +17,6 @@ basic_sources = files('''
         audit-util.h
         blockdev-util.c
         blockdev-util.h
-        btrfs-ctree.h
         btrfs-util.c
         btrfs-util.h
         build.h
@@ -92,7 +91,25 @@ basic_sources = files('''
         memfd-util.h
         mempool.c
         mempool.h
+        missing_btrfs.h
+        missing_btrfs_tree.h
+        missing_capability.h
+        missing_ethtool.h
+        missing_fib_rules.h
+        missing_fou.h
+        missing_if_bridge.h
+        missing_if_link.h
+        missing_if_tunnel.h
+        missing_input.h
+        missing_keyctl.h
+        missing_magic.h
+        missing_network.h
+        missing_prctl.h
+        missing_securebits.h
+        missing_stat.h
         missing_syscall.h
+        missing_type.h
+        missing_vxcan.h
         mkdir-label.c
         mkdir.c
         mkdir.h
@@ -124,7 +141,6 @@ basic_sources = files('''
         replace-var.h
         rm-rf.c
         rm-rf.h
-        securebits.h
         selinux-util.c
         selinux-util.h
         set.h

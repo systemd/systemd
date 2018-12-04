@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "in-addr-util.h"
+#include "missing_network.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "networkd-route.h"

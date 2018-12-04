@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <linux/sockios.h>
+#include <sys/ioctl.h>
 
 #include "fd-util.h"
 #include "fuzz.h"

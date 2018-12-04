@@ -4,10 +4,6 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 
-#if HAVE_LINUX_BTRFS_H
-#include <linux/btrfs.h>
-#endif
-
 #include "device-util.h"
 #include "fd-util.h"
 #include "missing.h"

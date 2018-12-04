@@ -5,6 +5,7 @@
 
 #include "fd-util.h"
 #include "lldp-network.h"
+#include "missing.h"
 #include "socket-util.h"
 
 int lldp_network_bind_raw_socket(int ifindex) {
