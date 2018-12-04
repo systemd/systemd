@@ -54,6 +54,8 @@ struct DnsServer {
         int ifindex; /* for IPv6 link-local DNS servers */
 
         char *server_string;
+
+        /* The long-lived stream towards this server. */
         DnsStream *stream;
 
 #if ENABLE_DNS_OVER_TLS

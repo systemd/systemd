@@ -59,7 +59,7 @@ struct DnsStream {
 
         LIST_HEAD(DnsTransaction, transactions); /* when used by the transaction logic */
         DnsServer *server;                       /* when used by the transaction logic */
-        DnsQuery *query;             /* when used by the DNS stub logic */
+        DnsQuery *query;                         /* when used by the DNS stub logic */
 
         /* used when DNS-over-TLS is enabled */
         bool encrypted:1;
