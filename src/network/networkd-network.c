@@ -673,16 +673,12 @@ int config_parse_domains(
                         }
                 }
 
-                if (is_route) {
+                if (is_route)
                         r = strv_extend(&n->route_domains, domain);
-                        if (r < 0)
-                                return log_oom();
-
-                } else {
+                else
                         r = strv_extend(&n->search_domains, domain);
-                        if (r < 0)
-                                return log_oom();
-                }
+                if (r < 0)
+                        return log_oom();
         }
 
         strv_uniq(n->route_domains);
