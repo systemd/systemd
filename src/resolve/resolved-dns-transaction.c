@@ -512,13 +512,10 @@ static int on_stream_complete(DnsStream *s, int error) {
                 p = TAKE_PTR(s->server->stream);
 
         if (ERRNO_IS_DISCONNECT(error) && s->protocol != DNS_PROTOCOL_LLMNR) {
-                usec_t usec;
-
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
 
                 if (s->transactions) {
                         t = s->transactions;
-                        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
                         dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
                 }
         }
