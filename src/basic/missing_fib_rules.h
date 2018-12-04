@@ -3,6 +3,15 @@
 
 #include <linux/types.h>
 
+#if !HAVE_FRA_TUN_ID /* linux@e7030878fc8448492b6e5cecd574043f63271298 (4.3) */
+#define FRA_TUN_ID      12
+#endif
+
+#if !HAVE_FRA_SUPPRESS_PREFIXLEN /* linux@6ef94cfafba159d6b1a902ccb3349ac6a34ff6ad, 73f5698e77219bfc3ea1903759fe8e20ab5b285e (3.12) */
+#define FRA_SUPPRESS_IFGROUP 13
+#define FRA_SUPPRESS_PREFIXLEN 14
+#endif
+
 #if !HAVE_FRA_PAD /* linux@b46f6ded906ef0be52a4881ba50a084aeca64d7e (4.7) */
 #define FRA_PAD         18
 #endif
