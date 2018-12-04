@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "macro.h"
+#include "missing.h"
 #include "rlimit-util.h"
 #include "string-util.h"
 #include "util.h"

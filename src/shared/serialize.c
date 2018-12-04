@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "serialize.h"

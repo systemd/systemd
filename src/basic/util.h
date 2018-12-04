@@ -25,7 +25,6 @@
 
 #include "format-util.h"
 #include "macro.h"
-#include "missing.h"
 #include "time-util.h"
 
 size_t page_size(void) _pure_;

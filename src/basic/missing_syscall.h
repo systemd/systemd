@@ -3,6 +3,8 @@
 
 /* Missing glibc definitions to access certain kernel APIs */
 
+#include <fcntl.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 
 #include "missing_keyctl.h"

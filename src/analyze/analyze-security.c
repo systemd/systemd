@@ -12,6 +12,7 @@
 #include "in-addr-util.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
