@@ -530,7 +530,7 @@ static int on_stream_complete(DnsStream *s, int error) {
         return 0;
 }
 
-static int dns_stream_on_packet(DnsStream *s) {
+static int on_stream_packet(DnsStream *s) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         DnsTransaction *t;
 
@@ -639,7 +639,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 }
 
                 s->complete = on_stream_complete;
-                s->on_packet = dns_stream_on_packet;
+                s->on_packet = on_stream_packet;
 
                 /* The interface index is difficult to determine if we are
                  * connecting to the local host, hence fill this in right away
