@@ -497,14 +497,15 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, co
         (void) sd_event_source_set_description(s->timeout_event_source, "dns-stream-timeout");
 
         LIST_PREPEND(streams, m->dns_streams, s);
+        m->n_dns_streams++;
         s->manager = m;
+
         s->fd = fd;
+
         if (tfo_address) {
                 s->tfo_address = *tfo_address;
                 s->tfo_salen = tfo_address->sa.sa_family == AF_INET6 ? sizeof(tfo_address->in6) : sizeof(tfo_address->in);
         }
-
-        m->n_dns_streams++;
 
         *ret = TAKE_PTR(s);
 
