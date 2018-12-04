@@ -36,7 +36,7 @@
 #include "util.h"
 #include "virt.h"
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static bool arg_root_enabled = true;
 static bool arg_root_rw = false;
@@ -668,22 +668,14 @@ static int add_mounts(void) {
         return enumerate_partitions(devno);
 }
 
-int main(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r, k;
 
-        log_setup_generator();
-
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
-        }
-
-        if (argc > 1)
-                arg_dest = argv[3];
+        assert_se(arg_dest = dest_late);
 
         if (detect_container() > 0) {
                 log_debug("In a container, exiting.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
@@ -692,19 +684,19 @@ int main(int argc, char *argv[]) {
 
         if (!arg_enabled) {
                 log_debug("Disabled, exiting.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         if (arg_root_enabled)
                 r = add_root_mount();
-        else
-                r = 0;
 
         if (!in_initrd()) {
                 k = add_mounts();
-                if (k < 0)
+                if (r >= 0)
                         r = k;
         }
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_GENERATOR_FUNCTION(run);
