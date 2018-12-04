@@ -260,16 +260,19 @@ struct Network {
         Hashmap *prefixes_by_section;
         Hashmap *rules_by_section;
 
+        /* All kinds of DNS configuration */
         struct in_addr_data *dns;
         unsigned n_dns;
-
-        char **search_domains, **route_domains, **ntp, **bind_carrier;
-
+        char **search_domains, **route_domains;
+        int dns_default_route;
         ResolveSupport llmnr;
         ResolveSupport mdns;
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
         Set *dnssec_negative_trust_anchors;
+
+        char **ntp;
+        char **bind_carrier;
 
         LIST_FIELDS(Network, networks);
 };

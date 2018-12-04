@@ -168,6 +168,7 @@ int network_load_one(Manager *manager, const char *filename) {
 
                 .lldp_mode = LLDP_MODE_ROUTERS_ONLY,
 
+                .dns_default_route = -1,
                 .llmnr = RESOLVE_SUPPORT_YES,
                 .mdns = RESOLVE_SUPPORT_NO,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
@@ -657,7 +658,6 @@ int config_parse_domains(
                          * routing domain, unconditionally. */
                         is_route = true;
                         domain = "."; /* make sure we don't allow empty strings, thus write the root domain as "." */
-
                 } else {
                         r = dns_name_normalize(domain, 0, &normalized);
                         if (r < 0) {

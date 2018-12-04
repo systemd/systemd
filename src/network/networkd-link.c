@@ -3929,6 +3929,8 @@ int link_save(Link *link) {
                         resolve_support_to_string(link->network->llmnr));
                 fprintf(f, "MDNS=%s\n",
                         resolve_support_to_string(link->network->mdns));
+                if (link->network->dns_default_route >= 0)
+                        fprintf(f, "DNS_DEFAULT_ROUTE=%s\n", yes_no(link->network->dns_default_route));
 
                 if (link->network->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
                         fprintf(f, "DNS_OVER_TLS=%s\n",

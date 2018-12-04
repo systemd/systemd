@@ -58,6 +58,7 @@ Network.Address,                        config_parse_address,                   
 Network.Gateway,                        config_parse_gateway,                           0,                             0
 Network.Domains,                        config_parse_domains,                           0,                             0
 Network.DNS,                            config_parse_dns,                               0,                             0
+Network.DNSDefaultRoute,                config_parse_tristate,                          0,                             offsetof(Network, dns_default_route)
 Network.LLMNR,                          config_parse_resolve_support,                   0,                             offsetof(Network, llmnr)
 Network.MulticastDNS,                   config_parse_resolve_support,                   0,                             offsetof(Network, mdns)
 Network.DNSOverTLS,                     config_parse_dns_over_tls_mode,                 0,                             offsetof(Network, dns_over_tls_mode)
