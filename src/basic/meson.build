@@ -99,6 +99,7 @@ basic_sources = files('''
         missing_if_bridge.h
         missing_if_link.h
         missing_if_tunnel.h
+        missing_input.h
         missing_keyctl.h
         missing_network.h
         missing_securebits.h

@@ -9,7 +9,6 @@
 #include <linux/audit.h>
 #include <linux/capability.h>
 #include <linux/falloc.h>
-#include <linux/input.h>
 #include <linux/oom.h>
 #include <net/ethernet.h>
 #include <stdlib.h>
@@ -292,21 +291,6 @@ struct sockaddr_vm {
 #  define SO_PEERGROUPS 59
 #endif
 
-#ifndef EVIOCREVOKE
-#  define EVIOCREVOKE _IOW('E', 0x91, int)
-#endif
-
-#ifndef EVIOCSMASK
-
-struct input_mask {
-        uint32_t type;
-        uint32_t codes_size;
-        uint64_t codes_ptr;
-};
-
-#define EVIOCSMASK _IOW('E', 0x93, struct input_mask)
-#endif
-
 #ifndef DRM_IOCTL_SET_MASTER
 #  define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
 #endif
@@ -390,23 +374,6 @@ struct input_mask {
 
 #ifndef KCMP_FILE
 #define KCMP_FILE 0
-#endif
-
-#ifndef INPUT_PROP_POINTING_STICK
-#define INPUT_PROP_POINTING_STICK 0x05
-#endif
-
-#ifndef INPUT_PROP_ACCELEROMETER
-#define INPUT_PROP_ACCELEROMETER  0x06
-#endif
-
-#ifndef BTN_DPAD_UP
-#define BTN_DPAD_UP 0x220
-#define BTN_DPAD_RIGHT 0x223
-#endif
-
-#ifndef KEY_ALS_TOGGLE
-#define KEY_ALS_TOGGLE 0x230
 #endif
 
 #ifndef PR_CAP_AMBIENT
@@ -516,5 +483,6 @@ struct statx {
 #endif
 
 #include "missing_btrfs_tree.h"
+#include "missing_input.h"
 #include "missing_network.h"
 #include "missing_syscall.h"
