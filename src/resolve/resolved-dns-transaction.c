@@ -628,7 +628,9 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 fd = -1;
 
 #if ENABLE_DNS_OVER_TLS
-                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
+                if (t->scope->protocol == DNS_PROTOCOL_DNS &&
+                    DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
+
                         assert(t->server);
                         r = dnstls_stream_connect_tls(s, t->server);
                         if (r < 0)
