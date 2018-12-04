@@ -258,7 +258,7 @@ static ssize_t dns_stream_read(DnsStream *s, void *buf, size_t count) {
         {
                 ss = read(s->fd, buf, count);
                 if (ss < 0)
-                        ss = -errno;
+                        return -errno;
         }
 
         return ss;
