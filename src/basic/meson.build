@@ -104,6 +104,7 @@ basic_sources = files('''
         missing_magic.h
         missing_network.h
         missing_securebits.h
+        missing_stat.h
         missing_syscall.h
         missing_vxcan.h
         mkdir-label.c

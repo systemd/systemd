@@ -6,6 +6,7 @@
 #include <sys/types.h>
 
 #include "missing_keyctl.h"
+#include "missing_stat.h"
 
 #if !HAVE_PIVOT_ROOT
 static inline int missing_pivot_root(const char *new_root, const char *put_old) {
