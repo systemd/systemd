@@ -193,7 +193,7 @@ static int dns_stream_identify(DnsStream *s) {
 }
 
 ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, int flags) {
-        ssize_t r;
+        ssize_t m;
 
         assert(s);
         assert(iov);
@@ -203,13 +203,13 @@ ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, 
                 ssize_t ss;
                 size_t i;
 
-                r = 0;
+                m = 0;
                 for (i = 0; i < iovcnt; i++) {
                         ss = dnstls_stream_write(s, iov[i].iov_base, iov[i].iov_len);
                         if (ss < 0)
                                 return ss;
 
-                        r += ss;
+                        m += ss;
                         if (ss != (ssize_t) iov[i].iov_len)
                                 continue;
                 }
@@ -223,28 +223,28 @@ ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, 
                         .msg_namelen = s->tfo_salen
                 };
 
-                r = sendmsg(s->fd, &hdr, MSG_FASTOPEN);
-                if (r < 0) {
+                m = sendmsg(s->fd, &hdr, MSG_FASTOPEN);
+                if (m < 0) {
                         if (errno == EOPNOTSUPP) {
                                 s->tfo_salen = 0;
-                                r = connect(s->fd, &s->tfo_address.sa, s->tfo_salen);
-                                if (r < 0)
+                                if (connect(s->fd, &s->tfo_address.sa, s->tfo_salen) < 0)
                                         return -errno;
 
-                                r = -EAGAIN;
-                        } else if (errno == EINPROGRESS)
-                                r = -EAGAIN;
-                        else
-                                r = -errno;
+                                return -EAGAIN;
+                        }
+                        if (errno == EINPROGRESS)
+                                return -EAGAIN;
+
+                        return -errno;
                 } else
                         s->tfo_salen = 0; /* connection is made */
         } else {
-                r = writev(s->fd, iov, iovcnt);
-                if (r < 0)
-                        r = -errno;
+                m = writev(s->fd, iov, iovcnt);
+                if (m < 0)
+                        return -errno;
         }
 
-        return r;
+        return m;
 }
 
 static ssize_t dns_stream_read(DnsStream *s, void *buf, size_t count) {
