@@ -593,7 +593,7 @@ AM_CONDITIONAL([HAVE_SYSTEMD], [test "x$with_systemdsystemunitdir" != "xno"])</p
       <citerefentry project='die-net'><refentrytitle>automake</refentrytitle><manvolnum>1</manvolnum></citerefentry>-based
       projects:</para>
 
-      <programlisting>DISTCHECK_CONFIGURE_FLAGS = \
+      <programlisting>AM_DISTCHECK_CONFIGURE_FLAGS = \
   --with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)</programlisting>
 
       <para>Finally, unit files should be installed in the system with an automake excerpt like the following:</para>
