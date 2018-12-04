@@ -17,6 +17,9 @@ static void dns_stream_stop(DnsStream *s) {
         s->io_event_source = sd_event_source_unref(s->io_event_source);
         s->timeout_event_source = sd_event_source_unref(s->timeout_event_source);
         s->fd = safe_close(s->fd);
+
+        /* Disconnect us from the server object if we are now not usable anymore */
+        dns_stream_detach(s);
 }
 
 static int dns_stream_update_io(DnsStream *s) {
@@ -430,9 +433,6 @@ static DnsStream *dns_stream_free(DnsStream *s) {
 
         dns_stream_stop(s);
 
-        if (s->server && s->server->stream == s)
-                s->server->stream = NULL;
-
         if (s->manager) {
                 LIST_REMOVE(streams, s->manager->dns_streams, s);
                 s->manager->n_dns_streams--;
@@ -550,4 +550,16 @@ DnsPacket *dns_stream_take_read_packet(DnsStream *s) {
 
         s->n_read = 0;
         return TAKE_PTR(s->read_packet);
+}
+
+void dns_stream_detach(DnsStream *s) {
+        assert(s);
+
+        if (!s->server)
+                return;
+
+        if (s->server->stream != s)
+                return;
+
+        dns_server_unref_stream(s->server);
 }

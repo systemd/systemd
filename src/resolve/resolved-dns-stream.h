@@ -89,3 +89,5 @@ static inline bool DNS_STREAM_QUEUED(DnsStream *s) {
 }
 
 DnsPacket *dns_stream_take_read_packet(DnsStream *s);
+
+void dns_stream_detach(DnsStream *s);
