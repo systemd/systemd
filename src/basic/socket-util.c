@@ -661,9 +661,14 @@ int sockaddr_pretty(
                         /* The name must have at least one character (and the leading NUL does not count) */
                         p = strdup("<unnamed>");
                 else {
+                        /* Note that we calculate the path pointer here through the .un_buffer[] field, in order to
+                         * outtrick bounds checking tools such as ubsan, which are too smart for their own good: on
+                         * Linux the kernel may return sun_path[] data one byte longer than the declared size of the
+                         * field. */
+                        char *path = (char*) sa->un_buffer + offsetof(struct sockaddr_un, sun_path);
                         size_t path_len = salen - offsetof(struct sockaddr_un, sun_path);
 
-                        if (sa->un.sun_path[0] == 0) {
+                        if (path[0] == 0) {
                                 /* Abstract socket. When parsing address information from, we
                                  * explicitly reject overly long paths and paths with embedded NULs.
                                  * But we might get such a socket from the outside. Let's return
@@ -671,17 +676,17 @@ int sockaddr_pretty(
 
                                 _cleanup_free_ char *e = NULL;
 
-                                e = cescape_length(sa->un.sun_path + 1, path_len - 1);
+                                e = cescape_length(path + 1, path_len - 1);
                                 if (!e)
                                         return -ENOMEM;
 
                                 p = strjoin("@", e);
                         } else {
-                                if (sa->un.sun_path[path_len - 1] == '\0')
+                                if (path[path_len - 1] == '\0')
                                         /* We expect a terminating NUL and don't print it */
                                         path_len --;
 
-                                p = cescape_length(sa->un.sun_path, path_len);
+                                p = cescape_length(path, path_len);
                         }
                 }
                 if (!p)
