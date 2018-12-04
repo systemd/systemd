@@ -28,6 +28,8 @@ struct DnsScope {
 
         DnsProtocol protocol;
         int family;
+
+        /* Copied at scope creation time from the link/manager */
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
 
