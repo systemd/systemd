@@ -241,6 +241,7 @@
       <varlistentry>
         <term><option>dns [<replaceable>LINK</replaceable> [<replaceable>SERVER</replaceable>…]]</option></term>
         <term><option>domain [<replaceable>LINK</replaceable> [<replaceable>DOMAIN</replaceable>…]]</option></term>
+        <term><option>default-route [<replaceable>LINK</replaceable> [<replaceable>BOOL</replaceable>…]]</option></term>
         <term><option>llmnr [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
         <term><option>mdns [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
         <term><option>dnssec [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
@@ -248,18 +249,21 @@
         <term><option>nta [<replaceable>LINK</replaceable> [<replaceable>DOMAIN</replaceable>…]]</option></term>
 
         <listitem>
-          <para>Get/set per-interface DNS configuration. These commands may be used to configure various DNS
-          settings for network interfaces that aren't managed by
+          <para>Get/set per-interface DNS configuration. These commands may be used to configure various DNS settings
+          for network interfaces that aren't managed by
           <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. (These
           commands will fail when used on interfaces that are managed by <command>systemd-networkd</command>, please
           configure their DNS settings directly inside the <filename>.network</filename> files instead.) These commands
           may be used to inform <command>systemd-resolved</command> about per-interface DNS configuration determined
           through external means. The <option>dns</option> command expects IPv4 or IPv6 address specifications of DNS
           servers to use. The <option>domain</option> command expects valid DNS domains, possibly prefixed with
-          <literal>~</literal>, and configures a per-interface search or route-only domain. The <option>llmnr</option>,
-          <option>mdns</option>, <option>dnssec</option> and <option>dnsovertls</option> commands may be used to configure
-          the per-interface LLMNR, MulticastDNS, DNSSEC and DNSOverTLS settings. Finally, <option>nta</option> command
-          may be used to configure additional per-interface DNSSEC NTA domains.</para>
+          <literal>~</literal>, and configures a per-interface search or route-only domain. The
+          <option>default-route</option> command expects a boolean paremeter, and configures whether the link may be
+          used as default route for DNS lookups, i.e. if it is suitable for lookups on domains no other link explicitly
+          is configured for. The <option>llmnr</option>, <option>mdns</option>, <option>dnssec</option> and
+          <option>dnsovertls</option> commands may be used to configure the per-interface LLMNR, MulticastDNS, DNSSEC
+          and DNSOverTLS settings. Finally, <option>nta</option> command may be used to configure additional
+          per-interface DNSSEC NTA domains.</para>
 
           <para>Options <option>dns</option>, <option>domain</option> and <option>nta</option> can take
           a single empty string argument to clear their respective value lists.</para>
@@ -274,9 +278,10 @@
 
         <listitem><para>Revert the per-interface DNS configuration. If the DNS configuration is reverted all
         per-interface DNS setting are reset to their defaults, undoing all effects of <option>dns</option>,
-        <option>domain</option>, <option>llmnr</option>, <option>mdns</option>, <option>dnssec</option>,
-        <option>dnsovertls</option>, <option>nta</option>. Note that when a network interface disappears all
-        configuration is lost automatically, an explicit reverting is not necessary in that case.</para></listitem>
+        <option>domain</option>, <option>default-route</option>, <option>llmnr</option>, <option>mdns</option>,
+        <option>dnssec</option>, <option>dnsovertls</option>, <option>nta</option>. Note that when a network interface
+        disappears all configuration is lost automatically, an explicit reverting is not necessary in that
+        case.</para></listitem>
       </varlistentry>
 
     </variablelist>

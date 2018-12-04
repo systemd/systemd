@@ -67,6 +67,7 @@ typedef enum StatusMode {
         STATUS_ALL,
         STATUS_DNS,
         STATUS_DOMAIN,
+        STATUS_DEFAULT_ROUTE,
         STATUS_LLMNR,
         STATUS_MDNS,
         STATUS_PRIVATE,
@@ -1369,6 +1370,7 @@ struct link_info {
         char **domains;
         char **ntas;
         bool dnssec_supported;
+        bool default_route;
 };
 
 static void link_info_clear(struct link_info *p) {
@@ -1384,6 +1386,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 { "DNS",                        "a(iay)", map_link_dns_servers,        offsetof(struct link_info, dns)              },
                 { "CurrentDNSServer",           "(iay)",  map_link_current_dns_server, offsetof(struct link_info, current_dns)      },
                 { "Domains",                    "a(sb)",  map_link_domains,            offsetof(struct link_info, domains)          },
+                { "DefaultRoute",               "b",      NULL,                        offsetof(struct link_info, default_route)    },
                 { "LLMNR",                      "s",      NULL,                        offsetof(struct link_info, llmnr)            },
                 { "MulticastDNS",               "s",      NULL,                        offsetof(struct link_info, mdns)             },
                 { "DNSOverTLS",                 "s",      NULL,                        offsetof(struct link_info, dns_over_tls)     },
@@ -1439,6 +1442,14 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (mode == STATUS_NTA)
                 return status_print_strv_ifindex(ifindex, name, link_info.ntas);
 
+        if (mode == STATUS_DEFAULT_ROUTE) {
+                printf("%sLink %i (%s)%s: %s\n",
+                       ansi_highlight(), ifindex, name, ansi_normal(),
+                       yes_no(link_info.default_route));
+
+                return 0;
+        }
+
         if (mode == STATUS_LLMNR) {
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
@@ -1487,11 +1498,13 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                        link_info.scopes_mask & SD_RESOLVED_MDNS_IPV4 ? " mDNS/IPv4" : "",
                        link_info.scopes_mask & SD_RESOLVED_MDNS_IPV6 ? " mDNS/IPv6" : "");
 
-        printf("       LLMNR setting: %s\n"
+        printf("DefaultRoute setting: %s\n"
+               "       LLMNR setting: %s\n"
                "MulticastDNS setting: %s\n"
                "  DNSOverTLS setting: %s\n"
                "      DNSSEC setting: %s\n"
                "    DNSSEC supported: %s\n",
+               yes_no(link_info.default_route),
                strna(link_info.llmnr),
                strna(link_info.mdns),
                strna(link_info.dns_over_tls),
@@ -2020,6 +2033,51 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int verb_default_route(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        int r, b;
+
+        assert(bus);
+
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1]);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
+                return status_all(bus, STATUS_DEFAULT_ROUTE);
+
+        if (argc < 3)
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DEFAULT_ROUTE, NULL);
+
+        b = parse_boolean(argv[2]);
+        if (b < 0)
+                return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.resolve1",
+                               "/org/freedesktop/resolve1",
+                               "org.freedesktop.resolve1.Manager",
+                               "SetLinkDefaultRoute",
+                               &error,
+                               NULL,
+                               "ib", arg_ifindex, b);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
+                        return log_interface_is_managed(r, arg_ifindex);
+
+                if (arg_ifindex_permissive &&
+                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                        return 0;
+
+                return log_error_errno(r, "Failed to set default route configuration: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
 static int verb_llmnr(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -2407,6 +2465,7 @@ static int native_help(void) {
                "  reset-server-features        Forget learnt DNS server feature levels\n"
                "  dns [LINK [SERVER...]]       Get/set per-interface DNS server address\n"
                "  domain [LINK [DOMAIN...]]    Get/set per-interface search domain\n"
+               "  default-route [LINK [BOOL]]  Get/set per-interface default route flag\n"
                "  llmnr [LINK [MODE]]          Get/set per-interface LLMNR mode\n"
                "  mdns [LINK [MODE]]           Get/set per-interface MulticastDNS mode\n"
                "  dnsovertls [LINK [MODE]]     Get/set per-interface DNS-over-TLS mode\n"
@@ -2950,6 +3009,7 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "reset-server-features", VERB_ANY, 1,        0,            reset_server_features },
                 { "dns",                   VERB_ANY, VERB_ANY, 0,            verb_dns              },
                 { "domain",                VERB_ANY, VERB_ANY, 0,            verb_domain           },
+                { "default-route",         VERB_ANY, 3,        0,            verb_default_route    },
                 { "llmnr",                 VERB_ANY, 3,        0,            verb_llmnr            },
                 { "mdns",                  VERB_ANY, 3,        0,            verb_mdns             },
                 { "dnsovertls",            VERB_ANY, 3,        0,            verb_dns_over_tls     },
