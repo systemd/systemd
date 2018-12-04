@@ -306,7 +306,7 @@ void job_dependency_free(JobDependency *l) {
         free(l);
 }
 
-void job_dump(Job *j, FILE*f, const char *prefix) {
+void job_dump(Job *j, FILE *f, const char *prefix) {
         assert(j);
         assert(f);
 

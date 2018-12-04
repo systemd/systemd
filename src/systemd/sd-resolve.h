@@ -101,11 +101,11 @@ int sd_resolve_getaddrinfo(sd_resolve *resolve, sd_resolve_query **q, const char
  * if you want to query the hostname (resp. the service name). */
 int sd_resolve_getnameinfo(sd_resolve *resolve, sd_resolve_query **q, const struct sockaddr *sa, socklen_t salen, int flags, uint64_t get, sd_resolve_getnameinfo_handler_t callback, void *userdata);
 
-sd_resolve_query *sd_resolve_query_ref(sd_resolve_query* q);
-sd_resolve_query *sd_resolve_query_unref(sd_resolve_query* q);
+sd_resolve_query *sd_resolve_query_ref(sd_resolve_query *q);
+sd_resolve_query *sd_resolve_query_unref(sd_resolve_query *q);
 
 /* Returns non-zero when the query operation specified by q has been completed. */
-int sd_resolve_query_is_done(sd_resolve_query*q);
+int sd_resolve_query_is_done(sd_resolve_query *q);
 
 void *sd_resolve_query_get_userdata(sd_resolve_query *q);
 void *sd_resolve_query_set_userdata(sd_resolve_query *q, void *userdata);

@@ -433,7 +433,7 @@ void server_process_native_file(
         }
 }
 
-int server_open_native_socket(Server*s) {
+int server_open_native_socket(Server *s) {
 
         static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,

@@ -11,7 +11,7 @@
 
 int main(int argc, char *argv[]) {
         unsigned n = 0;
-        _cleanup_(sd_journal_closep) sd_journal*j = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
 
         test_setup_logging(LOG_DEBUG);
 

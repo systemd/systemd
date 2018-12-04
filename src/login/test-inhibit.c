@@ -65,7 +65,7 @@ static void print_inhibitors(sd_bus *bus) {
         printf("%u inhibitors\n", n);
 }
 
-int main(int argc, char*argv[]) {
+int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int fd1, fd2;
         int r;

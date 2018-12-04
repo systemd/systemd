@@ -430,7 +430,7 @@ const char *special_glyph(SpecialGlyph code) {
         return draw_table[code >= _SPECIAL_GLYPH_FIRST_SMILEY ? emoji_enabled() : is_locale_utf8()][code];
 }
 
-void locale_variables_free(char*l[_VARIABLE_LC_MAX]) {
+void locale_variables_free(char *l[_VARIABLE_LC_MAX]) {
         LocaleVariable i;
 
         if (!l)

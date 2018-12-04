@@ -166,7 +166,7 @@ void job_free(Job *job);
 Job* job_install(Job *j);
 int job_install_deserialized(Job *j);
 void job_uninstall(Job *j);
-void job_dump(Job *j, FILE*f, const char *prefix);
+void job_dump(Job *j, FILE *f, const char *prefix);
 int job_serialize(Job *j, FILE *f);
 int job_deserialize(Job *j, FILE *f);
 int job_coldplug(Job *j);

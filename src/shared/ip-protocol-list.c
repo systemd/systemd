@@ -5,9 +5,9 @@
 
 #include "alloc-util.h"
 #include "ip-protocol-list.h"
+#include "macro.h"
 #include "parse-util.h"
 #include "string-util.h"
-#include "macro.h"
 
 static const struct ip_protocol_name* lookup_ip_protocol(register const char *str, register GPERF_LEN_TYPE len);
 

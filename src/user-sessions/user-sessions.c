@@ -12,7 +12,7 @@
 #include "string-util.h"
 #include "util.h"
 
-static int run(int argc, char*argv[]) {
+static int run(int argc, char *argv[]) {
         int r, k;
 
         if (argc != 2)

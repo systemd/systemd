@@ -7,7 +7,7 @@
 #include "parse-util.h"
 #include "strv.h"
 
-int main(int argc, char*argv[]) {
+int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **l = NULL;
         int n, i;
         usec_t duration = USEC_PER_SEC / 10;

@@ -191,7 +191,7 @@ static void test_get_group_creds_one(const char *id, const char *name, gid_t gid
         assert_se(rgid == gid);
 }
 
-int main(int argc, char*argv[]) {
+int main(int argc, char *argv[]) {
         test_uid_to_name_one(0, "root");
         test_uid_to_name_one(UID_NOBODY, NOBODY_USER_NAME);
         test_uid_to_name_one(0xFFFF, "65535");
