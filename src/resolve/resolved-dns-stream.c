@@ -466,6 +466,7 @@ int dns_stream_new(
         int r;
 
         assert(m);
+        assert(ret);
         assert(fd >= 0);
 
         if (m->n_dns_streams > DNS_STREAMS_MAX)
@@ -522,6 +523,7 @@ int dns_stream_write_packet(DnsStream *s, DnsPacket *p) {
         int r;
 
         assert(s);
+        assert(p);
 
         r = ordered_set_put(s->write_queue, p);
         if (r < 0)
