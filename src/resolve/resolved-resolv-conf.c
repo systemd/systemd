@@ -217,6 +217,8 @@ clear:
 }
 
 static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
+        DnsScope *scope;
+
         assert(s);
         assert(f);
         assert(count);
@@ -226,13 +228,12 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
                 return;
         }
 
-        /* Check if the DNS server is limited to particular domains;
-         * resolv.conf does not have a syntax to express that, so it must not
-         * appear as a global name server to avoid routing unrelated domains to
-         * it (which is a privacy violation, will most probably fail anyway,
-         * and adds unnecessary load) */
-        if (dns_server_limited_domains(s)) {
-                log_debug("DNS server %s has route-only domains, not using as global name server", dns_server_string(s));
+        /* Check if the scope this DNS server belongs to is limited to particular domains; resolv.conf does not have a
+         * syntax to express that, so it must not appear as a global name server to avoid routing unrelated domains to
+         * it (which is a privacy violation, will most probably fail anyway, and adds unnecessary load) */
+        scope = dns_server_scope(s);
+        if (scope && dns_scope_has_route_only_domains(scope)) {
+                log_debug("Scope of DNS server %s has only route-only domains, not using as global name server", dns_server_string(s));
                 return;
         }
 

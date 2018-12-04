@@ -107,5 +107,6 @@ int dns_scope_ifindex(DnsScope *s);
 int dns_scope_announce(DnsScope *scope, bool goodbye);
 
 int dns_scope_add_dnssd_services(DnsScope *scope);
-
 int dns_scope_remove_dnssd_services(DnsScope *scope);
+
+bool dns_scope_has_route_only_domains(DnsScope *scope);

@@ -527,12 +527,10 @@ DnsScopeMatch dns_scope_good_domain(
         switch (s->protocol) {
 
         case DNS_PROTOCOL_DNS: {
-                DnsServer *dns_server;
                 int n_best = -1;
 
                 /* Never route things to scopes that lack DNS servers */
-                dns_server = dns_scope_get_dns_server(s);
-                if (!dns_server)
+                if (!dns_scope_get_dns_server(s))
                         return DNS_SCOPE_NO;
 
                 /* Always honour search domains for routing queries, except if this scope lacks DNS servers. Note that
@@ -558,7 +556,7 @@ DnsScopeMatch dns_scope_good_domain(
 
                 /* If the DNS server has route-only domains, don't send other requests to it. This would be a privacy
                  * violation, will most probably fail anyway, and adds unnecessary load. */
-                if (dns_server_limited_domains(dns_server))
+                if (dns_scope_has_route_only_domains(s))
                         return DNS_SCOPE_NO;
 
                 /* Exclude link-local IP ranges */
@@ -1392,4 +1390,31 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
         }
 
         return 0;
+}
+
+bool dns_scope_has_route_only_domains(DnsScope *scope) {
+        DnsSearchDomain *domain, *first;
+        bool route_only = false;
+
+        /* Check if the scope has any route-only domains except for "~.", i. e. whether it should only be
+         * used for particular domains */
+
+        if (scope->protocol != DNS_PROTOCOL_DNS)
+                return false;
+
+        if (scope->link)
+                first = scope->link->search_domains;
+        else
+                first = scope->manager->search_domains;
+
+        LIST_FOREACH(domains, domain, first) {
+                /* "." means "any domain", thus the interface takes any kind of traffic. */
+                if (dns_name_is_root(DNS_SEARCH_DOMAIN_NAME(domain)))
+                        return false;
+
+                if (domain->route_only)
+                        route_only = true;
+        }
+
+        return route_only;
 }
