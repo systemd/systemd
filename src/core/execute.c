@@ -76,7 +76,6 @@
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
-#include "securebits.h"
 #include "securebits-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"

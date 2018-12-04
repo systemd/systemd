@@ -101,6 +101,7 @@ basic_sources = files('''
         missing_if_tunnel.h
         missing_keyctl.h
         missing_network.h
+        missing_securebits.h
         missing_syscall.h
         missing_vxcan.h
         mkdir-label.c
@@ -134,7 +135,6 @@ basic_sources = files('''
         replace-var.h
         rm-rf.c
         rm-rf.h
-        securebits.h
         selinux-util.c
         selinux-util.h
         set.h
