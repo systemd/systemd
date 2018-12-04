@@ -207,13 +207,13 @@ static int determine_devices(void) {
 static int run(int argc, char *argv[]) {
         int r;
 
+        log_setup_generator();
+
         if (argc > 1 && argc != 4)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes three or no arguments.");
 
         if (argc > 1)
                 arg_dest = argv[1];
-
-        log_setup_generator();
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)

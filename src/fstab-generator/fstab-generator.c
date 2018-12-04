@@ -871,6 +871,8 @@ static int determine_root(void) {
 static int run(int argc, char *argv[]) {
         int r;
 
+        log_setup_generator();
+
         if (argc > 1 && argc != 4)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program takes three or no arguments.");
@@ -879,8 +881,6 @@ static int run(int argc, char *argv[]) {
                 arg_dest = argv[1];
         if (argc > 3)
                 arg_dest_late = argv[3];
-
-        log_setup_generator();
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)

@@ -671,6 +671,8 @@ static int add_mounts(void) {
 int main(int argc, char *argv[]) {
         int r, k;
 
+        log_setup_generator();
+
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
                 return EXIT_FAILURE;
@@ -678,8 +680,6 @@ int main(int argc, char *argv[]) {
 
         if (argc > 1)
                 arg_dest = argv[3];
-
-        log_setup_generator();
 
         if (detect_container() > 0) {
                 log_debug("In a container, exiting.");

@@ -54,6 +54,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 int main(int argc, char *argv[]) {
         int r, k;
 
+        log_setup_generator();
+
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
                 return EXIT_FAILURE;
@@ -61,8 +63,6 @@ int main(int argc, char *argv[]) {
 
         if (argc > 1)
                 arg_dest = argv[2];
-
-        log_setup_generator();
 
         r = generate_symlink();
 

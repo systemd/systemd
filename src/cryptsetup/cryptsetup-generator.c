@@ -583,13 +583,13 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(crypt_device_hash_ops, char, strin
 static int run(int argc, char *argv[]) {
         int r;
 
+        log_setup_generator();
+
         if (argc > 1 && argc != 4)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes three or no arguments.");
 
         if (argc > 1)
                 arg_dest = argv[1];
-
-        log_setup_generator();
 
         arg_disks = hashmap_new(&crypt_device_hash_ops);
         if (!arg_disks)
