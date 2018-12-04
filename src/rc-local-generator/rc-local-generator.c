@@ -6,12 +6,11 @@
 
 #include "generator.h"
 #include "log.h"
-#include "main-func.h"
 #include "mkdir.h"
 #include "string-util.h"
 #include "util.h"
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest = NULL;
 
 /* So you are reading this, and might wonder: why is this implemented as a generator rather than as a plain, statically
  * enabled service that carries appropriate ConditionFileIsExecutable= lines? The answer is this: conditions bypass
@@ -55,16 +54,10 @@ static int check_executable(const char *path) {
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r = 0, k = 0;
 
-        log_setup_generator();
-
-        if (argc > 1 && argc != 4)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes three or no arguments.");
-
-        if (argc > 1)
-                arg_dest = argv[1];
+        assert_se(arg_dest = dest);
 
         if (check_executable(RC_LOCAL_SCRIPT_PATH_START) >= 0) {
                 log_debug("Automatically adding rc-local.service.");
@@ -81,4 +74,4 @@ static int run(int argc, char *argv[]) {
         return r < 0 ? r : k;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_GENERATOR_FUNCTION(run);

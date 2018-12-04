@@ -204,16 +204,10 @@ static int determine_devices(void) {
         return 1;
 }
 
-static int run(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
 
-        log_setup_generator();
-
-        if (argc > 1 && argc != 4)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes three or no arguments.");
-
-        if (argc > 1)
-                arg_dest = argv[1];
+        assert_se(arg_dest = dest);
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
@@ -229,11 +223,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = create_device();
-        if (r < 0)
-                return r;
-
-        return 0;
+        return create_device();
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_GENERATOR_FUNCTION(run);

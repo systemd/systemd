@@ -5,13 +5,12 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
-#include "main-func.h"
 #include "mkdir.h"
 #include "proc-cmdline.h"
 #include "specifier.h"
 #include "strv.h"
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest = NULL;
 static char **arg_commands = NULL;
 static char *arg_success_action = NULL;
 static char *arg_failure_action = NULL;
@@ -122,20 +121,10 @@ static int generate(void) {
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
 
-        log_setup_generator();
-
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return -EINVAL;
-        }
-
-        if (argc > 1)
-                arg_dest = argv[1];
-
-        umask(0022);
+        assert_se(arg_dest = dest);
 
         r = proc_cmdline_parse(parse, NULL, PROC_CMDLINE_RD_STRICT|PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
@@ -144,4 +133,4 @@ static int run(int argc, char *argv[]) {
         return generate();
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_GENERATOR_FUNCTION(run);

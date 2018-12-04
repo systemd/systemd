@@ -40,8 +40,8 @@ typedef enum MountpointFlags {
         GROWFS    = 1 << 4,
 } MountpointFlags;
 
-static const char *arg_dest = "/tmp";
-static const char *arg_dest_late = "/tmp";
+static const char *arg_dest = NULL;
+static const char *arg_dest_late = NULL;
 static bool arg_fstab_enabled = true;
 static char *arg_root_what = NULL;
 static char *arg_root_fstype = NULL;
@@ -868,19 +868,11 @@ static int determine_root(void) {
         return 1;
 }
 
-static int run(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
 
-        log_setup_generator();
-
-        if (argc > 1 && argc != 4)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes three or no arguments.");
-
-        if (argc > 1)
-                arg_dest = argv[1];
-        if (argc > 3)
-                arg_dest_late = argv[3];
+        assert_se(arg_dest = dest);
+        assert_se(arg_dest_late = dest_late);
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
@@ -928,4 +920,4 @@ static int run(int argc, char *argv[]) {
         return r;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_GENERATOR_FUNCTION(run);
