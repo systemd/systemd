@@ -111,6 +111,24 @@ static void device_done(Unit *u) {
         d->wants_property = strv_free(d->wants_property);
 }
 
+static int device_load(Unit *u) {
+        int r;
+
+        r = unit_load_fragment_and_dropin_optional(u);
+        if (r < 0)
+                return r;
+
+        if (!u->description) {
+                /* Generate a description based on the path, to be used until the
+                   device is initialized properly */
+                r = unit_name_to_path(u->id, &u->description);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to unescape name: %m");
+        }
+
+        return 0;
+}
+
 static void device_set_state(Device *d, DeviceState state) {
         DeviceState old_state;
         assert(d);
@@ -301,32 +319,32 @@ _pure_ static const char *device_sub_state_to_string(Unit *u) {
 }
 
 static int device_update_description(Unit *u, sd_device *dev, const char *path) {
-        const char *model, *label;
+        _cleanup_free_ char *j = NULL;
+        const char *model, *label, *desc;
         int r;
 
         assert(u);
-        assert(dev);
         assert(path);
 
-        if (sd_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE", &model) >= 0 ||
-            sd_device_get_property_value(dev, "ID_MODEL", &model) >= 0) {
+        desc = path;
+
+        if (dev &&
+            (sd_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE", &model) >= 0 ||
+             sd_device_get_property_value(dev, "ID_MODEL", &model) >= 0)) {
+                desc = model;
 
                 /* Try to concatenate the device model string with a label, if there is one */
                 if (sd_device_get_property_value(dev, "ID_FS_LABEL", &label) >= 0 ||
                     sd_device_get_property_value(dev, "ID_PART_ENTRY_NAME", &label) >= 0 ||
                     sd_device_get_property_value(dev, "ID_PART_ENTRY_NUMBER", &label) >= 0) {
 
-                        _cleanup_free_ char *j;
-
-                        j = strjoin(model, " ", label);
+                        desc = j = strjoin(model, " ", label);
                         if (!j)
                                 return log_oom();
+                }
+        }
 
-                        r = unit_set_description(u, j);
-                } else
-                        r = unit_set_description(u, model);
-        } else
-                r = unit_set_description(u, path);
+        r = unit_set_description(u, desc);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to set device description: %m");
 
@@ -526,12 +544,12 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                         goto fail;
                 }
 
-                (void) device_update_description(u, dev, path);
-
                 /* The additional systemd udev properties we only interpret for the main object */
                 if (main)
                         (void) device_add_udev_wants(u, dev);
         }
+
+        (void) device_update_description(u, dev, path);
 
         /* So the user wants the mount units to be bound to the device but a mount unit might has been seen by systemd
          * before the device appears on its radar. In this case the device unit is partially initialized and includes
@@ -1037,7 +1055,7 @@ const UnitVTable device_vtable = {
 
         .init = device_init,
         .done = device_done,
-        .load = unit_load_fragment_and_dropin_optional,
+        .load = device_load,
 
         .coldplug = device_coldplug,
         .catchup = device_catchup,
