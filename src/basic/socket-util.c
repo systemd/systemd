@@ -651,14 +651,10 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
 
         case AF_UNIX:
                 if (salen <= offsetof(struct sockaddr_un, sun_path) ||
-                    (sa->un.sun_path[0] == 0 && salen == offsetof(struct sockaddr_un, sun_path) + 1)) {
+                    (sa->un.sun_path[0] == 0 && salen == offsetof(struct sockaddr_un, sun_path) + 1))
                         /* The name must have at least one character (and the leading NUL does not count) */
-
                         p = strdup("<unnamed>");
-                        if (!p)
-                                return -ENOMEM;
-
-                } else {
+                else {
                         size_t path_len = salen - offsetof(struct sockaddr_un, sun_path);
 
                         if (sa->un.sun_path[0] == 0) {
@@ -681,9 +677,9 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
 
                                 p = cescape_length(sa->un.sun_path, path_len);
                         }
-                        if (!p)
-                                        return -ENOMEM;
                 }
+                if (!p)
+                        return -ENOMEM;
 
                 break;
 
