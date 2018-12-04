@@ -1109,7 +1109,8 @@ static bool link_needs_save(Link *l) {
 
         if (l->llmnr_support != RESOLVE_SUPPORT_YES ||
             l->mdns_support != RESOLVE_SUPPORT_NO ||
-            l->dnssec_mode != _DNSSEC_MODE_INVALID)
+            l->dnssec_mode != _DNSSEC_MODE_INVALID ||
+            l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
                 return true;
 
         if (l->dns_servers ||
