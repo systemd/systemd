@@ -455,7 +455,13 @@ static DnsStream *dns_stream_free(DnsStream *s) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, dns_stream_free);
 
-int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address) {
+int dns_stream_new(
+                Manager *m,
+                DnsStream **ret,
+                DnsProtocol protocol,
+                int fd,
+                const union sockaddr_union *tfo_address) {
+
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         int r;
 
