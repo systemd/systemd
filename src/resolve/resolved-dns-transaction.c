@@ -504,8 +504,6 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsPacket *p) {
 
 static int on_stream_complete(DnsStream *s, int error) {
         _cleanup_(dns_stream_unrefp) DnsStream *p = NULL;
-        DnsTransaction *t, *n;
-        int r = 0;
 
         /* Do not let new transactions use this stream */
         if (s->server && s->server->stream == s)
@@ -515,19 +513,21 @@ static int on_stream_complete(DnsStream *s, int error) {
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
 
                 if (s->transactions) {
+                        DnsTransaction *t;
+
                         t = s->transactions;
                         dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
                 }
         }
 
-        LIST_FOREACH_SAFE(transactions_by_stream, t, n, s->transactions)
-                if (error != 0)
-                        on_transaction_stream_error(t, error);
-                else if (DNS_PACKET_ID(s->read_packet) == t->id)
-                        /* As each transaction have a unique id the return code is only set once */
-                        r = dns_transaction_on_stream_packet(t, s->read_packet);
+        if (error != 0) {
+                DnsTransaction *t, *n;
 
-        return r;
+                LIST_FOREACH_SAFE(transactions_by_stream, t, n, s->transactions)
+                        on_transaction_stream_error(t, error);
+        }
+
+        return 0;
 }
 
 static int dns_stream_on_packet(DnsStream *s) {
