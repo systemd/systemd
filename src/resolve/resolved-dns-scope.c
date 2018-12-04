@@ -413,9 +413,25 @@ static int dns_scope_socket(
 
         if (type == SOCK_DGRAM) {
                 /* Set IP_RECVERR or IPV6_RECVERR to get ICMP error feedback. See discussion in #10345. */
-                r = setsockopt_int(fd, SOL_IP, sa.sa.sa_family == AF_INET ? IP_RECVERR : IPV6_RECVERR, true);
-                if (r < 0)
-                        return r;
+
+                if (sa.sa.sa_family == AF_INET) {
+                        r = setsockopt_int(fd, IPPROTO_IP, IP_RECVERR, true);
+                        if (r < 0)
+                                return r;
+
+                        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
+                        if (r < 0)
+                                return r;
+
+                } else if (sa.sa.sa_family == AF_INET6) {
+                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVERR, true);
+                        if (r < 0)
+                                return r;
+
+                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (ret_socket_address)
