@@ -1247,12 +1247,12 @@
         cgroup controller name (eg. <option>cpu</option>), verifying that it is
         available for use on the system. For example, a particular controller
         may not be available if it was disabled on the kernel command line with
-        <literal>cgroup_disable=</literal><replaceable>controller</replaceable>.
-        Multiple controllers may be passed with a space separating them; in
-        this case the condition will only pass if all listed controllers are
-        available for use. Controllers unknown to systemd are ignored. Valid
-        controllers are <option>cpu</option>, <option>cpuacct</option>,
-        <option>io</option>, <option>blkio</option>, <option>memory</option>,
+        <varname>cgroup_disable=controller</varname>. Multiple controllers may
+        be passed with a space separating them; in this case the condition will
+        only pass if all listed controllers are available for use. Controllers
+        unknown to systemd are ignored. Valid controllers are
+        <option>cpu</option>, <option>cpuacct</option>, <option>io</option>,
+        <option>blkio</option>, <option>memory</option>,
         <option>devices</option>, and <option>pids</option>.</para>
 
         <para>If multiple conditions are specified, the unit will be
