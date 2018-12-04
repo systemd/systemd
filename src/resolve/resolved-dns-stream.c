@@ -465,17 +465,19 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, co
         if (m->n_dns_streams > DNS_STREAMS_MAX)
                 return -EBUSY;
 
-        s = new0(DnsStream, 1);
+        s = new(DnsStream, 1);
         if (!s)
                 return -ENOMEM;
+
+        *s = (DnsStream) {
+                .n_ref = 1,
+                .fd = -1,
+                .protocol = protocol,
+        };
 
         r = ordered_set_ensure_allocated(&s->write_queue, &dns_packet_hash_ops);
         if (r < 0)
                 return r;
-
-        s->n_ref = 1;
-        s->fd = -1;
-        s->protocol = protocol;
 
         r = sd_event_add_io(m->event, &s->io_event_source, fd, EPOLLIN, on_stream_io, s);
         if (r < 0)
