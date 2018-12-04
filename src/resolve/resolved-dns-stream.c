@@ -46,6 +46,8 @@ static int dns_stream_update_io(DnsStream *s) {
 }
 
 static int dns_stream_complete(DnsStream *s, int error) {
+        _cleanup_(dns_stream_unrefp) _unused_ DnsStream *ref = dns_stream_ref(s); /* Protect stream while we process it */
+
         assert(s);
 
 #if ENABLE_DNS_OVER_TLS
@@ -273,7 +275,7 @@ static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
 }
 
 static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        DnsStream *s = userdata;
+        _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
         int r;
 
         assert(s);
