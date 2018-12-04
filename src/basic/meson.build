@@ -17,7 +17,6 @@ basic_sources = files('''
         audit-util.h
         blockdev-util.c
         blockdev-util.h
-        btrfs-ctree.h
         btrfs-util.c
         btrfs-util.h
         build.h
@@ -92,6 +91,8 @@ basic_sources = files('''
         memfd-util.h
         mempool.c
         mempool.h
+        missing_btrfs.h
+        missing_btrfs_tree.h
         missing_ethtool.h
         missing_fib_rules.h
         missing_fou.h
