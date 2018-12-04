@@ -116,10 +116,6 @@ struct sockaddr_vm {
 #define SOL_NETLINK 270
 #endif
 
-#ifndef NETLINK_LIST_MEMBERSHIPS
-#define NETLINK_LIST_MEMBERSHIPS 9
-#endif
-
 #ifndef SOL_SCTP
 #define SOL_SCTP 132
 #endif
@@ -250,15 +246,6 @@ struct sockaddr_vm {
 
 #ifndef BPF_XOR
 #define BPF_XOR 0xa0
-#endif
-
-/* Note that LOOPBACK_IFINDEX is currently not exported by the
- * kernel/glibc, but hardcoded internally by the kernel.  However, as
- * it is exported to userspace indirectly via rtnetlink and the
- * ioctls, and made use of widely we define it here too, in a way that
- * is compatible with the kernel's internal definition. */
-#ifndef LOOPBACK_IFINDEX
-#define LOOPBACK_IFINDEX 1
 #endif
 
 #ifndef MAX_AUDIT_MESSAGE_LENGTH
