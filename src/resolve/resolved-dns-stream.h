@@ -53,7 +53,6 @@ struct DnsStream {
         size_t n_written, n_read;
         OrderedSet *write_queue;
 
-        int (*on_connection)(DnsStream *s);
         int (*on_packet)(DnsStream *s);
         int (*complete)(DnsStream *s, int error);
 
