@@ -66,14 +66,21 @@
     <filename>/etc/systemd/resolved.conf</filename>, the per-link static settings in
     <filename>/etc/systemd/network/*.network</filename> files (in case
     <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
-    used), the per-link dynamic settings received over DHCP, and any DNS server information made available by other
-    system services. See
+    used), the per-link dynamic settings received over DHCP, user request made via
+    <citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, and any DNS server
+    information made available by other system services. See
     <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details
     about systemd's own configuration files for DNS servers. To improve compatibility,
     <filename>/etc/resolv.conf</filename> is read in order to discover configured system DNS servers, but only if it is
-    not a symlink to <filename>/run/systemd/resolve/stub-resolv.conf</filename> or
-    <filename>/run/systemd/resolve/resolv.conf</filename> (see below).</para>
+    not a symlink to <filename>/run/systemd/resolve/stub-resolv.conf</filename>,
+    <filename>/usr/lib/systemd/resolv.conf</filename> or <filename>/run/systemd/resolve/resolv.conf</filename> (see
+    below).</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Synthetic Records</title>
 
     <para><command>systemd-resolved</command> synthesizes DNS resource records (RRs) for the following cases:</para>
 
@@ -99,6 +106,10 @@
       to their configured addresses and back, but they will not affect lookups for
       non-address types (like MX).</para></listitem>
     </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Protocols and Routing</title>
 
     <para>Lookup requests are routed to the available DNS servers, LLMNR and MulticastDNS interfaces according to the
     following rules:</para>
