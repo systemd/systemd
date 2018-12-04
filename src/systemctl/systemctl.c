@@ -8686,7 +8686,7 @@ static int logind_cancel_shutdown(void) {
 #endif
 }
 
-static int run(int argc, char*argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         argv_cmdline = argv[0];

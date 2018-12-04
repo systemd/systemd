@@ -3093,7 +3093,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
         return dispatch_verb(argc, argv, verbs, bus);
 }
 
-static int run(int argc, char*argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 

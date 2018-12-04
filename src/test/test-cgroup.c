@@ -9,7 +9,7 @@
 #include "string-util.h"
 #include "util.h"
 
-int main(int argc, char*argv[]) {
+int main(int argc, char *argv[]) {
         char *path;
         char *c, *p;
 

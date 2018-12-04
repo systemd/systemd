@@ -1031,7 +1031,7 @@ static int output_cat(
 
 static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 FILE *f,
-                sd_journal*j,
+                sd_journal *j,
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,

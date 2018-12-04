@@ -497,7 +497,7 @@ static void test_dnssec_nsec3_hash(void) {
 
 #endif
 
-int main(int argc, char*argv[]) {
+int main(int argc, char *argv[]) {
 
         test_dnssec_canonicalize();
 

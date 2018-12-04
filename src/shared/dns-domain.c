@@ -1095,7 +1095,7 @@ finish:
         return 0;
 }
 
-static int dns_name_build_suffix_table(const char *name, const char*table[]) {
+static int dns_name_build_suffix_table(const char *name, const char *table[]) {
         const char *p;
         unsigned n = 0;
         int r;

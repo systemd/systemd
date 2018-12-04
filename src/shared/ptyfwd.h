@@ -19,7 +19,7 @@ typedef enum PTYForwardFlags {
         PTY_FORWARD_IGNORE_INITIAL_VHANGUP = 4,
 } PTYForwardFlags;
 
-typedef int (*PTYForwardHandler)(PTYForward *f, int rcode, void*userdata);
+typedef int (*PTYForwardHandler)(PTYForward *f, int rcode, void *userdata);
 
 int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForward **f);
 PTYForward *pty_forward_free(PTYForward *f);
