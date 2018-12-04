@@ -15,7 +15,9 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "seccomp-util.h"
+#if HAVE_SECCOMP
+#  include "seccomp-util.h"
+#endif
 #include "set.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -476,6 +478,8 @@ static int assess_system_call_architectures(
         return 0;
 }
 
+#if HAVE_SECCOMP
+
 static bool syscall_names_in_filter(Set *s, bool whitelist, const SyscallFilterSet *f) {
         const char *syscall;
 
@@ -487,14 +491,12 @@ static bool syscall_names_in_filter(Set *s, bool whitelist, const SyscallFilterS
                         assert_se(g = syscall_filter_set_find(syscall));
                         b = syscall_names_in_filter(s, whitelist, g);
                 } else {
-#if HAVE_SECCOMP
                         int id;
 
                         /* Let's see if the system call actually exists on this platform, before complaining */
                         id = seccomp_syscall_resolve_name(syscall);
                         if (id < 0)
                                 continue;
-#endif
 
                         b = set_contains(s, syscall);
                 }
@@ -564,6 +566,8 @@ static int assess_system_call_filter(
 
         return 0;
 }
+
+#endif
 
 static int assess_ip_address_allow(
                 const struct security_assessor *a,
@@ -1258,6 +1262,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .range = 10,
                 .assess = assess_system_call_architectures,
         },
+#if HAVE_SECCOMP
         {
                 .id = "SystemCallFilter=~@swap",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#SystemCallFilter=",
@@ -1346,6 +1351,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .assess = assess_system_call_filter,
                 .parameter = SYSCALL_FILTER_SET_RESOURCES,
         },
+#endif
         {
                 .id = "IPAddressDeny=",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#IPAddressDeny=",
