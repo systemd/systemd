@@ -92,7 +92,15 @@ basic_sources = files('''
         memfd-util.h
         mempool.c
         mempool.h
+        missing_ethtool.h
+        missing_fib_rules.h
+        missing_fou.h
+        missing_if_bridge.h
+        missing_if_link.h
+        missing_if_tunnel.h
+        missing_network.h
         missing_syscall.h
+        missing_vxcan.h
         mkdir-label.c
         mkdir.c
         mkdir.h
