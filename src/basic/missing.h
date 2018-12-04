@@ -143,44 +143,8 @@ struct sockaddr_vm {
 #define FS_NOCOW_FL 0x00800000
 #endif
 
-#ifndef BTRFS_SUPER_MAGIC
-#define BTRFS_SUPER_MAGIC 0x9123683E
-#endif
-
-#ifndef CGROUP_SUPER_MAGIC
-#define CGROUP_SUPER_MAGIC 0x27e0eb
-#endif
-
-#ifndef CGROUP2_SUPER_MAGIC
-#define CGROUP2_SUPER_MAGIC 0x63677270
-#endif
-
 #ifndef CLONE_NEWCGROUP
 #define CLONE_NEWCGROUP 0x02000000
-#endif
-
-#ifndef TMPFS_MAGIC
-#define TMPFS_MAGIC 0x01021994
-#endif
-
-#ifndef MQUEUE_MAGIC
-#define MQUEUE_MAGIC 0x19800202
-#endif
-
-#ifndef SECURITYFS_MAGIC
-#define SECURITYFS_MAGIC 0x73636673
-#endif
-
-#ifndef TRACEFS_MAGIC
-#define TRACEFS_MAGIC 0x74726163
-#endif
-
-#ifndef BPF_FS_MAGIC
-#define BPF_FS_MAGIC 0xcafe4a11
-#endif
-
-#ifndef OCFS2_SUPER_MAGIC
-#define OCFS2_SUPER_MAGIC 0x7461636f
 #endif
 
 #ifndef MS_MOVE
@@ -249,14 +213,6 @@ struct sockaddr_vm {
 
 #ifndef PR_SET_MM_ENV_END
 #define PR_SET_MM_ENV_END 11
-#endif
-
-#ifndef EFIVARFS_MAGIC
-#define EFIVARFS_MAGIC 0xde5e81e4
-#endif
-
-#ifndef SMACK_MAGIC
-#define SMACK_MAGIC 0x43415d53
 #endif
 
 #ifndef DM_DEFERRED_REMOVE
@@ -416,10 +372,6 @@ struct sockaddr_vm {
 #  define EXT4_IOC_RESIZE_FS              _IOW('f', 16, __u64)
 #endif
 
-#ifndef NSFS_MAGIC
-#define NSFS_MAGIC 0x6e736673
-#endif
-
 #ifndef NS_GET_NSTYPE
 #define NS_GET_NSTYPE _IO(0xb7, 0x3)
 #endif
@@ -484,5 +436,6 @@ struct statx {
 
 #include "missing_btrfs_tree.h"
 #include "missing_input.h"
+#include "missing_magic.h"
 #include "missing_network.h"
 #include "missing_syscall.h"

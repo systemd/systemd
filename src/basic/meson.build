@@ -101,6 +101,7 @@ basic_sources = files('''
         missing_if_tunnel.h
         missing_input.h
         missing_keyctl.h
+        missing_magic.h
         missing_network.h
         missing_securebits.h
         missing_syscall.h
