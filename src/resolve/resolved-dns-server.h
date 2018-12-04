@@ -151,3 +151,5 @@ void dns_server_reset_features(DnsServer *s);
 void dns_server_reset_features_all(DnsServer *s);
 
 void dns_server_dump(DnsServer *s, FILE *f);
+
+void dns_server_unref_stream(DnsServer *s);

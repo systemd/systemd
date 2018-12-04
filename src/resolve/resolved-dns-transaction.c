@@ -639,7 +639,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 #endif
 
                 if (t->server) {
-                        dns_stream_unref(t->server->stream);
+                        dns_server_unref_stream(t->server);
                         t->server->stream = dns_stream_ref(s);
                         s->server = dns_server_ref(t->server);
                 }

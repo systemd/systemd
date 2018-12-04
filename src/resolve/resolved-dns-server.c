@@ -103,7 +103,7 @@ int dns_server_new(
 static DnsServer* dns_server_free(DnsServer *s)  {
         assert(s);
 
-        dns_stream_unref(s->stream);
+        dns_server_unref_stream(s);
 
 #if ENABLE_DNS_OVER_TLS
         dnstls_server_free(s);
@@ -157,6 +157,9 @@ void dns_server_unlink(DnsServer *s) {
 
         if (s->manager->current_dns_server == s)
                 manager_set_dns_server(s->manager, NULL);
+
+        /* No need to keep a default stream around anymore */
+        dns_server_unref_stream(s);
 
         dns_server_unref(s);
 }
@@ -826,6 +829,9 @@ void dns_server_reset_features(DnsServer *s) {
         s->warned_downgrade = false;
 
         dns_server_reset_counters(s);
+
+        /* Let's close the default stream, so that we reprobe with the new features */
+        dns_server_unref_stream(s);
 }
 
 void dns_server_reset_features_all(DnsServer *s) {
@@ -884,6 +890,20 @@ void dns_server_dump(DnsServer *s, FILE *f) {
                 yes_no(s->packet_truncated),
                 yes_no(s->packet_bad_opt),
                 yes_no(s->packet_rrsig_missing));
+}
+
+void dns_server_unref_stream(DnsServer *s) {
+        DnsStream *ref;
+
+        assert(s);
+
+        /* Detaches the default stream of this server. Some special care needs to be taken here, as that stream and
+         * this server reference each other. First, take the stream out of the server. It's destructor will check if it
+         * is registered with us, hence let's invalidate this separatly, so that it is already unregistered. */
+        ref = TAKE_PTR(s->stream);
+
+        /* And then, unref it */
+        dns_stream_unref(ref);
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {
