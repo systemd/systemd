@@ -108,6 +108,7 @@ basic_sources = files('''
         missing_securebits.h
         missing_stat.h
         missing_syscall.h
+        missing_type.h
         missing_vxcan.h
         mkdir-label.c
         mkdir.c
