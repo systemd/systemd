@@ -1276,8 +1276,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
                 return log_error_errno(errno, "recvmsg() failed: %m");
         }
 
-        CMSG_FOREACH(cmsg, &msghdr) {
-
+        CMSG_FOREACH(cmsg, &msghdr)
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SCM_CREDENTIALS &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
@@ -1295,7 +1294,6 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
                         fds = (int*) CMSG_DATA(cmsg);
                         n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
                 }
-        }
 
         /* And a trailing NUL, just in case */
         s->buffer[n] = 0;
