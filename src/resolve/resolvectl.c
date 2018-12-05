@@ -244,9 +244,9 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to print address for %s: %m", name);
 
-                k = printf("%*s%s %s",
+                k = printf("%*s%s %s%s%s",
                            (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
-                           pretty);
+                           ansi_highlight(), pretty, ansi_normal());
 
                 print_ifindex_comment(k, ifindex);
                 fputc('\n', stdout);
@@ -349,10 +349,10 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
                 if (r < 0)
                         return r;
 
-                k = printf("%*s%s %s",
-                       (int) strlen(pretty), c == 0 ? pretty : "",
-                       c == 0 ? ":" : " ",
-                       n);
+                k = printf("%*s%s %s%s%s",
+                           (int) strlen(pretty), c == 0 ? pretty : "",
+                           c == 0 ? ":" : " ",
+                           ansi_highlight(), n, ansi_normal());
 
                 print_ifindex_comment(k, ifindex);
                 fputc('\n', stdout);
