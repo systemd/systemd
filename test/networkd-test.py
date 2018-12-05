@@ -709,6 +709,7 @@ Domains= ~company ~lab''')
             subprocess.check_call(['mount', '--bind', '/dev/null', '/etc/hostname'])
             self.addCleanup(subprocess.call, ['umount', '/etc/hostname'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-hostnamed.service'])
+        self.addCleanup(subprocess.call, ['systemctl', 'stop', 'systemd-hostnamed.service'])
 
         self.create_iface(dnsmasq_opts=['--dhcp-host={},192.168.5.210,testgreen'.format(self.iface_mac)])
         self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
@@ -744,6 +745,7 @@ Domains= ~company ~lab''')
         if not os.path.exists('/etc/hostname'):
             self.write_config('/etc/hostname', orig_hostname)
         subprocess.check_call(['systemctl', 'stop', 'systemd-hostnamed.service'])
+        self.addCleanup(subprocess.call, ['systemctl', 'stop', 'systemd-hostnamed.service'])
 
         self.create_iface(dnsmasq_opts=['--dhcp-host={},192.168.5.210,testgreen'.format(self.iface_mac)])
         self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
