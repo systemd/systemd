@@ -141,6 +141,11 @@ static int server_process_entry(
                 }
 
                 /* A property follows */
+                if (n > ENTRY_FIELD_COUNT_MAX) {
+                        log_debug("Received an entry that has more than " STRINGIFY(ENTRY_FIELD_COUNT_MAX) " fields, ignoring entry.");
+                        r = 1;
+                        goto finish;
+                }
 
                 /* n existing properties, 1 new, +1 for _TRANSPORT */
                 if (!GREEDY_REALLOC(iovec, m,
