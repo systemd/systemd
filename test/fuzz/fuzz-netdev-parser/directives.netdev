@@ -76,6 +76,7 @@ FOUSourcePort=
 IPv6RapidDeploymentPrefix=
 ERSPANIndex=
 SerializeTunneledPackets=
+ISATAP=
 [VXLAN]
 UDP6ZeroChecksumRx=
 ARPProxy=

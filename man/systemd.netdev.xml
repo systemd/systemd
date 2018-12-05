@@ -925,6 +925,13 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ISATAP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set, configures the tunnel as Intra-Site Automatic Tunnel Addressing Protocol (ISATAP) tunnel.
+          Only applicable to SIT tunnels. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>SerializeTunneledPackets=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to yes, then packets are serialized. Only applies for ERSPAN tunnel.
