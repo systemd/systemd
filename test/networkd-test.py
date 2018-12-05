@@ -742,8 +742,16 @@ Domains= ~company ~lab''')
 
         orig_hostname = socket.gethostname()
         self.addCleanup(socket.sethostname, orig_hostname)
+
         if not os.path.exists('/etc/hostname'):
-            self.write_config('/etc/hostname', orig_hostname)
+            self.write_config('/etc/hostname', "foobarqux")
+        else:
+            self.write_config('/run/hostname.tmp', "foobarqux")
+            subprocess.check_call(['mount', '--bind', '/run/hostname.tmp', '/etc/hostname'])
+            self.addCleanup(subprocess.call, ['umount', '/etc/hostname'])
+
+        socket.sethostname("foobarqux");
+
         subprocess.check_call(['systemctl', 'stop', 'systemd-hostnamed.service'])
         self.addCleanup(subprocess.call, ['systemctl', 'stop', 'systemd-hostnamed.service'])
 
@@ -755,7 +763,7 @@ Domains= ~company ~lab''')
             out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
             self.assertRegex(out, b'inet 192.168.5.210/24 .* scope global dynamic')
             # static hostname wins over transient one, thus *not* applied
-            self.assertEqual(socket.gethostname(), orig_hostname)
+            self.assertEqual(socket.gethostname(), "foobarqux")
         except AssertionError:
             self.show_journal('systemd-networkd.service')
             self.show_journal('systemd-hostnamed.service')
