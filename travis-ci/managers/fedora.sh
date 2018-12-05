@@ -15,7 +15,7 @@ CONT_NAME="${CONT_NAME:-fedora-$FEDORA_RELEASE-$RANDOM}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(dnf-plugins-core python2 iputils hostname libasan python3-pyparsing python3-evdev libubsan clang)
+ADDITIONAL_DEPS=(dnf-plugins-core python2 iputils hostname libasan python3-pyparsing python3-evdev libubsan clang llvm)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
@@ -57,9 +57,12 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC ninja -v -C build
             $DOCKER_EXEC ninja -C build test
             ;;
-        RUN_ASAN)
-            $DOCKER_EXEC git clean -dxff
-            $DOCKER_EXEC meson --werror -Dtests=unsafe -Db_sanitize=address,undefined build
+        RUN_ASAN|RUN_CLANG_ASAN)
+            if [[ "$phase" = "RUN_CLANG_ASAN" ]]; then
+                ENV_VARS="-e CC=clang -e CXX=clang++"
+                MESON_ARGS="-Db_lundef=false" # See https://github.com/mesonbuild/meson/issues/764
+            fi
+            docker exec $ENV_VARS -it $CONT_NAME meson --werror -Dtests=unsafe -Db_sanitize=address,undefined $MESON_ARGS build
             $DOCKER_EXEC ninja -v -C build
 
             # Never remove halt_on_error from UBSAN_OPTIONS. See https://github.com/systemd/systemd/commit/2614d83aa06592aedb.
