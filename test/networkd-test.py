@@ -53,6 +53,7 @@ def setUpModule():
     if (subprocess.call(['systemctl', 'is-active', '--quiet', 'systemd-networkd.service']) == 0 and
             subprocess.call(['systemd-detect-virt', '--quiet']) != 0):
         raise unittest.SkipTest('not virtualized and networkd is already active')
+
     # Ensure we don't mess with an existing networkd config
     for u in ['systemd-networkd.socket', 'systemd-networkd', 'systemd-resolved']:
         if subprocess.call(['systemctl', 'is-active', '--quiet', u]) == 0:
@@ -60,6 +61,12 @@ def setUpModule():
             running_units.append(u)
         else:
             stopped_units.append(u)
+
+    # create static systemd-network user for networkd-test-router.service (it
+    # needs to do some stuff as root and can't start as user; but networkd
+    # still insists on the user)
+    subprocess.call(['adduser', '--system', '--no-create-home', 'systemd-network'])
+
     for d in ['/etc/systemd/network', '/run/systemd/network',
               '/run/systemd/netif', '/run/systemd/resolve']:
         if os.path.isdir(d):
@@ -68,17 +75,15 @@ def setUpModule():
     if os.path.isdir('/run/systemd/resolve'):
         os.chmod('/run/systemd/resolve', 0o755)
         shutil.chown('/run/systemd/resolve', 'systemd-resolve', 'systemd-resolve')
+    if os.path.isdir('/run/systemd/netif'):
+        os.chmod('/run/systemd/netif', 0o755)
+        shutil.chown('/run/systemd/netif', 'systemd-network', 'systemd-network')
 
     # Avoid "Failed to open /dev/tty" errors in containers.
     os.environ['SYSTEMD_LOG_TARGET'] = 'journal'
 
     # Ensure the unit directory exists so tests can dump files into it.
     os.makedirs(NETWORK_UNITDIR, exist_ok=True)
-
-    # create static systemd-network user for networkd-test-router.service (it
-    # needs to do some stuff as root and can't start as user; but networkd
-    # still insists on the user)
-    subprocess.check_call(['adduser', '--system', '--no-create-home', 'systemd-network'])
 
 
 def tearDownModule():
