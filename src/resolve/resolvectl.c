@@ -157,6 +157,20 @@ static void print_source(uint64_t flags, usec_t rtt) {
         printf("-- Data is authenticated: %s\n", yes_no(flags & SD_RESOLVED_AUTHENTICATED));
 }
 
+static void print_ifindex_comment(int printed_so_far, int ifindex) {
+        char ifname[IF_NAMESIZE];
+
+        if (ifindex <= 0)
+                return;
+
+        if (!if_indextoname(ifindex, ifname))
+                log_warning_errno(errno, "Failed to resolve interface name for index %i, ignoring: %m", ifindex);
+        else
+                printf("%*s-- link: %s",
+                       60 > printed_so_far ? 60 - printed_so_far : 0, " ", /* Align comment to the 60th column */
+                       ifname);
+}
+
 static int resolve_host(sd_bus *bus, const char *name) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -198,8 +212,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
         while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
                 _cleanup_free_ char *pretty = NULL;
-                char ifname[IF_NAMESIZE] = "";
-                int ifindex, family;
+                int ifindex, family, k;
                 const void *a;
                 size_t sz;
 
@@ -227,17 +240,16 @@ static int resolve_host(sd_bus *bus, const char *name) {
                         return -EINVAL;
                 }
 
-                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
-                        log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
-
                 r = in_addr_ifindex_to_string(family, a, ifindex, &pretty);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print address for %s: %m", name);
 
-                printf("%*s%s %s%s%s\n",
-                       (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
-                       pretty,
-                       isempty(ifname) ? "" : "%", ifname);
+                k = printf("%*s%s %s",
+                           (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
+                           pretty);
+
+                print_ifindex_comment(k, ifindex);
+                fputc('\n', stdout);
 
                 c++;
         }
