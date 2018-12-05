@@ -137,7 +137,7 @@ static void print_source(uint64_t flags, usec_t rtt) {
         if (flags == 0)
                 return;
 
-        fputs("\n-- Information acquired via", stdout);
+        printf("\n%s-- Information acquired via", ansi_grey());
 
         if (flags != 0)
                 printf(" protocol%s%s%s%s%s",
@@ -149,12 +149,10 @@ static void print_source(uint64_t flags, usec_t rtt) {
 
         assert_se(format_timespan(rtt_str, sizeof(rtt_str), rtt, 100));
 
-        printf(" in %s", rtt_str);
-
-        fputc('.', stdout);
-        fputc('\n', stdout);
-
-        printf("-- Data is authenticated: %s\n", yes_no(flags & SD_RESOLVED_AUTHENTICATED));
+        printf(" in %s.%s\n"
+               "%s-- Data is authenticated: %s%s\n",
+               rtt_str, ansi_normal(),
+               ansi_grey(), yes_no(flags & SD_RESOLVED_AUTHENTICATED), ansi_normal());
 }
 
 static void print_ifindex_comment(int printed_so_far, int ifindex) {
@@ -166,9 +164,9 @@ static void print_ifindex_comment(int printed_so_far, int ifindex) {
         if (!if_indextoname(ifindex, ifname))
                 log_warning_errno(errno, "Failed to resolve interface name for index %i, ignoring: %m", ifindex);
         else
-                printf("%*s-- link: %s",
+                printf("%*s%s-- link: %s%s",
                        60 > printed_so_far ? 60 - printed_so_far : 0, " ", /* Align comment to the 60th column */
-                       ifname);
+                       ansi_grey(), ifname, ansi_normal());
 }
 
 static int resolve_host(sd_bus *bus, const char *name) {
