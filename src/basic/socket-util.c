@@ -579,7 +579,13 @@ int sockaddr_port(const struct sockaddr *_sa, unsigned *ret_port) {
         }
 }
 
-int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret) {
+int sockaddr_pretty(
+                const struct sockaddr *_sa,
+                socklen_t salen,
+                bool translate_ipv6,
+                bool include_port,
+                char **ret) {
+
         union sockaddr_union *sa = (union sockaddr_union*) _sa;
         char *p;
         int r;
@@ -651,17 +657,18 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
 
         case AF_UNIX:
                 if (salen <= offsetof(struct sockaddr_un, sun_path) ||
-                    (sa->un.sun_path[0] == 0 && salen == offsetof(struct sockaddr_un, sun_path) + 1)) {
+                    (sa->un.sun_path[0] == 0 && salen == offsetof(struct sockaddr_un, sun_path) + 1))
                         /* The name must have at least one character (and the leading NUL does not count) */
-
                         p = strdup("<unnamed>");
-                        if (!p)
-                                return -ENOMEM;
-
-                } else {
+                else {
+                        /* Note that we calculate the path pointer here through the .un_buffer[] field, in order to
+                         * outtrick bounds checking tools such as ubsan, which are too smart for their own good: on
+                         * Linux the kernel may return sun_path[] data one byte longer than the declared size of the
+                         * field. */
+                        char *path = (char*) sa->un_buffer + offsetof(struct sockaddr_un, sun_path);
                         size_t path_len = salen - offsetof(struct sockaddr_un, sun_path);
 
-                        if (sa->un.sun_path[0] == 0) {
+                        if (path[0] == 0) {
                                 /* Abstract socket. When parsing address information from, we
                                  * explicitly reject overly long paths and paths with embedded NULs.
                                  * But we might get such a socket from the outside. Let's return
@@ -669,21 +676,21 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
 
                                 _cleanup_free_ char *e = NULL;
 
-                                e = cescape_length(sa->un.sun_path + 1, path_len - 1);
+                                e = cescape_length(path + 1, path_len - 1);
                                 if (!e)
                                         return -ENOMEM;
 
                                 p = strjoin("@", e);
                         } else {
-                                if (sa->un.sun_path[path_len - 1] == '\0')
+                                if (path[path_len - 1] == '\0')
                                         /* We expect a terminating NUL and don't print it */
                                         path_len --;
 
-                                p = cescape_length(sa->un.sun_path, path_len);
+                                p = cescape_length(path, path_len);
                         }
-                        if (!p)
-                                        return -ENOMEM;
                 }
+                if (!p)
+                        return -ENOMEM;
 
                 break;
 
