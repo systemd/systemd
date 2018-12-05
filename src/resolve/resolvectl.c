@@ -1866,14 +1866,16 @@ static int verb_dns(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        if (argc <= 1)
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1], false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
                 return status_all(bus, STATUS_DNS);
 
-        r = ifname_mangle(argv[1], false);
-        if (r < 0)
-                return r;
-
-        if (argc == 2)
+        if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS, NULL);
 
         r = sd_bus_message_new_method_call(
@@ -1950,14 +1952,16 @@ static int verb_domain(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        if (argc <= 1)
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1], false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
                 return status_all(bus, STATUS_DOMAIN);
 
-        r = ifname_mangle(argv[1], false);
-        if (r < 0)
-                return r;
-
-        if (argc == 2)
+        if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DOMAIN, NULL);
 
         r = sd_bus_message_new_method_call(
@@ -2026,14 +2030,16 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        if (argc <= 1)
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1], false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
                 return status_all(bus, STATUS_LLMNR);
 
-        r = ifname_mangle(argv[1], false);
-        if (r < 0)
-                return r;
-
-        if (argc == 2)
+        if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_LLMNR, NULL);
 
         r = sd_bus_call_method(bus,
@@ -2065,14 +2071,16 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        if (argc <= 1)
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1], false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
                 return status_all(bus, STATUS_MDNS);
 
-        r = ifname_mangle(argv[1], false);
-        if (r < 0)
-                return r;
-
-        if (argc == 2)
+        if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_MDNS, NULL);
 
         r = sd_bus_call_method(bus,
@@ -2104,14 +2112,16 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        if (argc <= 1)
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1], false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
                 return status_all(bus, STATUS_PRIVATE);
 
-        r = ifname_mangle(argv[1], false);
-        if (r < 0)
-                return r;
-
-        if (argc == 2)
+        if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_PRIVATE, NULL);
 
         r = sd_bus_call_method(bus,
@@ -2143,14 +2153,16 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        if (argc <= 1)
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1], false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
                 return status_all(bus, STATUS_DNSSEC);
 
-        r = ifname_mangle(argv[1], false);
-        if (r < 0)
-                return r;
-
-        if (argc == 2)
+        if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNSSEC, NULL);
 
         r = sd_bus_call_method(bus,
@@ -2185,14 +2197,16 @@ static int verb_nta(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        if (argc <= 1)
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1], false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
                 return status_all(bus, STATUS_NTA);
 
-        r = ifname_mangle(argv[1], false);
-        if (r < 0)
-                return r;
-
-        if (argc == 2)
+        if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_NTA, NULL);
 
         /* If only argument is the empty string, then call SetLinkDNSSECNegativeTrustAnchors()
@@ -2250,9 +2264,14 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        r = ifname_mangle(argv[1], false);
-        if (r < 0)
-                return r;
+        if (argc >= 2) {
+                r = ifname_mangle(argv[1], false);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_ifindex <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Interface argument required.");
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.resolve1",
@@ -2943,7 +2962,7 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "dnsovertls",            VERB_ANY, 3,        0,            verb_dns_over_tls      },
                 { "dnssec",                VERB_ANY, 3,        0,            verb_dnssec           },
                 { "nta",                   VERB_ANY, VERB_ANY, 0,            verb_nta              },
-                { "revert",                2,        2,        0,            verb_revert_link      },
+                { "revert",                VERB_ANY, 2,        0,            verb_revert_link      },
                 {}
         };
 
