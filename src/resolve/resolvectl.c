@@ -91,36 +91,23 @@ static int parse_ifindex_and_warn(const char *s) {
 int ifname_mangle(const char *s, bool allow_loopback) {
         _cleanup_free_ char *iface = NULL;
         const char *dot;
-        int r;
+        int ifi;
 
         assert(s);
 
-        if (arg_ifname) {
-                assert(arg_ifindex >= 0);
-
-                if (!allow_loopback && arg_ifindex == LOOPBACK_IFINDEX)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Interface can't be the loopback interface (lo). Sorry.");
-
-                return 1;
-        }
-
         dot = strchr(s, '.');
         if (dot) {
-                iface = strndup(s, dot - s);
-                if (!iface)
-                        return log_oom();
-
                 log_debug("Ignoring protocol specifier '%s'.", dot + 1);
-        } else {
-                iface = strdup(s);
-                if (!iface)
-                        return log_oom();
-        }
+                iface = strndup(s, dot - s);
 
-        if (parse_ifindex(iface, &r) < 0) {
-                r = if_nametoindex(iface);
-                if (r <= 0) {
+        } else
+                iface = strdup(s);
+        if (!iface)
+                return log_oom();
+
+        if (parse_ifindex(iface, &ifi) < 0) {
+                ifi = if_nametoindex(iface);
+                if (ifi <= 0) {
                         if (errno == ENODEV && arg_ifindex_permissive) {
                                 log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
                                 return 0; /* done */
@@ -130,12 +117,17 @@ int ifname_mangle(const char *s, bool allow_loopback) {
                 }
         }
 
-        if (!allow_loopback && r == LOOPBACK_IFINDEX)
+        if (arg_ifindex > 0 && arg_ifindex != ifi) {
+                log_error("Specified multiple different interfaces. Refusing.");
+                return -EINVAL;
+        }
+
+        if (!allow_loopback && ifi == LOOPBACK_IFINDEX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Interface can't be the loopback interface (lo). Sorry.");
 
-        arg_ifindex = r;
-        arg_ifname = TAKE_PTR(iface);
+        arg_ifindex = ifi;
+        free_and_replace(arg_ifname, iface);
 
         return 1;
 }
@@ -2501,7 +2493,6 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'i':
-                        arg_ifname = mfree(arg_ifname);
                         r = ifname_mangle(optarg, true);
                         if (r < 0)
                                 return r;
@@ -2793,7 +2784,6 @@ static int native_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'i':
-                        arg_ifname = mfree(arg_ifname);
                         r = ifname_mangle(optarg, true);
                         if (r < 0)
                                 return r;
