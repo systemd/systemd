@@ -283,7 +283,6 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *pretty = NULL;
-        char ifname[IF_NAMESIZE] = "";
         uint64_t flags;
         unsigned c = 0;
         usec_t ts;
@@ -300,10 +299,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         if (r < 0)
                 return log_oom();
 
-        if (ifindex > 0 && !if_indextoname(ifindex, ifname))
-                return log_error_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
-
-        log_debug("Resolving %s%s%s.", pretty, isempty(ifname) ? "" : "%", ifname);
+        log_debug("Resolving %s.", pretty);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -341,6 +337,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
 
         while ((r = sd_bus_message_enter_container(reply, 'r', "is")) > 0) {
                 const char *n;
+                int k;
 
                 assert_cc(sizeof(int) == sizeof(int32_t));
 
@@ -352,16 +349,13 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
                 if (r < 0)
                         return r;
 
-                ifname[0] = 0;
-                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
-                        log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
-
-                printf("%*s%*s%*s%s %s\n",
+                k = printf("%*s%s %s",
                        (int) strlen(pretty), c == 0 ? pretty : "",
-                       isempty(ifname) ? 0 : 1, c > 0 || isempty(ifname) ? "" : "%",
-                       (int) strlen(ifname), c == 0 ? ifname : "",
                        c == 0 ? ":" : " ",
                        n);
+
+                print_ifindex_comment(k, ifindex);
+                fputc('\n', stdout);
 
                 c++;
         }
@@ -390,7 +384,6 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         int r;
-        char ifname[IF_NAMESIZE] = "";
 
         r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
         if (r < 0)
@@ -416,15 +409,15 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
                 fwrite(data, 1, k, stdout);
         } else {
                 const char *s;
+                int k;
 
                 s = dns_resource_record_to_string(rr);
                 if (!s)
                         return log_oom();
 
-                if (ifindex > 0 && !if_indextoname(ifindex, ifname))
-                        log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
-
-                printf("%s%s%s\n", s, isempty(ifname) ? "" : " # interface ", ifname);
+                k = printf("%s", s);
+                print_ifindex_comment(k, ifindex);
+                fputc('\n', stdout);
         }
 
         return 0;
@@ -768,8 +761,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
 
                 while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
                         _cleanup_free_ char *pretty = NULL;
-                        char ifname[IF_NAMESIZE] = "";
-                        int ifindex, family;
+                        int ifindex, family, k;
                         const void *a;
 
                         assert_cc(sizeof(int) == sizeof(int32_t));
@@ -796,14 +788,13 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
                                 return -EINVAL;
                         }
 
-                        if (ifindex > 0 && !if_indextoname(ifindex, ifname))
-                                log_warning_errno(errno, "Failed to resolve interface name for index %i: %m", ifindex);
-
-                        r = in_addr_to_string(family, a, &pretty);
+                        r = in_addr_ifindex_to_string(family, a, ifindex, &pretty);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to print address for %s: %m", name);
 
-                        printf("%*s%s%s%s\n", (int) indent, "", pretty, isempty(ifname) ? "" : "%s", ifname);
+                        k = printf("%*s%s", (int) indent, "", pretty);
+                        print_ifindex_comment(k, ifindex);
+                        fputc('\n', stdout);
                 }
                 if (r < 0)
                         return bus_log_parse_error(r);
