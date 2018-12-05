@@ -376,8 +376,10 @@ void server_process_native_file(
         if (st.st_size <= 0)
                 return;
 
-        if (st.st_size > ENTRY_SIZE_MAX) {
-                log_error("File passed too large. Ignoring.");
+        /* When !sealed, set a lower memory limit. We have to read the file,
+         * effectively doubling memory use. */
+        if (st.st_size > ENTRY_SIZE_MAX / (sealed ? 1 : 2)) {
+                log_error("File passed too large (%"PRIu64" bytes). Ignoring.", (uint64_t) st.st_size);
                 return;
         }
 
