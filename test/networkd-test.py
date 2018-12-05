@@ -111,13 +111,17 @@ class NetworkdTestingUtilities:
                               list(peer_options))
         self.addCleanup(subprocess.call, ['ip', 'link', 'del', 'dev', peer])
 
+    def write_config(self, path, contents):
+        """"Write a configuration file, and queue it to be removed."""
+
+        with open(path, 'w') as f:
+            f.write(contents)
+
+        self.addCleanup(os.remove, path)
+
     def write_network(self, unit_name, contents):
         """Write a network unit file, and queue it to be removed."""
-        unit_path = os.path.join(NETWORK_UNITDIR, unit_name)
-
-        with open(unit_path, 'w') as unit:
-            unit.write(contents)
-        self.addCleanup(os.remove, unit_path)
+        self.write_config(os.path.join(NETWORK_UNITDIR, unit_name), contents)
 
     def write_network_dropin(self, unit_name, dropin_name, contents):
         """Write a network unit drop-in, and queue it to be removed."""
@@ -738,7 +742,7 @@ Domains= ~company ~lab''')
         orig_hostname = socket.gethostname()
         self.addCleanup(socket.sethostname, orig_hostname)
         if not os.path.exists('/etc/hostname'):
-            self.writeConfig('/etc/hostname', orig_hostname)
+            self.write_config('/etc/hostname', orig_hostname)
         subprocess.check_call(['systemctl', 'stop', 'systemd-hostnamed.service'])
 
         self.create_iface(dnsmasq_opts=['--dhcp-host={},192.168.5.210,testgreen'.format(self.iface_mac)])
