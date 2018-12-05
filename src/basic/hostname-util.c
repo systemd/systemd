@@ -143,9 +143,7 @@ char* hostname_cleanup(char *s) {
 
         assert(s);
 
-        strshorten(s, HOST_NAME_MAX);
-
-        for (p = s, d = s, dot = hyphen = true; *p; p++)
+        for (p = s, d = s, dot = hyphen = true; *p && d - s < HOST_NAME_MAX; p++)
                 if (*p == '.') {
                         if (dot || hyphen)
                                 continue;
