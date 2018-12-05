@@ -52,7 +52,7 @@
 
       <listitem><para>Structured system log messages via the native
       Journal API, see
-      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>4</manvolnum></citerefentry></para></listitem>
+      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry></para></listitem>
 
       <listitem><para>Standard output and standard error of service units. For further details see
       below.</para></listitem>
@@ -303,7 +303,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
       <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>4</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <command>pydoc systemd.journal</command>
     </para>
   </refsect1>
