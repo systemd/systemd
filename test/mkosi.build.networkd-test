@@ -1,0 +1,24 @@
+#!/bin/sh
+set -ex
+
+# First, source in the main build script
+. "$SRCDIR"/mkosi.build
+
+mkdir -p "$DESTDIR"/usr/local/bin
+cp "$SRCDIR"/test/networkd-test.py "$DESTDIR"/usr/local/bin/networkd-test.py
+
+mkdir -p "$DESTDIR"/etc/systemd/system
+cat > "$DESTDIR"/etc/systemd/system/networkd-test.service <<EOF
+[Unit]
+Description=networkd test service
+SuccessAction=exit
+FailureAction=exit
+
+[Service]
+ExecStart=/usr/local/bin/networkd-test.py
+EOF
+
+mkdir -p "$DESTDIR"/etc/systemd/system/multi-user.target.wants/
+ln -s ../networkd-test.service "$DESTDIR"/etc/systemd/system/multi-user.target.wants/
+
+systemctl --root="$DESTDIR" disable systemd-networkd.service
