@@ -794,8 +794,8 @@ log:
         core_message = strjoin("MESSAGE=Process ", context[CONTEXT_PID],
                                " (", context[CONTEXT_COMM], ") of user ",
                                context[CONTEXT_UID], " dumped core.",
-                               journald_crash ? "\nCoredump diverted to " : NULL,
-                               journald_crash ? filename : NULL);
+                               journald_crash && filename ? "\nCoredump diverted to " : NULL,
+                               journald_crash && filename ? filename : NULL);
         if (!core_message)
                 return log_oom();
 
