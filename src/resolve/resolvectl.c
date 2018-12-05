@@ -88,7 +88,7 @@ static int parse_ifindex_and_warn(const char *s) {
         return ifi;
 }
 
-int ifname_mangle(const char *s, bool allow_loopback) {
+int ifname_mangle(const char *s) {
         _cleanup_free_ char *iface = NULL;
         const char *dot;
         int ifi;
@@ -121,10 +121,6 @@ int ifname_mangle(const char *s, bool allow_loopback) {
                 log_error("Specified multiple different interfaces. Refusing.");
                 return -EINVAL;
         }
-
-        if (!allow_loopback && ifi == LOOPBACK_IFINDEX)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Interface can't be the loopback interface (lo). Sorry.");
 
         arg_ifindex = ifi;
         free_and_replace(arg_ifname, iface);
@@ -1867,7 +1863,7 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         assert(bus);
 
         if (argc >= 2) {
-                r = ifname_mangle(argv[1], false);
+                r = ifname_mangle(argv[1]);
                 if (r < 0)
                         return r;
         }
@@ -1953,7 +1949,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         assert(bus);
 
         if (argc >= 2) {
-                r = ifname_mangle(argv[1], false);
+                r = ifname_mangle(argv[1]);
                 if (r < 0)
                         return r;
         }
@@ -2031,7 +2027,7 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
         assert(bus);
 
         if (argc >= 2) {
-                r = ifname_mangle(argv[1], false);
+                r = ifname_mangle(argv[1]);
                 if (r < 0)
                         return r;
         }
@@ -2072,7 +2068,7 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
         assert(bus);
 
         if (argc >= 2) {
-                r = ifname_mangle(argv[1], false);
+                r = ifname_mangle(argv[1]);
                 if (r < 0)
                         return r;
         }
@@ -2113,7 +2109,7 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
         assert(bus);
 
         if (argc >= 2) {
-                r = ifname_mangle(argv[1], false);
+                r = ifname_mangle(argv[1]);
                 if (r < 0)
                         return r;
         }
@@ -2154,7 +2150,7 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
         assert(bus);
 
         if (argc >= 2) {
-                r = ifname_mangle(argv[1], false);
+                r = ifname_mangle(argv[1]);
                 if (r < 0)
                         return r;
         }
@@ -2198,7 +2194,7 @@ static int verb_nta(int argc, char **argv, void *userdata) {
         assert(bus);
 
         if (argc >= 2) {
-                r = ifname_mangle(argv[1], false);
+                r = ifname_mangle(argv[1]);
                 if (r < 0)
                         return r;
         }
@@ -2265,7 +2261,7 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
         assert(bus);
 
         if (argc >= 2) {
-                r = ifname_mangle(argv[1], false);
+                r = ifname_mangle(argv[1]);
                 if (r < 0)
                         return r;
         }
@@ -2512,7 +2508,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'i':
-                        r = ifname_mangle(optarg, true);
+                        r = ifname_mangle(optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -2742,10 +2738,6 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 if (arg_ifindex <= 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--set-dns=, --set-domain=, --set-llmnr=, --set-mdns=, --set-dnsovertls=, --set-dnssec=, --set-nta= and --revert require --interface=.");
-
-                if (arg_ifindex == LOOPBACK_IFINDEX)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Interface can't be the loopback interface (lo). Sorry.");
         }
 
         return 1 /* work to do */;
@@ -2803,7 +2795,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'i':
-                        r = ifname_mangle(optarg, true);
+                        r = ifname_mangle(optarg);
                         if (r < 0)
                                 return r;
                         break;

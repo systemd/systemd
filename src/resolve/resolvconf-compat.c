@@ -212,7 +212,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected interface name as argument.");
 
-        r = ifname_mangle(argv[optind], false);
+        r = ifname_mangle(argv[optind]);
         if (r <= 0)
                 return r;
 
