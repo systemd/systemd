@@ -129,6 +129,13 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
+        if (max_length == 0) {
+                /* This is supposed to be a safety guard against runaway command lines. */
+                long l = sysconf(_SC_ARG_MAX);
+                assert(l > 0);
+                max_length = l;
+        }
+
         if (max_length == 1) {
 
                 /* If there's only room for one byte, return the empty string */
@@ -138,32 +145,6 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
                 *line = ans;
                 return 0;
-
-        } else if (max_length == 0) {
-                size_t len = 0, allocated = 0;
-
-                while ((c = getc(f)) != EOF) {
-
-                        if (!GREEDY_REALLOC(ans, allocated, len+3)) {
-                                free(ans);
-                                return -ENOMEM;
-                        }
-
-                        if (isprint(c)) {
-                                if (space) {
-                                        ans[len++] = ' ';
-                                        space = false;
-                                }
-
-                                ans[len++] = c;
-                        } else if (len > 0)
-                                space = true;
-               }
-
-                if (len > 0)
-                        ans[len] = '\0';
-                else
-                        ans = mfree(ans);
 
         } else {
                 bool dotdotdot = false;
@@ -236,34 +217,30 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                 if (h < 0)
                         return h;
 
-                if (max_length == 0)
+                size_t l = strlen(t);
+
+                if (l + 3 <= max_length) {
                         ans = strjoin("[", t, "]");
-                else {
-                        size_t l;
+                        if (!ans)
+                                return -ENOMEM;
 
-                        l = strlen(t);
+                } else if (max_length <= 6) {
+                        ans = new(char, max_length);
+                        if (!ans)
+                                return -ENOMEM;
 
-                        if (l + 3 <= max_length)
-                                ans = strjoin("[", t, "]");
-                        else if (max_length <= 6) {
+                        memcpy(ans, "[...]", max_length-1);
+                        ans[max_length-1] = 0;
+                } else {
+                        t[max_length - 6] = 0;
 
-                                ans = new(char, max_length);
-                                if (!ans)
-                                        return -ENOMEM;
+                        /* Chop off final spaces */
+                        delete_trailing_chars(t, WHITESPACE);
 
-                                memcpy(ans, "[...]", max_length-1);
-                                ans[max_length-1] = 0;
-                        } else {
-                                t[max_length - 6] = 0;
-
-                                /* Chop off final spaces */
-                                delete_trailing_chars(t, WHITESPACE);
-
-                                ans = strjoin("[", t, "...]");
-                        }
+                        ans = strjoin("[", t, "...]");
+                        if (!ans)
+                                return -ENOMEM;
                 }
-                if (!ans)
-                        return -ENOMEM;
         }
 
         *line = ans;
