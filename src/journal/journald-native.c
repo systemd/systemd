@@ -110,7 +110,7 @@ static int server_process_entry(
         int priority = LOG_INFO;
         pid_t object_pid = 0;
         const char *p;
-        int r = 0;
+        int r = 1;
 
         p = buffer;
 
@@ -122,8 +122,7 @@ static int server_process_entry(
                 if (!e) {
                         /* Trailing noise, let's ignore it, and flush what we collected */
                         log_debug("Received message with trailing noise, ignoring.");
-                        r = 1; /* finish processing of the message */
-                        break;
+                        break; /* finish processing of the message */
                 }
 
                 if (e == p) {
@@ -133,8 +132,7 @@ static int server_process_entry(
                 }
 
                 if (IN_SET(*p, '.', '#')) {
-                        /* Ignore control commands for now, and
-                         * comments too. */
+                        /* Ignore control commands for now, and comments too. */
                         *remaining -= (e - p) + 1;
                         p = e + 1;
                         continue;
@@ -143,7 +141,6 @@ static int server_process_entry(
                 /* A property follows */
                 if (n > ENTRY_FIELD_COUNT_MAX) {
                         log_debug("Received an entry that has more than " STRINGIFY(ENTRY_FIELD_COUNT_MAX) " fields, ignoring entry.");
-                        r = 1;
                         goto finish;
                 }
 
@@ -153,7 +150,7 @@ static int server_process_entry(
                                     N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS +
                                     client_context_extra_fields_n_iovec(context))) {
                         r = log_oom();
-                        break;
+                        goto finish;
                 }
 
                 q = memchr(p, '=', e - p);
@@ -162,6 +159,16 @@ static int server_process_entry(
                                 size_t l;
 
                                 l = e - p;
+                                if (l > DATA_SIZE_MAX) {
+                                        log_debug("Received text block of %zu bytes is too large, ignoring entry.", l);
+                                        goto finish;
+                                }
+
+                                if (entry_size + l + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
+                                        log_debug("Entry is too big (%zu bytes after processing %zu entries), ignoring entry.",
+                                                  entry_size + l, n + 1);
+                                        goto finish;
+                                }
 
                                 /* If the field name starts with an underscore, skip the variable, since that indicates
                                  * a trusted field */
@@ -179,7 +186,7 @@ static int server_process_entry(
                         p = e + 1;
                         continue;
                 } else {
-                        uint64_t l;
+                        uint64_t l, total;
                         char *k;
 
                         if (*remaining < e - p + 1 + sizeof(uint64_t) + 1) {
@@ -188,10 +195,16 @@ static int server_process_entry(
                         }
 
                         l = unaligned_read_le64(e + 1);
-
                         if (l > DATA_SIZE_MAX) {
-                                log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring.", l);
-                                break;
+                                log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring entry.", l);
+                                goto finish;
+                        }
+
+                        total = (e - p) + 1 + l;
+                        if (entry_size + total + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
+                                log_debug("Entry is too big (%"PRIu64"bytes after processing %zu fields), ignoring.",
+                                          entry_size + total, n + 1);
+                                goto finish;
                         }
 
                         if ((uint64_t) *remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
@@ -200,7 +213,7 @@ static int server_process_entry(
                                 break;
                         }
 
-                        k = malloc((e - p) + 1 + l);
+                        k = malloc(total);
                         if (!k) {
                                 log_oom();
                                 break;
@@ -228,15 +241,8 @@ static int server_process_entry(
                 }
         }
 
-        if (n <= 0) {
-                r = 1;
+        if (n <= 0)
                 goto finish;
-        }
-
-        if (!client_context_test_priority(context, priority)) {
-                r = 0;
-                goto finish;
-        }
 
         tn = n++;
         iovec[tn] = IOVEC_MAKE_STRING("_TRANSPORT=journal");
@@ -246,6 +252,11 @@ static int server_process_entry(
                 log_debug("Entry is too big with %zu properties and %zu bytes, ignoring.", n, entry_size);
                 goto finish;
         }
+
+        r = 0; /* Success, we read the message. */
+
+        if (!client_context_test_priority(context, priority))
+                goto finish;
 
         if (message) {
                 if (s->forward_to_syslog)
@@ -318,15 +329,13 @@ void server_process_native_file(
         bool sealed;
         int r;
 
-        /* Data is in the passed fd, since it didn't fit in a
-         * datagram. */
+        /* Data is in the passed fd, probably it didn't fit in a datagram. */
 
         assert(s);
         assert(fd >= 0);
 
         /* If it's a memfd, check if it is sealed. If so, we can just
-         * use map it and use it, and do not need to copy the data
-         * out. */
+         * mmap it and use it, and do not need to copy the data out. */
         sealed = memfd_get_sealed(fd) > 0;
 
         if (!sealed && (!ucred || ucred->uid != 0)) {
@@ -393,7 +402,7 @@ void server_process_native_file(
                 ssize_t n;
 
                 if (fstatvfs(fd, &vfs) < 0) {
-                        log_error_errno(errno, "Failed to stat file system of passed file, ignoring: %m");
+                        log_error_errno(errno, "Failed to stat file system of passed file, not processing it: %m");
                         return;
                 }
 
@@ -403,7 +412,7 @@ void server_process_native_file(
                  * https://github.com/systemd/systemd/issues/1822
                  */
                 if (vfs.f_flag & ST_MANDLOCK) {
-                        log_error("Received file descriptor from file system with mandatory locking enabled, refusing.");
+                        log_error("Received file descriptor from file system with mandatory locking enabled, not processing it.");
                         return;
                 }
 
@@ -416,13 +425,13 @@ void server_process_native_file(
                  * and so is SMB. */
                 r = fd_nonblock(fd, true);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to make fd non-blocking, ignoring: %m");
+                        log_error_errno(r, "Failed to make fd non-blocking, not processing it: %m");
                         return;
                 }
 
                 /* The file is not sealed, we can't map the file here, since
                  * clients might then truncate it and trigger a SIGBUS for
-                 * us. So let's stupidly read it */
+                 * us. So let's stupidly read it. */
 
                 p = malloc(st.st_size);
                 if (!p) {
