@@ -165,6 +165,9 @@ int journal_file_open_reliably(
  * files without adding too many zeros. */
 #define OFSfmt "%06"PRIx64
 
+/* The maximum number of fields in an entry */
+#define ENTRY_FIELD_COUNT_MAX 1024
+
 static inline bool VALID_REALTIME(uint64_t u) {
         /* This considers timestamps until the year 3112 valid. That should be plenty room... */
         return u > 0 && u < (1ULL << 55);
