@@ -17,20 +17,13 @@
 #include "dns-domain.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "hostname-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
-
-static bool valid_ldh_char(char c) {
-        return
-                (c >= 'a' && c <= 'z') ||
-                (c >= 'A' && c <= 'Z') ||
-                (c >= '0' && c <= '9') ||
-                c == '-';
-}
 
 int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags flags) {
         const char *n;

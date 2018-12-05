@@ -53,6 +53,12 @@ static void test_hostname_cleanup(void) {
         assert_se(streq(hostname_cleanup(s), "foobar.com"));
         s = strdupa("foobar.com.");
         assert_se(streq(hostname_cleanup(s), "foobar.com"));
+        s = strdupa("foo-bar.-com-.");
+        assert_se(streq(hostname_cleanup(s), "foo-bar.com"));
+        s = strdupa("foo-bar-.-com-.");
+        assert_se(streq(hostname_cleanup(s), "foo-bar--com"));
+        s = strdupa("--foo-bar.-com");
+        assert_se(streq(hostname_cleanup(s), "foo-bar.com"));
         s = strdupa("fooBAR");
         assert_se(streq(hostname_cleanup(s), "fooBAR"));
         s = strdupa("fooBAR.com");
