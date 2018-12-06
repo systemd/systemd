@@ -6,7 +6,7 @@
 #endif
 
 #include "in-addr-util.h"
-#include "missing.h"
+#include "missing_fou.h"
 #include "netdev/netdev.h"
 
 typedef enum FooOverUDPEncapType {

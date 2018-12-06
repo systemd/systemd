@@ -16,7 +16,7 @@ typedef struct Manager Manager;
 #include "cgroup-util.h"
 #include "fdset.h"
 #include "list.h"
-#include "missing.h"
+#include "missing_resource.h"
 #include "namespace.h"
 #include "nsflags.h"
 
