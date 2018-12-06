@@ -9,7 +9,6 @@
 #include <linux/audit.h>
 #include <linux/falloc.h>
 #include <linux/oom.h>
-#include <net/ethernet.h>
 #include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -262,10 +261,6 @@ struct sockaddr_vm {
 
 #ifndef KCMP_FILE
 #define KCMP_FILE 0
-#endif
-
-#ifndef ETHERTYPE_LLDP
-#define ETHERTYPE_LLDP 0x88cc
 #endif
 
 #ifndef SOL_ALG

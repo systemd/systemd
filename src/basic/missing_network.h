@@ -3,6 +3,7 @@
 
 #include <linux/loop.h>
 #include <linux/rtnetlink.h>
+#include <net/ethernet.h>
 
 #include "missing_ethtool.h"
 #include "missing_fib_rules.h"
@@ -141,4 +142,9 @@
  * is compatible with the kernel's internal definition. */
 #ifndef LOOPBACK_IFINDEX
 #define LOOPBACK_IFINDEX 1
+#endif
+
+/* Not exposed yet. Similar values are defined in net/ethernet.h */
+#ifndef ETHERTYPE_LLDP
+#define ETHERTYPE_LLDP 0x88cc
 #endif
