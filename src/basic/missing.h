@@ -56,10 +56,6 @@
 #define MS_LAZYTIME     (1<<25)
 #endif
 
-#ifndef DM_DEFERRED_REMOVE
-#define DM_DEFERRED_REMOVE (1 << 17)
-#endif
-
 #ifndef CIFS_MAGIC_NUMBER
 #  define CIFS_MAGIC_NUMBER 0xFF534D42
 #endif
