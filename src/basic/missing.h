@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <linux/falloc.h>
-#include <stdlib.h>
 #include <sys/syscall.h>
 
 #ifndef FS_NOCOW_FL
@@ -59,14 +58,6 @@
 
 #ifndef DM_DEFERRED_REMOVE
 #define DM_DEFERRED_REMOVE (1 << 17)
-#endif
-
-#if ! HAVE_SECURE_GETENV
-#  if HAVE___SECURE_GETENV
-#    define secure_getenv __secure_getenv
-#  else
-#    error "neither secure_getenv nor __secure_getenv are available"
-#  endif
 #endif
 
 #ifndef CIFS_MAGIC_NUMBER
@@ -128,6 +119,7 @@
 #include "missing_random.h"
 #include "missing_resource.h"
 #include "missing_socket.h"
+#include "missing_stdlib.h"
 #include "missing_timerfd.h"
 #include "missing_type.h"
 

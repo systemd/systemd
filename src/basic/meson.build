@@ -113,6 +113,7 @@ basic_sources = files('''
         missing_securebits.h
         missing_socket.h
         missing_stat.h
+        missing_stdlib.h
         missing_syscall.h
         missing_timerfd.h
         missing_type.h
