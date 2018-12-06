@@ -132,7 +132,7 @@ int pager_open(PagerFlags flags) {
         if (flags & PAGER_JUMP_TO_END)
                 less_opts = strjoina(less_opts, " +G");
 
-        r = safe_fork_full("(pager)", fd, 2, FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pager_pid);
+        r = safe_fork("(pager)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pager_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
