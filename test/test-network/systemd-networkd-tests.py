@@ -3,15 +3,15 @@
 # systemd-networkd tests
 
 import os
-import sys
-import unittest
-import subprocess
-import time
 import re
 import shutil
 import signal
 import socket
+import subprocess
+import sys
 import threading
+import time
+import unittest
 from shutil import copytree
 
 network_unit_file_path='/run/systemd/network'
