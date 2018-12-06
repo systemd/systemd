@@ -307,6 +307,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('vlan99'))
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vlan99']).rstrip().decode('utf-8')
+        print(output)
         self.assertTrue(output, 'REORDER_HDR')
         self.assertTrue(output, 'LOOSE_BINDING')
         self.assertTrue(output, 'GVRP')
@@ -398,6 +399,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('geneve99'))
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'geneve99']).rstrip().decode('utf-8')
+        print(output)
         self.assertTrue(output, '192.168.22.1')
         self.assertTrue(output, '6082')
         self.assertTrue(output, 'udpcsum')
@@ -466,6 +468,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('isataptun99'))
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'isataptun99']).rstrip().decode('utf-8')
+        print(output)
         self.assertRegex(output, "isatap ")
 
     def test_6rd_tunnel(self):
@@ -501,6 +504,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('vxlan99'))
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vxlan99']).rstrip().decode('utf-8')
+        print(output)
         self.assertRegex(output, "999")
         self.assertRegex(output, '5555')
         self.assertRegex(output, 'l2miss')
