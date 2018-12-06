@@ -2,11 +2,9 @@
 #pragma once
 
 #if HAVE_BLKID
-#include <blkid.h>
-#endif
+#  include <blkid.h>
 
-#include "util.h"
+#  include "macro.h"
 
-#if HAVE_BLKID
 DEFINE_TRIVIAL_CLEANUP_FUNC(blkid_probe, blkid_free_probe);
 #endif
