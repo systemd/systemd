@@ -59,4 +59,14 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.timedate1.list-timezones">
+                <description gettext-domain="systemd">Get a list of time zones</description>
+                <message gettext-domain="systemd">Authentication is required to retrieve list of time zones.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
 </policyconfig>

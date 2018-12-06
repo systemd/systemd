@@ -283,15 +283,38 @@ static int set_ntp(int argc, char **argv, void *userdata) {
 }
 
 static int list_timezones(int argc, char **argv, void *userdata) {
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
+        char* string;
 
-        r = get_timezones(&zones);
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "ListTimezones",
+                               &error,
+                               &reply,
+                               "b", arg_ask_password);
         if (r < 0)
-                return log_error_errno(r, "Failed to read list of time zones: %m");
+                return log_error_errno(r, "Failed to request list of time zones: %m");
 
-        (void) pager_open(arg_pager_flags);
-        strv_print(zones);
+        if ((r = sd_bus_message_enter_container(reply, 'a', "s")) > 0) {
+                (void) pager_open(arg_no_pager, false);
+                while (r = sd_bus_message_read_basic(reply, 's', &string) > 0) {
+                        strv_print(&string);
+                }
+
+                /* Close array of strings */
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0) {
+                        log_error("Failed to close container: %d", r);
+                        return r;
+                }
+        }
 
         return 0;
 }

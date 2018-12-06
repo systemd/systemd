@@ -916,6 +916,63 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         return sd_bus_reply_method_return(m, NULL);
 }
 
+static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        sd_bus *bus = sd_bus_message_get_bus(m);
+        Context *c = userdata;
+        int interactive, r;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        char **zones = NULL;
+
+        assert(m);
+        assert(bus);
+        assert(c);
+
+        r = sd_bus_message_read(m, "b", &interactive);
+        if (r < 0)
+                return r;
+
+        r = get_timezones(&zones);
+        if (r < 0) {
+                log_error_errno(r, "Failed to read list of time zones: %m");
+                return r;
+        }
+
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_TIME,
+                        "org.freedesktop.timedate1.list-timezones",
+                        NULL,
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1;
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        while (*zones != NULL) {
+                r = sd_bus_message_append(reply, "s", *zones);
+                if (r < 0)
+                        return sd_bus_error_set_errno(error, r);
+                *zones++;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
 static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Timezone", "s", NULL, offsetof(Context, zone), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -929,6 +986,7 @@ static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_METHOD("SetTimezone", "sb", NULL, method_set_timezone, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLocalRTC", "bbb", NULL, method_set_local_rtc, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetNTP", "bb", NULL, method_set_ntp, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListTimezones", "b", "as", method_list_timezones, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 
