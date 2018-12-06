@@ -30,8 +30,13 @@ __get_machines() {
         machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
+__get_services() {
+        systemctl list-units --no-legend --no-pager -t service --all $1 | \
+                { while read -r a b c; do [[ $b == "loaded" ]]; echo " $a"; done }
+}
+
 _systemd_analyze() {
-        local i verb comps
+        local i verb comps mode
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
 
         local -A OPTS=(
@@ -50,6 +55,7 @@ _systemd_analyze() {
                 [SECCOMP_FILTER]='syscall-filter'
                 [SERVICE_WATCHDOGS]='service-watchdogs'
                 [CAT_CONFIG]='cat-config'
+                [SECURITY]='security'
         )
 
         local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -147,6 +153,18 @@ _systemd_analyze() {
                 else
                         comps="$CONFIGS $( compgen -A file -- "$cur" )"
                         compopt -o filenames
+                fi
+
+        elif __contains_word "$verb" ${VERBS[SECURITY]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --version --no-pager --system --user -H --host -M --machine'
+                else
+                        if __contains_word "--user" ${COMP_WORDS[*]}; then
+                                mode=--user
+                        else
+                                mode=--system
+                        fi
+                        comps=$( __get_services $mode )
                 fi
         fi
 
