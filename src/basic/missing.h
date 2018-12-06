@@ -7,25 +7,7 @@
 #include <inttypes.h>
 #include <linux/falloc.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <sys/syscall.h>
-
-#if HAVE_LINUX_VM_SOCKETS_H
-#include <linux/vm_sockets.h>
-#else
-#define VMADDR_CID_ANY -1U
-struct sockaddr_vm {
-        unsigned short svm_family;
-        unsigned short svm_reserved1;
-        unsigned int svm_port;
-        unsigned int svm_cid;
-        unsigned char svm_zero[sizeof(struct sockaddr) -
-                               sizeof(unsigned short) -
-                               sizeof(unsigned short) -
-                               sizeof(unsigned int) -
-                               sizeof(unsigned int)];
-};
-#endif /* !HAVE_LINUX_VM_SOCKETS_H */
 
 #ifndef MFD_ALLOW_SEALING
 #define MFD_ALLOW_SEALING 0x0002U
@@ -35,24 +17,8 @@ struct sockaddr_vm {
 #define MFD_CLOEXEC 0x0001U
 #endif
 
-#ifndef IP_FREEBIND
-#define IP_FREEBIND 15
-#endif
-
 #ifndef TIOCVHANGUP
 #define TIOCVHANGUP 0x5437
-#endif
-
-#ifndef IP_TRANSPARENT
-#define IP_TRANSPARENT 19
-#endif
-
-#ifndef SOL_NETLINK
-#define SOL_NETLINK 270
-#endif
-
-#ifndef SOL_SCTP
-#define SOL_SCTP 132
 #endif
 
 #ifndef GRND_NONBLOCK
@@ -111,10 +77,6 @@ struct sockaddr_vm {
 #define MS_LAZYTIME     (1<<25)
 #endif
 
-#ifndef SCM_SECURITY
-#define SCM_SECURITY 0x03
-#endif
-
 #ifndef DM_DEFERRED_REMOVE
 #define DM_DEFERRED_REMOVE (1 << 17)
 #endif
@@ -135,14 +97,6 @@ struct sockaddr_vm {
 #  define TFD_TIMER_CANCEL_ON_SET (1 << 1)
 #endif
 
-#ifndef SO_REUSEPORT
-#  define SO_REUSEPORT 15
-#endif
-
-#ifndef SO_PEERGROUPS
-#  define SO_PEERGROUPS 59
-#endif
-
 #ifndef DRM_IOCTL_SET_MASTER
 #  define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
 #endif
@@ -157,14 +111,6 @@ struct sockaddr_vm {
 
 #ifndef RENAME_NOREPLACE
 #define RENAME_NOREPLACE (1 << 0)
-#endif
-
-#ifndef SOL_ALG
-#define SOL_ALG 279
-#endif
-
-#ifndef AF_VSOCK
-#define AF_VSOCK 40
 #endif
 
 #ifndef EXT4_IOC_RESIZE_FS
@@ -203,6 +149,7 @@ struct sockaddr_vm {
 #include "missing_network.h"
 #include "missing_prctl.h"
 #include "missing_resource.h"
+#include "missing_socket.h"
 #include "missing_type.h"
 
 #include "missing_syscall.h"

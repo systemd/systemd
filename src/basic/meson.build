@@ -109,6 +109,7 @@ basic_sources = files('''
         missing_prctl.h
         missing_resource.h
         missing_securebits.h
+        missing_socket.h
         missing_stat.h
         missing_syscall.h
         missing_type.h
