@@ -113,15 +113,16 @@ class Utilities():
 
             os.remove(pid_file)
 
-    def search_words_in_file(self, word):
+    def search_words_in_dnsmasq_log(self, words, show_all=False):
         if os.path.exists(dnsmasq_log_file):
             with open (dnsmasq_log_file) as in_file:
                 contents = in_file.read()
-                print(contents)
-                for part in contents.split():
-                    if word in part:
+                if show_all:
+                    print(contents)
+                for line in contents.split('\n'):
+                    if words in line:
                         in_file.close()
-                        print("%s, %s" % (word, part))
+                        print("%s, %s" % (words, line))
                         return True
         return False
 
@@ -1043,10 +1044,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'default.*dev veth99 proto dhcp')
 
-        self.search_words_in_file('vendor class: SusantVendorTest')
-        self.search_words_in_file('client MAC address: 12:34:56:78:9a:bc')
-        self.search_words_in_file('client provides name: test-hostname')
-        self.search_words_in_file('26:mtu')
+        self.assertTrue(self.search_words_in_dnsmasq_log('vendor class: SusantVendorTest', True))
+        self.assertTrue(self.search_words_in_dnsmasq_log('DHCPDISCOVER(veth-peer) 12:34:56:78:9a:bc'))
+        self.assertTrue(self.search_words_in_dnsmasq_log('client provides name: test-hostname'))
+        self.assertTrue(self.search_words_in_dnsmasq_log('26:mtu'))
 
     def test_dhcp6_client_settings_rapidcommit_true(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network')
@@ -1059,7 +1060,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '12:34:56:78:9a:bc')
-        self.assertTrue(self.search_words_in_file('14:rapid-commit'))
+        self.assertTrue(self.search_words_in_dnsmasq_log('14:rapid-commit', True))
 
     def test_dhcp6_client_settings_rapidcommit_false(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-rapid-commit.network')
@@ -1072,7 +1073,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '12:34:56:78:9a:bc')
-        self.assertFalse(self.search_words_in_file('14:rapid-commit'))
+        self.assertFalse(self.search_words_in_dnsmasq_log('14:rapid-commit', True))
 
     def test_dhcp_client_settings_anonymize(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-anonymize.network')
@@ -1082,9 +1083,9 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
-        self.assertFalse(self.search_words_in_file('VendorClassIdentifier=SusantVendorTest'))
-        self.assertFalse(self.search_words_in_file('test-hostname'))
-        self.assertFalse(self.search_words_in_file('26:mtu'))
+        self.assertFalse(self.search_words_in_dnsmasq_log('VendorClassIdentifier=SusantVendorTest', True))
+        self.assertFalse(self.search_words_in_dnsmasq_log('test-hostname'))
+        self.assertFalse(self.search_words_in_dnsmasq_log('26:mtu'))
 
     def test_dhcp_client_listen_port(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-listen-port.network')
