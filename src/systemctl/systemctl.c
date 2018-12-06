@@ -7573,7 +7573,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* we default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:ir", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:ir.::", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -7888,6 +7888,14 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         if (strv_extend(&arg_wall, optarg) < 0)
                                 return log_oom();
                         break;
+
+                case '.':
+                        /* Output an error mimicking getopt, and print a hint afterwards */
+                        log_error("%s: invalid option -- '.'", program_invocation_name);
+                        log_notice("Hint: to specify units starting with a dash, use \"--\":\n"
+                                   "      %s [OPTIONS...] {COMMAND} -- -.%s ...",
+                                   program_invocation_name, optarg ?: "mount");
+                        _fallthrough_;
 
                 case '?':
                         return -EINVAL;
