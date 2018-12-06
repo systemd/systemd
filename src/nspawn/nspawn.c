@@ -431,6 +431,30 @@ static void parse_mount_settings_env(void) {
         SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_NETNS, false);
 }
 
+static void parse_environment(void) {
+        const char *e;
+        int r;
+
+        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_IPC", CLONE_NEWIPC);
+        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_PID", CLONE_NEWPID);
+        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_UTS", CLONE_NEWUTS);
+        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_SYSTEM", CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS);
+
+        parse_mount_settings_env();
+
+        r = getenv_bool("SYSTEMD_NSPAWN_USE_CGNS");
+        if (r < 0)
+                arg_use_cgns = cg_ns_supported();
+        else
+                arg_use_cgns = r;
+
+        e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
+        if (e)
+                arg_container_service_name = e;
+
+        detect_unified_cgroup_hierarchy_from_environment();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -539,7 +563,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
-        const char *p, *e;
+        const char *p;
         uint64_t plus = 0, minus = 0;
         bool mask_all_settings = false, mask_no_settings = false;
 
@@ -1243,18 +1267,12 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--network-namespace-path cannot be combined with other network options.");
 
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_IPC", CLONE_NEWIPC);
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_PID", CLONE_NEWPID);
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_UTS", CLONE_NEWUTS);
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_SYSTEM", CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS);
 
         if (arg_userns_mode != USER_NAMESPACE_NO)
                 arg_mount_settings |= MOUNT_USE_USERNS;
 
         if (arg_private_network)
                 arg_mount_settings |= MOUNT_APPLY_APIVFS_NETNS;
-
-        parse_mount_settings_env();
 
         if (!(arg_clone_ns_flags & CLONE_NEWPID) ||
             !(arg_clone_ns_flags & CLONE_NEWUTS)) {
@@ -1331,16 +1349,6 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_settings_mask = _SETTINGS_MASK_ALL;
 
         arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
-
-        e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
-        if (e)
-                arg_container_service_name = e;
-
-        r = getenv_bool("SYSTEMD_NSPAWN_USE_CGNS");
-        if (r < 0)
-                arg_use_cgns = cg_ns_supported();
-        else
-                arg_use_cgns = r;
 
         r = custom_mount_check_all();
         if (r < 0)
@@ -4221,6 +4229,8 @@ int main(int argc, char *argv[]) {
         r = load_settings();
         if (r < 0)
                 goto finish;
+
+        parse_environment();
 
         r = cg_unified_flush();
         if (r < 0) {
