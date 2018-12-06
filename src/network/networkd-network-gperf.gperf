@@ -104,6 +104,7 @@ RoutingPolicyRule.OutgoingInterface,    config_parse_routing_policy_rule_device,
 RoutingPolicyRule.IPProtocol,           config_parse_routing_policy_rule_ip_protocol,   0,                             0
 RoutingPolicyRule.SourcePort,           config_parse_routing_policy_rule_port_range,    0,                             0
 RoutingPolicyRule.DestinationPort,      config_parse_routing_policy_rule_port_range,    0,                             0
+RoutingPolicyRule.InvertRule,           config_parse_routing_policy_rule_invert,        0,                             0
 Route.Gateway,                          config_parse_gateway,                           0,                             0
 Route.Destination,                      config_parse_destination,                       0,                             0
 Route.Source,                           config_parse_destination,                       0,                             0

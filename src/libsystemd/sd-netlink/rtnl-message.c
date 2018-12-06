@@ -852,6 +852,32 @@ int sd_rtnl_message_routing_policy_rule_get_table(sd_netlink_message *m, unsigne
         return 0;
 }
 
+int sd_rtnl_message_routing_policy_rule_set_flags(sd_netlink_message *m, unsigned flags) {
+        struct rtmsg *routing_policy_rule;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
+
+        routing_policy_rule = NLMSG_DATA(m->hdr);
+        routing_policy_rule->rtm_flags |= flags;
+
+        return 0;
+}
+
+int sd_rtnl_message_routing_policy_rule_get_flags(sd_netlink_message *m, unsigned *flags) {
+        struct rtmsg *routing_policy_rule;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_routing_policy_rule(m->hdr->nlmsg_type), -EINVAL);
+
+        routing_policy_rule = NLMSG_DATA(m->hdr);
+        *flags = routing_policy_rule->rtm_flags;
+
+        return 0;
+}
+
 int sd_rtnl_message_routing_policy_rule_set_rtm_type(sd_netlink_message *m, unsigned char type) {
         struct rtmsg *routing_policy_rule;
 

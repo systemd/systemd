@@ -25,6 +25,8 @@ struct RoutingPolicyRule {
         Link *link;
         NetworkConfigSection *section;
 
+        bool invert_rule;
+
         uint8_t tos;
         uint8_t protocol;
 
@@ -79,3 +81,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_device);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_port_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_ip_protocol);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
