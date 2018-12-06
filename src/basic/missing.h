@@ -93,10 +93,6 @@
 #  define CIFS_MAGIC_NUMBER 0xFF534D42
 #endif
 
-#ifndef TFD_TIMER_CANCEL_ON_SET
-#  define TFD_TIMER_CANCEL_ON_SET (1 << 1)
-#endif
-
 #ifndef DRM_IOCTL_SET_MASTER
 #  define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
 #endif
@@ -150,6 +146,7 @@
 #include "missing_prctl.h"
 #include "missing_resource.h"
 #include "missing_socket.h"
+#include "missing_timerfd.h"
 #include "missing_type.h"
 
 #include "missing_syscall.h"
