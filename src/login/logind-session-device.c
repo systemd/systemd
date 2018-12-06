@@ -3,8 +3,12 @@
 #include <fcntl.h>
 #include <linux/input.h>
 #include <string.h>
+#include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+
+/* Old drm.h may needs to be included after stdint.h and sys/types.h */
+#include <drm/drm.h>
 
 #include "sd-device.h"
 
