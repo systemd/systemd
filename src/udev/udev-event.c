@@ -20,6 +20,7 @@
 #include "netlink-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -650,6 +651,7 @@ int udev_event_spawn(struct udev_event *event,
                         _exit(EXIT_FAILURE);
 
                 (void) close_all_fds(NULL, 0);
+                (void) rlimit_nofile_safe();
 
                 execve(argv[0], argv, envp);
                 _exit(EXIT_FAILURE);

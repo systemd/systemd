@@ -389,3 +389,22 @@ int rlimit_nofile_bump(int limit) {
 
         return 0;
 }
+
+int rlimit_nofile_safe(void) {
+        struct rlimit rl;
+
+        /* Resets RLIMIT_NOFILE's soft limit FD_SETSIZE (i.e. 1024), for compatibility with software still using
+         * select() */
+
+        if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
+                return log_debug_errno(errno, "Failed to query RLIMIT_NOFILE: %m");
+
+        if (rl.rlim_cur <= FD_SETSIZE)
+                return 0;
+
+        rl.rlim_cur = FD_SETSIZE;
+        if (setrlimit(RLIMIT_NOFILE, &rl) < 0)
+                return log_debug_errno(errno, "Failed to lower RLIMIT_NOFILE's soft limit to " RLIM_FMT ": %m", rl.rlim_cur);
+
+        return 1;
+}

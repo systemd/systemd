@@ -62,7 +62,7 @@ static int run(int argc, char *argv[]) {
 
                 log_debug("Remounting %s", me->mnt_dir);
 
-                r = safe_fork("(remount)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+                r = safe_fork("(remount)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
                 if (r < 0)
                         return r;
                 if (r == 0) {

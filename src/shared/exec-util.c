@@ -17,6 +17,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "serialize.h"
 #include "set.h"
 #include "signal-util.h"
@@ -51,6 +52,8 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
                 }
+
+                (void) rlimit_nofile_safe();
 
                 if (!argv) {
                         _argv[0] = (char*) path;

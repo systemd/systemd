@@ -28,6 +28,7 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "reboot-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "switch-root.h"
@@ -443,13 +444,15 @@ int main(int argc, char *argv[]) {
         arguments[2] = NULL;
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL);
 
+        (void) rlimit_nofile_safe();
+
         if (can_initrd) {
                 r = switch_root_initramfs();
                 if (r >= 0) {
                         argv[0] = (char*) "/shutdown";
 
-                        setsid();
-                        make_console_stdio();
+                        (void) setsid();
+                        (void) make_console_stdio();
 
                         log_info("Successfully changed into root pivot.\n"
                                  "Returning to initrd...");

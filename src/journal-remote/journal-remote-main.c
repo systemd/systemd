@@ -81,6 +81,8 @@ static int spawn_child(const char* child, char** argv) {
                         _exit(EXIT_FAILURE);
                 }
 
+                (void) rlimit_nofile_safe();
+
                 execvp(child, argv);
                 log_error_errno(errno, "Failed to exec child %s: %m", child);
                 _exit(EXIT_FAILURE);

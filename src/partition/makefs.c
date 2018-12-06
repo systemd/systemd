@@ -28,7 +28,7 @@ static int makefs(const char *type, const char *device) {
         if (access(mkfs, X_OK) != 0)
                 return log_error_errno(errno, "%s is not executable: %m", mkfs);
 
-        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {

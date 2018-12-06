@@ -236,6 +236,7 @@ _noreturn_ static void crash(int sig) {
                 else if (pid == 0) {
                         (void) setsid();
                         (void) make_console_stdio();
+                        (void) rlimit_nofile_safe();
                         (void) execle("/bin/sh", "/bin/sh", NULL, environ);
 
                         log_emergency_errno(errno, "execle() failed: %m");
@@ -1733,6 +1734,7 @@ static void do_reexecute(
         /* Reenable any blocked signals, especially important if we switch from initial ramdisk to init=... */
         (void) reset_all_signal_handlers();
         (void) reset_signal_mask();
+        (void) rlimit_nofile_safe();
 
         if (switch_root_init) {
                 args[0] = switch_root_init;

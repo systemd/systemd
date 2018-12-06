@@ -12,6 +12,7 @@
 #include "mkdir.h"
 #include "nspawn-setuid.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -43,6 +44,8 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                         _exit(EXIT_FAILURE);
 
                 close_all_fds(NULL, 0);
+
+                (void) rlimit_nofile_safe();
 
                 execle("/usr/bin/getent", "getent", database, key, NULL, &empty_env);
                 execle("/bin/getent", "getent", database, key, NULL, &empty_env);

@@ -120,8 +120,6 @@ shared_sources = files('''
         reboot-util.h
         resolve-util.c
         resolve-util.h
-        rlimit-util.c
-        rlimit-util.h
         seccomp-util.h
         securebits-util.c
         securebits-util.h
