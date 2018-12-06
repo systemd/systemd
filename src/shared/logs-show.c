@@ -171,6 +171,10 @@ static bool print_multiline(
                         color_on = ANSI_HIGHLIGHT;
                         color_off = ANSI_NORMAL;
                         highlight_on = ANSI_HIGHLIGHT_RED;
+                } else if (priority >= LOG_DEBUG) {
+                        color_on = ANSI_GREY;
+                        color_off = ANSI_NORMAL;
+                        highlight_on = ANSI_HIGHLIGHT_RED;
                 }
         }
 

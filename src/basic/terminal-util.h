@@ -18,6 +18,7 @@
 #define ANSI_MAGENTA "\x1B[0;35m"
 #define ANSI_CYAN    "\x1B[0;36m"
 #define ANSI_WHITE   "\x1B[0;37m"
+#define ANSI_GREY    "\x1B[0;2;37m"
 
 /* Bold/highlighted */
 #define ANSI_HIGHLIGHT_BLACK   "\x1B[0;1;30m"
@@ -132,6 +133,7 @@ DEFINE_ANSI_FUNC(highlight_yellow,           HIGHLIGHT_YELLOW);
 DEFINE_ANSI_FUNC(highlight_blue,             HIGHLIGHT_BLUE);
 DEFINE_ANSI_FUNC(highlight_magenta,          HIGHLIGHT_MAGENTA);
 DEFINE_ANSI_FUNC(normal,                     NORMAL);
+DEFINE_ANSI_FUNC(grey,                       GREY);
 
 DEFINE_ANSI_FUNC_UNDERLINE(underline,                  UNDERLINE, NORMAL);
 DEFINE_ANSI_FUNC_UNDERLINE(highlight_underline,        HIGHLIGHT_UNDERLINE, HIGHLIGHT);

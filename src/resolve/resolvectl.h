@@ -26,4 +26,4 @@ extern char **arg_set_dns;
 extern char **arg_set_domain;
 extern bool arg_ifindex_permissive;
 
-int ifname_mangle(const char *s, bool allow_loopback);
+int ifname_mangle(const char *s);
