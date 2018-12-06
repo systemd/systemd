@@ -5,7 +5,6 @@
 
 #include <errno.h>
 #include <inttypes.h>
-#include <linux/falloc.h>
 #include <sys/syscall.h>
 
 #ifndef FS_NOCOW_FL
@@ -66,14 +65,6 @@
 
 #ifndef NS_GET_NSTYPE
 #define NS_GET_NSTYPE _IO(0xb7, 0x3)
-#endif
-
-#ifndef FALLOC_FL_KEEP_SIZE
-#define FALLOC_FL_KEEP_SIZE 0x01
-#endif
-
-#ifndef FALLOC_FL_PUNCH_HOLE
-#define FALLOC_FL_PUNCH_HOLE 0x02
 #endif
 
 #include "missing_audit.h"
