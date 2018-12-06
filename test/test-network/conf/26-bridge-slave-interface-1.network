@@ -9,3 +9,4 @@ Cost=400
 HairPin = true
 FastLeave = true
 UnicastFlood = true
+MulticastToUnicast = true
