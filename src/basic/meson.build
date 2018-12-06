@@ -108,6 +108,7 @@ basic_sources = files('''
         missing_mman.h
         missing_network.h
         missing_prctl.h
+        missing_random.h
         missing_resource.h
         missing_securebits.h
         missing_socket.h
