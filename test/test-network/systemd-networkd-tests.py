@@ -704,7 +704,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'forwarding'),'1')
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'proxy_arp'), '1')
 
-class NetworkdNetWorkBrideTests(unittest.TestCase, Utilities):
+class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
     links = ['dummy98', 'test1', 'bridge99']
 
     units = ['11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev', '26-bridge-slave-interface-1.network',
