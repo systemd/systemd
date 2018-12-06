@@ -604,6 +604,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'oif test1')
         self.assertRegex(output, 'lookup 7')
 
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
+
     def test_routing_policy_rule_port_range(self):
         self.copy_unit_to_networkd_unit_path('25-fibrule-port-range.network', '11-dummy.netdev')
         self.start_networkd()
@@ -619,6 +621,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
 
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
+
     def test_routing_policy_rule_invert(self):
         self.copy_unit_to_networkd_unit_path('25-fibrule-invert.network', '11-dummy.netdev')
         self.start_networkd()
@@ -631,6 +635,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'not.*?from.*?192.168.100.18')
         self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
+
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
 
     def test_address_preferred_lifetime_zero_ipv6(self):
         self.copy_unit_to_networkd_unit_path('25-address-section-miscellaneous.network', '12-dummy.netdev')
