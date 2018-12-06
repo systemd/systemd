@@ -8,7 +8,6 @@
 #include <inttypes.h>
 #include <linux/falloc.h>
 #include <stdlib.h>
-#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
 
@@ -28,13 +27,6 @@ struct sockaddr_vm {
                                sizeof(unsigned int)];
 };
 #endif /* !HAVE_LINUX_VM_SOCKETS_H */
-
-#ifndef RLIMIT_RTTIME
-#define RLIMIT_RTTIME 15
-#endif
-
-/* If RLIMIT_RTTIME is not defined, then we cannot use RLIMIT_NLIMITS as is */
-#define _RLIMIT_MAX (RLIMIT_RTTIME+1 > RLIMIT_NLIMITS ? RLIMIT_RTTIME+1 : RLIMIT_NLIMITS)
 
 #ifndef F_LINUX_SPECIFIC_BASE
 #define F_LINUX_SPECIFIC_BASE 1024
@@ -266,6 +258,7 @@ struct sockaddr_vm {
 #include "missing_magic.h"
 #include "missing_network.h"
 #include "missing_prctl.h"
+#include "missing_resource.h"
 #include "missing_type.h"
 
 #include "missing_syscall.h"
