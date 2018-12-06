@@ -20,6 +20,7 @@
 #include "macro.h"
 #include "socket-util.h"
 #include "tests.h"
+#include "util.h"
 #include "virt.h"
 
 static struct ether_addr mac_addr = {

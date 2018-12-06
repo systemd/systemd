@@ -3,10 +3,6 @@
 
 /* Missing glibc definitions to access certain kernel APIs */
 
-#include <errno.h>
-#include <inttypes.h>
-#include <sys/syscall.h>
-
 #include "missing_audit.h"
 #include "missing_btrfs_tree.h"
 #include "missing_capability.h"

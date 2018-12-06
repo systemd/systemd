@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <net/if.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
 
 #include "sd-device.h"

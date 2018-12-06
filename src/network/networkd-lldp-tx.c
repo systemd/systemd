@@ -8,6 +8,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "hostname-util.h"
+#include "missing_network.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
 #include "parse-util.h"

@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <netinet/icmp6.h>
 #include <arpa/inet.h>
+#include <netinet/icmp6.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "icmp6-util.h"

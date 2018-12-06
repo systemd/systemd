@@ -10,6 +10,7 @@
 #include "bus-util.h"
 #include "def.h"
 #include "fd-util.h"
+#include "missing_resource.h"
 #include "time-util.h"
 #include "util.h"
 

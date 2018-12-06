@@ -27,6 +27,7 @@
 #include "local-addresses.h"
 #include "machine-dbus.h"
 #include "machine.h"
+#include "missing_capability.h"
 #include "mkdir.h"
 #include "os-util.h"
 #include "path-util.h"

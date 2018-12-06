@@ -14,6 +14,7 @@
 #include "macro.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 #define TEST_TIMEOUT_USEC (20*USEC_PER_SEC)
 
