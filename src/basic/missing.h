@@ -68,10 +68,6 @@
 #  define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
 #endif
 
-#ifndef BPF_XOR
-#define BPF_XOR 0xa0
-#endif
-
 #ifndef RENAME_NOREPLACE
 #define RENAME_NOREPLACE (1 << 0)
 #endif
