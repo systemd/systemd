@@ -2,6 +2,7 @@
 #pragma once
 
 #include <linux/input.h>
+#include <linux/types.h>
 
 /* linux@c7dc65737c9a607d3e6f8478659876074ad129b8 (3.12) */
 #ifndef EVIOCREVOKE
@@ -11,9 +12,9 @@
 /* linux@06a16293f71927f756dcf37558a79c0b05a91641 (4.4) */
 #ifndef EVIOCSMASK
 struct input_mask {
-        uint32_t type;
-        uint32_t codes_size;
-        uint64_t codes_ptr;
+        __u32 type;
+        __u32 codes_size;
+        __u64 codes_ptr;
 };
 
 #define EVIOCGMASK _IOR('E', 0x92, struct input_mask)
