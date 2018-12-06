@@ -50,6 +50,11 @@
 #define IFA_F_MCAUTOJOIN 0x400
 #endif
 
+/* if_arp.h */
+#ifndef ARPHRD_IP6GRE
+#define ARPHRD_IP6GRE 823
+#endif
+
 /* if_bonding.h */
 #ifndef BOND_XMIT_POLICY_ENCAP23
 #define BOND_XMIT_POLICY_ENCAP23 3
