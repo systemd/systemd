@@ -105,6 +105,7 @@ basic_sources = files('''
         missing_input.h
         missing_keyctl.h
         missing_magic.h
+        missing_mman.h
         missing_network.h
         missing_prctl.h
         missing_resource.h
