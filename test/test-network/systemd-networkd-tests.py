@@ -3,15 +3,15 @@
 # systemd-networkd tests
 
 import os
-import sys
-import unittest
-import subprocess
-import time
 import re
 import shutil
 import signal
 import socket
+import subprocess
+import sys
 import threading
+import time
+import unittest
 from shutil import copytree
 
 network_unit_file_path='/run/systemd/network'
@@ -113,15 +113,16 @@ class Utilities():
 
             os.remove(pid_file)
 
-    def search_words_in_file(self, word):
+    def search_words_in_dnsmasq_log(self, words, show_all=False):
         if os.path.exists(dnsmasq_log_file):
             with open (dnsmasq_log_file) as in_file:
                 contents = in_file.read()
-                print(contents)
-                for part in contents.split():
-                    if word in part:
+                if show_all:
+                    print(contents)
+                for line in contents.split('\n'):
+                    if words in line:
                         in_file.close()
-                        print("%s, %s" % (word, part))
+                        print("%s, %s" % (words, line))
                         return True
         return False
 
@@ -141,6 +142,7 @@ class Utilities():
         else:
             subprocess.check_call('systemctl restart systemd-networkd', shell=True)
         time.sleep(5)
+        print()
 
 global ip
 global port
@@ -171,22 +173,82 @@ class DHCPServer(threading.Thread):
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
-    links =['bridge99', 'bond99', 'bond99', 'vlan99', 'test1', 'macvtap99',
-            'macvlan99', 'ipvlan99', 'vxlan99', 'veth99', 'vrf99', 'tun99',
-            'tap99', 'vcan99', 'geneve99', 'dummy98', 'ipiptun99', 'sittun99', '6rdtun99',
-            'gretap99', 'vtitun99', 'vti6tun99','ip6tnl99', 'gretun99', 'ip6gretap99',
-            'wg99', 'dropin-test', 'erspan-test', 'isataptun99']
+    links =[
+        '6rdtun99',
+        'bond99',
+        'bridge99',
+        'dropin-test',
+        'dummy98',
+        'erspan-test',
+        'geneve99',
+        'gretap99',
+        'gretun99',
+        'ip6gretap99',
+        'ip6tnl99',
+        'ipiptun99',
+        'ipvlan99',
+        'isataptun99',
+        'macvlan99',
+        'macvtap99',
+        'sittun99',
+        'tap99',
+        'test1',
+        'tun99',
+        'vcan99',
+        'veth99',
+        'vlan99',
+        'vrf99',
+        'vti6tun99',
+        'vtitun99',
+        'vxlan99',
+        'wg99']
 
-    units = ['25-bridge.netdev', '25-bond.netdev', '21-vlan.netdev', '11-dummy.netdev', '21-vlan.network',
-             '21-macvtap.netdev', 'macvtap.network', '21-macvlan.netdev', 'macvlan.network', 'vxlan.network',
-             '25-vxlan.netdev', '25-ipvlan.netdev', 'ipvlan.network', '25-veth.netdev', '25-vrf.netdev',
-             '25-tun.netdev', '25-tun.netdev', '25-vcan.netdev', '25-geneve.netdev', '25-ipip-tunnel.netdev',
-             '25-ip6tnl-tunnel.netdev', '25-ip6gre-tunnel.netdev', '25-sit-tunnel.netdev', '25-6rd-tunnel.netdev',
-             '25-erspan-tunnel.netdev', '25-gre-tunnel.netdev', '25-gretap-tunnel.netdev', '25-vti-tunnel.netdev',
-             '25-vti6-tunnel.netdev', '12-dummy.netdev', 'gre.network', 'ipip.network', 'ip6gretap.network',
-             'gretun.network', 'ip6tnl.network', '25-tap.netdev', 'vti6.network', 'vti.network', 'gretap.network',
-             'sit.network', '25-ipip-tunnel-independent.netdev', '25-wireguard.netdev', '6rd.network', '10-dropin-test.netdev',
-             '25-isatap-tunnel.netdev', 'isatap.network']
+    units = [
+        '10-dropin-test.netdev',
+        '11-dummy.netdev',
+        '12-dummy.netdev',
+        '21-macvlan.netdev',
+        '21-macvtap.netdev',
+        '21-vlan.netdev',
+        '21-vlan.network',
+        '25-6rd-tunnel.netdev',
+        '25-bond.netdev',
+        '25-bridge.netdev',
+        '25-erspan-tunnel.netdev',
+        '25-geneve.netdev',
+        '25-gretap-tunnel.netdev',
+        '25-gre-tunnel.netdev',
+        '25-ip6gre-tunnel.netdev',
+        '25-ip6tnl-tunnel.netdev',
+        '25-ipip-tunnel-independent.netdev',
+        '25-ipip-tunnel.netdev',
+        '25-ipvlan.netdev',
+        '25-isatap-tunnel.netdev',
+        '25-sit-tunnel.netdev',
+        '25-tap.netdev',
+        '25-tun.netdev',
+        '25-vcan.netdev',
+        '25-veth.netdev',
+        '25-vrf.netdev',
+        '25-vti6-tunnel.netdev',
+        '25-vti-tunnel.netdev',
+        '25-vxlan.netdev',
+        '25-wireguard.netdev',
+        '6rd.network',
+        'gre.network',
+        'gretap.network',
+        'gretun.network',
+        'ip6gretap.network',
+        'ip6tnl.network',
+        'ipip.network',
+        'ipvlan.network',
+        'isatap.network',
+        'macvlan.network',
+        'macvtap.network',
+        'sit.network',
+        'vti6.network',
+        'vti.network',
+        'vxlan.network']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -197,7 +259,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def test_dropin(self):
         self.copy_unit_to_networkd_unit_path('10-dropin-test.netdev')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dropin-test'))
@@ -241,12 +302,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def test_vlan(self):
         self.copy_unit_to_networkd_unit_path('21-vlan.netdev', '11-dummy.netdev', '21-vlan.network')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('vlan99'))
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vlan99']).rstrip().decode('utf-8')
+        print(output)
         self.assertTrue(output, 'REORDER_HDR')
         self.assertTrue(output, 'LOOSE_BINDING')
         self.assertTrue(output, 'GVRP')
@@ -255,14 +316,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def test_macvtap(self):
         self.copy_unit_to_networkd_unit_path('21-macvtap.netdev', '11-dummy.netdev', 'macvtap.network')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('macvtap99'))
 
     def test_macvlan(self):
         self.copy_unit_to_networkd_unit_path('21-macvlan.netdev', '11-dummy.netdev', 'macvlan.network')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('macvlan99'))
@@ -270,35 +329,30 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     @expectedFailureIfModuleIsNotAvailable('ipvlan')
     def test_ipvlan(self):
         self.copy_unit_to_networkd_unit_path('25-ipvlan.netdev', '11-dummy.netdev', 'ipvlan.network')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('ipvlan99'))
 
     def test_veth(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('veth99'))
 
     def test_dummy(self):
         self.copy_unit_to_networkd_unit_path('11-dummy.netdev')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('test1'))
 
     def test_tun(self):
         self.copy_unit_to_networkd_unit_path('25-tun.netdev')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('tun99'))
 
     def test_tap(self):
         self.copy_unit_to_networkd_unit_path('25-tap.netdev')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('tap99'))
@@ -306,7 +360,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_vrf(self):
         self.copy_unit_to_networkd_unit_path('25-vrf.netdev')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('vrf99'))
@@ -314,7 +367,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     @expectedFailureIfModuleIsNotAvailable('vcan')
     def test_vcan(self):
         self.copy_unit_to_networkd_unit_path('25-vcan.netdev')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('vcan99'))
@@ -322,7 +374,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
         self.copy_unit_to_networkd_unit_path('25-wireguard.netdev')
-
         self.start_networkd()
 
         if shutil.which('wg'):
@@ -332,12 +383,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def test_geneve(self):
         self.copy_unit_to_networkd_unit_path('25-geneve.netdev')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('geneve99'))
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'geneve99']).rstrip().decode('utf-8')
+        print(output)
         self.assertTrue(output, '192.168.22.1')
         self.assertTrue(output, '6082')
         self.assertTrue(output, 'udpcsum')
@@ -405,7 +456,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('isataptun99'))
+
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'isataptun99']).rstrip().decode('utf-8')
+        print(output)
         self.assertRegex(output, "isatap ")
 
     def test_6rd_tunnel(self):
@@ -429,18 +482,18 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def test_tunnel_independent(self):
         self.copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev')
-
         self.start_networkd()
+
         self.assertTrue(self.link_exits('ipiptun99'))
 
     def test_vxlan(self):
         self.copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network','11-dummy.netdev')
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('vxlan99'))
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vxlan99']).rstrip().decode('utf-8')
+        print(output)
         self.assertRegex(output, "999")
         self.assertRegex(output, '5555')
         self.assertRegex(output, 'l2miss')
@@ -453,16 +506,36 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'gbp')
 
 class NetworkdNetWorkTests(unittest.TestCase, Utilities):
-    links = ['dummy98', 'test1', 'bond199']
+    links = [
+        'bond199',
+        'dummy98',
+        'test1']
 
-    units = ['12-dummy.netdev', 'test-static.network', 'configure-without-carrier.network', '11-dummy.netdev',
-             '23-primary-slave.network', '23-test1-bond199.network', '11-dummy.netdev', '23-bond199.network',
-             '25-bond-active-backup-slave.netdev', '12-dummy.netdev', '23-active-slave.network',
-             'routing-policy-rule.network', '25-fibrule-port-range.network', '25-fibrule-invert.network', '25-address-section.network',
-             '25-address-section-miscellaneous.network', '25-route-section.network', '25-route-type.network',
-             '25-route-tcp-window-settings.network', '25-route-gateway.network', '25-route-gateway-on-link.network',
-             '25-address-link-section.network', '25-ipv6-address-label-section.network', '25-link-section-unmanaged.network',
-             '25-sysctl.network', '25-route-reverse-order.network']
+    units = [
+        '11-dummy.netdev',
+        '12-dummy.netdev',
+        '23-active-slave.network',
+        '23-bond199.network',
+        '23-primary-slave.network',
+        '23-test1-bond199.network',
+        '25-address-link-section.network',
+        '25-address-section-miscellaneous.network',
+        '25-address-section.network',
+        '25-bond-active-backup-slave.netdev',
+        '25-fibrule-invert.network',
+        '25-fibrule-port-range.network',
+        '25-ipv6-address-label-section.network',
+        '25-link-section-unmanaged.network',
+        '25-route-gateway.network',
+        '25-route-gateway-on-link.network',
+        '25-route-reverse-order.network',
+        '25-route-section.network',
+        '25-route-tcp-window-settings.network',
+        '25-route-type.network',
+        '25-sysctl.network',
+        'configure-without-carrier.network',
+        'routing-policy-rule.network',
+        'test-static.network']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -476,6 +549,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
+
         output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '192.168.0.15')
@@ -487,6 +561,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd()
 
         self.assertTrue(self.link_exits('test1'))
+
         output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '192.168.0.15')
@@ -499,6 +574,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('bond199'))
+
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, 'active_slave dummy98')
@@ -509,6 +585,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('test1'))
         self.assertTrue(self.link_exits('bond199'))
+
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, 'primary test1')
@@ -518,6 +595,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.start_networkd()
 
         self.assertTrue(self.link_exits('test1'))
+
         output = subprocess.check_output(['ip', 'rule']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '111')
@@ -527,11 +605,14 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'oif test1')
         self.assertRegex(output, 'lookup 7')
 
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
+
     def test_routing_policy_rule_port_range(self):
         self.copy_unit_to_networkd_unit_path('25-fibrule-port-range.network', '11-dummy.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('test1'))
+
         output = subprocess.check_output(['ip', 'rule']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '111')
@@ -541,18 +622,22 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
 
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
+
     def test_routing_policy_rule_invert(self):
         self.copy_unit_to_networkd_unit_path('25-fibrule-invert.network', '11-dummy.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('test1'))
+
         output = subprocess.check_output(['ip', 'rule']).rstrip().decode('utf-8')
         print(output)
-
         self.assertRegex(output, '111')
         self.assertRegex(output, 'not.*?from.*?192.168.100.18')
         self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
+
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
 
     def test_address_preferred_lifetime_zero_ipv6(self):
         self.copy_unit_to_networkd_unit_path('25-address-section-miscellaneous.network', '12-dummy.netdev')
@@ -704,11 +789,19 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'forwarding'),'1')
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'proxy_arp'), '1')
 
-class NetworkdNetWorkBrideTests(unittest.TestCase, Utilities):
-    links = ['dummy98', 'test1', 'bridge99']
+class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
+    links = [
+        'bridge99',
+        'dummy98',
+        'test1']
 
-    units = ['11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev', '26-bridge-slave-interface-1.network',
-             '26-bridge-slave-interface-2.network', 'bridge99.network']
+    units = [
+        '11-dummy.netdev',
+        '12-dummy.netdev',
+        '26-bridge.netdev',
+        '26-bridge-slave-interface-1.network',
+        '26-bridge-slave-interface-2.network',
+        'bridge99.network']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -744,7 +837,6 @@ class NetworkdNetWorkBrideTests(unittest.TestCase, Utilities):
 
         output = subprocess.check_output(['bridge', '-d', 'link', 'show', 'dummy98']).rstrip().decode('utf-8')
         print(output)
-
         self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'hairpin_mode'), '1')
         self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'path_cost'), '400')
         self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'unicast_flood'), '1')
@@ -757,7 +849,10 @@ class NetworkdNetWorkBrideTests(unittest.TestCase, Utilities):
 class NetworkdNetWorkLLDPTests(unittest.TestCase, Utilities):
     links = ['veth99']
 
-    units = ['23-emit-lldp.network', '24-lldp.network', '25-veth.netdev']
+    units = [
+        '23-emit-lldp.network',
+        '24-lldp.network',
+        '25-veth.netdev']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -780,7 +875,10 @@ class NetworkdNetWorkLLDPTests(unittest.TestCase, Utilities):
 class NetworkdNetworkRATests(unittest.TestCase, Utilities):
     links = ['veth99']
 
-    units = ['25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth.network']
+    units = [
+        '25-veth.netdev',
+        'ipv6-prefix.network',
+        'ipv6-prefix-veth.network']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -800,10 +898,18 @@ class NetworkdNetworkRATests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2002:da8:1:0')
 
 class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
-    links = ['veth99', 'dummy98']
+    links = [
+        'dummy98',
+        'veth99']
 
-    units = ['25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network', '12-dummy.netdev', '24-search-domain.network',
-             'dhcp-client-timezone-router.network', 'dhcp-server-timezone-router.network']
+    units = [
+        '12-dummy.netdev',
+        '24-search-domain.network',
+        '25-veth.netdev',
+        'dhcp-client.network',
+        'dhcp-client-timezone-router.network',
+        'dhcp-server.network',
+        'dhcp-server-timezone-router.network']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -817,8 +923,6 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
         self.start_networkd()
 
         self.assertTrue(self.link_exits('veth99'))
-
-        time.sleep(5)
 
         output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
         print(output)
@@ -852,14 +956,24 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'Europe/Berlin')
 
 class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
-    links = ['veth99', 'dummy98']
+    links = [
+        'dummy98',
+        'veth99']
 
-    units = ['25-veth.netdev', 'dhcp-server-veth-peer.network','dhcp-client-ipv6-only.network',
-             'dhcp-client-ipv4-only-ipv6-disabled.network', 'dhcp-client-ipv4-only.network',
-             'dhcp-client-ipv4-dhcp-settings.network', 'dhcp-client-anonymize.network',
-             'dhcp-client-ipv6-rapid-commit.network', 'dhcp-client-route-table.network',
-             'dhcp-v4-server-veth-peer.network', 'dhcp-client-listen-port.network',
-             'dhcp-client-route-metric.network', 'dhcp-client-critical-connection.network']
+    units = [
+        '25-veth.netdev',
+        'dhcp-client-anonymize.network',
+        'dhcp-client-critical-connection.network',
+        'dhcp-client-ipv4-dhcp-settings.network',
+        'dhcp-client-ipv4-only-ipv6-disabled.network',
+        'dhcp-client-ipv4-only.network',
+        'dhcp-client-ipv6-only.network',
+        'dhcp-client-ipv6-rapid-commit.network',
+        'dhcp-client-listen-port.network',
+        'dhcp-client-route-metric.network',
+        'dhcp-client-route-table.network',
+        'dhcp-server-veth-peer.network',
+        'dhcp-v4-server-veth-peer.network']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -930,10 +1044,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'default.*dev veth99 proto dhcp')
 
-        self.search_words_in_file('vendor class: SusantVendorTest')
-        self.search_words_in_file('client MAC address: 12:34:56:78:9a:bc')
-        self.search_words_in_file('client provides name: test-hostname')
-        self.search_words_in_file('26:mtu')
+        self.assertTrue(self.search_words_in_dnsmasq_log('vendor class: SusantVendorTest', True))
+        self.assertTrue(self.search_words_in_dnsmasq_log('DHCPDISCOVER(veth-peer) 12:34:56:78:9a:bc'))
+        self.assertTrue(self.search_words_in_dnsmasq_log('client provides name: test-hostname'))
+        self.assertTrue(self.search_words_in_dnsmasq_log('26:mtu'))
 
     def test_dhcp6_client_settings_rapidcommit_true(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network')
@@ -946,8 +1060,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '12:34:56:78:9a:bc')
-
-        self.assertTrue(self.search_words_in_file('14:rapid-commit'))
+        self.assertTrue(self.search_words_in_dnsmasq_log('14:rapid-commit', True))
 
     def test_dhcp6_client_settings_rapidcommit_false(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-rapid-commit.network')
@@ -960,8 +1073,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '12:34:56:78:9a:bc')
-
-        self.assertFalse(self.search_words_in_file('14:rapid-commit'))
+        self.assertFalse(self.search_words_in_dnsmasq_log('14:rapid-commit', True))
 
     def test_dhcp_client_settings_anonymize(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-anonymize.network')
@@ -970,12 +1082,14 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('veth99'))
 
         self.start_dnsmasq()
-        self.assertFalse(self.search_words_in_file('VendorClassIdentifier=SusantVendorTest'))
-        self.assertFalse(self.search_words_in_file('test-hostname'))
-        self.assertFalse(self.search_words_in_file('26:mtu'))
+
+        self.assertFalse(self.search_words_in_dnsmasq_log('VendorClassIdentifier=SusantVendorTest', True))
+        self.assertFalse(self.search_words_in_dnsmasq_log('test-hostname'))
+        self.assertFalse(self.search_words_in_dnsmasq_log('26:mtu'))
 
     def test_dhcp_client_listen_port(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-listen-port.network')
+
         dh_server = DHCPServer("dhcp_server")
         dh_server.start()
 
@@ -994,39 +1108,40 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
     def test_dhcp_route_table_id(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-table.network')
         self.start_networkd()
-        self.start_dnsmasq()
 
         self.assertTrue(self.link_exits('veth99'))
 
+        self.start_dnsmasq()
+
         output = subprocess.check_output(['ip', 'route', 'show', 'table', '12']).rstrip().decode('utf-8')
         print(output)
-
         self.assertRegex(output, 'veth99 proto dhcp')
         self.assertRegex(output, '192.168.5.1')
 
     def test_dhcp_route_metric(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-metric.network')
         self.start_networkd()
-        self.start_dnsmasq()
 
         self.assertTrue(self.link_exits('veth99'))
 
+        self.start_dnsmasq()
+
         output = subprocess.check_output(['ip', 'route', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
         print(output)
-
         self.assertRegex(output, 'metric 24')
 
     def test_dhcp_route_criticalconnection_true(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-critical-connection.network')
         self.start_networkd()
-        self.start_dnsmasq()
 
         self.assertTrue(self.link_exits('veth99'))
 
+        self.start_dnsmasq()
+
         output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
         print(output)
-
         self.assertRegex(output, '192.168.5.*')
+
         # Stoping dnsmasq as networkd won't be allowed to renew the DHCP lease.
         self.stop_dnsmasq(dnsmasq_pid_file)
 
