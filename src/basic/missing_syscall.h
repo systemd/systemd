@@ -6,9 +6,19 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <unistd.h>
+
+#ifdef ARCH_MIPS
+#include <asm/sgidefs.h>
+#endif
 
 #include "missing_keyctl.h"
 #include "missing_stat.h"
+
+/* linux/kcmp.h */
+#ifndef KCMP_FILE /* 3f4994cfc15f38a3159c6e3a4b3ab2e1481a6b02 (3.19) */
+#define KCMP_FILE 0
+#endif
 
 #if !HAVE_PIVOT_ROOT
 static inline int missing_pivot_root(const char *new_root, const char *put_old) {
@@ -257,7 +267,7 @@ static inline int missing_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long i
 /* ======================================================================= */
 
 #if !HAVE_KEYCTL
-static inline long missing_keyctl(int cmd, unsigned long arg2, unsigned long arg3, unsigned long arg4,unsigned long arg5) {
+static inline long missing_keyctl(int cmd, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) {
 #  ifdef __NR_keyctl
         return syscall(__NR_keyctl, cmd, arg2, arg3, arg4, arg5);
 #  else
