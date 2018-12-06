@@ -9,10 +9,6 @@
 #include <stdlib.h>
 #include <sys/syscall.h>
 
-#ifndef TIOCVHANGUP
-#define TIOCVHANGUP 0x5437
-#endif
-
 #ifndef GRND_NONBLOCK
 #define GRND_NONBLOCK 0x0001
 #endif
