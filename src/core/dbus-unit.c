@@ -662,8 +662,8 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("AssertResult", "b", bus_property_get_bool, offsetof(Unit, assert_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("ConditionTimestamp", offsetof(Unit, condition_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("AssertTimestamp", offsetof(Unit, assert_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Conditions", "a(sbbsi)", property_get_conditions, offsetof(Unit, conditions), 0),
-        SD_BUS_PROPERTY("Asserts", "a(sbbsi)", property_get_conditions, offsetof(Unit, asserts), 0),
+        SD_BUS_PROPERTY("Conditions", "a(sbbsi)", property_get_conditions, offsetof(Unit, conditions), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        SD_BUS_PROPERTY("Asserts", "a(sbbsi)", property_get_conditions, offsetof(Unit, asserts), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Perpetual", "b", bus_property_get_bool, offsetof(Unit, perpetual), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -675,8 +675,8 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("SuccessAction", "s", property_get_emergency_action, offsetof(Unit, success_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SuccessActionExitStatus", "i", bus_property_get_int, offsetof(Unit, success_action_exit_status), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Unit, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("InvocationID", "ay", bus_property_get_id128, offsetof(Unit, invocation_id), 0),
-        SD_BUS_PROPERTY("CollectMode", "s", property_get_collect_mode, offsetof(Unit, collect_mode), 0),
+        SD_BUS_PROPERTY("InvocationID", "ay", bus_property_get_id128, offsetof(Unit, invocation_id), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("CollectMode", "s", property_get_collect_mode, offsetof(Unit, collect_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Refs", "as", property_get_refs, 0, 0),
 
         SD_BUS_METHOD("Start", "s", "o", method_start, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1202,6 +1202,27 @@ void bus_unit_send_change_signal(Unit *u) {
         u->sent_dbus_new_signal = true;
 }
 
+void bus_unit_send_pending_change_signal(Unit *u, bool including_new) {
+
+        /* Sends out any pending change signals, but only if they really are pending. This call is used when we are
+         * about to change state in order to force out a PropertiesChanged signal beforehand if there was one pending
+         * so that clients can follow the full state transition */
+
+        if (!u->in_dbus_queue) /* If not enqueued, don't bother */
+                return;
+
+        if (!u->sent_dbus_new_signal && !including_new) /* If the unit was never announced, don't bother, it's fine if
+                                                         * the unit appears in the new state right-away (except if the
+                                                         * caller explicitly asked us to send it anyway) */
+                return;
+
+        if (MANAGER_IS_RELOADING(u->manager)) /* Don't generate unnecessary PropertiesChanged signals for the same unit
+                                               * when we are reloading. */
+                return;
+
+        bus_unit_send_change_signal(u);
+}
+
 static int send_removed_signal(sd_bus *bus, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
@@ -1299,6 +1320,9 @@ int bus_unit_queue_job(
         path = job_dbus_path(j);
         if (!path)
                 return -ENOMEM;
+
+        /* Before we send the method reply, force out the announcement JobNew for this job */
+        bus_job_send_pending_change_signal(j, true);
 
         return sd_bus_reply_method_return(message, "o", path);
 }

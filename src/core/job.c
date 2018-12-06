@@ -236,6 +236,9 @@ Job* job_install(Job *j) {
 
         job_add_to_gc_queue(j);
 
+        job_add_to_dbus_queue(j); /* announce this job to clients */
+        unit_add_to_dbus_queue(j->unit); /* The Job property of the unit has changed now */
+
         return j;
 }
 

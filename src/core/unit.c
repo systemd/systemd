@@ -1639,6 +1639,8 @@ static bool unit_condition_test(Unit *u) {
         dual_timestamp_get(&u->condition_timestamp);
         u->condition_result = unit_condition_test_list(u, u->conditions, condition_type_to_string);
 
+        unit_add_to_dbus_queue(u);
+
         return u->condition_result;
 }
 
@@ -1647,6 +1649,8 @@ static bool unit_assert_test(Unit *u) {
 
         dual_timestamp_get(&u->assert_timestamp);
         u->assert_result = unit_condition_test_list(u, u->asserts, assert_type_to_string);
+
+        unit_add_to_dbus_queue(u);
 
         return u->assert_result;
 }
@@ -2339,6 +2343,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
         m = u->manager;
 
+        /* Let's enqueue the change signal early. In case this unit has a job associated we want that this unit is in
+         * the bus queue, so that any job change signal queued will force out the unit change signal first. */
+        unit_add_to_dbus_queue(u);
+
         /* Update timestamps for state changes */
         if (!MANAGER_IS_RELOADING(m)) {
                 dual_timestamp_get(&u->state_change_timestamp);
@@ -2497,7 +2505,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                 }
         }
 
-        unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
 }
 
@@ -4930,7 +4937,7 @@ void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid) {
 
         r = unit_ref_uid_gid(u, uid, gid);
         if (r > 0)
-                bus_unit_send_change_signal(u);
+                unit_add_to_dbus_queue(u);
 }
 
 int unit_set_invocation_id(Unit *u, sd_id128_t id) {
@@ -4984,6 +4991,7 @@ int unit_acquire_invocation_id(Unit *u) {
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to set invocation ID for unit: %m");
 
+        unit_add_to_dbus_queue(u);
         return 0;
 }
 

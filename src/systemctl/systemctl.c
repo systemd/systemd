@@ -2799,63 +2799,87 @@ static void wait_context_free(WaitContext *c) {
 }
 
 static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        const char *path, *interface, *active_state = NULL, *job_path = NULL;
         WaitContext *c = userdata;
-        const char *path;
+        bool is_failed;
         int r;
+
+        /* Called whenever we get a PropertiesChanged signal. Checks if ActiveState changed to inactive/failed.
+         *
+         * Signal parameters: (s interface, a{sv} changed_properties, as invalidated_properties) */
 
         path = sd_bus_message_get_path(m);
         if (!set_contains(c->unit_paths, path))
                 return 0;
 
-        /* Check if ActiveState changed to inactive/failed */
-        /* (s interface, a{sv} changed_properties, as invalidated_properties) */
-        r = sd_bus_message_skip(m, "s");
+        r = sd_bus_message_read(m, "s", &interface);
         if (r < 0)
                 return bus_log_parse_error(r);
+
+        if (!streq(interface, "org.freedesktop.systemd1.Unit")) /* ActiveState is on the Unit interface */
+                return 0;
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
+        for (;;) {
                 const char *s;
 
-                r = sd_bus_message_read(m, "s", &s);
+                r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0) /* end of array */
+                        break;
+
+                r = sd_bus_message_read(m, "s", &s); /* Property name */
                 if (r < 0)
                         return bus_log_parse_error(r);
 
                 if (streq(s, "ActiveState")) {
-                        bool is_failed;
-
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_VARIANT, "s");
+                        r = sd_bus_message_read(m, "v", "s", &active_state);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        r = sd_bus_message_read(m, "s", &s);
+                        if (job_path) /* Found everything we need */
+                                break;
+
+                } else if (streq(s, "Job")) {
+                        uint32_t job_id;
+
+                        r = sd_bus_message_read(m, "v", "(uo)", &job_id, &job_path);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        is_failed = streq(s, "failed");
-                        if (streq(s, "inactive") || is_failed) {
-                                log_debug("%s became %s, dropping from --wait tracking", path, s);
-                                free(set_remove(c->unit_paths, path));
-                                c->any_failed = c->any_failed || is_failed;
-                        } else
-                                log_debug("ActiveState on %s changed to %s", path, s);
+                        /* There's still a job pending for this unit, let's ignore this for now, and return right-away. */
+                        if (job_id != 0)
+                                return 0;
 
-                        break; /* no need to dissect the rest of the message */
+                        if (active_state) /* Found everything we need */
+                                break;
+
                 } else {
-                        /* other property */
-                        r = sd_bus_message_skip(m, "v");
+                        r = sd_bus_message_skip(m, "v"); /* Other property */
                         if (r < 0)
                                 return bus_log_parse_error(r);
                 }
+
                 r = sd_bus_message_exit_container(m);
                 if (r < 0)
                         return bus_log_parse_error(r);
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
+
+        /* If this didn't contain the ActiveState property we can't do anything */
+        if (!active_state)
+                return 0;
+
+        is_failed = streq(active_state, "failed");
+        if (streq(active_state, "inactive") || is_failed) {
+                log_debug("%s became %s, dropping from --wait tracking", path, active_state);
+                free(set_remove(c->unit_paths, path));
+                c->any_failed = c->any_failed || is_failed;
+        } else
+                log_debug("ActiveState on %s changed to %s", path, active_state);
 
         if (set_isempty(c->unit_paths))
                 sd_event_exit(c->event, EXIT_SUCCESS);

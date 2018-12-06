@@ -17,6 +17,7 @@
 #include "bus-util.h"
 #include "copy.h"
 #include "dbus-socket.h"
+#include "dbus-unit.h"
 #include "def.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -1741,6 +1742,9 @@ static int socket_check_open(Socket *s) {
 static void socket_set_state(Socket *s, SocketState state) {
         SocketState old_state;
         assert(s);
+
+        if (s->state != state)
+                bus_unit_send_pending_change_signal(UNIT(s), false);
 
         old_state = s->state;
         s->state = state;

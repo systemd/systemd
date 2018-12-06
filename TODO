@@ -23,6 +23,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* when importing an fs tree with machined, optionally apply userns-rec-chown
+
+* when importing an fs tree with machined, complain if image is not an OS
+
 * when we fork off generators and such, lower LIMIT_NOFILE soft limit to 1K
 
 * rework seccomp/nnp logic that that even if User= is used in combination with

@@ -16,6 +16,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "dbus-automount.h"
+#include "dbus-unit.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
@@ -236,6 +237,9 @@ static int automount_load(Unit *u) {
 static void automount_set_state(Automount *a, AutomountState state) {
         AutomountState old_state;
         assert(a);
+
+        if (a->state != state)
+                bus_unit_send_pending_change_signal(UNIT(a), false);
 
         old_state = a->state;
         a->state = state;

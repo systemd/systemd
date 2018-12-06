@@ -12,6 +12,7 @@
 #include "bus-kernel.h"
 #include "bus-util.h"
 #include "dbus-service.h"
+#include "dbus-unit.h"
 #include "def.h"
 #include "env-util.h"
 #include "escape.h"
@@ -1034,6 +1035,9 @@ static void service_set_state(Service *s, ServiceState state) {
         const UnitActiveState *table;
 
         assert(s);
+
+        if (s->state != state)
+                bus_unit_send_pending_change_signal(UNIT(s), false);
 
         table = s->type == SERVICE_IDLE ? state_translation_table_idle : state_translation_table;
 

@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "dbus-mount.h"
+#include "dbus-unit.h"
 #include "device.h"
 #include "escape.h"
 #include "exit-status.h"
@@ -639,6 +640,9 @@ static int mount_load(Unit *u) {
 static void mount_set_state(Mount *m, MountState state) {
         MountState old_state;
         assert(m);
+
+        if (m->state != state)
+                bus_unit_send_pending_change_signal(UNIT(m), false);
 
         old_state = m->state;
         m->state = state;
