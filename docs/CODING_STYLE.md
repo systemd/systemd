@@ -11,7 +11,7 @@
 
 - Don't break code lines too eagerly. We do **not** force line breaks at 80ch,
   all of today's screens should be much larger than that. But then again, don't
-  overdo it, ~119ch should be enough really. The `.editorconfig`, `.vimrc` and
+  overdo it, ~109ch should be enough really. The `.editorconfig`, `.vimrc` and
   `.dir-locals.el` files contained in the repository will set this limit up for
   you automatically, if you let them (as well as a few other things).
 
