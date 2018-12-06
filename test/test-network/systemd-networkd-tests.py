@@ -61,6 +61,15 @@ class Utilities():
         with open(os.path.join(os.path.join(os.path.join('/sys/class/net/', link), dev), attribute)) as f:
             return f.readline().strip()
 
+    def read_bridge_port_attr(self, bridge, link, attribute):
+
+        path_bridge = os.path.join('/sys/devices/virtual/net', bridge)
+        path_port = 'lower_' + link + '/brport'
+        path = os.path.join(path_bridge, path_port)
+
+        with open(os.path.join(path, attribute)) as f:
+            return f.readline().strip()
+
     def link_exits(self, link):
         return os.path.exists(os.path.join('/sys/class/net', link))
 
@@ -735,10 +744,15 @@ class NetworkdNetWorkBrideTests(unittest.TestCase, Utilities):
 
         output = subprocess.check_output(['bridge', '-d', 'link', 'show', 'dummy98']).rstrip().decode('utf-8')
         print(output)
-        self.assertRegex(output, 'cost 400')
-        self.assertRegex(output, 'hairpin on')
-        self.assertRegex(output, 'flood on')
-        self.assertRegex(output, 'fastleave on')
+
+        self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'hairpin_mode'), '1')
+        self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'path_cost'), '400')
+        self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'unicast_flood'), '1')
+        self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'multicast_fast_leave'), '1')
+
+        # CONFIG_BRIDGE_IGMP_SNOOPING=y
+        if (os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast')):
+            self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'multicast_to_unicast'), '1')
 
 class NetworkdNetWorkLLDPTests(unittest.TestCase, Utilities):
     links = ['veth99']
