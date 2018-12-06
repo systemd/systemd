@@ -4,7 +4,7 @@
 " You should consider setting 'set secure' as well, which is highly
 " recommended!
 
-" Note that we set a line width of 119 for .c and XML files, but for everything
+" Note that we set a line width of 109 for .c and XML files, but for everything
 " else (such as journal catalog files, unit files, README files) we stick to a
 " more conservative 79 characters.
 
@@ -16,5 +16,5 @@ set shiftwidth=8
 set expandtab
 set makeprg=GCC_COLORS=\ make
 set tw=79
-au BufRead,BufNewFile *.xml set tw=119 shiftwidth=2 smarttab
-au FileType c set tw=119
+au BufRead,BufNewFile *.xml set tw=109 shiftwidth=2 smarttab
+au FileType c set tw=109
