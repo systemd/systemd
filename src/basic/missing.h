@@ -8,7 +8,6 @@
 #include <inttypes.h>
 #include <linux/audit.h>
 #include <linux/falloc.h>
-#include <linux/oom.h>
 #include <stdlib.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -85,14 +84,6 @@ struct sockaddr_vm {
 
 #ifndef IP_FREEBIND
 #define IP_FREEBIND 15
-#endif
-
-#ifndef OOM_SCORE_ADJ_MIN
-#define OOM_SCORE_ADJ_MIN (-1000)
-#endif
-
-#ifndef OOM_SCORE_ADJ_MAX
-#define OOM_SCORE_ADJ_MAX 1000
 #endif
 
 #ifndef AUDIT_SERVICE_START
