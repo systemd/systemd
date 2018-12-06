@@ -141,6 +141,7 @@ class Utilities():
         else:
             subprocess.check_call('systemctl restart systemd-networkd', shell=True)
         time.sleep(5)
+        print()
 
 global ip
 global port
