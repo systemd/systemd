@@ -4,7 +4,6 @@
 /* Missing glibc definitions to access certain kernel APIs */
 
 #include <errno.h>
-#include <fcntl.h>
 #include <inttypes.h>
 #include <linux/falloc.h>
 #include <stdlib.h>
@@ -27,34 +26,6 @@ struct sockaddr_vm {
                                sizeof(unsigned int)];
 };
 #endif /* !HAVE_LINUX_VM_SOCKETS_H */
-
-#ifndef F_LINUX_SPECIFIC_BASE
-#define F_LINUX_SPECIFIC_BASE 1024
-#endif
-
-#ifndef F_SETPIPE_SZ
-#define F_SETPIPE_SZ (F_LINUX_SPECIFIC_BASE + 7)
-#endif
-
-#ifndef F_GETPIPE_SZ
-#define F_GETPIPE_SZ (F_LINUX_SPECIFIC_BASE + 8)
-#endif
-
-#ifndef F_ADD_SEALS
-#define F_ADD_SEALS (F_LINUX_SPECIFIC_BASE + 9)
-#define F_GET_SEALS (F_LINUX_SPECIFIC_BASE + 10)
-
-#define F_SEAL_SEAL     0x0001  /* prevent further seals from being set */
-#define F_SEAL_SHRINK   0x0002  /* prevent file from shrinking */
-#define F_SEAL_GROW     0x0004  /* prevent file from growing */
-#define F_SEAL_WRITE    0x0008  /* prevent writes */
-#endif
-
-#ifndef F_OFD_GETLK
-#define F_OFD_GETLK     36
-#define F_OFD_SETLK     37
-#define F_OFD_SETLKW    38
-#endif
 
 #ifndef MFD_ALLOW_SEALING
 #define MFD_ALLOW_SEALING 0x0002U
@@ -148,10 +119,6 @@ struct sockaddr_vm {
 #define DM_DEFERRED_REMOVE (1 << 17)
 #endif
 
-#ifndef MAX_HANDLE_SZ
-#define MAX_HANDLE_SZ 128
-#endif
-
 #if ! HAVE_SECURE_GETENV
 #  if HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv
@@ -182,30 +149,6 @@ struct sockaddr_vm {
 
 #ifndef DRM_IOCTL_DROP_MASTER
 #  define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
-#endif
-
-/* The precise definition of __O_TMPFILE is arch specific; use the
- * values defined by the kernel (note: some are hexa, some are octal,
- * duplicated as-is from the kernel definitions):
- * - alpha, parisc, sparc: each has a specific value;
- * - others: they use the "generic" value.
- */
-
-#ifndef __O_TMPFILE
-#if defined(__alpha__)
-#define __O_TMPFILE     0100000000
-#elif defined(__parisc__) || defined(__hppa__)
-#define __O_TMPFILE     0400000000
-#elif defined(__sparc__) || defined(__sparc64__)
-#define __O_TMPFILE     0x2000000
-#else
-#define __O_TMPFILE     020000000
-#endif
-#endif
-
-/* a horrid kludge trying to make sure that this will fail on old kernels */
-#ifndef O_TMPFILE
-#define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
 #endif
 
 #ifndef BPF_XOR
@@ -254,6 +197,7 @@ struct sockaddr_vm {
 #include "missing_audit.h"
 #include "missing_btrfs_tree.h"
 #include "missing_capability.h"
+#include "missing_fcntl.h"
 #include "missing_input.h"
 #include "missing_magic.h"
 #include "missing_network.h"

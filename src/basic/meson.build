@@ -96,6 +96,7 @@ basic_sources = files('''
         missing_btrfs_tree.h
         missing_capability.h
         missing_ethtool.h
+        missing_fcntl.h
         missing_fib_rules.h
         missing_fou.h
         missing_if_bridge.h
