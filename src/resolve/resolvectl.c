@@ -16,7 +16,7 @@
 #include "gcrypt-util.h"
 #include "in-addr-util.h"
 #include "main-func.h"
-#include "missing.h"
+#include "missing_network.h"
 #include "netlink-util.h"
 #include "pager.h"
 #include "parse-util.h"

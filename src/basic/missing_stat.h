@@ -11,32 +11,32 @@
 /* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
 #if !HAVE_STRUCT_STATX
 struct statx_timestamp {
-        int64_t tv_sec;
-        uint32_t tv_nsec;
-        uint32_t __reserved;
+        __s64 tv_sec;
+        __u32 tv_nsec;
+        __s32 __reserved;
 };
 struct statx {
-        uint32_t stx_mask;
-        uint32_t stx_blksize;
-        uint64_t stx_attributes;
-        uint32_t stx_nlink;
-        uint32_t stx_uid;
-        uint32_t stx_gid;
-        uint16_t stx_mode;
-        uint16_t __spare0[1];
-        uint64_t stx_ino;
-        uint64_t stx_size;
-        uint64_t stx_blocks;
-        uint64_t stx_attributes_mask;
+        __u32 stx_mask;
+        __u32 stx_blksize;
+        __u64 stx_attributes;
+        __u32 stx_nlink;
+        __u32 stx_uid;
+        __u32 stx_gid;
+        __u16 stx_mode;
+        __u16 __spare0[1];
+        __u64 stx_ino;
+        __u64 stx_size;
+        __u64 stx_blocks;
+        __u64 stx_attributes_mask;
         struct statx_timestamp stx_atime;
         struct statx_timestamp stx_btime;
         struct statx_timestamp stx_ctime;
         struct statx_timestamp stx_mtime;
-        uint32_t stx_rdev_major;
-        uint32_t stx_rdev_minor;
-        uint32_t stx_dev_major;
-        uint32_t stx_dev_minor;
-        uint64_t __spare2[14];
+        __u32 stx_rdev_major;
+        __u32 stx_rdev_minor;
+        __u32 stx_dev_major;
+        __u32 stx_dev_minor;
+        __u64 __spare2[14];
 };
 #endif
 

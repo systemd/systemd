@@ -18,9 +18,11 @@
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
+#include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -28,7 +30,6 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "utf8.h"
-#include "rlimit-util.h"
 
 int config_item_table_lookup(
                 const void *table,

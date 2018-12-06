@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <inttypes.h>
+#include <linux/netlink.h>
+#include <linux/if_infiniband.h>
+#include <linux/if_packet.h>
 #include <netinet/ether.h>
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -8,13 +12,10 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
-#include <linux/netlink.h>
-#include <linux/if_infiniband.h>
-#include <linux/if_packet.h>
 
 #include "macro.h"
-#include "missing.h"
-#include "util.h"
+#include "missing_socket.h"
+#include "sparse-endian.h"
 
 union sockaddr_union {
         /* The minimal, abstract version */

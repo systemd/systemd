@@ -13,6 +13,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "missing_network.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-ipv6-proxy-ndp.h"

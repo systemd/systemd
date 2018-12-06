@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "lockfile-util.h"
+#include "missing_network.h"
 #include "netlink-util.h"
 #include "nspawn-network.h"
 #include "siphash24.h"

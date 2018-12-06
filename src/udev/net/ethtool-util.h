@@ -5,7 +5,7 @@
 #include <linux/ethtool.h>
 
 #include "conf-parser.h"
-#include "missing.h"
+#include "missing_network.h"
 
 struct link_config;
 

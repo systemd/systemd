@@ -3,6 +3,7 @@
 
 #include <linux/loop.h>
 #include <linux/rtnetlink.h>
+#include <net/ethernet.h>
 
 #include "missing_ethtool.h"
 #include "missing_fib_rules.h"
@@ -116,6 +117,11 @@
 #define NET_NAME_RENAMED 4
 #endif
 
+/* netlink.h */
+#ifndef NETLINK_LIST_MEMBERSHIPS /* b42be38b2778eda2237fc759e55e3b698b05b315 (4.2) */
+#define NETLINK_LIST_MEMBERSHIPS 9
+#endif
+
 /* rtnetlink.h */
 #ifndef RTA_PREF
 #define RTA_PREF 20
@@ -127,4 +133,18 @@
 
 #ifndef RTA_EXPIRES
 #define RTA_EXPIRES 23
+#endif
+
+/* Note that LOOPBACK_IFINDEX is currently not exported by the
+ * kernel/glibc, but hardcoded internally by the kernel.  However, as
+ * it is exported to userspace indirectly via rtnetlink and the
+ * ioctls, and made use of widely we define it here too, in a way that
+ * is compatible with the kernel's internal definition. */
+#ifndef LOOPBACK_IFINDEX
+#define LOOPBACK_IFINDEX 1
+#endif
+
+/* Not exposed yet. Similar values are defined in net/ethernet.h */
+#ifndef ETHERTYPE_LLDP
+#define ETHERTYPE_LLDP 0x88cc
 #endif

@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <linux/sockios.h>
+#include <sys/ioctl.h>
 
 #include "sd-lldp.h"
 

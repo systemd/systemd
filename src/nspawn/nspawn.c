@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <grp.h>
+#include <linux/fs.h>
 #include <linux/loop.h>
 #include <pwd.h>
 #include <sched.h>
@@ -17,7 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
-#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
