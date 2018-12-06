@@ -15,6 +15,7 @@
 #include "io-util.h"
 #include "loop-util.h"
 #include "machine-image.h"
+#include "missing_capability.h"
 #include "mount-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
