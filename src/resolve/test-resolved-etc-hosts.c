@@ -11,7 +11,7 @@ static void test_parse_etc_hosts_system(void) {
 
         f = fopen("/etc/hosts", "re");
         if (!f) {
-                assert_se(errno == -ENOENT);
+                assert_se(errno == ENOENT);
                 return;
         }
 
