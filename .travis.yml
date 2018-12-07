@@ -90,6 +90,24 @@ jobs:
           after_script:
               - $CI_MANAGERS/fedora.sh CLEANUP
 
+        - name: Debian Testing
+          language: bash
+          env:
+              - DEBIAN_RELEASE="testing"
+              - CONT_NAME="systemd-debian-$DEBIAN_RELEASE"
+              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
+          before_install:
+              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+              - docker --version
+          install:
+              - $CI_MANAGERS/debian.sh SETUP
+          script:
+              - set -e
+              - $CI_MANAGERS/debian.sh RUN
+              - set +e
+          after_script:
+              - $CI_MANAGERS/debian.sh CLEANUP
+
         - stage: Coverity
           language: bash
           env:
