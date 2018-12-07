@@ -402,6 +402,12 @@ sensor:modalias:acpi:BMA250E*:dmi:bvnAmericanMegatrendsInc.:bvr3BAIR1014:bd10/24
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
+# Prowise
+#########################################
+sensor:modalias:acpi:SMO8500*:dmi:*:svnProwise:pnPT301:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
 # Teclast
 #########################################
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnX80Pro:*
