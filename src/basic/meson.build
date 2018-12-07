@@ -91,6 +91,7 @@ basic_sources = files('''
         memfd-util.h
         mempool.c
         mempool.h
+        missing.h
         missing_audit.h
         missing_btrfs.h
         missing_btrfs_tree.h
@@ -209,7 +210,7 @@ basic_sources = files('''
         xattr-util.h
 '''.split())
 
-missing_h = files('missing.h')
+missing_audit_h = files('missing_audit.h')
 missing_capability_h = files('missing_capability.h')
 
 generate_af_list = find_program('generate-af-list.sh')
@@ -279,7 +280,7 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
         generated_gperf_headers += [target1, target2]
 endforeach
 
-basic_sources += [missing_h] + generated_gperf_headers
+basic_sources += generated_gperf_headers
 basic_gcrypt_sources = files(
         'gcrypt-util.c',
         'gcrypt-util.h')
