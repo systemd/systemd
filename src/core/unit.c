@@ -4580,7 +4580,6 @@ int unit_kill_context(
 
 int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) {
         _cleanup_free_ char *p = NULL;
-        char *prefix;
         UnitDependencyInfo di;
         int r;
 
@@ -4620,7 +4619,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
                 return r;
         p = NULL;
 
-        prefix = alloca(strlen(path) + 1);
+        char prefix[strlen(path) + 1];
         PATH_FOREACH_PREFIX_MORE(prefix, path) {
                 Set *x;
 
