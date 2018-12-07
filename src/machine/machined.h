@@ -35,6 +35,8 @@ struct Manager {
 
         LIST_HEAD(Operation, operations);
         unsigned n_operations;
+
+        sd_event_source *nscd_cache_flush_event;
 };
 
 int manager_add_machine(Manager *m, const char *name, Machine **_machine);
@@ -53,3 +55,5 @@ int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_erro
 int manager_unref_unit(Manager *m, const char *unit, sd_bus_error *error);
 int manager_unit_is_active(Manager *manager, const char *unit);
 int manager_job_is_active(Manager *manager, const char *path);
+
+int manager_enqueue_nscd_cache_flush(Manager *m);
