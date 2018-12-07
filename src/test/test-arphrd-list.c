@@ -4,8 +4,8 @@
 #include <string.h>
 
 #include "macro.h"
+#include "missing_network.h"
 #include "string-util.h"
-#include "util.h"
 
 _unused_ \
 static const struct arphrd_name* lookup_arphrd(register const char *str, register GPERF_LEN_TYPE len);

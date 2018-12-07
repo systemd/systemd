@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <alloca.h>
+#include <stdio.h>
+
 #include "macro.h"
 
 const char *audit_type_to_string(int type);

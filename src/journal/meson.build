@@ -34,7 +34,7 @@ endif
 ############################################################
 
 audit_type_includes = [config_h,
-                       missing_h,
+                       missing_audit_h,
                        'linux/audit.h']
 if conf.get('HAVE_AUDIT') == 1
         audit_type_includes += 'libaudit.h'

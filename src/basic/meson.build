@@ -91,6 +91,7 @@ basic_sources = files('''
         memfd-util.h
         mempool.c
         mempool.h
+        missing.h
         missing_audit.h
         missing_btrfs.h
         missing_btrfs_tree.h
@@ -209,27 +210,30 @@ basic_sources = files('''
         xattr-util.h
 '''.split())
 
-missing_h = files('missing.h')
+missing_audit_h = files('missing_audit.h')
+missing_capability_h = files('missing_capability.h')
+missing_network_h = files('missing_network.h')
+missing_socket_h = files('missing_socket.h')
 
 generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
         'af-list.txt',
         output : 'af-list.txt',
-        command : [generate_af_list, cpp],
+        command : [generate_af_list, cpp, config_h, missing_socket_h],
         capture : true)
 
 generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
         'arphrd-list.txt',
         output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp],
+        command : [generate_arphrd_list, cpp, config_h, missing_network_h],
         capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')
 cap_list_txt = custom_target(
         'cap-list.txt',
         output : 'cap-list.txt',
-        command : [generate_cap_list, cpp, config_h, missing_h],
+        command : [generate_cap_list, cpp, config_h, missing_capability_h],
         capture : true)
 
 generate_errno_list = find_program('generate-errno-list.sh')
@@ -278,7 +282,7 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
         generated_gperf_headers += [target1, target2]
 endforeach
 
-basic_sources += [missing_h] + generated_gperf_headers
+basic_sources += generated_gperf_headers
 basic_gcrypt_sources = files(
         'gcrypt-util.c',
         'gcrypt-util.h')
