@@ -451,7 +451,7 @@ static int request_handler_entries(
                 struct MHD_Connection *connection,
                 void *connection_cls) {
 
-        struct MHD_Response *response;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
         RequestMeta *m = connection_cls;
         int r;
 
@@ -493,11 +493,7 @@ static int request_handler_entries(
                 return respond_oom(connection);
 
         MHD_add_response_header(response, "Content-Type", mime_types[m->mode]);
-
-        r = MHD_queue_response(connection, MHD_HTTP_OK, response);
-        MHD_destroy_response(response);
-
-        return r;
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int output_field(FILE *f, OutputMode m, const char *d, size_t l) {
@@ -609,7 +605,7 @@ static int request_handler_fields(
                 const char *field,
                 void *connection_cls) {
 
-        struct MHD_Response *response;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
         RequestMeta *m = connection_cls;
         int r;
 
@@ -632,11 +628,7 @@ static int request_handler_fields(
                 return respond_oom(connection);
 
         MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]);
-
-        r = MHD_queue_response(connection, MHD_HTTP_OK, response);
-        MHD_destroy_response(response);
-
-        return r;
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int request_handler_redirect(
@@ -644,8 +636,7 @@ static int request_handler_redirect(
                 const char *target) {
 
         char *page;
-        struct MHD_Response *response;
-        int ret;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
 
         assert(connection);
         assert(target);
@@ -661,11 +652,7 @@ static int request_handler_redirect(
 
         MHD_add_response_header(response, "Content-Type", "text/html");
         MHD_add_response_header(response, "Location", target);
-
-        ret = MHD_queue_response(connection, MHD_HTTP_MOVED_PERMANENTLY, response);
-        MHD_destroy_response(response);
-
-        return ret;
+        return MHD_queue_response(connection, MHD_HTTP_MOVED_PERMANENTLY, response);
 }
 
 static int request_handler_file(
@@ -673,8 +660,7 @@ static int request_handler_file(
                 const char *path,
                 const char *mime_type) {
 
-        struct MHD_Response *response;
-        int ret;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
         _cleanup_close_ int fd = -1;
         struct stat st;
 
@@ -692,15 +678,10 @@ static int request_handler_file(
         response = MHD_create_response_from_fd_at_offset64(st.st_size, fd, 0);
         if (!response)
                 return respond_oom(connection);
-
-        fd = -1;
+        TAKE_FD(fd);
 
         MHD_add_response_header(response, "Content-Type", mime_type);
-
-        ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-        MHD_destroy_response(response);
-
-        return ret;
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int get_virtualization(char **v) {
@@ -737,14 +718,13 @@ static int request_handler_machine(
                 struct MHD_Connection *connection,
                 void *connection_cls) {
 
-        struct MHD_Response *response;
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
         RequestMeta *m = connection_cls;
         int r;
         _cleanup_free_ char* hostname = NULL, *os_name = NULL;
         uint64_t cutoff_from = 0, cutoff_to = 0, usage = 0;
-        char *json;
         sd_id128_t mid, bid;
-        _cleanup_free_ char *v = NULL;
+        _cleanup_free_ char *v = NULL, *json = NULL;
 
         assert(connection);
         assert(m);
@@ -793,21 +773,16 @@ static int request_handler_machine(
                      usage,
                      cutoff_from,
                      cutoff_to);
-
         if (r < 0)
                 return respond_oom(connection);
 
         response = MHD_create_response_from_buffer(strlen(json), json, MHD_RESPMEM_MUST_FREE);
-        if (!response) {
-                free(json);
+        if (!response)
                 return respond_oom(connection);
-        }
+        TAKE_PTR(json);
 
         MHD_add_response_header(response, "Content-Type", "application/json");
-        r = MHD_queue_response(connection, MHD_HTTP_OK, response);
-        MHD_destroy_response(response);
-
-        return r;
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
 static int request_handler(
