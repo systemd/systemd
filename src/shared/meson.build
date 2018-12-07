@@ -82,6 +82,8 @@ shared_sources = files('''
         install-printf.h
         install.c
         install.h
+        ip-protocol-list.c
+        ip-protocol-list.h
         journal-importer.c
         journal-importer.h
         journal-util.c
@@ -103,6 +105,8 @@ shared_sources = files('''
         module-util.h
         mount-util.c
         mount-util.h
+        nscd-flush.c
+        nscd-flush.h
         nsflags.c
         nsflags.h
         os-util.c
@@ -128,8 +132,6 @@ shared_sources = files('''
         serialize.h
         sleep-config.c
         sleep-config.h
-        ip-protocol-list.c
-        ip-protocol-list.h
         spawn-ask-password-agent.c
         spawn-ask-password-agent.h
         spawn-polkit-agent.c
