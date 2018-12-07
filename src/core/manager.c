@@ -2222,7 +2222,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
 static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
-        char buf[PATH_MAX+1];
+        char buf[PATH_MAX];
         ssize_t n;
 
         n = recv(fd, buf, sizeof(buf), 0);
