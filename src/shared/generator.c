@@ -197,10 +197,9 @@ int generator_write_timeouts(
                 const char *opts,
                 char **filtered) {
 
-        /* Allow configuration how long we wait for a device that
-         * backs a mount point to show up. This is useful to support
-         * endless device timeouts for devices that show up only after
-         * user input, like crypto devices. */
+        /* Configure how long we wait for a device that backs a mount point or a
+         * swap partition to show up. This is useful to support endless device timeouts
+         * for devices that show up only after user input, like crypto devices. */
 
         _cleanup_free_ char *node = NULL, *unit = NULL, *timeout = NULL;
         usec_t u;

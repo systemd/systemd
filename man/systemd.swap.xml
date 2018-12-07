@@ -6,7 +6,9 @@
   SPDX-License-Identifier: LGPL-2.1+
 -->
 
-<refentry id="systemd.swap">
+<refentry id="systemd.swap"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
   <refentryinfo>
     <title>systemd.swap</title>
     <productname>systemd</productname>
@@ -140,6 +142,26 @@
         will continue even if this swap device is not activated
         successfully.</para>
         </listitem>
+      </varlistentry>
+
+      <xi:include href="systemd.mount.xml" xpointer="device-timeout" />
+
+      <varlistentry>
+        <term><option>x-systemd.makefs</option></term>
+
+        <listitem><para>The swap structure will be initialized on the device. If the device is not
+        "empty", i.e. it contains any signature, the operation will be skipped. It is hence expected
+        that this option remains set even after the device has been initalized.</para>
+
+        <para>Note that this option can only be used in <filename>/etc/fstab</filename>, and will be
+        ignored when part of the <varname>Options=</varname> setting in a unit file.</para>
+
+        <para>See
+        <citerefentry><refentrytitle>systemd-mkswap@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and the discussion of
+        <citerefentry project='man-pages'><refentrytitle>wipefs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        in <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
