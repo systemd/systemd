@@ -23,6 +23,9 @@ enum {
 };
 
 static int iovw_put(struct iovec_wrapper *iovw, void* data, size_t len) {
+        if (iovw->count >= ENTRY_FIELD_COUNT_MAX)
+                return -E2BIG;
+
         if (!GREEDY_REALLOC(iovw->iovec, iovw->size_bytes, iovw->count + 1))
                 return log_oom();
 
@@ -97,7 +100,7 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
 
                 imp->scanned = imp->filled;
                 if (imp->scanned >= DATA_SIZE_MAX)
-                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOBUFS),
                                                "Entry is bigger than %u bytes.",
                                                DATA_SIZE_MAX);
 

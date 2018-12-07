@@ -222,9 +222,12 @@ static int process_http_upload(
                 if (r == -EAGAIN)
                         break;
                 if (r < 0) {
-                        if (r == -E2BIG)
-                                log_warning_errno(r, "Entry is too above maximum of %u, aborting connection %p.",
+                        if (r == -ENOBUFS)
+                                log_warning_errno(r, "Entry is above the maximum of %u, aborting connection %p.",
                                                   DATA_SIZE_MAX, connection);
+                        else if (r == -E2BIG)
+                                log_warning_errno(r, "Entry with more fields than the maximum of %u, aborting connection %p.",
+                                                  ENTRY_FIELD_COUNT_MAX, connection);
                         else
                                 log_warning_errno(r, "Failed to process data, aborting connection %p: %m",
                                                   connection);
