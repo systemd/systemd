@@ -18,6 +18,7 @@
 #include "id128-util.h"
 #include "main-func.h"
 #include "missing_capability.h"
+#include "nscd-flush.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -285,6 +286,8 @@ static int context_update_kernel_hostname(Context *c) {
 
         if (sethostname_idempotent(hn) < 0)
                 return -errno;
+
+        (void) nscd_flush_cache(STRV_MAKE("hosts"));
 
         return 0;
 }
