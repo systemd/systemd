@@ -871,6 +871,8 @@ if not libcap.found()
         libcap = cc.find_library('cap')
 endif
 
+libdrm = dependency('libdrm')
+
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 

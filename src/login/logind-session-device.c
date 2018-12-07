@@ -8,7 +8,7 @@
 #include <sys/types.h>
 
 /* Old drm.h may needs to be included after stdint.h and sys/types.h */
-#include <drm/drm.h>
+#include <drm.h>
 
 #include "sd-device.h"
 

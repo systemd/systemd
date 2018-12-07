@@ -48,7 +48,7 @@ liblogind_core = static_library(
         'logind-core',
         liblogind_core_sources,
         include_directories : includes,
-        dependencies : [libacl])
+        dependencies : [libacl, libdrm])
 
 loginctl_sources = files('''
         loginctl.c
