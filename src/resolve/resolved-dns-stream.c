@@ -17,6 +17,9 @@ static void dns_stream_stop(DnsStream *s) {
         s->io_event_source = sd_event_source_unref(s->io_event_source);
         s->timeout_event_source = sd_event_source_unref(s->timeout_event_source);
         s->fd = safe_close(s->fd);
+
+        /* Disconnect us from the server object if we are now not usable anymore */
+        dns_stream_detach(s);
 }
 
 static int dns_stream_update_io(DnsStream *s) {
@@ -46,6 +49,8 @@ static int dns_stream_update_io(DnsStream *s) {
 }
 
 static int dns_stream_complete(DnsStream *s, int error) {
+        _cleanup_(dns_stream_unrefp) _unused_ DnsStream *ref = dns_stream_ref(s); /* Protect stream while we process it */
+
         assert(s);
 
 #if ENABLE_DNS_OVER_TLS
@@ -58,6 +63,8 @@ static int dns_stream_complete(DnsStream *s, int error) {
         } else
 #endif
                 dns_stream_stop(s);
+
+        dns_stream_detach(s);
 
         if (s->complete)
                 s->complete(s, error);
@@ -193,7 +200,7 @@ static int dns_stream_identify(DnsStream *s) {
 }
 
 ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, int flags) {
-        ssize_t r;
+        ssize_t m;
 
         assert(s);
         assert(iov);
@@ -203,13 +210,13 @@ ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, 
                 ssize_t ss;
                 size_t i;
 
-                r = 0;
+                m = 0;
                 for (i = 0; i < iovcnt; i++) {
                         ss = dnstls_stream_write(s, iov[i].iov_base, iov[i].iov_len);
                         if (ss < 0)
                                 return ss;
 
-                        r += ss;
+                        m += ss;
                         if (ss != (ssize_t) iov[i].iov_len)
                                 continue;
                 }
@@ -223,28 +230,28 @@ ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, 
                         .msg_namelen = s->tfo_salen
                 };
 
-                r = sendmsg(s->fd, &hdr, MSG_FASTOPEN);
-                if (r < 0) {
+                m = sendmsg(s->fd, &hdr, MSG_FASTOPEN);
+                if (m < 0) {
                         if (errno == EOPNOTSUPP) {
                                 s->tfo_salen = 0;
-                                r = connect(s->fd, &s->tfo_address.sa, s->tfo_salen);
-                                if (r < 0)
+                                if (connect(s->fd, &s->tfo_address.sa, s->tfo_salen) < 0)
                                         return -errno;
 
-                                r = -EAGAIN;
-                        } else if (errno == EINPROGRESS)
-                                r = -EAGAIN;
-                        else
-                                r = -errno;
+                                return -EAGAIN;
+                        }
+                        if (errno == EINPROGRESS)
+                                return -EAGAIN;
+
+                        return -errno;
                 } else
                         s->tfo_salen = 0; /* connection is made */
         } else {
-                r = writev(s->fd, iov, iovcnt);
-                if (r < 0)
-                        r = -errno;
+                m = writev(s->fd, iov, iovcnt);
+                if (m < 0)
+                        return -errno;
         }
 
-        return r;
+        return m;
 }
 
 static ssize_t dns_stream_read(DnsStream *s, void *buf, size_t count) {
@@ -258,7 +265,7 @@ static ssize_t dns_stream_read(DnsStream *s, void *buf, size_t count) {
         {
                 ss = read(s->fd, buf, count);
                 if (ss < 0)
-                        ss = -errno;
+                        return -errno;
         }
 
         return ss;
@@ -273,7 +280,7 @@ static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
 }
 
 static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        DnsStream *s = userdata;
+        _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
         int r;
 
         assert(s);
@@ -281,18 +288,16 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 #if ENABLE_DNS_OVER_TLS
         if (s->encrypted) {
                 r = dnstls_stream_on_io(s, revents);
-
                 if (r == DNSTLS_STREAM_CLOSED)
                         return 0;
-                else if (r == -EAGAIN)
+                if (r == -EAGAIN)
                         return dns_stream_update_io(s);
-                else if (r < 0) {
+                if (r < 0)
                         return dns_stream_complete(s, -r);
-                } else {
-                        r = dns_stream_update_io(s);
-                        if (r < 0)
-                                return r;
-                }
+
+                r = dns_stream_update_io(s);
+                if (r < 0)
+                        return r;
         }
 #endif
 
@@ -430,9 +435,6 @@ static DnsStream *dns_stream_free(DnsStream *s) {
 
         dns_stream_stop(s);
 
-        if (s->server && s->server->stream == s)
-                s->server->stream = NULL;
-
         if (s->manager) {
                 LIST_REMOVE(streams, s->manager->dns_streams, s);
                 s->manager->n_dns_streams--;
@@ -457,27 +459,36 @@ static DnsStream *dns_stream_free(DnsStream *s) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, dns_stream_free);
 
-int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address) {
+int dns_stream_new(
+                Manager *m,
+                DnsStream **ret,
+                DnsProtocol protocol,
+                int fd,
+                const union sockaddr_union *tfo_address) {
+
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         int r;
 
         assert(m);
+        assert(ret);
         assert(fd >= 0);
 
         if (m->n_dns_streams > DNS_STREAMS_MAX)
                 return -EBUSY;
 
-        s = new0(DnsStream, 1);
+        s = new(DnsStream, 1);
         if (!s)
                 return -ENOMEM;
+
+        *s = (DnsStream) {
+                .n_ref = 1,
+                .fd = -1,
+                .protocol = protocol,
+        };
 
         r = ordered_set_ensure_allocated(&s->write_queue, &dns_packet_hash_ops);
         if (r < 0)
                 return r;
-
-        s->n_ref = 1;
-        s->fd = -1;
-        s->protocol = protocol;
 
         r = sd_event_add_io(m->event, &s->io_event_source, fd, EPOLLIN, on_stream_io, s);
         if (r < 0)
@@ -497,14 +508,15 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, co
         (void) sd_event_source_set_description(s->timeout_event_source, "dns-stream-timeout");
 
         LIST_PREPEND(streams, m->dns_streams, s);
+        m->n_dns_streams++;
         s->manager = m;
+
         s->fd = fd;
+
         if (tfo_address) {
                 s->tfo_address = *tfo_address;
                 s->tfo_salen = tfo_address->sa.sa_family == AF_INET6 ? sizeof(tfo_address->in6) : sizeof(tfo_address->in);
         }
-
-        m->n_dns_streams++;
 
         *ret = TAKE_PTR(s);
 
@@ -515,6 +527,7 @@ int dns_stream_write_packet(DnsStream *s, DnsPacket *p) {
         int r;
 
         assert(s);
+        assert(p);
 
         r = ordered_set_put(s->write_queue, p);
         if (r < 0)
@@ -523,4 +536,32 @@ int dns_stream_write_packet(DnsStream *s, DnsPacket *p) {
         dns_packet_ref(p);
 
         return dns_stream_update_io(s);
+}
+
+DnsPacket *dns_stream_take_read_packet(DnsStream *s) {
+        assert(s);
+
+        if (!s->read_packet)
+                return NULL;
+
+        if (s->n_read < sizeof(s->read_size))
+                return NULL;
+
+        if (s->n_read < sizeof(s->read_size) + be16toh(s->read_size))
+                return NULL;
+
+        s->n_read = 0;
+        return TAKE_PTR(s->read_packet);
+}
+
+void dns_stream_detach(DnsStream *s) {
+        assert(s);
+
+        if (!s->server)
+                return;
+
+        if (s->server->stream != s)
+                return;
+
+        dns_server_unref_stream(s->server);
 }

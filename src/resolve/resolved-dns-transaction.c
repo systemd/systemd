@@ -503,59 +503,54 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsPacket *p) {
 }
 
 static int on_stream_complete(DnsStream *s, int error) {
-        _cleanup_(dns_stream_unrefp) DnsStream *p = NULL;
-        DnsTransaction *t, *n;
-        int r = 0;
-
-        /* Do not let new transactions use this stream */
-        if (s->server && s->server->stream == s)
-                p = TAKE_PTR(s->server->stream);
+        assert(s);
 
         if (ERRNO_IS_DISCONNECT(error) && s->protocol != DNS_PROTOCOL_LLMNR) {
-                usec_t usec;
-
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
 
                 if (s->transactions) {
+                        DnsTransaction *t;
+
                         t = s->transactions;
-                        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
                         dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
                 }
         }
 
-        LIST_FOREACH_SAFE(transactions_by_stream, t, n, s->transactions)
-                if (error != 0)
+        if (error != 0) {
+                DnsTransaction *t, *n;
+
+                LIST_FOREACH_SAFE(transactions_by_stream, t, n, s->transactions)
                         on_transaction_stream_error(t, error);
-                else if (DNS_PACKET_ID(s->read_packet) == t->id)
-                        /* As each transaction have a unique id the return code is only set once */
-                        r = dns_transaction_on_stream_packet(t, s->read_packet);
-
-        return r;
-}
-
-static int dns_stream_on_packet(DnsStream *s) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        int r = 0;
-        DnsTransaction *t;
-
-        /* Take ownership of packet to be able to receive new packets */
-        p = TAKE_PTR(s->read_packet);
-        s->n_read = 0;
-
-        t = hashmap_get(s->manager->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
-
-        /* Ignore incorrect transaction id as transaction can have been canceled */
-        if (t)
-                r = dns_transaction_on_stream_packet(t, p);
-        else {
-                if (dns_packet_validate_reply(p) <= 0) {
-                        log_debug("Invalid TCP reply packet.");
-                        on_stream_complete(s, 0);
-                }
-                return 0;
         }
 
-        return r;
+        return 0;
+}
+
+static int on_stream_packet(DnsStream *s) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsTransaction *t;
+
+        assert(s);
+
+        /* Take ownership of packet to be able to receive new packets */
+        p = dns_stream_take_read_packet(s);
+        assert(p);
+
+        t = hashmap_get(s->manager->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
+        if (t)
+                return dns_transaction_on_stream_packet(t, p);
+
+        /* Ignore incorrect transaction id as transaction can have been canceled */
+        if (dns_packet_validate_reply(p) <= 0) {
+                log_debug("Invalid TCP reply packet.");
+                on_stream_complete(s, 0);
+        }
+
+        return 0;
+}
+
+static uint16_t dns_port_for_feature_level(DnsServerFeatureLevel level) {
+        return DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ? 853 : 53;
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
@@ -585,7 +580,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) == t->server->stream->encrypted))
                         s = dns_stream_ref(t->server->stream);
                 else
-                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? 853 : 53, &sa);
+                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_port_for_feature_level(t->current_feature_level), &sa);
 
                 break;
 
@@ -629,7 +624,9 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 fd = -1;
 
 #if ENABLE_DNS_OVER_TLS
-                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
+                if (t->scope->protocol == DNS_PROTOCOL_DNS &&
+                    DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
+
                         assert(t->server);
                         r = dnstls_stream_connect_tls(s, t->server);
                         if (r < 0)
@@ -638,13 +635,13 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 #endif
 
                 if (t->server) {
-                        dns_stream_unref(t->server->stream);
+                        dns_server_unref_stream(t->server);
                         t->server->stream = dns_stream_ref(s);
                         s->server = dns_server_ref(t->server);
                 }
 
                 s->complete = on_stream_complete;
-                s->on_packet = dns_stream_on_packet;
+                s->on_packet = on_stream_packet;
 
                 /* The interface index is difficult to determine if we are
                  * connecting to the local host, hence fill this in right away

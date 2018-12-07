@@ -53,13 +53,12 @@ struct DnsStream {
         size_t n_written, n_read;
         OrderedSet *write_queue;
 
-        int (*on_connection)(DnsStream *s);
         int (*on_packet)(DnsStream *s);
         int (*complete)(DnsStream *s, int error);
 
         LIST_HEAD(DnsTransaction, transactions); /* when used by the transaction logic */
         DnsServer *server;                       /* when used by the transaction logic */
-        DnsQuery *query;             /* when used by the DNS stub logic */
+        DnsQuery *query;                         /* when used by the DNS stub logic */
 
         /* used when DNS-over-TLS is enabled */
         bool encrypted:1;
@@ -87,3 +86,7 @@ static inline bool DNS_STREAM_QUEUED(DnsStream *s) {
 
         return !!s->write_packet;
 }
+
+DnsPacket *dns_stream_take_read_packet(DnsStream *s);
+
+void dns_stream_detach(DnsStream *s);
