@@ -1558,6 +1558,11 @@ sub udev_setup {
 
         system("rm", "-rf", "$udev_run");
 
+        if (!mkdir($udev_run)) {
+                warn "unable to create directory $udev_run";
+                return 0;
+        }
+
         return 1;
 }
 
