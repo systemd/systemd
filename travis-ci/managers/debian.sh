@@ -30,12 +30,11 @@ for phase in "${PHASES[@]}"; do
         SETUP)
             info "Setup phase"
             info "Using Debian $DEBIAN_RELEASE"
-            # Pull a Docker image and start a new container
-            docker pull debian:$DEBIAN_RELEASE
+            printf "FROM debian:$DEBIAN_RELEASE\nRUN bash -c 'apt-get -y update && apt-get install -y systemd'\n" | docker build -t debian-with-systemd/latest -
             info "Starting container $CONT_NAME"
             $DOCKER_RUN -v $REPO_ROOT:/build:rw \
                         -w /build --privileged=true --name $CONT_NAME \
-                        -dit --net=host debian:$DEBIAN_RELEASE /bin/bash
+                        -dit --net=host debian-with-systemd/latest /usr/bin/systemd
             $DOCKER_EXEC bash -c "echo deb-src http://deb.debian.org/debian $DEBIAN_RELEASE main >>/etc/apt/sources.list"
             $DOCKER_EXEC apt-get -y update
             $DOCKER_EXEC apt-get -y build-dep systemd
@@ -45,10 +44,8 @@ for phase in "${PHASES[@]}"; do
             info "Run phase"
             $DOCKER_EXEC meson --werror -Dtests=unsafe -Dslow-tests=true -Dsplit-usr=true build
             $DOCKER_EXEC ninja -v -C build
-            # The tests are failing on Travis CI: https://travis-ci.org/systemd/systemd/jobs/464904604
-            # so let's skip them for now.
-            #$DOCKER_EXEC ninja -C build test
-            #$DOCKER_EXEC tools/check-directives.sh
+            $DOCKER_EXEC ninja -C build test
+            $DOCKER_EXEC tools/check-directives.sh
             ;;
         RUN_CLANG)
             docker exec -e CC=clang -e CXX=clang++ -it $CONT_NAME meson --werror -Dtests=unsafe -Dslow-tests=true -Dsplit-usr=true build
