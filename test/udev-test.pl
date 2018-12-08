@@ -1661,7 +1661,7 @@ if (!udev_setup()) {
         exit($EXIT_TEST_SKIP);
 }
 
-if (!system($udev_bin, "check")) {
+if (system($udev_bin, "check")) {
         warn "$udev_bin failed to set up the environment, skipping the test";
         exit($EXIT_TEST_SKIP);
 }
