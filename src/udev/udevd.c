@@ -417,7 +417,13 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                 return r;
 
         /* apply rules, create node, symlinks */
-        udev_event_execute_rules(udev_event, arg_event_timeout_usec, manager->properties, manager->rules);
+        r = udev_event_execute_rules(udev_event, arg_event_timeout_usec, manager->properties, manager->rules);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_device_debug(dev, "Device removed during processing. Discarding invalid results.");
+                return 0;
+        }
         udev_event_execute_run(udev_event, arg_event_timeout_usec);
 
         if (!manager->rtnl)
@@ -434,7 +440,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
 
         log_device_debug(dev, "Device (SEQNUM=%s) processed", seqnum);
 
-        return 0;
+        return 1;
 }
 
 static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
@@ -449,11 +455,14 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
                 log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
 
         /* send processed event back to libudev listeners */
-        r = device_monitor_send_device(monitor, NULL, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Failed to send device, ignoring: %m");
+        if (r == 1) {
+                r = device_monitor_send_device(monitor, NULL, dev);
+                if (r < 0)
+                        log_device_warning_errno(dev, r, "Failed to send device, ignoring: %m");
+        }
 
-        /* send udevd the result of the event execution */
+
+        /* tell udevd the event has been completed */
         r = worker_send_message(manager->worker_watch[WRITE_END]);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to send signal to main daemon, ignoring: %m");

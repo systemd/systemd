@@ -811,7 +811,9 @@ int udev_event_execute_rules(struct udev_event *event,
                              Hashmap *properties_list,
                              struct udev_rules *rules) {
         sd_device *dev = event->dev;
-        const char *subsystem, *action;
+        const char *subsystem, *action, *syspath;
+        _cleanup_close_ int sysfd = -1;
+        struct stat st;
         int r;
 
         assert(event);
@@ -827,8 +829,25 @@ int udev_event_execute_rules(struct udev_event *event,
 
         if (streq(action, "remove")) {
                 event_execute_rules_on_remove(event, timeout_usec, properties_list, rules);
-                return 0;
+                return 1;
         }
+
+        /*
+         * If the device was removed since this event, we cannot get good data.  Abort.
+         * We will see a "remove" event later, and process that using the last good data.
+         * This is particularly important to avoid missing tags on the "remove" event.
+         *
+         * Note, so far we can't guarantee to avoid "remove"+"add" e.g. after this event
+         * but before we write attributes.  Just... hope no-one does that.
+         * In particular, that they don't tempt fate by removing and adding devices
+         * with the same names in quick succession.
+         *
+         * TODO: add DEVICE_SEQNUM in the kernel, and sysfd in sd_device :-).
+         */
+        (void) sd_device_get_syspath(dev, &syspath);
+        sysfd = open(syspath, O_RDONLY);
+        if (sysfd < 0)
+                return 0;
 
         r = device_clone_with_db(dev, &event->dev_db_clone);
         if (r < 0)
@@ -852,6 +871,13 @@ int udev_event_execute_rules(struct udev_event *event,
 
         (void) udev_rules_apply_to_event(rules, event, timeout_usec, properties_list);
 
+        /* check if device was removed during processing */
+        r = fstat(sysfd, &st);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to stat syspath: %m");
+        if (st.st_nlink == 0)
+                return 0;
+
         (void) rename_netif(event);
         (void) update_devnode(event);
 
@@ -873,7 +899,7 @@ int udev_event_execute_rules(struct udev_event *event,
 
         event->dev_db_clone = sd_device_unref(event->dev_db_clone);
 
-        return 0;
+        return 1;
 }
 
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec) {
