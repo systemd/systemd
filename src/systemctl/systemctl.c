@@ -3090,6 +3090,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_(wait_context_free) WaitContext wait_context = {};
         const char *method, *mode, *one_name, *suffix = NULL;
+        _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_strv_free_ */
         _cleanup_strv_free_ char **names = NULL;
         int r, ret = EXIT_SUCCESS;
         sd_bus *bus;
@@ -3186,6 +3187,12 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 r = start_unit_one(bus, method, *name, mode, &error, w, arg_wait ? &wait_context : NULL);
                 if (ret == EXIT_SUCCESS && r < 0)
                         ret = translate_bus_error_to_exit_status(r, &error);
+
+                if (r >= 0 && streq(method, "StopUnit")) {
+                        r = strv_push(&stopped_units, *name);
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         if (!arg_no_block) {
@@ -3210,8 +3217,8 @@ static int start_unit(int argc, char *argv[], void *userdata) {
 
                 /* When stopping units, warn if they can still be triggered by
                  * another active unit (socket, path, timer) */
-                if (!arg_quiet && streq(method, "StopUnit"))
-                        STRV_FOREACH(name, names)
+                if (!arg_quiet)
+                        STRV_FOREACH(name, stopped_units)
                                 (void) check_triggering_units(bus, *name);
         }
 
