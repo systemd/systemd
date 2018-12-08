@@ -30,8 +30,7 @@ import sys
 import os
 
 try:
-    from pyparsing import (Word, White, Literal, ParserElement, Regex,
-                           LineStart, LineEnd,
+    from pyparsing import (Word, White, Literal, ParserElement, Regex, LineEnd,
                            OneOrMore, Combine, Or, Optional, Suppress, Group,
                            nums, alphanums, printables,
                            stringEnd, pythonStyleComment, QuotedString,
