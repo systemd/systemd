@@ -39,6 +39,9 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC apt-get -y update
             $DOCKER_EXEC apt-get -y build-dep systemd
             $DOCKER_EXEC apt-get -y install "${ADDITIONAL_DEPS[@]}"
+            # overlayfs on TravisCI is having trouble delivering inotify events to test-path and test-event.
+            # Let's use tmpfs instead for now.
+            $DOCKER_EXEC mount -t tmpfs tmpfs /tmp
             ;;
         RUN)
             info "Run phase"
