@@ -444,7 +444,7 @@ mouse:usb:v046dp4041:name:Logitech MX Master:
  MOUSE_WHEEL_CLICK_COUNT=24
  MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
 
-# Logitech MX Master 2S (Logitech Unifying Receiver)
+# Logitech MX Master 2S (via Logitech Unifying Receiver)
 # Horiz wheel has 14 stops, angle is rounded up
 mouse:usb:v046dp4069:name:Logitech MX Master 2s:
  MOUSE_DPI=1000@125
@@ -453,7 +453,7 @@ mouse:usb:v046dp4069:name:Logitech MX Master 2s:
  MOUSE_WHEEL_CLICK_COUNT=24
  MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
 
-# Logitech MX Master 2S (Bluetooth)
+# Logitech MX Master 2S (via Bluetooth)
 # Horiz wheel has 14 stops, angle is rounded up
 mouse:bluetooth:v046dpb019:name:MX Master 2S Mouse:
  MOUSE_DPI=2000@2000
