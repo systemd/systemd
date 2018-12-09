@@ -498,6 +498,15 @@ static int device_append(sd_device *device, char *key, const char **_major, cons
                         action = device_action_from_string(value);
                         if (action == _DEVICE_ACTION_INVALID)
                                 return -EINVAL;
+                        /* FIXME: remove once we no longer flush previuos state for each action */
+                        if (action == DEVICE_ACTION_BIND || action == DEVICE_ACTION_UNBIND) {
+                                static bool warned;
+                                if (!warned) {
+                                        log_device_debug(device, "sd-device: ignoring actions 'bind' and 'unbind'");
+                                        warned = true;
+                                }
+                                return -EINVAL;
+                        }
                 } else if (streq(key, "SEQNUM")) {
                         r = safe_atou64(value, &seqnum);
                         if (r < 0)
