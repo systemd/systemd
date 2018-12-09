@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-2.1+
 
-"""Generate %-from-name.gperf from %-list.txt
+"""
+Generate %-from-name.gperf from %-list.txt
 """
 
 import sys
