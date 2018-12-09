@@ -18,6 +18,7 @@
 #include "hostname-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "main-func.h"
 #include "microhttpd-util.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -31,7 +32,11 @@
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;
 static char *arg_trust_pem = NULL;
-static char *arg_directory = NULL;
+static const char *arg_directory = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_key_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cert_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_trust_pem, freep);
 
 typedef struct RequestMeta {
         sd_journal *journal;
@@ -981,95 +986,85 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
-        struct MHD_Daemon *d = NULL;
+static int run(int argc, char *argv[]) {
+        _cleanup_(MHD_stop_daemonp) struct MHD_Daemon *d = NULL;
+        struct MHD_OptionItem opts[] = {
+                { MHD_OPTION_NOTIFY_COMPLETED,
+                  (intptr_t) request_meta_free, NULL },
+                { MHD_OPTION_EXTERNAL_LOGGER,
+                  (intptr_t) microhttpd_logger, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+                { MHD_OPTION_END, 0, NULL },
+        };
+        int opts_pos = 2;
+
+        /* We force MHD_USE_ITC here, in order to make sure
+         * libmicrohttpd doesn't use shutdown() on our listening
+         * socket, which would break socket re-activation. See
+         *
+         * https://lists.gnu.org/archive/html/libmicrohttpd/2015-09/msg00014.html
+         * https://github.com/systemd/systemd/pull/1286
+         */
+
+        int flags =
+                MHD_USE_DEBUG |
+                MHD_USE_DUAL_STACK |
+                MHD_USE_ITC |
+                MHD_USE_POLL_INTERNAL_THREAD |
+                MHD_USE_THREAD_PER_CONNECTION;
         int r, n;
 
         log_setup_service();
 
         r = parse_argv(argc, argv);
-        if (r < 0)
-                return EXIT_FAILURE;
-        if (r == 0)
-                return EXIT_SUCCESS;
+        if (r <= 0)
+                return r;
 
         sigbus_install();
 
         r = setup_gnutls_logger(NULL);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         n = sd_listen_fds(1);
-        if (n < 0) {
-                log_error_errno(n, "Failed to determine passed sockets: %m");
-                goto finish;
-        } else if (n > 1) {
-                log_error("Can't listen on more than one socket.");
-                goto finish;
-        } else {
-                struct MHD_OptionItem opts[] = {
-                        { MHD_OPTION_NOTIFY_COMPLETED,
-                          (intptr_t) request_meta_free, NULL },
-                        { MHD_OPTION_EXTERNAL_LOGGER,
-                          (intptr_t) microhttpd_logger, NULL },
-                        { MHD_OPTION_END, 0, NULL },
-                        { MHD_OPTION_END, 0, NULL },
-                        { MHD_OPTION_END, 0, NULL },
-                        { MHD_OPTION_END, 0, NULL },
-                        { MHD_OPTION_END, 0, NULL }};
-                int opts_pos = 2;
+        if (n < 0)
+                return log_error_errno(n, "Failed to determine passed sockets: %m");
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't listen on more than one socket.");
 
-                /* We force MHD_USE_ITC here, in order to make sure
-                 * libmicrohttpd doesn't use shutdown() on our listening
-                 * socket, which would break socket re-activation. See
-                 *
-                 * https://lists.gnu.org/archive/html/libmicrohttpd/2015-09/msg00014.html
-                 * https://github.com/systemd/systemd/pull/1286
-                 */
+        if (n == 1)
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START };
 
-                int flags =
-                        MHD_USE_DEBUG |
-                        MHD_USE_DUAL_STACK |
-                        MHD_USE_ITC |
-                        MHD_USE_POLL_INTERNAL_THREAD |
-                        MHD_USE_THREAD_PER_CONNECTION;
-
-                if (n > 0)
-                        opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START};
-                if (arg_key_pem) {
-                        assert(arg_cert_pem);
-                        opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_KEY, 0, arg_key_pem};
-                        opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_CERT, 0, arg_cert_pem};
-                        flags |= MHD_USE_TLS;
-                }
-                if (arg_trust_pem) {
-                        assert(flags & MHD_USE_TLS);
-                        opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem};
-                }
-
-                d = MHD_start_daemon(flags, 19531,
-                                     NULL, NULL,
-                                     request_handler, NULL,
-                                     MHD_OPTION_ARRAY, opts,
-                                     MHD_OPTION_END);
+        if (arg_key_pem) {
+                assert(arg_cert_pem);
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_HTTPS_MEM_KEY, 0, arg_key_pem };
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_HTTPS_MEM_CERT, 0, arg_cert_pem };
+                flags |= MHD_USE_TLS;
         }
 
-        if (!d) {
-                log_error("Failed to start daemon!");
-                goto finish;
+        if (arg_trust_pem) {
+                assert(flags & MHD_USE_TLS);
+                opts[opts_pos++] = (struct MHD_OptionItem)
+                        { MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem };
         }
+
+        d = MHD_start_daemon(flags, 19531,
+                             NULL, NULL,
+                             request_handler, NULL,
+                             MHD_OPTION_ARRAY, opts,
+                             MHD_OPTION_END);
+        if (!d)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to start daemon!");
 
         pause();
 
-        r = EXIT_SUCCESS;
-
-finish:
-        if (d)
-                MHD_stop_daemon(d);
-
-        return r;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

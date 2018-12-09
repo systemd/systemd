@@ -62,4 +62,4 @@ int journal_remote_handle_raw_source(
                 uint32_t revents,
                 RemoteServer *s);
 
-RemoteServer* journal_remote_server_destroy(RemoteServer *s);
+void journal_remote_server_destroy(RemoteServer *s);

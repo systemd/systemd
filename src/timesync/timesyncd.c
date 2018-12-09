@@ -5,8 +5,10 @@
 
 #include "capability-util.h"
 #include "clock-util.h"
+#include "daemon-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "network-util.h"
 #include "process-util.h"
@@ -83,7 +85,8 @@ settime:
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
+        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         const char *user = "systemd-timesync";
         uid_t uid, uid_current;
@@ -95,48 +98,39 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (argc != 1) {
-                log_error("This program does not take arguments.");
-                r = -EINVAL;
-                goto finish;
-        }
+        if (argc != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program does not take arguments.");
 
         uid = uid_current = geteuid();
         gid = getegid();
 
         if (uid_current == 0) {
                 r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
-                if (r < 0) {
-                        log_error_errno(r, "Cannot resolve user name %s: %m", user);
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Cannot resolve user name %s: %m", user);
         }
 
         r = load_clock_timestamp(uid, gid);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
          * privileges are already dropped. */
         if (uid_current == 0) {
                 r = drop_privileges(uid, gid, (1ULL << CAP_SYS_TIME));
                 if (r < 0)
-                        goto finish;
+                        return log_error_errno(r, "Failed to drop privileges: %m");
         }
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
         r = manager_new(&m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate manager: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate manager: %m");
 
         r = manager_connect_bus(m);
-        if (r < 0) {
-                log_error_errno(r, "Could not connect to bus: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not connect to bus: %m");
 
         if (clock_is_localtime(NULL) > 0) {
                 log_info("The system is configured to read the RTC time in the local time zone. "
@@ -149,27 +143,24 @@ int main(int argc, char *argv[]) {
                 log_warning_errno(r, "Failed to parse configuration file: %m");
 
         r = manager_parse_fallback_string(m, NTP_SERVERS);
-        if (r < 0) {
-                log_error_errno(r, "Failed to parse fallback server strings: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse fallback server strings: %m");
 
         log_debug("systemd-timesyncd running as pid " PID_FMT, getpid_cached());
-        sd_notify(false,
-                  "READY=1\n"
-                  "STATUS=Daemon is running");
+
+        notify_message = notify_start("READY=1\n"
+                                      "STATUS=Daemon is running",
+                                      NOTIFY_STOPPING);
 
         if (network_is_online()) {
                 r = manager_connect(m);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         r = sd_event_loop(m->event);
-        if (r < 0) {
-                log_error_errno(r, "Failed to run event loop: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
 
         /* if we got an authoritative time, store it in the file system */
         if (m->sync) {
@@ -178,12 +169,9 @@ int main(int argc, char *argv[]) {
                         log_debug_errno(r, "Failed to touch %s, ignoring: %m", CLOCK_FILE);
         }
 
-        sd_event_get_exit_code(m->event, &r);
+        (void) sd_event_get_exit_code(m->event, &r);
 
-finish:
-        sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Shutting down...");
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);

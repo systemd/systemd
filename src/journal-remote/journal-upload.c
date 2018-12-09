@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "daemon-util.h"
 #include "def.h"
 #include "env-file.h"
 #include "fd-util.h"
@@ -18,6 +19,7 @@
 #include "glob-util.h"
 #include "journal-upload.h"
 #include "log.h"
+#include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -761,10 +763,11 @@ static int open_journal(sd_journal **j) {
         return r;
 }
 
-int main(int argc, char **argv) {
-        Uploader u;
-        int r;
+static int run(int argc, char **argv) {
+        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
+        _cleanup_(destroy_uploader) Uploader u = {};
         bool use_journal;
+        int r;
 
         log_show_color(true);
         log_parse_environment();
@@ -774,23 +777,23 @@ int main(int argc, char **argv) {
 
         r = parse_config();
         if (r < 0)
-                goto finish;
+                return r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         sigbus_install();
 
         r = setup_uploader(&u, arg_url, arg_save_state);
         if (r < 0)
-                goto cleanup;
+                return r;
 
         sd_event_set_watchdog(u.events, true);
 
         r = check_cursor_updating(&u);
         if (r < 0)
-                goto cleanup;
+                return r;
 
         log_debug("%s running as pid "PID_FMT,
                   program_invocation_short_name, getpid_cached());
@@ -800,61 +803,51 @@ int main(int argc, char **argv) {
                 sd_journal *j;
                 r = open_journal(&j);
                 if (r < 0)
-                        goto finish;
+                        return r;
                 r = open_journal_for_upload(&u, j,
                                             arg_cursor ?: u.last_cursor,
                                             arg_cursor ? arg_after_cursor : true,
                                             !!arg_follow);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
-        sd_notify(false,
-                  "READY=1\n"
-                  "STATUS=Processing input...");
+        notify_message = notify_start("READY=1\n"
+                                      "STATUS=Processing input...",
+                                      NOTIFY_STOPPING);
 
         for (;;) {
                 r = sd_event_get_state(u.events);
                 if (r < 0)
-                        break;
+                        return r;
                 if (r == SD_EVENT_FINISHED)
-                        break;
+                        return 0;
 
                 if (use_journal) {
                         if (!u.journal)
-                                break;
+                                return 0;
 
                         r = check_journal_input(&u);
                 } else if (u.input < 0 && !use_journal) {
                         if (optind >= argc)
-                                break;
+                                return 0;
 
                         log_debug("Using %s as input.", argv[optind]);
                         r = open_file_for_upload(&u, argv[optind++]);
                 }
                 if (r < 0)
-                        goto cleanup;
+                        return r;
 
                 if (u.uploading) {
                         r = perform_upload(&u);
                         if (r < 0)
-                                break;
+                                return r;
                 }
 
                 r = sd_event_run(u.events, u.timeout);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to run event loop: %m");
-                        break;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run event loop: %m");
         }
-
-cleanup:
-        sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Shutting down...");
-
-        destroy_uploader(&u);
-
-finish:
-        return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+
+DEFINE_MAIN_FUNCTION(run);

@@ -41,6 +41,7 @@ shared_sources = files('''
         cpu-set-util.h
         crypt-util.c
         crypt-util.h
+        daemon-util.h
         dev-setup.c
         dev-setup.h
         dissect-image.c
