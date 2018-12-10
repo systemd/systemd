@@ -88,6 +88,7 @@ libsystemd_sources = files('''
         sd-network/network-util.h
         sd-network/sd-network.c
         sd-path/sd-path.c
+        sd-resolve/resolve-private.h
         sd-resolve/sd-resolve.c
         sd-utf8/sd-utf8.c
 '''.split()) + id128_sources + sd_daemon_c + sd_event_sources + sd_login_c
