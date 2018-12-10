@@ -74,6 +74,7 @@ enum {
         CHASE_TRAIL_SLASH = 1 << 5, /* If set, any trailing slash will be preserved */
         CHASE_STEP        = 1 << 6, /* If set, just execute a single step of the normalization */
         CHASE_NOFOLLOW    = 1 << 7, /* Only valid with CHASE_OPEN: when the path's right-most component refers to symlink return O_PATH fd of the symlink, rather than following it. */
+        CHASE_WARN        = 1 << 8, /* Emit an appropriate warning when an error is encountered */
 };
 
 /* How many iterations to execute before returning -ELOOP */

@@ -14,6 +14,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "locale-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
@@ -663,15 +664,42 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         return r;
 }
 
-static bool safe_transition(const struct stat *a, const struct stat *b) {
+static bool unsafe_transition(const struct stat *a, const struct stat *b) {
         /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to
          * privileged files or directories. Why bother? So that unprivileged code can't symlink to privileged files
          * making us believe we read something safe even though it isn't safe in the specific context we open it in. */
 
         if (a->st_uid == 0) /* Transitioning from privileged to unprivileged is always fine */
-                return true;
+                return false;
 
-        return a->st_uid == b->st_uid; /* Otherwise we need to stay within the same UID */
+        return a->st_uid != b->st_uid; /* Otherwise we need to stay within the same UID */
+}
+
+static int log_unsafe_transition(int a, int b, const char *path, unsigned flags) {
+        _cleanup_free_ char *n1 = NULL, *n2 = NULL;
+
+        if (!FLAGS_SET(flags, CHASE_WARN))
+                return -ENOLINK;
+
+        (void) fd_get_path(a, &n1);
+        (void) fd_get_path(b, &n2);
+
+        return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
+                                 "Detected unsafe path transition %s %s %s during canonicalization of %s.",
+                                 n1, special_glyph(ARROW), n2, path);
+}
+
+static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
+        _cleanup_free_ char *n1 = NULL;
+
+        if (!FLAGS_SET(flags, CHASE_WARN))
+                return -EREMOTE;
+
+        (void) fd_get_path(fd, &n1);
+
+        return log_warning_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                 "Detected autofs mount point %s during canonicalization of %s.",
+                                 n1, path);
 }
 
 int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret) {
@@ -733,6 +761,14 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          *    a caller wants to trace the a path through the file system verbosely. Returns < 0 on error, > 0 if the
          *    path is fully normalized, and == 0 for each normalization step. This may be combined with
          *    CHASE_NONEXISTENT, in which case 1 is returned when a component is not found.
+         *
+         * 4. With CHASE_SAFE: in this case the path must not contain unsafe transitions, i.e. transitions from
+         *    unprivileged to privileged files or directories. In such cases the return value is -ENOLINK. If
+         *    CHASE_WARN is also set a warning describing the unsafe transition is emitted.
+         *
+         * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, the path normalization is
+         *    aborted and -EREMOTE is returned. If CHASE_WARN is also set a warning showing the path of the mount point
+         *    is emitted.
          *
          * */
 
@@ -848,8 +884,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                 if (fstat(fd_parent, &st) < 0)
                                         return -errno;
 
-                                if (!safe_transition(&previous_stat, &st))
-                                        return -EPERM;
+                                if (unsafe_transition(&previous_stat, &st))
+                                        return log_unsafe_transition(fd, fd_parent, path, flags);
 
                                 previous_stat = st;
                         }
@@ -889,14 +925,14 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 if (fstat(child, &st) < 0)
                         return -errno;
                 if ((flags & CHASE_SAFE) &&
-                    !safe_transition(&previous_stat, &st))
-                        return -EPERM;
+                    unsafe_transition(&previous_stat, &st))
+                        return log_unsafe_transition(fd, child, path, flags);
 
                 previous_stat = st;
 
                 if ((flags & CHASE_NO_AUTOFS) &&
                     fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
-                        return -EREMOTE;
+                        return log_autofs_mount_point(child, path, flags);
 
                 if (S_ISLNK(st.st_mode) && !((flags & CHASE_NOFOLLOW) && isempty(todo))) {
                         char *joined;
@@ -928,8 +964,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                         if (fstat(fd, &st) < 0)
                                                 return -errno;
 
-                                        if (!safe_transition(&previous_stat, &st))
-                                                return -EPERM;
+                                        if (unsafe_transition(&previous_stat, &st))
+                                                return log_unsafe_transition(child, fd, path, flags);
 
                                         previous_stat = st;
                                 }

@@ -855,10 +855,8 @@ static int path_open_parent_safe(const char *path) {
         if (!dn)
                 return log_oom();
 
-        fd = chase_symlinks(dn, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
-        if (fd == -EPERM)
-                return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
-        if (fd < 0)
+        fd = chase_symlinks(dn, NULL, CHASE_OPEN|CHASE_SAFE|CHASE_WARN, NULL);
+        if (fd < 0 && fd != -ENOLINK)
                 return log_error_errno(fd, "Failed to validate path %s: %m", path);
 
         return fd;
@@ -878,10 +876,8 @@ static int path_open_safe(const char *path) {
                                        "Failed to open invalid path '%s'.",
                                        path);
 
-        fd = chase_symlinks(path, NULL, CHASE_OPEN|CHASE_SAFE|CHASE_NOFOLLOW, NULL);
-        if (fd == -EPERM)
-                return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
-        if (fd < 0)
+        fd = chase_symlinks(path, NULL, CHASE_OPEN|CHASE_SAFE|CHASE_WARN|CHASE_NOFOLLOW, NULL);
+        if (fd < 0 && fd != -ENOLINK)
                 return log_error_errno(fd, "Failed to validate path %s: %m", path);
 
         return fd;
@@ -2259,11 +2255,12 @@ static int process_item(Item *i, OperationMask operation) {
 
         i->done |= operation;
 
-        r = chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS, NULL);
+        r = chase_symlinks(i->path, NULL, CHASE_NO_AUTOFS|CHASE_WARN, NULL);
         if (r == -EREMOTE) {
-                log_debug_errno(r, "Item '%s' is below autofs, skipping.", i->path);
+                log_notice_errno(r, "Skipping %s", i->path);
                 return 0;
-        } else if (r < 0)
+        }
+        if (r < 0)
                 log_debug_errno(r, "Failed to determine whether '%s' is below autofs, ignoring: %m", i->path);
 
         r = FLAGS_SET(operation, OPERATION_CREATE) ? create_item(i) : 0;
