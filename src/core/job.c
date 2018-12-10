@@ -151,7 +151,7 @@ void job_uninstall(Job *j) {
 
         unit_add_to_gc_queue(j->unit);
 
-        hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
+        hashmap_remove_value(j->manager->jobs, UINT32_TO_PTR(j->id), j);
         j->installed = false;
 }
 
