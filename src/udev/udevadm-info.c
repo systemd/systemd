@@ -22,6 +22,24 @@
 #include "udevadm.h"
 #include "udevadm-util.h"
 
+typedef enum ActionType {
+        ACTION_QUERY,
+        ACTION_ATTRIBUTE_WALK,
+        ACTION_DEVICE_ID_FILE,
+} ActionType;
+
+typedef enum QueryType {
+        QUERY_NAME,
+        QUERY_PATH,
+        QUERY_SYMLINK,
+        QUERY_PROPERTY,
+        QUERY_ALL,
+} QueryType;
+
+static bool arg_root = false;
+static bool arg_export = false;
+static const char *arg_export_prefix = NULL;
+
 static bool skip_attribute(const char *name) {
         static const char* const skip[] = {
                 "uevent",
@@ -106,7 +124,7 @@ static int print_device_chain(sd_device *device) {
         return 0;
 }
 
-static void print_record(sd_device *device) {
+static int print_record(sd_device *device) {
         const char *str, *val;
         int i;
 
@@ -126,6 +144,7 @@ static void print_record(sd_device *device) {
                 printf("E: %s=%s\n", str, val);
 
         printf("\n");
+        return 0;
 }
 
 static int stat_device(const char *name, bool export, const char *prefix) {
@@ -223,8 +242,75 @@ static void cleanup_db(void) {
                 cleanup_dir(dir5, 0, 1);
 }
 
-static int help(void) {
+static int query_device(QueryType query, sd_device* device) {
+        int r;
 
+        assert(device);
+
+        switch(query) {
+        case QUERY_NAME: {
+                const char *node;
+
+                r = sd_device_get_devname(device, &node);
+                if (r < 0)
+                        return log_error_errno(r, "No device node found: %m");
+
+                if (arg_root)
+                        printf("%s\n", node);
+                else
+                        printf("%s\n", node + STRLEN("/dev/"));
+                return 0;
+        }
+
+        case QUERY_SYMLINK: {
+                const char *devlink;
+                bool first = true;
+
+                FOREACH_DEVICE_DEVLINK(device, devlink) {
+                        if (!first)
+                                printf(" ");
+                        if (arg_root)
+                                printf("%s", devlink);
+                        else
+                                printf("%s", devlink + STRLEN("/dev/"));
+
+                        first = false;
+                }
+                printf("\n");
+                return 0;
+        }
+
+        case QUERY_PATH: {
+                const char *devpath;
+
+                r = sd_device_get_devpath(device, &devpath);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get device path: %m");
+
+                printf("%s\n", devpath);
+                return 0;
+        }
+
+        case QUERY_PROPERTY: {
+                const char *key, *value;
+
+                FOREACH_DEVICE_PROPERTY(device, key, value)
+                        if (arg_export)
+                                printf("%s%s='%s'\n", strempty(arg_export_prefix), key, value);
+                        else
+                                printf("%s=%s\n", key, value);
+                return 0;
+        }
+
+        case QUERY_ALL:
+                return print_record(device);
+        }
+
+        assert_not_reached("unknown query type");
+        return 0;
+}
+
+static int help(void) {
         printf("%s info [OPTIONS] [DEVPATH|FILE]\n\n"
                "Query sysfs or the udev database.\n\n"
                "  -h --help                   Print this message\n"
@@ -252,9 +338,7 @@ static int help(void) {
 
 int info_main(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        bool root = false, export = false;
         _cleanup_free_ char *name = NULL;
-        const char *export_prefix = NULL;
         int c, r;
 
         static const struct option options[] = {
@@ -273,19 +357,8 @@ int info_main(int argc, char *argv[], void *userdata) {
                 {}
         };
 
-        enum action_type {
-                ACTION_QUERY,
-                ACTION_ATTRIBUTE_WALK,
-                ACTION_DEVICE_ID_FILE,
-        } action = ACTION_QUERY;
-
-        enum query_type {
-                QUERY_NAME,
-                QUERY_PATH,
-                QUERY_SYMLINK,
-                QUERY_PROPERTY,
-                QUERY_ALL,
-        } query = QUERY_ALL;
+        ActionType action = ACTION_QUERY;
+        QueryType query = QUERY_ALL;
 
         while ((c = getopt_long(argc, argv, "aced:n:p:q:rxP:RVh", options, NULL)) >= 0)
                 switch (c) {
@@ -327,7 +400,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                         }
                         break;
                 case 'r':
-                        root = true;
+                        arg_root = true;
                         break;
                 case 'd':
                         action = ACTION_DEVICE_ID_FILE;
@@ -344,10 +417,10 @@ int info_main(int argc, char *argv[], void *userdata) {
                         cleanup_db();
                         return 0;
                 case 'x':
-                        export = true;
+                        arg_export = true;
                         break;
                 case 'P':
-                        export_prefix = optarg;
+                        arg_export_prefix = optarg;
                         break;
                 case 'V':
                         return print_version();
@@ -359,95 +432,35 @@ int info_main(int argc, char *argv[], void *userdata) {
                         assert_not_reached("Unknown option");
                 }
 
-        switch (action) {
-        case ACTION_QUERY:
-                if (!device) {
-                        if (!argv[optind]) {
-                                help();
-                                return -EINVAL;
-                        }
-                        r = find_device(argv[optind], NULL, &device);
-                        if (r < 0)
-                                return log_error_errno(r, "Unknown device, --name=, --path=, or absolute path in /dev/ or /sys expected: %m");
-                }
+        if (IN_SET(action, ACTION_QUERY, ACTION_ATTRIBUTE_WALK) &&
+            !device) {
+                /* A device argument is required. It may be an option or a positional arg. */
 
-                switch(query) {
-                case QUERY_NAME: {
-                        const char *node;
+                if (!argv[optind])
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "A device name or path is required");
 
-                        r = sd_device_get_devname(device, &node);
-                        if (r < 0)
-                                return log_error_errno(r, "no device node found: %m");
-
-                        if (root)
-                                printf("%s\n", node);
-                        else
-                                printf("%s\n", node + STRLEN("/dev/"));
-                        break;
-                }
-                case QUERY_SYMLINK: {
-                        const char *devlink;
-                        bool first = true;
-
-                        FOREACH_DEVICE_DEVLINK(device, devlink) {
-                                if (!first)
-                                        printf(" ");
-                                if (root)
-                                        printf("%s", devlink);
-                                else
-                                        printf("%s", devlink + STRLEN("/dev/"));
-
-                                first = false;
-                        }
-                        printf("\n");
-                        break;
-                }
-                case QUERY_PATH: {
-                        const char *devpath;
-
-                        r = sd_device_get_devpath(device, &devpath);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get device path: %m");
-
-                        printf("%s\n", devpath);
-                        return 0;
-                }
-                case QUERY_PROPERTY: {
-                        const char *key, *value;
-
-                        FOREACH_DEVICE_PROPERTY(device, key, value)
-                                if (export)
-                                        printf("%s%s='%s'\n", strempty(export_prefix), key, value);
-                                else
-                                        printf("%s=%s\n", key, value);
-
-                        break;
-                }
-                case QUERY_ALL:
-                        print_record(device);
-                        break;
-                default:
-                        assert_not_reached("unknown query type");
-                }
-                break;
-        case ACTION_ATTRIBUTE_WALK:
-                if (!device && argv[optind]) {
-                        r = find_device(argv[optind], NULL, &device);
-                        if (r < 0)
-                                return log_error_errno(r, "Unknown device, absolute path in /dev/ or /sys expected: %m");
-                }
-                if (!device) {
-                        log_error("Unknown device, --name=, --path=, or absolute path in /dev/ or /sys expected.");
-                        return -EINVAL;
-                }
-                print_device_chain(device);
-                break;
-        case ACTION_DEVICE_ID_FILE:
-                r = stat_device(name, export, export_prefix);
+                r = find_device(argv[optind], NULL, &device);
+                if (r == -EINVAL)
+                        return log_error_errno(r, "Bad argument \"%s\", an absolute path in /dev/ or /sys expected: %m",
+                                               argv[optind]);
                 if (r < 0)
-                        return r;
-                break;
+                        return log_error_errno(r, "Unknown device \"%s\": %m",  argv[optind]);
         }
 
-        return 0;
+        switch (action) {
+        case ACTION_QUERY:
+                assert(device);
+                return query_device(query, device);
+
+        case ACTION_ATTRIBUTE_WALK:
+                assert(device);
+                return print_device_chain(device);
+
+        case ACTION_DEVICE_ID_FILE:
+                assert(name);
+                return stat_device(name, arg_export, arg_export_prefix);
+        }
+
+        assert_not_reached("Unknown action");
 }
