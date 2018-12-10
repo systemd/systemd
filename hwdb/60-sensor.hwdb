@@ -325,8 +325,10 @@ sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80XF:*
 sensor:modalias:acpi:SMO8840*:dmi:*:svnLENOVO:pn80XF:pvrLenovoMIIX320*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-# IdeaPad Miix 510
+# IdeaPad Miix 510, multiple expressions match different internal names
+# pn80U1 matches IdeaPad Miix510-12ISK
 sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80XE:*
+sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80U1:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
