@@ -58,6 +58,7 @@ int address_configure(Address *address, Link *link, link_netlink_message_handler
 int address_remove(Address *address, Link *link, link_netlink_message_handler_t callback);
 bool address_equal(Address *a1, Address *a2);
 bool address_is_ready(const Address *a);
+int start_address_dump_timer(Link *link);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 

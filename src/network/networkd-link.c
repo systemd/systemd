@@ -580,6 +580,7 @@ static Link *link_free(Link *link) {
         free(link->state_file);
 
         sd_device_unref(link->sd_device);
+        sd_event_source_unref(link->address_event_source);
 
         HASHMAP_FOREACH (carrier, link->bound_to_links, i)
                 hashmap_remove(link->bound_to_links, INT_TO_PTR(carrier->ifindex));
@@ -1106,6 +1107,8 @@ static int link_request_set_addresses(Link *link) {
 
                 link->address_messages++;
         }
+
+        (void) start_address_dump_timer(link);
 
         LIST_FOREACH(labels, label, link->network->address_labels) {
                 r = address_label_configure(label, link, NULL, false);

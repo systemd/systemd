@@ -19,6 +19,8 @@
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
+#define ADDRESS_UPDATE_FLAGS_USEC (5000U * USEC_PER_MSEC)
+
 int address_new(Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;
 
@@ -651,8 +653,7 @@ int address_configure(
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
-                               link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback, link_netlink_destroy_callback, link);
         if (r < 0) {
                 address_release(address);
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
@@ -660,7 +661,11 @@ int address_configure(
 
         link_ref(link);
 
-        r = address_add(link, address->family, &address->in_addr, address->prefixlen, NULL);
+        if (!in_addr_is_null(address->family, &address->in_addr_peer))
+                r = address_add(link, address->family, &address->in_addr_peer, address->prefixlen, NULL);
+        else
+                r = address_add(link, address->family, &address->in_addr, address->prefixlen, NULL);
+
         if (r < 0) {
                 address_release(address);
                 return log_error_errno(r, "Could not add address: %m");
@@ -955,4 +960,37 @@ bool address_is_ready(const Address *a) {
                 return !(a->flags & IFA_F_TENTATIVE);
         else
                 return !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
+}
+
+static int on_address_timer(sd_event_source *s, usec_t t, void *userdata) {
+        Link *link = userdata;
+
+        assert(s);
+        assert(userdata);
+
+        manager_rtnl_enumerate_addresses(link->manager);
+
+        return 0;
+}
+
+int start_address_dump_timer(Link *link) {
+        usec_t time_now = now(clock_boottime_or_monotonic());
+        int r;
+
+        assert(link);
+
+        r = sd_event_add_time(
+                        link->manager->event,
+                        &link->address_event_source,
+                        clock_boottime_or_monotonic(),
+                        time_now + ADDRESS_UPDATE_FLAGS_USEC,
+                        0,
+                        on_address_timer,
+                        link);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(link->address_event_source, "address-flag-update");
+
+        return 0;
 }
