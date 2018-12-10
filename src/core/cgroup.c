@@ -2856,10 +2856,10 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
                 uint64_t us;
 
                 r = cg_get_keyed_attribute("cpu", u->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
-                if (r < 0)
-                        return r;
                 if (IN_SET(r, -ENOENT, -ENXIO))
                         return -ENODATA;
+                if (r < 0)
+                        return r;
 
                 r = safe_atou64(val, &us);
                 if (r < 0)
