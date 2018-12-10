@@ -3288,6 +3288,29 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         return 0;
 }
 
+static int unit_deserialize_job(Unit *u, FILE *f) {
+        _cleanup_(job_freep) Job *j = NULL;
+        int r;
+
+        assert(u);
+        assert(f);
+
+        j = job_new_raw(u);
+        if (!j)
+                return log_oom();
+
+        r = job_deserialize(j, f);
+        if (r < 0)
+                return r;
+
+        r = job_install_deserialized(j);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(j);
+        return 0;
+}
+
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         int r;
 
@@ -3321,32 +3344,11 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                 if (streq(l, "job")) {
                         if (v[0] == '\0') {
-                                /* new-style serialized job */
-                                Job *j;
-
-                                j = job_new_raw(u);
-                                if (!j)
-                                        return log_oom();
-
-                                r = job_deserialize(j, f);
-                                if (r < 0) {
-                                        job_free(j);
+                                /* New-style serialized job */
+                                r = unit_deserialize_job(u, f);
+                                if (r < 0)
                                         return r;
-                                }
-
-                                r = hashmap_put(u->manager->jobs, UINT32_TO_PTR(j->id), j);
-                                if (r < 0) {
-                                        job_free(j);
-                                        return r;
-                                }
-
-                                r = job_install_deserialized(j);
-                                if (r < 0) {
-                                        hashmap_remove(u->manager->jobs, UINT32_TO_PTR(j->id));
-                                        job_free(j);
-                                        return r;
-                                }
-                        } else  /* legacy for pre-44 */
+                        } else  /* Legacy for pre-44 */
                                 log_unit_warning(u, "Update from too old systemd versions are unsupported, cannot deserialize job: %s", v);
                         continue;
                 } else if (streq(l, "state-change-timestamp")) {

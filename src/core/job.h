@@ -222,6 +222,8 @@ void job_add_to_gc_queue(Job *j);
 int job_get_before(Job *j, Job*** ret);
 int job_get_after(Job *j, Job*** ret);
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
+
 const char* job_type_to_string(JobType t) _const_;
 JobType job_type_from_string(const char *s) _pure_;
 

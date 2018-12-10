@@ -244,19 +244,25 @@ Job* job_install(Job *j) {
 
 int job_install_deserialized(Job *j) {
         Job **pj;
+        int r;
 
         assert(!j->installed);
 
         if (j->type < 0 || j->type >= _JOB_TYPE_MAX_IN_TRANSACTION)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_unit_debug_errno(j->unit, SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid job type %s in deserialization.",
                                        strna(job_type_to_string(j->type)));
 
         pj = (j->type == JOB_NOP) ? &j->unit->nop_job : &j->unit->job;
-        if (*pj) {
-                log_unit_debug(j->unit, "Unit already has a job installed. Not installing deserialized job.");
-                return -EEXIST;
-        }
+        if (*pj)
+                return log_unit_debug_errno(j->unit, SYNTHETIC_ERRNO(EEXIST),
+                                            "Unit already has a job installed. Not installing deserialized job.");
+
+        r = hashmap_put(j->manager->jobs, UINT32_TO_PTR(j->id), j);
+        if (r == -EEXIST)
+                return log_unit_debug_errno(j->unit, r, "Job ID %" PRIu32 " already used, cannot deserialize job.", j->id);
+        if (r < 0)
+                return log_unit_debug_errno(j->unit, r, "Failed to insert job into jobs hash table: %m");
 
         *pj = j;
         j->installed = true;
