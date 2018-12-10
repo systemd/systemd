@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-#  SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1+
 #
-#  systemd is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU Lesser General Public License as published by
-#  the Free Software Foundation; either version 2.1 of the License, or
-#  (at your option) any later version.
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
 
 import os
 import sys

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-#  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 # SPDX-License-Identifier: LGPL-2.1+
 
 from __future__ import print_function
@@ -16,7 +15,6 @@ class sd_dump_hashmaps(gdb.Command):
                 d = gdb.parse_and_eval("hashmap_debug_list")
                 all_entry_sizes = gdb.parse_and_eval("all_entry_sizes")
                 all_direct_buckets = gdb.parse_and_eval("all_direct_buckets")
-                hashmap_base_t = gdb.lookup_type("HashmapBase")
                 uchar_t = gdb.lookup_type("unsigned char")
                 ulong_t = gdb.lookup_type("unsigned long")
                 debug_offset = gdb.parse_and_eval("(unsigned long)&((HashmapBase*)0)->debug")

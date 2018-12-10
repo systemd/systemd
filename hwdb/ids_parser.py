@@ -17,7 +17,6 @@ TAB = White('\t', exact=1).suppress()
 COMMENTLINE = pythonStyleComment + EOL
 EMPTYLINE = LineEnd()
 text_eol = lambda name: Regex(r'[^\n]+')(name) + EOL
-# text_eol = lambda name: Word(printables + ' ' + '®üäßçõãİó ×²⁶´‐“\u200E\u200B')(name) + EOL
 
 def klass_grammar():
     klass_line = Literal('C ').suppress() + NUM2('klass') + text_eol('text')

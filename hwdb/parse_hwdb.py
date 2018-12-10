@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
-#  SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT
 #
 # This file is distributed under the MIT license, see below.
 #
@@ -30,8 +29,7 @@ import sys
 import os
 
 try:
-    from pyparsing import (Word, White, Literal, ParserElement, Regex,
-                           LineStart, LineEnd,
+    from pyparsing import (Word, White, Literal, ParserElement, Regex, LineEnd,
                            OneOrMore, Combine, Or, Optional, Suppress, Group,
                            nums, alphanums, printables,
                            stringEnd, pythonStyleComment, QuotedString,
