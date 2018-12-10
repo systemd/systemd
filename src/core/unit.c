@@ -2328,6 +2328,73 @@ static void unit_emit_audit_stop(Unit *u, UnitActiveState state) {
         }
 }
 
+static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) {
+        bool unexpected = false;
+
+        assert(j);
+
+        if (j->state == JOB_WAITING)
+
+                /* So we reached a different state for this job. Let's see if we can run it now if it failed previously
+                 * due to EAGAIN. */
+                job_add_to_run_queue(j);
+
+        /* Let's check whether the unit's new state constitutes a finished job, or maybe contradicts a running job and
+         * hence needs to invalidate jobs. */
+
+        switch (j->type) {
+
+        case JOB_START:
+        case JOB_VERIFY_ACTIVE:
+
+                if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
+                        job_finish_and_invalidate(j, JOB_DONE, true, false);
+                else if (j->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
+                        unexpected = true;
+
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                                job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
+                }
+
+                break;
+
+        case JOB_RELOAD:
+        case JOB_RELOAD_OR_START:
+        case JOB_TRY_RELOAD:
+
+                if (j->state == JOB_RUNNING) {
+                        if (ns == UNIT_ACTIVE)
+                                job_finish_and_invalidate(j, (flags & UNIT_NOTIFY_RELOAD_FAILURE) ? JOB_FAILED : JOB_DONE, true, false);
+                        else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING)) {
+                                unexpected = true;
+
+                                if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                                        job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
+                        }
+                }
+
+                break;
+
+        case JOB_STOP:
+        case JOB_RESTART:
+        case JOB_TRY_RESTART:
+
+                if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                        job_finish_and_invalidate(j, JOB_DONE, true, false);
+                else if (j->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
+                        unexpected = true;
+                        job_finish_and_invalidate(j, JOB_FAILED, true, false);
+                }
+
+                break;
+
+        default:
+                assert_not_reached("Job type unknown");
+        }
+
+        return unexpected;
+}
+
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags) {
         bool unexpected;
         const char *reason;
@@ -2373,71 +2440,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
         unit_update_on_console(u);
 
-        if (u->job) {
-                unexpected = false;
-
-                if (u->job->state == JOB_WAITING)
-
-                        /* So we reached a different state for this
-                         * job. Let's see if we can run it now if it
-                         * failed previously due to EAGAIN. */
-                        job_add_to_run_queue(u->job);
-
-                /* Let's check whether this state change constitutes a
-                 * finished job, or maybe contradicts a running job and
-                 * hence needs to invalidate jobs. */
-
-                switch (u->job->type) {
-
-                case JOB_START:
-                case JOB_VERIFY_ACTIVE:
-
-                        if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                                job_finish_and_invalidate(u->job, JOB_DONE, true, false);
-                        else if (u->job->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
-                                unexpected = true;
-
-                                if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                        job_finish_and_invalidate(u->job, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
-                        }
-
-                        break;
-
-                case JOB_RELOAD:
-                case JOB_RELOAD_OR_START:
-                case JOB_TRY_RELOAD:
-
-                        if (u->job->state == JOB_RUNNING) {
-                                if (ns == UNIT_ACTIVE)
-                                        job_finish_and_invalidate(u->job, (flags & UNIT_NOTIFY_RELOAD_FAILURE) ? JOB_FAILED : JOB_DONE, true, false);
-                                else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING)) {
-                                        unexpected = true;
-
-                                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                                job_finish_and_invalidate(u->job, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
-                                }
-                        }
-
-                        break;
-
-                case JOB_STOP:
-                case JOB_RESTART:
-                case JOB_TRY_RESTART:
-
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                job_finish_and_invalidate(u->job, JOB_DONE, true, false);
-                        else if (u->job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
-                                unexpected = true;
-                                job_finish_and_invalidate(u->job, JOB_FAILED, true, false);
-                        }
-
-                        break;
-
-                default:
-                        assert_not_reached("Job type unknown");
-                }
-
-        } else
+        /* Let's propagate state changes to the job */
+        if (u->job)
+                unexpected = unit_process_job(u->job, ns, flags);
+        else
                 unexpected = true;
 
         if (!MANAGER_IS_RELOADING(m)) {
