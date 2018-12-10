@@ -23,6 +23,13 @@ Janitorial Clean-ups:
 
 Features:
 
+* make MAINPID= message reception checks even stricter: if service uses User=,
+  then check sending UID and ignore message if it doesn't match the user or
+  root.
+
+* maybe trigger a uevent "change" on a device if "systemctl reload xyz.device"
+  is issued.
+
 * when importing an fs tree with machined, optionally apply userns-rec-chown
 
 * when importing an fs tree with machined, complain if image is not an OS
