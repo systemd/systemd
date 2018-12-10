@@ -2844,14 +2844,13 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
         if (unit_has_host_root_cgroup(u))
                 return procfs_cpu_get_usage(ret);
 
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-
         /* Requisite controllers for CPU accounting are not enabled */
         if ((get_cpu_accounting_mask() & ~u->cgroup_realized_mask) != 0)
                 return -ENODATA;
 
+        r = cg_all_unified();
+        if (r < 0)
+                return r;
         if (r > 0) {
                 _cleanup_free_ char *val = NULL;
                 uint64_t us;
