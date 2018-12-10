@@ -19,9 +19,7 @@
 
 typedef enum LinkState {
         LINK_STATE_PENDING,
-        LINK_STATE_ENSLAVING,
-        LINK_STATE_SETTING_ADDRESSES,
-        LINK_STATE_SETTING_ROUTES,
+        LINK_STATE_CONFIGURING,
         LINK_STATE_CONFIGURED,
         LINK_STATE_UNMANAGED,
         LINK_STATE_FAILED,
@@ -72,6 +70,7 @@ typedef struct Link {
 
         unsigned address_messages;
         unsigned address_label_messages;
+        unsigned neighbor_messages;
         unsigned route_messages;
         unsigned routing_policy_rule_messages;
         unsigned routing_policy_rule_remove_messages;
@@ -81,6 +80,8 @@ typedef struct Link {
         Set *addresses_foreign;
         Set *routes;
         Set *routes_foreign;
+
+        bool addresses_configured;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
@@ -96,6 +97,8 @@ typedef struct Link {
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address:1;
         bool ipv4ll_route:1;
+
+        bool neighbors_configured;
 
         bool static_routes_configured;
         bool routing_policy_rules_configured;

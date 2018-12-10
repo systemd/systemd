@@ -93,6 +93,8 @@ Address.AutoJoin,                       config_parse_address_flags,             
 Address.Scope,                          config_parse_address_scope,                     0,                             0
 IPv6AddressLabel.Prefix,                config_parse_address_label_prefix,              0,                             0
 IPv6AddressLabel.Label,                 config_parse_address_label,                     0,                             0
+Neighbor.Address,                       config_parse_neighbor_address,                  0,                             0
+Neighbor.MACAddress,                    config_parse_neighbor_hwaddr,                   0,                             0
 RoutingPolicyRule.TypeOfService,        config_parse_routing_policy_rule_tos,           0,                             0
 RoutingPolicyRule.Priority,             config_parse_routing_policy_rule_priority,      0,                             0
 RoutingPolicyRule.Table,                config_parse_routing_policy_rule_table,         0,                             0

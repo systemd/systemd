@@ -1,0 +1,6 @@
+[Match]
+Name=dummy98
+
+[Neighbor]
+Address=2004:da8:1:0::
+MACAddress=00:00:5e:00:02:00
