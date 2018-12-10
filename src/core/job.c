@@ -89,7 +89,7 @@ void job_unlink(Job *j) {
         j->timer_event_source = sd_event_source_unref(j->timer_event_source);
 }
 
-void job_free(Job *j) {
+Job* job_free(Job *j) {
         assert(j);
         assert(!j->installed);
         assert(!j->transaction_prev);
@@ -102,7 +102,7 @@ void job_free(Job *j) {
         sd_bus_track_unref(j->bus_track);
         strv_free(j->deserialized_clients);
 
-        free(j);
+        return mfree(j);
 }
 
 static void job_set_state(Job *j, JobState state) {
