@@ -97,12 +97,24 @@ int mkfs_exists(const char *fstype);
 /* Iterates through the path prefixes of the specified path, going up
  * the tree, to root. Also returns "" (and not "/"!) for the root
  * directory. Excludes the specified directory itself */
-#define PATH_FOREACH_PREFIX(prefix, path) \
-        for (char *_slash = ({ path_simplify(strcpy(prefix, path), false); streq(prefix, "/") ? NULL : strrchr(prefix, '/'); }); _slash && ((*_slash = 0), true); _slash = strrchr((prefix), '/'))
+#define PATH_FOREACH_PREFIX(prefix, path)                               \
+        for (char *_slash = ({                                          \
+                                path_simplify(strcpy(prefix, path), false); \
+                                streq(prefix, "/") ? NULL : strrchr(prefix, '/'); \
+                        });                                             \
+             _slash && ((*_slash = 0), true);                           \
+             _slash = strrchr((prefix), '/'))
 
 /* Same as PATH_FOREACH_PREFIX but also includes the specified path itself */
-#define PATH_FOREACH_PREFIX_MORE(prefix, path) \
-        for (char *_slash = ({ path_simplify(strcpy(prefix, path), false); if (streq(prefix, "/")) prefix[0] = 0; strrchr(prefix, 0); }); _slash && ((*_slash = 0), true); _slash = strrchr((prefix), '/'))
+#define PATH_FOREACH_PREFIX_MORE(prefix, path)                          \
+        for (char *_slash = ({                                          \
+                                path_simplify(strcpy(prefix, path), false); \
+                                if (streq(prefix, "/"))                 \
+                                        prefix[0] = 0;                  \
+                                strrchr(prefix, 0);                     \
+                        });                                             \
+             _slash && ((*_slash = 0), true);                           \
+             _slash = strrchr((prefix), '/'))
 
 char *prefix_root(const char *root, const char *path);
 

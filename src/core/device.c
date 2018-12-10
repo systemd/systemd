@@ -839,7 +839,7 @@ static void device_enumerate(Manager *m) {
 
         r = sd_device_enumerator_new(&e);
         if (r < 0) {
-                log_error_errno(r, "Failed to alloacte device enumerator: %m");
+                log_error_errno(r, "Failed to allocate device enumerator: %m");
                 goto fail;
         }
 

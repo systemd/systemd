@@ -1139,5 +1139,12 @@ int path_simplify_and_warn(
                 return -EINVAL;
         }
 
+        if (!path_is_valid(path)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "%s= path has invalid length (%zu bytes)%s.",
+                           lvalue, strlen(path), fatal ? "" : ", ignoring");
+                return -EINVAL;
+        }
+
         return 0;
 }
