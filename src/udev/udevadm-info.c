@@ -335,7 +335,7 @@ static int help(void) {
 }
 
 int info_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_strv_free_ char **devices = NULL;
         _cleanup_free_ char *name = NULL;
         int c, r;
 
@@ -361,25 +361,20 @@ int info_main(int argc, char *argv[], void *userdata) {
         while ((c = getopt_long(argc, argv, "aced:n:p:q:rxP:RVh", options, NULL)) >= 0)
                 switch (c) {
                 case 'n':
-                        if (device) {
-                                log_error("device already specified");
-                                return -EINVAL;
-                        }
+                case 'p': {
+                        const char *prefix = c == 'n' ? "/dev/" : "/sys/";
+                        char *path;
 
-                        r = find_device(optarg, "/dev/", &device);
-                        if (r < 0)
-                                return log_error_errno(r, "device node not found: %m");
-                        break;
-                case 'p':
-                        if (device) {
-                                log_error("device already specified");
-                                return -EINVAL;
-                        }
+                        path = path_join(path_startswith(optarg, prefix) ? NULL : prefix, optarg);
+                        if (!path)
+                                return log_oom();
 
-                        r = find_device(optarg, "/sys", &device);
+                        r = strv_consume(&devices, path);
                         if (r < 0)
-                                return log_error_errno(r, "syspath not found: %m");
+                                return log_oom();
                         break;
+                }
+
                 case 'q':
                         action = ACTION_QUERY;
                         if (streq(optarg, "property") || streq(optarg, "env"))
@@ -430,35 +425,45 @@ int info_main(int argc, char *argv[], void *userdata) {
                         assert_not_reached("Unknown option");
                 }
 
-        if (IN_SET(action, ACTION_QUERY, ACTION_ATTRIBUTE_WALK) &&
-            !device) {
-                /* A device argument is required. It may be an option or a positional arg. */
 
-                if (!argv[optind])
+        if (action == ACTION_DEVICE_ID_FILE) {
+                if (argv[optind])
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "A device name or path is required");
-
-                r = find_device(argv[optind], NULL, &device);
-                if (r == -EINVAL)
-                        return log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys or a unit name: %m",
-                                               argv[optind]);
-                if (r < 0)
-                        return log_error_errno(r, "Unknown device \"%s\": %m",  argv[optind]);
-        }
-
-        switch (action) {
-        case ACTION_QUERY:
-                assert(device);
-                return query_device(query, device);
-
-        case ACTION_ATTRIBUTE_WALK:
-                assert(device);
-                return print_device_chain(device);
-
-        case ACTION_DEVICE_ID_FILE:
+                                               "Positional arguments are not allowed with -d/--device-id-of-file.");
                 assert(name);
                 return stat_device(name, arg_export, arg_export_prefix);
         }
 
-        assert_not_reached("Unknown action");
+        r = strv_extend_strv(&devices, argv + optind, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build argument list: %m");
+
+        if (strv_isempty(devices))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "A device name or path is required");
+        if (action == ACTION_ATTRIBUTE_WALK && strv_length(devices) > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Only one device may be specified with -a/--attribute-walk");
+
+        char **p;
+        STRV_FOREACH(p, devices) {
+                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+
+                r = find_device(*p, NULL, &device);
+                if (r == -EINVAL)
+                        return log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys or a unit name: %m", *p);
+                if (r < 0)
+                        return log_error_errno(r, "Unknown device \"%s\": %m",  *p);
+
+                if (action == ACTION_QUERY)
+                        r = query_device(query, device);
+                else if (action == ACTION_ATTRIBUTE_WALK)
+                        r = print_device_chain(device);
+                else
+                        assert_not_reached("Unknown action");
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }

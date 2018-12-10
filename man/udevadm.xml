@@ -76,14 +76,14 @@
 
     <refsect2><title>udevadm info
       <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
     </title>
 
       <para>Query the udev database for device information.</para>
 
-      <para>A positional argument should be used to specify a device. It may be a device name (in which case
-      it must start with <filename>/dev/</filename>), a sys path (in which case it must start with
-      <filename>/sys/</filename>), or a systemd device unit name (in which case it must end with
+      <para>Positional arguments should be used to specify one or more devices. Each one may be a device name
+      (in which case it must start with <filename>/dev/</filename>), a sys path (in which case it must start
+      with <filename>/sys/</filename>), or a systemd device unit name (in which case it must end with
       <literal>.device</literal>, see
       <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
       </para>
