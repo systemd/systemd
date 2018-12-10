@@ -170,6 +170,22 @@
           when possible. It is enabled by default; specifying 0 disables it.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>net.naming-scheme=</varname></term>
+        <listitem>
+          <para>Network interfaces are renamed to give them predictable names when possible (unless
+          <varname>net.ifnames=0</varname> is specified, see above). The names are derived from various device metadata
+          fields. Newer versions of <filename>systemd-udevd.service</filename> take more of these fields into account,
+          improving (and thus possibly changing) the names used for the same devices. With this kernel command line
+          option it is possible to pick a specific version of this algorithm. It expects a naming scheme identifier as
+          argument. Currently the following identifiers are known: <literal>v238</literal>, <literal>v239</literal>,
+          <literal>v240</literal> which each implement the naming scheme that was the default in the indicated systemd
+          version. Note that selecting a specific scheme is not sufficient to fully stabilize interface naming: the
+          naming is generally derived from driver attributes exposed by the kernel. As the kernel is updated,
+          previously missing attributes <filename>systemd-udevd.service</filename> is checking might appear, which
+          affects older name derivation algorithms, too.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
     <!-- when adding entries here, consider also adding them
          in kernel-command-line.xml -->
