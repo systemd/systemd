@@ -440,7 +440,7 @@ int info_main(int argc, char *argv[], void *userdata) {
 
                 r = find_device(argv[optind], NULL, &device);
                 if (r == -EINVAL)
-                        return log_error_errno(r, "Bad argument \"%s\", an absolute path in /dev/ or /sys expected: %m",
+                        return log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys or a unit name: %m",
                                                argv[optind]);
                 if (r < 0)
                         return log_error_errno(r, "Unknown device \"%s\": %m",  argv[optind]);

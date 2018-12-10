@@ -6,18 +6,31 @@
 #include "device-private.h"
 #include "path-util.h"
 #include "udevadm-util.h"
+#include "unit-name.h"
 
 int find_device(const char *id, const char *prefix, sd_device **ret) {
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
 
         assert(id);
         assert(ret);
 
-        if (prefix && !path_startswith(id, prefix)) {
-                buf = path_join(prefix, id);
-                if (!buf)
-                        return -ENOMEM;
-                id = buf;
+        if (prefix) {
+                if (!path_startswith(id, prefix)) {
+                        id = path = path_join(prefix, id);
+                        if (!path)
+                                return -ENOMEM;
+                }
+        } else {
+                /* In cases where the argument is generic (no prefix specified),
+                 * check if the argument looks like a device unit name. */
+                if (unit_name_is_valid(id, UNIT_NAME_PLAIN) &&
+                    unit_name_to_type(id) == UNIT_DEVICE) {
+                        r = unit_name_to_path(id, &path);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to convert \"%s\" to a device path: %m", id);
+                        id = path;
+                }
         }
 
         if (path_startswith(id, "/sys/"))
