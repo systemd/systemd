@@ -659,7 +659,7 @@ int config_parse_domains(
                         domain = "."; /* make sure we don't allow empty strings, thus write the root domain as "." */
 
                 } else {
-                        r = dns_name_normalize(domain, &normalized);
+                        r = dns_name_normalize(domain, 0, &normalized);
                         if (r < 0) {
                                 log_syntax(unit, LOG_ERR, filename, line, r, "'%s' is not a valid domain name, ignoring.", domain);
                                 continue;

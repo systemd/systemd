@@ -53,6 +53,12 @@ static void test_hostname_cleanup(void) {
         assert_se(streq(hostname_cleanup(s), "foobar.com"));
         s = strdupa("foobar.com.");
         assert_se(streq(hostname_cleanup(s), "foobar.com"));
+        s = strdupa("foo-bar.-com-.");
+        assert_se(streq(hostname_cleanup(s), "foo-bar.com"));
+        s = strdupa("foo-bar-.-com-.");
+        assert_se(streq(hostname_cleanup(s), "foo-bar--com"));
+        s = strdupa("--foo-bar.-com");
+        assert_se(streq(hostname_cleanup(s), "foo-bar.com"));
         s = strdupa("fooBAR");
         assert_se(streq(hostname_cleanup(s), "fooBAR"));
         s = strdupa("fooBAR.com");
@@ -79,6 +85,8 @@ static void test_hostname_cleanup(void) {
         assert_se(streq(hostname_cleanup(s), "foo.bar"));
         s = strdupa("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         assert_se(streq(hostname_cleanup(s), "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
+        s = strdupa("xxxx........xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+        assert_se(streq(hostname_cleanup(s), "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
 }
 
 static void test_read_etc_hostname(void) {

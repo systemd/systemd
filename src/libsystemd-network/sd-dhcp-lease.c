@@ -355,7 +355,7 @@ static int lease_parse_domain(const uint8_t *option, size_t len, char **ret) {
                 return 0;
         }
 
-        r = dns_name_normalize(name, &normalized);
+        r = dns_name_normalize(name, 0, &normalized);
         if (r < 0)
                 return r;
 

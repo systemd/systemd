@@ -535,7 +535,7 @@ int dns_packet_append_name(
                         }
                 }
 
-                r = dns_label_unescape(&name, label, sizeof(label));
+                r = dns_label_unescape(&name, label, sizeof label, 0);
                 if (r < 0)
                         goto fail;
 

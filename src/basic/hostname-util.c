@@ -69,12 +69,12 @@ int gethostname_strict(char **ret) {
         return 0;
 }
 
-static bool hostname_valid_char(char c) {
+bool valid_ldh_char(char c) {
         return
                 (c >= 'a' && c <= 'z') ||
                 (c >= 'A' && c <= 'Z') ||
                 (c >= '0' && c <= '9') ||
-                IN_SET(c, '-', '_', '.');
+                c == '-';
 }
 
 /**
@@ -90,7 +90,7 @@ static bool hostname_valid_char(char c) {
 bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
         unsigned n_dots = 0;
         const char *p;
-        bool dot;
+        bool dot, hyphen;
 
         if (isempty(s))
                 return false;
@@ -100,22 +100,33 @@ bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
          * sequence. Also ensures that the length stays below
          * HOST_NAME_MAX. */
 
-        for (p = s, dot = true; *p; p++) {
+        for (p = s, dot = hyphen = true; *p; p++)
                 if (*p == '.') {
-                        if (dot)
+                        if (dot || hyphen)
                                 return false;
 
                         dot = true;
+                        hyphen = false;
                         n_dots++;
-                } else {
-                        if (!hostname_valid_char(*p))
+
+                } else if (*p == '-') {
+                        if (dot)
                                 return false;
 
                         dot = false;
+                        hyphen = true;
+
+                } else {
+                        if (!valid_ldh_char(*p))
+                                return false;
+
+                        dot = false;
+                        hyphen = false;
                 }
-        }
 
         if (dot && (n_dots < 2 || !allow_trailing_dot))
+                return false;
+        if (hyphen)
                 return false;
 
         if (p-s > HOST_NAME_MAX) /* Note that HOST_NAME_MAX is 64 on
@@ -128,29 +139,38 @@ bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
 
 char* hostname_cleanup(char *s) {
         char *p, *d;
-        bool dot;
+        bool dot, hyphen;
 
         assert(s);
 
-        strshorten(s, HOST_NAME_MAX);
-
-        for (p = s, d = s, dot = true; *p; p++) {
+        for (p = s, d = s, dot = hyphen = true; *p && d - s < HOST_NAME_MAX; p++)
                 if (*p == '.') {
-                        if (dot)
+                        if (dot || hyphen)
                                 continue;
 
                         *(d++) = '.';
                         dot = true;
-                } else if (hostname_valid_char(*p)) {
+                        hyphen = false;
+
+                } else if (*p == '-') {
+                        if (dot)
+                                continue;
+
+                        *(d++) = '-';
+                        dot = false;
+                        hyphen = true;
+
+                } else if (valid_ldh_char(*p)) {
                         *(d++) = *p;
                         dot = false;
+                        hyphen = false;
                 }
-        }
 
-        if (dot && d > s)
-                d[-1] = 0;
-        else
-                *d = 0;
+        if (d > s && IN_SET(d[-1], '-', '.'))
+                /* The dot can occur at most once, but we might have multiple
+                 * hyphens, hence the loop */
+                d--;
+        *d = 0;
 
         return s;
 }

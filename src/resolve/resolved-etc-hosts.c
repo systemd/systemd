@@ -46,19 +46,20 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
         r = extract_first_word(&line, &address_str, NULL, EXTRACT_RELAX);
         if (r < 0)
-                return log_error_errno(r, "Couldn't extract address, in line /etc/hosts:%u.", nr);
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Premature end of line, in line /etc/hosts:%u.",
-                                       nr);
+                return log_error_errno(r, "/etc/hosts:%u: failed to extract address: %m", nr);
+        assert(r > 0); /* We already checked that the line is not empty, so it should contain *something* */
 
         r = in_addr_ifindex_from_string_auto(address_str, &address.family, &address.address, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Address '%s' is invalid, in line /etc/hosts:%u.", address_str, nr);
+        if (r < 0) {
+                log_warning_errno(r, "/etc/hosts:%u: address '%s' is invalid, ignoring: %m", nr, address_str);
+                return 0;
+        }
 
         r = in_addr_is_null(address.family, &address.address);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_warning_errno(r, "/etc/hosts:%u: address '%s' is invalid, ignoring: %m", nr, address_str);
+                return 0;
+        }
         if (r > 0)
                 /* This is an 0.0.0.0 or :: item, which we assume means that we shall map the specified hostname to
                  * nothing. */
@@ -92,15 +93,17 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
                 r = extract_first_word(&line, &name, NULL, EXTRACT_RELAX);
                 if (r < 0)
-                        return log_error_errno(r, "Couldn't extract host name, in line /etc/hosts:%u.", nr);
+                        return log_error_errno(r, "/etc/hosts:%u: couldn't extract host name: %m", nr);
                 if (r == 0)
                         break;
 
-                r = dns_name_is_valid(name);
-                if (r <= 0)
-                        return log_error_errno(r, "Hostname %s is not valid, ignoring, in line /etc/hosts:%u.", name, nr);
-
                 found = true;
+
+                r = dns_name_is_valid_ldh(name);
+                if (r <= 0) {
+                        log_warning_errno(r, "/etc/hosts:%u: hostname \"%s\" is not valid, ignoring.", nr, name);
+                        continue;
+                }
 
                 if (is_localhost(name))
                         /* Suppress the "localhost" line that is often seen */
@@ -152,9 +155,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         }
 
         if (!found)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Line is missing any host names, in line /etc/hosts:%u.",
-                                       nr);
+                log_warning("/etc/hosts:%u: line is missing any host names", nr);
 
         return 0;
 }
@@ -176,10 +177,12 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
 
                 nr++;
 
+                l = strchr(line, '#');
+                if (l)
+                        *l = '\0';
+
                 l = strstrip(line);
                 if (isempty(l))
-                        continue;
-                if (l[0] == '#')
                         continue;
 
                 r = parse_line(&t, nr, l);
