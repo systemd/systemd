@@ -158,6 +158,9 @@ option('default-hierarchy', type : 'combo',
        description : 'default cgroup hierarchy')
 option('time-epoch', type : 'string',
        description : 'time epoch for time clients')
+option('default-net-naming-scheme', type : 'combo',
+       choices : ['rhel-8.0', 'rhel-8.1', 'rhel-8.2', 'rhel-8.3', 'latest'],
+       description : 'default net.naming-scheme= value')
 option('system-uid-max', type : 'string',
        description : 'maximum system UID')
 option('system-gid-max', type : 'string',

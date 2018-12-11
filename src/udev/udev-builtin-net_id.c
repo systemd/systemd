@@ -185,6 +185,19 @@ struct virtfn_info {
         char suffix[IFNAMSIZ];
 };
 
+static const NamingScheme* naming_scheme_from_name(const char *name) {
+        size_t i;
+
+        if (streq(name, "latest"))
+                return naming_schemes + ELEMENTSOF(naming_schemes) - 1;
+
+        for (i = 0; i < ELEMENTSOF(naming_schemes); i++)
+                if (streq(naming_schemes[i].name, name))
+                        return naming_schemes + i;
+
+        return NULL;
+}
+
 static const NamingScheme* naming_scheme(void) {
         static const NamingScheme *cache = NULL;
         _cleanup_free_ char *buffer = NULL;
@@ -208,25 +221,18 @@ static const NamingScheme* naming_scheme(void) {
                 k = buffer;
 
         if (k) {
-                size_t i;
+                cache = naming_scheme_from_name(k);
+                if (cache) {
+                        log_info("Using interface naming scheme '%s'.", cache->name);
+                        return cache;
+                }
 
-                for (i = 0; i < ELEMENTSOF(naming_schemes); i++)
-                        if (streq(naming_schemes[i].name, k)) {
-                                cache = naming_schemes + i;
-                                break;
-                        }
-
-                if (!cache)
-                        log_warning("Unknown interface naming scheme '%s' requested, ignoring.", k);
+                log_warning("Unknown interface naming scheme '%s' requested, ignoring.", k);
         }
 
-        if (cache)
-                log_info("Using interface naming scheme '%s'.", cache->name);
-        else {
-                /* RHEL-only: here we differ from the upstream and if no naming scheme was selected we default to naming from systemd-239 */
-                cache = &naming_schemes[2];
-                log_info("Using default interface naming scheme '%s'.", cache->name);
-        }
+        cache = naming_scheme_from_name(DEFAULT_NET_NAMING_SCHEME);
+        assert(cache);
+        log_info("Using default interface naming scheme '%s'.", cache->name);
 
         return cache;
 }
