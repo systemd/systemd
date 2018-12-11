@@ -40,22 +40,33 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-tmpfiles</command> uses the configuration
-    files from the above directories to describe the creation,
-    cleaning and removal of volatile and temporary files and
-    directories which usually reside in directories such as
-    <filename>/run</filename> or <filename>/tmp</filename>.</para>
+    <para><filename>tmpfiles.d</filename> configuration files provide a generic mechanism to define the
+    <emphasis>creation</emphasis> of regular files, directories, pipes, and device nodes, adjustments to
+    their <emphasis>access mode, ownership, attributes, quota assignments, and contents</emphasis>, and
+    finally their time-based <emphasis>removal</emphasis>. It is mostly commonly used for volatile and
+    temporary files and directories (such as those located under <filename>/run</filename>,
+    <filename>/tmp</filename>, <filename>/var/tmp</filename>, the API file systems such as
+    <filename>/sys</filename> or <filename>/proc</filename>, as well as some other directories below
+    <filename>/var</filename>).</para>
 
-    <para>Volatile and temporary files and directories are those located in <filename>/run</filename>,
-    <filename>/tmp</filename>, <filename>/var/tmp</filename>, the API file systems such as <filename>/sys</filename> or
-    <filename>/proc</filename>, as well as some other directories below <filename>/var</filename>.</para>
+    <para><command>systemd-tmpfiles</command> uses this configuration to create volatile files and
+    directories during boot and to do periodic cleanup afterwards. See
+    <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    the description of <filename>systemd-tmpfiles-setup.service</filename>,
+    <filename>systemd-tmpfiles-cleanup.service</filename>, and associated units.</para>
 
-    <para>System daemons frequently require private runtime
-    directories below <filename>/run</filename> to place communication
-    sockets and similar in. For these, consider declaring them in
-    their unit files using <varname>RuntimeDirectory=</varname> (see
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details), if this is feasible.</para>
+    <para>System daemons frequently require private runtime directories below <filename>/run</filename> to
+    store communication sockets and similar. For these, is is better to use
+    <varname>RuntimeDirectory=</varname> in their unit files (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details), if the flexibility provided by <filename>tmpfiles.d</filename> is not required. The advantages
+    are that the configuration required by the unit is centralized in one place, and that the lifetime of the
+    directory is tied to the lifetime of the service itself. Similarly, <varname>StateDirectory=</varname>,
+    <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>, and
+    <varname>ConfigurationDirectory=</varname> should be used to create directories under
+    <filename>/var/lib/</filename>, <filename>/var/cache/</filename>, <filename>/var/log/</filename>, and
+    <filename>/etc/</filename>. <filename>tmpfiles.d</filename> should be used for files whose lifetime is
+    independent of any service or requires more complicated configuration.</para>
   </refsect1>
 
   <refsect1>
