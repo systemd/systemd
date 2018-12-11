@@ -2396,7 +2396,6 @@ static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) 
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags) {
-        bool unexpected;
         const char *reason;
         Manager *m;
 
@@ -2440,20 +2439,18 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
         unit_update_on_console(u);
 
-        /* Let's propagate state changes to the job */
-        if (u->job)
-                unexpected = unit_process_job(u->job, ns, flags);
-        else
-                unexpected = true;
-
         if (!MANAGER_IS_RELOADING(m)) {
+                bool unexpected;
 
-                /* If this state change happened without being
-                 * requested by a job, then let's retroactively start
-                 * or stop dependencies. We skip that step when
-                 * deserializing, since we don't want to create any
-                 * additional jobs just because something is already
-                 * activated. */
+                /* Let's propagate state changes to the job */
+                if (u->job)
+                        unexpected = unit_process_job(u->job, ns, flags);
+                else
+                        unexpected = true;
+
+                /* If this state change happened without being requested by a job, then let's retroactively start or
+                 * stop dependencies. We skip that step when deserializing, since we don't want to create any
+                 * additional jobs just because something is already activated. */
 
                 if (unexpected) {
                         if (UNIT_IS_INACTIVE_OR_FAILED(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
