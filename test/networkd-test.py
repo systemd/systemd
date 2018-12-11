@@ -53,6 +53,7 @@ def setUpModule():
     if (subprocess.call(['systemctl', 'is-active', '--quiet', 'systemd-networkd.service']) == 0 and
             subprocess.call(['systemd-detect-virt', '--quiet']) != 0):
         raise unittest.SkipTest('not virtualized and networkd is already active')
+
     # Ensure we don't mess with an existing networkd config
     for u in ['systemd-networkd.socket', 'systemd-networkd', 'systemd-resolved']:
         if subprocess.call(['systemctl', 'is-active', '--quiet', u]) == 0:
@@ -60,6 +61,12 @@ def setUpModule():
             running_units.append(u)
         else:
             stopped_units.append(u)
+
+    # create static systemd-network user for networkd-test-router.service (it
+    # needs to do some stuff as root and can't start as user; but networkd
+    # still insists on the user)
+    subprocess.call(['adduser', '--system', '--no-create-home', 'systemd-network'])
+
     for d in ['/etc/systemd/network', '/run/systemd/network',
               '/run/systemd/netif', '/run/systemd/resolve']:
         if os.path.isdir(d):
@@ -68,17 +75,15 @@ def setUpModule():
     if os.path.isdir('/run/systemd/resolve'):
         os.chmod('/run/systemd/resolve', 0o755)
         shutil.chown('/run/systemd/resolve', 'systemd-resolve', 'systemd-resolve')
+    if os.path.isdir('/run/systemd/netif'):
+        os.chmod('/run/systemd/netif', 0o755)
+        shutil.chown('/run/systemd/netif', 'systemd-network', 'systemd-network')
 
     # Avoid "Failed to open /dev/tty" errors in containers.
     os.environ['SYSTEMD_LOG_TARGET'] = 'journal'
 
     # Ensure the unit directory exists so tests can dump files into it.
     os.makedirs(NETWORK_UNITDIR, exist_ok=True)
-
-    # create static systemd-network user for networkd-test-router.service (it
-    # needs to do some stuff as root and can't start as user; but networkd
-    # still insists on the user)
-    subprocess.check_call(['adduser', '--system', '--no-create-home', 'systemd-network'])
 
 
 def tearDownModule():
@@ -106,13 +111,17 @@ class NetworkdTestingUtilities:
                               list(peer_options))
         self.addCleanup(subprocess.call, ['ip', 'link', 'del', 'dev', peer])
 
+    def write_config(self, path, contents):
+        """"Write a configuration file, and queue it to be removed."""
+
+        with open(path, 'w') as f:
+            f.write(contents)
+
+        self.addCleanup(os.remove, path)
+
     def write_network(self, unit_name, contents):
         """Write a network unit file, and queue it to be removed."""
-        unit_path = os.path.join(NETWORK_UNITDIR, unit_name)
-
-        with open(unit_path, 'w') as unit:
-            unit.write(contents)
-        self.addCleanup(os.remove, unit_path)
+        self.write_config(os.path.join(NETWORK_UNITDIR, unit_name), contents)
 
     def write_network_dropin(self, unit_name, dropin_name, contents):
         """Write a network unit drop-in, and queue it to be removed."""
@@ -700,6 +709,7 @@ Domains= ~company ~lab''')
             subprocess.check_call(['mount', '--bind', '/dev/null', '/etc/hostname'])
             self.addCleanup(subprocess.call, ['umount', '/etc/hostname'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-hostnamed.service'])
+        self.addCleanup(subprocess.call, ['systemctl', 'stop', 'systemd-hostnamed.service'])
 
         self.create_iface(dnsmasq_opts=['--dhcp-host={},192.168.5.210,testgreen'.format(self.iface_mac)])
         self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
@@ -732,9 +742,18 @@ Domains= ~company ~lab''')
 
         orig_hostname = socket.gethostname()
         self.addCleanup(socket.sethostname, orig_hostname)
+
         if not os.path.exists('/etc/hostname'):
-            self.writeConfig('/etc/hostname', orig_hostname)
+            self.write_config('/etc/hostname', "foobarqux")
+        else:
+            self.write_config('/run/hostname.tmp', "foobarqux")
+            subprocess.check_call(['mount', '--bind', '/run/hostname.tmp', '/etc/hostname'])
+            self.addCleanup(subprocess.call, ['umount', '/etc/hostname'])
+
+        socket.sethostname("foobarqux");
+
         subprocess.check_call(['systemctl', 'stop', 'systemd-hostnamed.service'])
+        self.addCleanup(subprocess.call, ['systemctl', 'stop', 'systemd-hostnamed.service'])
 
         self.create_iface(dnsmasq_opts=['--dhcp-host={},192.168.5.210,testgreen'.format(self.iface_mac)])
         self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
@@ -744,7 +763,7 @@ Domains= ~company ~lab''')
             out = subprocess.check_output(['ip', '-4', 'a', 'show', 'dev', self.iface])
             self.assertRegex(out, b'inet 192.168.5.210/24 .* scope global dynamic')
             # static hostname wins over transient one, thus *not* applied
-            self.assertEqual(socket.gethostname(), orig_hostname)
+            self.assertEqual(socket.gethostname(), "foobarqux")
         except AssertionError:
             self.show_journal('systemd-networkd.service')
             self.show_journal('systemd-hostnamed.service')
