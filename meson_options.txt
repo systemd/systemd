@@ -156,6 +156,9 @@ option('compat-gateway-hostname', type : 'boolean', value : 'false',
 option('default-hierarchy', type : 'combo',
        choices : ['legacy', 'hybrid', 'unified'], value : 'hybrid',
        description : 'default cgroup hierarchy')
+option('default-net-naming-scheme', type : 'combo',
+       choices : ['latest', 'v238', 'v239', 'v240'],
+       description : 'default net.naming-scheme= value')
 option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
 option('system-uid-max', type : 'integer', value : '-1',
