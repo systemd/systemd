@@ -113,9 +113,11 @@ static int run(int argc, char *argv[]) {
 
                         (void) mkdir_parents_label(devname, 0755);
                         (void) sd_device_get_devnum(dev, &devnum);
-                        assert_se(mknod(devname, mode, devnum) == 0);
+                        if (mknod(devname, mode, devnum) < 0)
+                                return log_error_errno(errno, "mknod() failed for '%s': %m", devname);
                 } else {
-                        assert_se(unlink(devname) == 0);
+                        if (unlink(devname) < 0)
+                                return log_error_errno(errno, "unlink('%s') failed: %m", devname);
                         (void) rmdir_parents(devname, "/");
                 }
         }

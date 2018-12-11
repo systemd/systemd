@@ -1554,6 +1554,14 @@ sub udev_setup {
                 return 0;
         }
 
+        # check if we are permitted to create block device nodes
+        my $block_device_filename = $udev_dev . "/sda";
+        if (system("mknod", $block_device_filename, "b", "8", "0")) {
+                warn "unable to create $block_device_filename";
+                return 0;
+        }
+        unlink $block_device_filename;
+
         system("cp", "-r", "test/sys/", $udev_sys) && die "unable to copy test/sys";
 
         system("rm", "-rf", "$udev_run");
