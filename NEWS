@@ -91,6 +91,10 @@ CHANGES WITH 240 in spe:
           Consult the kernel documetnation for details on this sysctl:
           https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt
 
+        * CPUAccounting=yes no longer enables the CPU controller when using
+          kernel 4.15+ and the unified cgroup hierarchy, as required accounting
+          statistics are now provided independently from the CPU controller.
+
 CHANGES WITH 239:
 
         * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
