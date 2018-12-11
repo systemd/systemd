@@ -76,39 +76,40 @@
 
     <refsect2><title>udevadm info
       <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
     </title>
 
-      <para>Queries the udev database for device information
-      stored in the udev database. It can also query the properties
-      of a device from its sysfs representation to help creating udev
-      rules that match this device.</para>
+      <para>Query the udev database for device information.</para>
+
+      <para>Positional arguments should be used to specify one or more devices. Each one may be a device name
+      (in which case it must start with <filename>/dev/</filename>), a sys path (in which case it must start
+      with <filename>/sys/</filename>), or a systemd device unit name (in which case it must end with
+      <literal>.device</literal>, see
+      <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+      </para>
+
       <variablelist>
         <varlistentry>
           <term><option>-q</option></term>
           <term><option>--query=<replaceable>TYPE</replaceable></option></term>
           <listitem>
-            <para>Query the database for the specified type of device
-            data. It needs the <option>--path</option> or
-            <option>--name</option> to identify the specified device.
+            <para>Query the database for the specified type of device data.
             Valid <replaceable>TYPE</replaceable>s are:
             <constant>name</constant>, <constant>symlink</constant>,
             <constant>path</constant>, <constant>property</constant>,
             <constant>all</constant>.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><option>-p</option></term>
           <term><option>--path=<replaceable>DEVPATH</replaceable></option></term>
           <listitem>
-            <para>The <filename>/sys</filename> path of the device to
-            query, e.g.
-            <filename><optional>/sys</optional>/class/block/sda</filename>.
-            Note that this option usually is not very useful, since
-            <command>udev</command> can guess the type of the
-            argument, so <command>udevadm info
-            --path=/class/block/sda</command> is equivalent to
-            <command>udevadm info /sys/class/block/sda</command>.</para>
+            <para>The <filename>/sys</filename> path of the device to query, e.g.
+            <filename><optional>/sys</optional>/class/block/sda</filename>. This option is an alternative to
+            the positional argument with a <filename>/sys/</filename> prefix. <command>udevadm info
+            --path=/class/block/sda</command> is equivalent to <command>udevadm info
+            /sys/class/block/sda</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -116,11 +117,9 @@
           <term><option>--name=<replaceable>FILE</replaceable></option></term>
           <listitem>
             <para>The name of the device node or a symlink to query,
-            e.g. <filename><optional>/dev</optional>/sda</filename>.
-            Note that this option usually is not very useful, since
-            <command>udev</command> can guess the type of the
-            argument, so <command>udevadm info --name=sda</command> is
-            equivalent to <command>udevadm info /dev/sda</command>.</para>
+            e.g. <filename><optional>/dev</optional>/sda</filename>. This option is an alternative to the
+            positional argument with a <filename>/dev/</filename> prefix. <command>udevadm info
+            --name=sda</command> is equivalent to <command>udevadm info /dev/sda</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -179,17 +178,17 @@
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
-
-      <para>In addition, an optional positional argument can be used
-      to specify a device name or a sys path. It must start with
-      <filename>/dev</filename> or <filename>/sys</filename>
-      respectively.</para>
     </refsect2>
 
     <refsect2><title>udevadm trigger
       <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>file</replaceable></arg></title>
+      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
+      </title>
       <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.</para>
+
+      <para>Takes one or more device specifications as arguments. See the description of <command>info</command>
+      above.</para>
+
       <variablelist>
         <varlistentry>
           <term><option>-v</option></term>
