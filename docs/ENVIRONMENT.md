@@ -92,13 +92,14 @@ systemd-logind:
   for it.
 
 * `$NET_NAMING_SCHEME=` – if set, takes a network naming scheme (i.e. one of
-  v238, v239, v240 …) as parameter. If specified udev's net_id builtin will
-  follow the specified naming scheme when determining stable network interface
-  names. This may be used to revert to naming schemes of older udev versions,
-  in order to provide more stable naming across updates. This environment
-  variable takes precedence over the kernel command line option
-  `net.naming-scheme=`, except if the value is prefixed with `:` in which case
-  the kernel command line option takes precedence, if it is specified as well.
+  "v238", "v239", "v240"…, or the special value "latest") as parameter. If
+  specified udev's net_id builtin will follow the specified naming scheme when
+  determining stable network interface names. This may be used to revert to
+  naming schemes of older udev versions, in order to provide more stable naming
+  across updates. This environment variable takes precedence over the kernel
+  command line option `net.naming-scheme=`, except if the value is prefixed
+  with `:` in which case the kernel command line option takes precedence, if it
+  is specified as well.
 
 installed systemd tests:
 

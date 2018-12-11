@@ -694,6 +694,9 @@ else
         conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_ALL')
 endif
 
+default_net_naming_scheme = get_option('default-net-naming-scheme')
+conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme)
+
 time_epoch = get_option('time-epoch')
 if time_epoch == -1
         NEWS = files('NEWS')
@@ -3093,6 +3096,7 @@ status = [
         'default DNSSEC mode:               @0@'.format(default_dnssec),
         'default DNS-over-TLS mode:         @0@'.format(default_dns_over_tls),
         'default cgroup hierarchy:          @0@'.format(default_hierarchy),
+        'default net.naming-scheme setting: @0@'.format(default_net_naming_scheme),
         'default KillUserProcesses setting: @0@'.format(kill_user_processes)]
 
 alt_dns_servers = '\n                                            '.join(dns_servers.split(' '))
