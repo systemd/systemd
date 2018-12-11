@@ -1558,6 +1558,11 @@ sub udev_setup {
 
         system("rm", "-rf", "$udev_run");
 
+        if (!mkdir($udev_run)) {
+                warn "unable to create directory $udev_run";
+                return 0;
+        }
+
         return 1;
 }
 
@@ -1661,7 +1666,7 @@ if (!udev_setup()) {
         exit($EXIT_TEST_SKIP);
 }
 
-if (!system($udev_bin, "check")) {
+if (system($udev_bin, "check")) {
         warn "$udev_bin failed to set up the environment, skipping the test";
         exit($EXIT_TEST_SKIP);
 }
