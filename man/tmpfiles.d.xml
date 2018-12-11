@@ -742,6 +742,13 @@ e! /var/cache/krb5rcache - - - 0
   </refsect1>
 
   <refsect1>
+    <title><filename>/run/</filename> and <filename>/var/run/</filename></title>
+    <para><filename>/var/run/</filename> is a deprecated symlink to <filename>/run/</filename>, and
+    applications should use the latter. <command>systemd-tmpfiles</command> will warn if
+    <filename>/var/run/</filename> is used.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
