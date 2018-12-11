@@ -431,6 +431,30 @@ static void parse_mount_settings_env(void) {
         SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_NETNS, false);
 }
 
+static void parse_environment(void) {
+        const char *e;
+        int r;
+
+        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_IPC", CLONE_NEWIPC);
+        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_PID", CLONE_NEWPID);
+        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_UTS", CLONE_NEWUTS);
+        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_SYSTEM", CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS);
+
+        parse_mount_settings_env();
+
+        r = getenv_bool("SYSTEMD_NSPAWN_USE_CGNS");
+        if (r < 0)
+                arg_use_cgns = cg_ns_supported();
+        else
+                arg_use_cgns = r;
+
+        e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
+        if (e)
+                arg_container_service_name = e;
+
+        detect_unified_cgroup_hierarchy_from_environment();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -539,7 +563,7 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
-        const char *p, *e;
+        const char *p;
         uint64_t plus = 0, minus = 0;
         bool mask_all_settings = false, mask_no_settings = false;
 
@@ -1233,94 +1257,23 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        /* If --network-namespace-path is given with any other network-related option,
-         * we need to error out, to avoid conflicts between different network options. */
-        if (arg_network_namespace_path &&
-                (arg_network_interfaces || arg_network_macvlan ||
-                 arg_network_ipvlan || arg_network_veth_extra ||
-                 arg_network_bridge || arg_network_zone ||
-                 arg_network_veth || arg_private_network))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--network-namespace-path cannot be combined with other network options.");
-
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_IPC", CLONE_NEWIPC);
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_PID", CLONE_NEWPID);
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_NS_UTS", CLONE_NEWUTS);
-        parse_share_ns_env("SYSTEMD_NSPAWN_SHARE_SYSTEM", CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS);
-
-        if (arg_userns_mode != USER_NAMESPACE_NO)
-                arg_mount_settings |= MOUNT_USE_USERNS;
-
-        if (arg_private_network)
-                arg_mount_settings |= MOUNT_APPLY_APIVFS_NETNS;
-
-        parse_mount_settings_env();
-
-        if (!(arg_clone_ns_flags & CLONE_NEWPID) ||
-            !(arg_clone_ns_flags & CLONE_NEWUTS)) {
-                arg_register = false;
-                if (arg_start_mode != START_PID1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--boot cannot be used without namespacing.");
-        }
-
-        if (arg_userns_mode == USER_NAMESPACE_PICK)
-                arg_userns_chown = true;
-
-        if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0)
-                /* Save the user from accidentally registering either user-$SESSION.scope or user@.service.
-                 * The latter is not technically a user session, but we don't need to labour the point. */
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--keep-unit --register=yes may not be used when invoked from a user session.");
-
-        if (arg_directory && arg_image)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--directory= and --image= may not be combined.");
-
-        if (arg_template && arg_image)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--template= and --image= may not be combined.");
-
-        if (arg_ephemeral && arg_template && !arg_directory) {
-                /* User asked for ephemeral execution but specified --template= instead of --directory=. Semantically
-                 * such an invocation makes some sense, see https://github.com/systemd/systemd/issues/3667. Let's
-                 * accept this here, and silently make "--ephemeral --template=" equivalent to "--ephemeral
-                 * --directory=". */
-
-                arg_directory = TAKE_PTR(arg_template);
-        }
-
-        if (arg_template && !(arg_directory || arg_machine))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--template= needs --directory= or --machine=.");
-
-        if (arg_ephemeral && arg_template)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--ephemeral and --template= may not be combined.");
-
-        if (arg_ephemeral && !IN_SET(arg_link_journal, LINK_NO, LINK_AUTO))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--ephemeral and --link-journal= may not be combined.");
-
-        if (arg_userns_mode != USER_NAMESPACE_NO && !userns_supported())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "--private-users= is not supported, kernel compiled without user namespace support.");
-
-        if (arg_userns_chown && arg_read_only)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--read-only and --private-users-chown may not be combined.");
-
-        if (arg_network_bridge && arg_network_zone)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--network-bridge= and --network-zone= may not be combined.");
-
         if (argc > optind) {
+                strv_free(arg_parameters);
                 arg_parameters = strv_copy(argv + optind);
                 if (!arg_parameters)
                         return log_oom();
 
                 arg_settings_mask |= SETTING_START_MODE;
         }
+
+        if (arg_ephemeral && arg_template && !arg_directory)
+                /* User asked for ephemeral execution but specified --template= instead of --directory=. Semantically
+                 * such an invocation makes some sense, see https://github.com/systemd/systemd/issues/3667. Let's
+                 * accept this here, and silently make "--ephemeral --template=" equivalent to "--ephemeral
+                 * --directory=". */
+                arg_directory = TAKE_PTR(arg_template);
+
+        arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
 
         /* Load all settings from .nspawn files */
         if (mask_no_settings)
@@ -1330,54 +1283,89 @@ static int parse_argv(int argc, char *argv[]) {
         if (mask_all_settings)
                 arg_settings_mask = _SETTINGS_MASK_ALL;
 
-        arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
-
-        r = cg_unified_flush();
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
-
-        e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
-        if (e)
-                arg_container_service_name = e;
-
-        r = getenv_bool("SYSTEMD_NSPAWN_USE_CGNS");
-        if (r < 0)
-                arg_use_cgns = cg_ns_supported();
-        else
-                arg_use_cgns = r;
-
-        r = custom_mount_check_all();
-        if (r < 0)
-                return r;
-
         return 1;
 }
 
 static int verify_arguments(void) {
-        if (arg_userns_mode != USER_NAMESPACE_NO && (arg_mount_settings & MOUNT_APPLY_APIVFS_NETNS) && !arg_private_network)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid namespacing settings. Mounting sysfs with --private-users requires --private-network.");
+        int r;
 
-        if (arg_userns_mode != USER_NAMESPACE_NO && !(arg_mount_settings & MOUNT_APPLY_APIVFS_RO))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Cannot combine --private-users with read-write mounts.");
+        if (arg_userns_mode != USER_NAMESPACE_NO)
+                arg_mount_settings |= MOUNT_USE_USERNS;
 
-        if (arg_volatile_mode != VOLATILE_NO && arg_read_only)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Cannot combine --read-only with --volatile. Note that --volatile already implies a read-only base hierarchy.");
+        if (arg_private_network)
+                arg_mount_settings |= MOUNT_APPLY_APIVFS_NETNS;
 
-        if (arg_expose_ports && !arg_private_network)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Cannot use --port= without private networking.");
+        if (!(arg_clone_ns_flags & CLONE_NEWPID) ||
+            !(arg_clone_ns_flags & CLONE_NEWUTS)) {
+                arg_register = false;
+                if (arg_start_mode != START_PID1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--boot cannot be used without namespacing.");
+        }
 
-#if ! HAVE_LIBIPTC
-        if (arg_expose_ports)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "--port= is not supported, compiled without libiptc support.");
-#endif
+        if (arg_userns_mode == USER_NAMESPACE_PICK)
+                arg_userns_chown = true;
 
         if (arg_start_mode == START_BOOT && arg_kill_signal <= 0)
                 arg_kill_signal = SIGRTMIN+3;
+
+        if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0)
+                /* Save the user from accidentally registering either user-$SESSION.scope or user@.service.
+                 * The latter is not technically a user session, but we don't need to labour the point. */
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--keep-unit --register=yes may not be used when invoked from a user session.");
+
+        if (arg_directory && arg_image)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--directory= and --image= may not be combined.");
+
+        if (arg_template && arg_image)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--template= and --image= may not be combined.");
+
+        if (arg_template && !(arg_directory || arg_machine))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--template= needs --directory= or --machine=.");
+
+        if (arg_ephemeral && arg_template)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ephemeral and --template= may not be combined.");
+
+        if (arg_ephemeral && !IN_SET(arg_link_journal, LINK_NO, LINK_AUTO))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ephemeral and --link-journal= may not be combined.");
+
+        if (arg_userns_mode != USER_NAMESPACE_NO && !userns_supported())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--private-users= is not supported, kernel compiled without user namespace support.");
+
+        if (arg_userns_chown && arg_read_only)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--read-only and --private-users-chown may not be combined.");
+
+        /* If --network-namespace-path is given with any other network-related option,
+         * we need to error out, to avoid conflicts between different network options. */
+        if (arg_network_namespace_path &&
+                (arg_network_interfaces || arg_network_macvlan ||
+                 arg_network_ipvlan || arg_network_veth_extra ||
+                 arg_network_bridge || arg_network_zone ||
+                 arg_network_veth || arg_private_network))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--network-namespace-path cannot be combined with other network options.");
+
+        if (arg_network_bridge && arg_network_zone)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--network-bridge= and --network-zone= may not be combined.");
+
+        if (arg_userns_mode != USER_NAMESPACE_NO && (arg_mount_settings & MOUNT_APPLY_APIVFS_NETNS) && !arg_private_network)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid namespacing settings. Mounting sysfs with --private-users requires --private-network.");
+
+        if (arg_userns_mode != USER_NAMESPACE_NO && !(arg_mount_settings & MOUNT_APPLY_APIVFS_RO))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --private-users with read-write mounts.");
+
+        if (arg_volatile_mode != VOLATILE_NO && arg_read_only)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --read-only with --volatile. Note that --volatile already implies a read-only base hierarchy.");
+
+        if (arg_expose_ports && !arg_private_network)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
+
+#if ! HAVE_LIBIPTC
+        if (arg_expose_ports)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--port= is not supported, compiled without libiptc support.");
+#endif
+
+        r = custom_mount_check_all();
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -4225,6 +4213,14 @@ int main(int argc, char *argv[]) {
         r = load_settings();
         if (r < 0)
                 goto finish;
+
+        parse_environment();
+
+        r = cg_unified_flush();
+        if (r < 0) {
+                log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
+                goto finish;
+        }
 
         r = verify_arguments();
         if (r < 0)
