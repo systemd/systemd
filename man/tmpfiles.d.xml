@@ -95,9 +95,9 @@
     <para>The configuration format is one line per path containing
     type, path, mode, ownership, age, and argument fields:</para>
 
-    <programlisting>#Type Path        Mode UID  GID  Age Argument
-d     /run/user   0755 root root 10d -
-L     /tmp/foobar -    -    -    -   /dev/null</programlisting>
+    <programlisting>#Type Path        Mode User Group Age Argument
+d     /run/user   0755 root root  10d -
+L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
 
     <para>Fields may be enclosed within quotes and contain C-style escapes.</para>
 
@@ -135,49 +135,49 @@ L     /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
         <varlistentry>
           <term><varname>d</varname></term>
-          <listitem><para>Create a directory. The mode and ownership will be adjusted if
-          specified and the directory already exists. Contents of this directory are subject
-          to time based cleanup if the age argument is specified.</para></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><varname>D</varname></term>
-          <listitem><para>Similar to <varname>d</varname>, but in addition the contents
-          of the directory will be removed when <option>--remove</option> is used.
+          <listitem><para>Create a directory. The mode and ownership will be adjusted if specified. Contents
+          of this directory are subject to time based cleanup if the age argument is specified.
           </para></listitem>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>D</varname></term>
+          <listitem><para>Similar to <varname>d</varname>, but in addition the contents of the directory will
+          be removed when <option>--remove</option> is used.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>e</varname></term>
-          <listitem><para>Similar to <varname>d</varname>, but the directory will not be created if
-          it does not exist. Lines of this type accept shell-style globs in place of normal path
-          names. For this entry to be useful, at least one of the mode, uid, gid, or age arguments
-          must be specified, since otherwise this entry has no effect. If the age argument is
-          <literal>0</literal>, contents of the directory will be unconditionally deleted every time
-          <command>systemd-tmpfiles --clean</command> is run. This can be useful when combined with
-          <varname>!</varname>, see the examples.</para></listitem>
+          <listitem><para>Adjust the mode and ownership of existing directories and remove their contents
+          based on age.
+          Lines of this type accept shell-style globs in place of normal path names. Contents of the
+          directories are subject to time based cleanup if the age argument is specified. If the age argument
+          is <literal>0</literal>, contents will be unconditionally deleted every time
+          <command>systemd-tmpfiles --clean</command> is run.</para>
+
+          <para>For this entry to be useful, at least one of the mode, user, group, or age arguments must be
+          specified, since otherwise this entry has no effect. As an exception, an entry with no effect may
+          be useful when combined with <varname>!</varname>, see the examples.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>v</varname></term>
-          <listitem><para>Create a subvolume if the path does not
-          exist yet, the file system supports subvolumes (btrfs), and
-          the system itself is installed into a subvolume
-          (specifically: the root directory <filename>/</filename> is
-          itself a subvolume). Otherwise, create a normal directory, in
-          the same way as <varname>d</varname>. A subvolume created
-          with this line type is not assigned to any higher-level
-          quota group. For that, use <varname>q</varname> or
-          <varname>Q</varname>, which allow creating simple quota
-          group hierarchies, see below.</para></listitem>
+          <listitem><para>Create a subvolume if the path does not exist yet, the file system supports
+          subvolumes (btrfs), and the system itself is installed into a subvolume (specifically: the root
+          directory <filename>/</filename> is itself a subvolume). Otherwise, create a normal directory, in
+          the same way as <varname>d</varname>.</para>
+
+          <para>A subvolume created with this line type is not assigned to any higher-level quota group. For
+          that, use <varname>q</varname> or <varname>Q</varname>, which allow creating simple quota group
+          hierarchies, see below.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>q</varname></term>
-          <listitem><para>Similar to <varname>v</varname>. However, makes sure that the subvolume will be assigned to
-          the same higher-level quota groups as the subvolume it has been created in. This ensures that higher-level
-          limits and accounting applied to the parent subvolume also include the specified subvolume. On non-btrfs file
-          systems, this line type is identical to <varname>d</varname>.</para>
+          <listitem><para>Create a subvolume or directory the same as <varname>v</varname>, but assign the
+          subvolume to the same higher-level quota groups as the parent. This ensures that higher-level
+          limits and accounting applied to the parent subvolume also include the specified subvolume. On
+          non-btrfs file systems, this line type is identical to <varname>d</varname>.</para>
 
           <para>If the subvolume already exists, no change to the quota hierarchy is made, regardless of whether the
           subvolume is already attached to a quota group or not. Also see <varname>Q</varname> below. See <citerefentry
@@ -187,13 +187,15 @@ L     /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
         <varlistentry>
           <term><varname>Q</varname></term>
-          <listitem><para>Similar to <varname>q</varname>. However, instead of copying the higher-level quota group
-          assignments from the parent as-is, the lowest quota group of the parent subvolume is determined that is not
-          the leaf quota group. Then, an "intermediary" quota group is inserted that is one level below this level, and
-          shares the same ID part as the specified subvolume. If no higher-level quota group exists for the parent
-          subvolume, a new quota group at level 255 sharing the same ID as the specified subvolume is inserted
-          instead. This new intermediary quota group is then assigned to the parent subvolume's higher-level quota
-          groups, and the specified subvolume's leaf quota group is assigned to it.</para>
+          <listitem><para>Create the subvolume or directory the same as <varname>v</varname>, but assign the
+          new subvolume to a new leaf quota group. Instead of copying the higher-level quota group
+          assignments from the parent as is done with <varname>q</varname>, the lowest quota group of the
+          parent subvolume is determined that is not the leaf quota group. Then, an "intermediary" quota
+          group is inserted that is one level below this level, and shares the same ID part as the specified
+          subvolume. If no higher-level quota group exists for the parent subvolume, a new quota group at
+          level 255 sharing the same ID as the specified subvolume is inserted instead. This new intermediary
+          quota group is then assigned to the parent subvolume's higher-level quota groups, and the specified
+          subvolume's leaf quota group is assigned to it.</para>
 
           <para>Effectively, this has a similar effect as <varname>q</varname>, however introduces a new higher-level
           quota group for the specified subvolume that may be used to enforce limits and accounting to the specified
@@ -213,8 +215,8 @@ L     /tmp/foobar -    -    -    -   /dev/null</programlisting>
           <filename>/var/tmp</filename>. </para>
 
           <para>As with <varname>q</varname>, <varname>Q</varname> has no effect on the quota group hierarchy if the
-          subvolume already exists, regardless of whether the subvolume already belong to a quota group or
-          not.</para></listitem>
+          subvolume already exists, regardless of whether the subvolume already belong to a quota group or not.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -320,20 +322,17 @@ L     /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
         <varlistentry>
           <term><varname>z</varname></term>
-          <listitem><para>Adjust the access mode, group and user, and
-          restore the SELinux security context of a file or directory,
-          if it exists. Lines of this type accept shell-style globs in
-          place of normal path names. Does not follow symlinks.</para></listitem>
+          <listitem><para>Adjust the access mode, user and group ownership, and restore the SELinux security
+          context of a file or directory, if it exists. Lines of this type accept shell-style globs in place
+          of normal path names. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>Z</varname></term>
-          <listitem><para>Recursively set the access mode, group and
-          user, and restore the SELinux security context of a file or
-          directory if it exists, as well as of its subdirectories and
-          the files contained therein (if applicable). Lines of this
-          type accept shell-style globs in place of normal path
-          names. Does not follow symlinks.  </para></listitem>
+          <listitem><para>Recursively set the access mode, user and group ownership, and restore the SELinux
+          security context of a file or directory if it exists, as well as of its subdirectories and the
+          files contained therein (if applicable). Lines of this type accept shell-style globs in place of
+          normal path names. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -480,13 +479,14 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
     </refsect2>
 
     <refsect2>
-      <title>UID, GID</title>
+      <title>User, Group</title>
 
-      <para>The user and group to use for this file or directory. This may either be a numeric user/group ID or a user or group
-      name. If omitted or when set to <literal>-</literal>, the user/group ID of the user who invokes <command>systemd-tmpfiles</command> is used.
-      For <varname>z</varname> and <varname>Z</varname> lines, when omitted or when set to <literal>-</literal>, the file ownership will not be
-      modified. These parameters are ignored for <varname>x</varname>, <varname>r</varname>, <varname>R</varname>, <varname>L</varname>,
-      <varname>t</varname>, and <varname>a</varname> lines.</para>
+      <para>The user and group to use for this file or directory. This may either be a numeric ID or a
+      user/group name. If omitted or when set to <literal>-</literal>, the user and group of the user who
+      invokes <command>systemd-tmpfiles</command> is used. For <varname>z</varname> and <varname>Z</varname>
+      lines, when omitted or when set to <literal>-</literal>, the file ownership will not be modified. These
+      parameters are ignored for <varname>x</varname>, <varname>r</varname>, <varname>R</varname>,
+      <varname>L</varname>, <varname>t</varname>, and <varname>a</varname> lines.</para>
     </refsect2>
 
     <refsect2>
