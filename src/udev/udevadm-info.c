@@ -80,7 +80,7 @@ static void print_all_attributes(sd_device *device, const char *key) {
 
                 printf("    %s{%s}==\"%s\"\n", key, name, value);
         }
-        printf("\n");
+        puts("");
 }
 
 static int print_device_chain(sd_device *device) {
@@ -131,19 +131,23 @@ static int print_record(sd_device *device) {
         (void) sd_device_get_devpath(device, &str);
         printf("P: %s\n", str);
 
-        if (sd_device_get_devname(device, &str) >= 0)
-                printf("N: %s\n", str + STRLEN("/dev/"));
+        if (sd_device_get_devname(device, &str) >= 0) {
+                assert_se(val = path_startswith(str, "/dev/"));
+                printf("N: %s\n", val);
+        }
 
         if (device_get_devlink_priority(device, &i) >= 0)
                 printf("L: %i\n", i);
 
-        FOREACH_DEVICE_DEVLINK(device, str)
-                printf("S: %s\n", str + STRLEN("/dev/"));
+        FOREACH_DEVICE_DEVLINK(device, str) {
+                assert_se(val = path_startswith(str, "/dev/"));
+                printf("S: %s\n", val);
+        }
 
         FOREACH_DEVICE_PROPERTY(device, str, val)
                 printf("E: %s=%s\n", str, val);
 
-        printf("\n");
+        puts("");
         return 0;
 }
 
@@ -255,28 +259,22 @@ static int query_device(QueryType query, sd_device* device) {
                 if (r < 0)
                         return log_error_errno(r, "No device node found: %m");
 
-                if (arg_root)
-                        printf("%s\n", node);
-                else
-                        printf("%s\n", node + STRLEN("/dev/"));
+                if (!arg_root)
+                        assert_se(node = path_startswith(node, "/dev/"));
+                printf("%s\n", node);
                 return 0;
         }
 
         case QUERY_SYMLINK: {
-                const char *devlink;
-                bool first = true;
+                const char *devlink, *prefix = "";
 
                 FOREACH_DEVICE_DEVLINK(device, devlink) {
-                        if (!first)
-                                printf(" ");
-                        if (arg_root)
-                                printf("%s", devlink);
-                        else
-                                printf("%s", devlink + STRLEN("/dev/"));
-
-                        first = false;
+                        if (!arg_root)
+                                assert_se(devlink = path_startswith(devlink, "/dev/"));
+                        printf("%s%s", prefix, devlink);
+                        prefix = " ";
                 }
-                printf("\n");
+                puts("");
                 return 0;
         }
 
