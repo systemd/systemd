@@ -178,7 +178,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
          *
          * 1. Initially, we try to read the UID of a number of specified paths. If any of these UIDs works, we use
          *    them. We use in order to increase the chance of UID reuse, if StateDirectory=, CacheDirectory= or
-         *    LogDirectory= are used, as reusing the UID these directories are owned by saves us from having to
+         *    LogsDirectory= are used, as reusing the UID these directories are owned by saves us from having to
          *    recursively chown() them to new users.
          *
          * 2. If that didn't yield a currently unused UID, we hash the user name, and try to use that. This should be
