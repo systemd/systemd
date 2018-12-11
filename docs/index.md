@@ -10,6 +10,7 @@
 * [Coding Style](https://systemd.io/CODING_STYLE)
 * [Contributing](https://github.com/systemd/systemd/blob/master/docs/CONTRIBUTING.md)
 * [Porting systemd To New Distributions](https://systemd.io/DISTRO_PORTING)
+* [Predictable Network Interface Names](https://systemd.io/PREDICTABLE_INTERFACE_NAMES)
 * [Known Environment Variables](https://systemd.io/ENVIRONMENT)
 * [Hacking on systemd](https://systemd.io/HACKING)
 * [Portable Services Introduction](https://systemd.io/PORTABLE_SERVICES)
