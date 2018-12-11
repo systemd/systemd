@@ -442,11 +442,11 @@ static void parse_environment(void) {
 
         parse_mount_settings_env();
 
+        /* SYSTEMD_NSPAWN_USE_CGNS=0 can be used to disable CLONE_NEWCGROUP use,
+         * even if it is supported. If not supported, it has no effect. */
         r = getenv_bool("SYSTEMD_NSPAWN_USE_CGNS");
-        if (r < 0)
-                arg_use_cgns = cg_ns_supported();
-        else
-                arg_use_cgns = r;
+        if (r == 0 || !cg_ns_supported())
+                arg_use_cgns = false;
 
         e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
         if (e)
@@ -2567,7 +2567,7 @@ static int inner_child(
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
                                        "Parent died too early");
 
-        if (arg_use_cgns && cg_ns_supported()) {
+        if (arg_use_cgns) {
                 r = unshare(CLONE_NEWCGROUP);
                 if (r < 0)
                         return log_error_errno(errno, "Failed to unshare cgroup namespace: %m");
@@ -3037,7 +3037,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        if (!arg_use_cgns || !cg_ns_supported()) {
+        if (!arg_use_cgns) {
                 r = mount_cgroups(
                                 directory,
                                 arg_unified_cgroup_hierarchy,
