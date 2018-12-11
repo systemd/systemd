@@ -95,6 +95,9 @@ CHANGES WITH 240 in spe:
           kernel 4.15+ and the unified cgroup hierarchy, as required accounting
           statistics are now provided independently from the CPU controller.
 
+        * Support for disabling a particular cgroup controller within a subtree
+          has been added through the DisableControllers= directive.
+
 CHANGES WITH 239:
 
         * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
