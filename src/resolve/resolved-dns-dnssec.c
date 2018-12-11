@@ -804,7 +804,7 @@ int dnssec_verify_rrset(
         f = open_memstream(&sig_data, &sig_size);
         if (!f)
                 return -ENOMEM;
-        __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         fwrite_uint16(f, rrsig->rrsig.type_covered);
         fwrite_uint8(f, rrsig->rrsig.algorithm);

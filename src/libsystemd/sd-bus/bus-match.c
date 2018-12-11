@@ -864,7 +864,7 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
         if (!f)
                 return NULL;
 
-        __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         for (i = 0; i < n_components; i++) {
                 char buf[32];
