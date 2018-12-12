@@ -141,7 +141,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         return 0;
 }
 
-static int specifier_dnssd_host_name(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_dnssd_host_name(char specifier, const void *data, const void *userdata, char **ret) {
         DnssdService *s  = (DnssdService *) userdata;
         char *n;
 

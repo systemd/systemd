@@ -3,4 +3,4 @@
 
 #include "install.h"
 
-int install_full_printf(UnitFileInstallInfo *i, const char *format, char **ret);
+int install_full_printf(const UnitFileInstallInfo *i, const char *format, char **ret);
