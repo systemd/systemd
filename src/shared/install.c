@@ -794,23 +794,15 @@ static int find_symlinks_fd(
                                 if (!x)
                                         return -ENOMEM;
 
-                                free(dest);
-                                dest = x;
+                                free_and_replace(dest, x);
                         }
 
-                        /* Check if the symlink itself matches what we
-                         * are looking for */
-                        if (path_is_absolute(i->name))
-                                found_path = path_equal(p, i->name);
-                        else
-                                found_path = streq(de->d_name, i->name);
+                        /* Check if the symlink itself matches what we are looking for */
+                        assert(unit_name_is_valid(i->name, UNIT_NAME_ANY));
+                        found_path = streq(de->d_name, i->name);
 
-                        /* Check if what the symlink points to
-                         * matches what we are looking for */
-                        if (path_is_absolute(i->name))
-                                found_dest = path_equal(dest, i->name);
-                        else
-                                found_dest = streq(basename(dest), i->name);
+                        /* Check if what the symlink points to matches what we are looking for */
+                        found_dest = streq(basename(dest), i->name);
 
                         if (found_path && found_dest) {
                                 _cleanup_free_ char *t = NULL;
