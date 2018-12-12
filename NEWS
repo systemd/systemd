@@ -3,18 +3,19 @@ systemd System and Service Manager
 CHANGES WITH 240 in spe:
 
         * A new service type has been added: Type=exec. It's very similar to
-          Type=simple and ensures the service manager will wait for both fork()
+          Type=simple but ensures the service manager will wait for both fork()
           and execve() of the main service binary to complete before proceeding
           with follow-up units. This is primarily useful so that the manager
           propagates any errors in the preparation phase of service execution
           back to the job that requested the unit to be started. For example,
           consider a service that has ExecStart= set to a file system binary
-          that doesn't exist. With Type=simple starting the unit would
-          typically succeed instantly, as only fork() has to complete
-          successfully and execve() is not waited for, and hence its failure is
-          seen "too late". With the new Type=exec service type starting the
-          unit will fail, as the execve() will be waited for and will fail,
-          which is then propagated back to the start job.
+          that doesn't exist. With Type=simple starting the unit would be
+          considered instantly successful, as only fork() has to complete
+          successfully and the manager does not wait for execve(), and hence
+          its failure is seen "too late". With the new Type=exec service type
+          starting the unit will fail, as the manager will wait for the
+          execve() and notice its failure, which is then propagated back to the
+          start job.
 
           NOTE: with the next release 241 of systemd we intend to change the
           systemd-run tool to default to Type=exec for transient services
@@ -46,23 +47,22 @@ CHANGES WITH 240 in spe:
           kernels and allocating large numbers of them should be much cheaper
           both in memory and in performance than it used to be. Programs that
           want to take benefit of the increased limit have to "opt-in" into
-          high file descriptors explicitly by setting their soft limit to the
-          hard limit during initialization. Of course, when doing that they
-          must do this acknowledging the fact that they cannot use select()
-          anymore (and neither can any shared library they use — or any shared
-          library used by any shared library they use and so on). Which default
-          hard limit is most appropriate is of course hard to decide. However,
-          given reports that ~300K file descriptors are used in real-life
-          applications we believe 512K is sufficiently high as new default for
-          now. Note that there are also reports that using very high hard
-          limits (e.g. 1G) is problematic: some software allocates large arrays
-          with one element for each potential file descriptor (Java, …) — a
-          high hard limit thus triggers excessively large memory allocations in
-          these applications. Hopefully, the new default of 512K is a good
-          middle ground: higher than what real-life applications currently
-          need, and low enough for not triggering excessively large allocations
-          in problematic software. (And yes, somebody should fix Java, to not
-          require such excessive allocations.)
+          high file descriptors explicitly by raising their soft limit. Of
+          course, when they do that they must acknowledge that they cannot use
+          select() anymore (and neither can any shared library they use — or
+          any shared library used by any shared library they use and so on).
+          Which default hard limit is most appropriate is of course hard to
+          decide. However, given reports that ~300K file descriptors are used
+          in real-life applications we believe 512K is sufficiently high as new
+          default for now. Note that there are also reports that using very
+          high hard limits (e.g. 1G) is problematic: some software allocates
+          large arrays with one element for each potential file descriptor
+          (Java, …) — a high hard limit thus triggers excessively large memory
+          allocations in these applications. Hopefully, the new default of 512K
+          is a good middle ground: higher than what real-life applications
+          currently need, and low enough for avoid triggering excessively large
+          allocations in problematic software. (And yes, somebody should fix
+          Java.)
 
         * The fs.nr_open and fs.file-max sysctls are now automatically bumped
           to the highest possible values, as separate accounting of file
@@ -100,7 +100,7 @@ CHANGES WITH 240 in spe:
 
         * The new "MemoryMin=" unit file property may now be used to set the
           memory usage protection limit of processes invoked by the unit. This
-          controls the cgroupsv2 memory.min attribute. Similar, the new
+          controls the cgroupsv2 memory.min attribute. Similarly, the new
           "IODeviceLatencyTargetSec=" property has been added, wrapping the new
           cgroupsv2 io.latency cgroup property for configuring per-service I/O
           latency.
@@ -115,7 +115,7 @@ CHANGES WITH 240 in spe:
         * sd-bus now provides the sd_bus_message_readv() which is similar to
           sd_bus_message_read() but takes a va_list object. The pair
           sd_bus_set_method_call_timeout() and sd_bus_get_method_call_timeout()
-          have been added for configuring the default method call timeout to
+          has been added for configuring the default method call timeout to
           use. sd_bus_error_move() may be used to efficiently move the contents
           from one sd_bus_error structure to another, invalidating the
           source. sd_bus_set_close_on_exit() and sd_bus_get_close_on_exit() may
@@ -134,18 +134,17 @@ CHANGES WITH 240 in spe:
         * The signal to use as last step of killing of unit processes is now
           configurable. Previously it was hard-coded to SIGKILL, which may now
           be overridden with the new KillSignal= setting. Note that this is the
-          signal used when regular termination (i.e. SIGTERM) does
-          suffice. Similar, the signal used when aborting a program in case of
-          a watchdog timeout may now be configured too (WatchdogSignal=).
+          signal used when regular termination (i.e. SIGTERM) does suffice.
+          Similarly, the signal used when aborting a program in case of a
+          watchdog timeout may now be configured too (WatchdogSignal=).
 
         * The XDG_SESSION_DESKTOP environment variable may now be configured in
           the pam_systemd argument line, using the new desktop= switch. This is
           useful to initialize it properly from a display manager without
           having to touch C code.
 
-        * Most configuration options that previously accepted percentage
-          values now also understand permille values, if the '‰' suffix is
-          used (instead of '%').
+        * Most configuration options that previously accepted percentage values
+          now also accept permille values with the '‰' suffix (instead of '%').
 
         * systemd-logind will offer hibernation only if the currently used
           kernel image is still available on disk.
@@ -190,21 +189,21 @@ CHANGES WITH 240 in spe:
           the sector size for an encrypted partition.
 
         * Key material for encrypted disks may now be placed on a formatted
-          medium, and reference from /etc/crypttab by the UUID of the file
-          system, followed by "=" suffixed by the paths to the key file.
+          medium, and referenced from /etc/crypttab by the UUID of the file
+          system, followed by "=" suffixed by the path to the key file.
 
         * The "collect" udev component has been removed without replacement, as
-          it is not used nor maintained.
+          it is neither used nor maintained.
 
         * When the RuntimeDirectory=, StateDirectory=, CacheDirectory=,
           LogsDirectory=, ConfigurationDirectory= settings are used in a
           service the executed processes will now receive a set of environment
-          variables pointing it to the full, absolute paths of these
-          directories. Specifically, RUNTIME_DIRECTORY=, STATE_DIRECTORY,
-          CACHE_DIRECTORY, LOGS_DIRECTORY, CONFIGURATION_DIRECTORY are now set
-          if these options are used. Note that these options may be used
-          multiple times per service in which case the resulting paths will be
-          concatenated and separated by colons.
+          variables containing the full paths of these directories.
+          Specifically, RUNTIME_DIRECTORY=, STATE_DIRECTORY, CACHE_DIRECTORY,
+          LOGS_DIRECTORY, CONFIGURATION_DIRECTORY are now set if these options
+          are used. Note that these options may be used multiple times per
+          service in which case the resulting paths will be concatenated and
+          separated by colons.
 
         * Predictable interface naming has been extended to cover InfiniBand
           NICs. They will be exposed with an "ib" prefix.
@@ -238,7 +237,7 @@ CHANGES WITH 240 in spe:
         * The systemd-sleep.conf configuration file gained new options
           AllowSuspend=, AllowHibernation=, AllowSuspendThenHibernate=,
           AllowHybridSleep= for prohibiting specific sleep modes even if the
-          system supports it.
+          kernel exports them.
 
         * portablectl is now officially supported and has thus moved to
           /usr/bin/.
@@ -274,7 +273,8 @@ CHANGES WITH 240 in spe:
           stopped/restarted on each iteration, but can be reused between
           subsequent options. This setting defaults to 10s. systemd-logind also
           exports two new properties on its Manager D-Bus objects indicating
-          whether the system's lid is currently closed, and on AC power.
+          whether the system's lid is currently closed, and whether the system
+          is on AC power.
 
         * systemd gained support for a generic boot counting logic, which
           generically permits automatic reverting to older boot loader entries
@@ -319,18 +319,18 @@ CHANGES WITH 240 in spe:
           object itself.
 
         * Unit objects on D-Bus gained a new "Refs" property that lists all
-          clients that currently have a reference on the unit, thus ensuring it
-          is not unloaded.
+          clients that currently have a reference on the unit (to ensure it is
+          not unloaded).
 
         * The JoinControllers= option in system.conf is no longer supported, as
           it didn't work correctly, is hard to support properly, is legacy (as
-          the concept only exists on cgroupsv1) and not used.
+          the concept only exists on cgroupsv1) and apparently wasn't used.
 
         * Journal messages that are generated whenever a unit enters the failed
-          state are now recognizable with a unique MESSAGE_ID. Similar,
-          messages generated whenever a service process exits are now made
-          recognizable, too. A new recognizable is also added now whenever a
-          unit enters the "dead" state, on success.
+          state are now tagged with a unique MESSAGE_ID. Similarly, messages
+          generated whenever a service process exits are now made recognizable,
+          too. A taged message is also emitted whenever a unit enters the
+          "dead" state on success.
 
         * systemd-run gained a new switch --working-directory= for configuring
           the working directory of the service to start. A shortcut -d is
@@ -338,7 +338,7 @@ CHANGES WITH 240 in spe:
           current working directory of the invoking program. The new --shell
           (or just -S) option has been added for invoking the $SHELL of the
           caller as a service, and implies --pty --same-dir --wait --collect
-          --service-type=exec. Or in other words, "systemd-run -S" is not the
+          --service-type=exec. Or in other words, "systemd-run -S" is now the
           quickest way to quickly get an interactive in a fully clean and
           well-defined system service context.
 
@@ -347,8 +347,9 @@ CHANGES WITH 240 in spe:
           and single top-level directory found with the OS itself below the OS
           tree is automatically mangled and moved one level up.
 
-        * systemd-importd will no longer set up an implicit btrfs loop-back file
-          system on /var/lib/machines but use it if it is already set up.
+        * systemd-importd will no longer set up an implicit btrfs loop-back
+          file system on /var/lib/machines. If one is already set up, it will
+          continue to be used.
 
         * A new generator "systemd-run-generator" has been added. It will
           synthesize a unit from one or more program command lines included in
@@ -358,10 +359,10 @@ CHANGES WITH 240 in spe:
           # systemd-nspawn -i someimage.raw -b systemd.run='"some command line"'
 
           This will run "systemd-nspawn" on an image, invoke the specified
-          command line and immediately shut down the container again,
-          propagating the command line's exit code.
+          command line and immediately shut down the container again, returning
+          the command line's exit code.
 
-        * The block device locking logic has been documented now:
+        * The block device locking logic is now documented:
 
           https://systemd.io/BLOCK_DEVICE_LOCKING
 
@@ -373,7 +374,7 @@ CHANGES WITH 240 in spe:
           name as argument.
 
         * systemd-udevd's network naming logic now understands a new
-          net.naming-scheme= kernel command line switch, which may be use to
+          net.naming-scheme= kernel command line switch, which may be used to
           pick a specific version of the naming scheme. This helps stabilizing
           interface names even as systemd/udev are updated and the naming logic
           is improved.
