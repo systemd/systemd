@@ -11,7 +11,9 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "dev-setup.h"
+#include "dirent-util.h"
 #include "efivars.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "label.h"
@@ -404,6 +406,100 @@ static int relabel_cgroup_filesystems(void) {
 
         return 0;
 }
+
+static int relabel_extra(void) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int r, c = 0;
+
+        /* Support for relabelling additional files or directories after loading the policy. For this, code in the
+         * initrd simply has to drop in *.relabel files into /run/systemd/relabel-extra.d/. We'll read all such files
+         * expecting one absolute path by line and will relabel each (and everyone below that in case the path refers
+         * to a directory). These drop-in files are supposed to be absolutely minimal, and do not understand comments
+         * and such. After the operation succeeded the files are removed, and the drop-in directory as well, if
+         * possible.
+         */
+
+        d = opendir("/run/systemd/relabel-extra.d/");
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_warning_errno(errno, "Failed to open /run/systemd/relabel-extra.d/, ignoring: %m");
+        }
+
+        for (;;) {
+                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_close_ int fd = -1;
+                struct dirent *de;
+
+                errno = 0;
+                de = readdir_no_dot(d);
+                if (!de) {
+                        if (errno != 0)
+                                return log_error_errno(errno, "Failed read directory /run/systemd/relabel-extra.d/, ignoring: %m");
+                        break;
+                }
+
+                if (hidden_or_backup_file(de->d_name))
+                        continue;
+
+                if (!endswith(de->d_name, ".relabel"))
+                        continue;
+
+                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
+                        continue;
+
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0) {
+                        log_warning_errno(errno, "Failed to open /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+                        continue;
+                }
+
+                f = fdopen(fd, "r");
+                if (!f) {
+                        log_warning_errno(errno, "Failed to convert file descriptor into file object, ignoring: %m");
+                        continue;
+                }
+                TAKE_FD(fd);
+
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
+
+                        r = read_line(f, LONG_LINE_MAX, &line);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to read from /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+                                break;
+                        }
+                        if (r == 0) /* EOF */
+                                break;
+
+                        path_simplify(line, true);
+
+                        if (!path_is_normalized(line)) {
+                                log_warning("Path to relabel is not normalized, ignoring: %s", line);
+                                continue;
+                        }
+
+                        if (!path_is_absolute(line)) {
+                                log_warning("Path to relabel is not absolute, ignoring: %s", line);
+                                continue;
+                        }
+
+                        log_debug("Relabelling additional file/directory '%s'.", line);
+                        (void) nftw(line, nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                        c++;
+                }
+
+                if (unlinkat(dirfd(d), de->d_name, 0) < 0)
+                        log_warning_errno(errno, "Failed to remove /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+        }
+
+        /* Remove when we completing things. */
+        if (rmdir("/run/systemd/relabel-extra.d") < 0)
+                log_warning_errno(errno, "Failed to remove /run/systemd/relabel-extra.d/ directory: %m");
+
+        return c;
+}
 #endif
 
 int mount_setup(bool loaded_policy) {
@@ -421,20 +517,22 @@ int mount_setup(bool loaded_policy) {
         if (loaded_policy) {
                 usec_t before_relabel, after_relabel;
                 char timespan[FORMAT_TIMESPAN_MAX];
+                const char *i;
+                int n_extra;
 
                 before_relabel = now(CLOCK_MONOTONIC);
 
-                (void) nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
-                (void) nftw("/dev/shm", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
-                (void) nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                FOREACH_STRING(i, "/dev", "/dev/shm", "/run")
+                        (void) nftw(i, nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
 
-                r = relabel_cgroup_filesystems();
-                if (r < 0)
-                        return r;
+                (void) relabel_cgroup_filesystems();
+
+                n_extra = relabel_extra();
 
                 after_relabel = now(CLOCK_MONOTONIC);
 
-                log_info("Relabelled /dev, /run and /sys/fs/cgroup in %s.",
+                log_info("Relabelled /dev, /dev/shm, /run, /sys/fs/cgroup%s in %s.",
+                         n_extra > 0 ? ", additional files" : "",
                          format_timespan(timespan, sizeof(timespan), after_relabel - before_relabel, 0));
         }
 #endif
