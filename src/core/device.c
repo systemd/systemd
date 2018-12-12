@@ -907,7 +907,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 return 0;
         }
 
-        if (streq(action, "change"))
+        if (!STR_IN_SET(action, "add", "remove", "move"))
                 device_propagate_reload_by_sysfs(m, sysfs);
 
         /* A change event can signal that a device is becoming ready, in particular if
@@ -936,13 +936,10 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 /* The device is found now, set the udev found bit */
                 device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
 
-        } else {
-                /* The device is nominally around, but not ready for
-                 * us. Hence unset the udev bit, but leave the rest
+        } else
+                /* The device is nominally around, but not ready for us. Hence unset the udev bit, but leave the rest
                  * around. */
-
                 device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_UDEV);
-        }
 
         return 0;
 }
