@@ -8,7 +8,7 @@
   Copyright © 2016 Julian Orth
 -->
 
-<refentry id="sd_bus_get_fd">
+<refentry id="sd_bus_get_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_get_fd</title>
@@ -22,8 +22,10 @@
 
   <refnamediv>
     <refname>sd_bus_get_fd</refname>
+    <refname>sd_bus_get_events</refname>
+    <refname>sd_bus_get_timeout</refname>
 
-    <refpurpose>Get the file descriptor connected to the message bus</refpurpose>
+    <refpurpose>Get the file descriptor, I/O events and time-out to wait for from a message bus object</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -34,38 +36,112 @@
         <funcdef>int <function>sd_bus_get_fd</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
       </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_events</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_timeout</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>timeout_usec</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para>
-      <function>sd_bus_get_fd()</function> returns the file descriptor used to
-      communicate with the message bus. This descriptor can be used with
-      <citerefentry
-        project='die-net'><refentrytitle>select</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry
-        project='die-net'><refentrytitle>poll</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      or similar functions to wait for incoming messages.
-    </para>
+    <para><function>sd_bus_get_fd()</function> returns the file descriptor used to communicate from a message bus
+    object. This descriptor can be used with <citerefentry
+    project='man-pages'><refentrytitle>poll</refentrytitle><manvolnum>3</manvolnum></citerefentry> or a similar
+    function to wait for I/O events on the specified bus connection object. If the bus object was configured with the
+    <citerefentry><refentrytitle>sd_bus_set_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry> function, then
+    the <parameter>input_fd</parameter> file descriptor used in that call is returned.</para>
 
-    <para>
-      If the bus was created with the
-      <citerefentry><refentrytitle>sd_bus_set_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-      function, then the <parameter>input_fd</parameter> used in that call is
-      returned.
-    </para>
+    <para><function>sd_bus_get_events()</function> returns the I/O events to wait for, suitable for passing to
+    <function>poll()</function> or a similar call. Returns a combination of <constant>POLLIN</constant>,
+    <constant>POLLOUT</constant>, … events, or negative on error.</para>
+
+    <para><function>sd_bus_get_timeout()</function> returns the time-out in µs to pass to to
+    <function>poll()</function> or a similar call when waiting for events on the specified bus connection. The returned
+    time-out may be zero, in which case a subsequent I/O polling call should be invoked in non-blocking mode. The
+    returned timeout may be <constant>UINT64_MAX</constant> in which case the I/O polling call may block indefinitely,
+    without any applied time-out. Note that the returned time-out should be considered only a maximum sleeping time. It
+    is permissible (and even expected) that shorter time-outs are used by the calling program, in case other event
+    sources are polled in the same event loop. Note that the returned time-value is relative and specified in
+    microseconds. When converting this value in order to pass it as third argument to <function>poll()</function>
+    (which expects milliseconds), care should be taken to use a division that rounds up to ensure the I/O polling
+    operation doesn't sleep for shorter than necessary, which might result in unintended busy looping (alternatively,
+    use <citerefentry project='man-pages'><refentrytitle>ppoll</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    instead of plain <function>poll()</function>, which understands time-outs with nano-second granularity).</para>
+
+    <para>These three functions are useful to hook up a bus connection object with an external or manual event loop
+    involving <function>poll()</function> or a similar I/O polling call. Before each invocation of the I/O polling
+    call, all three functions should be invoked: the file descriptor returned by <function>sd_bus_get_fd()</function>
+    should be polled for the events indicated by <function>sd_bus_get_events()</function>, and the I/O call should
+    block for that up to the time-out returned by <function>sd_bus_get_timeout()</function>. After each I/O polling
+    call the bus connection needs to process incoming or outgoing data, by invoking
+    <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>Note that these function are only one of three supported ways to implement I/O event handling for bus
+    connections. Alternatively use
+    <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry> to attach a
+    bus connection to an <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    event loop. Or use <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    as a simple synchronous, blocking I/O waiting call.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>
-      Returns the file descriptor used for incoming messages from the message
-      bus.
-    </para>
+    <para><function>sd_bus_get_fd()</function> returns the file descriptor used for communication, or a negative
+    <varname>errno</varname>-style error code on error.</para>
+
+    <para><function>sd_bus_get_events()</function> returns the I/O event mask to use for I/O event watching, or a
+    negative <varname>errno</varname>-style error code on error.</para>
+
+    <para><function>sd_bus_get_timeout()</function> returns zero or positive on success, or a negative
+    <varname>errno</varname>-style error code on error.</para>
   </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>An invalid bus object was passed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ECHILD</constant></term>
+
+        <listitem><para>The bus connection was allocated in a parent process and is being reused in a child process
+        after <function>fork()</function>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENOTCONN</constant></term>
+
+        <listitem><para>The bus connection has been terminated.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-EPERM</constant></term>
+
+        <listitem><para>Two distinct file descriptors were passed for input and output using
+        <function>sd_bus_set_fd()</function>, which <function>sd_bus_get_fd()</function> cannot
+        return.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>
@@ -74,6 +150,10 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_set_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>poll</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

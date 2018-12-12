@@ -71,6 +71,13 @@
 
     <para>The <function>sd_bus_get_event()</function> returns the event loop object the specified bus object is
     currently attached to, or <constant>NULL</constant> if it is currently not attached to any.</para>
+
+    <para>Note that <function>sd_bus_attach_event()</function> is only one of three supported ways to implement I/O
+    event handling for bus connections. Alternatively use
+    <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry> for hooking up a
+    bus connection object with external or manual event loops. Or use
+    <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry> as a simple
+    synchronous, blocking I/O waiting call.</para>
   </refsect1>
 
   <refsect1>
@@ -107,7 +114,8 @@
       <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_priority</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_set_close_on_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 
