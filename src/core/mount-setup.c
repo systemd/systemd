@@ -517,13 +517,13 @@ int mount_setup(bool loaded_policy) {
         if (loaded_policy) {
                 usec_t before_relabel, after_relabel;
                 char timespan[FORMAT_TIMESPAN_MAX];
+                const char *i;
                 int n_extra;
 
                 before_relabel = now(CLOCK_MONOTONIC);
 
-                (void) nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
-                (void) nftw("/dev/shm", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
-                (void) nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                FOREACH_STRING(i, "/dev", "/dev/shm", "/run")
+                        (void) nftw(i, nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
 
                 r = relabel_cgroup_filesystems();
                 if (r < 0)
