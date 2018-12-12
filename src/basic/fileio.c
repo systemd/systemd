@@ -156,7 +156,7 @@ int write_string_file_ts(
                         goto fail;
                 }
 
-                f = fdopen(fd, "we");
+                f = fdopen(fd, "w");
                 if (!f) {
                         r = -errno;
                         safe_close(fd);

@@ -28,14 +28,14 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
 
         fd = mkostemp_safe(pattern);
         assert_se(fd >= 0);
-        assert_se(f = fdopen(fd, "a+e"));
+        assert_se(f = fdopen(fd, "a+"));
         assert_se(write_string_stream(f, ruleset, 0) == 0);
 
         assert_se(routing_policy_load_rules(pattern, &rules) == 0);
 
         fd2 = mkostemp_safe(pattern2);
         assert_se(fd2 >= 0);
-        assert_se(f2 = fdopen(fd2, "a+e"));
+        assert_se(f2 = fdopen(fd2, "a+"));
 
         assert_se(routing_policy_serialize_rules(rules, f2) == 0);
         assert_se(fflush_and_check(f2) == 0);
@@ -46,7 +46,7 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
 
         fd3 = mkostemp_safe(pattern3);
         assert_se(fd3 >= 0);
-        assert_se(f3 = fdopen(fd3, "we"));
+        assert_se(f3 = fdopen(fd3, "w"));
         assert_se(write_string_stream(f3, expected ?: ruleset, 0) == 0);
 
         cmd = strjoina("diff -u ", pattern3, " ", pattern2);

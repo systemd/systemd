@@ -73,7 +73,7 @@ static int append_fd(sd_bus_message *m, PortableMetadata *d) {
         assert(d);
         assert(d->fd >= 0);
 
-        f = fdopen(d->fd, "re");
+        f = fdopen(d->fd, "r");
         if (!f)
                 return -errno;
 

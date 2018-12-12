@@ -74,7 +74,7 @@ int fopen_os_release(const char *root, char **ret_path, FILE **ret_file) {
         if (r < 0)
                 return r;
 
-        f = fdopen(fd, "re");
+        f = fdopen(fd, "r");
         if (!f)
                 return -errno;
         fd = -1;
