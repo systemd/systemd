@@ -612,6 +612,13 @@ static void test_tempfn(void) {
 
 static const char buffer[] =
         "Some test data\n"
+        "Some weird line\r"
+        "terminators\r\n"
+        "and even more\n\r"
+        "now the same with a NUL\n\0"
+        "and more\r\0"
+        "and even more\r\n\0"
+        "and yet even more\n\r\0"
         "With newlines, and a NUL byte\0"
         "\n"
         "an empty line\n"
@@ -622,6 +629,27 @@ static void test_read_line_one_file(FILE *f) {
         _cleanup_free_ char *line = NULL;
 
         assert_se(read_line(f, (size_t) -1, &line) == 15 && streq(line, "Some test data"));
+        line = mfree(line);
+
+        assert_se(read_line(f, (size_t) -1, &line) == 16 && streq(line, "Some weird line"));
+        line = mfree(line);
+
+        assert_se(read_line(f, (size_t) -1, &line) == 13 && streq(line, "terminators"));
+        line = mfree(line);
+
+        assert_se(read_line(f, (size_t) -1, &line) == 15 && streq(line, "and even more"));
+        line = mfree(line);
+
+        assert_se(read_line(f, (size_t) -1, &line) == 25 && streq(line, "now the same with a NUL"));
+        line = mfree(line);
+
+        assert_se(read_line(f, (size_t) -1, &line) == 10 && streq(line, "and more"));
+        line = mfree(line);
+
+        assert_se(read_line(f, (size_t) -1, &line) == 16 && streq(line, "and even more"));
+        line = mfree(line);
+
+        assert_se(read_line(f, (size_t) -1, &line) == 20 && streq(line, "and yet even more"));
         line = mfree(line);
 
         assert_se(read_line(f, 1024, &line) == 30 && streq(line, "With newlines, and a NUL byte"));
@@ -640,10 +668,7 @@ static void test_read_line_one_file(FILE *f) {
 
         /* read_line() stopped when it hit the limit, that means when we continue reading we'll read at the first
          * character after the previous limit. Let's make use of tha to continue our test. */
-        assert_se(read_line(f, 1024, &line) == 61 && streq(line, "line that is supposed to be truncated, because it is so long"));
-        line = mfree(line);
-
-        assert_se(read_line(f, 1024, &line) == 1 && streq(line, ""));
+        assert_se(read_line(f, 1024, &line) == 62 && streq(line, "line that is supposed to be truncated, because it is so long"));
         line = mfree(line);
 
         assert_se(read_line(f, 1024, &line) == 0 && streq(line, ""));

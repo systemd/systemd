@@ -694,18 +694,48 @@ int read_nul_string(FILE *f, char **ret) {
         return 0;
 }
 
+/* A bitmask of the EOL markers we know */
+typedef enum EndOfLineMarker {
+        EOL_NONE     = 0,
+        EOL_ZERO     = 1 << 0,  /* \0 (aka NUL) */
+        EOL_TEN      = 1 << 1,  /* \n (aka NL, aka LF)  */
+        EOL_THIRTEEN = 1 << 2,  /* \r (aka CR)  */
+} EndOfLineMarker;
+
+static EndOfLineMarker categorize_eol(char c) {
+        if (c == '\n')
+                return EOL_TEN;
+        if (c == '\r')
+                return EOL_THIRTEEN;
+        if (c == '\0')
+                return EOL_ZERO;
+
+        return EOL_NONE;
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
 
 int read_line(FILE *f, size_t limit, char **ret) {
-        _cleanup_free_ char *buffer = NULL;
         size_t n = 0, allocated = 0, count = 0;
+        _cleanup_free_ char *buffer = NULL;
 
         assert(f);
 
         /* Something like a bounded version of getline().
          *
-         * Considers EOF, \n and \0 end of line delimiters, and does not include these delimiters in the string
-         * returned.
+         * Considers EOF, \n, \r and \0 end of line delimiters (or combinations of these), and does not include these
+         * delimiters in the string returned. Specifically, recognizes the following combinations of markers as line
+         * endings:
+         *
+         *     • \n        (UNIX)
+         *     • \r        (old MacOS)
+         *     • \0        (C strings)
+         *     • \n\0
+         *     • \r\0
+         *     • \r\n      (Windows)
+         *     • \n\r
+         *     • \r\n\0
+         *     • \n\r\0
          *
          * Returns the number of bytes read from the files (i.e. including delimiters — this hence usually differs from
          * the number of characters in the returned string). When EOF is hit, 0 is returned.
@@ -722,9 +752,11 @@ int read_line(FILE *f, size_t limit, char **ret) {
 
         {
                 _unused_ _cleanup_(funlockfilep) FILE *flocked = f;
+                EndOfLineMarker previous_eol = EOL_NONE;
                 flockfile(f);
 
                 for (;;) {
+                        EndOfLineMarker eol;
                         int c;
 
                         if (n >= limit)
@@ -737,13 +769,29 @@ int read_line(FILE *f, size_t limit, char **ret) {
                                 if (ferror_unlocked(f) && n == 0)
                                         return errno > 0 ? -errno : -EIO;
 
+                                /* EOF is line ending too. */
                                 break;
                         }
 
                         count++;
 
-                        if (IN_SET(c, '\n', 0)) /* Reached a delimiter */
+                        eol = categorize_eol(c);
+
+                        if (FLAGS_SET(previous_eol, EOL_ZERO) ||
+                            (eol == EOL_NONE && previous_eol != EOL_NONE) ||
+                            (eol != EOL_NONE && (previous_eol & eol) != 0)) {
+                                /* Previous char was a NUL? This is not an EOL, but the previous char was? This type of
+                                 * EOL marker has been seen right before? In either of these three cases we are
+                                 * done. But first, let's put this character back in the queue. */
+                                assert_se(ungetc(c, f) != EOF);
+                                count--;
                                 break;
+                        }
+
+                        if (eol != EOL_NONE) {
+                                previous_eol |= eol;
+                                continue;
+                        }
 
                         if (ret) {
                                 if (!GREEDY_REALLOC(buffer, allocated, n + 2))
