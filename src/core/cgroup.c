@@ -1367,14 +1367,8 @@ CGroupMask unit_get_members_mask(Unit *u) {
                 Iterator i;
 
                 HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i) {
-
-                        if (member == u)
-                                continue;
-
-                        if (UNIT_DEREF(member->slice) != u)
-                                continue;
-
-                        u->cgroup_members_mask |= unit_get_subtree_mask(member); /* note that this calls ourselves again, for the children */
+                        if (UNIT_DEREF(member->slice) == u)
+                                u->cgroup_members_mask |= unit_get_subtree_mask(member); /* note that this calls ourselves again, for the children */
                 }
         }
 
@@ -2120,9 +2114,6 @@ static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
                 void *v;
 
                 HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE], i) {
-                        if (m == u)
-                                continue;
-
                         /* Skip units that have a dependency on the slice
                          * but aren't actually in it. */
                         if (UNIT_DEREF(m->slice) != slice)
@@ -3034,13 +3025,8 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
                 void *v;
 
                 HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i) {
-                        if (member == u)
-                                continue;
-
-                        if (UNIT_DEREF(member->slice) != u)
-                                continue;
-
-                        unit_invalidate_cgroup_bpf(member);
+                        if (UNIT_DEREF(member->slice) == u)
+                                unit_invalidate_cgroup_bpf(member);
                 }
         }
 }
