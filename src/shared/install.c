@@ -1939,6 +1939,7 @@ static int install_context_mark_for_removal(
                 InstallContext *c,
                 const LookupPaths *paths,
                 Set **remove_symlinks_to,
+                const char *config_path,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
@@ -1947,6 +1948,7 @@ static int install_context_mark_for_removal(
 
         assert(c);
         assert(paths);
+        assert(config_path);
 
         /* Marks all items for removal */
 
@@ -2056,7 +2058,7 @@ int unit_file_unmask(
         size_t n_todo = 0, n_allocated = 0;
         const char *config_path;
         char **i;
-        bool dry_run = !!(flags & UNIT_FILE_DRY_RUN);
+        bool dry_run;
         int r, q;
 
         assert(scope >= 0);
@@ -2066,70 +2068,72 @@ int unit_file_unmask(
         if (r < 0)
                 return r;
 
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
+        if (!config_path)
+                return -ENXIO;
+
+        dry_run = !!(flags & UNIT_FILE_DRY_RUN);
+
         STRV_FOREACH(i, files) {
+                _cleanup_free_ char *path = NULL;
+
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                FOREACH_STRING(config_path, paths.runtime_config, paths.persistent_config) {
-                        _cleanup_free_ char *path = NULL;
+                path = path_make_absolute(*i, config_path);
+                if (!path)
+                        return -ENOMEM;
 
-                        path = path_make_absolute(*i, config_path);
-                        if (!path)
-                                return -ENOMEM;
+                r = null_or_empty_path(path);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
 
-                        r = null_or_empty_path(path);
-                        if (r == -ENOENT)
-                                continue;
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                continue;
+                if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
+                        return -ENOMEM;
 
-                        if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
-                                return -ENOMEM;
+                todo[n_todo] = strdup(*i);
+                if (!todo[n_todo])
+                        return -ENOMEM;
 
-                        todo[n_todo] = strdup(*i);
-                        if (!todo[n_todo])
-                                return -ENOMEM;
-
-                        n_todo++;
-                }
+                n_todo++;
         }
 
         strv_uniq(todo);
 
         r = 0;
-        FOREACH_STRING(config_path, paths.runtime_config, paths.persistent_config) {
-                STRV_FOREACH(i, todo) {
-                        _cleanup_free_ char *path = NULL;
-                        const char *rp;
+        STRV_FOREACH(i, todo) {
+                _cleanup_free_ char *path = NULL;
+                const char *rp;
 
-                        path = path_make_absolute(*i, config_path);
-                        if (!path)
-                                return -ENOMEM;
+                path = path_make_absolute(*i, config_path);
+                if (!path)
+                        return -ENOMEM;
 
-                        if (!dry_run && unlink(path) < 0) {
-                                if (errno != ENOENT) {
-                                        if (r >= 0)
-                                                r = -errno;
-                                        unit_file_changes_add(changes, n_changes, -errno, path, NULL);
-                                }
-
-                                continue;
+                if (!dry_run && unlink(path) < 0) {
+                        if (errno != ENOENT) {
+                                if (r >= 0)
+                                        r = -errno;
+                                unit_file_changes_add(changes, n_changes, -errno, path, NULL);
                         }
 
-                        unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
-
-                        rp = skip_root(&paths, path);
-                        q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: path);
-                        if (q < 0)
-                                return q;
+                        continue;
                 }
 
-                q = remove_marked_symlinks(remove_symlinks_to, config_path, &paths, dry_run, changes, n_changes);
-                if (r >= 0)
-                        r = q;
+                unit_file_changes_add(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
+
+                rp = skip_root(&paths, path);
+                q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: path);
+                if (q < 0)
+                        return q;
         }
+
+        q = remove_marked_symlinks(remove_symlinks_to, config_path, &paths, dry_run, changes, n_changes);
+        if (r >= 0)
+                r = q;
 
         return r;
 }
@@ -2513,7 +2517,6 @@ int unit_file_disable(
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
-        bool dry_run = !!(flags & UNIT_FILE_DRY_RUN);
         const char *config_path;
         char **i;
         int r;
@@ -2525,6 +2528,10 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
+        if (!config_path)
+                return -ENXIO;
+
         STRV_FOREACH(i, files) {
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
@@ -2534,17 +2541,11 @@ int unit_file_disable(
                         return r;
         }
 
-        r = install_context_mark_for_removal(scope, &c, &paths, &remove_symlinks_to, changes, n_changes);
+        r = install_context_mark_for_removal(scope, &c, &paths, &remove_symlinks_to, config_path, changes, n_changes);
         if (r < 0)
                 return r;
 
-        FOREACH_STRING(config_path, paths.runtime_config, paths.persistent_config) {
-                r = remove_marked_symlinks(remove_symlinks_to, config_path, &paths, dry_run, changes, n_changes);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return remove_marked_symlinks(remove_symlinks_to, config_path, &paths, !!(flags & UNIT_FILE_DRY_RUN), changes, n_changes);
 }
 
 int unit_file_reenable(
@@ -3029,45 +3030,45 @@ int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char
 
 static int execute_preset(
                 UnitFileScope scope,
-                UnitFileFlags flags,
                 InstallContext *plus,
                 InstallContext *minus,
                 const LookupPaths *paths,
+                const char *config_path,
                 char **files,
                 UnitFilePresetMode mode,
+                bool force,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
-        const char *config_path;
-        bool force = !!(flags & UNIT_FILE_FORCE);
-        bool runtime = !!(flags & UNIT_FILE_RUNTIME);
-        int r = 0, q;
+        int r;
 
         assert(plus);
         assert(minus);
         assert(paths);
+        assert(config_path);
 
         if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
                 _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
 
-                q = install_context_mark_for_removal(scope, minus, paths, &remove_symlinks_to, changes, n_changes);
-                if (q < 0)
-                        return q;
+                r = install_context_mark_for_removal(scope, minus, paths, &remove_symlinks_to, config_path, changes, n_changes);
+                if (r < 0)
+                        return r;
 
-                FOREACH_STRING(config_path, paths->runtime_config, paths->persistent_config) {
-                        q = remove_marked_symlinks(remove_symlinks_to, config_path, paths, false, changes, n_changes);
-                        if (r == 0)
-                                r = q;
-                }
-        }
+                r = remove_marked_symlinks(remove_symlinks_to, config_path, paths, false, changes, n_changes);
+        } else
+                r = 0;
 
         if (mode != UNIT_FILE_PRESET_DISABLE_ONLY) {
+                int q;
+
                 /* Returns number of symlinks that where supposed to be installed. */
-                q = install_context_apply(scope, plus, paths,
-                                          runtime ? paths->runtime_config : paths->persistent_config,
-                                          force, SEARCH_LOAD, changes, n_changes);
-                if (r == 0)
-                        r = q;
+                q = install_context_apply(scope, plus, paths, config_path, force, SEARCH_LOAD, changes, n_changes);
+                if (r >= 0) {
+                        if (q < 0)
+                                r = q;
+                        else
+                                r += q;
+                }
         }
 
         return r;
@@ -3139,6 +3140,7 @@ int unit_file_preset(
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(presets_freep) Presets presets = {};
+        const char *config_path;
         char **i;
         int r;
 
@@ -3150,6 +3152,10 @@ int unit_file_preset(
         if (r < 0)
                 return r;
 
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
+        if (!config_path)
+                return -ENXIO;
+
         r = read_presets(scope, root_dir, &presets);
         if (r < 0)
                 return r;
@@ -3160,7 +3166,7 @@ int unit_file_preset(
                         return r;
         }
 
-        return execute_preset(scope, flags, &plus, &minus, &paths, files, mode, changes, n_changes);
+        return execute_preset(scope, &plus, &minus, &paths, config_path, files, mode, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
 }
 
 int unit_file_preset_all(
@@ -3174,6 +3180,7 @@ int unit_file_preset_all(
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(presets_freep) Presets presets = {};
+        const char *config_path = NULL;
         char **i;
         int r;
 
@@ -3184,6 +3191,10 @@ int unit_file_preset_all(
         r = lookup_paths_init(&paths, scope, 0, root_dir);
         if (r < 0)
                 return r;
+
+        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
+        if (!config_path)
+                return -ENXIO;
 
         r = read_presets(scope, root_dir, &presets);
         if (r < 0)
@@ -3202,6 +3213,7 @@ int unit_file_preset_all(
                 }
 
                 FOREACH_DIRENT(de, d, return -errno) {
+
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
 
@@ -3225,7 +3237,7 @@ int unit_file_preset_all(
                 }
         }
 
-        return execute_preset(scope, flags, &plus, &minus, &paths, NULL, mode, changes, n_changes);
+        return execute_preset(scope, &plus, &minus, &paths, config_path, NULL, mode, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
 }
 
 static void unit_file_list_free_one(UnitFileList *f) {

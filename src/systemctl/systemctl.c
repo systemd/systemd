@@ -7919,11 +7919,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--wait may not be combined with --no-block.");
 
-        if (arg_runtime && STRPTR_IN_SET(argv[optind], "disable", "unmask", "preset", "preset-all"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--runtime cannot be used with %s",
-                                       argv[optind]);
-
         return 1;
 }
 

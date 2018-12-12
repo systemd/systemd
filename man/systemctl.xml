@@ -555,19 +555,19 @@
         <term><option>--runtime</option></term>
 
         <listitem>
-          <para>When used with <command>set-property</command>, make changes only
-          temporarily, so that they are lost on the next reboot.</para>
-
-          <para>Similarily, when used with <command>enable</command>, <command>mask</command>,
-          <command>edit</command> and related commands, make temporary changes, which are lost on
-          the next reboot. Changes are not made in subdirectories of <filename>/etc</filename>, but
-          in <filename>/run</filename>. The immediate effect is identical, however since the latter
+          <para>When used with <command>enable</command>,
+          <command>disable</command>, <command>edit</command>,
+          (and related commands), make changes only temporarily, so
+          that they are lost on the next reboot. This will have the
+          effect that changes are not made in subdirectories of
+          <filename>/etc</filename> but in <filename>/run</filename>,
+          with identical immediate effects, however, since the latter
           is lost on reboot, the changes are lost too.</para>
 
-          <para>Note: this option cannot be used with <command>disable</command>,
-          <command>unmask</command>, <command>preset</command>, or <command>preset-all</command>,
-          because those operations sometimes need to remove symlinks under <filename>/etc</filename>
-          to have the desired effect, which would cause a persistent change.</para>
+          <para>Similarly, when used with
+          <command>set-property</command>, make changes only
+          temporarily, so that they are lost on the next
+          reboot.</para>
         </listitem>
       </varlistentry>
 
