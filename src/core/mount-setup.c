@@ -525,9 +525,7 @@ int mount_setup(bool loaded_policy) {
                 FOREACH_STRING(i, "/dev", "/dev/shm", "/run")
                         (void) nftw(i, nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
 
-                r = relabel_cgroup_filesystems();
-                if (r < 0)
-                        return r;
+                (void) relabel_cgroup_filesystems();
 
                 n_extra = relabel_extra();
 
