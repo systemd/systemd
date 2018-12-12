@@ -433,11 +433,16 @@ typedef struct UnitVTable {
         int (*load)(Unit *u);
 
         /* During deserialization we only record the intended state to return to. With coldplug() we actually put the
-         * deserialized state in effect. This is where unit_notify() should be called to start things up. */
+         * deserialized state in effect. This is where unit_notify() should be called to start things up. Note that
+         * this callback is invoked *before* we leave the reloading state of the manager, i.e. *before* we consider the
+         * reloading to be complete. Thus, this callback should just restore the exact same state for any unit that was
+         * in effect before the reload, i.e. units should not catch up with changes happened during the reload. That's
+         * what catchup() below is for. */
         int (*coldplug)(Unit *u);
 
-        /* This is called shortly after all units' coldplug() call was invoked. It's supposed to catch up state changes
-         * we missed so far (for example because they took place while we were reloading/reexecing) */
+        /* This is called shortly after all units' coldplug() call was invoked, and *after* the manager left the
+         * reloading state. It's supposed to catch up with state changes due to external events we missed so far (for
+         * example because they took place while we were reloading/reexecing) */
         void (*catchup)(Unit *u);
 
         void (*dump)(Unit *u, FILE *f, const char *prefix);

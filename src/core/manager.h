@@ -337,9 +337,6 @@ struct Manager {
 
         /* non-zero if we are reloading or reexecuting, */
         int n_reloading;
-        /* A set which contains all jobs that started before reload and finished
-         * during it */
-        Set *pending_finished_jobs;
 
         unsigned n_installed_jobs;
         unsigned n_failed_jobs;

@@ -3464,17 +3464,6 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         return manager_deserialize_units(m, f, fds);
 }
 
-static void manager_flush_finished_jobs(Manager *m) {
-        Job *j;
-
-        while ((j = set_steal_first(m->pending_finished_jobs))) {
-                bus_job_send_removed_signal(j);
-                job_free(j);
-        }
-
-        m->pending_finished_jobs = set_free(m->pending_finished_jobs);
-}
-
 int manager_reload(Manager *m) {
         _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
         _cleanup_fdset_free_ FDSet *fds = NULL;
@@ -3559,9 +3548,6 @@ int manager_reload(Manager *m) {
         m->n_reloading--;
 
         manager_ready(m);
-
-        if (!MANAGER_IS_RELOADING(m))
-                manager_flush_finished_jobs(m);
 
         m->send_reloading_done = true;
         return 0;

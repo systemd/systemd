@@ -156,13 +156,12 @@ struct Job {
         bool irreversible:1;
         bool in_gc_queue:1;
         bool ref_by_private_bus:1;
-        bool reloaded:1;
 };
 
 Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
 void job_unlink(Job *job);
-void job_free(Job *job);
+Job* job_free(Job *job);
 Job* job_install(Job *j);
 int job_install_deserialized(Job *j);
 void job_uninstall(Job *j);
@@ -222,6 +221,8 @@ void job_add_to_gc_queue(Job *j);
 
 int job_get_before(Job *j, Job*** ret);
 int job_get_after(Job *j, Job*** ret);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
 
 const char* job_type_to_string(JobType t) _const_;
 JobType job_type_from_string(const char *s) _pure_;
