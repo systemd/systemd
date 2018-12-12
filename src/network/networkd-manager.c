@@ -223,14 +223,16 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
                 return 0;
         }
 
-        if (!IN_SET(action, DEVICE_ACTION_ADD, DEVICE_ACTION_CHANGE, DEVICE_ACTION_MOVE)) {
-                log_device_debug(device, "Ignoring udev %s event for device.", device_action_to_string(action));
+        /* Ignore the "remove" uevent — let's remove a device only if rtnetlink says so. All other uevents
+         * are "positive" events in some form, i.e. inform us about a changed or new network interface, that
+         * still exists — and we are interested in that. */
+        if (action == DEVICE_ACTION_REMOVE)
                 return 0;
-        }
 
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0) {
-                log_device_debug_errno(device, r, "Ignoring udev ADD event for device without ifindex or with invalid ifindex: %m");
+                log_device_debug_errno(device, r, "Ignoring udev %s event for device without ifindex or with invalid ifindex: %m",
+                                       device_action_to_string(action));
                 return 0;
         }
 
