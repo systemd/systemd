@@ -308,7 +308,7 @@ static int gather_environment_consume(int fd, void *arg) {
 
         assert(env);
 
-        f = fdopen(fd, "re");
+        f = fdopen(fd, "r");
         if (!f) {
                 safe_close(fd);
                 return -errno;

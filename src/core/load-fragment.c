@@ -4415,7 +4415,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 free_and_replace(*filename, target);
         }
 
-        f = fdopen(fd, "re");
+        f = fdopen(fd, "r");
         if (!f) {
                 safe_close(fd);
                 return -errno;

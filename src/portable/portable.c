@@ -1089,7 +1089,7 @@ static int test_chroot_dropin(
                 return log_debug_errno(errno, "Failed to open %s/%s: %m", where, p);
         }
 
-        f = fdopen(fd, "re");
+        f = fdopen(fd, "r");
         if (!f)
                 return log_debug_errno(errno, "Failed to convert file handle: %m");
         fd = -1;

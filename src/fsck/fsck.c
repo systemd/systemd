@@ -177,7 +177,7 @@ static int process_progress(int fd) {
         if (fd < 0)
                 return 0;
 
-        f = fdopen(fd, "re");
+        f = fdopen(fd, "r");
         if (!f) {
                 safe_close(fd);
                 return -errno;

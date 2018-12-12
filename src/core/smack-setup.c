@@ -72,7 +72,7 @@ static int write_access2_rules(const char* srcdir) {
                         continue;
                 }
 
-                policy = fdopen(fd, "re");
+                policy = fdopen(fd, "r");
                 if (!policy) {
                         if (r == 0)
                                 r = -errno;
@@ -154,7 +154,7 @@ static int write_cipso2_rules(const char* srcdir) {
                         continue;
                 }
 
-                policy = fdopen(fd, "re");
+                policy = fdopen(fd, "r");
                 if (!policy) {
                         if (r == 0)
                                 r = -errno;
@@ -227,7 +227,7 @@ static int write_netlabel_rules(const char* srcdir) {
                         continue;
                 }
 
-                policy = fdopen(fd, "re");
+                policy = fdopen(fd, "r");
                 if (!policy) {
                         if (r == 0)
                                 r = -errno;

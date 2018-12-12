@@ -91,7 +91,7 @@ int change_uid_gid(const char *user, char **_home) {
         if (fd < 0)
                 return fd;
 
-        f = fdopen(fd, "re");
+        f = fdopen(fd, "r");
         if (!f)
                 return log_oom();
         fd = -1;
@@ -164,7 +164,7 @@ int change_uid_gid(const char *user, char **_home) {
         if (fd < 0)
                 return fd;
 
-        f = fdopen(fd, "re");
+        f = fdopen(fd, "r");
         if (!f)
                 return log_oom();
         fd = -1;

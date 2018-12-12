@@ -553,7 +553,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
                 if (fd < 0)
                         continue;
 
-                fdinfo = fdopen(fd, "re");
+                fdinfo = fdopen(fd, "r");
                 if (!fdinfo) {
                         safe_close(fd);
                         continue;

@@ -1286,7 +1286,7 @@ static int unit_file_load(
         if (r < 0)
                 return r;
 
-        f = fdopen(fd, "re");
+        f = fdopen(fd, "r");
         if (!f)
                 return -errno;
         fd = -1;

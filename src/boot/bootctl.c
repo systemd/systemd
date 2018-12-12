@@ -823,7 +823,7 @@ static int install_loader_config(const char *esp_path) {
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open \"%s\" for writing: %m", p);
 
-        f = fdopen(fd, "we");
+        f = fdopen(fd, "w");
         if (!f) {
                 safe_close(fd);
                 return log_oom();

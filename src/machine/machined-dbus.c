@@ -615,7 +615,7 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
         if (lseek(operation->extra_fd, 0, SEEK_SET) == (off_t) -1)
                 return -errno;
 
-        f = fdopen(operation->extra_fd, "re");
+        f = fdopen(operation->extra_fd, "r");
         if (!f)
                 return -errno;
 

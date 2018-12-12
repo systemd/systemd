@@ -36,7 +36,7 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
                 return -errno;
         }
 
-        f = fdopen(fd, "we");
+        f = fdopen(fd, "w");
         if (!f) {
                 unlink_noerrno(t);
                 free(t);

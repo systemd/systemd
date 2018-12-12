@@ -370,7 +370,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 
                 pair[1] = safe_close(pair[1]);
 
-                f = fdopen(pair[0], "re");
+                f = fdopen(pair[0], "r");
                 if (!f)
                         return -errno;
 
