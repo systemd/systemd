@@ -201,7 +201,7 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
                 return 0;
         }
 
-        if (!STR_IN_SET(action, "add", "change")) {
+        if (!streq(action, "remove")) {
                 log_device_debug(device, "Ignoring udev %s event for device.", action);
                 return 0;
         }
