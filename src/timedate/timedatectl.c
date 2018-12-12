@@ -283,12 +283,27 @@ static int set_ntp(int argc, char **argv, void *userdata) {
 }
 
 static int list_timezones(int argc, char **argv, void *userdata) {
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
+        char** zones;
 
-        r = get_timezones(&zones);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "ListTimezones",
+                               &error,
+                               &reply,
+                               NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to read list of time zones: %m");
+                return log_error_errno(r, "Failed to request list of time zones: %s",
+                                       bus_error_message(&error, r));
+
+        r = sd_bus_message_read_strv(reply, &zones);
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         (void) pager_open(arg_pager_flags);
         strv_print(zones);

@@ -916,6 +916,28 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         return sd_bus_reply_method_return(m, NULL);
 }
 
+static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **zones = NULL;
+        int r;
+
+        assert(m);
+
+        r = get_timezones(&zones);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to read list of time zones: %m");
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(reply, zones);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Timezone", "s", NULL, offsetof(Context, zone), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -929,6 +951,7 @@ static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_METHOD("SetTimezone", "sb", NULL, method_set_timezone, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLocalRTC", "bbb", NULL, method_set_local_rtc, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetNTP", "bb", NULL, method_set_ntp, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListTimezones", NULL, "as", method_list_timezones, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 
