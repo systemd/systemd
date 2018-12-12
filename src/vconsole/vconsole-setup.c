@@ -298,14 +298,28 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 
                 r = ioctl(fd_d, KDFONTOP, &cfo);
                 if (r < 0) {
-                        log_warning_errno(errno, "KD_FONT_OP_SET failed, fonts will not be copied to tty%u: %m", i);
+                        int last_errno, mode;
+
+                        /* The fonts couldn't have been copied. It might be due to the
+                         * terminal being in graphical mode. In this case the kernel
+                         * returns -EINVAL which is too generic for distinguishing this
+                         * specific case. So we need to retrieve the terminal mode and if
+                         * the graphical mode is in used, let's assume that something else
+                         * is using the terminal and the failure was expected as we
+                         * shouldn't have tried to copy the fonts. */
+
+                        last_errno = errno;
+                        if (ioctl(fd_d, KDGETMODE, &mode) >= 0 && mode != KD_TEXT)
+                                log_debug("KD_FONT_OP_SET skipped: tty%u is not in text mode", i);
+                        else
+                                log_warning_errno(last_errno, "KD_FONT_OP_SET failed, fonts will not be copied to tty%u: %m", i);
+
                         continue;
                 }
 
                 /*
-                 * copy unicode translation table
-                 * unimapd is a ushort count and a pointer to an
-                 * array of struct unipair { ushort, ushort }
+                 * copy unicode translation table unimapd is a ushort count and a pointer
+                 * to an array of struct unipair { ushort, ushort }
                  */
                 r = ioctl(fd_d, PIO_UNIMAPCLR, &adv);
                 if (r < 0) {
