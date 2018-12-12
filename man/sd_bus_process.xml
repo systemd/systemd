@@ -8,7 +8,7 @@
   Copyright © 2016 Julian Orth
 -->
 
-<refentry id="sd_bus_process">
+<refentry id="sd_bus_process" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_process</title>
@@ -33,7 +33,7 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_process</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>sd_bus_message **<parameter>r</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>ret</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -41,42 +41,80 @@
   <refsect1>
     <title>Description</title>
 
-    <para>
-      <function>sd_bus_process()</function> drives the connection between the
-      message bus and the client. That is, it handles connecting,
-      authentication, and message processing. It should be called in a loop
-      until no further progress can be made or an error occurs.
+    <para><function>sd_bus_process()</function> drives the connection between the client and the message bus. That is,
+    it handles connecting, authentication, and message processing. When invoked pending I/O work is executed, and
+    queued incoming messages are dispatched to registered callbacks. Each time it is invoked a single operation is
+    executed. It returns zero when no operations were pending and positive if a message was processed. When zero is
+    returned the caller should synchronously poll for I/O events before calling into
+    <function>sd_bus_process()</function> again. For that either user the simple, synchronous
+    <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry> call, or hook up
+    the bus connection object to an external or manual event loop using
+    <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
-    <para>
-      Once no further progress can be made,
-      <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-      should be called. Alternatively the user can wait for incoming data on
-      the file descriptor returned by
-      <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    </para>
+    <para><function>sd_bus_process()</function> processes at most one incoming message per call.  If the parameter
+    <parameter>ret</parameter> is not <constant>NULL</constant> and the call processed a message,
+    <parameter>*ret</parameter> is set to this message.  The caller owns a reference to this message and should call
+    <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry> when the
+    message is no longer needed. If <parameter>ret</parameter> is not NULL, progress was made, but no message was
+    processed, <parameter>*ret</parameter> is set to <constant>NULL</constant>.</para>
 
-    <para>
-      <function>sd_bus_process</function> processes at most one incoming
-      message per call.  If the parameter <parameter>r</parameter> is not NULL
-      and the call processed a message, <code>*r</code> is set to this message.
-      The caller owns a reference to this message and should call
-      <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-      when the message is no longer needed. If <parameter>r</parameter> is not
-      NULL, progress was made, but no message was processed, <code>*r</code> is
-      set to NULL.
-    </para>
+    <para>If a the bus object is connected to an
+    <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry> event loop (with
+    <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>), it is not
+    necessary to call <function>sd_bus_process()</function> directly as it is invoked automatically when
+    necessary.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>
-      If progress was made, a positive integer is returned. If no progress was
-      made, 0 is returned. If an error occurs, a negative errno-style error code
-      is returned.
-    </para>
+    <para>If progress was made, a positive integer is returned. If no progress was made, 0 is returned. If an error
+    occurs, a negative <varname>errno</varname>-style error code is returned.</para>
   </refsect1>
+
+  <refsect1>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>An invalid bus object was passed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ECHILD</constant></term>
+
+        <listitem><para>The bus connection was allocated in a parent process and is being reused in a child process
+        after <function>fork()</function>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ENOTCONN</constant></term>
+
+        <listitem><para>The bus connection has been terminated already.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-ECONNRESET</constant></term>
+
+        <listitem><para>The bus connection has been terminated just now.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-EBUSY</constant></term>
+
+        <listitem><para>This function is already being called, i.e. <function>sd_bus_process()</function> has been
+        called from a callback function that itself was called by
+        <function>sd_bus_process()</function>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>
@@ -84,6 +122,11 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 
