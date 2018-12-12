@@ -68,7 +68,7 @@ typedef struct {
         size_t n_rules;
 } Presets;
 
-static inline bool unit_file_install_info_has_rules(UnitFileInstallInfo *i) {
+static inline bool unit_file_install_info_has_rules(const UnitFileInstallInfo *i) {
         assert(i);
 
         return !strv_isempty(i->aliases) ||
@@ -76,7 +76,7 @@ static inline bool unit_file_install_info_has_rules(UnitFileInstallInfo *i) {
                !strv_isempty(i->required_by);
 }
 
-static inline bool unit_file_install_info_has_also(UnitFileInstallInfo *i) {
+static inline bool unit_file_install_info_has_also(const UnitFileInstallInfo *i) {
         assert(i);
 
         return !strv_isempty(i->also);
@@ -711,7 +711,7 @@ static int is_symlink_with_known_name(const UnitFileInstallInfo *i, const char *
 
 static int find_symlinks_fd(
                 const char *root_dir,
-                UnitFileInstallInfo *i,
+                const UnitFileInstallInfo *i,
                 bool match_aliases,
                 int fd,
                 const char *path,
@@ -845,7 +845,7 @@ static int find_symlinks_fd(
 
 static int find_symlinks(
                 const char *root_dir,
-                UnitFileInstallInfo *i,
+                const UnitFileInstallInfo *i,
                 bool match_name,
                 const char *config_path,
                 bool *same_name_link) {
@@ -871,7 +871,7 @@ static int find_symlinks(
 static int find_symlinks_in_scope(
                 UnitFileScope scope,
                 const LookupPaths *paths,
-                UnitFileInstallInfo *i,
+                const UnitFileInstallInfo *i,
                 bool match_name,
                 UnitFileState *state) {
 
@@ -987,7 +987,7 @@ static UnitFileInstallInfo *install_info_find(InstallContext *c, const char *nam
 }
 
 static int install_info_may_process(
-                UnitFileInstallInfo *i,
+                const UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 UnitFileChange **changes,
                 size_t *n_changes) {
