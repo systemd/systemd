@@ -498,8 +498,6 @@ int device_read_uevent_file(sd_device *device) {
         if (device->uevent_loaded || device->sealed)
                 return 0;
 
-        device->uevent_loaded = true;
-
         r = sd_device_get_syspath(device, &syspath);
         if (r < 0)
                 return r;
@@ -507,14 +505,18 @@ int device_read_uevent_file(sd_device *device) {
         path = strjoina(syspath, "/uevent");
 
         r = read_full_file(path, &uevent, &uevent_len);
-        if (r == -EACCES)
+        if (r == -EACCES) {
                 /* empty uevent files may be write-only */
+                device->uevent_loaded = true;
                 return 0;
-        else if (r == -ENOENT)
+        }
+        if (r == -ENOENT)
                 /* some devices may not have uevent files, see set_syspath() */
                 return 0;
-        else if (r < 0)
+        if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file '%s': %m", path);
+
+        device->uevent_loaded = true;
 
         for (i = 0; i < uevent_len; i++)
                 switch (state) {
@@ -1301,8 +1303,6 @@ int device_read_db_aux(sd_device *device, bool force) {
         if (device->db_loaded || (!force && device->sealed))
                 return 0;
 
-        device->db_loaded = true;
-
         r = device_get_id_filename(device, &id);
         if (r < 0)
                 return r;
@@ -1319,6 +1319,8 @@ int device_read_db_aux(sd_device *device, bool force) {
 
         /* devices with a database entry are initialized */
         device->is_initialized = true;
+
+        device->db_loaded = true;
 
         for (i = 0; i < db_len; i++) {
                 switch (state) {
