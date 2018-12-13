@@ -24,6 +24,10 @@ __contains_word () {
         done
 }
 
+__get_entry_ids() {
+        bootctl --no-pager list 2>/dev/null | { while read -r a b; do [[ $a == 'id:' ]] && echo " $b"; done }
+}
+
 _bootctl() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -54,6 +58,7 @@ _bootctl() {
 
         local -A VERBS=(
                 [STANDALONE]='help install list remove status update'
+                [BOOTENTRY]='set-default set-oneshot'
         )
 
         for ((i=0; i < COMP_CWORD; i++)); do
@@ -67,6 +72,21 @@ _bootctl() {
                 comps=${VERBS[*]}
         elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
                 comps=''
+        elif __contains_word "$verb" ${VERBS[BOOTENTRY]}; then
+                name=
+                for ((i++; i < COMP_CWORD; i++)); do
+                        if ! __contains_word "${COMP_WORDS[i]}" ${OPTS[*]} ${VERBS[*]} &&
+                           ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                                name=${COMP_WORDS[i]}
+                                break;
+                        fi
+                done
+
+                if [[ -z $name ]]; then
+                        comps=$( __get_entry_ids )
+                else
+                        comps=''
+                fi
         fi
 
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
