@@ -134,7 +134,7 @@ CHANGES WITH 240 in spe:
         * The signal to use as last step of killing of unit processes is now
           configurable. Previously it was hard-coded to SIGKILL, which may now
           be overridden with the new KillSignal= setting. Note that this is the
-          signal used when regular termination (i.e. SIGTERM) does suffice.
+          signal used when regular termination (i.e. SIGTERM) does not suffice.
           Similarly, the signal used when aborting a program in case of a
           watchdog timeout may now be configured too (WatchdogSignal=).
 
