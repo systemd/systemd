@@ -785,7 +785,7 @@ static void event_execute_rules_on_remove(
         sd_device *dev = event->dev;
         int r;
 
-        r = device_read_db_force(dev);
+        r = device_read_db_internal(dev, true);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to read database under /run/udev/data/: %m");
 

@@ -97,7 +97,6 @@ int device_new_aux(sd_device **ret);
 int device_add_property_aux(sd_device *device, const char *key, const char *value, bool db);
 int device_add_property_internal(sd_device *device, const char *key, const char *value);
 int device_read_uevent_file(sd_device *device);
-int device_read_db_aux(sd_device *device, bool force);
 
 int device_set_syspath(sd_device *device, const char *_syspath, bool verify);
 int device_set_ifindex(sd_device *device, const char *ifindex);
