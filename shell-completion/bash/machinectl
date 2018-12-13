@@ -42,7 +42,7 @@ _machinectl() {
         )
 
         local -A VERBS=(
-               [STANDALONE]='list list-images clean pull-tar pull-raw list-transfers cancel-transfer'
+               [STANDALONE]='list list-images clean pull-tar pull-raw list-transfers cancel-transfer import-fs'
                  [MACHINES]='status show start stop login shell enable disable poweroff reboot terminate kill bind copy-to copy-from
                              image-status show-image clone rename read-only remove set-limit export-tar export-raw'
                      [FILE]='import-tar import-raw'
