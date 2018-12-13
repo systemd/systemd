@@ -1458,6 +1458,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DynamicTransmitLoadBalancing=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Specifies if dynamic shuffling of flows is enabled. Applies only
+          for balance-tlb mode. Defaults to unset.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MinLinks=</varname></term>
         <listitem>
           <para>Specifies the minimum number of links that must be active before

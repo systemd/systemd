@@ -213,6 +213,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '21-vlan.network',
         '25-6rd-tunnel.netdev',
         '25-bond.netdev',
+        '25-bond-balanced-tlb.netdev',
         '25-bridge.netdev',
         '25-erspan-tunnel.netdev',
         '25-geneve.netdev',
@@ -299,6 +300,15 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertEqual('1218',              self.read_link_attr('bond99', 'bonding', 'ad_actor_sys_prio'))
         self.assertEqual('811',               self.read_link_attr('bond99', 'bonding', 'ad_user_port_key'))
         self.assertEqual('00:11:22:33:44:55', self.read_link_attr('bond99', 'bonding', 'ad_actor_system'))
+
+    def test_bond_balanced_tlb(self):
+        self.copy_unit_to_networkd_unit_path('25-bond-balanced-tlb.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('bond99'))
+
+        self.assertEqual('balance-tlb 5', self.read_link_attr('bond99', 'bonding', 'mode'))
+        self.assertEqual('1',             self.read_link_attr('bond99', 'bonding', 'tlb_dynamic_lb'))
 
     def test_vlan(self):
         self.copy_unit_to_networkd_unit_path('21-vlan.netdev', '11-dummy.netdev', '21-vlan.network')
