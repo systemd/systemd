@@ -165,7 +165,7 @@
     is detected by <command>systemd-fstab-generator</command> and the options
     are transformed so that systemd fulfills the job-control implications of
     that option.  Specifically <command>systemd-fstab-generator</command> acts
-    as though <literal>x-systemd.mount-timout=infinity,retry=10000</literal> was
+    as though <literal>x-systemd.mount-timeout=infinity,retry=10000</literal> was
     prepended to the option list, and <literal>fg,nofail</literal> was appended.
     Depending on specific requirements, it may be appropriate to provide some of
     these options explicitly, or to make use of the
