@@ -477,8 +477,10 @@ static int create_symlink(
         if (!dirname)
                 return -ENOMEM;
 
-        if (chroot_symlinks_same(paths->root_dir, dirname, dest, old_path))
+        if (chroot_symlinks_same(paths->root_dir, dirname, dest, old_path)) {
+                log_debug("Symlink %s → %s already exists", new_path, dest);
                 return 1;
+        }
 
         if (!force) {
                 unit_file_changes_add(changes, n_changes, -EEXIST, new_path, dest);
@@ -2657,7 +2659,11 @@ int unit_file_lookup_state(
         r = install_info_discover(scope, &c, paths, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                   &i, NULL, NULL);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to discover unit %s: %m", name);
+
+        assert(IN_SET(i->type, UNIT_FILE_TYPE_REGULAR, UNIT_FILE_TYPE_MASKED));
+        log_debug("Found unit %s at %s (%s)", name, strna(i->path),
+                  i->type == UNIT_FILE_TYPE_REGULAR ? "regular file" : "mask");
 
         /* Shortcut things, if the caller just wants to know if this unit exists. */
         if (!ret)
