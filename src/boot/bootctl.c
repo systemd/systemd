@@ -163,9 +163,9 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        printf("         File: %s/%s/%s (%s%s%s)\n", special_glyph(TREE_RIGHT), path, de->d_name, ansi_highlight(), v, ansi_normal());
+                        printf("         File: %s/%s/%s (%s%s%s)\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path, de->d_name, ansi_highlight(), v, ansi_normal());
                 else
-                        printf("         File: %s/%s/%s\n", special_glyph(TREE_RIGHT), path, de->d_name);
+                        printf("         File: %s/%s/%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path, de->d_name);
                 c++;
         }
 
@@ -225,7 +225,7 @@ static int print_efi_option(uint16_t id, bool in_order) {
         printf("           ID: 0x%04X\n", id);
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
         printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n", SD_ID128_FORMAT_VAL(partition));
-        printf("         File: %s%s\n", special_glyph(TREE_RIGHT), path);
+        printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path);
         printf("\n");
 
         return 0;
@@ -1020,9 +1020,9 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                                 printf("               ");
 
                         if (FLAGS_SET(loader_features, flags[i].flag))
-                                printf("%s%s%s %s\n", ansi_highlight_green(), special_glyph(CHECK_MARK), ansi_normal(), flags[i].name);
+                                printf("%s%s%s %s\n", ansi_highlight_green(), special_glyph(SPECIAL_GLYPH_CHECK_MARK), ansi_normal(), flags[i].name);
                         else
-                                printf("%s%s%s %s\n", ansi_highlight_red(), special_glyph(CROSS_MARK), ansi_normal(), flags[i].name);
+                                printf("%s%s%s %s\n", ansi_highlight_red(), special_glyph(SPECIAL_GLYPH_CROSS_MARK), ansi_normal(), flags[i].name);
                 }
 
                 if (stub)
@@ -1032,7 +1032,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                                SD_ID128_FORMAT_VAL(loader_part_uuid));
                 else
                         printf("          ESP: n/a\n");
-                printf("         File: %s%s\n", special_glyph(TREE_RIGHT), strna(loader_path));
+                printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
                 printf("\n");
         } else
                 printf("System:\n    Not booted with EFI\n\n");

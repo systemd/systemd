@@ -237,7 +237,7 @@ static int call_get_addresses(sd_bus *bus, const char *name, int ifi, const char
 
         if (truncate) {
 
-                if (!strextend(&addresses, special_glyph(ELLIPSIS), NULL))
+                if (!strextend(&addresses, special_glyph(SPECIAL_GLYPH_ELLIPSIS), NULL))
                         return -ENOMEM;
 
         }

@@ -686,7 +686,7 @@ static int log_unsafe_transition(int a, int b, const char *path, unsigned flags)
 
         return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
                                  "Detected unsafe path transition %s %s %s during canonicalization of %s.",
-                                 n1, special_glyph(ARROW), n2, path);
+                                 n1, special_glyph(SPECIAL_GLYPH_ARROW), n2, path);
 }
 
 static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
