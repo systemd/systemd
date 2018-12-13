@@ -13,13 +13,13 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
 #include "virt.h"
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest = NULL;
 
 static int add_symlink(const char *fservice, const char *tservice) {
         char *from, *to;
@@ -99,37 +99,21 @@ static int verify_tty(const char *name) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
-
-        static const char virtualization_consoles[] =
-                "hvc0\0"
-                "xvc0\0"
-                "hvsi0\0"
-                "sclp_line0\0"
-                "ttysclp0\0"
-                "3270!tty1\0";
-
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         _cleanup_free_ char *active = NULL;
         const char *j;
         int r;
 
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
-        }
-
-        if (argc > 1)
-                arg_dest = argv[1];
-
-        log_setup_generator();
+        assert_se(arg_dest = dest);
 
         if (detect_container() > 0) {
                 _cleanup_free_ char *container_ttys = NULL;
 
                 log_debug("Automatically adding console shell.");
 
-                if (add_symlink("console-getty.service", "console-getty.service") < 0)
-                        return EXIT_FAILURE;
+                r = add_symlink("console-getty.service", "console-getty.service");
+                if (r < 0)
+                        return r;
 
                 /* When $container_ttys is set for PID 1, spawn
                  * gettys on all ptys named therein. Note that despite
@@ -157,13 +141,14 @@ int main(int argc, char *argv[]) {
                                 if (!t)
                                         continue;
 
-                                if (add_container_getty(t) < 0)
-                                        return EXIT_FAILURE;
+                                r = add_container_getty(t);
+                                if (r < 0)
+                                        return r;
                         }
                 }
 
                 /* Don't add any further magic if we are in a container */
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
@@ -176,10 +161,8 @@ int main(int argc, char *argv[]) {
                         _cleanup_free_ char *tty = NULL;
 
                         tty = strndup(word, l);
-                        if (!tty) {
-                                log_oom();
-                                return EXIT_FAILURE;
-                        }
+                        if (!tty)
+                                return log_oom();
 
                         /* We assume that gettys on virtual terminals are
                          * started via manual configuration and do this magic
@@ -191,23 +174,33 @@ int main(int argc, char *argv[]) {
                         if (verify_tty(tty) < 0)
                                 continue;
 
-                        if (add_serial_getty(tty) < 0)
-                                return EXIT_FAILURE;
+                        r = add_serial_getty(tty);
+                        if (r < 0)
+                                return r;
                 }
         }
 
         /* Automatically add in a serial getty on the first
          * virtualizer console */
-        NULSTR_FOREACH(j, virtualization_consoles) {
-                char *p;
+        FOREACH_STRING(j,
+                       "hvc0",
+                       "xvc0",
+                       "hvsi0",
+                       "sclp_line0",
+                       "ttysclp0",
+                       "3270!tty1") {
+                const char *p;
 
                 p = strjoina("/sys/class/tty/", j);
                 if (access(p, F_OK) < 0)
                         continue;
 
-                if (add_serial_getty(j) < 0)
-                        return EXIT_FAILURE;
+                r = add_serial_getty(j);
+                if (r < 0)
+                        return r;
         }
 
-        return EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_GENERATOR_FUNCTION(run);

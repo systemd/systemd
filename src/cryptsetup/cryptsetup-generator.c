@@ -13,7 +13,6 @@
 #include "hashmap.h"
 #include "id128-util.h"
 #include "log.h"
-#include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -33,7 +32,7 @@ typedef struct crypto_device {
         bool create;
 } crypto_device;
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static bool arg_read_crypttab = true;
 static bool arg_whitelist = false;
@@ -580,16 +579,10 @@ static int add_proc_cmdline_devices(void) {
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(crypt_device_hash_ops, char, string_hash_func, string_compare_func,
                                               crypto_device, crypt_device_free);
 
-static int run(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
 
-        if (argc > 1 && argc != 4)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes three or no arguments.");
-
-        if (argc > 1)
-                arg_dest = argv[1];
-
-        log_setup_generator();
+        assert_se(arg_dest = dest);
 
         arg_disks = hashmap_new(&crypt_device_hash_ops);
         if (!arg_disks)
@@ -613,4 +606,4 @@ static int run(int argc, char *argv[]) {
         return 0;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_GENERATOR_FUNCTION(run);

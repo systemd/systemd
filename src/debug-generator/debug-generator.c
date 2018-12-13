@@ -2,7 +2,6 @@
 
 #include "alloc-util.h"
 #include "generator.h"
-#include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
@@ -12,8 +11,8 @@
 #include "unit-name.h"
 #include "util.h"
 
+static const char *arg_dest = NULL;
 static char *arg_default_unit = NULL;
-static const char *arg_dest = "/tmp";
 static char **arg_mask = NULL;
 static char **arg_wants = NULL;
 static bool arg_debug_shell = false;
@@ -142,17 +141,10 @@ static int generate_wants_symlinks(void) {
         return r;
 }
 
-static int run(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r, q;
 
-        if (argc > 1 && argc != 4)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes three or no arguments.");
-
-        if (argc > 1)
-                arg_dest = argv[2];
-
-        log_setup_generator();
+        assert_se(arg_dest = dest_early);
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_RD_STRICT | PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
@@ -170,4 +162,4 @@ static int run(int argc, char *argv[]) {
         return r < 0 ? r : q;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_GENERATOR_FUNCTION(run);

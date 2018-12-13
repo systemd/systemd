@@ -42,7 +42,7 @@ static const struct {
          * means they are shut down anyway at system power off if running. */
 };
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest = NULL;
 
 typedef struct SysvStub {
         char *name;
@@ -917,22 +917,14 @@ finish:
         return r;
 }
 
-static int run(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         _cleanup_(free_sysvstub_hashmapp) Hashmap *all_services = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         SysvStub *service;
         Iterator j;
         int r;
 
-        log_setup_generator();
-
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return -EINVAL;
-        }
-
-        if (argc > 1)
-                arg_dest = argv[3];
+        assert_se(arg_dest = dest_late);
 
         r = lookup_paths_init(&lp, UNIT_FILE_SYSTEM, LOOKUP_PATHS_EXCLUDE_GENERATED, NULL);
         if (r < 0)
@@ -961,4 +953,4 @@ static int run(int argc, char *argv[]) {
         return 0;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_GENERATOR_FUNCTION(run);
