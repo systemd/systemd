@@ -55,6 +55,9 @@ _loginctl () {
                         --property|-p)
                                 comps=''
                         ;;
+                        --output|-o)
+                                comps=$( loginctl --output=help 2>/dev/null )
+                        ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
                 return 0
