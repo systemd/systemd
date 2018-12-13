@@ -193,6 +193,7 @@ struct udev_device *udev_device_new(struct udev *udev, sd_device *device) {
 
         udev_list_init(&udev_device->properties, true);
         udev_list_init(&udev_device->tags, true);
+        udev_list_init(&udev_device->current_tags, true);
         udev_list_init(&udev_device->sysattrs, true);
         udev_list_init(&udev_device->devlinks, true);
 
@@ -441,6 +442,7 @@ static struct udev_device *udev_device_free(struct udev_device *udev_device) {
         udev_list_cleanup(&udev_device->properties);
         udev_list_cleanup(&udev_device->sysattrs);
         udev_list_cleanup(&udev_device->tags);
+        udev_list_cleanup(&udev_device->current_tags);
         udev_list_cleanup(&udev_device->devlinks);
 
         return mfree(udev_device);
@@ -820,6 +822,26 @@ _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_dev
         return udev_list_get_entry(&udev_device->tags);
 }
 
+_public_ struct udev_list_entry *udev_device_get_current_tags_list_entry(struct udev_device *udev_device) {
+        assert_return_errno(udev_device, NULL, EINVAL);
+
+        if (device_get_tags_generation(udev_device->device) != udev_device->current_tags_generation ||
+            !udev_device->current_tags_read) {
+                const char *tag;
+
+                udev_list_cleanup(&udev_device->current_tags);
+
+                FOREACH_DEVICE_CURRENT_TAG(udev_device->device, tag)
+                        if (!udev_list_entry_add(&udev_device->current_tags, tag, NULL))
+                                return_with_errno(NULL, ENOMEM);
+
+                udev_device->current_tags_read = true;
+                udev_device->current_tags_generation = device_get_tags_generation(udev_device->device);
+        }
+
+        return udev_list_get_entry(&udev_device->current_tags);
+}
+
 /**
  * udev_device_has_tag:
  * @udev_device: udev device
@@ -833,4 +855,10 @@ _public_ int udev_device_has_tag(struct udev_device *udev_device, const char *ta
         assert_return(udev_device, 0);
 
         return sd_device_has_tag(udev_device->device, tag) > 0;
+}
+
+_public_ int udev_device_has_current_tag(struct udev_device *udev_device, const char *tag) {
+        assert_return(udev_device, 0);
+
+        return sd_device_has_current_tag(udev_device->device, tag) > 0;
 }

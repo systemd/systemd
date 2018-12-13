@@ -118,3 +118,9 @@ global:
         udev_queue_flush;
         udev_queue_get_fd;
 } LIBUDEV_199;
+
+LIBUDEV_230 {
+global:
+        udev_device_has_current_tag;
+        udev_device_get_current_tags_list_entry;
+} LIBUDEV_215;
