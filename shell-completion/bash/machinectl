@@ -77,7 +77,13 @@ _machinectl() {
                                 comps=''
                         ;;
                         --output|-o)
-                                comps='short short-full short-iso short-iso-precise short-precise short-monotonic short-unix verbose export json json-pretty json-sse json-seq cat with-unit'
+                                comps=$( machinectl --output=help 2>/dev/null )
+                        ;;
+                        --verify)
+                                comps=$( machinectl --verify=help 2>/dev/null )
+                        ;;
+                        --format)
+                                comps='uncompressed xz gzip bzip2'
                         ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
