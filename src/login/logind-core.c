@@ -243,7 +243,8 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
 
         assert(m);
 
-        if (device_for_action(d, DEVICE_ACTION_REMOVE)) {
+        if (device_for_action(d, DEVICE_ACTION_REMOVE) ||
+            sd_device_has_current_tag(d, "seat") <= 0) {
                 const char *syspath;
 
                 r = sd_device_get_syspath(d, &syspath);
@@ -271,7 +272,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
                 }
 
                 seat = hashmap_get(m->seats, sn);
-                master = sd_device_has_tag(d, "master-of-seat") > 0;
+                master = sd_device_has_current_tag(d, "master-of-seat") > 0;
 
                 /* Ignore non-master devices for unknown seats */
                 if (!master && !seat)
@@ -313,7 +314,8 @@ int manager_process_button_device(Manager *m, sd_device *d) {
         if (r < 0)
                 return r;
 
-        if (device_for_action(d, DEVICE_ACTION_REMOVE)) {
+        if (device_for_action(d, DEVICE_ACTION_REMOVE) ||
+            sd_device_has_current_tag(d, "power-switch") <= 0) {
 
                 b = hashmap_get(m->buttons, sysname);
                 if (!b)
