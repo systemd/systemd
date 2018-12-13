@@ -1793,7 +1793,13 @@ SystemCallErrorNumber=EPERM</programlisting>
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
         details about named file descriptors and their ordering.</para>
 
-        <para>This setting defaults to <option>null</option>.</para></listitem>
+        <para>This setting defaults to <option>null</option>.</para>
+
+        <para>Note that services which specify <option>DefaultDependencies=no</option> and use
+        <varname>StandardInput=</varname> or <varname>StandardOutput=</varname> with
+        <option>tty</option>/<option>tty-force</option>/<option>tty-fail</option>, should specify
+        <option>After=systemd-vconsole-setup.service</option>, to make sure that the tty intialization is
+        finished before they start.</para></listitem>
       </varlistentry>
 
       <varlistentry>
