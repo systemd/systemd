@@ -362,7 +362,7 @@ int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_u
 unsigned char in4_addr_netmask_to_prefixlen(const struct in_addr *addr) {
         assert(addr);
 
-        return 32 - u32ctz(be32toh(addr->s_addr));
+        return 32U - u32ctz(be32toh(addr->s_addr));
 }
 
 struct in_addr* in4_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen) {

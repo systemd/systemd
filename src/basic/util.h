@@ -193,7 +193,7 @@ static inline unsigned u64log2(uint64_t n) {
 
 static inline unsigned u32ctz(uint32_t n) {
 #if __SIZEOF_INT__ == 4
-        return __builtin_ctz(n);
+        return n != 0 ? __builtin_ctz(n) : 32;
 #else
 #error "Wut?"
 #endif
