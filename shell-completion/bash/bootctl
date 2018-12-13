@@ -28,7 +28,7 @@ _bootctl() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local -A OPTS=(
-                [STANDALONE]='-h --help --no-variables -p --print-path --version'
+                [STANDALONE]='-h --help --no-variables -p --print-path --version --no-pager'
                        [ARG]='--path'
         )
 
