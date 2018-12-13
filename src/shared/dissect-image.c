@@ -221,6 +221,8 @@ static int loop_wait_for_partitions_to_appear(
                 sd_device_enumerator **ret_enumerator) {
         int r;
 
+        log_debug("Waiting for device (parent + %d partitions) to appear...", num_partitions);
+
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
                 r = wait_for_partitions_to_appear(fd, d, num_partitions, ret_enumerator);
                 if (r != -EAGAIN)
@@ -320,6 +322,10 @@ int dissect_image(
         if (!m)
                 return -ENOMEM;
 
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return r;
+
         if (!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_REQUIRE_ROOT)) {
                 const char *usage = NULL;
@@ -353,6 +359,10 @@ int dissect_image(
 
                         m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
+                        r = loop_wait_for_partitions_to_appear(fd, d, 0, &e);
+                        if (r < 0)
+                                return r;
+
                         *ret = TAKE_PTR(m);
 
                         return 0;
@@ -373,10 +383,6 @@ int dissect_image(
         pl = blkid_probe_get_partitions(b);
         if (!pl)
                 return -errno ?: -ENOMEM;
-
-        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
-        if (r < 0)
-                return r;
 
         r = loop_wait_for_partitions_to_appear(fd, d, blkid_partlist_numof_partitions(pl), &e);
         if (r < 0)
