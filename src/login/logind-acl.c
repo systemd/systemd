@@ -196,6 +196,10 @@ int devnode_acl_all(const char *seat,
         FOREACH_DEVICE(e, d) {
                 const char *node, *sn;
 
+                /* Make sure the tag is still in place */
+                if (sd_device_has_current_tag(d, "uaccess") <= 0)
+                        continue;
+
                 if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
                         sn = "seat0";
 
