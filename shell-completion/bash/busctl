@@ -85,8 +85,8 @@ _busctl() {
                              --show-machine --unique --acquired --activatable --list
                              -q --quiet --verbose --expect-reply=no --auto-start=no
                              --allow-interactive-authorization=no --augment-creds=no
-                             --watch-bind=yes'
-                      [ARG]='--address -H --host -M --machine --match --timeout --size'
+                             --watch-bind=yes -j'
+                      [ARG]='--address -H --host -M --machine --match --timeout --size --json'
         )
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -102,6 +102,10 @@ _busctl() {
                         ;;
                         --machine|-M)
                                 comps=$( __get_machines )
+                        ;;
+                        --json)
+                                comps=$( busctl --json=help 2>/dev/null )
+                        ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
                 return 0
