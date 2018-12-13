@@ -1,5 +1,90 @@
 systemd System and Service Manager
 
+CHANGES WITH 247 in spe:
+
+        * KERNEL API INCOMPATIBILTY: Linux 4.12 introduced two new uevents
+          "bind" and "unbind" to the Linux device model. When this kernel
+          change was made, systemd-udevd was only minimally updated to handle
+          and propagate these new event types. The introduction of these new
+          uevents (which are typically generated for USB devices and devices
+          needing a firmware upload before being functional) resulted in a
+          number of software issues, we so far didn't address (mostly because
+          there was hope the kernel maintainers would themeselves address these
+          issues in some form – which did not happen). To handle them properly,
+          many (if not most) udev rules files shipped in various packages need
+          updating, and so do many programs that monitor or enumerate devices
+          with libudev or sd-device, or otherwise process uevents. Please note
+          that this incompatibility is not fault of systemd or udev, but caused
+          by an incompatible kernel change that happened back in Linux 4.12.
+
+          To minimize issues resulting from this kernel change (but not avoid
+          them entirely) starting with systemd-udevd 247 the udev "tags"
+          concept (which is a concept for marking and filtering devices during
+          enumeration and monitoring) has been reworked: udev tags are now
+          "sticky", meaning that once a tag is assigned to a device it will not
+          be removed from the device again until the device itself is removed
+          (i.e. unplugged). This makes sure that any application monitoring
+          devices that match a specific tag is guaranteed to both see uevents
+          where the device starts being relevant, and those where it stops
+          being relevant (the latter now regularly happening due to the new
+          "unbind" uevent type). The udev tags concept is hence now a concept
+          tied to a *device* instead of a device *event* — unlike for example
+          udev properties whose lifecycle (as before) is generally tied to a
+          device event, meaning that the previously determined properties are
+          forgotten whenever a new uevent is processed.
+
+          With the newly redefined udev tags concept, sometimes it's necessary
+          to determine which tags are the ones applied by the most recent
+          uevent/database update, in order to discern them from those
+          originating from earlier uevents/database updates of the same
+          device. To accommodate for this a new automatic property CURRENT_TAGS
+          has been added that works similar to the existing TAGS property but
+          only lists tags set by the most recent uevent/database
+          update. Similar, the libudev/sd-device API has been updated with new
+          functions to enumerate these 'current' tags, in addition to the
+          existing APIs that now enumerate the 'sticky' ones.
+
+          To properly handle "bind"/"unbind" on Linux 4.12 and newer it is
+          essential that all udev rules files and applications are updated to
+          handle the new events. Specifically:
+
+          • All rule files that currently use a header guard similar to
+            ACTION!="add|change",GOTO="xyz_end" should be updated to use
+            ACTION=="remove",GOTO="xyz_end" instead, so that the
+            properties/tags they add are also applied whenever "bind" (or
+            "unbind") is seen. (This is most important for all physical device
+            types — as that's for which "bind" and "unbind" are currently
+            usually generated, for all other device types this change is still
+            recommended but not as important — but certainly prepares for
+            future kernel uevent type additions).
+
+          • Similar, all code monitoring devices that contains an 'if' branch
+            discerning the "add" + "change" uevent actions from all other
+            uevents actions (i.e. considering devices only relevant after "add"
+            or "change", and irrelevant on all other events) should be reworked
+            to instead negatively check for "remove" only (i.e. considering
+            devices relevant after all event types, except for "remove", which
+            invalidates the device). Note that this also means that devices
+            should be considered relevant on "unbind", even though conceptually
+            this — in some form — invalidates the device. Since the precise
+            effect of "unbind" is not generically defined, devices should be
+            considered relevant even after "unbind", however I/O errors
+            accessing the device should then be handled gracefully.
+
+          • Any code that uses device tags for deciding whether a device is
+            relevant or not most likely needs to be updated to use the new
+            udev_device_has_current_tag() API (or sd_device_has_current_tag()
+            in case sd-device is used), to check whether the tag is set
+            at the moment an uevent is seen (as opposed to the existing
+            udev_device_has_tag() API which checks if the tag ever existed on
+            the device, following the API concept redefinition explained
+            above).
+
+          We are very sorry for this breakage and the requirement to update
+          packages using these interfaces. We'd again like to underline that
+          this is not caused by systemd/udev changes, but result of a kernel
+          behaviour change.
+
 CHANGES WITH 246:
 
         * The service manager gained basic support for cgroup v2 freezer. Units
