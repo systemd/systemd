@@ -2,6 +2,76 @@ systemd System and Service Manager
 
 CHANGES WITH 240 in spe:
 
+        * KERNEL API BREAKAGE I: Please note that Linux 4.12 introduced two new
+          uevents "bind" and "unbind", which break all userspace that is not
+          prepared to handle them (which is actually *most* of the packages
+          that process or monitor kernel devices, in all current
+          versions). It's highly recommended to update to systemd/udev 240 when
+          running kernels 4.12 or newer. Moreover, this change in behaviour
+          requires additional changes in almost all other software installing
+          udev rules files, monitoring or enumerating devices with libudev or
+          otherwise processing uevents. Note that this breakage is not fault of
+          systemd or udev, but exclusively caused by an incompatible kernel
+          change that happened in 4.12.
+
+          To minimize breakage resulting from this kernel change (but not avoid
+          it entirely) starting with systemd-udevd 240 the udev "tags" concept
+          (which is a concept for marking and filtering devices during
+          enumeration and monitoring) has been modified: tags are now
+          "eternal", meaning that once a tag is assigned to a device it will
+          never be removed from the device again until the device is fully
+          unplugged. This makes sure that any application monitoring devices
+          that match a specific tag is guaranteed to both see uevents where the
+          device started being relevant, and those where it stops being
+          relevant (the latter now happening regularly due to "unbind"). Now
+          that the "tags" concept has been redefined this way, frequently it's
+          important to determine which tags are the ones applied by the most
+          recent uevent/database update, in order to discern them from those
+          originating from earlier uevents/database updates. To accommodate for
+          this a new automatic property CURRENT_TAGS has been added that works
+          similar to the existing TAGS property but only lists tags in effect
+          from the most recent uevent/database update. Similar, the
+          libudev/sd-device API has been updated with new functions to
+          enumerate these 'current' tags, in addition to the existing APIs to
+          enumerate the 'eternal' ones.
+
+          To properly handle "bind"/"unbind" on Linux 4.12 and newer it is
+          essential that all local rules files and applications are updated to
+          handle the new events. Specifically:
+
+          • All rule files that currently use a header guard similar to
+            ACTION!="add|change",GOTO="xyz_end" should be updated to use
+            ACTION=="remove",GOTO="xyz_end" instead, so that the
+            properties/tags they add are also applied whenever "bind" (or
+            "unbind") is seen. (This is most important for all physical device
+            types — as that's for which "bind" and "unbind" are currently
+            usually generated, for all other device types this change is still
+            recommended but not as important, but certainly prepares for future
+            kernel breakages).
+
+          • Similar, all code monitoring devices that contains an 'if' branch
+            discerning the "add" + "change" uevent actions from all other
+            uevents actions (i.e. considering devices relevant only relevant
+            after "add" or "change, and irrelevant on all other events) should
+            be reworked to instead check for "remove" only (i.e. considering
+            devices relevant after all event types, except for "remove", which
+            invalidates the device).
+
+          • Any code that uses device tags for deciding whether a device is
+            relevant or not most likely needs to be updated to use the new
+            udev_device_has_current_tag() API (or sd_device_has_current_tag()
+            in case sd-device is used), to check whether the tag is in effect
+            at the moment an uevent is seen (as opposed to the existing
+            udev_device_has_tag() API which checks if the tag ever existed on
+            the device, following the API concept redefinition explained
+            above).
+
+          We are very sorry for this breakage and the requirement to update
+          packages using these interfaces. We'd again like to underline that
+          this is not caused by systemd/udev changes, but result of a kernel
+          behaviour change that was not carefully enough discussed and
+          tested.
+
         * A new service type has been added: Type=exec. It's very similar to
           Type=simple but ensures the service manager will wait for both fork()
           and execve() of the main service binary to complete before proceeding
