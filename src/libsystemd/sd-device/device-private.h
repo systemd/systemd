@@ -28,7 +28,7 @@ void device_set_devlink_priority(sd_device *device, int priority);
 int device_ensure_usec_initialized(sd_device *device, sd_device *device_old);
 int device_add_devlink(sd_device *device, const char *devlink);
 int device_add_property(sd_device *device, const char *property, const char *value);
-int device_add_tag(sd_device *device, const char *tag);
+int device_add_tag(sd_device *device, const char *tag, bool both);
 void device_remove_tag(sd_device *device, const char *tag);
 void device_cleanup_tags(sd_device *device);
 void device_cleanup_devlinks(sd_device *device);

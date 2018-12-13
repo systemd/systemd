@@ -609,6 +609,8 @@ global:
 
         sd_device_get_tag_first;
         sd_device_get_tag_next;
+        sd_device_get_current_tag_first;
+        sd_device_get_current_tag_next;
         sd_device_get_devlink_first;
         sd_device_get_devlink_next;
         sd_device_get_property_first;
@@ -617,6 +619,7 @@ global:
         sd_device_get_sysattr_next;
 
         sd_device_has_tag;
+        sd_device_has_current_tag;
         sd_device_get_property_value;
         sd_device_get_sysattr_value;
 

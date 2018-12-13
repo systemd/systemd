@@ -806,6 +806,24 @@ static void event_execute_rules_on_remove(
                 (void) udev_node_remove(dev);
 }
 
+static int copy_all_tags(sd_device *d, sd_device *s) {
+        const char *tag;
+        int r;
+
+        assert(d);
+
+        if (!s)
+                return 0;
+
+        for (tag = sd_device_get_tag_first(s); tag; tag = sd_device_get_tag_next(s)) {
+                r = device_add_tag(d, tag, false);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int udev_event_execute_rules(struct udev_event *event,
                              usec_t timeout_usec,
                              Hashmap *properties_list,
@@ -835,6 +853,11 @@ int udev_event_execute_rules(struct udev_event *event,
                 log_device_debug_errno(dev, r, "Failed to clone sd_device object, ignoring: %m");
 
         if (event->dev_db_clone) {
+
+                r = copy_all_tags(dev, event->dev_db_clone);
+                if (r < 0)
+                        log_device_warning_errno(dev, r, "Failed to copy all tags from old database entry, ignoring: %m");
+
                 r = sd_device_get_devnum(dev, NULL);
                 if (r < 0) {
                         if (r != -ENOENT)

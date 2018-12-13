@@ -2287,7 +2287,7 @@ int udev_rules_apply_to_event(
                         if (cur->key.op == OP_REMOVE)
                                 device_remove_tag(dev, tag);
                         else
-                                device_add_tag(dev, tag);
+                                device_add_tag(dev, tag, true);
                         break;
                 }
                 case TK_A_NAME: {

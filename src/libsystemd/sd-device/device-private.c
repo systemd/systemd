@@ -97,8 +97,9 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
                         return r;
 
                 break;
-        case 'G':
-                r = device_add_tag(device, value);
+        case 'G': /* Any tag */
+        case 'Q': /* Current tag */
+                r = device_add_tag(device, value, key == 'Q');
                 if (r < 0)
                         return r;
 
@@ -428,7 +429,7 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                         if (r < 0)
                                 return log_device_debug_errno(device, r, "sd-device: Failed to add devlink '%s': %m", devlink);
                 }
-        } else if (streq(key, "TAGS")) {
+        } else if (STR_IN_SET(key, "TAGS", "CURRENT_TAGS")) {
                 const char *word, *state;
                 size_t l;
 
@@ -438,10 +439,11 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                         (void) strncpy(tag, word, l);
                         tag[l] = '\0';
 
-                        r = device_add_tag(device, tag);
+                        r = device_add_tag(device, tag, streq(key, "CURRENT_TAGS"));
                         if (r < 0)
                                 return log_device_debug_errno(device, r, "sd-device: Failed to add tag '%s': %m", tag);
                 }
+
         } else {
                 r = device_add_property_internal(device, key, value);
                 if (r < 0)
@@ -891,8 +893,8 @@ int device_copy_properties(sd_device *device_dst, sd_device *device_src) {
 void device_cleanup_tags(sd_device *device) {
         assert(device);
 
-        set_free_free(device->tags);
-        device->tags = NULL;
+        device->all_tags = set_free_free(device->all_tags);
+        device->current_tags = set_free_free(device->current_tags);
         device->property_tags_outdated = true;
         device->tags_generation++;
 }
@@ -910,7 +912,7 @@ void device_remove_tag(sd_device *device, const char *tag) {
         assert(device);
         assert(tag);
 
-        free(set_remove(device->tags, tag));
+        free(set_remove(device->current_tags, tag));
         device->property_tags_outdated = true;
         device->tags_generation++;
 }
@@ -978,7 +980,10 @@ static bool device_has_info(sd_device *device) {
         if (!ordered_hashmap_isempty(device->properties_db))
                 return true;
 
-        if (!set_isempty(device->tags))
+        if (!set_isempty(device->all_tags))
+                return true;
+
+        if (!set_isempty(device->current_tags))
                 return true;
 
         if (device->watch_handle >= 0)
@@ -1071,7 +1076,10 @@ int device_update_db(sd_device *device) {
                         fprintf(f, "E:%s=%s\n", property, value);
 
                 FOREACH_DEVICE_TAG(device, tag)
-                        fprintf(f, "G:%s\n", tag);
+                        fprintf(f, "G:%s\n", tag); /* Any tag */
+
+                SET_FOREACH(tag, device->current_tags, i)
+                        fprintf(f, "Q:%s\n", tag); /* Current tag */
         }
 
         r = fflush_and_check(f);
