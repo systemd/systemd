@@ -54,14 +54,14 @@ static int show_sysfs_one(
 
                 /* Explicitly also check for tag 'seat' here */
                 if (!streq(seat, sn) ||
-                    sd_device_has_tag(dev_list[*i_dev], "seat") <= 0 ||
+                    sd_device_has_current_tag(dev_list[*i_dev], "seat") <= 0 ||
                     sd_device_get_subsystem(dev_list[*i_dev], &subsystem) < 0 ||
                     sd_device_get_sysname(dev_list[*i_dev], &sysname) < 0) {
                         (*i_dev)++;
                         continue;
                 }
 
-                is_master = sd_device_has_tag(dev_list[*i_dev], "master-of-seat") > 0;
+                is_master = sd_device_has_current_tag(dev_list[*i_dev], "master-of-seat") > 0;
 
                 if (sd_device_get_sysattr_value(dev_list[*i_dev], "name", &name) < 0)
                         (void) sd_device_get_sysattr_value(dev_list[*i_dev], "id", &name);
@@ -81,7 +81,7 @@ static int show_sysfs_one(
                                     isempty(lookahead_sn))
                                         lookahead_sn = "seat0";
 
-                                if (streq(seat, lookahead_sn) && sd_device_has_tag(dev_list[lookahead], "seat") > 0)
+                                if (streq(seat, lookahead_sn) && sd_device_has_current_tag(dev_list[lookahead], "seat") > 0)
                                         break;
                         }
                 }

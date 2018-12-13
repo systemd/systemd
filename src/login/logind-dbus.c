@@ -1251,7 +1251,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         if (r < 0)
                 return r;
 
-        if (sd_device_has_tag(d, "seat") <= 0)
+        if (sd_device_has_current_tag(d, "seat") <= 0)
                 return -ENODEV;
 
         if (sd_device_get_property_value(d, "ID_FOR_SEAT", &id_for_seat) < 0)
