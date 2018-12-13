@@ -38,7 +38,7 @@ _journalctl() {
         local -A OPTS=(
                 [STANDALONE]='-a --all --full --system --user
                               --disk-usage -f --follow --header
-                              -h --help -l --local --new-id128 -m --merge --no-pager
+                              -h --help -l --local -m --merge --no-pager
                               --no-tail -q --quiet --setup-keys --verify
                               --version --list-catalog --update-catalog --list-boots
                               --show-cursor --dmesg -k --pager-end -e -r --reverse
