@@ -11,6 +11,11 @@
              tag;                                   \
              tag = sd_device_get_tag_next(device))
 
+#define FOREACH_DEVICE_CURRENT_TAG(device, tag)             \
+        for (tag = sd_device_get_current_tag_first(device); \
+             tag;                                   \
+             tag = sd_device_get_current_tag_next(device))
+
 #define FOREACH_DEVICE_SYSATTR(device, attr)             \
         for (attr = sd_device_get_sysattr_first(device); \
              attr;                                       \

@@ -958,6 +958,24 @@ static int udev_event_on_move(UdevEvent *event) {
         return 0;
 }
 
+static int copy_all_tags(sd_device *d, sd_device *s) {
+        const char *tag;
+        int r;
+
+        assert(d);
+
+        if (!s)
+                return 0;
+
+        for (tag = sd_device_get_tag_first(s); tag; tag = sd_device_get_tag_next(s)) {
+                r = device_add_tag(d, tag, false);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int udev_event_execute_rules(UdevEvent *event,
                              usec_t timeout_usec,
                              int timeout_signal,
@@ -989,6 +1007,10 @@ int udev_event_execute_rules(UdevEvent *event,
         r = device_clone_with_db(dev, &event->dev_db_clone);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to clone sd_device object: %m");
+
+        r = copy_all_tags(dev, event->dev_db_clone);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to copy all tags from old database entry, ignoring: %m");
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 /* Disable watch during event processing. */
