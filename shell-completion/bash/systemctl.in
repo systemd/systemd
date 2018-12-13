@@ -168,8 +168,7 @@ _systemctl () {
                                 comps='full enable-only disable-only'
                         ;;
                         --output|-o)
-                                comps='short short-full short-iso short-iso-precise short-precise short-monotonic short-unix verbose export json
-                                       json-pretty json-sse json-seq cat with-unit'
+                                comps=$( systemctl --output=help 2>/dev/null )
                         ;;
                         --machine|-M)
                                 comps=$( __get_machines )
