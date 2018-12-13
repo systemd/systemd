@@ -1385,13 +1385,13 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                 const char *color;
                 SpecialGlyph smiley;
         } badness_table[] = {
-                { 100, "DANGEROUS", ANSI_HIGHLIGHT_RED,    DEPRESSED_SMILEY        },
-                { 90,  "UNSAFE",    ANSI_HIGHLIGHT_RED,    UNHAPPY_SMILEY          },
-                { 75,  "EXPOSED",   ANSI_HIGHLIGHT_YELLOW, SLIGHTLY_UNHAPPY_SMILEY },
-                { 50,  "MEDIUM",    NULL,                  NEUTRAL_SMILEY          },
-                { 10,  "OK",        ANSI_HIGHLIGHT_GREEN,  SLIGHTLY_HAPPY_SMILEY   },
-                { 1,   "SAFE",      ANSI_HIGHLIGHT_GREEN,  HAPPY_SMILEY            },
-                { 0,   "PERFECT",   ANSI_HIGHLIGHT_GREEN,  ECSTATIC_SMILEY         },
+                { 100, "DANGEROUS", ANSI_HIGHLIGHT_RED,    SPECIAL_GLYPH_DEPRESSED_SMILEY        },
+                { 90,  "UNSAFE",    ANSI_HIGHLIGHT_RED,    SPECIAL_GLYPH_UNHAPPY_SMILEY          },
+                { 75,  "EXPOSED",   ANSI_HIGHLIGHT_YELLOW, SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY },
+                { 50,  "MEDIUM",    NULL,                  SPECIAL_GLYPH_NEUTRAL_SMILEY          },
+                { 10,  "OK",        ANSI_HIGHLIGHT_GREEN,  SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY   },
+                { 1,   "SAFE",      ANSI_HIGHLIGHT_GREEN,  SPECIAL_GLYPH_HAPPY_SMILEY            },
+                { 0,   "PERFECT",   ANSI_HIGHLIGHT_GREEN,  SPECIAL_GLYPH_ECSTATIC_SMILEY         },
         };
 
         uint64_t badness_sum = 0, weight_sum = 0, exposure;
@@ -1448,15 +1448,15 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                                 description = a->description_na;
                                 color = NULL;
                         } else if (badness == a->range) {
-                                checkmark = special_glyph(CROSS_MARK);
+                                checkmark = special_glyph(SPECIAL_GLYPH_CROSS_MARK);
                                 description = a->description_bad;
                                 color = ansi_highlight_red();
                         } else if (badness == 0) {
-                                checkmark = special_glyph(CHECK_MARK);
+                                checkmark = special_glyph(SPECIAL_GLYPH_CHECK_MARK);
                                 description = a->description_good;
                                 color = ansi_highlight_green();
                         } else {
-                                checkmark = special_glyph(CROSS_MARK);
+                                checkmark = special_glyph(SPECIAL_GLYPH_CROSS_MARK);
                                 description = NULL;
                                 color = ansi_highlight_red();
                         }
@@ -1557,7 +1557,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         name = info->id;
 
                 printf("\n%s %sOverall exposure level for %s%s: %s%" PRIu64 ".%" PRIu64 " %s%s %s\n",
-                       special_glyph(ARROW),
+                       special_glyph(SPECIAL_GLYPH_ARROW),
                        ansi_highlight(),
                        name,
                        ansi_normal(),

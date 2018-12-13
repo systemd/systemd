@@ -823,9 +823,9 @@ static int list_dependencies_print(const char *name, unsigned level, unsigned br
         char ts[FORMAT_TIMESPAN_MAX], ts2[FORMAT_TIMESPAN_MAX];
 
         for (i = level; i != 0; i--)
-                printf("%s", special_glyph(branches & (1 << (i-1)) ? TREE_VERTICAL : TREE_SPACE));
+                printf("%s", special_glyph(branches & (1 << (i-1)) ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
 
-        printf("%s", special_glyph(last ? TREE_RIGHT : TREE_BRANCH));
+        printf("%s", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH));
 
         if (times) {
                 if (times->time > 0)
@@ -1659,7 +1659,7 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to parse time span '%s': %m", *input_timespan);
 
                 printf("Original: %s\n", *input_timespan);
-                printf("      %ss: %" PRIu64 "\n", special_glyph(MU), output_usecs);
+                printf("      %ss: %" PRIu64 "\n", special_glyph(SPECIAL_GLYPH_MU), output_usecs);
                 printf("   Human: %s\n", format_timespan(ft_buf, sizeof(ft_buf), output_usecs, usec_magnitude));
 
                 if (input_timespan[1])

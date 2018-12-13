@@ -523,7 +523,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 }
 
                 if (circle_len > 0)
-                        printf("%s%s%s ", on_circle, circle ? special_glyph(BLACK_CIRCLE) : " ", off_circle);
+                        printf("%s%s%s ", on_circle, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE) : " ", off_circle);
 
                 printf("%s%s%-*s%s %s%-*s%s %s%-*s %-*s%s %-*s",
                        on_underline,
@@ -1578,7 +1578,7 @@ static int list_dependencies_print(const char *name, int level, unsigned branche
                                 printf("%s...\n",max_len % 2 ? "" : " ");
                                 return 0;
                         }
-                        printf("%s", special_glyph(branches & (1 << i) ? TREE_VERTICAL : TREE_SPACE));
+                        printf("%s", special_glyph(branches & (1 << i) ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
                 }
                 len += 2;
 
@@ -1587,7 +1587,7 @@ static int list_dependencies_print(const char *name, int level, unsigned branche
                         return 0;
                 }
 
-                printf("%s", special_glyph(last ? TREE_RIGHT : TREE_BRANCH));
+                printf("%s", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH));
         }
 
         if (arg_full) {
@@ -1746,7 +1746,7 @@ static int list_dependencies_one(
                                 break;
                         }
 
-                        printf("%s%s%s ", on, special_glyph(BLACK_CIRCLE), ansi_normal());
+                        printf("%s%s%s ", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), ansi_normal());
                 }
 
                 r = list_dependencies_print(*c, level, branches, c[1] == NULL);
@@ -1992,7 +1992,7 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                         on_failed = off_failed = "";
 
                 if (circle_len > 0)
-                        printf("%s%s%s ", on_state, circle ? special_glyph(BLACK_CIRCLE) : " ", off_state);
+                        printf("%s%s%s ", on_state, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE) : " ", off_state);
 
                 if (m->is_host)
                         printf("%-*s (host) %s%-*s%s %s%*" PRIu32 "%s %*" PRIu32 "\n",
@@ -4057,7 +4057,7 @@ static void print_status_info(
         } else
                 active_on = active_off = "";
 
-        printf("%s%s%s %s", active_on, special_glyph(BLACK_CIRCLE), active_off, strna(i->id));
+        printf("%s%s%s %s", active_on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), active_off, strna(i->id));
 
         if (i->description && !streq_ptr(i->id, i->description))
                 printf(" - %s", i->description);
@@ -4120,7 +4120,7 @@ static void print_status_info(
 
                                 printf("%s\n"
                                        "           %s", dir,
-                                       special_glyph(TREE_RIGHT));
+                                       special_glyph(SPECIAL_GLYPH_TREE_RIGHT));
                         }
 
                         last = ! (*(dropin + 1) && startswith(*(dropin + 1), dir));
@@ -4199,7 +4199,7 @@ static void print_status_info(
                 LIST_FOREACH(conditions, c, i->conditions)
                         if (c->tristate < 0)
                                 printf("           %s %s=%s%s%s was not met\n",
-                                       --n ? special_glyph(TREE_BRANCH) : special_glyph(TREE_RIGHT),
+                                       --n ? special_glyph(SPECIAL_GLYPH_TREE_BRANCH) : special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
                                        c->name,
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
@@ -5284,7 +5284,7 @@ static int show_system_status(sd_bus *bus) {
                 off = ansi_normal();
         }
 
-        printf("%s%s%s %s\n", on, special_glyph(BLACK_CIRCLE), off, arg_host ? arg_host : hn);
+        printf("%s%s%s %s\n", on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off, arg_host ? arg_host : hn);
 
         printf("    State: %s%s%s\n",
                on, strna(mi.state), off);
@@ -6389,7 +6389,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                            "  D-Bus, udev, scripted systemctl call, ...).\n"
                            "%1$s In case of template units, the unit is meant to be enabled with some\n"
                            "  instance name specified.",
-                           special_glyph(BULLET));
+                           special_glyph(SPECIAL_GLYPH_BULLET));
 
         if (arg_now && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
                 sd_bus *bus;

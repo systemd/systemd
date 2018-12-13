@@ -65,32 +65,32 @@ static void test_keymaps(void) {
 
 #define dump_glyph(x) log_info(STRINGIFY(x) ": %s", special_glyph(x))
 static void dump_special_glyphs(void) {
-        assert_cc(DEPRESSED_SMILEY + 1 == _SPECIAL_GLYPH_MAX);
+        assert_cc(SPECIAL_GLYPH_DEPRESSED_SMILEY + 1 == _SPECIAL_GLYPH_MAX);
 
         log_info("/* %s */", __func__);
 
         log_info("is_locale_utf8: %s", yes_no(is_locale_utf8()));
 
-        dump_glyph(TREE_VERTICAL);
-        dump_glyph(TREE_BRANCH);
-        dump_glyph(TREE_RIGHT);
-        dump_glyph(TREE_SPACE);
-        dump_glyph(TRIANGULAR_BULLET);
-        dump_glyph(BLACK_CIRCLE);
-        dump_glyph(BULLET);
-        dump_glyph(ARROW);
-        dump_glyph(MDASH);
-        dump_glyph(ELLIPSIS);
-        dump_glyph(MU);
-        dump_glyph(CHECK_MARK);
-        dump_glyph(CROSS_MARK);
-        dump_glyph(ECSTATIC_SMILEY);
-        dump_glyph(HAPPY_SMILEY);
-        dump_glyph(SLIGHTLY_HAPPY_SMILEY);
-        dump_glyph(NEUTRAL_SMILEY);
-        dump_glyph(SLIGHTLY_UNHAPPY_SMILEY);
-        dump_glyph(UNHAPPY_SMILEY);
-        dump_glyph(DEPRESSED_SMILEY);
+        dump_glyph(SPECIAL_GLYPH_TREE_VERTICAL);
+        dump_glyph(SPECIAL_GLYPH_TREE_BRANCH);
+        dump_glyph(SPECIAL_GLYPH_TREE_RIGHT);
+        dump_glyph(SPECIAL_GLYPH_TREE_SPACE);
+        dump_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET);
+        dump_glyph(SPECIAL_GLYPH_BLACK_CIRCLE);
+        dump_glyph(SPECIAL_GLYPH_BULLET);
+        dump_glyph(SPECIAL_GLYPH_ARROW);
+        dump_glyph(SPECIAL_GLYPH_MDASH);
+        dump_glyph(SPECIAL_GLYPH_ELLIPSIS);
+        dump_glyph(SPECIAL_GLYPH_MU);
+        dump_glyph(SPECIAL_GLYPH_CHECK_MARK);
+        dump_glyph(SPECIAL_GLYPH_CROSS_MARK);
+        dump_glyph(SPECIAL_GLYPH_ECSTATIC_SMILEY);
+        dump_glyph(SPECIAL_GLYPH_HAPPY_SMILEY);
+        dump_glyph(SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY);
+        dump_glyph(SPECIAL_GLYPH_NEUTRAL_SMILEY);
+        dump_glyph(SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY);
+        dump_glyph(SPECIAL_GLYPH_UNHAPPY_SMILEY);
+        dump_glyph(SPECIAL_GLYPH_DEPRESSED_SMILEY);
 }
 
 int main(int argc, char *argv[]) {

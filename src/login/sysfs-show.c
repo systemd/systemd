@@ -90,7 +90,7 @@ static int show_sysfs_one(
                 if (!k)
                         return -ENOMEM;
 
-                printf("%s%s%s\n", prefix, special_glyph(lookahead < n_dev ? TREE_BRANCH : TREE_RIGHT), k);
+                printf("%s%s%s\n", prefix, special_glyph(lookahead < n_dev ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT), k);
 
                 if (asprintf(&l,
                              "%s%s:%s%s%s%s",
@@ -104,12 +104,12 @@ static int show_sysfs_one(
                 if (!k)
                         return -ENOMEM;
 
-                printf("%s%s%s\n", prefix, lookahead < n_dev ? special_glyph(TREE_VERTICAL) : "  ", k);
+                printf("%s%s%s\n", prefix, lookahead < n_dev ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ", k);
 
                 if (++(*i_dev) < n_dev) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strappend(prefix, lookahead < n_dev ? special_glyph(TREE_VERTICAL) : "  ");
+                        p = strappend(prefix, lookahead < n_dev ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ");
                         if (!p)
                                 return -ENOMEM;
 
@@ -160,7 +160,7 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns, OutputF
         if (dev_list && n_dev > 0)
                 show_sysfs_one(seat, dev_list, &i, n_dev, "/", prefix, n_columns, flags);
         else
-                printf("%s%s%s\n", prefix, special_glyph(TREE_RIGHT), "(none)");
+                printf("%s%s%s\n", prefix, special_glyph(SPECIAL_GLYPH_TREE_RIGHT), "(none)");
 
         return 0;
 }

@@ -329,8 +329,8 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
                 l++;
         }
 
-        vertical = strjoina(prefix, special_glyph(TREE_VERTICAL));
-        space = strjoina(prefix, special_glyph(TREE_SPACE));
+        vertical = strjoina(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
+        space = strjoina(prefix, special_glyph(SPECIAL_GLYPH_TREE_SPACE));
 
         for (;;) {
                 bool has_more = false;
@@ -351,7 +351,7 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
                         n++;
                 }
 
-                printf("%s%s%s\n", prefix, special_glyph(has_more ? TREE_BRANCH : TREE_RIGHT), *l);
+                printf("%s%s%s\n", prefix, special_glyph(has_more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT), *l);
 
                 print_subtree(has_more ? vertical : space, *l, l);
                 l = n;

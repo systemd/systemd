@@ -63,9 +63,9 @@ static void show_pid_array(
                 (void) get_process_cmdline(pids[i], n_columns, true, &t);
 
                 if (extra)
-                        printf("%s%s ", prefix, special_glyph(TRIANGULAR_BULLET));
+                        printf("%s%s ", prefix, special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
                 else
-                        printf("%s%s", prefix, special_glyph(((more || i < n_pids-1) ? TREE_BRANCH : TREE_RIGHT)));
+                        printf("%s%s", prefix, special_glyph(((more || i < n_pids-1) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT)));
 
                 printf("%*"PID_PRI" %s\n", pid_width, pids[i], strna(t));
         }
@@ -159,10 +159,10 @@ int show_cgroup_by_path(
                 }
 
                 if (last) {
-                        printf("%s%s%s\n", prefix, special_glyph(TREE_BRANCH), cg_unescape(basename(last)));
+                        printf("%s%s%s\n", prefix, special_glyph(SPECIAL_GLYPH_TREE_BRANCH), cg_unescape(basename(last)));
 
                         if (!p1) {
-                                p1 = strappend(prefix, special_glyph(TREE_VERTICAL));
+                                p1 = strappend(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
                                 if (!p1)
                                         return -ENOMEM;
                         }
@@ -181,7 +181,7 @@ int show_cgroup_by_path(
                 show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
 
         if (last) {
-                printf("%s%s%s\n", prefix, special_glyph(TREE_RIGHT), cg_unescape(basename(last)));
+                printf("%s%s%s\n", prefix, special_glyph(SPECIAL_GLYPH_TREE_RIGHT), cg_unescape(basename(last)));
 
                 if (!p2) {
                         p2 = strappend(prefix, "  ");
