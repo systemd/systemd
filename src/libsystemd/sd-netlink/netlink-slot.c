@@ -14,7 +14,6 @@ int netlink_slot_allocate(
                 bool floating,
                 NetlinkSlotType type,
                 size_t extra,
-                sd_netlink_destroy_t destroy_callback,
                 void *userdata,
                 const char *description,
                 sd_netlink_slot **ret) {
@@ -31,7 +30,6 @@ int netlink_slot_allocate(
         slot->n_ref = 1;
         slot->netlink = nl;
         slot->userdata = userdata;
-        slot->destroy_callback = destroy_callback;
         slot->type = type;
         slot->floating = floating;
 
