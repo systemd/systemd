@@ -42,7 +42,7 @@ _machinectl() {
         )
 
         local -A VERBS=(
-               [STANDALONE]='list list-images clean pull-tar pull-raw list-transfers cancel-transfer'
+               [STANDALONE]='list list-images clean pull-tar pull-raw list-transfers cancel-transfer import-fs'
                  [MACHINES]='status show start stop login shell enable disable poweroff reboot terminate kill bind copy-to copy-from
                              image-status show-image clone rename read-only remove set-limit export-tar export-raw'
                      [FILE]='import-tar import-raw'
@@ -77,7 +77,13 @@ _machinectl() {
                                 comps=''
                         ;;
                         --output|-o)
-                                comps='short short-full short-iso short-iso-precise short-precise short-monotonic short-unix verbose export json json-pretty json-sse json-seq cat with-unit'
+                                comps=$( machinectl --output=help 2>/dev/null )
+                        ;;
+                        --verify)
+                                comps=$( machinectl --verify=help 2>/dev/null )
+                        ;;
+                        --format)
+                                comps='uncompressed xz gzip bzip2'
                         ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

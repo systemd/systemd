@@ -38,7 +38,7 @@ _journalctl() {
         local -A OPTS=(
                 [STANDALONE]='-a --all --full --system --user
                               --disk-usage -f --follow --header
-                              -h --help -l --local --new-id128 -m --merge --no-pager
+                              -h --help -l --local -m --merge --no-pager
                               --no-tail -q --quiet --setup-keys --verify
                               --version --list-catalog --update-catalog --list-boots
                               --show-cursor --dmesg -k --pager-end -e -r --reverse
@@ -66,7 +66,7 @@ _journalctl() {
                                 compopt -o filenames
                         ;;
                         --output|-o)
-                                comps='short short-full short-iso short-iso-precise short-precise short-monotonic short-unix verbose export json json-pretty json-sse json-seq cat with-unit'
+                                comps=$( journalctl --output=help 2>/dev/null )
                         ;;
                         --field|-F)
                                 comps=$(journalctl --fields | sort 2>/dev/null)

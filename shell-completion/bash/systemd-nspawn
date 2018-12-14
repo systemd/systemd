@@ -44,10 +44,17 @@ __get_env() {
         env | { while read a; do echo " ${a%%=*}"; done; };
 }
 
-__get_interfaces(){
+__get_interfaces() {
         { cd /sys/class/net && echo *; } | \
         while read -d' ' -r name; do
                 [[ "$name" != "lo" ]] && echo "$name"
+        done
+}
+
+__get_rlimit() {
+        local i
+        for i in $(systemd-nspawn --rlimit=help 2>/dev/null); do
+                echo " ${i}="
         done
 }
 
@@ -62,7 +69,8 @@ _systemd_nspawn() {
                               -S --slice -E --setenv -Z --selinux-context -L --selinux-apifs-context --register --network-interface --network-bridge
                               --personality -i --image --tmpfs --volatile --network-macvlan --kill-signal --template --notify-ready --root-hash
                               --chdir --pivot-root --property --private-users --network-namespace-path --network-ipvlan --network-veth-extra
-                              --network-zone -p --port --system-call-filter --overlay --overlay-ro --settings'
+                              --network-zone -p --port --system-call-filter --overlay --overlay-ro --settings
+                              --rlimit --hostname --no-new-privileges --oom-score-adjust --cpu-affinity --resolv-conf --timezone'
         )
 
         _init_completion || return
@@ -131,7 +139,7 @@ _systemd_nspawn() {
                                 comps='x86 x86-64'
                         ;;
                         --volatile)
-                                comps='yes state no'
+                                comps=$( systemd-nspawn --volatile=help 2>/dev/null )
                         ;;
                         --image|-i)
                                 compopt -o nospace
@@ -152,6 +160,27 @@ _systemd_nspawn() {
                         ;;
                         --settings)
                                 comps='yes no override trusted'
+                        ;;
+                        --rlimit)
+                                comps=$( __get_rlimit )
+                        ;;
+                        --hostname)
+                                comps=''
+                        ;;
+                        --no-new-privileges)
+                                comps='yes no'
+                        ;;
+                        --oom-score-adjust)
+                                comps=''
+                        ;;
+                        --cpu-affinity)
+                                comps=''
+                        ;;
+                        --resolv-conf)
+                                comps=$( systemd-nspawn --resolv-conf=help 2>/dev/null )
+                        ;;
+                        --timezone)
+                                comps=$( systemd-nspawn --timezone=help 2>/dev/null )
                         ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
