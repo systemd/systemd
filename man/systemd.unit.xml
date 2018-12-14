@@ -913,7 +913,7 @@
         <term><varname>JobTimeoutSec=</varname></term>
         <term><varname>JobRunningTimeoutSec=</varname></term>
 
-        <listitem><para>When a job for this unit is queued, a time-out <varname>JobTimeoutSec=</varname> may be
+        <listitem><para>When a job for this unit is queued, a timeout <varname>JobTimeoutSec=</varname> may be
         configured. Similarly, <varname>JobRunningTimeoutSec=</varname> starts counting when the queued job is actually
         started. If either time limit is reached, the job will be cancelled, the unit however will not change state or
         even enter the <literal>failed</literal> mode. This value defaults to <literal>infinity</literal> (job timeouts
@@ -931,7 +931,7 @@
         <term><varname>JobTimeoutRebootArgument=</varname></term>
 
         <listitem><para><varname>JobTimeoutAction=</varname> optionally configures an additional action to take when
-        the time-out is hit, see description of <varname>JobTimeoutSec=</varname> and
+        the timeout is hit, see description of <varname>JobTimeoutSec=</varname> and
         <varname>JobRunningTimeoutSec=</varname> above. It takes the same values as
         <varname>StartLimitAction=</varname>. Defaults to <option>none</option>.
         <varname>JobTimeoutRebootArgument=</varname> configures an optional reboot string to pass to the

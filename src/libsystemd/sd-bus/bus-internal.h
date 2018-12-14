@@ -320,7 +320,7 @@ struct sd_bus {
         usec_t method_call_timeout;
 };
 
-/* For method calls we time-out at 25s, like in the D-Bus reference implementation */
+/* For method calls we timeout at 25s, like in the D-Bus reference implementation */
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
 
 /* For the authentication phase we grant 90s, to provide extra room during boot, when RNGs and such are not filled up
