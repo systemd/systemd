@@ -541,7 +541,7 @@ CHANGES WITH 239:
           Debian and FreeBSD resolvconf tool.
 
         * Support for suspend-then-hibernate has been added, i.e. a sleep mode
-          where the system initially suspends, and after a time-out resumes and
+          where the system initially suspends, and after a timeout resumes and
           hibernates again.
 
         * networkd's ClientIdentifier= now accepts a new option "duid-only". If
@@ -4845,7 +4845,7 @@ CHANGES WITH 217:
           /run/systemd/user directory that was already previously
           supported, but is under the control of the user.
 
-        * Job timeouts (i.e. time-outs on the time a job that is
+        * Job timeouts (i.e. timeouts on the time a job that is
           queued stays in the run queue) can now optionally result in
           immediate reboot or power-off actions (JobTimeoutAction= and
           JobTimeoutRebootArgument=). This is useful on ".target"

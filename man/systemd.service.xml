@@ -217,7 +217,7 @@
             actual execution of the service program is delayed until all active jobs are dispatched. This may be used
             to avoid interleaving of output of shell services with the status output on the console. Note that this
             type is useful only to improve console output, it is not useful as a general unit ordering tool, and the
-            effect of this service type is subject to a 5s time-out, after which the service program is invoked
+            effect of this service type is subject to a 5s timeout, after which the service program is invoked
             anyway.</para></listitem>
           </itemizedlist>
 

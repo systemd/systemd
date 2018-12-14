@@ -256,7 +256,7 @@
       <varlistentry>
         <term><varname>LoaderConfigTimeout</varname></term>
         <term><varname>LoaderConfigTimeoutOneShot</varname></term>
-        <listitem><para>The menu time-out in seconds. Read by the boot loader. <varname>LoaderConfigTimeout</varname>
+        <listitem><para>The menu timeout in seconds. Read by the boot loader. <varname>LoaderConfigTimeout</varname>
         is maintained persistently, while <varname>LoaderConfigTimeoutOneShot</varname> is a one-time override which is
         read once (in which case it takes precedence over <varname>LoaderConfigTimeout</varname>) and then
         removed. <varname>LoaderConfigTimeout</varname> may be manipulated with the

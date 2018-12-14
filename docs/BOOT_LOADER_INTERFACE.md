@@ -21,18 +21,18 @@ variables. All EFI variables use the vendor UUID
   ESP the boot loader was run from formatted as NUL-terminated UTF16 string, in
   normal GUID syntax.
 
-* The EFI variable `LoaderConfigTimeout` contains the boot menu time-out
+* The EFI variable `LoaderConfigTimeout` contains the boot menu timeout
   currently in use. It may be modified both by the boot loader and by the
   host. The value should be formatted as numeric, NUL-terminated, decimal
   string, in UTF-16. The time is specified in µs.
 
 * Similarly, the EFI variable `LoaderConfigTimeoutOneShot` contains a boot menu
-  time-out for a single following boot. It is set by the OS in order to request
+  timeout for a single following boot. It is set by the OS in order to request
   display of the boot menu on the following boot. When set overrides
   `LoaderConfigTimeout`. It is removed automatically after being read by the
   boot loader, to ensure it only takes effect a single time. This value is
   formatted the same way as `LoaderConfigTimeout`. If set to `0` the boot menu
-  time-out is turned off, and the menu is shown indefinitely.
+  timeout is turned off, and the menu is shown indefinitely.
 
 * The EFI variable `LoaderEntries` may contain a series of boot loader entry
   identifiers, one after the other, each individually NUL terminated. This may

@@ -114,7 +114,7 @@
         the command line. If passed, additional metadata is read from the device to enhance the unit to create. For
         example, a descriptive string for the transient units is generated from the file system label and device
         model. Moreover if a removable block device (e.g. USB stick) is detected an automount unit instead of a regular
-        mount unit is created, with a short idle time-out, in order to ensure the file-system is placed in a clean
+        mount unit is created, with a short idle timeout, in order to ensure the file-system is placed in a clean
         state quickly after each access.</para></listitem>
       </varlistentry>
 
