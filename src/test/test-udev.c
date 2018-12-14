@@ -87,7 +87,7 @@ static int run(int argc, char *argv[]) {
         action = argv[1];
         devpath = argv[2];
 
-        rules = udev_rules_new(RESOLVE_NAME_EARLY);
+        assert_se(udev_rules_new(&rules, RESOLVE_NAME_EARLY) == 0);
 
         const char *syspath = strjoina("/sys", devpath);
         r = device_new_from_synthetic_event(&dev, syspath, action);

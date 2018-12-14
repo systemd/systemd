@@ -1512,17 +1512,17 @@ static int parse_file(struct udev_rules *rules, const char *filename) {
         return 0;
 }
 
-struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing) {
-        struct udev_rules *rules;
-        struct token end_token;
-        char **files, **f;
+int udev_rules_new(struct udev_rules **ret_rules, ResolveNameTiming resolve_name_timing) {
+        _cleanup_(udev_rules_freep) struct udev_rules *rules = NULL;
+        _cleanup_strv_free_ char **files = NULL;
+        char **f;
         int r;
 
         assert(resolve_name_timing >= 0 && resolve_name_timing < _RESOLVE_NAME_TIMING_MAX);
 
         rules = new(struct udev_rules, 1);
         if (!rules)
-                return NULL;
+                return -ENOMEM;
 
         *rules = (struct udev_rules) {
                 .resolve_name_timing = resolve_name_timing,
@@ -1531,20 +1531,18 @@ struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing) {
         /* init token array and string buffer */
         rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
         if (!rules->tokens)
-                return udev_rules_free(rules);
+                return -ENOMEM;
         rules->token_max = PREALLOC_TOKEN;
 
         rules->strbuf = strbuf_new();
         if (!rules->strbuf)
-                return udev_rules_free(rules);
+                return -ENOMEM;
 
         udev_rules_check_timestamp(rules);
 
         r = conf_files_list_strv(&files, ".rules", NULL, 0, rules_dirs);
-        if (r < 0) {
-                log_error_errno(r, "Failed to enumerate rules files: %m");
-                return udev_rules_free(rules);
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate rules files: %m");
 
         /*
          * The offset value in the rules strct is limited; add all
@@ -1556,10 +1554,7 @@ struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing) {
         STRV_FOREACH(f, files)
                 parse_file(rules, *f);
 
-        strv_free(files);
-
-        memzero(&end_token, sizeof(struct token));
-        end_token.type = TK_END;
+        struct token end_token = { .type = TK_END };
         add_token(rules, &end_token);
         log_debug("Rules contain %zu bytes tokens (%u * %zu bytes), %zu bytes strings",
                   rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->strbuf->len);
@@ -1579,7 +1574,8 @@ struct udev_rules *udev_rules_new(ResolveNameTiming resolve_name_timing) {
         rules->gids_max = 0;
 
         dump_rules(rules);
-        return rules;
+        *ret_rules = TAKE_PTR(rules);
+        return 0;
 }
 
 struct udev_rules *udev_rules_free(struct udev_rules *rules) {
