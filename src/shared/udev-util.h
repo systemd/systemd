@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "sd-device.h"
+
 #include "time-util.h"
 
 typedef enum ResolveNameTiming {
@@ -23,3 +25,5 @@ int udev_parse_config_full(
 static inline int udev_parse_config(void) {
         return udev_parse_config_full(NULL, NULL, NULL, NULL);
 }
+
+int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_device **ret);
