@@ -762,6 +762,9 @@ int read_line(FILE *f, size_t limit, char **ret) {
                         if (n >= limit)
                                 return -ENOBUFS;
 
+                        if (count >= INT_MAX) /* We couldn't return the counter anymore as "int", hence refuse this */
+                                return -ENOBUFS;
+
                         errno = 0;
                         c = fgetc_unlocked(f);
                         if (c == EOF) {
