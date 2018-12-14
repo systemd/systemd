@@ -14,6 +14,7 @@
 #include "journal-util.h"
 #include "journald-context.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
@@ -252,9 +253,11 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
 
         /* Try to acquire the current cgroup path */
         r = cg_pid_get_path_shifted(c->pid, s->cgroup_root, &t);
-        if (r < 0) {
+        if (r < 0 || empty_or_root(t)) {
 
-                /* If that didn't work, we use the unit ID passed in as fallback, if we have nothing cached yet */
+                /* We use the unit ID passed in as fallback if we have nothing cached yet and cg_pid_get_path_shifted()
+                 * failed or process is running in a root cgroup. Zombie processes are automatically migrated to root cgroup
+                 * on cgroupsv1 and we want to be able to map log messages from them too. */
                 if (unit_id && !c->unit) {
                         c->unit = strdup(unit_id);
                         if (c->unit)
