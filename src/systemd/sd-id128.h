@@ -41,10 +41,11 @@ int sd_id128_from_string(const char *s, sd_id128_t *ret);
 int sd_id128_randomize(sd_id128_t *ret);
 
 int sd_id128_get_machine(sd_id128_t *ret);
-int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret);
-int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 int sd_id128_get_boot(sd_id128_t *ret);
 int sd_id128_get_invocation(sd_id128_t *ret);
+
+int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret);
+int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret);
 
 #define SD_ID128_ARRAY(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) \
         { .bytes = { 0x##v0, 0x##v1, 0x##v2, 0x##v3, 0x##v4, 0x##v5, 0x##v6, 0x##v7, \
