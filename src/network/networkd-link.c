@@ -1058,7 +1058,7 @@ static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
 
         if (link->network->dhcp_use_dns && link->dhcp_lease) {
                 const struct in_addr *da = NULL;
-                int n;
+                int j, n;
 
                 n = sd_dhcp_lease_get_dns(link->dhcp_lease, &da);
                 if (n > 0) {
@@ -1066,8 +1066,9 @@ static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
                         if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
                                 return log_oom();
 
-                        memcpy(addresses + n_addresses, da, n * sizeof(struct in_addr));
-                        n_addresses += n;
+                        for (j = 0; j < n; j++)
+                                if (in4_addr_is_non_local(&da[j]))
+                                        addresses[n_addresses++] = da[j];
                 }
         }
 
@@ -1106,7 +1107,7 @@ static int link_push_uplink_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
 
         if (link->network->dhcp_use_ntp && link->dhcp_lease) {
                 const struct in_addr *da = NULL;
-                int n;
+                int j, n;
 
                 n = sd_dhcp_lease_get_ntp(link->dhcp_lease, &da);
                 if (n > 0) {
@@ -1114,8 +1115,9 @@ static int link_push_uplink_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
                         if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
                                 return log_oom();
 
-                        memcpy(addresses + n_addresses, da, n * sizeof(struct in_addr));
-                        n_addresses += n;
+                        for (j = 0; j < n; j++)
+                                if (in4_addr_is_non_local(&da[j]))
+                                        addresses[n_addresses++] = da[j];
                 }
         }
 
@@ -4004,12 +4006,9 @@ int link_save(Link *link) {
                         const struct in_addr *addresses;
 
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
-                        if (r > 0) {
-                                if (space)
-                                        fputc(' ', f);
-                                serialize_in_addrs(f, addresses, r);
-                                space = true;
-                        }
+                        if (r > 0)
+                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
+                                        space = true;
                 }
 
                 if (link->network->dhcp_use_dns && dhcp6_lease) {
@@ -4050,12 +4049,9 @@ int link_save(Link *link) {
                         const struct in_addr *addresses;
 
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
-                        if (r > 0) {
-                                if (space)
-                                        fputc(' ', f);
-                                serialize_in_addrs(f, addresses, r);
-                                space = true;
-                        }
+                        if (r > 0)
+                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
+                                        space = true;
                 }
 
                 if (link->network->dhcp_use_ntp && dhcp6_lease) {
@@ -4200,7 +4196,7 @@ int link_save(Link *link) {
                 r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
                 if (r >= 0) {
                         fputs("DHCP4_ADDRESS=", f);
-                        serialize_in_addrs(f, &address, 1);
+                        serialize_in_addrs(f, &address, 1, false, NULL);
                         fputc('\n', f);
                 }
 
@@ -4220,7 +4216,7 @@ int link_save(Link *link) {
                 r = sd_ipv4ll_get_address(link->ipv4ll, &address);
                 if (r >= 0) {
                         fputs("IPV4LL_ADDRESS=", f);
-                        serialize_in_addrs(f, &address, 1);
+                        serialize_in_addrs(f, &address, 1, false, NULL);
                         fputc('\n', f);
                 }
         }

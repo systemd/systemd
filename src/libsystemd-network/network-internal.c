@@ -414,16 +414,31 @@ int config_parse_bridge_port_priority(
         return 0;
 }
 
-void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
-        unsigned i;
+size_t serialize_in_addrs(FILE *f,
+                          const struct in_addr *addresses,
+                          size_t size,
+                          bool with_leading_space,
+                          bool (*predicate)(const struct in_addr *addr)) {
+        size_t count;
+        size_t i;
 
         assert(f);
         assert(addresses);
-        assert(size);
 
-        for (i = 0; i < size; i++)
-                fprintf(f, "%s%s", inet_ntoa(addresses[i]),
-                        (i < (size - 1)) ? " ": "");
+        count = 0;
+
+        for (i = 0; i < size; i++) {
+                if (predicate && !predicate(&addresses[i]))
+                        continue;
+                if (with_leading_space)
+                        fputc(' ', f);
+                else
+                        with_leading_space = true;
+                fputs(inet_ntoa(addresses[i]), f);
+                count++;
+        }
+
+        return count;
 }
 
 int deserialize_in_addrs(struct in_addr **ret, const char *string) {

@@ -371,24 +371,7 @@ static int lease_parse_domain(const uint8_t *option, size_t len, char **ret) {
         return 0;
 }
 
-static void filter_bogus_addresses(struct in_addr *addresses, size_t *n) {
-        size_t i, j;
-
-        /* Silently filter DNS/NTP servers supplied to us that do not make outside of the local scope. */
-
-        for (i = 0, j = 0; i < *n; i ++) {
-
-                if (in4_addr_is_null(addresses+i) ||
-                    in4_addr_is_localhost(addresses+i))
-                        continue;
-
-                addresses[j++] = addresses[i];
-        }
-
-        *n = j;
-}
-
-static int lease_parse_in_addrs(const uint8_t *option, size_t len, bool filter_bogus, struct in_addr **ret, size_t *n_ret) {
+static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_addr **ret, size_t *n_ret) {
         assert(option);
         assert(ret);
         assert(n_ret);
@@ -408,9 +391,6 @@ static int lease_parse_in_addrs(const uint8_t *option, size_t len, bool filter_b
                 addresses = newdup(struct in_addr, option, n_addresses);
                 if (!addresses)
                         return -ENOMEM;
-
-                if (filter_bogus)
-                        filter_bogus_addresses(addresses, &n_addresses);
 
                 free(*ret);
                 *ret = addresses;
@@ -556,19 +536,19 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_ROUTER:
-                r = lease_parse_in_addrs(option, len, false, &lease->router, &lease->router_size);
+                r = lease_parse_in_addrs(option, len, &lease->router, &lease->router_size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse router addresses, ignoring: %m");
                 break;
 
         case SD_DHCP_OPTION_DOMAIN_NAME_SERVER:
-                r = lease_parse_in_addrs(option, len, true, &lease->dns, &lease->dns_size);
+                r = lease_parse_in_addrs(option, len, &lease->dns, &lease->dns_size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse DNS server, ignoring: %m");
                 break;
 
         case SD_DHCP_OPTION_NTP_SERVER:
-                r = lease_parse_in_addrs(option, len, true, &lease->ntp, &lease->ntp_size);
+                r = lease_parse_in_addrs(option, len, &lease->ntp, &lease->ntp_size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse NTP server, ignoring: %m");
                 break;
@@ -865,7 +845,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         r = sd_dhcp_lease_get_router(lease, &addresses);
         if (r > 0) {
                 fputs("ROUTER=", f);
-                serialize_in_addrs(f, addresses, r);
+                serialize_in_addrs(f, addresses, r, false, NULL);
                 fputc('\n', f);
         }
 
@@ -900,14 +880,14 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         r = sd_dhcp_lease_get_dns(lease, &addresses);
         if (r > 0) {
                 fputs("DNS=", f);
-                serialize_in_addrs(f, addresses, r);
+                serialize_in_addrs(f, addresses, r, false, NULL);
                 fputc('\n', f);
         }
 
         r = sd_dhcp_lease_get_ntp(lease, &addresses);
         if (r > 0) {
                 fputs("NTP=", f);
-                serialize_in_addrs(f, addresses, r);
+                serialize_in_addrs(f, addresses, r, false, NULL);
                 fputc('\n', f);
         }
 
