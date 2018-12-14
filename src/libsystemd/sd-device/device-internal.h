@@ -5,6 +5,7 @@
 
 #include "hashmap.h"
 #include "set.h"
+#include "time-util.h"
 
 struct sd_device {
         unsigned n_ref;
@@ -106,7 +107,7 @@ int device_set_devtype(sd_device *device, const char *_devtype);
 int device_set_devnum(sd_device *device, const char *major, const char *minor);
 int device_set_subsystem(sd_device *device, const char *_subsystem);
 int device_set_driver(sd_device *device, const char *_driver);
-int device_set_usec_initialized(sd_device *device, const char *initialized);
+int device_set_usec_initialized(sd_device *device, usec_t when);
 
 DeviceAction device_action_from_string(const char *s) _pure_;
 const char *device_action_to_string(DeviceAction a) _const_;

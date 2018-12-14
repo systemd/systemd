@@ -60,26 +60,16 @@ void device_set_is_initialized(sd_device *device) {
 }
 
 int device_ensure_usec_initialized(sd_device *device, sd_device *device_old) {
-        char num[DECIMAL_STR_MAX(usec_t)];
-        usec_t usec_initialized;
-        int r;
+        usec_t when;
 
         assert(device);
 
         if (device_old && device_old->usec_initialized > 0)
-                usec_initialized = device_old->usec_initialized;
+                when = device_old->usec_initialized;
         else
-                usec_initialized = now(CLOCK_MONOTONIC);
+                when = now(CLOCK_MONOTONIC);
 
-        r = snprintf(num, sizeof(num), USEC_FMT, usec_initialized);
-        if (r < 0)
-                return -errno;
-
-        r = device_set_usec_initialized(device, num);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return device_set_usec_initialized(device, when);
 }
 
 uint64_t device_get_properties_generation(sd_device *device) {
@@ -223,7 +213,13 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to set devname to '%s': %m", value);
         } else if (streq(key, "USEC_INITIALIZED")) {
-                r = device_set_usec_initialized(device, value);
+                usec_t t;
+
+                r = safe_atou64(value, &t);
+                if (r < 0)
+                        return log_device_debug_errno(device, r, "sd-device: Failed to parse timestamp '%s': %m", value);
+
+                r = device_set_usec_initialized(device, t);
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to set usec-initialized to '%s': %m", value);
         } else if (streq(key, "DRIVER")) {

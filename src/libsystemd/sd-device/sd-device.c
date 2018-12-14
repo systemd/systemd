@@ -22,6 +22,7 @@
 #include "set.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
@@ -1149,23 +1150,19 @@ static int device_add_property_internal_from_string(sd_device *device, const cha
         return device_add_property_internal(device, key, value);
 }
 
-int device_set_usec_initialized(sd_device *device, const char *initialized) {
-        uint64_t usec_initialized;
+int device_set_usec_initialized(sd_device *device, usec_t when) {
+        char s[DECIMAL_STR_MAX(usec_t)];
         int r;
 
         assert(device);
-        assert(initialized);
 
-        r = safe_atou64(initialized, &usec_initialized);
+        xsprintf(s, USEC_FMT, when);
+
+        r = device_add_property_internal(device, "USEC_INITIALIZED", s);
         if (r < 0)
                 return r;
 
-        r = device_add_property_internal(device, "USEC_INITIALIZED", initialized);
-        if (r < 0)
-                return r;
-
-        device->usec_initialized = usec_initialized;
-
+        device->usec_initialized = when;
         return 0;
 }
 
@@ -1196,12 +1193,19 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
                         return r;
 
                 break;
-        case 'I':
-                r = device_set_usec_initialized(device, value);
+        case 'I': {
+                usec_t t;
+
+                r = safe_atou64(value, &t);
+                if (r < 0)
+                        return r;
+
+                r = device_set_usec_initialized(device, t);
                 if (r < 0)
                         return r;
 
                 break;
+        }
         case 'L':
                 r = safe_atoi(value, &device->devlink_priority);
                 if (r < 0)
