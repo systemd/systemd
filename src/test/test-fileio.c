@@ -713,6 +713,41 @@ static void test_read_line3(void) {
         assert_se(read_line(f, LINE_MAX, NULL) == 0);
 }
 
+static void test_read_line4(void) {
+        static const struct {
+                size_t length;
+                const char *string;
+        } eof_endings[] = {
+                /* Each of these will be followed by EOF and should generate the one same single string */
+                { 3, "foo" },
+                { 4, "foo\n" },
+                { 4, "foo\r" },
+                { 4, "foo\0" },
+                { 5, "foo\n\0" },
+                { 5, "foo\r\0" },
+                { 5, "foo\r\n" },
+                { 5, "foo\n\r" },
+                { 6, "foo\r\n\0" },
+                { 6, "foo\n\r\0" },
+        };
+
+        size_t i;
+        int r;
+
+        for (i = 0; i < ELEMENTSOF(eof_endings); i++) {
+                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_free_ char *s = NULL;
+
+                assert_se(f = fmemopen((void*) eof_endings[i].string, eof_endings[i].length, "r"));
+
+                r = read_line(f, (size_t) -1, &s);
+                assert_se((size_t) r == eof_endings[i].length);
+                assert_se(streq_ptr(s, "foo"));
+
+                assert_se(read_line(f, (size_t) -1, NULL) == 0); /* Ensure we hit EOF */
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -735,6 +770,7 @@ int main(int argc, char *argv[]) {
         test_read_line();
         test_read_line2();
         test_read_line3();
+        test_read_line4();
 
         return 0;
 }
