@@ -151,15 +151,15 @@ int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path) {
         return 0;
 }
 
-int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, struct in_addr *addr) {
+int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        if (lease->router == 0)
+        if (lease->router_size <= 0)
                 return -ENODATA;
 
-        addr->s_addr = lease->router;
-        return 0;
+        *addr = lease->router;
+        return (int) lease->router_size;
 }
 
 int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr) {
@@ -261,6 +261,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         }
 
         free(lease->root_path);
+        free(lease->router);
         free(lease->timezone);
         free(lease->hostname);
         free(lease->domainname);
@@ -387,7 +388,7 @@ static void filter_bogus_addresses(struct in_addr *addresses, size_t *n) {
         *n = j;
 }
 
-static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_addr **ret, size_t *n_ret) {
+static int lease_parse_in_addrs(const uint8_t *option, size_t len, bool filter_bogus, struct in_addr **ret, size_t *n_ret) {
         assert(option);
         assert(ret);
         assert(n_ret);
@@ -408,7 +409,8 @@ static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_add
                 if (!addresses)
                         return -ENOMEM;
 
-                filter_bogus_addresses(addresses, &n_addresses);
+                if (filter_bogus)
+                        filter_bogus_addresses(addresses, &n_addresses);
 
                 free(*ret);
                 *ret = addresses;
@@ -554,21 +556,19 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_ROUTER:
-                if (len >= 4) {
-                        r = lease_parse_be32(option, 4, &lease->router);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to parse router address, ignoring: %m");
-                }
+                r = lease_parse_in_addrs(option, len, false, &lease->router, &lease->router_size);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse router addresses, ignoring: %m");
                 break;
 
         case SD_DHCP_OPTION_DOMAIN_NAME_SERVER:
-                r = lease_parse_in_addrs(option, len, &lease->dns, &lease->dns_size);
+                r = lease_parse_in_addrs(option, len, true, &lease->dns, &lease->dns_size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse DNS server, ignoring: %m");
                 break;
 
         case SD_DHCP_OPTION_NTP_SERVER:
-                r = lease_parse_in_addrs(option, len, &lease->ntp, &lease->ntp_size);
+                r = lease_parse_in_addrs(option, len, true, &lease->ntp, &lease->ntp_size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse NTP server, ignoring: %m");
                 break;
@@ -820,7 +820,6 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         if (!lease)
                 return -ENOMEM;
 
-        lease->router = INADDR_ANY;
         lease->n_ref = 1;
 
         *ret = lease;
@@ -863,9 +862,12 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0)
                 fprintf(f, "NETMASK=%s\n", inet_ntoa(address));
 
-        r = sd_dhcp_lease_get_router(lease, &address);
-        if (r >= 0)
-                fprintf(f, "ROUTER=%s\n", inet_ntoa(address));
+        r = sd_dhcp_lease_get_router(lease, &addresses);
+        if (r > 0) {
+                fputs("ROUTER=", f);
+                serialize_in_addrs(f, addresses, r);
+                fputc('\n', f);
+        }
 
         r = sd_dhcp_lease_get_server_identifier(lease, &address);
         if (r >= 0)
@@ -899,14 +901,14 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r > 0) {
                 fputs("DNS=", f);
                 serialize_in_addrs(f, addresses, r);
-                fputs("\n", f);
+                fputc('\n', f);
         }
 
         r = sd_dhcp_lease_get_ntp(lease, &addresses);
         if (r > 0) {
                 fputs("NTP=", f);
                 serialize_in_addrs(f, addresses, r);
-                fputs("\n", f);
+                fputc('\n', f);
         }
 
         r = sd_dhcp_lease_get_domainname(lease, &string);
@@ -917,7 +919,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r > 0) {
                 fputs("DOMAIN_SEARCH_LIST=", f);
                 fputstrv(f, search_domains, NULL, NULL);
-                fputs("\n", f);
+                fputc('\n', f);
         }
 
         r = sd_dhcp_lease_get_hostname(lease, &string);
@@ -1080,9 +1082,11 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (router) {
-                r = inet_pton(AF_INET, router, &lease->router);
-                if (r <= 0)
-                        log_debug("Failed to parse router %s, ignoring.", router);
+                r = deserialize_in_addrs(&lease->router, router);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to deserialize router addresses %s, ignoring: %m", router);
+                else
+                        lease->router_size = r;
         }
 
         if (netmask) {
