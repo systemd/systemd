@@ -640,7 +640,7 @@ static int import_file_into_properties(sd_device *dev, const char *filename) {
         return 0;
 }
 
-static int import_program_into_properties(struct udev_event *event,
+static int import_program_into_properties(UdevEvent *event,
                                           usec_t timeout_usec,
                                           const char *program) {
         char result[UTIL_LINE_SIZE];
@@ -1668,7 +1668,7 @@ static int match_key(UdevRules *rules, struct token *token, const char *val) {
         return -1;
 }
 
-static int match_attr(UdevRules *rules, sd_device *dev, struct udev_event *event, struct token *cur) {
+static int match_attr(UdevRules *rules, sd_device *dev, UdevEvent *event, struct token *cur) {
         char nbuf[UTIL_NAME_SIZE], vbuf[UTIL_NAME_SIZE];
         const char *name, *value;
         size_t len;
@@ -1721,7 +1721,7 @@ enum escape_type {
 
 int udev_rules_apply_to_event(
                 UdevRules *rules,
-                struct udev_event *event,
+                UdevEvent *event,
                 usec_t timeout_usec,
                 Hashmap *properties_list) {
         sd_device *dev = event->dev;

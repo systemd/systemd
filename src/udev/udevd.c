@@ -394,7 +394,7 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
 }
 
 static int worker_process_device(Manager *manager, sd_device *dev) {
-        _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
+        _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
         const char *seqnum;
         int r;

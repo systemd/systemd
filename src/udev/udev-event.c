@@ -45,16 +45,16 @@ typedef struct Spawn {
         size_t result_len;
 } Spawn;
 
-struct udev_event *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl) {
-        struct udev_event *event;
+UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl) {
+        UdevEvent *event;
 
         assert(dev);
 
-        event = new(struct udev_event, 1);
+        event = new(UdevEvent, 1);
         if (!event)
                 return NULL;
 
-        *event = (struct udev_event) {
+        *event = (UdevEvent) {
                 .dev = sd_device_ref(dev),
                 .birth_usec = now(CLOCK_MONOTONIC),
                 .exec_delay_usec = exec_delay_usec,
@@ -64,7 +64,7 @@ struct udev_event *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_net
         return event;
 }
 
-struct udev_event *udev_event_free(struct udev_event *event) {
+UdevEvent *udev_event_free(UdevEvent *event) {
         if (!event)
                 return NULL;
 
@@ -125,7 +125,7 @@ static const struct subst_map_entry map[] = {
            { .name = "sys",      .fmt = 'S', .type = SUBST_SYS },
 };
 
-static ssize_t subst_format_var(struct udev_event *event,
+static ssize_t subst_format_var(UdevEvent *event,
                                 const struct subst_map_entry *entry, char *attr,
                                 char *dest, size_t l) {
         sd_device *parent, *dev = event->dev;
@@ -312,7 +312,7 @@ static ssize_t subst_format_var(struct udev_event *event,
         return s - dest;
 }
 
-ssize_t udev_event_apply_format(struct udev_event *event,
+ssize_t udev_event_apply_format(UdevEvent *event,
                                 const char *src, char *dest, size_t size,
                                 bool replace_whitespace) {
         const char *from;
@@ -593,7 +593,7 @@ static int spawn_wait(Spawn *spawn) {
         return ret;
 }
 
-int udev_event_spawn(struct udev_event *event,
+int udev_event_spawn(UdevEvent *event,
                      usec_t timeout_usec,
                      bool accept_failure,
                      const char *cmd,
@@ -683,7 +683,7 @@ int udev_event_spawn(struct udev_event *event,
         return r;
 }
 
-static int rename_netif(struct udev_event *event) {
+static int rename_netif(UdevEvent *event) {
         sd_device *dev = event->dev;
         const char *action, *oldname;
         char name[IFNAMSIZ];
@@ -726,7 +726,7 @@ static int rename_netif(struct udev_event *event) {
         return 1;
 }
 
-static int update_devnode(struct udev_event *event) {
+static int update_devnode(UdevEvent *event) {
         sd_device *dev = event->dev;
         const char *action;
         bool apply;
@@ -777,7 +777,7 @@ static int update_devnode(struct udev_event *event) {
 }
 
 static void event_execute_rules_on_remove(
-                struct udev_event *event,
+                UdevEvent *event,
                 usec_t timeout_usec,
                 Hashmap *properties_list,
                 UdevRules *rules) {
@@ -806,7 +806,7 @@ static void event_execute_rules_on_remove(
                 (void) udev_node_remove(dev);
 }
 
-int udev_event_execute_rules(struct udev_event *event,
+int udev_event_execute_rules(UdevEvent *event,
                              usec_t timeout_usec,
                              Hashmap *properties_list,
                              UdevRules *rules) {
@@ -876,7 +876,7 @@ int udev_event_execute_rules(struct udev_event *event,
         return 0;
 }
 
-void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec) {
+void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec) {
         const char *cmd;
         void *val;
         Iterator i;
