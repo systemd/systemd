@@ -275,20 +275,20 @@ int device_monitor_enable_receiving(sd_device_monitor *m) {
                 return log_debug_errno(r, "sd-device-monitor: Failed to update filter: %m");
 
         if (!m->bound) {
+                /* enable receiving of sender credentials */
+                r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
+                if (r < 0)
+                        return log_debug_errno(r, "sd-device-monitor: Failed to set socket option SO_PASSCRED: %m");
+
                 if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
                         return log_debug_errno(errno, "sd-device-monitor: Failed to bind monitoring socket: %m");
 
                 m->bound = true;
+
+                r = monitor_set_nl_address(m);
+                if (r < 0)
+                        return log_debug_errno(r, "sd-device-monitor: Failed to set address: %m");
         }
-
-        r = monitor_set_nl_address(m);
-        if (r < 0)
-                return log_debug_errno(r, "sd-device-monitor: Failed to set address: %m");
-
-        /* enable receiving of sender credentials */
-        r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return log_debug_errno(r, "sd-device-monitor: Failed to set socket option SO_PASSCRED: %m");
 
         return 0;
 }
