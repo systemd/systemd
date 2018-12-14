@@ -457,7 +457,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
                 size++;
         }
 
-        *ret = TAKE_PTR(addresses);
+        *ret = size > 0 ? TAKE_PTR(addresses) : NULL;
 
         return size;
 }
