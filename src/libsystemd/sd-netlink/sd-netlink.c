@@ -550,7 +550,7 @@ int sd_netlink_call_async(
                         return r;
         }
 
-        r = netlink_slot_allocate(nl, !ret_slot, NETLINK_REPLY_CALLBACK, sizeof(struct reply_callback), destroy_callback, userdata, description, &slot);
+        r = netlink_slot_allocate(nl, !ret_slot, NETLINK_REPLY_CALLBACK, sizeof(struct reply_callback), userdata, description, &slot);
         if (r < 0)
                 return r;
 
@@ -574,6 +574,9 @@ int sd_netlink_call_async(
                         return r;
                 }
         }
+
+        /* Set this at last. Otherwise, some failures in above call the destroy callback but some do not. */
+        slot->destroy_callback = destroy_callback;
 
         if (ret_slot)
                 *ret_slot = slot;
@@ -840,7 +843,7 @@ int sd_netlink_add_match(
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
 
-        r = netlink_slot_allocate(rtnl, !ret_slot, NETLINK_MATCH_CALLBACK, sizeof(struct match_callback), destroy_callback, userdata, description, &slot);
+        r = netlink_slot_allocate(rtnl, !ret_slot, NETLINK_MATCH_CALLBACK, sizeof(struct match_callback), userdata, description, &slot);
         if (r < 0)
                 return r;
 
@@ -891,6 +894,9 @@ int sd_netlink_add_match(
         }
 
         LIST_PREPEND(match_callbacks, rtnl->match_callbacks, &slot->match_callback);
+
+        /* Set this at last. Otherwise, some failures in above call the destroy callback but some do not. */
+        slot->destroy_callback = destroy_callback;
 
         if (ret_slot)
                 *ret_slot = slot;

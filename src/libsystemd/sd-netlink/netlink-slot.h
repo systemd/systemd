@@ -8,7 +8,6 @@ int netlink_slot_allocate(
                 bool floating,
                 NetlinkSlotType type,
                 size_t extra,
-                sd_netlink_destroy_t destroy_callback,
                 void *userdata,
                 const char *description,
                 sd_netlink_slot **ret);
