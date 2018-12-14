@@ -110,7 +110,12 @@ _sd_pure_ static __inline__ int sd_id128_is_null(sd_id128_t a) {
         return a.qwords[0] == 0 && a.qwords[1] == 0;
 }
 
+_sd_pure_ static __inline__ int sd_id128_is_allf(sd_id128_t a) {
+        return a.qwords[0] == UINT64_C(0xFFFFFFFFFFFFFFFF) && a.qwords[1] == UINT64_C(0xFFFFFFFFFFFFFFFF);
+}
+
 #define SD_ID128_NULL ((const sd_id128_t) { .qwords = { 0, 0 }})
+#define SD_ID128_ALLF ((const sd_id128_t) { .qwords = { UINT64_C(0xFFFFFFFFFFFFFFFF), UINT64_C(0xFFFFFFFFFFFFFFFF) }})
 
 _SD_END_DECLARATIONS;
 
