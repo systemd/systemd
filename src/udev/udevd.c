@@ -81,7 +81,7 @@ typedef struct Manager {
         const char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
 
-        struct udev_rules *rules;
+        UdevRules *rules;
         Hashmap *properties;
 
         sd_netlink *rtnl;

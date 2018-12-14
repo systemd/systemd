@@ -46,15 +46,16 @@ struct udev_event {
 };
 
 /* udev-rules.c */
-struct udev_rules;
-int udev_rules_new(struct udev_rules **ret_rules, ResolveNameTiming resolve_name_timing);
-struct udev_rules *udev_rules_free(struct udev_rules *rules);
+typedef struct UdevRules UdevRules;
 
-bool udev_rules_check_timestamp(struct udev_rules *rules);
-int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event,
+int udev_rules_new(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing);
+UdevRules *udev_rules_free(UdevRules *rules);
+
+bool udev_rules_check_timestamp(UdevRules *rules);
+int udev_rules_apply_to_event(UdevRules *rules, struct udev_event *event,
                               usec_t timeout_usec,
                               Hashmap *properties_list);
-int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
+int udev_rules_apply_static_dev_perms(UdevRules *rules);
 
 static inline usec_t udev_warn_timeout(usec_t timeout_usec) {
         return DIV_ROUND_UP(timeout_usec, 3);
@@ -73,9 +74,9 @@ int udev_event_spawn(struct udev_event *event,
 int udev_event_execute_rules(struct udev_event *event,
                              usec_t timeout_usec,
                              Hashmap *properties_list,
-                             struct udev_rules *rules);
+                             UdevRules *rules);
 void udev_event_execute_run(struct udev_event *event, usec_t timeout_usec);
 
 /* Cleanup functions */
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_event*, udev_event_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_rules*, udev_rules_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRules*, udev_rules_free);

@@ -780,7 +780,7 @@ static void event_execute_rules_on_remove(
                 struct udev_event *event,
                 usec_t timeout_usec,
                 Hashmap *properties_list,
-                struct udev_rules *rules) {
+                UdevRules *rules) {
 
         sd_device *dev = event->dev;
         int r;
@@ -809,7 +809,7 @@ static void event_execute_rules_on_remove(
 int udev_event_execute_rules(struct udev_event *event,
                              usec_t timeout_usec,
                              Hashmap *properties_list,
-                             struct udev_rules *rules) {
+                             UdevRules *rules) {
         sd_device *dev = event->dev;
         const char *subsystem, *action;
         int r;

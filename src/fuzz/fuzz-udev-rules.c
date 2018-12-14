@@ -74,7 +74,7 @@ static int cleanup_fake_filesystems(const char *runtime_dir) {
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(udev_rules_freep) struct udev_rules *rules = NULL;
+        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         FILE *f = NULL;
 
