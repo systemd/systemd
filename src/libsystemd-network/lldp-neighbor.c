@@ -9,6 +9,7 @@
 #include "lldp-neighbor.h"
 #include "missing.h"
 #include "unaligned.h"
+#include "util.h"
 
 static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash *state) {
         siphash24_compress(id->chassis_id, id->chassis_id_size, state);
@@ -18,21 +19,8 @@ static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash 
 }
 
 int lldp_neighbor_id_compare_func(const LLDPNeighborID *x, const LLDPNeighborID *y) {
-        int r;
-
-        r = memcmp(x->chassis_id, y->chassis_id, MIN(x->chassis_id_size, y->chassis_id_size));
-        if (r != 0)
-                return r;
-
-        r = CMP(x->chassis_id_size, y->chassis_id_size);
-        if (r != 0)
-                return r;
-
-        r = memcmp(x->port_id, y->port_id, MIN(x->port_id_size, y->port_id_size));
-        if (r != 0)
-                return r;
-
-        return CMP(x->port_id_size, y->port_id_size);
+        return memcmp_nn(x->chassis_id, x->chassis_id_size, y->chassis_id, y->chassis_id_size)
+            ?: memcmp_nn(x->port_id, x->port_id_size, y->port_id, y->port_id_size);
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(lldp_neighbor_hash_ops, LLDPNeighborID, lldp_neighbor_id_hash_func, lldp_neighbor_id_compare_func,
