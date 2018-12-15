@@ -61,6 +61,6 @@ BuildPackages=
         xz-utils
 
 Packages=
-        libqrencode3
+        libqrencode4
         locales
         libidn2-0
