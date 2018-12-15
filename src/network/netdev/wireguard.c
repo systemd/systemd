@@ -9,15 +9,15 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
-#include "parse-util.h"
 #include "fd-util.h"
-#include "strv.h"
 #include "hexdecoct.h"
-#include "string-util.h"
-#include "wireguard.h"
 #include "networkd-link.h"
-#include "networkd-util.h"
 #include "networkd-manager.h"
+#include "networkd-util.h"
+#include "parse-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "wireguard.h"
 #include "wireguard-netlink.h"
 
 static void resolve_endpoints(NetDev *netdev);
