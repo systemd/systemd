@@ -266,16 +266,20 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         return 1;
 }
 
-int read_full_stream(FILE *f, char **contents, size_t *size) {
+int read_full_stream(
+                FILE *f,
+                char **ret_contents,
+                size_t *ret_size) {
+
         _cleanup_free_ char *buf = NULL;
         struct stat st;
         size_t n, l;
         int fd;
 
         assert(f);
-        assert(contents);
+        assert(ret_contents);
 
-        n = LINE_MAX;
+        n = LINE_MAX; /* Start size */
 
         fd = fileno(f);
         if (fd >= 0) { /* If the FILE* object is backed by an fd (as opposed to memory or such, see fmemopen(), let's
@@ -331,11 +335,20 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
                 n = MIN(n * 2, READ_FULL_BYTES_MAX);
         }
 
-        buf[l] = 0;
-        *contents = TAKE_PTR(buf);
+        if (!ret_size) {
+                /* Safety check: if the caller doesn't want to know the size of what we just read it will rely on the
+                 * trailing NUL byte. But if there's an embedded NUL byte, then we should refuse operation as otherwise
+                 * there'd be ambiguity about what we just read. */
 
-        if (size)
-                *size = l;
+                if (memchr(buf, 0, l))
+                        return -EBADMSG;
+        }
+
+        buf[l] = 0;
+        *ret_contents = TAKE_PTR(buf);
+
+        if (ret_size)
+                *ret_size = l;
 
         return 0;
 }
