@@ -379,6 +379,10 @@ CHANGES WITH 240 in spe:
           interface names even as systemd/udev are updated and the naming logic
           is improved.
 
+        * sd-id128.h learnt two new auxiliary helpers: sd_id128_is_allf() and
+          SD_ID128_ALLF to test if a 128bit ID is set to all 0xFF bytes, and to
+          initialize one to all 0xFF.
+
         Contributions from: afg, Alan Jenkins, Aleksei Timofeyev, Alexander
         Filippov, Alexander Kurtz, Alexey Bogdanenko, Andreas Henriksson,
         Andrew Jorgensen, Anita Zhang, apnix-uk, Arkan49, Arseny Maslennikov,

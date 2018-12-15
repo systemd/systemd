@@ -61,7 +61,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
 
-
 static int write_options(FILE *f, const char *options) {
         _cleanup_free_ char *o = NULL;
 

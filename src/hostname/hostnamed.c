@@ -113,8 +113,12 @@ static int context_read_data(Context *c) {
 
         r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &c->uuid);
         if (r < 0)
-                log_info_errno(r, "Failed to read product UUID, ignoring: %m");
-        c->has_uuid = (r >= 0);
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to read product UUID, ignoring: %m");
+        else if (sd_id128_is_null(c->uuid) || sd_id128_is_allf(c->uuid))
+                log_debug("DMI product UUID " SD_ID128_FORMAT_STR " is all 0x00 or all 0xFF, ignoring.", SD_ID128_FORMAT_VAL(c->uuid));
+        else
+                c->has_uuid = true;
 
         return 0;
 }
