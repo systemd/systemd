@@ -18,7 +18,7 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
-        dracut_install busybox chmod rmdir unshare ip
+        dracut_install busybox chmod rmdir unshare ip sysctl
 
         cp create-busybox-container $initdir/
 
@@ -63,6 +63,11 @@ if [[ -f /proc/1/ns/cgroup ]]; then
 fi
 
 is_user_ns_supported=no
+# On some systems (e.g. CentOS 7) the default limit for user namespaces
+# is set to 0, which causes the following unshare syscall to fail, even
+# with enabled user namespaces support. By setting this value explicitly
+# we can ensure the user namespaces support to be detected correctly.
+sysctl -w user.max_user_namespaces=10000
 if unshare -U sh -c :; then
     is_user_ns_supported=yes
 fi
