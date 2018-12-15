@@ -140,7 +140,7 @@ Bond.PrimaryReselectPolicy,        config_parse_bond_primary_reselect,   0,     
 Bond.ResendIGMP,                   config_parse_unsigned,                0,                             offsetof(Bond, resend_igmp)
 Bond.PacketsPerSlave,              config_parse_unsigned,                0,                             offsetof(Bond, packets_per_slave)
 Bond.GratuitousARP,                config_parse_unsigned,                0,                             offsetof(Bond, num_grat_arp)
-Bond.AllSlavesActive,              config_parse_unsigned,                0,                             offsetof(Bond, all_slaves_active)
+Bond.AllSlavesActive,              config_parse_bool,                    0,                             offsetof(Bond, all_slaves_active)
 Bond.DynamicTransmitLoadBalancing, config_parse_tristate,                0,                             offsetof(Bond, tlb_dynamic_lb)
 Bond.MinLinks,                     config_parse_unsigned,                0,                             offsetof(Bond, min_links)
 Bond.MIIMonitorSec,                config_parse_sec,                     0,                             offsetof(Bond, miimon)
