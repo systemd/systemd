@@ -22,6 +22,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "resolve-private.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -347,9 +348,7 @@ fail:
         return 0; /* ignore errors, continue serving */
 }
 
-static int resolve_cb(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
-        Connection *c = userdata;
-
+static int resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, Connection *c) {
         assert(q);
         assert(c);
 
@@ -401,7 +400,7 @@ static int resolve_remote(Connection *c) {
         }
 
         log_debug("Looking up address info for %s:%s", node, service);
-        r = sd_resolve_getaddrinfo(c->context->resolve, &c->resolve_query, node, service, &hints, resolve_cb, c);
+        r = resolve_getaddrinfo(c->context->resolve, &c->resolve_query, node, service, &hints, resolve_handler, NULL, c);
         if (r < 0) {
                 log_error_errno(r, "Failed to resolve remote host: %m");
                 goto fail;
