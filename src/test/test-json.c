@@ -358,7 +358,7 @@ static void test_source(void) {
                "%s"
                "--- original end ---\n", data);
 
-        assert_se(f = fmemopen((void*) data, sizeof(data), "r"));
+        assert_se(f = fmemopen((void*) data, strlen(data), "r"));
 
         assert_se(json_parse_file(f, "waldo", &v, NULL, NULL) >= 0);
 
