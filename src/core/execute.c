@@ -2530,9 +2530,6 @@ static int setup_keyring(
          * on-demand behaviour is very appropriate for login users, but probably not so much for system services, where
          * UIDs are not necessarily specific to a service but reused (at least in the case of UID 0). */
 
-        if (!(p->flags & EXEC_NEW_KEYRING))
-                return 0;
-
         if (context->keyring_mode == EXEC_KEYRING_INHERIT)
                 return 0;
 
