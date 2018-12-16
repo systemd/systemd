@@ -96,7 +96,7 @@
 #   The list may contain a single item which must be marked with an
 #   asterisk.
 #
-# Local changes to the a non-default resolution of the mouse (e.g. through
+# Local changes to the non-default resolution of the mouse (e.g. through
 # third-party software) must not be entered into this file, use a local
 # hwdb instead.
 #
