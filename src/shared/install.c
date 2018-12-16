@@ -68,7 +68,7 @@ typedef struct {
         size_t n_rules;
 } Presets;
 
-static inline bool unit_file_install_info_has_rules(UnitFileInstallInfo *i) {
+static inline bool unit_file_install_info_has_rules(const UnitFileInstallInfo *i) {
         assert(i);
 
         return !strv_isempty(i->aliases) ||
@@ -76,7 +76,7 @@ static inline bool unit_file_install_info_has_rules(UnitFileInstallInfo *i) {
                !strv_isempty(i->required_by);
 }
 
-static inline bool unit_file_install_info_has_also(UnitFileInstallInfo *i) {
+static inline bool unit_file_install_info_has_also(const UnitFileInstallInfo *i) {
         assert(i);
 
         return !strv_isempty(i->also);
@@ -477,8 +477,10 @@ static int create_symlink(
         if (!dirname)
                 return -ENOMEM;
 
-        if (chroot_symlinks_same(paths->root_dir, dirname, dest, old_path))
+        if (chroot_symlinks_same(paths->root_dir, dirname, dest, old_path)) {
+                log_debug("Symlink %s → %s already exists", new_path, dest);
                 return 1;
+        }
 
         if (!force) {
                 unit_file_changes_add(changes, n_changes, -EEXIST, new_path, dest);
@@ -711,8 +713,9 @@ static int is_symlink_with_known_name(const UnitFileInstallInfo *i, const char *
 
 static int find_symlinks_fd(
                 const char *root_dir,
-                UnitFileInstallInfo *i,
+                const UnitFileInstallInfo *i,
                 bool match_aliases,
+                bool ignore_same_name,
                 int fd,
                 const char *path,
                 const char *config_path,
@@ -759,7 +762,7 @@ static int find_symlinks_fd(
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = find_symlinks_fd(root_dir, i, match_aliases, nfd,
+                        q = find_symlinks_fd(root_dir, i, match_aliases, ignore_same_name, nfd,
                                              p, config_path, same_name_link);
                         if (q > 0)
                                 return 1;
@@ -768,7 +771,7 @@ static int find_symlinks_fd(
 
                 } else if (de->d_type == DT_LNK) {
                         _cleanup_free_ char *p = NULL, *dest = NULL;
-                        bool found_path, found_dest, b = false;
+                        bool found_path = false, found_dest, b = false;
                         int q;
 
                         /* Acquire symlink name */
@@ -794,23 +797,20 @@ static int find_symlinks_fd(
                                 if (!x)
                                         return -ENOMEM;
 
-                                free(dest);
-                                dest = x;
+                                free_and_replace(dest, x);
                         }
 
-                        /* Check if the symlink itself matches what we
-                         * are looking for */
-                        if (path_is_absolute(i->name))
-                                found_path = path_equal(p, i->name);
-                        else
-                                found_path = streq(de->d_name, i->name);
+                        assert(unit_name_is_valid(i->name, UNIT_NAME_ANY));
+                        if (!ignore_same_name)
+                                /* Check if the symlink itself matches what we are looking for.
+                                 *
+                                 * If ignore_same_name is specified, we are in one of the directories which
+                                 * have lower priority than the unit file, and even if a file or symlink with
+                                 * this name was found, we should ignore it. */
+                                 found_path = streq(de->d_name, i->name);
 
-                        /* Check if what the symlink points to
-                         * matches what we are looking for */
-                        if (path_is_absolute(i->name))
-                                found_dest = path_equal(dest, i->name);
-                        else
-                                found_dest = streq(basename(dest), i->name);
+                        /* Check if what the symlink points to matches what we are looking for */
+                        found_dest = streq(basename(dest), i->name);
 
                         if (found_path && found_dest) {
                                 _cleanup_free_ char *t = NULL;
@@ -845,8 +845,9 @@ static int find_symlinks_fd(
 
 static int find_symlinks(
                 const char *root_dir,
-                UnitFileInstallInfo *i,
+                const UnitFileInstallInfo *i,
                 bool match_name,
+                bool ignore_same_name,
                 const char *config_path,
                 bool *same_name_link) {
 
@@ -864,29 +865,34 @@ static int find_symlinks(
         }
 
         /* This takes possession of fd and closes it */
-        return find_symlinks_fd(root_dir, i, match_name, fd,
+        return find_symlinks_fd(root_dir, i, match_name, ignore_same_name, fd,
                                 config_path, config_path, same_name_link);
 }
 
 static int find_symlinks_in_scope(
                 UnitFileScope scope,
                 const LookupPaths *paths,
-                UnitFileInstallInfo *i,
+                const UnitFileInstallInfo *i,
                 bool match_name,
                 UnitFileState *state) {
 
         bool same_name_link_runtime = false, same_name_link_config = false;
         bool enabled_in_runtime = false, enabled_at_all = false;
+        bool ignore_same_name = false;
         char **p;
         int r;
 
         assert(paths);
         assert(i);
 
+        /* As we iterate over the list of search paths in paths->search_path, we may encounter "same name"
+         * symlinks. The ones which are "below" (i.e. have lower priority) than the unit file itself are
+         * efectively masked, so we should ignore them. */
+
         STRV_FOREACH(p, paths->search_path)  {
                 bool same_name_link = false;
 
-                r = find_symlinks(paths->root_dir, i, match_name, *p, &same_name_link);
+                r = find_symlinks(paths->root_dir, i, match_name, ignore_same_name, *p, &same_name_link);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -923,6 +929,11 @@ static int find_symlinks_in_scope(
                                         same_name_link_runtime = true;
                         }
                 }
+
+                /* Check if next iteration will be "below" the unit file (either a regular file
+                 * or a symlink), and hence should be ignored */
+                if (!ignore_same_name && path_startswith(i->path, *p))
+                        ignore_same_name = true;
         }
 
         if (enabled_in_runtime) {
@@ -987,7 +998,7 @@ static UnitFileInstallInfo *install_info_find(InstallContext *c, const char *nam
 }
 
 static int install_info_may_process(
-                UnitFileInstallInfo *i,
+                const UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 UnitFileChange **changes,
                 size_t *n_changes) {
@@ -2665,7 +2676,11 @@ int unit_file_lookup_state(
         r = install_info_discover(scope, &c, paths, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                   &i, NULL, NULL);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to discover unit %s: %m", name);
+
+        assert(IN_SET(i->type, UNIT_FILE_TYPE_REGULAR, UNIT_FILE_TYPE_MASKED));
+        log_debug("Found unit %s at %s (%s)", name, strna(i->path),
+                  i->type == UNIT_FILE_TYPE_REGULAR ? "regular file" : "mask");
 
         /* Shortcut things, if the caller just wants to know if this unit exists. */
         if (!ret)

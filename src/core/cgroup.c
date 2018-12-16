@@ -1485,7 +1485,7 @@ static const char *migrate_callback(CGroupMask mask, void *userdata) {
         return unit_get_realized_cgroup_path(userdata, mask);
 }
 
-char *unit_default_cgroup_path(Unit *u) {
+char *unit_default_cgroup_path(const Unit *u) {
         _cleanup_free_ char *escaped = NULL, *slice = NULL;
         int r;
 

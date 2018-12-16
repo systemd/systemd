@@ -180,8 +180,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_include_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
-static int specifier_machine_id_safe(char specifier, void *data, void *userdata, char **ret);
-static int specifier_directory(char specifier, void *data, void *userdata, char **ret);
+static int specifier_machine_id_safe(char specifier, const void *data, const void *userdata, char **ret);
+static int specifier_directory(char specifier, const void *data, const void *userdata, char **ret);
 
 static const Specifier specifier_table[] = {
         { 'm', specifier_machine_id_safe, NULL },
@@ -204,7 +204,7 @@ static const Specifier specifier_table[] = {
         {}
 };
 
-static int specifier_machine_id_safe(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_machine_id_safe(char specifier, const void *data, const void *userdata, char **ret) {
         int r;
 
         /* If /etc/machine_id is missing or empty (e.g. in a chroot environment)
@@ -218,7 +218,7 @@ static int specifier_machine_id_safe(char specifier, void *data, void *userdata,
         return r;
 }
 
-static int specifier_directory(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_directory(char specifier, const void *data, const void *userdata, char **ret) {
         struct table_entry {
                 uint64_t type;
                 const char *suffix;

@@ -648,7 +648,7 @@ int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
 
-bool unit_has_name(Unit *u, const char *name);
+bool unit_has_name(const Unit *u, const char *name);
 
 UnitActiveState unit_active_state(Unit *u);
 

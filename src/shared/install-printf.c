@@ -14,7 +14,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-static int specifier_prefix_and_instance(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_prefix_and_instance(char specifier, const void *data, const void *userdata, char **ret) {
         const UnitFileInstallInfo *i = userdata;
         _cleanup_free_ char *prefix = NULL;
         int r;
@@ -38,7 +38,7 @@ static int specifier_prefix_and_instance(char specifier, void *data, void *userd
         return 0;
 }
 
-static int specifier_name(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_name(char specifier, const void *data, const void *userdata, char **ret) {
         const UnitFileInstallInfo *i = userdata;
         char *ans;
 
@@ -54,7 +54,7 @@ static int specifier_name(char specifier, void *data, void *userdata, char **ret
         return 0;
 }
 
-static int specifier_prefix(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_prefix(char specifier, const void *data, const void *userdata, char **ret) {
         const UnitFileInstallInfo *i = userdata;
 
         assert(i);
@@ -62,7 +62,7 @@ static int specifier_prefix(char specifier, void *data, void *userdata, char **r
         return unit_name_to_prefix(i->name, ret);
 }
 
-static int specifier_instance(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_instance(char specifier, const void *data, const void *userdata, char **ret) {
         const UnitFileInstallInfo *i = userdata;
         char *instance;
         int r;
@@ -83,7 +83,7 @@ static int specifier_instance(char specifier, void *data, void *userdata, char *
         return 0;
 }
 
-static int specifier_last_component(char specifier, void *data, void *userdata, char **ret) {
+static int specifier_last_component(char specifier, const void *data, const void *userdata, char **ret) {
         _cleanup_free_ char *prefix = NULL;
         char *dash;
         int r;
@@ -104,8 +104,7 @@ static int specifier_last_component(char specifier, void *data, void *userdata, 
         return 0;
 }
 
-int install_full_printf(UnitFileInstallInfo *i, const char *format, char **ret) {
-
+int install_full_printf(const UnitFileInstallInfo *i, const char *format, char **ret) {
         /* This is similar to unit_full_printf() but does not support
          * anything path-related.
          *

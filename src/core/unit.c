@@ -132,7 +132,7 @@ int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
         return r;
 }
 
-bool unit_has_name(Unit *u, const char *name) {
+bool unit_has_name(const Unit *u, const char *name) {
         assert(u);
         assert(name);
 
