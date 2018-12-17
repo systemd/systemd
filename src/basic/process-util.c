@@ -877,9 +877,9 @@ int kill_and_sigcont(pid_t pid, int sig) {
 int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         char *value = NULL;
-        bool done = false;
         const char *path;
-        size_t l;
+        size_t l, sum = 0;
+        int r;
 
         assert(pid >= 0);
         assert(field);
@@ -902,6 +902,9 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
                 return 1;
         }
 
+        if (!pid_is_valid(pid))
+                return -EINVAL;
+
         path = procfs_file_alloca(pid, "environ");
 
         f = fopen(path, "re");
@@ -915,24 +918,19 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         l = strlen(field);
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
 
-        do {
-                char line[LINE_MAX];
-                size_t i;
+                if (sum > ENVIRONMENT_BLOCK_MAX) /* Give up searching eventually */
+                        return -ENOBUFS;
 
-                for (i = 0; i < sizeof(line)-1; i++) {
-                        int c;
+                r = read_nul_string(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)  /* EOF */
+                        break;
 
-                        c = getc(f);
-                        if (_unlikely_(c == EOF)) {
-                                done = true;
-                                break;
-                        } else if (c == 0)
-                                break;
-
-                        line[i] = c;
-                }
-                line[i] = 0;
+                sum += r;
 
                 if (strneq(line, field, l) && line[l] == '=') {
                         value = strdup(line + l + 1);
@@ -942,8 +940,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
                         *ret = value;
                         return 1;
                 }
-
-        } while (!done);
+        }
 
         *ret = NULL;
         return 0;
