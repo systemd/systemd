@@ -74,7 +74,7 @@ static int cleanup_fake_filesystems(const char *runtime_dir) {
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(udev_rules_freep) struct udev_rules *rules = NULL;
+        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         FILE *f = NULL;
 
@@ -99,9 +99,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size != 0)
                 assert_se(fwrite(data, size, 1, f) == 1);
         assert_se(fclose(f) == 0);
-        rules = udev_rules_new(RESOLVE_NAME_EARLY);
+
+        assert_se(udev_rules_new(&rules, RESOLVE_NAME_EARLY) == 0);
 
         assert_se(cleanup_fake_filesystems(runtime_dir) >= 0);
-
         return 0;
 }

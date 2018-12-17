@@ -86,8 +86,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int test_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(udev_rules_freep) struct udev_rules *rules = NULL;
-        _cleanup_(udev_event_freep) struct udev_event *event = NULL;
+        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
+        _cleanup_(udev_event_freep) UdevEvent *event = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         const char *cmd, *key, *value;
         sigset_t mask, sigmask_orig;
@@ -110,10 +110,9 @@ int test_main(int argc, char *argv[], void *userdata) {
 
         udev_builtin_init();
 
-        rules = udev_rules_new(arg_resolve_name_timing);
-        if (!rules) {
-                log_error("Failed to read udev rules.");
-                r = -ENOMEM;
+        r = udev_rules_new(&rules, arg_resolve_name_timing);
+        if (r < 0) {
+                log_error_errno(r, "Failed to read udev rules: %m");
                 goto out;
         }
 

@@ -55,8 +55,8 @@ static int fake_filesystems(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(udev_rules_freep) struct udev_rules *rules = NULL;
-        _cleanup_(udev_event_freep) struct udev_event *event = NULL;
+        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
+        _cleanup_(udev_event_freep) UdevEvent *event = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         const char *devpath, *devname, *action;
         int r;
@@ -87,7 +87,7 @@ static int run(int argc, char *argv[]) {
         action = argv[1];
         devpath = argv[2];
 
-        rules = udev_rules_new(RESOLVE_NAME_EARLY);
+        assert_se(udev_rules_new(&rules, RESOLVE_NAME_EARLY) == 0);
 
         const char *syspath = strjoina("/sys", devpath);
         r = device_new_from_synthetic_event(&dev, syspath, action);

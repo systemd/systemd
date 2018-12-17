@@ -81,7 +81,7 @@ typedef struct Manager {
         const char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
 
-        struct udev_rules *rules;
+        UdevRules *rules;
         Hashmap *properties;
 
         sd_netlink *rtnl;
@@ -394,7 +394,7 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
 }
 
 static int worker_process_device(Manager *manager, sd_device *dev) {
-        _cleanup_(udev_event_freep) struct udev_event *udev_event = NULL;
+        _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
         const char *seqnum;
         int r;
@@ -890,9 +890,11 @@ static void event_queue_start(Manager *manager) {
         udev_builtin_init();
 
         if (!manager->rules) {
-                manager->rules = udev_rules_new(arg_resolve_name_timing);
-                if (!manager->rules)
+                r = udev_rules_new(&manager->rules, arg_resolve_name_timing);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read udev rules: %m");
                         return;
+                }
         }
 
         LIST_FOREACH(event, event, manager->events) {
@@ -1608,9 +1610,9 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         udev_builtin_init();
 
-        manager->rules = udev_rules_new(arg_resolve_name_timing);
+        r = udev_rules_new(&manager->rules, arg_resolve_name_timing);
         if (!manager->rules)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to read udev rules");
+                return log_error_errno(r, "Failed to read udev rules: %m");
 
         manager->ctrl = udev_ctrl_new_from_fd(fd_ctrl);
         if (!manager->ctrl)
