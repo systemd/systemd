@@ -731,6 +731,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
 int read_line(FILE *f, size_t limit, char **ret) {
         size_t n = 0, allocated = 0, count = 0;
         _cleanup_free_ char *buffer = NULL;
+        int r;
 
         assert(f);
 
@@ -770,7 +771,7 @@ int read_line(FILE *f, size_t limit, char **ret) {
 
                 for (;;) {
                         EndOfLineMarker eol;
-                        int c;
+                        char c;
 
                         if (n >= limit)
                                 return -ENOBUFS;
@@ -778,16 +779,11 @@ int read_line(FILE *f, size_t limit, char **ret) {
                         if (count >= INT_MAX) /* We couldn't return the counter anymore as "int", hence refuse this */
                                 return -ENOBUFS;
 
-                        errno = 0;
-                        c = fgetc_unlocked(f);
-                        if (c == EOF) {
-                                /* if we read an error, and have no data to return, then propagate the error */
-                                if (ferror_unlocked(f) && n == 0)
-                                        return errno > 0 ? -errno : -EIO;
-
-                                /* EOF is line ending too. */
+                        r = safe_fgetc(f, &c);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
                                 break;
-                        }
 
                         count++;
 
@@ -813,7 +809,7 @@ int read_line(FILE *f, size_t limit, char **ret) {
                                 if (!GREEDY_REALLOC(buffer, allocated, n + 2))
                                         return -ENOMEM;
 
-                                buffer[n] = (char) c;
+                                buffer[n] = c;
                         }
 
                         n++;
