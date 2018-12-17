@@ -80,6 +80,8 @@ static int property_get_current_server_address(
         if (!a)
                 return sd_bus_message_append(reply, "(iay)", AF_UNSPEC, 0);
 
+        assert(IN_SET(a->sockaddr.sa.sa_family, AF_INET, AF_INET6));
+
         r = sd_bus_message_open_container(reply, 'r', "iay");
         if (r < 0)
                 return r;
@@ -88,7 +90,9 @@ static int property_get_current_server_address(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append_array(reply, 'y', &a->sockaddr.in.sin_addr, FAMILY_ADDRESS_SIZE(a->sockaddr.sa.sa_family));
+        r = sd_bus_message_append_array(reply, 'y',
+                                        a->sockaddr.sa.sa_family == AF_INET ? (void*) &a->sockaddr.in.sin_addr : (void*) &a->sockaddr.in6.sin6_addr,
+                                        FAMILY_ADDRESS_SIZE(a->sockaddr.sa.sa_family));
         if (r < 0)
                 return r;
 
