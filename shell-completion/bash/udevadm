@@ -30,61 +30,199 @@ __get_all_sysdevs() {
         printf '%s\n' "${devs[@]%/}"
 }
 
-_udevadm() {
-        local i verb comps
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local OPTS='-h --help --version --debug'
+__get_all_devs() {
+        local i
+        for i in /dev/* /dev/*/*; do
+                echo $i
+        done
+}
 
-        local verbs=(info trigger settle control monitor hwdb test-builtin test)
+__get_all_device_units() {
+        systemctl list-units -t device --full --no-legend --no-pager 2>/dev/null | \
+                { while read -r a b; do echo "$a"; done; }
+}
+
+_udevadm() {
+        local i verb comps builtin
+        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+        local -A OPTS=(
+                [COMMON]='-h --help -V --version'
+                [DEBUG]='-d --debug'
+                [INFO_STANDALONE]='-r --root -a --attribute-walk -x --export -e --export-db -c --cleanup-db'
+                [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file'
+                [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -w --settle'
+                [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
+                               -a --attr-match -A --attr-nomatch -p --property-match
+                               -g --tag-match -y --sysname-match --name-match -b --parent-match'
+                [SETTLE]='-t --timeout -E --exit-if-exists'
+                [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload'
+                [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout'
+                [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'
+                [MONITOR_ARG]='-s --subsystem-match -t --tag-match'
+                [TEST]='-a --action -N --resolve-names'
+        )
+
+        local verbs=(info trigger settle control monitor test-builtin test)
+        local builtins=(blkid btrfs hwdb input_id keyboard kmod net_id net_setup_link path_id usb_id uaccess)
 
         for ((i=0; i < COMP_CWORD; i++)); do
-                if __contains_word "${COMP_WORDS[i]}" "${verbs[@]}" &&
-                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                if __contains_word "${COMP_WORDS[i]}" "${verbs[@]}"; then
                         verb=${COMP_WORDS[i]}
                         break
                 fi
         done
 
         if [[ -z $verb ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]} ${verbs[*]}' -- "$cur") )
+                if [[ "$cur" = -* ]]; then
+                        COMPREPLY=( $(compgen -W '${OPTS[COMMON]} ${OPTS[DEBUG]}' -- "$cur") )
+                else
+                        COMPREPLY=( $(compgen -W '${verbs[*]}' -- "$cur") )
+                fi
                 return 0
         fi
 
         case $verb in
                 'info')
+                        if __contains_word "$prev" ${OPTS[INFO_ARG]}; then
+                                case $prev in
+                                        -q|--query)
+                                                comps='name symlink path property all'
+                                                ;;
+                                        -p|--path)
+                                                comps=$( __get_all_sysdevs )
+                                                local IFS=$'\n'
+                                                ;;
+                                        -n|--name)
+                                                comps=$( __get_all_devs )
+                                                ;;
+                                        *)
+                                                comps=''
+                                                ;;
+                                esac
+                                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                                return 0
+                        fi
+
                         if [[ $cur = -* ]]; then
-                                comps='--help --query= --path= --name= --root --attribute-walk --export-db --cleanup-db'
+                                comps="${OPTS[COMMON]} ${OPTS[INFO_STANDALONE]} ${OPTS[INFO_ARG]}"
                         else
-                                comps=$( __get_all_sysdevs )
+                                comps=$( __get_all_sysdevs; __get_all_device_units )
+                                local IFS=$'\n'
                         fi
                         ;;
                 'trigger')
-                        comps='--help --verbose --dry-run --type= --action= --subsystem-match=
-                               --subsystem-nomatch= --attr-match= --attr-nomatch= --property-match=
-                               --tag-match= --sysname-match= --parent-match='
+                        if __contains_word "$prev" ${OPTS[TRIGGER_ARG]}; then
+                                case $prev in
+                                        -t|--type)
+                                                comps='devices subsystems'
+                                                ;;
+                                        -c|--action)
+                                                comps='add change remove bind unbind'
+                                                ;;
+                                        -y|--sysname-match|-b|--parent-match)
+                                                comps=$( __get_all_sysdevs )
+                                                local IFS=$'\n'
+                                                ;;
+                                        --name-match)
+                                                comps=$( __get_all_devs )
+                                                ;;
+                                        *)
+                                                comps=''
+                                                ;;
+                                esac
+                                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                                return 0
+                        fi
+
+                        if [[ $cur = -* ]]; then
+                                comps="${OPTS[COMMON]} ${OPTS[TRIGGER_STANDALONE]} ${OPTS[TRIGGER_ARG]}"
+                        else
+                                comps=$( __get_all_sysdevs; __get_all_device_units )
+                                local IFS=$'\n'
+                        fi
                         ;;
                 'settle')
-                        comps='--help --timeout= --seq-start= --seq-end= --exit-if-exists= --quiet'
+                        if __contains_word "$prev" ${OPTS[SETTLE]}; then
+                                case $prev in
+                                        -E|--exit-if-exists)
+                                                comps=$( compgen -A file -- "$cur" )
+                                                ;;
+                                        *)
+                                                comps=''
+                                                ;;
+                                esac
+                                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                                return 0
+                        fi
+
+                        comps="${OPTS[COMMON]} ${OPTS[SETTLE]}"
                         ;;
                 'control')
-                        comps='--help --exit --log-priority= --stop-exec-queue --start-exec-queue
-                               --reload --property= --children-max= --timeout='
+                        if __contains_word "$prev" ${OPTS[CONTROL_ARG]}; then
+                                case $prev in
+                                        -l|--log-priority)
+                                                comps='alert crit debug emerg err info notice warning'
+                                                ;;
+                                        *)
+                                                comps=''
+                                                ;;
+                                esac
+                                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                                return 0
+                        fi
+
+                        comps="${OPTS[COMMON]} ${OPTS[CONTROL_STANDALONE]} ${OPTS[CONTROL_ARG]}"
                         ;;
                 'monitor')
-                        comps='--help --kernel --udev --property --subsystem-match= --tag-match='
-                        ;;
-                'hwdb')
-                        comps='--help --update --test='
+                        if __contains_word "$prev" ${OPTS[MONITOR_ARG]}; then
+                                case $prev in
+                                        *)
+                                                comps=''
+                                                ;;
+                                esac
+                                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                                return 0
+                        fi
+
+                        comps="${OPTS[COMMON]} ${OPTS[MONITOR_STANDALONE]} ${OPTS[MONITOR_ARG]}"
                         ;;
                 'test')
+                        if __contains_word "$prev" ${OPTS[TEST]}; then
+                                case $prev in
+                                        -a|--action)
+                                                comps='add change remove bind unbind'
+                                                ;;
+                                        -N|--resolve-names)
+                                                comps='early late never'
+                                                ;;
+                                esac
+                                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                                return 0
+                        fi
+
                         if [[ $cur = -* ]]; then
-                                comps='--help --action='
+                                comps="${OPTS[COMMON]} ${OPTS[TEST]}"
                         else
                                 comps=$( __get_all_sysdevs )
+                                local IFS=$'\n'
                         fi
                         ;;
                 'test-builtin')
-                        comps='blkid btrfs hwdb input_id keyboard kmod net_id net_setup_link path_id usb_id uaccess'
+                        for ((i=0; i < COMP_CWORD; i++)); do
+                                if __contains_word "${COMP_WORDS[i]}" "${builtins[@]}"; then
+                                        builtin=${COMP_WORDS[i]}
+                                        break
+                                fi
+                        done
+
+                        if [[ -z $builtin ]]; then
+                                comps="${builtins[@]}"
+                        elif [[ $cur = -* ]]; then
+                                comps="${OPTS[COMMON]}"
+                        else
+                                comps=$( __get_all_sysdevs )
+                                local IFS=$'\n'
+                        fi
                         ;;
                 *)
                         comps=${VERBS[*]}
