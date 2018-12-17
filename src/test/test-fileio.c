@@ -748,6 +748,40 @@ static void test_read_line4(void) {
         }
 }
 
+static void test_read_nul_string(void) {
+        static const char test[] = "string nr. 1\0"
+                "string nr. 2\n\0"
+                "empty string follows\0"
+                "\0"
+                "final string\n is empty\0"
+                "\0";
+
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *s = NULL;
+
+        assert_se(f = fmemopen((void*) test, sizeof(test)-1, "r"));
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 13 && streq_ptr(s, "string nr. 1"));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 14 && streq_ptr(s, "string nr. 2\n"));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 21 && streq_ptr(s, "empty string follows"));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 1 && streq_ptr(s, ""));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 23 && streq_ptr(s, "final string\n is empty"));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 1 && streq_ptr(s, ""));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 0 && streq_ptr(s, ""));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -771,6 +805,7 @@ int main(int argc, char *argv[]) {
         test_read_line2();
         test_read_line3();
         test_read_line4();
+        test_read_nul_string();
 
         return 0;
 }
