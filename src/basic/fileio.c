@@ -746,10 +746,8 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                         r = safe_fgetc(f, &c);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
+                        if (r == 0) /* EOF is definitely EOL */
                                 break;
-
-                        count++;
 
                         eol = categorize_eol(c, flags);
 
@@ -760,9 +758,10 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                                  * EOL marker has been seen right before? In either of these three cases we are
                                  * done. But first, let's put this character back in the queue. */
                                 assert_se(ungetc(c, f) != EOF);
-                                count--;
                                 break;
                         }
+
+                        count++;
 
                         if (eol != EOL_NONE) {
                                 previous_eol |= eol;
