@@ -9,6 +9,7 @@ libmachine_core_sources = files('''
         machine.c
         machine.h
         machined-dbus.c
+        machined-core.c
         machine-dbus.c
         machine-dbus.h
         image-dbus.c
