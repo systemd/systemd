@@ -25,8 +25,8 @@ __contains_word () {
 }
 
 __get_interfaces(){
-        { cd /sys/class/net && echo *; } | \
-        while read -d' ' -r name; do
+        local name
+        for name in $(cd /sys/class/net && ls); do
                 [[ "$name" != "lo" ]] && echo "$name"
         done
 }

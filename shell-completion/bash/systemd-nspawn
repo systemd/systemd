@@ -44,9 +44,9 @@ __get_env() {
         env | { while read a; do echo " ${a%%=*}"; done; };
 }
 
-__get_interfaces() {
-        { cd /sys/class/net && echo *; } | \
-        while read -d' ' -r name; do
+__get_interfaces(){
+        local name
+        for name in $(cd /sys/class/net && ls); do
                 [[ "$name" != "lo" ]] && echo "$name"
         done
 }
