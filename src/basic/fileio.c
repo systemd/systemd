@@ -667,46 +667,6 @@ int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space)
         return fputs(s, f);
 }
 
-int read_nul_string(FILE *f, char **ret) {
-        _cleanup_free_ char *x = NULL;
-        size_t allocated = 0, n = 0;
-
-        assert(f);
-        assert(ret);
-
-        /* Reads a NUL-terminated string from the specified file. */
-
-        for (;;) {
-                int c;
-
-                if (!GREEDY_REALLOC(x, allocated, n+2))
-                        return -ENOMEM;
-
-                c = fgetc(f);
-                if (c == 0) /* Terminate at NUL byte */
-                        break;
-                if (c == EOF) {
-                        if (ferror(f))
-                                return -errno;
-                        break; /* Terminate at EOF */
-                }
-
-                x[n++] = (char) c;
-        }
-
-        if (x)
-                x[n] = 0;
-        else {
-                x = new0(char, 1);
-                if (!x)
-                        return -ENOMEM;
-        }
-
-        *ret = TAKE_PTR(x);
-
-        return 0;
-}
-
 /* A bitmask of the EOL markers we know */
 typedef enum EndOfLineMarker {
         EOL_NONE     = 0,
@@ -715,11 +675,15 @@ typedef enum EndOfLineMarker {
         EOL_THIRTEEN = 1 << 2,  /* \r (aka CR)  */
 } EndOfLineMarker;
 
-static EndOfLineMarker categorize_eol(char c) {
-        if (c == '\n')
-                return EOL_TEN;
-        if (c == '\r')
-                return EOL_THIRTEEN;
+static EndOfLineMarker categorize_eol(char c, ReadLineFlags flags) {
+
+        if (!IN_SET(flags, READ_LINE_ONLY_NUL)) {
+                if (c == '\n')
+                        return EOL_TEN;
+                if (c == '\r')
+                        return EOL_THIRTEEN;
+        }
+
         if (c == '\0')
                 return EOL_ZERO;
 
@@ -728,7 +692,7 @@ static EndOfLineMarker categorize_eol(char c) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
 
-int read_line(FILE *f, size_t limit, char **ret) {
+int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
         size_t n = 0, allocated = 0, count = 0;
         _cleanup_free_ char *buffer = NULL;
         int r;
@@ -787,7 +751,7 @@ int read_line(FILE *f, size_t limit, char **ret) {
 
                         count++;
 
-                        eol = categorize_eol(c);
+                        eol = categorize_eol(c, flags);
 
                         if (FLAGS_SET(previous_eol, EOL_ZERO) ||
                             (eol == EOL_NONE && previous_eol != EOL_NONE) ||

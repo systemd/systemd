@@ -637,8 +637,8 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
                 if (success) /* The resulting temporary file could not be updated, ignore it. */
                         return ret;
 
-                r = read_nul_string(f, &name);
-                if (r < 0 || isempty(name)) /* Same here... */
+                r = read_nul_string(f, LONG_LINE_MAX, &name);
+                if (r <= 0) /* Same here... */
                         return ret;
 
                 return sd_bus_error_set_errnof(error, ret, "Failed to remove image %s: %m", name);
@@ -660,10 +660,10 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
                 _cleanup_free_ char *name = NULL;
                 uint64_t size;
 
-                r = read_nul_string(f, &name);
+                r = read_nul_string(f, LONG_LINE_MAX, &name);
                 if (r < 0)
                         return r;
-                if (isempty(name)) /* reached the end */
+                if (r == 0) /* reached the end */
                         break;
 
                 errno = 0;
