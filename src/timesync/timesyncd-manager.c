@@ -23,6 +23,7 @@
 #include "missing.h"
 #include "network-util.h"
 #include "ratelimit.h"
+#include "resolve-private.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -724,8 +725,7 @@ void manager_set_server_address(Manager *m, ServerAddress *a) {
         }
 }
 
-static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
-        Manager *m = userdata;
+static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, Manager *m) {
         int r;
 
         assert(q);
@@ -873,7 +873,7 @@ int manager_connect(Manager *m) {
 
                 log_debug("Resolving %s...", m->current_server_name->string);
 
-                r = sd_resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, m);
+                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create resolver: %m");
 
