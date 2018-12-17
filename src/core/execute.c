@@ -3025,6 +3025,24 @@ static int exec_child(
         if (socket_fd >= 0)
                 (void) fd_nonblock(socket_fd, false);
 
+        /* Journald will try to look-up our cgroup in order to populate _SYSTEMD_CGROUP and _SYSTEMD_UNIT fields.
+         * Hence we need to migrate to the target cgroup from init.scope before connecting to journald */
+        if (params->cgroup_path) {
+                _cleanup_free_ char *p = NULL;
+
+                r = exec_parameters_get_cgroup_path(params, &p);
+                if (r < 0) {
+                        *exit_status = EXIT_CGROUP;
+                        return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
+                }
+
+                r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
+                if (r < 0) {
+                        *exit_status = EXIT_CGROUP;
+                        return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", p);
+                }
+        }
+
         r = setup_input(context, params, socket_fd, named_iofds);
         if (r < 0) {
                 *exit_status = EXIT_STDIN;
@@ -3041,22 +3059,6 @@ static int exec_child(
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return log_unit_error_errno(unit, r, "Failed to set up standard error output: %m");
-        }
-
-        if (params->cgroup_path) {
-                _cleanup_free_ char *p = NULL;
-
-                r = exec_parameters_get_cgroup_path(params, &p);
-                if (r < 0) {
-                        *exit_status = EXIT_CGROUP;
-                        return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
-                }
-
-                r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
-                if (r < 0) {
-                        *exit_status = EXIT_CGROUP;
-                        return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", p);
-                }
         }
 
         if (context->oom_score_adjust_set) {
