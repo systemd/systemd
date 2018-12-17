@@ -307,6 +307,12 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ALL_SLAVES_ACTIVE attribute: %m");
 
+        if (b->tlb_dynamic_lb >= 0) {
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_TLB_DYNAMIC_LB, b->tlb_dynamic_lb);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_TLB_DYNAMIC_LB attribute: %m");
+        }
+
         if (b->arp_interval > 0)  {
                 if (b->n_arp_ip_targets > 0) {
 
@@ -534,6 +540,7 @@ static void bond_init(NetDev *netdev) {
         b->primary_reselect = _NETDEV_BOND_PRIMARY_RESELECT_INVALID;
 
         b->all_slaves_active = false;
+        b->tlb_dynamic_lb = -1;
 
         b->resend_igmp = RESEND_IGMP_DEFAULT;
         b->packets_per_slave = PACKETS_PER_SLAVE_DEFAULT;

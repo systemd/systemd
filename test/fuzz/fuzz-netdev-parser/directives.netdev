@@ -129,6 +129,7 @@ MinLinks=
 LACPTransmitRate=
 ARPIntervalSec=
 AllSlavesActive=
+DynamicTransmitLoadBalancing=
 [FooOverUDP]
 Protocol=
 Port=

@@ -99,6 +99,8 @@ typedef struct Bond {
         BondArpAllTargets arp_all_targets;
         BondPrimaryReselect primary_reselect;
 
+        int tlb_dynamic_lb;
+
         bool all_slaves_active;
 
         unsigned resend_igmp;
