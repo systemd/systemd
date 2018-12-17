@@ -16,8 +16,8 @@ typedef struct LinkAddress LinkAddress;
 #include "resolved-dns-server.h"
 #include "resolved-manager.h"
 
-#define LINK_SEARCH_DOMAINS_MAX 32
-#define LINK_DNS_SERVERS_MAX 32
+#define LINK_SEARCH_DOMAINS_MAX 256
+#define LINK_DNS_SERVERS_MAX 256
 
 struct LinkAddress {
         Link *link;
