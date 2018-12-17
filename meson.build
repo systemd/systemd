@@ -3125,7 +3125,7 @@ if conf.get('ENABLE_EFI') == 1
         if have_gnu_efi
                 status += [
                         'EFI machine type:                  @0@'.format(EFI_MACHINE_TYPE_NAME),
-                        'EFI CC                             @0@'.format(efi_cc),
+                        'EFI CC                             @0@'.format(' '.join(efi_cc)),
                         'EFI lib directory:                 @0@'.format(efi_libdir),
                         'EFI lds directory:                 @0@'.format(efi_ldsdir),
                         'EFI include directory:             @0@'.format(efi_incdir)]
