@@ -93,6 +93,12 @@ _public_ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, siz
         assert_return(m, -EINVAL);
         assert_return((size_t) n == size, -EINVAL);
 
+        if (m->bound)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "sd-device-monitor: Socket fd is already bound. "
+                                       "It may be dangerous to change buffer size. "
+                                       "Refusing to change buffer size.");
+
         if (setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUF, n) < 0) {
                 r = setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUFFORCE, n);
                 if (r < 0)
@@ -211,11 +217,9 @@ _public_ int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_han
                         return r;
         }
 
-        if (!m->bound) {
-                r = device_monitor_enable_receiving(m);
-                if (r < 0)
-                        return r;
-        }
+        r = device_monitor_enable_receiving(m);
+        if (r < 0)
+                return r;
 
         m->callback = callback;
         m->userdata = userdata;
@@ -277,20 +281,20 @@ int device_monitor_enable_receiving(sd_device_monitor *m) {
                 return log_debug_errno(r, "sd-device-monitor: Failed to update filter: %m");
 
         if (!m->bound) {
+                /* enable receiving of sender credentials */
+                r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
+                if (r < 0)
+                        return log_debug_errno(r, "sd-device-monitor: Failed to set socket option SO_PASSCRED: %m");
+
                 if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
                         return log_debug_errno(errno, "sd-device-monitor: Failed to bind monitoring socket: %m");
 
                 m->bound = true;
+
+                r = monitor_set_nl_address(m);
+                if (r < 0)
+                        return log_debug_errno(r, "sd-device-monitor: Failed to set address: %m");
         }
-
-        r = monitor_set_nl_address(m);
-        if (r < 0)
-                return log_debug_errno(r, "sd-device-monitor: Failed to set address: %m");
-
-        /* enable receiving of sender credentials */
-        r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return log_debug_errno(r, "sd-device-monitor: Failed to set socket option SO_PASSCRED: %m");
 
         return 0;
 }
