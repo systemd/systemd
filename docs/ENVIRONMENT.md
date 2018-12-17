@@ -91,6 +91,8 @@ systemd-logind:
   hibernation is available even if the swap devices do not provide enough room
   for it.
 
+systemd-udevd:
+
 * `$NET_NAMING_SCHEME=` – if set, takes a network naming scheme (i.e. one of
   "v238", "v239", "v240"…, or the special value "latest") as parameter. If
   specified udev's net_id builtin will follow the specified naming scheme when
