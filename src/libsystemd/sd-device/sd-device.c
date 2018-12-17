@@ -22,6 +22,7 @@
 #include "set.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
@@ -498,8 +499,6 @@ int device_read_uevent_file(sd_device *device) {
         if (device->uevent_loaded || device->sealed)
                 return 0;
 
-        device->uevent_loaded = true;
-
         r = sd_device_get_syspath(device, &syspath);
         if (r < 0)
                 return r;
@@ -507,14 +506,18 @@ int device_read_uevent_file(sd_device *device) {
         path = strjoina(syspath, "/uevent");
 
         r = read_full_file(path, &uevent, &uevent_len);
-        if (r == -EACCES)
+        if (r == -EACCES) {
                 /* empty uevent files may be write-only */
+                device->uevent_loaded = true;
                 return 0;
-        else if (r == -ENOENT)
+        }
+        if (r == -ENOENT)
                 /* some devices may not have uevent files, see set_syspath() */
                 return 0;
-        else if (r < 0)
+        if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file '%s': %m", path);
+
+        device->uevent_loaded = true;
 
         for (i = 0; i < uevent_len; i++)
                 switch (state) {
@@ -1147,23 +1150,19 @@ static int device_add_property_internal_from_string(sd_device *device, const cha
         return device_add_property_internal(device, key, value);
 }
 
-int device_set_usec_initialized(sd_device *device, const char *initialized) {
-        uint64_t usec_initialized;
+int device_set_usec_initialized(sd_device *device, usec_t when) {
+        char s[DECIMAL_STR_MAX(usec_t)];
         int r;
 
         assert(device);
-        assert(initialized);
 
-        r = safe_atou64(initialized, &usec_initialized);
+        xsprintf(s, USEC_FMT, when);
+
+        r = device_add_property_internal(device, "USEC_INITIALIZED", s);
         if (r < 0)
                 return r;
 
-        r = device_add_property_internal(device, "USEC_INITIALIZED", initialized);
-        if (r < 0)
-                return r;
-
-        device->usec_initialized = usec_initialized;
-
+        device->usec_initialized = when;
         return 0;
 }
 
@@ -1194,12 +1193,19 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
                         return r;
 
                 break;
-        case 'I':
-                r = device_set_usec_initialized(device, value);
+        case 'I': {
+                usec_t t;
+
+                r = safe_atou64(value, &t);
+                if (r < 0)
+                        return r;
+
+                r = device_set_usec_initialized(device, t);
                 if (r < 0)
                         return r;
 
                 break;
+        }
         case 'L':
                 r = safe_atoi(value, &device->devlink_priority);
                 if (r < 0)
@@ -1281,7 +1287,7 @@ int device_get_id_filename(sd_device *device, const char **ret) {
         return 0;
 }
 
-int device_read_db_aux(sd_device *device, bool force) {
+int device_read_db_internal(sd_device *device, bool force) {
         _cleanup_free_ char *db = NULL;
         char *path;
         const char *id, *value;
@@ -1298,10 +1304,10 @@ int device_read_db_aux(sd_device *device, bool force) {
                 INVALID_LINE,
         } state = PRE_KEY;
 
+        assert(device);
+
         if (device->db_loaded || (!force && device->sealed))
                 return 0;
-
-        device->db_loaded = true;
 
         r = device_get_id_filename(device, &id);
         if (r < 0)
@@ -1319,6 +1325,8 @@ int device_read_db_aux(sd_device *device, bool force) {
 
         /* devices with a database entry are initialized */
         device->is_initialized = true;
+
+        device->db_loaded = true;
 
         for (i = 0; i < db_len; i++) {
                 switch (state) {
@@ -1370,10 +1378,6 @@ int device_read_db_aux(sd_device *device, bool force) {
         }
 
         return 0;
-}
-
-static int device_read_db(sd_device *device) {
-        return device_read_db_aux(device, false);
 }
 
 _public_ int sd_device_get_is_initialized(sd_device *device) {

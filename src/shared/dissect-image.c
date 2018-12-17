@@ -40,6 +40,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
 #include "user-util.h"
 #include "xattr-util.h"
 
@@ -116,6 +117,133 @@ static bool device_is_block(sd_device *d) {
 
         return streq(ss, "block");
 }
+
+static int enumerator_for_parent(sd_device *d, sd_device_enumerator **ret) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, d);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(e);
+        return 0;
+}
+
+/* how many times to wait for the device nodes to appear */
+#define N_DEVICE_NODE_LIST_ATTEMPTS 10
+
+static int wait_for_partitions_to_appear(
+                int fd,
+                sd_device *d,
+                unsigned num_partitions,
+                sd_device_enumerator **ret_enumerator) {
+
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *q;
+        unsigned n;
+        int r;
+
+        r = enumerator_for_parent(d, &e);
+        if (r < 0)
+                return r;
+
+        /* Count the partitions enumerated by the kernel */
+        n = 0;
+        FOREACH_DEVICE(e, q) {
+                if (sd_device_get_devnum(q, NULL) < 0)
+                        continue;
+                if (!device_is_block(q))
+                        continue;
+                if (device_is_mmc_special_partition(q))
+                        continue;
+
+                r = device_wait_for_initialization(q, "block", NULL);
+                if (r < 0)
+                        return r;
+
+                n++;
+        }
+
+        if (n == num_partitions + 1) {
+                *ret_enumerator = TAKE_PTR(e);
+                return 0; /* success! */
+        }
+        if (n > num_partitions + 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "blkid and kernel partition lists do not match.");
+
+        /* The kernel has probed fewer partitions than blkid? Maybe the kernel prober is still running or it
+         * got EBUSY because udev already opened the device. Let's reprobe the device, which is a synchronous
+         * call that waits until probing is complete. */
+
+        for (unsigned j = 0; ; j++) {
+                if (j++ > 20)
+                        return -EBUSY;
+
+                if (ioctl(fd, BLKRRPART, 0) >= 0)
+                        break;
+                r = -errno;
+                if (r == -EINVAL) {
+                        struct loop_info64 info;
+
+                        /* If we are running on a loop device that has partition scanning off, return
+                         * an explicit recognizable error about this, so that callers can generate a
+                         * proper message explaining the situation. */
+
+                        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0 && (info.lo_flags & LO_FLAGS_PARTSCAN) == 0) {
+                                log_debug("Device is a loop device and partition scanning is off!");
+                                return -EPROTONOSUPPORT;
+                        }
+                }
+                if (r != -EBUSY)
+                        return r;
+
+                /* If something else has the device open, such as an udev rule, the ioctl will return
+                 * EBUSY. Since there's no way to wait until it isn't busy anymore, let's just wait a bit,
+                 * and try again.
+                 *
+                 * This is really something they should fix in the kernel! */
+                (void) usleep(50 * USEC_PER_MSEC);
+
+        }
+
+        return -EAGAIN; /* no success yet, try again */
+}
+
+static int loop_wait_for_partitions_to_appear(
+                int fd,
+                sd_device *d,
+                unsigned num_partitions,
+                sd_device_enumerator **ret_enumerator) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        int r;
+
+        log_debug("Waiting for device (parent + %d partitions) to appear...", num_partitions);
+
+        r = device_wait_for_initialization(d, "block", &device);
+        if (r < 0)
+                return r;
+
+        for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
+                r = wait_for_partitions_to_appear(fd, device, num_partitions, ret_enumerator);
+                if (r != -EAGAIN)
+                        return r;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
+                               "Kernel partitions dit not appear within %d attempts",
+                               N_DEVICE_NODE_LIST_ATTEMPTS);
+}
+
 #endif
 
 int dissect_image(
@@ -204,6 +332,10 @@ int dissect_image(
         if (!m)
                 return -ENOMEM;
 
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return r;
+
         if (!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_REQUIRE_ROOT)) {
                 const char *usage = NULL;
@@ -237,6 +369,10 @@ int dissect_image(
 
                         m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
+                        r = loop_wait_for_partitions_to_appear(fd, d, 0, &e);
+                        if (r < 0)
+                                return r;
+
                         *ret = TAKE_PTR(m);
 
                         return 0;
@@ -258,95 +394,9 @@ int dissect_image(
         if (!pl)
                 return -errno ?: -ENOMEM;
 
-        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        r = loop_wait_for_partitions_to_appear(fd, d, blkid_partlist_numof_partitions(pl), &e);
         if (r < 0)
                 return r;
-
-        for (i = 0;; i++) {
-                int n, z;
-
-                if (i >= 10) {
-                        log_debug("Kernel partitions never appeared.");
-                        return -ENXIO;
-                }
-
-                r = sd_device_enumerator_new(&e);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_enumerator_allow_uninitialized(e);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_enumerator_add_match_parent(e, d);
-                if (r < 0)
-                        return r;
-
-                /* Count the partitions enumerated by the kernel */
-                n = 0;
-                FOREACH_DEVICE(e, q) {
-                        if (sd_device_get_devnum(q, NULL) < 0)
-                                continue;
-
-                        if (!device_is_block(q))
-                                continue;
-
-                        if (device_is_mmc_special_partition(q))
-                                continue;
-                        n++;
-                }
-
-                /* Count the partitions enumerated by blkid */
-                z = blkid_partlist_numof_partitions(pl);
-                if (n == z + 1)
-                        break;
-                if (n > z + 1) {
-                        log_debug("blkid and kernel partition list do not match.");
-                        return -EIO;
-                }
-                if (n < z + 1) {
-                        unsigned j = 0;
-
-                        /* The kernel has probed fewer partitions than blkid? Maybe the kernel prober is still running
-                         * or it got EBUSY because udev already opened the device. Let's reprobe the device, which is a
-                         * synchronous call that waits until probing is complete. */
-
-                        for (;;) {
-                                if (j++ > 20)
-                                        return -EBUSY;
-
-                                if (ioctl(fd, BLKRRPART, 0) < 0) {
-                                        r = -errno;
-
-                                        if (r == -EINVAL) {
-                                                struct loop_info64 info;
-
-                                                /* If we are running on a loop device that has partition scanning off,
-                                                 * return an explicit recognizable error about this, so that callers
-                                                 * can generate a proper message explaining the situation. */
-
-                                                if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0 && (info.lo_flags & LO_FLAGS_PARTSCAN) == 0) {
-                                                        log_debug("Device is loop device and partition scanning is off!");
-                                                        return -EPROTONOSUPPORT;
-                                                }
-                                        }
-                                        if (r != -EBUSY)
-                                                return r;
-                                } else
-                                        break;
-
-                                /* If something else has the device open, such as an udev rule, the ioctl will return
-                                 * EBUSY. Since there's no way to wait until it isn't busy anymore, let's just wait a
-                                 * bit, and try again.
-                                 *
-                                 * This is really something they should fix in the kernel! */
-
-                                (void) usleep(50 * USEC_PER_MSEC);
-                        }
-                }
-
-                e = sd_device_enumerator_unref(e);
-        }
 
         FOREACH_DEVICE(e, q) {
                 unsigned long long pflags;
