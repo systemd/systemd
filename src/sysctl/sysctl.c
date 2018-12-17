@@ -115,7 +115,7 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
 
                 value = strchr(p, '=');
                 if (!value) {
-                        log_error("Line is not an assignment at '%s:%u': %s", path, c, value);
+                        log_error("Line is not an assignment at '%s:%u': %s", path, c, p);
 
                         if (r == 0)
                                 r = -EINVAL;
