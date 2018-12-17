@@ -37,6 +37,11 @@ __get_all_devs() {
         done
 }
 
+__get_all_device_units() {
+        systemctl list-units -t device --full --no-legend --no-pager 2>/dev/null | \
+                { while read -r a b; do echo "$a"; done; }
+}
+
 _udevadm() {
         local i verb comps builtin
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -101,8 +106,8 @@ _udevadm() {
                         if [[ $cur = -* ]]; then
                                 comps="${OPTS[COMMON]} ${OPTS[INFO_STANDALONE]} ${OPTS[INFO_ARG]}"
                         else
+                                comps=$( __get_all_sysdevs; __get_all_device_units )
                                 local IFS=$'\n'
-                                comps=$( __get_all_sysdevs )
                         fi
                         ;;
                 'trigger')
@@ -132,8 +137,8 @@ _udevadm() {
                         if [[ $cur = -* ]]; then
                                 comps="${OPTS[COMMON]} ${OPTS[TRIGGER_STANDALONE]} ${OPTS[TRIGGER_ARG]}"
                         else
+                                comps=$( __get_all_sysdevs; __get_all_device_units )
                                 local IFS=$'\n'
-                                comps=$( __get_all_sysdevs )
                         fi
                         ;;
                 'settle')
