@@ -2142,6 +2142,14 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                 if (r > 0) /* positive reply, we won't need the SOA and hence don't need to validate
                                             * it. */
                                         continue;
+
+                                /* Only bother with this if the SOA/NS RR we are looking at is actually a parent of
+                                 * what we are looking for, otherwise there's no value in it for us. */
+                                r = dns_name_endswith(dns_resource_key_name(t->key), dns_resource_key_name(rr->key));
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        continue;
                         }
 
                         r = dnssec_has_rrsig(t->answer, rr->key);
