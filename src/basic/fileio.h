@@ -64,3 +64,5 @@ int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space)
 int read_nul_string(FILE *f, char **ret);
 
 int read_line(FILE *f, size_t limit, char **ret);
+
+int safe_fgetc(FILE *f, char *ret);

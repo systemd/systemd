@@ -828,3 +828,30 @@ int read_line(FILE *f, size_t limit, char **ret) {
 
         return (int) count;
 }
+
+int safe_fgetc(FILE *f, char *ret) {
+        int k;
+
+        assert(f);
+
+        /* A safer version of plain fgetc(): let's propagate the error that happened while reading as such, and
+         * separate the EOF condition from the byte read, to avoid those confusion signed/unsigned issues fgetc()
+         * has. */
+
+        errno = 0;
+        k = fgetc(f);
+        if (k == EOF) {
+                if (ferror(f))
+                        return errno > 0 ? -errno : -EIO;
+
+                if (ret)
+                        *ret = 0;
+
+                return 0;
+        }
+
+        if (ret)
+                *ret = k;
+
+        return 1;
+}
