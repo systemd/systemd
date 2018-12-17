@@ -173,14 +173,15 @@ CHANGES WITH 240 in spe:
         * networkd gained support for Foo-Over-UDP, ERSPAN and ISATAP
           tunnels. It also gained a new option ForceDHCPv6PDOtherInformation=
           for forcing the "Other Information" bit in IPv6 RA messages. The
-          bonding logic gained three new options AdActorSystemPriority=,
+          bonding logic gained four new options AdActorSystemPriority=,
           AdUserPortKey=, AdActorSystem= for configuring various 802.3ad
-          aspects. The tunnel logic gained a new IPv6RapidDeploymentPrefix=
-          option for configuring IPv6 Rapid Deployment. The policy rule logic
-          gained four new options IPProtocol=, SourcePort= and
-          DestinationPort=, InvertRule=. The bridge logic gained support for
-          the MulticastToUnicast= option. networkd also gained support for
-          configuring static IPv4 ARP or IPv6 neighbor entries.
+          aspects, and DynamicTransmitLoadBalancing= for enabling dynamic
+          shuffling of flows. The tunnel logic gained a new
+          IPv6RapidDeploymentPrefix= option for configuring IPv6 Rapid
+          Deployment. The policy rule logic gained four new options IPProtocol=,
+          SourcePort= and DestinationPort=, InvertRule=. The bridge logic gained
+          support for the MulticastToUnicast= option. networkd also gained
+          support for configuring static IPv4 ARP or IPv6 neighbor entries.
 
         * .preset files (as read by 'systemctl preset') may now be used to
           instantiate services.
