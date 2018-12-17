@@ -882,17 +882,21 @@ void internal_hashmap_clear(HashmapBase *h, free_func_t default_free_key, free_f
         free_value = h->hash_ops->free_value ?: default_free_value;
 
         if (free_key || free_value) {
-                unsigned idx;
 
-                for (idx = skip_free_buckets(h, 0); idx != IDX_NIL;
-                     idx = skip_free_buckets(h, idx + 1)) {
-                        struct hashmap_base_entry *e = bucket_at(h, idx);
+                /* If destructor calls are defined, let's destroy things defensively: let's take the item out of the
+                 * hash table, and only then call the destructor functions. If these destructors then try to unregister
+                 * themselves from our hash table a second time, the entry is already gone. */
+
+                while (internal_hashmap_size(h) > 0) {
+                        void *v, *k;
+
+                        v = internal_hashmap_first_key_and_value(h, true, &k);
 
                         if (free_key)
-                                free_key((void *) e->key);
+                                free_key(k);
 
                         if (free_value)
-                                free_value(entry_value(h, e));
+                                free_value(v);
                 }
         }
 
@@ -1475,8 +1479,8 @@ int hashmap_remove_and_replace(Hashmap *h, const void *old_key, const void *new_
         return 0;
 }
 
-void *hashmap_remove_value(Hashmap *h, const void *key, void *value) {
-        struct plain_hashmap_entry *e;
+void *internal_hashmap_remove_value(HashmapBase *h, const void *key, void *value) {
+        struct hashmap_base_entry *e;
         unsigned hash, idx;
 
         if (!h)
@@ -1487,8 +1491,8 @@ void *hashmap_remove_value(Hashmap *h, const void *key, void *value) {
         if (idx == IDX_NIL)
                 return NULL;
 
-        e = plain_bucket_at(h, idx);
-        if (e->value != value)
+        e = bucket_at(h, idx);
+        if (entry_value(h, e) != value)
                 return NULL;
 
         remove_entry(h, idx);
