@@ -20,6 +20,7 @@
 #include "io-util.h"
 #include "list.h"
 #include "missing.h"
+#include "resolve-private.h"
 #include "socket-util.h"
 #include "util.h"
 #include "process-util.h"
@@ -912,26 +913,29 @@ static int alloc_query(sd_resolve *resolve, bool floating, sd_resolve_query **_q
         return 0;
 }
 
-_public_ int sd_resolve_getaddrinfo(
+
+int resolve_getaddrinfo_with_destroy_callback(
                 sd_resolve *resolve,
-                sd_resolve_query **_q,
+                sd_resolve_query **ret_query,
                 const char *node, const char *service,
                 const struct addrinfo *hints,
-                sd_resolve_getaddrinfo_handler_t callback, void *userdata) {
+                sd_resolve_getaddrinfo_handler_t callback,
+                sd_resolve_destroy_t destroy_callback,
+                void *userdata) {
 
         _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q = NULL;
+        size_t node_len, service_len;
         AddrInfoRequest req = {};
         struct iovec iov[3];
         struct msghdr mh = {};
         int r;
-        size_t node_len, service_len;
 
         assert_return(resolve, -EINVAL);
         assert_return(node || service, -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
-        r = alloc_query(resolve, !_q, &q);
+        r = alloc_query(resolve, !ret_query, &q);
         if (r < 0)
                 return r;
 
@@ -968,12 +972,25 @@ _public_ int sd_resolve_getaddrinfo(
                 return -errno;
 
         resolve->n_outstanding++;
+        q->destroy_callback = destroy_callback;
 
-        if (_q)
-                *_q = q;
+        if (ret_query)
+                *ret_query = q;
+
         TAKE_PTR(q);
 
         return 0;
+}
+
+_public_ int sd_resolve_getaddrinfo(
+                sd_resolve *resolve,
+                sd_resolve_query **ret_query,
+                const char *node, const char *service,
+                const struct addrinfo *hints,
+                sd_resolve_getaddrinfo_handler_t callback,
+                void *userdata) {
+
+        return resolve_getaddrinfo_with_destroy_callback(resolve, ret_query, node, service, hints, callback, NULL, userdata);
 }
 
 static int getaddrinfo_done(sd_resolve_query* q) {
@@ -987,13 +1004,14 @@ static int getaddrinfo_done(sd_resolve_query* q) {
         return q->getaddrinfo_handler(q, q->ret, q->addrinfo, q->userdata);
 }
 
-_public_ int sd_resolve_getnameinfo(
+int resolve_getnameinfo_with_destroy_callback(
                 sd_resolve *resolve,
-                sd_resolve_query**_q,
+                sd_resolve_query **ret_query,
                 const struct sockaddr *sa, socklen_t salen,
                 int flags,
                 uint64_t get,
                 sd_resolve_getnameinfo_handler_t callback,
+                sd_resolve_destroy_t destroy_callback,
                 void *userdata) {
 
         _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q = NULL;
@@ -1010,7 +1028,7 @@ _public_ int sd_resolve_getnameinfo(
         assert_return(callback, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
-        r = alloc_query(resolve, !_q, &q);
+        r = alloc_query(resolve, !ret_query, &q);
         if (r < 0)
                 return r;
 
@@ -1040,13 +1058,27 @@ _public_ int sd_resolve_getnameinfo(
         if (sendmsg(resolve->fds[REQUEST_SEND_FD], &mh, MSG_NOSIGNAL) < 0)
                 return -errno;
 
-        if (_q)
-                *_q = q;
-
         resolve->n_outstanding++;
+        q->destroy_callback = destroy_callback;
+
+        if (ret_query)
+                *ret_query = q;
+
         TAKE_PTR(q);
 
         return 0;
+}
+
+_public_ int sd_resolve_getnameinfo(
+                sd_resolve *resolve,
+                sd_resolve_query **ret_query,
+                const struct sockaddr *sa, socklen_t salen,
+                int flags,
+                uint64_t get,
+                sd_resolve_getnameinfo_handler_t callback,
+                void *userdata) {
+
+        return resolve_getnameinfo_with_destroy_callback(resolve, ret_query, sa, salen, flags, get, callback, NULL, userdata);
 }
 
 static int getnameinfo_done(sd_resolve_query *q) {

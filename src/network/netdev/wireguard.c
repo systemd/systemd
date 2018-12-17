@@ -9,15 +9,16 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
-#include "parse-util.h"
 #include "fd-util.h"
-#include "strv.h"
 #include "hexdecoct.h"
-#include "string-util.h"
-#include "wireguard.h"
 #include "networkd-link.h"
-#include "networkd-util.h"
 #include "networkd-manager.h"
+#include "networkd-util.h"
+#include "parse-util.h"
+#include "resolve-private.h"
+#include "string-util.h"
+#include "strv.h"
+#include "wireguard.h"
 #include "wireguard-netlink.h"
 
 static void resolve_endpoints(NetDev *netdev);
@@ -205,9 +206,7 @@ static WireguardEndpoint* wireguard_endpoint_free(WireguardEndpoint *e) {
         return mfree(e);
 }
 
-static void wireguard_endpoint_destroy_callback(void *userdata) {
-        WireguardEndpoint *e = userdata;
-
+static void wireguard_endpoint_destroy_callback(WireguardEndpoint *e) {
         assert(e);
         assert(e->netdev);
 
@@ -248,18 +247,16 @@ static int exponential_backoff_milliseconds(unsigned n_retries) {
 static int wireguard_resolve_handler(sd_resolve_query *q,
                                      int ret,
                                      const struct addrinfo *ai,
-                                     void *userdata) {
+                                     WireguardEndpoint *e) {
         _cleanup_(netdev_unrefp) NetDev *netdev_will_unrefed = NULL;
-        NetDev *netdev = NULL;
-        WireguardEndpoint *e;
+        NetDev *netdev;
         Wireguard *w;
         int r;
 
-        assert(userdata);
-        e = userdata;
-        netdev = e->netdev;
+        assert(e);
+        assert(e->netdev);
 
-        assert(netdev);
+        netdev = e->netdev;
         w = WIREGUARD(netdev);
         assert(w);
 
@@ -328,15 +325,14 @@ static void resolve_endpoints(NetDev *netdev) {
         assert(w);
 
         LIST_FOREACH(endpoints, endpoint, w->unresolved_endpoints) {
-                _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q = NULL;
-
-                r = sd_resolve_getaddrinfo(netdev->manager->resolve,
-                                           &q,
-                                           endpoint->host,
-                                           endpoint->port,
-                                           &hints,
-                                           wireguard_resolve_handler,
-                                           endpoint);
+                r = resolve_getaddrinfo(netdev->manager->resolve,
+                                        NULL,
+                                        endpoint->host,
+                                        endpoint->port,
+                                        &hints,
+                                        wireguard_resolve_handler,
+                                        wireguard_endpoint_destroy_callback,
+                                        endpoint);
 
                 if (r == -ENOBUFS)
                         break;
@@ -344,14 +340,6 @@ static void resolve_endpoints(NetDev *netdev) {
                         log_netdev_error_errno(netdev, r, "Failed to create resolver: %m");
                         continue;
                 }
-
-                r = sd_resolve_query_set_destroy_callback(q, wireguard_endpoint_destroy_callback);
-                if (r < 0) {
-                        log_netdev_error_errno(netdev, r, "Failed to set destroy callback to resolving query: %m");
-                        continue;
-                }
-
-                (void) sd_resolve_query_set_floating(q, true);
 
                 /* Avoid freeing netdev. It will be unrefed by the destroy callback. */
                 netdev_ref(netdev);
