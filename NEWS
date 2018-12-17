@@ -384,6 +384,34 @@ CHANGES WITH 240 in spe:
           SD_ID128_ALLF to test if a 128bit ID is set to all 0xFF bytes, and to
           initialize one to all 0xFF.
 
+        * KERNEL API BREAKAGE: Linux kernel 4.18 changed behaviour regarding
+          mknod() handling in user namespaces. Previously mknod() would always
+          fail with EPERM in user namespaces. Since 4.18 mknod() will succeed
+          but device nodes generated that way cannot be opened, and attempts to
+          open them result in EPERM. This breaks the "graceful fallback" logic
+          in systemd's PrivateDevices= sand-boxing option. This option is
+          implemented defensively, so that when systemd detects it runs in a
+          restricted environment (such as a user namespace, or an environment
+          where mknod() is blocked through seccomp or absence of CAP_SYS_MKNOD)
+          where device nodes cannot be created the effect of PrivateDevices= is
+          bypassed (following the logic that 2nd-level sand-boxing is not
+          essential if the system systemd runs in is itself already sand-boxed
+          as a whole). This logic breaks with 4.18 in container managers where
+          user namespacing is used: suddenly PrivateDevices= succeeds setting
+          up a private /dev/ file system containing devices nodes — but when
+          these are opened they don't work.
+
+          At this point is is recommended that container managers utilizing
+          user namespaces that intend to run systemd in the payload explicitly
+          block mknod() with seccomp or similar, so that the graceful fallback
+          logic works again.
+
+          We are very sorry for the breakage and the requirement to change
+          container configurations for newer kernels. It's purely caused by an
+          incompatible kernel change. The relevant kernel developers have been
+          notified about this userspace breakage quickly, but they chose to
+          ignore it.
+
         Contributions from: afg, Alan Jenkins, Aleksei Timofeyev, Alexander
         Filippov, Alexander Kurtz, Alexey Bogdanenko, Andreas Henriksson,
         Andrew Jorgensen, Anita Zhang, apnix-uk, Arkan49, Arseny Maslennikov,
