@@ -2284,21 +2284,21 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         r = dns_name_parent(&name);
                         if (r > 0) {
                                 type = DNS_TYPE_SOA;
-                                log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned empty DS response).",
-                                          t->id, dns_resource_key_name(t->key));
+                                log_debug("Requesting parent SOA (→ %s) to validate transaction %" PRIu16 " (%s, unsigned empty DS response).",
+                                          name, t->id, dns_resource_key_name(t->key));
                         } else
                                 name = NULL;
 
                 } else if (IN_SET(t->key->type, DNS_TYPE_SOA, DNS_TYPE_NS)) {
 
                         type = DNS_TYPE_DS;
-                        log_debug("Requesting DS to validate transaction %" PRIu16 " (%s, unsigned empty SOA/NS response).",
-                                  t->id, dns_resource_key_name(t->key));
+                        log_debug("Requesting DS (→ %s) to validate transaction %" PRIu16 " (%s, unsigned empty SOA/NS response).",
+                                  name, t->id, name);
 
                 } else {
                         type = DNS_TYPE_SOA;
-                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned empty non-SOA/NS/DS response).",
-                                  t->id, dns_resource_key_name(t->key));
+                        log_debug("Requesting SOA (→ %s) to validate transaction %" PRIu16 " (%s, unsigned empty non-SOA/NS/DS response).",
+                                  name, t->id, name);
                 }
 
                 if (name) {
