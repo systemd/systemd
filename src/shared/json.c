@@ -1381,10 +1381,6 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
                                 fputs("\\\\", f);
                                 break;
 
-                        case '/':
-                                fputs("\\/", f);
-                                break;
-
                         case '\b':
                                 fputs("\\b", f);
                                 break;
