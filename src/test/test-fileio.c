@@ -610,9 +610,36 @@ static void test_tempfn(void) {
         free(ret);
 }
 
+static const char chars[] =
+        "Aąę„”\n루";
+
+static void test_fgetc(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        char c;
+
+        f = fmemopen((void*) chars, sizeof(chars), "re");
+        assert_se(f);
+
+        for (unsigned i = 0; i < sizeof(chars); i++) {
+                assert_se(safe_fgetc(f, &c) == 1);
+                assert_se(c == chars[i]);
+
+                assert_se(ungetc(c, f) != EOF);
+                assert_se(safe_fgetc(f, &c) == 1);
+                assert_se(c == chars[i]);
+
+                /* Check that ungetc doesn't care about unsigned char vs signed char */
+                assert_se(ungetc((unsigned char) c, f) != EOF);
+                assert_se(safe_fgetc(f, &c) == 1);
+                assert_se(c == chars[i]);
+        }
+
+        assert_se(safe_fgetc(f, &c) == 0);
+}
+
 static const char buffer[] =
         "Some test data\n"
-        "Some weird line\r"
+        "루Non-ascii chars: ąę„”\n"
         "terminators\r\n"
         "and even more\n\r"
         "now the same with a NUL\n\0"
@@ -631,7 +658,7 @@ static void test_read_line_one_file(FILE *f) {
         assert_se(read_line(f, (size_t) -1, &line) == 15 && streq(line, "Some test data"));
         line = mfree(line);
 
-        assert_se(read_line(f, (size_t) -1, &line) == 16 && streq(line, "Some weird line"));
+        assert_se(read_line(f, (size_t) -1, &line) > 0 && streq(line, "루Non-ascii chars: ąę„”"));
         line = mfree(line);
 
         assert_se(read_line(f, (size_t) -1, &line) == 13 && streq(line, "terminators"));
@@ -801,6 +828,7 @@ int main(int argc, char *argv[]) {
         test_search_and_fopen_nulstr();
         test_writing_tmpfile();
         test_tempfn();
+        test_fgetc();
         test_read_line();
         test_read_line2();
         test_read_line3();
