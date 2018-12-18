@@ -869,7 +869,7 @@ static void event_queue_start(Manager *manager) {
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
         /* check for changed config, every 3 seconds at most */
         if (manager->last_usec == 0 ||
-            (usec - manager->last_usec) > 3 * USEC_PER_SEC) {
+            usec - manager->last_usec > 3 * USEC_PER_SEC) {
                 if (udev_rules_check_timestamp(manager->rules) ||
                     udev_builtin_validate())
                         manager_reload(manager);
@@ -954,12 +954,11 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         continue;
                 }
 
-                CMSG_FOREACH(cmsg, &msghdr) {
+                CMSG_FOREACH(cmsg, &msghdr)
                         if (cmsg->cmsg_level == SOL_SOCKET &&
                             cmsg->cmsg_type == SCM_CREDENTIALS &&
                             cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
                                 ucred = (struct ucred*) CMSG_DATA(cmsg);
-                }
 
                 if (!ucred || ucred->pid <= 0) {
                         log_warning("Ignoring worker message without valid PID");
@@ -1332,9 +1331,9 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                                 log_debug("Worker ["PID_FMT"] exited", pid);
                         else
                                 log_warning("Worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
-                } else if (WIFSIGNALED(status)) {
+                } else if (WIFSIGNALED(status))
                         log_warning("Worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), signal_to_string(WTERMSIG(status)));
-                } else if (WIFSTOPPED(status)) {
+                else if (WIFSTOPPED(status)) {
                         log_info("Worker ["PID_FMT"] stopped", pid);
                         continue;
                 } else if (WIFCONTINUED(status)) {
