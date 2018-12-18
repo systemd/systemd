@@ -17,7 +17,7 @@ After=sys-devices-virtual-misc-rfkill.device systemd-remount-fs.service
 Before=shutdown.target
 
 [Service]
-Type=notify
 ExecStart=@rootlibexecdir@/systemd-rfkill
-TimeoutSec=30s
 StateDirectory=systemd/rfkill
+TimeoutSec=30s
+Type=notify

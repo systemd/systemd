@@ -16,18 +16,18 @@ After=machine.slice
 RequiresMountsFor=/var/lib/machines
 
 [Service]
-ExecStart=@rootlibexecdir@/systemd-machined
 BusName=org.freedesktop.machine1
-WatchdogSec=3min
 CapabilityBoundingSet=CAP_KILL CAP_SYS_PTRACE CAP_SYS_ADMIN CAP_SETGID CAP_SYS_CHROOT CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD
-MemoryDenyWriteExecute=yes
-RestrictRealtime=yes
-RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
-SystemCallFilter=@system-service @mount
-SystemCallErrorNumber=EPERM
-SystemCallArchitectures=native
-LockPersonality=yes
+ExecStart=@rootlibexecdir@/systemd-machined
 IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service @mount
+WatchdogSec=3min
 
 # Note that machined cannot be placed in a mount namespace, since it
 # needs access to the host's mount namespace in order to implement the
