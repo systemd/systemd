@@ -1611,11 +1611,9 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (!manager->ctrl)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize udev control socket");
 
-        if (fd_ctrl < 0) {
-                r = udev_ctrl_enable_receiving(manager->ctrl);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind udev control socket: %m");
-        }
+        r = udev_ctrl_enable_receiving(manager->ctrl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind udev control socket: %m");
 
         fd_ctrl = udev_ctrl_get_fd(manager->ctrl);
         if (fd_ctrl < 0)
