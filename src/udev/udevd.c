@@ -399,7 +399,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
 
         r = sd_device_get_property_value(dev, "SEQNUM", &seqnum);
         if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to get SEQNUM: %m");
+                return log_device_debug_errno(dev, r, "Failed to get SEQNUM: %m");
 
         log_device_debug(dev, "Processing device (SEQNUM=%s)", seqnum);
 
