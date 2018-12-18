@@ -9,6 +9,19 @@ CHANGES WITH 240 in spe:
           an SELinux policy update is required.
           (See e.g. https://github.com/fedora-selinux/selinux-policy/pull/234.)
 
+        * When unit files are loaded from disk, previously systemd would
+          sometimes (depending on the unit loading order) load units from the
+          target path of symlinks in .wants/ or .requires/ directories of other
+          units. This meant that unit could be loaded from different paths
+          depending on whether the unit was requested explicitly or as a
+          dependency of another unit, not honouring the priority of directories
+          in search path. It also meant that it was possible to successfully
+          load and start units which are not found in the unit search path, as
+          long as they were requested as a dependency and linked to from
+          .wants/ or .requires/. The target paths of those symlinks are not
+          used for loading units anymore and the unit file must be found in
+          the search path.
+
         * A new service type has been added: Type=exec. It's very similar to
           Type=simple but ensures the service manager will wait for both fork()
           and execve() of the main service binary to complete before proceeding
