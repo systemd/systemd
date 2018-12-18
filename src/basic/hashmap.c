@@ -779,7 +779,7 @@ static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enu
 
         h->type = type;
         h->from_pool = up;
-        h->hash_ops = hash_ops ? hash_ops : &trivial_hash_ops;
+        h->hash_ops = hash_ops ?: &trivial_hash_ops;
 
         if (type == HASHMAP_TYPE_ORDERED) {
                 OrderedHashmap *lh = (OrderedHashmap*)h;
