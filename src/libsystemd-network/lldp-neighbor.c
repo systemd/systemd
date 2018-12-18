@@ -82,7 +82,12 @@ sd_lldp_neighbor *lldp_neighbor_unlink(sd_lldp_neighbor *n) {
         if (!n->lldp)
                 return NULL;
 
-        assert_se(hashmap_remove(n->lldp->neighbor_by_id, &n->id) == n);
+        /* Only remove the neighbor object from the hash table if it's in there, don't complain if it isn't. This is
+         * because we are used as destructor call for hashmap_clear() and thus sometimes are called to de-register
+         * ourselves from the hashtable and sometimes are called after we already are de-registered. */
+
+        (void) hashmap_remove_value(n->lldp->neighbor_by_id, &n->id, n);
+
         assert_se(prioq_remove(n->lldp->neighbor_by_expiry, n, &n->prioq_idx) >= 0);
 
         n->lldp = NULL;

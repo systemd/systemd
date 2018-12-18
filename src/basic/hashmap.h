@@ -191,7 +191,11 @@ static inline void *ordered_hashmap_remove2(OrderedHashmap *h, const void *key, 
         return hashmap_remove2(PLAIN_HASHMAP(h), key, rkey);
 }
 
-void *hashmap_remove_value(Hashmap *h, const void *key, void *value);
+void *internal_hashmap_remove_value(HashmapBase *h, const void *key, void *value);
+static inline void *hashmap_remove_value(Hashmap *h, const void *key, void *value) {
+        return internal_hashmap_remove_value(HASHMAP_BASE(h), key, value);
+}
+
 static inline void *ordered_hashmap_remove_value(OrderedHashmap *h, const void *key, void *value) {
         return hashmap_remove_value(PLAIN_HASHMAP(h), key, value);
 }
