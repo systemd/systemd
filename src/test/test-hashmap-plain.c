@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "hashmap.h"
 #include "log.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -782,6 +783,53 @@ static void test_hashmap_many(void) {
         }
 }
 
+extern unsigned custom_counter;
+extern const struct hash_ops boring_hash_ops, custom_hash_ops;
+
+static void test_hashmap_free(void) {
+        Hashmap *h;
+        bool slow = slow_tests_enabled();
+        usec_t ts, n;
+        char b[FORMAT_TIMESPAN_MAX];
+        unsigned n_entries = slow ? 1 << 20 : 240;
+
+        const struct {
+                const char *title;
+                const struct hash_ops *ops;
+                unsigned expect_counter;
+        } tests[] = {
+                { "string_hash_ops",      &boring_hash_ops, 2 * n_entries},
+                { "custom_free_hash_ops", &custom_hash_ops, 0 },
+        };
+
+        log_info("/* %s (%s, %u entries) */", __func__, slow ? "slow" : "fast", n_entries);
+
+        for (unsigned j = 0; j < ELEMENTSOF(tests); j++) {
+                ts = now(CLOCK_MONOTONIC);
+                assert_se(h = hashmap_new(tests[j].ops));
+
+                custom_counter = 0;
+                for (unsigned i = 0; i < n_entries; i++) {
+                        char s[DECIMAL_STR_MAX(unsigned)];
+                        char *k, *v;
+
+                        xsprintf(s, "%u", i);
+                        assert_se(k = strdup(s));
+                        assert_se(v = strdup(s));
+                        custom_counter += 2;
+
+                        assert_se(hashmap_put(h, k, v) >= 0);
+                }
+
+                hashmap_free(h);
+
+                n = now(CLOCK_MONOTONIC);
+                log_info("%s test took %s", tests[j].title, format_timespan(b, sizeof b, n - ts, 0));
+
+                assert_se(custom_counter == tests[j].expect_counter);
+        }
+}
+
 static void test_hashmap_first(void) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
 
@@ -955,6 +1003,7 @@ void test_hashmap_funcs(void) {
         test_hashmap_get2();
         test_hashmap_size();
         test_hashmap_many();
+        test_hashmap_free();
         test_hashmap_first();
         test_hashmap_first_key();
         test_hashmap_steal_first_key();
