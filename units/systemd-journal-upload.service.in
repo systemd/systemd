@@ -14,24 +14,23 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
-DynamicUser=yes
 ExecStart=@rootlibexecdir@/systemd-journal-upload --save-state
-LockPersonality=yes
-MemoryDenyWriteExecute=yes
-NoNewPrivileges=yes
-PrivateDevices=yes
-ProtectControlGroups=yes
-ProtectHome=yes
-ProtectKernelModules=yes
-ProtectKernelTunables=yes
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-RestrictNamespaces=yes
-RestrictRealtime=yes
-StateDirectory=systemd/journal-upload
-SupplementaryGroups=systemd-journal
-SystemCallArchitectures=native
 User=systemd-journal-upload
+DynamicUser=yes
+SupplementaryGroups=systemd-journal
 WatchdogSec=3min
+PrivateDevices=yes
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+LockPersonality=yes
+StateDirectory=systemd/journal-upload
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.

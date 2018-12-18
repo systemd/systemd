@@ -20,23 +20,22 @@ Wants=dbus.socket
 After=dbus.socket
 
 [Service]
-BusName=org.freedesktop.login1
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CAP_KILL CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG
 ExecStart=@rootlibexecdir@/systemd-logind
-FileDescriptorStoreMax=512
-IPAddressDeny=any
-LockPersonality=yes
-MemoryDenyWriteExecute=yes
-NoNewPrivileges=yes
 Restart=always
 RestartSec=0
-RestrictAddressFamilies=AF_UNIX AF_NETLINK
-RestrictNamespaces=yes
-RestrictRealtime=yes
-SystemCallArchitectures=native
-SystemCallErrorNumber=EPERM
-SystemCallFilter=@system-service
+BusName=org.freedesktop.login1
 WatchdogSec=3min
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CAP_KILL CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+LockPersonality=yes
+IPAddressDeny=any
+FileDescriptorStoreMax=512
 
 # Increase the default a bit in order to allow many simultaneous logins since
 # we keep one fd open per session.
