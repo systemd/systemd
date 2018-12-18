@@ -208,15 +208,18 @@ static int worker_new(struct worker **ret, Manager *manager, sd_device_monitor *
         assert(worker_monitor);
         assert(pid > 1);
 
-        worker = new0(struct worker, 1);
+        /* close monitor, but keep address around */
+        device_monitor_disconnect(worker_monitor);
+
+        worker = new(struct worker, 1);
         if (!worker)
                 return -ENOMEM;
 
-        worker->manager = manager;
-        /* close monitor, but keep address around */
-        device_monitor_disconnect(worker_monitor);
-        worker->monitor = sd_device_monitor_ref(worker_monitor);
-        worker->pid = pid;
+        *worker = (struct worker) {
+                .manager = manager,
+                .monitor = sd_device_monitor_ref(worker_monitor),
+                .pid = pid,
+        };
 
         r = hashmap_ensure_allocated(&manager->workers, NULL);
         if (r < 0)
