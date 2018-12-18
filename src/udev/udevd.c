@@ -391,7 +391,7 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
 static int worker_process_device(Manager *manager, sd_device *dev) {
         _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
-        const char *seqnum;
+        const char *seqnum, *action;
         int r;
 
         assert(manager);
@@ -401,7 +401,11 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get SEQNUM: %m");
 
-        log_device_debug(dev, "Processing device (SEQNUM=%s)", seqnum);
+        r = sd_device_get_property_value(dev, "ACTION", &action);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get ACTION: %m");
+
+        log_device_debug(dev, "Processing device (SEQNUM=%s, ACTION=%s)", seqnum, action);
 
         udev_event = udev_event_new(dev, arg_exec_delay_usec, manager->rtnl);
         if (!udev_event)
@@ -427,7 +431,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                         return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
         }
 
-        log_device_debug(dev, "Device (SEQNUM=%s) processed", seqnum);
+        log_device_debug(dev, "Device (SEQNUM=%s, ACTION=%s) processed", seqnum, action);
 
         return 0;
 }
