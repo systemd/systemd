@@ -384,6 +384,17 @@ CHANGES WITH 240 in spe:
           SD_ID128_ALLF to test if a 128bit ID is set to all 0xFF bytes, and to
           initialize one to all 0xFF.
 
+        * After loading the SELinux policy systemd will now recursively relabel
+          all files and directories listed in
+          /run/systemd/relabel-extra.d/*.relabel (which should be simple
+          newline separated lists of paths) in addition to the ones it already
+          implicitly relabels in /run, /dev and /sys. After the relabelling is
+          completed the *.relabel files (and /run/systemd/relabel-extra.d/) are
+          removed. This is useful to permit initrds (i.e. code running before
+          the SELinux policy is in effect) to generate files in the host
+          filesystem safely and ensure that the correct label is applied during
+          the transition to the host OS.
+
         * KERNEL API BREAKAGE: Linux kernel 4.18 changed behaviour regarding
           mknod() handling in user namespaces. Previously mknod() would always
           fail with EPERM in user namespaces. Since 4.18 mknod() will succeed
@@ -416,47 +427,48 @@ CHANGES WITH 240 in spe:
         Filippov, Alexander Kurtz, Alexey Bogdanenko, Andreas Henriksson,
         Andrew Jorgensen, Anita Zhang, apnix-uk, Arkan49, Arseny Maslennikov,
         asavah, Asbjørn Apeland, aszlig, Bastien Nocera, Ben Boeckel, Benedikt
-        Morbach, Benjamin Berg, Carlo Caione, Cedric Viou, Chen Qi, ChenQi1989,
-        Chris Chiu, Chris Down, Chris Morin, Christian Rebischke, Claudius
-        Ellsel, ColinGuthrie, dana, Daniel, Daniele Medri, Daniel Kahn Gillmor,
-        Daniel Rusek, Daniel van Vugt, Dariusz Gadomski, Dave Reisner, David
-        Anderson, Davide Cavalca, David Leeds, David Malcolm, David Strauss,
-        David Tardon, Dimitri John Ledkov, dj-kaktus, Dongsu Park, Elias
-        Probst, Emil Soleyman, Erik Kooistra, Ervin Peters, Evgeni Golov,
-        Evgeny Vereshchagin, Fabrice Fontaine, Faheel Ahmad, faizalluthfi,
+        Morbach, Benjamin Berg, Bruce Zhang, Carlo Caione, Cedric Viou, Chen
+        Qi, Chris Chiu, Chris Down, Chris Morin, Christian Rebischke, Claudius
+        Ellsel, Colin Guthrie, dana, Daniel, Daniele Medri, Daniel Kahn
+        Gillmor, Daniel Rusek, Daniel van Vugt, Dariusz Gadomski, Dave Reisner,
+        David Anderson, Davide Cavalca, David Leeds, David Malcolm, David
+        Strauss, David Tardon, Dimitri John Ledkov, dj-kaktus, Dongsu Park,
+        Elias Probst, Emil Soleyman, Erik Kooistra, Ervin Peters, Evgeni Golov,
+        Evgeny Vereshchagin, Fabrice Fontaine, Faheel Ahmad, Faizal Luthfi,
         Felix Yan, Filipe Brandenburger, Franck Bui, Frank Schaefer, Frantisek
-        Sumsal, Gianluca Boiano, Giuseppe Scrivano, glitsj16, Hans de Goede,
-        Harald Hoyer, Harry Mallon, Harshit Jain, hellcp, Helmut Grohne, Henry
-        Tung, Hui Yiqun, imayoda, Insun Pyo, INSUN PYO, Iwan Timmer,
-        jambonmcyeah, Jan Janssen, Jan Pokorný, Jan Synacek, Jason
-        A. Donenfeld, javitoom, Jérémy Nouhaud, Jiuyang liu, João Paulo Rechi
-        Vita, Joe Hershberger, Joe Rayhawk, Joerg Behrmann, Joerg Steffens,
-        Jonas DOREL, Jon Ringle, Josh Soref, Julian Andres Klode, Jürg
-        Billeter, Keith Busch, killermoehre, Kirill Marinushkin, Lennart
-        Poettering, LennartPoettering, Liberasys, Lion Yang, Li Song, Lorenz
-        Hübschle-Schneider, Lubomir Rintel, Lucas Werkmeister, Ludwin Janvier,
-        Lukáš Nykrýn, Luke Shumaker, mal, Marc-Antoine Perennou, Marcin
-        Skarbek, Marco Trevisan (Treviño), Marian Cepok, Mario Hros, Marko
-        Myllynen, Markus Grimm, Martin Pitt, Martin Sobotka, Martin Wilck,
-        Mathieu Trudel-Lapierre, Matthew Leeds, Michael Biebl, Michael Olbrich,
-        Michael 'pbone' Pobega, Michal Koutný, Michal Sekletar, Michal Soltys,
-        Mike Gilbert, Mike Palmer, Muhammet Kara, Neal Gompa, Network Silence,
-        nikolas, NOGISAKA Sadata, Oliver Smith, Patrik Flykt, Pavel Hrdina,
-        Paweł Szewczyk, Peter Hutterer, Piotr Drąg, Ray Strode, remueller,
+        Sumsal, Gautier Husson, Gianluca Boiano, Giuseppe Scrivano, glitsj16,
+        Hans de Goede, Harald Hoyer, Harry Mallon, Harshit Jain, Helmut Grohne,
+        Henry Tung, Hui Yiqun, imayoda, Insun Pyo, Iwan Timmer, Jan Janssen,
+        Jan Pokorný, Jan Synacek, Jason A. Donenfeld, javitoom, Jérémy Nouhaud,
+        Jiuyang Liu, João Paulo Rechi Vita, Joe Hershberger, Joe Rayhawk, Joerg
+        Behrmann, Joerg Steffens, Jonas Dorel, Jon Ringle, Josh Soref, Julian
+        Andres Klode, Jun Bo Bi, Jürg Billeter, Keith Busch, Khem Raj, Kirill
+        Marinushkin, Larry Bernstone, Lennart Poettering, Lion Yang, Li Song,
+        Lorenz Hübschle-Schneider, Lubomir Rintel, Lucas Werkmeister, Ludwin
+        Janvier, Lukáš Nykrýn, Luke Shumaker, mal, Marc-Antoine Perennou,
+        Marcin Skarbek, Marco Trevisan (Treviño), Marian Cepok, Mario Hros,
+        Marko Myllynen, Markus Grimm, Martin Pitt, Martin Sobotka, Martin
+        Wilck, Mathieu Trudel-Lapierre, Matthew Leeds, Michael Biebl, Michael
+        Olbrich, Michael 'pbone' Pobega, Michael Scherer, Michal Koutný, Michal
+        Sekletar, Michal Soltys, Mike Gilbert, Mike Palmer, Muhammet Kara, Neal
+        Gompa, Neil Brown, Network Silence, Niklas Tibbling, Nikolas Nyby,
+        Nogisaka Sadata, Oliver Smith, Patrik Flykt, Pavel Hrdina, Paweł
+        Szewczyk, Peter Hutterer, Piotr Drąg, Ray Strode, Reinhold Mueller,
         Renaud Métrich, Roman Gushchin, Ronny Chevalier, Rubén Suárez Alvarez,
-        Ruixin Bao, RussianNeuroMancer, Ryutaroh Matsumoto, Saleem Rashid,
-        Samuel Morris, Sandy, scootergrisen, seb128, Sergey Ptashnick, Shawn
-        Landden, Shengyao Xue, Shih-Yuan Lee (FourDollars), Sjoerd Simons,
-        Stephen Gallagher, Steven Allen, Steve Ramage, Susant Sahani, Sven
-        Joachim, Sylvain Plantefève, TanuKaskinen, Tejun Heo, Thiago Macieira,
-        Thomas Blume, Thomas Haller, Thomas H. P. Andersen, Tim Ruffing, TJ,
-        Tobias Jungel, Todd Walton, Tommi Rantala, Tomsod M, Tony Novak,
-        Trevonn, Victor Laskurain, Victor Tapia, Violet Halo, Vojtech Trefny,
-        welaq, William A. Kennington III, William Douglas, Wyatt Ward, Xiang
-        Fan, Xi Ruoyao, Xuanwo, Yann E. MORIN, YmrDtnJu, Yu Watanabe, Zbigniew
-        Jędrzejewski-Szmek, Zhang Xianwei, Zsolt Dollenstein
+        Ruixin Bao, RussianNeuroMancer, Ryutaroh Matsumoto, Saleem Rashid, Sam
+        Morris, Samuel Morris, Sandy Carter, scootergrisen, Sébastien Bacher,
+        Sergey Ptashnick, Shawn Landden, Shengyao Xue, Shih-Yuan Lee
+        (FourDollars), Silvio Knizek, Sjoerd Simons, Stasiek Michalski, Stephen
+        Gallagher, Steven Allen, Steve Ramage, Susant Sahani, Sven Joachim,
+        Sylvain Plantefève, Tanu Kaskinen, Tejun Heo, Thiago Macieira, Thomas
+        Blume, Thomas Haller, Thomas H. P. Andersen, Tim Ruffing, TJ, Tobias
+        Jungel, Todd Walton, Tommi Rantala, Tomsod M, Tony Novak, Tore
+        Anderson, Trevonn, Victor Laskurain, Victor Tapia, Violet Halo, Vojtech
+        Trefny, welaq, William A. Kennington III, William Douglas, Wyatt Ward,
+        Xiang Fan, Xi Ruoyao, Xuanwo, Yann E. Morin, YmrDtnJu, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, Zhang Xianwei, Zsolt Dollenstein
 
-        — Somewhere, 2018-xx-yy
+        — Somewhere, 2018-12-yy
 
 CHANGES WITH 239:
 
