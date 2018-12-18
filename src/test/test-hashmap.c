@@ -10,6 +10,8 @@ static void test_ordered_hashmap_next(void) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *m = NULL;
         int i;
 
+        log_info("/* %s */", __func__);
+
         assert_se(m = ordered_hashmap_new(NULL));
         for (i = -2; i <= 2; i++)
                 assert_se(ordered_hashmap_put(m, INT_TO_PTR(i), INT_TO_PTR(i+10)) == 1);
@@ -31,6 +33,8 @@ static void test_hashmap_free_with_destructor(void) {
         Hashmap *m;
         struct Item items[4] = {};
         unsigned i;
+
+        log_info("/* %s */", __func__);
 
         assert_se(m = hashmap_new(NULL));
         for (i = 0; i < ELEMENTSOF(items) - 1; i++)
@@ -87,6 +91,8 @@ static void test_iterated_cache(void) {
         Hashmap *m;
         IteratedCache *c;
 
+        log_info("/* %s */", __func__);
+
         assert_se(m = hashmap_new(NULL));
         assert_se(c = hashmap_iterated_cache_new(m));
         compare_cache(m, c);
@@ -121,6 +127,8 @@ static void test_iterated_cache(void) {
 
 static void test_path_hashmap(void) {
         _cleanup_hashmap_free_ Hashmap *h = NULL;
+
+        log_info("/* %s */", __func__);
 
         assert_se(h = hashmap_new(&path_hash_ops));
 
