@@ -18,6 +18,8 @@
 static void test_mount_propagation_flags(const char *name, int ret, unsigned long expected) {
         long unsigned flags;
 
+        log_info("/* %s(%s) */", __func__, name);
+
         assert_se(mount_propagation_flags_from_string(name, &flags) == ret);
 
         if (ret >= 0) {
@@ -41,6 +43,8 @@ static void test_mnt_id(void) {
         void *k;
         int r;
 
+        log_info("/* %s */", __func__);
+
         assert_se(f = fopen("/proc/self/mountinfo", "re"));
         assert_se(h = hashmap_new(&trivial_hash_ops));
 
@@ -55,6 +59,8 @@ static void test_mnt_id(void) {
 
                 assert_se(sscanf(line, "%i %*s %*s %*s %ms", &mnt_id, &path) == 2);
 
+                log_debug("mountinfo: %s → %i", path, mnt_id);
+
                 assert_se(hashmap_put(h, INT_TO_PTR(mnt_id), path) >= 0);
                 path = NULL;
         }
@@ -68,14 +74,16 @@ static void test_mnt_id(void) {
                         continue;
                 }
 
-                log_debug("mnt id of %s is %i\n", p, mnt_id2);
+                log_debug("mnt ids of %s are %i, %i\n", p, mnt_id, mnt_id2);
 
                 if (mnt_id == mnt_id2)
                         continue;
 
-                /* The ids don't match? If so, then there are two mounts on the same path, let's check if that's really
-                 * the case */
-                assert_se(path_equal_ptr(hashmap_get(h, INT_TO_PTR(mnt_id2)), p));
+                /* The ids don't match? If so, then there are two mounts on the same path, let's check if
+                 * that's really the case */
+                char *t = hashmap_get(h, INT_TO_PTR(mnt_id2));
+                log_debug("the other path for mnt id %i is %s\n", mnt_id2, t);
+                assert_se(path_equal(p, t));
         }
 
         hashmap_free_free(h);
@@ -87,6 +95,8 @@ static void test_path_is_mount_point(void) {
         _cleanup_free_ char *file1 = NULL, *file2 = NULL, *link1 = NULL, *link2 = NULL;
         _cleanup_free_ char *dir1 = NULL, *dir1file = NULL, *dirlink1 = NULL, *dirlink1file = NULL;
         _cleanup_free_ char *dir2 = NULL, *dir2file = NULL;
+
+        log_info("/* %s */", __func__);
 
         assert_se(path_is_mount_point("/", NULL, AT_SYMLINK_FOLLOW) > 0);
         assert_se(path_is_mount_point("/", NULL, 0) > 0);
