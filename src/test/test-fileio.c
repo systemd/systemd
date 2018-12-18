@@ -610,9 +610,36 @@ static void test_tempfn(void) {
         free(ret);
 }
 
+static const char chars[] =
+        "Aąę„”\n루";
+
+static void test_fgetc(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        char c;
+
+        f = fmemopen((void*) chars, sizeof(chars), "re");
+        assert_se(f);
+
+        for (unsigned i = 0; i < sizeof(chars); i++) {
+                assert_se(safe_fgetc(f, &c) == 1);
+                assert_se(c == chars[i]);
+
+                assert_se(ungetc(c, f) != EOF);
+                assert_se(safe_fgetc(f, &c) == 1);
+                assert_se(c == chars[i]);
+
+                /* Check that ungetc doesn't care about unsigned char vs signed char */
+                assert_se(ungetc((unsigned char) c, f) != EOF);
+                assert_se(safe_fgetc(f, &c) == 1);
+                assert_se(c == chars[i]);
+        }
+
+        assert_se(safe_fgetc(f, &c) == 0);
+}
+
 static const char buffer[] =
         "Some test data\n"
-        "Some weird line\r"
+        "루Non-ascii chars: ąę„”\n"
         "terminators\r\n"
         "and even more\n\r"
         "now the same with a NUL\n\0"
@@ -631,7 +658,7 @@ static void test_read_line_one_file(FILE *f) {
         assert_se(read_line(f, (size_t) -1, &line) == 15 && streq(line, "Some test data"));
         line = mfree(line);
 
-        assert_se(read_line(f, (size_t) -1, &line) == 16 && streq(line, "Some weird line"));
+        assert_se(read_line(f, (size_t) -1, &line) > 0 && streq(line, "루Non-ascii chars: ąę„”"));
         line = mfree(line);
 
         assert_se(read_line(f, (size_t) -1, &line) == 13 && streq(line, "terminators"));
@@ -748,6 +775,40 @@ static void test_read_line4(void) {
         }
 }
 
+static void test_read_nul_string(void) {
+        static const char test[] = "string nr. 1\0"
+                "string nr. 2\n\0"
+                "empty string follows\0"
+                "\0"
+                "final string\n is empty\0"
+                "\0";
+
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *s = NULL;
+
+        assert_se(f = fmemopen((void*) test, sizeof(test)-1, "r"));
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 13 && streq_ptr(s, "string nr. 1"));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 14 && streq_ptr(s, "string nr. 2\n"));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 21 && streq_ptr(s, "empty string follows"));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 1 && streq_ptr(s, ""));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 23 && streq_ptr(s, "final string\n is empty"));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 1 && streq_ptr(s, ""));
+        s = mfree(s);
+
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 0 && streq_ptr(s, ""));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -767,10 +828,12 @@ int main(int argc, char *argv[]) {
         test_search_and_fopen_nulstr();
         test_writing_tmpfile();
         test_tempfn();
+        test_fgetc();
         test_read_line();
         test_read_line2();
         test_read_line3();
         test_read_line4();
+        test_read_nul_string();
 
         return 0;
 }
