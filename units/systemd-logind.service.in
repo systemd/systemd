@@ -21,18 +21,26 @@ After=dbus.socket
 
 [Service]
 BusName=org.freedesktop.login1
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CAP_KILL CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_AUDIT_CONTROL CAP_CHOWN CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG
 ExecStart=@rootlibexecdir@/systemd-logind
 FileDescriptorStoreMax=512
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelModules=yes
+ProtectSystem=strict
+ReadWritePaths=/etc
 Restart=always
 RestartSec=0
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
 RestrictNamespaces=yes
 RestrictRealtime=yes
+RuntimeDirectory=systemd/sessions systemd/seats systemd/users
+RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
