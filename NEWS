@@ -2,6 +2,13 @@ systemd System and Service Manager
 
 CHANGES WITH 240 in spe:
 
+        * NoNewPrivileges=yes has been set for all long-running services
+          implemented by systemd. Previously, this was problematic due to
+          SELinux (as this would also prohibit the transition from PID1's label
+          to the service's label). This restriction has since been lifted, but
+          an SELinux policy update is required.
+          (See e.g. https://github.com/fedora-selinux/selinux-policy/pull/234.)
+
         * A new service type has been added: Type=exec. It's very similar to
           Type=simple but ensures the service manager will wait for both fork()
           and execve() of the main service binary to complete before proceeding
