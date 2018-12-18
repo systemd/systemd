@@ -186,18 +186,7 @@ static void worker_free(struct worker *worker) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct worker *, worker_free);
-
-static void manager_workers_free(Manager *manager) {
-        struct worker *worker;
-        Iterator i;
-
-        assert(manager);
-
-        HASHMAP_FOREACH(worker, manager->workers, i)
-                worker_free(worker);
-
-        manager->workers = hashmap_free(manager->workers);
-}
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(worker_hash_op, void, trivial_hash_func, trivial_compare_func, struct worker, worker_free);
 
 static int worker_new(struct worker **ret, Manager *manager, sd_device_monitor *worker_monitor, pid_t pid) {
         _cleanup_(worker_freep) struct worker *worker = NULL;
@@ -221,7 +210,7 @@ static int worker_new(struct worker **ret, Manager *manager, sd_device_monitor *
                 .pid = pid,
         };
 
-        r = hashmap_ensure_allocated(&manager->workers, NULL);
+        r = hashmap_ensure_allocated(&manager->workers, &worker_hash_op);
         if (r < 0)
                 return r;
 
@@ -295,7 +284,7 @@ static void manager_clear_for_worker(Manager *manager) {
 
         manager->event = sd_event_unref(manager->event);
 
-        manager_workers_free(manager);
+        manager->workers = hashmap_free(manager->workers);
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         manager->monitor = sd_device_monitor_unref(manager->monitor);
