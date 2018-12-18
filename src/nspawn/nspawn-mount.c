@@ -856,9 +856,8 @@ int mount_custom(
         return 0;
 }
 
-int setup_volatile_state(
+static int setup_volatile_state(
                 const char *directory,
-                VolatileMode mode,
                 bool userns, uid_t uid_shift, uid_t uid_range,
                 const char *selinux_apifs_context) {
 
@@ -868,11 +867,7 @@ int setup_volatile_state(
 
         assert(directory);
 
-        if (mode != VOLATILE_STATE)
-                return 0;
-
-        /* --volatile=state means we simply overmount /var
-           with a tmpfs, and the rest read-only. */
+        /* --volatile=state means we simply overmount /var with a tmpfs, and the rest read-only. */
 
         r = bind_remount_recursive(directory, true, NULL);
         if (r < 0)
@@ -893,9 +888,8 @@ int setup_volatile_state(
         return mount_verbose(LOG_ERR, "tmpfs", p, "tmpfs", MS_STRICTATIME, options);
 }
 
-int setup_volatile(
+static int setup_volatile_yes(
                 const char *directory,
-                VolatileMode mode,
                 bool userns, uid_t uid_shift, uid_t uid_range,
                 const char *selinux_apifs_context) {
 
@@ -907,11 +901,8 @@ int setup_volatile(
 
         assert(directory);
 
-        if (mode != VOLATILE_YES)
-                return 0;
-
-        /* --volatile=yes means we mount a tmpfs to the root dir, and
-           the original /usr to use inside it, and that read-only. */
+        /* --volatile=yes means we mount a tmpfs to the root dir, and the original /usr to use inside it, and that
+           read-only. */
 
         if (!mkdtemp(template))
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
@@ -966,6 +957,25 @@ fail:
                 (void) umount_verbose(template);
         (void) rmdir(template);
         return r;
+}
+
+int setup_volatile_mode(
+                const char *directory,
+                VolatileMode mode,
+                bool userns, uid_t uid_shift, uid_t uid_range,
+                const char *selinux_apifs_context) {
+
+        switch (mode) {
+
+        case VOLATILE_YES:
+                return setup_volatile_yes(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+
+        case VOLATILE_STATE:
+                return setup_volatile_state(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+
+        default:
+                return 0;
+        }
 }
 
 /* Expects *pivot_root_new and *pivot_root_old to be initialised to allocated memory or NULL. */

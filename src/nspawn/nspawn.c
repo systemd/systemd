@@ -2933,17 +2933,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_volatile(
-                        directory,
-                        arg_volatile_mode,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
-                        arg_selinux_context);
-        if (r < 0)
-                return r;
-
-        r = setup_volatile_state(
+        r = setup_volatile_mode(
                         directory,
                         arg_volatile_mode,
                         arg_userns_mode != USER_NAMESPACE_NO,
