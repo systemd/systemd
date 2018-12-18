@@ -212,6 +212,8 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) 
 
         if (!path_is_absolute(destination))
                 return -EINVAL;
+        if (empty_or_root(destination))
+                return -EINVAL;
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_BIND);
         if (!m)
@@ -250,6 +252,8 @@ int tmpfs_mount_parse(CustomMount **l, size_t *n, const char *s) {
                 return -ENOMEM;
 
         if (!path_is_absolute(path))
+                return -EINVAL;
+        if (empty_or_root(path))
                 return -EINVAL;
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_TMPFS);
@@ -309,6 +313,9 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
                 if (!path_is_absolute(destination))
                         return -EINVAL;
         }
+
+        if (empty_or_root(destination))
+                return -EINVAL;
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_OVERLAY);
         if (!m)
