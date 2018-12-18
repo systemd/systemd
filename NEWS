@@ -384,6 +384,17 @@ CHANGES WITH 240 in spe:
           SD_ID128_ALLF to test if a 128bit ID is set to all 0xFF bytes, and to
           initialize one to all 0xFF.
 
+        * After loading the SELinux policy systemd will now recursively relabel
+          all files and directories listed in
+          /run/systemd/relabel-extra.d/*.relabel (which should be simple
+          newline separated lists of paths) in addition to the ones it already
+          implicitly relabels in /run, /dev and /sys. After the relabelling is
+          completed the *.relabel files (and /run/systemd/relabel-extra.d/) are
+          removed. This is useful to permit initrds (i.e. code running before
+          the SELinux policy is in effect) to generate files in the host
+          filesystem safely and ensure that the correct label is applied during
+          the transition to the host OS.
+
         * KERNEL API BREAKAGE: Linux kernel 4.18 changed behaviour regarding
           mknod() handling in user namespaces. Previously mknod() would always
           fail with EPERM in user namespaces. Since 4.18 mknod() will succeed
