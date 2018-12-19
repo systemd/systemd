@@ -45,7 +45,7 @@ static int make_volatile(const char *path) {
                 goto finish_rmdir;
 
         if (mkdir("/run/systemd/volatile-sysroot/usr", 0755) < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "Failed to create /usr directory: %m");
                 goto finish_umount;
         }
 
@@ -54,8 +54,10 @@ static int make_volatile(const char *path) {
                 goto finish_umount;
 
         r = bind_remount_recursive("/run/systemd/volatile-sysroot/usr", true, NULL);
-        if (r < 0)
+        if (r < 0) {
+                log_error_errno(r, "Failed to remount /usr read-only: %m");
                 goto finish_umount;
+        }
 
         r = umount_recursive(path, 0);
         if (r < 0) {
@@ -64,7 +66,7 @@ static int make_volatile(const char *path) {
         }
 
         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
-                log_warning_errno(errno, "Failed to remount %s MS_SLAVE|MS_REC: %m", path);
+                log_warning_errno(errno, "Failed to remount %s MS_SLAVE|MS_REC, ignoring: %m", path);
 
         r = mount_verbose(LOG_ERR, "/run/systemd/volatile-sysroot", path, NULL, MS_MOVE, NULL);
 
