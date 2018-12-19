@@ -4,7 +4,13 @@ set -eu
 set -o pipefail
 
 dir="$1"
-fallback="$2"
+tag="$2"
+fallback="$3"
+
+if [ -n "$tag" ]; then
+        echo "$tag"
+        exit 0
+fi
 
 # Apparently git describe has a bug where it always considers the work-tree
 # dirty when invoked with --git-dir (even though 'git status' is happy). Work
