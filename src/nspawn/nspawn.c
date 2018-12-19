@@ -2896,10 +2896,12 @@ static int outer_child(
                          "Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
         }
 
-        /* Turn directory into bind mount */
-        r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
-        if (r < 0)
-                return r;
+        if (!dissected_image) {
+                /* Turn directory into bind mount */
+                r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        return r;
+        }
 
         r = setup_pivot_root(
                         directory,
