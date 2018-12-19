@@ -180,6 +180,7 @@ endif
 
 memory_accounting_default = get_option('memory-accounting-default')
 
+conf.set('PROJECT_VERSION',                                   meson.project_version())
 conf.set_quoted('PKGSYSCONFDIR',                              pkgsysconfdir)
 conf.set_quoted('SYSTEM_CONFIG_UNIT_PATH',                    join_paths(pkgsysconfdir, 'system'))
 conf.set_quoted('SYSTEM_DATA_UNIT_PATH',                      systemunitdir)
