@@ -218,12 +218,6 @@ static void mount_done(Unit *u) {
 
         assert(m);
 
-        if (!IN_SET(m->state, MOUNT_DEAD, MOUNT_MOUNTED, MOUNT_FAILED)) {
-                /* This was pending, so need to udpate the count */
-                assert(u->manager->mount_pending_count > 0);
-                u->manager->mount_pending_count--;
-        }
-
         m->where = mfree(m->where);
 
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
@@ -656,7 +650,6 @@ static int mount_load(Unit *u) {
 
 static void mount_set_state(Mount *m, MountState state) {
         MountState old_state;
-        int was_pending, is_pending;
         assert(m);
 
         if (m->state != state)
@@ -664,17 +657,6 @@ static void mount_set_state(Mount *m, MountState state) {
 
         old_state = m->state;
         m->state = state;
-
-        was_pending = !IN_SET(old_state, MOUNT_DEAD, MOUNT_MOUNTED, MOUNT_FAILED);
-        is_pending = !IN_SET(state, MOUNT_DEAD, MOUNT_MOUNTED, MOUNT_FAILED);
-
-        if (was_pending && !is_pending) {
-                assert(UNIT(m)->manager->mount_pending_count > 0);
-                UNIT(m)->manager->mount_pending_count--;
-        }
-
-        if (is_pending && !was_pending)
-                UNIT(m)->manager->mount_pending_count++;
 
         if (!MOUNT_STATE_WITH_PROCESS(state)) {
                 m->timer_event_source = sd_event_source_unref(m->timer_event_source);
@@ -1808,12 +1790,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
         usec_t next_read = usec_add(m->mount_last_read_usec,
                                     m->mount_last_duration_usec * 10);
 
-        /* If there are pending mounts initiated by systemd, then
-         * we need to process changes promptly, otherwise we
-         * rate limit re-reading the file.
-         */
-        if (m->mount_pending_count == 0 &&
-            now(CLOCK_MONOTONIC) < next_read) {
+        if (now(CLOCK_MONOTONIC) < next_read) {
                 /* The (current) API for getting mount events from the Linux kernel
                  * involves getting a "something changed" notification, and then having
                  * to re-read the entire /proc/self/mountinfo file.  When there are lots
