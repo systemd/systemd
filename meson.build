@@ -20,7 +20,6 @@ libudev_version = '1.6.11'
 # names, sometimes. Not all variables are included in every
 # set. Ugh, ugh, ugh!
 conf = configuration_data()
-conf.set_quoted('PACKAGE_STRING',  meson.project_name() + ' ' + meson.project_version())
 conf.set_quoted('PACKAGE_VERSION', meson.project_version())
 
 substs = configuration_data()

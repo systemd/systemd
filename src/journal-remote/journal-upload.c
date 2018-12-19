@@ -236,7 +236,7 @@ int start_upload(Uploader *u,
                         easy_setopt(curl, CURLOPT_VERBOSE, 1L, LOG_WARNING, );
 
                 easy_setopt(curl, CURLOPT_USERAGENT,
-                            "systemd-journal-upload " PACKAGE_STRING,
+                            "systemd-journal-upload " PACKAGE_VERSION,
                             LOG_WARNING, );
 
                 if (arg_key || startswith(u->url, "https://")) {
