@@ -300,28 +300,21 @@ int sd_dhcp_client_set_client_id(
         assert_return(data, -EINVAL);
         assert_return(data_len > 0 && data_len <= MAX_CLIENT_ID_LEN, -EINVAL);
 
-        switch (type) {
-
-        case ARPHRD_ETHER:
-                if (data_len != ETH_ALEN)
-                        return -EINVAL;
-                break;
-
-        case ARPHRD_INFINIBAND:
-                /* Infiniband addresses are 20 bytes (INFINIBAND_ALEN), however only
-                 * the last 8 bytes are stable and suitable for putting into the client-id. */
-                if (data_len != 8)
-                        return -EINVAL;
-                break;
-
-        default:
-                break;
-        }
-
         if (client->client_id_len == data_len + sizeof(client->client_id.type) &&
             client->client_id.type == type &&
             memcmp(&client->client_id.raw.data, data, data_len) == 0)
                 return 0;
+
+        /* For hardware types, log debug message about unexpected data length.
+         *
+         * Note that infiniband's INFINIBAND_ALEN is 20 bytes long, but only
+         * last last 8 bytes of the address are stable and suitable to put into
+         * the client-id. The caller is advised to account for that. */
+        if ((type == ARPHRD_ETHER && data_len != ETH_ALEN) ||
+            (type == ARPHRD_INFINIBAND && data_len != 8))
+                log_dhcp_client(client, "Changing client ID to hardware type %u with "
+                                "unexpected address length %zu",
+                                type, data_len);
 
         if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
                 log_dhcp_client(client, "Changing client ID on running DHCP "
