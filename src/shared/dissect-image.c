@@ -102,6 +102,8 @@ not_found:
 static bool device_is_mmc_special_partition(sd_device *d) {
         const char *sysname;
 
+        assert(d);
+
         if (sd_device_get_sysname(d, &sysname) < 0)
                 return false;
 
@@ -112,6 +114,8 @@ static bool device_is_mmc_special_partition(sd_device *d) {
 static bool device_is_block(sd_device *d) {
         const char *ss;
 
+        assert(d);
+
         if (sd_device_get_subsystem(d, &ss) < 0)
                 return false;
 
@@ -121,6 +125,9 @@ static bool device_is_block(sd_device *d) {
 static int enumerator_for_parent(sd_device *d, sd_device_enumerator **ret) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
+
+        assert(d);
+        assert(ret);
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
@@ -152,6 +159,10 @@ static int wait_for_partitions_to_appear(
         sd_device *q;
         unsigned n;
         int r;
+
+        assert(fd >= 0);
+        assert(d);
+        assert(ret_enumerator);
 
         r = enumerator_for_parent(d, &e);
         if (r < 0)
@@ -230,6 +241,10 @@ static int loop_wait_for_partitions_to_appear(
                 sd_device_enumerator **ret_enumerator) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
+
+        assert(fd >= 0);
+        assert(d);
+        assert(ret_enumerator);
 
         log_debug("Waiting for device (parent + %d partitions) to appear...", num_partitions);
 
