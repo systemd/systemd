@@ -3,6 +3,7 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "fs-util.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -17,20 +18,7 @@ static int make_volatile(const char *path) {
         _cleanup_free_ char *old_usr = NULL;
         int r;
 
-        r = path_is_mount_point(path, NULL, AT_SYMLINK_FOLLOW);
-        if (r < 0)
-                return log_error_errno(r, "Couldn't determine whether %s is a mount point: %m", path);
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s is not a mount point.", path);
-
-        r = path_is_temporary_fs(path);
-        if (r < 0)
-                return log_error_errno(r, "Couldn't determine whether %s is a temporary file system: %m", path);
-        if (r > 0) {
-                log_info("%s already is a temporary file system.", path);
-                return 0;
-        }
+        assert(path);
 
         r = chase_symlinks("/usr", path, CHASE_PREFIX_ROOT, &old_usr);
         if (r < 0)
@@ -79,6 +67,51 @@ finish_rmdir:
         return r;
 }
 
+static int make_overlay(const char *path) {
+        _cleanup_free_ char *escaped_path = NULL;
+        bool tmpfs_mounted = false;
+        const char *options = NULL;
+        int r;
+
+        assert(path);
+
+        r = mkdir_p("/run/systemd/overlay-sysroot", 0700);
+        if (r < 0)
+                return log_error_errno(r, "Couldn't create overlay sysroot directory: %m");
+
+        r = mount_verbose(LOG_ERR, "tmpfs", "/run/systemd/overlay-sysroot", "tmpfs", MS_STRICTATIME, "mode=755");
+        if (r < 0)
+                goto finish;
+
+        tmpfs_mounted = true;
+
+        if (mkdir("/run/systemd/overlay-sysroot/upper", 0755) < 0) {
+                r = log_error_errno(errno, "Failed to create /run/systemd/overlay-sysroot/upper: %m");
+                goto finish;
+        }
+
+        if (mkdir("/run/systemd/overlay-sysroot/work", 0755) < 0) {
+                r = log_error_errno(errno, "Failed to create /run/systemd/overlay-sysroot/work: %m");
+                goto finish;
+        }
+
+        escaped_path = shell_escape(path, ",:");
+        if (!escaped_path) {
+                r = log_oom();
+                goto finish;
+        }
+
+        options = strjoina("lowerdir=", escaped_path, ",upperdir=/run/systemd/overlay-sysroot/upper,workdir=/run/systemd/overlay-sysroot/work");
+        r = mount_verbose(LOG_ERR, "overlay", path, "overlay", 0, options);
+
+finish:
+        if (tmpfs_mounted)
+                (void) umount_verbose("/run/systemd/overlay-sysroot");
+
+        (void) rmdir("/run/systemd/overlay-sysroot");
+        return r;
+}
+
 static int run(int argc, char *argv[]) {
         VolatileMode m = _VOLATILE_MODE_INVALID;
         const char *path;
@@ -116,10 +149,29 @@ static int run(int argc, char *argv[]) {
                                                "Directory cannot be the root directory.");
         }
 
-        if (m != VOLATILE_YES)
+        if (!IN_SET(m, VOLATILE_YES, VOLATILE_OVERLAY))
                 return 0;
 
-        return make_volatile(path);
+        r = path_is_mount_point(path, NULL, AT_SYMLINK_FOLLOW);
+        if (r < 0)
+                return log_error_errno(r, "Couldn't determine whether %s is a mount point: %m", path);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a mount point.", path);
+
+        r = path_is_temporary_fs(path);
+        if (r < 0)
+                return log_error_errno(r, "Couldn't determine whether %s is a temporary file system: %m", path);
+        if (r > 0) {
+                log_info("%s already is a temporary file system.", path);
+                return 0;
+        }
+
+        if (m == VOLATILE_YES)
+                return make_volatile(path);
+        else {
+                assert(m == VOLATILE_OVERLAY);
+                return make_overlay(path);
+        }
 }
 
 DEFINE_MAIN_FUNCTION(run);
