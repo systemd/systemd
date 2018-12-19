@@ -9,7 +9,7 @@ project('systemd', 'c',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
         ],
-        meson_version : '>= 0.46',
+        meson_version : '>= 0.47',
        )
 
 libsystemd_version = '0.23.0'
@@ -20,11 +20,9 @@ libudev_version = '1.6.11'
 # names, sometimes. Not all variables are included in every
 # set. Ugh, ugh, ugh!
 conf = configuration_data()
-conf.set_quoted('PACKAGE_VERSION', meson.project_version())
 
 substs = configuration_data()
 substs.set('PACKAGE_URL',          'https://www.freedesktop.org/wiki/Software/systemd')
-substs.set('PACKAGE_VERSION',      meson.project_version())
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
@@ -583,6 +581,10 @@ else
 endif
 
 #####################################################################
+
+vcs_tagger = [meson.source_root() + '/tools/meson-vcs-tag.sh',
+              '@0@/.git'.format(meson.source_root()),
+              meson.project_version()]
 
 sed = find_program('sed')
 awk = find_program('awk')

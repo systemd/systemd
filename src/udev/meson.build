@@ -187,12 +187,19 @@ endforeach
 install_data('udev.conf',
              install_dir : join_paths(sysconfdir, 'udev'))
 
-udev_pc = configure_file(
-        input : 'udev.pc.in',
-        output : 'udev.pc',
+pc_in = configure_file(
+        input : 'udev.pc.in.in',
+        output : 'udev.pc.in',
         configuration : substs)
-install_data(udev_pc,
-             install_dir : pkgconfigdatadir)
+libsystemd_pc = custom_target(
+        'udev.pc',
+        command: vcs_tagger + ['@INPUT@'],
+        input : pc_in,
+        output : 'udev.pc',
+        capture : true,
+        build_always_stale : true,
+        install : pkgconfigdatadir != 'no',
+        install_dir : pkgconfigdatadir)
 
 meson.add_install_script('sh', '-c',
                          mkdir_p.format(join_paths(sysconfdir, 'udev/rules.d')))

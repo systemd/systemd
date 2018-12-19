@@ -109,9 +109,16 @@ libsystemd_static = static_library(
 
 libsystemd_sym = 'src/libsystemd/libsystemd.sym'
 
-libsystemd_pc = configure_file(
-        input : 'libsystemd.pc.in',
-        output : 'libsystemd.pc',
+pc_in = configure_file(
+        input : 'libsystemd.pc.in.in',
+        output : 'libsystemd.pc.in',
         configuration : substs)
-install_data(libsystemd_pc,
-             install_dir : pkgconfiglibdir)
+libsystemd_pc = custom_target(
+        'libsystemd.pc',
+        command: vcs_tagger + ['@INPUT@'],
+        input : pc_in,
+        output : 'libsystemd.pc',
+        capture : true,
+        build_always_stale : true,
+        install : pkgconfiglibdir != 'no',
+        install_dir : pkgconfiglibdir)

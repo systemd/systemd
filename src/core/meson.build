@@ -172,26 +172,33 @@ systemd_shutdown_sources = files('''
         killall.h
 '''.split())
 
-in_files = [['macros.systemd',   rpmmacrosdir],
-            ['triggers.systemd', ''],
-            ['systemd.pc',       pkgconfigdatadir],
-            ['system.conf',      pkgsysconfdir]]
+in_files = [['macros.systemd',   '',           rpmmacrosdir],
+            ['system.conf',      '',           pkgsysconfdir],
+            ['systemd.pc.in',    'systemd.pc', pkgconfigdatadir],
+            ['triggers.systemd', '',           'no']]
 
 foreach item : in_files
         file = item[0]
-        dir = item[1]
+        post = item[1]
+        dir = item[2]
 
-        # If 'no', disable generation completely.
-        # If '', generate, but do not install.
-        if dir != 'no'
-                gen = configure_file(
-                        input : file + '.in',
-                        output : file,
-                        configuration : substs)
-                if dir != ''
-                        install_data(gen,
-                                     install_dir : dir)
-                endif
+        gen = configure_file(
+                input : file + '.in',
+                output : file,
+                configuration : substs,
+                install : dir != 'no' and post == '',
+                install_dir : dir)
+
+        if post != ''
+                custom_target(
+                        post,
+                        command: vcs_tagger + ['@INPUT@'],
+                        input : gen,
+                        output : post,
+                        capture : true,
+                        build_always_stale : true,
+                        install : dir != 'no',
+                        install_dir : dir)
         endif
 endforeach
 

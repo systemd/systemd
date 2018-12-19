@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
+vcs_tag(command: vcs_tagger,
+        input : 'version.h.in',
+        output : 'version.h')
+
 basic_sources = files('''
         MurmurHash2.c
         MurmurHash2.h

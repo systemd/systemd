@@ -11,6 +11,7 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "device-private.h"
 #include "fs-util.h"
 #include "log.h"

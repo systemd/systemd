@@ -22,9 +22,16 @@ libudev_sym_path = meson.current_source_dir() + '/libudev.sym'
 install_headers('libudev.h')
 libudev_h_path = '@0@/libudev.h'.format(meson.current_source_dir())
 
-libudev_pc = configure_file(
-        input : 'libudev.pc.in',
-        output : 'libudev.pc',
+pc_in = configure_file(
+        input : 'libudev.pc.in.in',
+        output : 'libudev.pc.in',
         configuration : substs)
-install_data(libudev_pc,
-             install_dir : pkgconfiglibdir)
+libudev_pc = custom_target(
+        'libudev.pc',
+        command: vcs_tagger + ['@INPUT@'],
+        input : pc_in,
+        output : 'libudev.pc',
+        capture : true,
+        build_always_stale : true,
+        install : pkgconfiglibdir != 'no',
+        install_dir : pkgconfiglibdir)

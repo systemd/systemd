@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "build.h"
 #include "curl-util.h"
 #include "fd-util.h"
 #include "locale-util.h"

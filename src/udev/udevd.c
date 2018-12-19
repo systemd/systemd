@@ -31,6 +31,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"

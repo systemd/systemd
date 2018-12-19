@@ -12,8 +12,9 @@ exec_prefix=@exec_prefix@
 libdir=@rootlibdir@
 includedir=@includedir@
 
-Name: libudev
-Description: Library to access udev device information
-Version: @PACKAGE_VERSION@
-Libs: -L${libdir} -ludev
+Name: systemd
+Description: systemd Library
+URL: @PACKAGE_URL@
+Version: %PACKAGE_VERSION%
+Libs: -L${libdir} -lsystemd
 Cflags: -I${includedir}

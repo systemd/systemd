@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "fd-util.h"
 #include "libudev-list-internal.h"
 #include "libudev-util.h"

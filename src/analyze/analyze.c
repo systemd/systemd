@@ -14,6 +14,7 @@
 #include "alloc-util.h"
 #include "analyze-security.h"
 #include "analyze-verify.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"

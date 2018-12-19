@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
