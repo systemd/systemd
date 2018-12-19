@@ -367,7 +367,7 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
         int64_t size;
         struct trie_header_f h = {
                 .signature = HWDB_SIG,
-                .tool_version = htole64(atoi(PACKAGE_VERSION)),
+                .tool_version = htole64(PROJECT_VERSION),
                 .header_size = htole64(sizeof(struct trie_header_f)),
                 .node_size = htole64(sizeof(struct trie_node_f)),
                 .child_entry_size = htole64(sizeof(struct trie_child_entry_f)),
