@@ -584,6 +584,7 @@ endif
 
 vcs_tagger = [meson.source_root() + '/tools/meson-vcs-tag.sh',
               meson.source_root(),
+              get_option('version-tag'),
               meson.project_version()]
 
 sed = find_program('sed')
