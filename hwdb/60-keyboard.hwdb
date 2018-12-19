@@ -600,6 +600,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBookFolio1040G2:pvr*
 
 # HP ProBook 650
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*ProBook*650*:pvr*
+# HP ProBook 645 G4
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*645*G4*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
 # HP ProBook 6555b
