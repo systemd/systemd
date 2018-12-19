@@ -583,7 +583,7 @@ endif
 #####################################################################
 
 vcs_tagger = [meson.source_root() + '/tools/meson-vcs-tag.sh',
-              '@0@/.git'.format(meson.source_root()),
+              meson.source_root(),
               meson.project_version()]
 
 sed = find_program('sed')
