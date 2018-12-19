@@ -1431,9 +1431,9 @@ static int setup_timezone(const char *dest) {
         if (IN_SET(arg_timezone, TIMEZONE_AUTO, TIMEZONE_SYMLINK)) {
                 r = readlink_malloc("/etc/localtime", &p);
                 if (r == -ENOENT && arg_timezone == TIMEZONE_AUTO)
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_OFF : TIMEZONE_DELETE;
+                        m = arg_read_only && IN_SET(arg_volatile_mode, VOLATILE_NO, VOLATILE_STATE) ? TIMEZONE_OFF : TIMEZONE_DELETE;
                 else if (r == -EINVAL && arg_timezone == TIMEZONE_AUTO) /* regular file? */
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_BIND : TIMEZONE_COPY;
+                        m = arg_read_only && IN_SET(arg_volatile_mode, VOLATILE_NO, VOLATILE_STATE) ? TIMEZONE_BIND : TIMEZONE_COPY;
                 else if (r < 0) {
                         log_warning_errno(r, "Failed to read host's /etc/localtime symlink, not updating container timezone: %m");
                         /* To handle warning, delete /etc/localtime and replace it with a symbolic link to a time zone data
@@ -1444,7 +1444,7 @@ static int setup_timezone(const char *dest) {
                          */
                         return 0;
                 } else if (arg_timezone == TIMEZONE_AUTO)
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_BIND : TIMEZONE_SYMLINK;
+                        m = arg_read_only && IN_SET(arg_volatile_mode, VOLATILE_NO, VOLATILE_STATE) ? TIMEZONE_BIND : TIMEZONE_SYMLINK;
                 else
                         m = arg_timezone;
         } else
@@ -1606,11 +1606,11 @@ static int setup_resolv_conf(const char *dest) {
                 if (arg_private_network)
                         m = RESOLV_CONF_OFF;
                 else if (have_resolv_conf(STATIC_RESOLV_CONF) > 0 && resolved_listening() > 0)
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_BIND_STATIC : RESOLV_CONF_COPY_STATIC;
+                        m = arg_read_only && IN_SET(arg_volatile_mode, VOLATILE_NO, VOLATILE_STATE) ? RESOLV_CONF_BIND_STATIC : RESOLV_CONF_COPY_STATIC;
                 else if (have_resolv_conf("/etc/resolv.conf") > 0)
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_BIND_HOST : RESOLV_CONF_COPY_HOST;
+                        m = arg_read_only && IN_SET(arg_volatile_mode, VOLATILE_NO, VOLATILE_STATE) ? RESOLV_CONF_BIND_HOST : RESOLV_CONF_COPY_HOST;
                 else
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_OFF : RESOLV_CONF_DELETE;
+                        m = arg_read_only && IN_SET(arg_volatile_mode, VOLATILE_NO, VOLATILE_STATE) ? RESOLV_CONF_OFF : RESOLV_CONF_DELETE;
         } else
                 m = arg_resolv_conf;
 

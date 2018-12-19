@@ -959,6 +959,71 @@ fail:
         return r;
 }
 
+static int setup_volatile_overlay(
+                const char *directory,
+                bool userns, uid_t uid_shift, uid_t uid_range,
+                const char *selinux_apifs_context) {
+
+        _cleanup_free_ char *buf = NULL, *escaped_directory = NULL, *escaped_upper = NULL, *escaped_work = NULL;
+        char template[] = "/tmp/nspawn-volatile-XXXXXX";
+        const char *upper, *work, *options;
+        bool tmpfs_mounted = false;
+        int r;
+
+        assert(directory);
+
+        /* --volatile=overlay means we mount an overlayfs to the root dir. */
+
+        if (!mkdtemp(template))
+                return log_error_errno(errno, "Failed to create temporary directory: %m");
+
+        options = "mode=755";
+        r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
+        if (r < 0)
+                goto finish;
+        if (r > 0)
+                options = buf;
+
+        r = mount_verbose(LOG_ERR, "tmpfs", template, "tmpfs", MS_STRICTATIME, options);
+        if (r < 0)
+                goto finish;
+
+        tmpfs_mounted = true;
+
+        upper = strjoina(template, "/upper");
+        work = strjoina(template, "/work");
+
+        if (mkdir(upper, 0755) < 0) {
+                r = log_error_errno(errno, "Failed to create %s: %m", upper);
+                goto finish;
+        }
+        if (mkdir(work, 0755) < 0) {
+                r = log_error_errno(errno, "Failed to create %s: %m", work);
+                goto finish;
+        }
+
+        /* And now, let's overmount the root dir with an overlayfs that uses the root dir as lower dir. It's kinda nice
+         * that the kernel allows us to do that without going through some mount point rearrangements. */
+
+        escaped_directory = shell_escape(directory, ",:");
+        escaped_upper = shell_escape(upper, ",:");
+        escaped_work = shell_escape(work, ",:");
+        if (!escaped_directory || !escaped_upper || !escaped_work) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        options = strjoina("lowerdir=", escaped_directory, ",upperdir=", escaped_upper, ",workdir=", escaped_work);
+        r = mount_verbose(LOG_ERR, "overlay", directory, "overlay", 0, options);
+
+finish:
+        if (tmpfs_mounted)
+                (void) umount_verbose(template);
+
+        (void) rmdir(template);
+        return r;
+}
+
 int setup_volatile_mode(
                 const char *directory,
                 VolatileMode mode,
@@ -972,6 +1037,9 @@ int setup_volatile_mode(
 
         case VOLATILE_STATE:
                 return setup_volatile_state(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+
+        case VOLATILE_OVERLAY:
+                return setup_volatile_overlay(directory, userns, uid_shift, uid_range, selinux_apifs_context);
 
         default:
                 return 0;
