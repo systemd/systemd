@@ -910,7 +910,7 @@ static int setup_volatile_yes(
         options = "mode=755";
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
-                return log_oom();
+                goto fail;
         if (r > 0)
                 options = buf;
 
