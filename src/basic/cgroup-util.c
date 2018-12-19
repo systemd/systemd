@@ -2706,6 +2706,7 @@ bool cg_is_unified_wanted(void) {
         int r;
         bool b;
         const bool is_default = DEFAULT_HIERARCHY == CGROUP_UNIFIED_ALL;
+        _cleanup_free_ char *c = NULL;
 
         /* If we have a cached value, return that. */
         if (wanted >= 0)
@@ -2716,11 +2717,19 @@ bool cg_is_unified_wanted(void) {
         if (cg_unified_flush() >= 0)
                 return (wanted = unified_cache >= CGROUP_UNIFIED_ALL);
 
-        /* Otherwise, let's see what the kernel command line has to say.
-         * Since checking is expensive, cache a non-error result. */
+        /* If we were explicitly passed systemd.unified_cgroup_hierarchy,
+         * respect that. */
         r = proc_cmdline_get_bool("systemd.unified_cgroup_hierarchy", &b);
+        if (r > 0)
+                return (wanted = b);
 
-        return (wanted = r > 0 ? b : is_default);
+        /* If we passed cgroup_no_v1=all with no other instructions, it seems
+         * highly unlikely that we want to use hybrid or legacy hierarchy. */
+        r = proc_cmdline_get_key("cgroup_no_v1", 0, &c);
+        if (r > 0 && streq_ptr(c, "all"))
+                return (wanted = true);
+
+        return (wanted = is_default);
 }
 
 bool cg_is_legacy_wanted(void) {

@@ -369,6 +369,17 @@ static void test_is_wanted(void) {
                          "systemd.unified_cgroup_hierarchy=0 "
                          "systemd.legacy_systemd_cgroup_controller=0", 1) >= 0);
         test_is_wanted_print(false);
+
+        /* cgroup_no_v1=all implies unified cgroup hierarchy, unless otherwise
+         * explicitly specified. */
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
+                         "cgroup_no_v1=all", 1) >= 0);
+        test_is_wanted_print(false);
+
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
+                         "cgroup_no_v1=all "
+                         "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
+        test_is_wanted_print(false);
 }
 
 static void test_cg_tests(void) {
