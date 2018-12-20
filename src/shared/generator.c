@@ -55,13 +55,14 @@ int generator_open_unit_file(
         return 0;
 }
 
-int generator_add_symlink(const char *root, const char *dst, const char *dep_type, const char *src) {
-        /* Adds a symlink from <dst>.<dep_type>.d/ to ../<src> */
+int generator_add_symlink(const char *dir, const char *dst, const char *dep_type, const char *src) {
+        /* Adds a symlink from <dst>.<dep_type>/ to <src> (if src is absolute)
+         * or ../<src> (otherwise). */
 
         const char *from, *to;
 
-        from = strjoina("../", src);
-        to = strjoina(root, "/", dst, ".", dep_type, "/", src);
+        from = path_is_absolute(src) ? src : strjoina("../", src);
+        to = strjoina(dir, "/", dst, ".", dep_type, "/", basename(src));
 
         mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0)
