@@ -86,7 +86,7 @@ static int write_fsck_sysroot_service(const char *dir, const char *what) {
         if (!escaped2)
                 return log_oom();
 
-        unit = strjoina(dir, "/systemd-fsck-root.service");
+        unit = strjoina(dir, "/"SPECIAL_FSCK_ROOT_SERVICE);
         log_debug("Creating %s", unit);
 
         r = unit_name_from_path(what, ".device", &device);
@@ -158,10 +158,10 @@ int generator_write_fsck_deps(
         if (path_equal(where, "/")) {
                 const char *lnk;
 
-                lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
+                lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/"SPECIAL_FSCK_ROOT_SERVICE);
 
                 mkdir_parents(lnk, 0755);
-                if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-fsck-root.service", lnk) < 0)
+                if (symlink(SYSTEM_DATA_UNIT_PATH "/"SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
                         return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
         } else {
@@ -173,7 +173,7 @@ int generator_write_fsck_deps(
                         if (r < 0)
                                 return r;
 
-                        fsck = "systemd-fsck-root.service";
+                        fsck = SPECIAL_FSCK_ROOT_SERVICE;
                 } else {
                         r = unit_name_from_path_instance("systemd-fsck", what, ".service", &_fsck);
                         if (r < 0)
