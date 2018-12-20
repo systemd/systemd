@@ -173,26 +173,19 @@ systemd_shutdown_sources = files('''
 '''.split())
 
 in_files = [['macros.systemd',   rpmmacrosdir],
-            ['triggers.systemd', ''],
+            ['system.conf',      pkgsysconfdir],
             ['systemd.pc',       pkgconfigdatadir],
-            ['system.conf',      pkgsysconfdir]]
+            ['triggers.systemd', '']]
 
 foreach item : in_files
         file = item[0]
         dir = item[1]
 
-        # If 'no', disable generation completely.
-        # If '', generate, but do not install.
-        if dir != 'no'
-                gen = configure_file(
-                        input : file + '.in',
-                        output : file,
-                        configuration : substs)
-                if dir != ''
-                        install_data(gen,
-                                     install_dir : dir)
-                endif
-        endif
+        configure_file(
+                input : file + '.in',
+                output : file,
+                configuration : substs,
+                install_dir : dir == 'no' ? '' : dir)
 endforeach
 
 install_data('org.freedesktop.systemd1.conf',
