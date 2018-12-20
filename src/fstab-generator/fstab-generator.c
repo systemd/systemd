@@ -890,6 +890,8 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 /* If running in the initrd also parse the /etc/fstab from the host */
                 if (in_initrd())
                         r3 = parse_fstab(true);
+                else
+                        r3 = generator_enable_remount_fs_service(arg_dest);
         }
 
         return r < 0 ? r : r2 < 0 ? r2 : r3;

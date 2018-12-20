@@ -186,8 +186,7 @@ in_units = [
         ['systemd-quotacheck.service',           'ENABLE_QUOTACHECK'],
         ['systemd-random-seed.service',          'ENABLE_RANDOMSEED',
          'sysinit.target.wants/'],
-        ['systemd-remount-fs.service',           '',
-         'local-fs.target.wants/'],
+        ['systemd-remount-fs.service',           ''],
         ['systemd-resolved.service',             'ENABLE_RESOLVE',
          join_paths(pkgsysconfdir, 'system/dbus-org.freedesktop.resolve1.service') + ' ' +
          join_paths(pkgsysconfdir, 'system/multi-user.target.wants/')],

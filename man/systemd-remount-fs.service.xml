@@ -50,6 +50,13 @@
     <para>For a longer discussion of kernel API file systems see
     <ulink url="https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems">API
     File Systems</ulink>.</para>
+
+    <para>Note: <filename>systemd-remount-fs.service</filename> is usually pulled in by
+    <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    hence it is also affected by the kernel command line option <varname>fstab=</varname>, which may be used
+    to disable the generator. It may also pulled in by
+    <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    which is affected by <varname>systemd.gpt_auto</varname> and other options.</para>
   </refsect1>
 
   <refsect1>
@@ -57,7 +64,9 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -499,6 +499,12 @@ int generator_hook_up_growfs(
         return generator_add_symlink(dir, where_unit, "wants", unit);
 }
 
+int generator_enable_remount_fs_service(const char *dir) {
+        /* Pull in systemd-remount-fs.service */
+        return generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants",
+                                     SYSTEM_DATA_UNIT_PATH "/" SPECIAL_REMOUNT_FS_SERVICE);
+}
+
 void log_setup_generator(void) {
         log_set_prohibit_ipc(true);
         log_setup_service();

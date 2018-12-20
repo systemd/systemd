@@ -50,6 +50,8 @@ int generator_hook_up_growfs(
         const char *where,
         const char *target);
 
+int generator_enable_remount_fs_service(const char *dir);
+
 void log_setup_generator(void);
 
 /* Similar to DEFINE_MAIN_FUNCTION, but initializes logging and assigns positional arguments. */
