@@ -356,7 +356,7 @@ static int dhcp_client_set_iaid_duid_internal(
         assert_return(duid_len == 0 || duid != NULL, -EINVAL);
 
         if (duid != NULL) {
-                r = dhcp_validate_duid_len(duid_type, duid_len);
+                r = dhcp_validate_duid_len(duid_type, duid_len, true);
                 if (r < 0)
                         return r;
         }
