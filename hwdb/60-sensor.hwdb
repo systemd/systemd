@@ -407,6 +407,10 @@ sensor:modalias:acpi:BMA250E*:dmi:bvnAmericanMegatrendsInc.:bvr3BAIR1014:bd10/24
 sensor:modalias:acpi:KIOX000A*:dmi:*:rvnPOV:rnI102A:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+# Point of View TAB-P1006W-232-3G (v1.0)
+sensor:modalias:i2c:bmc150_accel:dmi:bvnINSYDECorp.:*:svnInsyde:pnBayTrail:*:rvn105B:rn0E57:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
 #########################################
 # Prowise
 #########################################
