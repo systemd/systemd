@@ -778,7 +778,7 @@ static void test_read_line4(void) {
 static void test_read_nul_string(void) {
         static const char test[] = "string nr. 1\0"
                 "string nr. 2\n\0"
-                "empty string follows\0"
+                "\377empty string follows\0"
                 "\0"
                 "final string\n is empty\0"
                 "\0";
@@ -794,7 +794,7 @@ static void test_read_nul_string(void) {
         assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 14 && streq_ptr(s, "string nr. 2\n"));
         s = mfree(s);
 
-        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 21 && streq_ptr(s, "empty string follows"));
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 22 && streq_ptr(s, "\377empty string follows"));
         s = mfree(s);
 
         assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 1 && streq_ptr(s, ""));
