@@ -18,6 +18,7 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
@@ -707,8 +708,25 @@ static int add_mounts(void) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
                 if (r == 0) {
-                        log_debug("Neither root nor /usr file system are on a (single) block device.");
-                        return 0;
+                        _cleanup_free_ char *p = NULL;
+                        mode_t m;
+
+                        /* If the root mount has been replaced by some form of volatile file system (overlayfs), the
+                         * original root block device node is symlinked in /run/systemd/volatile-root. Let's read that
+                         * here. */
+                        r = readlink_malloc("/run/systemd/volatile-root", &p);
+                        if (r == -ENOENT) {
+                                log_debug("Neither root nor /usr file system are on a (single) block device.");
+                                return 0;
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
+
+                        r = device_path_parse_major_minor(p, &m, &devno);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse major/minor device node: %m");
+                        if (!S_ISBLK(m))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Volatile root device is of wrong type.");
                 }
         }
 
