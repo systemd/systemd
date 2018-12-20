@@ -3,6 +3,7 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "escape.h"
 #include "fs-util.h"
 #include "main-func.h"
@@ -115,6 +116,7 @@ finish:
 static int run(int argc, char *argv[]) {
         VolatileMode m = _VOLATILE_MODE_INVALID;
         const char *path;
+        dev_t devt;
         int r;
 
         log_setup_service();
@@ -164,6 +166,24 @@ static int run(int argc, char *argv[]) {
         if (r > 0) {
                 log_info("%s already is a temporary file system.", path);
                 return 0;
+        }
+
+        /* We are about to replace the root directory with something else. Later code might want to know what we
+         * replaced here, hence let's save that information as a symlink we can later use. (This is particularly
+         * relevant for the overlayfs case where we'll fully obstruct the view onto the underlying device, hence
+         * querying the backing device node from the file system directly is no longer possible. */
+        r = get_block_device_harder(path, &devt);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine device major/minor of %s: %m", path);
+        else if (r > 0) {
+                _cleanup_free_ char *dn = NULL;
+
+                r = device_path_make_major_minor(S_IFBLK, devt, &dn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format device node path: %m");
+
+                if (symlink(dn, "/run/systemd/volatile-root") < 0)
+                        log_warning_errno(errno, "Failed to create symlink /run/systemd/volatile-root: %m");
         }
 
         if (m == VOLATILE_YES)
