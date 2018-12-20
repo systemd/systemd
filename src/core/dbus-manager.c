@@ -43,7 +43,7 @@ static UnitFileFlags unit_file_bools_to_flags(bool runtime, bool force) {
                (force   ? UNIT_FILE_FORCE   : 0);
 }
 
-static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_version, "s", PACKAGE_VERSION);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_version, "s", GIT_VERSION);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_features, "s", SYSTEMD_FEATURES);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_architecture, "s", architecture_to_string(uname_architecture()));
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_log_target, "s", log_target_to_string(log_get_target()));

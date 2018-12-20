@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "fd-util.h"
 #include "libudev-util.h"
 #include "scsi_id.h"
@@ -370,7 +371,7 @@ static int set_options(int argc, char **argv,
                         break;
 
                 case 'V':
-                        printf("%s\n", PACKAGE_VERSION);
+                        printf("%s\n", GIT_VERSION);
                         exit(EXIT_SUCCESS);
 
                 case 'x':

@@ -9,6 +9,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "conf-parser.h"
 #include "daemon-util.h"
 #include "def.h"
@@ -236,7 +237,7 @@ int start_upload(Uploader *u,
                         easy_setopt(curl, CURLOPT_VERBOSE, 1L, LOG_WARNING, );
 
                 easy_setopt(curl, CURLOPT_USERAGENT,
-                            "systemd-journal-upload " PACKAGE_VERSION,
+                            "systemd-journal-upload " GIT_VERSION,
                             LOG_WARNING, );
 
                 if (arg_key || startswith(u->url, "https://")) {

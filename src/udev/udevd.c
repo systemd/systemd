@@ -31,6 +31,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
@@ -1579,7 +1580,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'h':
                         return help();
                 case 'V':
-                        printf("%s\n", PACKAGE_VERSION);
+                        printf("%s\n", GIT_VERSION);
                         return 0;
                 case '?':
                         return -EINVAL;
@@ -1834,7 +1835,7 @@ static int run(int argc, char *argv[]) {
         if (arg_daemonize) {
                 pid_t pid;
 
-                log_info("starting version " PACKAGE_VERSION);
+                log_info("starting version " GIT_VERSION);
 
                 /* connect /dev/null to stdin, stdout, stderr */
                 if (log_get_max_level() < LOG_DEBUG) {

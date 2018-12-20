@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "build.h"
 #include "curl-util.h"
 #include "fd-util.h"
 #include "locale-util.h"
@@ -283,7 +284,7 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
         if (curl_easy_setopt(c, CURLOPT_PRIVATE, userdata) != CURLE_OK)
                 return -EIO;
 
-        useragent = strjoina(program_invocation_short_name, "/" PACKAGE_VERSION);
+        useragent = strjoina(program_invocation_short_name, "/" GIT_VERSION);
         if (curl_easy_setopt(c, CURLOPT_USERAGENT, useragent) != CURLE_OK)
                 return -EIO;
 

@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "fd-util.h"
 #include "libudev-list-internal.h"
 #include "libudev-util.h"
@@ -507,7 +508,7 @@ int main(int argc, char *argv[]) {
                         return EXIT_SUCCESS;
 
                 case 'V':
-                        printf("%s\n", PACKAGE_VERSION);
+                        printf("%s\n", GIT_VERSION);
                         return EXIT_SUCCESS;
 
                 case 'm':

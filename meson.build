@@ -21,7 +21,6 @@ libudev_version = '1.6.11'
 # set. Ugh, ugh, ugh!
 conf = configuration_data()
 conf.set('PROJECT_VERSION',        meson.project_version())
-conf.set_quoted('PACKAGE_VERSION', meson.project_version())
 
 substs = configuration_data()
 substs.set('PROJECT_URL',          'https://www.freedesktop.org/wiki/Software/systemd')
@@ -583,6 +582,10 @@ else
 endif
 
 #####################################################################
+
+vcs_tagger = [meson.source_root() + '/tools/meson-vcs-tag.sh',
+              '@0@/.git'.format(meson.source_root()),
+              meson.project_version()]
 
 sed = find_program('sed')
 awk = find_program('awk')
