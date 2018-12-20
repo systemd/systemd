@@ -436,7 +436,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
                 return log_error_errno(r, "Failed to copy data from \"%s\" to \"%s\": %m", from, t);
         }
 
-        (void) copy_times(fd_from, fd_to);
+        (void) copy_times(fd_from, fd_to, 0);
 
         if (fsync(fd_to) < 0) {
                 (void) unlink_noerrno(t);

@@ -743,7 +743,7 @@ int copy_file_fd_full(
 
         r = copy_bytes_full(fdf, fdt, (uint64_t) -1, copy_flags, NULL, NULL, progress_bytes, userdata);
 
-        (void) copy_times(fdf, fdt);
+        (void) copy_times(fdf, fdt, copy_flags);
         (void) copy_xattr(fdf, fdt);
 
         return r;
@@ -849,10 +849,9 @@ int copy_file_atomic_full(
         return 0;
 }
 
-int copy_times(int fdf, int fdt) {
+int copy_times(int fdf, int fdt, CopyFlags flags) {
         struct timespec ut[2];
         struct stat st;
-        usec_t crtime = 0;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
@@ -866,8 +865,12 @@ int copy_times(int fdf, int fdt) {
         if (futimens(fdt, ut) < 0)
                 return -errno;
 
-        if (fd_getcrtime(fdf, &crtime) >= 0)
-                (void) fd_setcrtime(fdt, crtime);
+        if (FLAGS_SET(flags, COPY_CRTIME)) {
+                usec_t crtime;
+
+                if (fd_getcrtime(fdf, &crtime) >= 0)
+                        (void) fd_setcrtime(fdt, crtime);
+        }
 
         return 0;
 }
