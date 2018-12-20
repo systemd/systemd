@@ -722,23 +722,14 @@ static int add_sysroot_usr_mount(void) {
 }
 
 static int add_volatile_root(void) {
-        const char *from, *to;
+        /* Let's add in systemd-remount-volatile.service which will remount the root device to tmpfs if this is
+         * requested, leaving only /usr from the root mount inside. */
 
         if (arg_volatile_mode != VOLATILE_YES)
                 return 0;
 
-        /* Let's add in systemd-remount-volatile.service which will remount the root device to tmpfs if this is
-         * requested, leaving only /usr from the root mount inside. */
-
-        from = strjoina(SYSTEM_DATA_UNIT_PATH "/systemd-volatile-root.service");
-        to = strjoina(arg_dest, "/" SPECIAL_INITRD_ROOT_FS_TARGET, ".requires/systemd-volatile-root.service");
-
-        (void) mkdir_parents(to, 0755);
-
-        if (symlink(from, to) < 0)
-                return log_error_errno(errno, "Failed to hook in volatile remount service: %m");
-
-        return 0;
+        return generator_add_symlink(arg_dest, SPECIAL_INITRD_ROOT_FS_TARGET, "requires",
+                                     SYSTEM_DATA_UNIT_PATH "/systemd-volatile-root.service");
 }
 
 static int add_volatile_var(void) {
