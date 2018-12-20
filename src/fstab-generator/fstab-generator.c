@@ -729,7 +729,7 @@ static int add_volatile_root(void) {
                 return 0;
 
         return generator_add_symlink(arg_dest, SPECIAL_INITRD_ROOT_FS_TARGET, "requires",
-                                     SYSTEM_DATA_UNIT_PATH "/systemd-volatile-root.service");
+                                     SYSTEM_DATA_UNIT_PATH "/" SPECIAL_VOLATILE_ROOT_SERVICE);
 }
 
 static int add_volatile_var(void) {
