@@ -47,6 +47,31 @@ static int track_pid(Hashmap **h, const char *path, pid_t pid) {
         return 0;
 }
 
+static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
+        pid_t pid;
+        int r;
+
+        log_debug("Remounting %s...", path);
+
+        r = safe_fork(force_rw ? "(remount-rw)" : "(remount)",
+                      FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child */
+                execv(MOUNT_PATH,
+                      STRV_MAKE(MOUNT_PATH,
+                                path,
+                                "-o",
+                                force_rw ? "remount,rw" : "remount"));
+                log_error_errno(errno, "Failed to execute " MOUNT_PATH ": %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        /* Parent */
+        return track_pid(pids, path, pid);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         _cleanup_endmntent_ FILE *f = NULL;
@@ -66,36 +91,20 @@ static int run(int argc, char *argv[]) {
         if (!f) {
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to open /etc/fstab: %m");
-        } else {
+        } else
                 while ((me = getmntent(f))) {
-                        pid_t pid;
-
-                        /* Remount the root fs, /usr and all API VFS */
+                        /* Remount the root fs, /usr, and all API VFSs */
                         if (!mount_point_is_api(me->mnt_dir) &&
                             !PATH_IN_SET(me->mnt_dir, "/", "/usr"))
                                 continue;
 
-                        log_debug("Remounting %s...", me->mnt_dir);
-
                         if (path_equal(me->mnt_dir, "/"))
                                 has_root = true;
 
-                        r = safe_fork("(remount)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
-                                /* Child */
-                                execv(MOUNT_PATH, STRV_MAKE(MOUNT_PATH, me->mnt_dir, "-o", "remount"));
-                                log_error_errno(errno, "Failed to execute " MOUNT_PATH ": %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        /* Parent */
-                        r = track_pid(&pids, me->mnt_dir, pid);
+                        r = do_remount(me->mnt_dir, false, &pids);
                         if (r < 0)
                                 return r;
                 }
-        }
 
         if (!has_root) {
                 /* The $SYSTEMD_REMOUNT_ROOT_RW environment variable is set by systemd-gpt-auto-generator to tell us
@@ -103,27 +112,14 @@ static int run(int argc, char *argv[]) {
                  * which takes precedence. */
 
                 r = getenv_bool("SYSTEMD_REMOUNT_ROOT_RW");
-                if (r > 0) {
-                        pid_t pid;
-
-                        log_debug("Remounting / writable...");
-
-                        r = safe_fork("(remount-rw)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
-                                /* Child */
-                                execv(MOUNT_PATH, STRV_MAKE(MOUNT_PATH, "/", "-o", "remount,rw"));
-                                log_error_errno(errno, "Failed to execute " MOUNT_PATH ": %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        r = track_pid(&pids, "/", pid);
-                        if (r < 0)
-                                return r;
-
-                } else if (r < 0 && r != -ENXIO)
+                if (r < 0 && r != -ENXIO)
                         log_warning_errno(r, "Failed to parse $SYSTEMD_REMOUNT_ROOT_RW, ignoring: %m");
+
+                if (r > 0) {
+                        r = do_remount("/", true, &pids);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = 0;
