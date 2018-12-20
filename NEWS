@@ -9,6 +9,15 @@ CHANGES WITH 240 in spe:
           an SELinux policy update is required.
           (See e.g. https://github.com/fedora-selinux/selinux-policy/pull/234.)
 
+        * DynamicUser=yes is dropped from systemd-networkd.service,
+          systemd-resolved.service and systemd-timesyncd.service, which was
+          enabled in v239 for systemd-networkd.service and systemd-resolved.service,
+          and since v236 for systemd-timesyncd.service. The users and groups
+          systemd-network, systemd-resolve and systemd-timesync are created
+          by systemd-sysusers again. Distributors or system administrators
+          may need to create these users and groups if they not exist (or need
+          to re-enable DynamicUser= for those units) while upgrading systemd.
+
         * When unit files are loaded from disk, previously systemd would
           sometimes (depending on the unit loading order) load units from the
           target path of symlinks in .wants/ or .requires/ directories of other
