@@ -2891,8 +2891,9 @@ foreach tuple : fuzzers
 endforeach
 endif
 
-run_target('fuzzers',
-        depends : fuzzer_exes,
+run_target(
+        'fuzzers',
+        depends : [fuzzer_exes, version_h],
         command : ['true'])
 
 ############################################################
