@@ -861,7 +861,7 @@ static int determine_root(void) {
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        int r;
+        int r, r2 = 0, r3 = 0;
 
         assert_se(arg_dest = dest);
         assert_se(arg_dest_late = dest_late);
@@ -874,38 +874,25 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
-                int k;
-
                 r = add_sysroot_mount();
 
-                k = add_sysroot_usr_mount();
-                if (k < 0)
-                        r = k;
+                r2 = add_sysroot_usr_mount();
 
-                k = add_volatile_root();
-                if (k < 0)
-                        r = k;
+                r3 = add_volatile_root();
         } else
                 r = add_volatile_var();
 
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
-                int k;
-
                 /* Parse the local /etc/fstab, possibly from the initrd */
-                k = parse_fstab(false);
-                if (k < 0)
-                        r = k;
+                r2 = parse_fstab(false);
 
                 /* If running in the initrd also parse the /etc/fstab from the host */
-                if (in_initrd()) {
-                        k = parse_fstab(true);
-                        if (k < 0)
-                                r = k;
-                }
+                if (in_initrd())
+                        r3 = parse_fstab(true);
         }
 
-        return r;
+        return r < 0 ? r : r2 < 0 ? r2 : r3;
 }
 
 DEFINE_MAIN_GENERATOR_FUNCTION(run);
