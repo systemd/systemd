@@ -755,9 +755,15 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                             (eol == EOL_NONE && previous_eol != EOL_NONE) ||
                             (eol != EOL_NONE && (previous_eol & eol) != 0)) {
                                 /* Previous char was a NUL? This is not an EOL, but the previous char was? This type of
-                                 * EOL marker has been seen right before? In either of these three cases we are
-                                 * done. But first, let's put this character back in the queue. */
-                                assert_se(ungetc(c, f) != EOF);
+                                 * EOL marker has been seen right before?  In either of these three cases we are
+                                 * done. But first, let's put this character back in the queue. (Note that we have to
+                                 * cast this to (unsigned char) here as ungetc() expects a positive 'int', and if we
+                                 * are on an architecture where 'char' equals 'signed char' we need to ensure we don't
+                                 * pass a negative value here. That said, to complicate things further ungetc() is
+                                 * actually happy with most negative characters and implicitly casts them back to
+                                 * positive ones as needed, except for \xff (aka -1, aka EOF), which it refuses. What a
+                                 * godawful API!) */
+                                assert_se(ungetc((unsigned char) c, f) != EOF);
                                 break;
                         }
 

@@ -611,7 +611,7 @@ static void test_tempfn(void) {
 }
 
 static const char chars[] =
-        "Aąę„”\n루";
+        "Aąę„”\n루\377";
 
 static void test_fgetc(void) {
         _cleanup_fclose_ FILE *f = NULL;
@@ -624,11 +624,12 @@ static void test_fgetc(void) {
                 assert_se(safe_fgetc(f, &c) == 1);
                 assert_se(c == chars[i]);
 
-                assert_se(ungetc(c, f) != EOF);
-                assert_se(safe_fgetc(f, &c) == 1);
+                /* EOF is -1, and hence we can't push value 255 in this way */
+                assert_se(ungetc(c, f) != EOF || c == EOF);
+                assert_se(c == EOF || safe_fgetc(f, &c) == 1);
                 assert_se(c == chars[i]);
 
-                /* Check that ungetc doesn't care about unsigned char vs signed char */
+                /* But it works when we push it properly cast */
                 assert_se(ungetc((unsigned char) c, f) != EOF);
                 assert_se(safe_fgetc(f, &c) == 1);
                 assert_se(c == chars[i]);
@@ -778,7 +779,7 @@ static void test_read_line4(void) {
 static void test_read_nul_string(void) {
         static const char test[] = "string nr. 1\0"
                 "string nr. 2\n\0"
-                "empty string follows\0"
+                "\377empty string follows\0"
                 "\0"
                 "final string\n is empty\0"
                 "\0";
@@ -794,7 +795,7 @@ static void test_read_nul_string(void) {
         assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 14 && streq_ptr(s, "string nr. 2\n"));
         s = mfree(s);
 
-        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 21 && streq_ptr(s, "empty string follows"));
+        assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 22 && streq_ptr(s, "\377empty string follows"));
         s = mfree(s);
 
         assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 1 && streq_ptr(s, ""));
