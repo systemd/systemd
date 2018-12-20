@@ -195,6 +195,7 @@ int unit_name_printf(Unit *u, const char* format, char **ret) {
                 { 'N', specifier_prefix_and_instance, NULL },
                 { 'p', specifier_prefix,              NULL },
                 { 'i', specifier_string,              u->instance },
+                { 'j', specifier_last_component,      NULL },
 
                 { 'g', specifier_group_name,          NULL },
                 { 'G', specifier_group_id,            NULL },
