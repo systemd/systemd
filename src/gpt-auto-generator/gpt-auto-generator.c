@@ -483,7 +483,7 @@ static int add_root_rw(DissectedPartition *p) {
         return 0;
 }
 
-static int open_parent(dev_t devnum, int *ret) {
+static int open_parent_devno(dev_t devnum, int *ret) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         const char *name, *devtype, *node;
         sd_device *parent;
@@ -551,7 +551,7 @@ static int enumerate_partitions(dev_t devnum) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         int r, k;
 
-        r = open_parent(devnum, &fd);
+        r = open_parent_devno(devnum, &fd);
         if (r <= 0)
                 return r;
 
