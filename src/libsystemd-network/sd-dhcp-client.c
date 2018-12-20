@@ -308,7 +308,9 @@ int sd_dhcp_client_set_client_id(
                 break;
 
         case ARPHRD_INFINIBAND:
-                if (data_len != INFINIBAND_ALEN)
+                /* Infiniband addresses are 20 bytes (INFINIBAND_ALEN), however only
+                 * the last 8 bytes are stable and suitable for putting into the client-id. */
+                if (data_len != 8)
                         return -EINVAL;
                 break;
 
