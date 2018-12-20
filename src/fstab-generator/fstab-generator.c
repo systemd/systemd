@@ -518,6 +518,8 @@ static int parse_fstab(bool initrd) {
         int r = 0;
 
         fstab_path = initrd ? "/sysroot/etc/fstab" : "/etc/fstab";
+        log_debug("Parsing %s...", fstab_path);
+
         f = setmntent(fstab_path, "re");
         if (!f) {
                 if (errno == ENOENT)
@@ -899,8 +901,6 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (arg_fstab_enabled) {
                 int k;
 
-                log_debug("Parsing /etc/fstab");
-
                 /* Parse the local /etc/fstab, possibly from the initrd */
                 k = parse_fstab(false);
                 if (k < 0)
@@ -908,8 +908,6 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
                 /* If running in the initrd also parse the /etc/fstab from the host */
                 if (in_initrd()) {
-                        log_debug("Parsing /sysroot/etc/fstab");
-
                         k = parse_fstab(true);
                         if (k < 0)
                                 r = k;
