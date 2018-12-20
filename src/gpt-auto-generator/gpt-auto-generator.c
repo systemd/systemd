@@ -518,7 +518,7 @@ static int enumerate_partitions(dev_t devnum) {
         if (r <= 0)
                 return r;
 
-        r = dissect_image(fd, NULL, 0, DISSECT_IMAGE_GPT_ONLY, &m);
+        r = dissect_image(fd, NULL, 0, DISSECT_IMAGE_GPT_ONLY|DISSECT_IMAGE_NO_UDEV, &m);
         if (r == -ENOPKG) {
                 log_debug_errno(r, "No suitable partition table found, ignoring.");
                 return 0;
