@@ -611,7 +611,7 @@ static void test_tempfn(void) {
 }
 
 static const char chars[] =
-        "Aąę„”\n루";
+        "Aąę„”\n루\377";
 
 static void test_fgetc(void) {
         _cleanup_fclose_ FILE *f = NULL;
@@ -624,11 +624,12 @@ static void test_fgetc(void) {
                 assert_se(safe_fgetc(f, &c) == 1);
                 assert_se(c == chars[i]);
 
-                assert_se(ungetc(c, f) != EOF);
-                assert_se(safe_fgetc(f, &c) == 1);
+                /* EOF is -1, and hence we can't push value 255 in this way */
+                assert_se(ungetc(c, f) != EOF || c == EOF);
+                assert_se(c == EOF || safe_fgetc(f, &c) == 1);
                 assert_se(c == chars[i]);
 
-                /* Check that ungetc doesn't care about unsigned char vs signed char */
+                /* But it works when we push it properly cast */
                 assert_se(ungetc((unsigned char) c, f) != EOF);
                 assert_se(safe_fgetc(f, &c) == 1);
                 assert_se(c == chars[i]);
