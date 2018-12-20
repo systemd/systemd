@@ -197,6 +197,45 @@
   </refsect1>
 
   <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-gpt-auto-generator</filename> understands the following kernel command line
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+
+      <varlistentry>
+        <term><varname>systemd.gpt_auto</varname></term>
+        <term><varname>rd.systemd.gpt_auto</varname></term>
+
+        <listitem><para>Those options take an optional boolean argument, and default to yes.
+        The generator is enabled by default, and a negative value may be used to disable it.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>root=</varname></term>
+
+        <listitem><para>When used with the special value <literal>gpt-auto</literal>, automatic discovery of
+        the root parition based on the GPT partition type is enabled.  Any other value disables this
+        generator.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>rw</varname></term>
+        <term><varname>ro</varname></term>
+
+        <listitem><para>Mount the root partition read-write or read-only <emphasis>initially</emphasis>.</para>
+
+        <para>Note that unlike most kernel command line options these settings do not override configuration
+        in the file system, and the file system may be remounted later. See
+        <citerefentry><refentrytitle>systemd-remount-fs.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

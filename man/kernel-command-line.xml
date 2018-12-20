@@ -329,7 +329,7 @@
         <listitem>
           <para>Configures the root file system and its file system
           type and mount options, as well as whether it shall be
-          mounted read-only or read-writable initially. For details,
+          mounted read-only or read-write initially. For details,
           see
           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </listitem>
