@@ -107,6 +107,14 @@ enum {
         SD_LLDP_OUI_802_1_SUBTYPE_LINK_AGGREGATION      = 7,
 };
 
+/* IEEE 802.1AB-2009 Annex F */
+enum {
+        SD_LLDP_OUI_802_3_SUBTYPE_MAC_PHY_CONFIG_STATUS = 1,
+        SD_LLDP_OUI_802_3_SUBTYPE_POWER_VIA_MDI         = 2,
+        SD_LLDP_OUI_802_3_SUBTYPE_LINK_AGGREGATION      = 3,
+        SD_LLDP_OUI_802_3_SUBTYPE_MAXIMUM_FRAME_SIZE    = 4,
+};
+
 typedef struct sd_lldp sd_lldp;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
