@@ -1,6 +1,9 @@
 [Match]
 Name=dummy98
 
+[Network]
+IPv6AcceptRA=no
+
 [Address]
 Address=10.2.3.4/16
 Peer=10.2.3.5/16
