@@ -206,9 +206,13 @@ static int dhcp6_client_set_duid_internal(
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
         if (duid != NULL) {
-                r = dhcp_validate_duid_len(duid_type, duid_len);
-                if (r < 0)
-                        return r;
+                r = dhcp_validate_duid_len(duid_type, duid_len, true);
+                if (r < 0) {
+                        r = dhcp_validate_duid_len(duid_type, duid_len, false);
+                        if (r < 0)
+                                return r;
+                        log_dhcp6_client(client, "Setting DUID of type %u with unexpected content", duid_type);
+                }
 
                 client->duid.type = htobe16(duid_type);
                 memcpy(&client->duid.raw.data, duid, duid_len);

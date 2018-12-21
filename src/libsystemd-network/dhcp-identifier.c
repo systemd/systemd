@@ -18,12 +18,18 @@
 #define APPLICATION_ID SD_ID128_MAKE(a5,0a,d1,12,bf,60,45,77,a2,fb,74,1a,b1,95,5b,03)
 #define USEC_2000       ((usec_t) 946684800000000) /* 2000-01-01 00:00:00 UTC */
 
-int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len) {
+int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len, bool strict) {
         struct duid d;
 
         assert_cc(sizeof(d.raw) >= MAX_DUID_LEN);
         if (duid_len > MAX_DUID_LEN)
                 return -EINVAL;
+
+        if (!strict) {
+                /* Strict validation is not requested. We only ensure that the
+                 * DUID is not too long. */
+                return 0;
+        }
 
         switch (duid_type) {
         case DUID_TYPE_LLT:
