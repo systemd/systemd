@@ -118,6 +118,10 @@ CHANGES WITH 240 in spe:
         * Support for disabling a particular cgroup controller within a sub-tree
           has been added through the DisableControllers= directive.
 
+        * cgroup_no_v1=all on the kernel command line now also implies
+          using the unified cgroup hierarchy, unless one explicitly passes
+          systemd.unified_cgroup_hierarchy=0 on the kernel command line.
+
         * The new "MemoryMin=" unit file property may now be used to set the
           memory usage protection limit of processes invoked by the unit. This
           controls the cgroupsv2 memory.min attribute. Similarly, the new
