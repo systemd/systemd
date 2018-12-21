@@ -151,6 +151,9 @@ int sd_network_link_get_search_domains(int ifindex, char ***domains);
 /* Get the route DNS domain names for a given link. */
 int sd_network_link_get_route_domains(int ifindex, char ***domains);
 
+/* Get whether this link shall be used as 'default route' for DNS queries */
+int sd_network_link_get_dns_default_route(int ifindex);
+
 /* Get the carrier interface indexes to which current link is bound to. */
 int sd_network_link_get_carrier_bound_to(int ifindex, int **ifindexes);
 

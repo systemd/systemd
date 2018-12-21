@@ -682,22 +682,15 @@ int dns_query_go(DnsQuery *q) {
                         continue;
 
                 match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
-                if (match < 0)
-                        return match;
-
-                if (match == DNS_SCOPE_NO)
+                if (match < 0) {
+                        log_debug("Couldn't check if '%s' matches against scope, ignoring.", name);
                         continue;
+                }
 
-                found = match;
-
-                if (match == DNS_SCOPE_YES) {
+                if (match > found) { /* Does this match better? If so, remember how well it matched, and the first one
+                                      * that matches this well */
+                        found = match;
                         first = s;
-                        break;
-                } else {
-                        assert(match == DNS_SCOPE_MAYBE);
-
-                        if (!first)
-                                first = s;
                 }
         }
 
@@ -725,10 +718,12 @@ int dns_query_go(DnsQuery *q) {
                         continue;
 
                 match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
-                if (match < 0)
-                        goto fail;
+                if (match < 0) {
+                        log_debug("Couldn't check if '%s' matches agains scope, ignoring.", name);
+                        continue;
+                }
 
-                if (match != found)
+                if (match < found)
                         continue;
 
                 r = dns_query_add_candidate(q, s);

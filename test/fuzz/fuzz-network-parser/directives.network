@@ -159,6 +159,7 @@ InvertRule=
 RouterPreference=
 DNSLifetimeSec=
 DNS=
+DNSDefaultRoute=
 RouterLifetimeSec=
 Domains=
 EmitDNS=

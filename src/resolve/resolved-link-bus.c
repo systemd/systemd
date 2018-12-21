@@ -107,6 +107,31 @@ static int property_get_domains(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_default_route(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Link *l = userdata;
+
+        assert(reply);
+        assert(l);
+
+        /* Return what is configured, if there's something configured */
+        if (l->default_route >= 0)
+                return sd_bus_message_append(reply, "b", l->default_route);
+
+        /* Otherwise report what is in effect */
+        if (l->unicast_scope)
+                return sd_bus_message_append(reply, "b", dns_scope_is_default_route(l->unicast_scope));
+
+        return sd_bus_message_append(reply, "b", false);
+}
+
 static int property_get_scopes_mask(
                 sd_bus *bus,
                 const char *path,
@@ -346,6 +371,31 @@ clear:
         return r;
 }
 
+int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = userdata;
+        int r, b;
+
+        assert(message);
+        assert(l);
+
+        r = verify_unmanaged_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "b", &b);
+        if (r < 0)
+                return r;
+
+        if (l->default_route != b) {
+                l->default_route = b;
+
+                (void) link_save_user(l);
+                (void) manager_write_resolv_conf(l->manager);
+        }
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Link *l = userdata;
         ResolveSupport mode;
@@ -550,6 +600,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
         SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server, offsetof(Link, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
+        SD_BUS_PROPERTY("DefaultRoute", "b", property_get_default_route, 0, 0),
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Link, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Link, mdns_support), 0),
         SD_BUS_PROPERTY("DNSOverTLS", "s", property_get_dns_over_tls_mode, 0, 0),
@@ -559,6 +610,7 @@ const sd_bus_vtable link_vtable[] = {
 
         SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, 0),
         SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_domains, 0),
+        SD_BUS_METHOD("SetDefaultRoute", "b", NULL, bus_link_method_set_default_route, 0),
         SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, 0),
         SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, 0),
         SD_BUS_METHOD("SetDNSOverTLS", "s", NULL, bus_link_method_set_dns_over_tls, 0),

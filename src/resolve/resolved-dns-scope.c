@@ -30,15 +30,17 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         assert(m);
         assert(ret);
 
-        s = new0(DnsScope, 1);
+        s = new(DnsScope, 1);
         if (!s)
                 return -ENOMEM;
 
-        s->manager = m;
-        s->link = l;
-        s->protocol = protocol;
-        s->family = family;
-        s->resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC;
+        *s = (DnsScope) {
+                .manager = m,
+                .link = l,
+                .protocol = protocol,
+                .family = family,
+                .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
+        };
 
         if (protocol == DNS_PROTOCOL_DNS) {
                 /* Copy DNSSEC mode from the link if it is set there,
@@ -457,8 +459,39 @@ int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *add
         return dns_scope_socket(s, SOCK_STREAM, family, address, server, port, ret_socket_address);
 }
 
-DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
+static DnsScopeMatch accept_link_local_reverse_lookups(const char *domain) {
+        assert(domain);
+
+        if (dns_name_endswith(domain, "254.169.in-addr.arpa") > 0)
+                return DNS_SCOPE_YES_BASE + 4; /* 4 labels match */
+
+        if (dns_name_endswith(domain, "8.e.f.ip6.arpa") > 0 ||
+            dns_name_endswith(domain, "9.e.f.ip6.arpa") > 0 ||
+            dns_name_endswith(domain, "a.e.f.ip6.arpa") > 0 ||
+            dns_name_endswith(domain, "b.e.f.ip6.arpa") > 0)
+                return DNS_SCOPE_YES_BASE + 5; /* 5 labels match */
+
+        return _DNS_SCOPE_MATCH_INVALID;
+}
+
+DnsScopeMatch dns_scope_good_domain(
+                DnsScope *s,
+                int ifindex,
+                uint64_t flags,
+                const char *domain) {
+
         DnsSearchDomain *d;
+
+        /* This returns the following return values:
+         *
+         *    DNS_SCOPE_NO         → This scope is not suitable for lookups of this domain, at all
+         *    DNS_SCOPE_MAYBE      → This scope is suitable, but only if nothing else wants it
+         *    DNS_SCOPE_YES_BASE+n → This scope is suitable, and 'n' suffix labels match
+         *
+         *  (The idea is that the caller will only use the scopes with the longest 'n' returned. If no scopes return
+         *  DNS_SCOPE_YES_BASE+n, then it should use those which returned DNS_SCOPE_MAYBE. It should never use those
+         *  which returned DNS_SCOPE_NO.)
+         */
 
         assert(s);
         assert(domain);
@@ -494,23 +527,35 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         switch (s->protocol) {
 
         case DNS_PROTOCOL_DNS: {
-                DnsServer *dns_server;
+                int n_best = -1;
 
                 /* Never route things to scopes that lack DNS servers */
-                dns_server = dns_scope_get_dns_server(s);
-                if (!dns_server)
+                if (!dns_scope_get_dns_server(s))
                         return DNS_SCOPE_NO;
 
                 /* Always honour search domains for routing queries, except if this scope lacks DNS servers. Note that
                  * we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means other wildcard scopes
                  * won't be considered anymore. */
                 LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
-                        if (dns_name_endswith(domain, d->name) > 0)
-                                return DNS_SCOPE_YES;
+                        if (dns_name_endswith(domain, d->name) > 0) {
+                                int c;
 
-                /* If the DNS server has route-only domains, don't send other requests to it. This would be a privacy
-                 * violation, will most probably fail anyway, and adds unnecessary load. */
-                if (dns_server_limited_domains(dns_server))
+                                c = dns_name_count_labels(d->name);
+                                if (c < 0)
+                                        continue;
+
+                                if (c > n_best)
+                                        n_best = c;
+                        }
+
+                /* Let's return the number of labels in the best matching result */
+                if (n_best >= 0) {
+                        assert(n_best <= DNS_SCOPE_YES_END - DNS_SCOPE_YES_BASE);
+                        return DNS_SCOPE_YES_BASE + n_best;
+                }
+
+                /* See if this scope is suitable as default route. */
+                if (!dns_scope_is_default_route(s))
                         return DNS_SCOPE_NO;
 
                 /* Exclude link-local IP ranges */
@@ -528,25 +573,48 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                 return DNS_SCOPE_NO;
         }
 
-        case DNS_PROTOCOL_MDNS:
+        case DNS_PROTOCOL_MDNS: {
+                DnsScopeMatch m;
+
+                m = accept_link_local_reverse_lookups(domain);
+                if (m >= 0)
+                        return m;
+
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
-                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
-                    (dns_name_endswith(domain, "local") > 0 && /* only resolve names ending in .local via mDNS */
+                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0))
+                        return DNS_SCOPE_MAYBE;
+
+                if ((dns_name_endswith(domain, "local") > 0 && /* only resolve names ending in .local via mDNS */
                      dns_name_equal(domain, "local") == 0 &&   /* but not the single-label "local" name itself */
                      manager_is_own_hostname(s->manager, domain) <= 0)) /* never resolve the local hostname via mDNS */
-                        return DNS_SCOPE_MAYBE;
+                        return DNS_SCOPE_YES_BASE + 1; /* Return +1, as the top-level .local domain matches, i.e. one label */
 
                 return DNS_SCOPE_NO;
+        }
 
-        case DNS_PROTOCOL_LLMNR:
+        case DNS_PROTOCOL_LLMNR: {
+                DnsScopeMatch m;
+
+                m = accept_link_local_reverse_lookups(domain);
+                if (m >= 0)
+                        return m;
+
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
-                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
-                    (dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
+                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0))
+                        return DNS_SCOPE_MAYBE;
+
+                if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      !is_gateway_hostname(domain) && /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
-                        return DNS_SCOPE_MAYBE;
+                        return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative for
+                                                        * single-label names, i.e. one label. This is particular
+                                                        * relevant as it means a "." route on some other scope won't
+                                                        * pull all traffic away from us. (If people actually want to
+                                                        * pull traffic away from us they should turn off LLMNR on the
+                                                        * link) */
 
                 return DNS_SCOPE_NO;
+        }
 
         default:
                 assert_not_reached("Unknown scope protocol");
@@ -1321,4 +1389,57 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
         }
 
         return 0;
+}
+
+static bool dns_scope_has_route_only_domains(DnsScope *scope) {
+        DnsSearchDomain *domain, *first;
+        bool route_only = false;
+
+        assert(scope);
+        assert(scope->protocol == DNS_PROTOCOL_DNS);
+
+        /* Returns 'true' if this scope is suitable for queries to specific domains only. For that we check
+         * if there are any route-only domains on this interface, as a heuristic to discern VPN-style links
+         * from non-VPN-style links. Returns 'false' for all other cases, i.e. if the scope is intended to
+         * take queries to arbitrary domains, i.e. has no routing domains set. */
+
+        if (scope->link)
+                first = scope->link->search_domains;
+        else
+                first = scope->manager->search_domains;
+
+        LIST_FOREACH(domains, domain, first) {
+                /* "." means "any domain", thus the interface takes any kind of traffic. Thus, we exit early
+                 * here, as it doesn't really matter whether this link has any route-only domains or not,
+                 * "~."  really trumps everything and clearly indicates that this interface shall receive all
+                 * traffic it can get. */
+                if (dns_name_is_root(DNS_SEARCH_DOMAIN_NAME(domain)))
+                        return false;
+
+                if (domain->route_only)
+                        route_only = true;
+        }
+
+        return route_only;
+}
+
+bool dns_scope_is_default_route(DnsScope *scope) {
+        assert(scope);
+
+        /* Only use DNS scopes as default routes */
+        if (scope->protocol != DNS_PROTOCOL_DNS)
+                return false;
+
+        /* The global DNS scope is always suitable as default route */
+        if (!scope->link)
+                return true;
+
+        /* Honour whatever is explicitly configured. This is really the best approach, and trumps any
+         * automatic logic. */
+        if (scope->link->default_route >= 0)
+                return scope->link->default_route;
+
+        /* Otherwise check if we have any route-only domains, as a sensible heuristic: if so, let's not
+         * volunteer as default route. */
+        return !dns_scope_has_route_only_domains(scope);
 }
