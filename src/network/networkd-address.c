@@ -632,14 +632,10 @@ int address_configure(
                         r = sd_netlink_message_append_in6_addr(req, IFA_ADDRESS, &address->in_addr_peer.in6);
                 if (r < 0)
                         return log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
-        } else {
-                if (address->family == AF_INET) {
-                        if (address->prefixlen <= 30) {
-                                r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
-                                if (r < 0)
-                                        return log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
-                        }
-                }
+        } else if (address->family == AF_INET && address->prefixlen <= 30) {
+                r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+                if (r < 0)
+                        return log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
         }
 
         if (address->label) {
@@ -648,8 +644,7 @@ int address_configure(
                         return log_error_errno(r, "Could not append IFA_LABEL attribute: %m");
         }
 
-        r = sd_netlink_message_append_cache_info(req, IFA_CACHEINFO,
-                                              &address->cinfo);
+        r = sd_netlink_message_append_cache_info(req, IFA_CACHEINFO, &address->cinfo);
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_CACHEINFO attribute: %m");
 
