@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <math.h>
-#if HAVE_VALGRIND_VALGRIND_H
-#include <valgrind/valgrind.h>
-#endif
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -45,12 +42,13 @@ static void test_tokenizer(const char *data, ...) {
 
                         d = va_arg(ap, long double);
 
-#if HAVE_VALGRIND_VALGRIND_H
-                        if (!RUNNING_ON_VALGRIND)
-#endif
-                                /* Valgrind doesn't support long double calculations and automatically downgrades to 80bit:
-                                 * http://www.valgrind.org/docs/manual/manual-core.html#manual-core.limits */
-                                assert_se(fabsl(d - v.real) < 0.001L);
+                        /* Valgrind doesn't support long double calculations and automatically downgrades to 80bit:
+                         * http://www.valgrind.org/docs/manual/manual-core.html#manual-core.limits.
+                         * Some architectures might not support long double either.
+                         */
+
+                        assert_se(fabsl(d - v.real) < 1e-10 ||
+                                  fabsl((d - v.real) / v.real) < 1e-10);
 
                 } else if (t == JSON_TOKEN_INTEGER) {
                         intmax_t i;
