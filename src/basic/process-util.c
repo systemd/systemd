@@ -1255,25 +1255,17 @@ int safe_fork_full(
         original_pid = getpid_cached();
 
         if (flags & (FORK_RESET_SIGNALS|FORK_DEATHSIG)) {
-
                 /* We temporarily block all signals, so that the new child has them blocked initially. This way, we can
                  * be sure that SIGTERMs are not lost we might send to the child. */
 
-                if (sigfillset(&ss) < 0)
-                        return log_full_errno(prio, errno, "Failed to reset signal set: %m");
-
+                assert_se(sigfillset(&ss) >= 0);
                 block_signals = true;
 
         } else if (flags & FORK_WAIT) {
-
                 /* Let's block SIGCHLD at least, so that we can safely watch for the child process */
 
-                if (sigemptyset(&ss) < 0)
-                        return log_full_errno(prio, errno, "Failed to clear signal set: %m");
-
-                if (sigaddset(&ss, SIGCHLD) < 0)
-                        return log_full_errno(prio, errno, "Failed to add SIGCHLD to signal set: %m");
-
+                assert_se(sigemptyset(&ss) >= 0);
+                assert_se(sigaddset(&ss, SIGCHLD) >= 0);
                 block_signals = true;
         }
 
