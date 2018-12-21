@@ -351,18 +351,17 @@ int address_update(
         address->cinfo = *cinfo;
 
         link_update_operstate(address->link);
+        link_check_ready(address->link);
 
-        if (!ready && address_is_ready(address)) {
-                link_check_ready(address->link);
+        if (!ready &&
+            address_is_ready(address) &&
+            address->family == AF_INET6 &&
+            in_addr_is_link_local(AF_INET6, &address->in_addr) > 0 &&
+            in_addr_is_null(AF_INET6, (const union in_addr_union*) &address->link->ipv6ll_address) > 0) {
 
-                if (address->family == AF_INET6 &&
-                    in_addr_is_link_local(AF_INET6, &address->in_addr) > 0 &&
-                    in_addr_is_null(AF_INET6, (const union in_addr_union*) &address->link->ipv6ll_address) > 0) {
-
-                        r = link_ipv6ll_gained(address->link, &address->in_addr.in6);
-                        if (r < 0)
-                                return r;
-                }
+                r = link_ipv6ll_gained(address->link, &address->in_addr.in6);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
