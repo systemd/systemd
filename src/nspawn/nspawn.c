@@ -1308,6 +1308,9 @@ static int verify_arguments(void) {
         if (arg_start_mode == START_BOOT && arg_kill_signal <= 0)
                 arg_kill_signal = SIGRTMIN+3;
 
+        if (arg_volatile_mode != VOLATILE_NO) /* Make sure all file systems contained in the image are mounted read-only if we are in volatile mode */
+                arg_read_only = true;
+
         if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0)
                 /* Save the user from accidentally registering either user-$SESSION.scope or user@.service.
                  * The latter is not technically a user session, but we don't need to labour the point. */
@@ -1334,6 +1337,12 @@ static int verify_arguments(void) {
         if (arg_userns_chown && arg_read_only)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--read-only and --private-users-chown may not be combined.");
 
+        /* We don't support --private-users-chown together with any of the volatile modes since we couldn't
+         * change the read-only part of the tree (i.e. /usr) anyway, or because it would trigger a massive
+         * copy-up (in case of overlay) making the entire excercise pointless. */
+        if (arg_userns_chown && arg_volatile_mode != VOLATILE_NO)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--volatile= and --private-users-chown may not be combined.");
+
         /* If --network-namespace-path is given with any other network-related option,
          * we need to error out, to avoid conflicts between different network options. */
         if (arg_network_namespace_path &&
@@ -1351,9 +1360,6 @@ static int verify_arguments(void) {
 
         if (arg_userns_mode != USER_NAMESPACE_NO && !(arg_mount_settings & MOUNT_APPLY_APIVFS_RO))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --private-users with read-write mounts.");
-
-        if (arg_volatile_mode != VOLATILE_NO && arg_read_only)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --read-only with --volatile. Note that --volatile already implies a read-only base hierarchy.");
 
         if (arg_expose_ports && !arg_private_network)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
@@ -2967,7 +2973,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        if (arg_read_only) {
+        if (arg_read_only && arg_volatile_mode == VOLATILE_NO) {
                 r = bind_remount_recursive(directory, true, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make tree read-only: %m");
