@@ -127,8 +127,8 @@ int test_main(int argc, char *argv[], void *userdata) {
 
         event = udev_event_new(dev, 0, NULL);
 
-        sigfillset(&mask);
-        sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
+        assert_se(sigfillset(&mask) >= 0);
+        assert_se(sigprocmask(SIG_SETMASK, &mask, &sigmask_orig) >= 0);
 
         udev_event_execute_rules(event, 60 * USEC_PER_SEC, NULL, rules);
 
