@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 240 in spe:
+CHANGES WITH 240:
 
         * NoNewPrivileges=yes has been set for all long-running services
           implemented by systemd. Previously, this was problematic due to
@@ -470,35 +470,36 @@ CHANGES WITH 240 in spe:
         Hans de Goede, Harald Hoyer, Harry Mallon, Harshit Jain, Helmut Grohne,
         Henry Tung, Hui Yiqun, imayoda, Insun Pyo, Iwan Timmer, Jan Janssen,
         Jan Pokorný, Jan Synacek, Jason A. Donenfeld, javitoom, Jérémy Nouhaud,
-        Jiuyang Liu, João Paulo Rechi Vita, Joe Hershberger, Joe Rayhawk, Joerg
-        Behrmann, Joerg Steffens, Jonas Dorel, Jon Ringle, Josh Soref, Julian
-        Andres Klode, Jun Bo Bi, Jürg Billeter, Keith Busch, Khem Raj, Kirill
-        Marinushkin, Larry Bernstone, Lennart Poettering, Lion Yang, Li Song,
-        Lorenz Hübschle-Schneider, Lubomir Rintel, Lucas Werkmeister, Ludwin
-        Janvier, Lukáš Nykrýn, Luke Shumaker, mal, Marc-Antoine Perennou,
-        Marcin Skarbek, Marco Trevisan (Treviño), Marian Cepok, Mario Hros,
-        Marko Myllynen, Markus Grimm, Martin Pitt, Martin Sobotka, Martin
-        Wilck, Mathieu Trudel-Lapierre, Matthew Leeds, Michael Biebl, Michael
-        Olbrich, Michael 'pbone' Pobega, Michael Scherer, Michal Koutný, Michal
-        Sekletar, Michal Soltys, Mike Gilbert, Mike Palmer, Muhammet Kara, Neal
-        Gompa, Neil Brown, Network Silence, Niklas Tibbling, Nikolas Nyby,
-        Nogisaka Sadata, Oliver Smith, Patrik Flykt, Pavel Hrdina, Paweł
-        Szewczyk, Peter Hutterer, Piotr Drąg, Ray Strode, Reinhold Mueller,
-        Renaud Métrich, Roman Gushchin, Ronny Chevalier, Rubén Suárez Alvarez,
-        Ruixin Bao, RussianNeuroMancer, Ryutaroh Matsumoto, Saleem Rashid, Sam
-        Morris, Samuel Morris, Sandy Carter, scootergrisen, Sébastien Bacher,
-        Sergey Ptashnick, Shawn Landden, Shengyao Xue, Shih-Yuan Lee
-        (FourDollars), Silvio Knizek, Sjoerd Simons, Stasiek Michalski, Stephen
-        Gallagher, Steven Allen, Steve Ramage, Susant Sahani, Sven Joachim,
-        Sylvain Plantefève, Tanu Kaskinen, Tejun Heo, Thiago Macieira, Thomas
-        Blume, Thomas Haller, Thomas H. P. Andersen, Tim Ruffing, TJ, Tobias
-        Jungel, Todd Walton, Tommi Rantala, Tomsod M, Tony Novak, Tore
-        Anderson, Trevonn, Victor Laskurain, Victor Tapia, Violet Halo, Vojtech
-        Trefny, welaq, William A. Kennington III, William Douglas, Wyatt Ward,
-        Xiang Fan, Xi Ruoyao, Xuanwo, Yann E. Morin, YmrDtnJu, Yu Watanabe,
-        Zbigniew Jędrzejewski-Szmek, Zhang Xianwei, Zsolt Dollenstein
+        Jeremy Su, Jiuyang Liu, João Paulo Rechi Vita, Joe Hershberger, Joe
+        Rayhawk, Joerg Behrmann, Joerg Steffens, Jonas Dorel, Jon Ringle, Josh
+        Soref, Julian Andres Klode, Jun Bo Bi, Jürg Billeter, Keith Busch, Khem
+        Raj, Kirill Marinushkin, Larry Bernstone, Lennart Poettering, Lion
+        Yang, Li Song, Lorenz Hübschle-Schneider, Lubomir Rintel, Lucas
+        Werkmeister, Ludwin Janvier, Lukáš Nykrýn, Luke Shumaker, mal,
+        Marc-Antoine Perennou, Marcin Skarbek, Marco Trevisan (Treviño), Marian
+        Cepok, Mario Hros, Marko Myllynen, Markus Grimm, Martin Pitt, Martin
+        Sobotka, Martin Wilck, Mathieu Trudel-Lapierre, Matthew Leeds, Michael
+        Biebl, Michael Olbrich, Michael 'pbone' Pobega, Michael Scherer, Michal
+        Koutný, Michal Sekletar, Michal Soltys, Mike Gilbert, Mike Palmer,
+        Muhammet Kara, Neal Gompa, Neil Brown, Network Silence, Niklas
+        Tibbling, Nikolas Nyby, Nogisaka Sadata, Oliver Smith, Patrik Flykt,
+        Pavel Hrdina, Paweł Szewczyk, Peter Hutterer, Piotr Drąg, Ray Strode,
+        Reinhold Mueller, Renaud Métrich, Roman Gushchin, Ronny Chevalier,
+        Rubén Suárez Alvarez, Ruixin Bao, RussianNeuroMancer, Ryutaroh
+        Matsumoto, Saleem Rashid, Sam Morris, Samuel Morris, Sandy Carter,
+        scootergrisen, Sébastien Bacher, Sergey Ptashnick, Shawn Landden,
+        Shengyao Xue, Shih-Yuan Lee (FourDollars), Silvio Knizek, Sjoerd
+        Simons, Stasiek Michalski, Stephen Gallagher, Steven Allen, Steve
+        Ramage, Susant Sahani, Sven Joachim, Sylvain Plantefève, Tanu Kaskinen,
+        Tejun Heo, Thiago Macieira, Thomas Blume, Thomas Haller, Thomas
+        H. P. Andersen, Tim Ruffing, TJ, Tobias Jungel, Todd Walton, Tommi
+        Rantala, Tomsod M, Tony Novak, Tore Anderson, Trevonn, Victor
+        Laskurain, Victor Tapia, Violet Halo, Vojtech Trefny, welaq, William
+        A. Kennington III, William Douglas, Wyatt Ward, Xiang Fan, Xi Ruoyao,
+        Xuanwo, Yann E. Morin, YmrDtnJu, Yu Watanabe, Zbigniew
+        Jędrzejewski-Szmek, Zhang Xianwei, Zsolt Dollenstein
 
-        — Somewhere, 2018-12-yy
+        — Hamburg, 2018-12-21
 
 CHANGES WITH 239:
 

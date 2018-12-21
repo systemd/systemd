@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 project('systemd', 'c',
-        version : '239',
+        version : '240',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -12,8 +12,8 @@ project('systemd', 'c',
         meson_version : '>= 0.46',
        )
 
-libsystemd_version = '0.23.0'
-libudev_version = '1.6.11'
+libsystemd_version = '0.24.0'
+libudev_version = '1.6.12'
 
 # We need the same data in two different formats, ugh!
 # Also, for hysterical reasons, we use different variable
