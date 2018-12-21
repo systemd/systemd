@@ -10,11 +10,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/utsname.h>
 #include <syslog.h>
 #include <unistd.h>
-
-#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "conf-parser.h"
@@ -293,72 +290,6 @@ static bool enough_swap_for_hibernation(void) {
         return r;
 }
 
-static int kernel_exists(void) {
-        struct utsname u;
-        sd_id128_t m;
-        int i, r;
-
-        /* Do some superficial checks whether the kernel we are currently running is still around. If it isn't we
-         * shouldn't offer hibernation as we couldn't possible resume from hibernation again. Of course, this check is
-         * very superficial, as the kernel's mere existance is hardly enough to know whether the hibernate/resume cycle
-         * will succeed. However, the common case of kernel updates can be caught this way, and it's definitely worth
-         * covering that. */
-
-        for (i = 0;; i++) {
-                _cleanup_free_ char *path = NULL;
-
-                switch (i) {
-
-                case 0:
-                        /* First, let's look in /lib/modules/`uname -r`/vmlinuz. This is where current Fedora places
-                         * its RPM-managed kernels. It's a good place, as it means compiled vendor code is monopolized
-                         * in /usr, and then the kernel image is stored along with its modules in the same
-                         * hierarchy. It's also what our 'kernel-install' script is written for. */
-                        if (uname(&u) < 0)
-                                return log_debug_errno(errno, "Failed to acquire kernel release: %m");
-
-                        path = strjoin("/lib/modules/", u.release, "/vmlinuz");
-                        break;
-
-                case 1:
-                        /* Secondly, let's look in /boot/vmlinuz-`uname -r`. This is where older Fedora and other
-                         * distributions tend to place the kernel. */
-                        path = strjoin("/boot/vmlinuz-", u.release);
-                        break;
-
-                case 2:
-                        /* For the other cases, we look in the EFI/boot partition, at the place where our
-                         * "kernel-install" script copies the kernel on install by default. */
-                        r = sd_id128_get_machine(&m);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to read machine ID: %m");
-
-                        (void) asprintf(&path, "/efi/" SD_ID128_FORMAT_STR "/%s/linux", SD_ID128_FORMAT_VAL(m), u.release);
-                        break;
-                case 3:
-                        (void) asprintf(&path, "/boot/" SD_ID128_FORMAT_STR "/%s/linux", SD_ID128_FORMAT_VAL(m), u.release);
-                        break;
-                case 4:
-                        (void) asprintf(&path, "/boot/efi/" SD_ID128_FORMAT_STR "/%s/linux", SD_ID128_FORMAT_VAL(m), u.release);
-                        break;
-
-                default:
-                        return false;
-                }
-
-                if (!path)
-                        return -ENOMEM;
-
-                log_debug("Testing whether %s exists.", path);
-
-                if (access(path, F_OK) >= 0)
-                        return true;
-
-                if (errno != ENOENT)
-                        log_debug_errno(errno, "Failed to determine whether '%s' exists, ignoring: %m", path);
-        }
-}
-
 int read_fiemap(int fd, struct fiemap **ret) {
         _cleanup_free_ struct fiemap *fiemap = NULL, *result_fiemap = NULL;
         struct stat statinfo;
@@ -458,7 +389,7 @@ static bool can_s2h(void) {
 
         FOREACH_STRING(p, "suspend", "hibernate") {
                 r = can_sleep_internal(p, false);
-                if (IN_SET(r, 0, -ENOSPC, -ENOMEDIUM, -EADV)) {
+                if (IN_SET(r, 0, -ENOSPC, -EADV)) {
                         log_debug("Unable to %s system.", p);
                         return false;
                 }
@@ -493,11 +424,6 @@ static int can_sleep_internal(const char *verb, bool check_allowed) {
 
         if (streq(verb, "suspend"))
                 return true;
-
-        if (kernel_exists() <= 0) {
-                log_debug_errno(errno, "Couldn't find kernel, not offering hibernation.");
-                return -ENOMEDIUM;
-        }
 
         if (!enough_swap_for_hibernation())
                 return -ENOSPC;

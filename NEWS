@@ -175,9 +175,6 @@ CHANGES WITH 240 in spe:
         * Most configuration options that previously accepted percentage values
           now also accept permille values with the '‰' suffix (instead of '%').
 
-        * systemd-logind will offer hibernation only if the currently used
-          kernel image is still available on disk.
-
         * systemd-resolved may now optionally use OpenSSL instead of GnuTLS for
           DNS-over-TLS.
 
