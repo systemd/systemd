@@ -236,8 +236,7 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
                 sigset_t ss, saved_ss;
                 int k;
 
-                if (sigfillset(&ss) < 0)
-                        return -errno;
+                assert_se(sigfillset(&ss) >= 0);
 
                 r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
                 if (r > 0)

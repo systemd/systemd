@@ -32,10 +32,7 @@ int asynchronous_job(void* (*func)(void *p), void *arg) {
                 goto finish;
         }
 
-        if (sigfillset(&ss) < 0) {
-                r = -errno;
-                goto finish;
-        }
+        assert_se(sigfillset(&ss) >= 0);
 
         /* Block all signals before forking off the thread, so that the new thread is started with all signals
          * blocked. This way the existence of the new thread won't affect signal handling in other threads. */

@@ -433,8 +433,7 @@ static int start_threads(sd_resolve *resolve, unsigned extra) {
         unsigned n;
         int r, k;
 
-        if (sigfillset(&ss) < 0)
-                return -errno;
+        assert_se(sigfillset(&ss) >= 0);
 
         /* No signals in forked off threads please. We set the mask before forking, so that the threads never exist
          * with a different mask than a fully blocked one */
