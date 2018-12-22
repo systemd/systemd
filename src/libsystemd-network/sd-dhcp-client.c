@@ -118,19 +118,19 @@ static const uint8_t default_req_opts[] = {
 */
 /* NOTE: using PRL options that Windows 10 RFC7844 implementation uses */
 static const uint8_t default_req_opts_anonymize[] = {
-       SD_DHCP_OPTION_SUBNET_MASK,                     /* 1 */
-       SD_DHCP_OPTION_ROUTER,                          /* 3 */
-       SD_DHCP_OPTION_DOMAIN_NAME_SERVER,              /* 6 */
-       SD_DHCP_OPTION_DOMAIN_NAME,                     /* 15 */
-       SD_DHCP_OPTION_ROUTER_DISCOVER,                 /* 31 */
-       SD_DHCP_OPTION_STATIC_ROUTE,                    /* 33 */
-       SD_DHCP_OPTION_VENDOR_SPECIFIC,                 /* 43 */
-       SD_DHCP_OPTION_NETBIOS_NAMESERVER,              /* 44 */
-       SD_DHCP_OPTION_NETBIOS_NODETYPE,                /* 46 */
-       SD_DHCP_OPTION_NETBIOS_SCOPE,                   /* 47 */
-       SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,          /* 121 */
-       SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE,  /* 249 */
-       SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY,     /* 252 */
+        SD_DHCP_OPTION_SUBNET_MASK,                     /* 1 */
+        SD_DHCP_OPTION_ROUTER,                          /* 3 */
+        SD_DHCP_OPTION_DOMAIN_NAME_SERVER,              /* 6 */
+        SD_DHCP_OPTION_DOMAIN_NAME,                     /* 15 */
+        SD_DHCP_OPTION_ROUTER_DISCOVER,                 /* 31 */
+        SD_DHCP_OPTION_STATIC_ROUTE,                    /* 33 */
+        SD_DHCP_OPTION_VENDOR_SPECIFIC,                 /* 43 */
+        SD_DHCP_OPTION_NETBIOS_NAMESERVER,              /* 44 */
+        SD_DHCP_OPTION_NETBIOS_NODETYPE,                /* 46 */
+        SD_DHCP_OPTION_NETBIOS_SCOPE,                   /* 47 */
+        SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,          /* 121 */
+        SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE,  /* 249 */
+        SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY,     /* 252 */
 };
 
 static int client_receive_message_raw(
