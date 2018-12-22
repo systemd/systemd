@@ -1795,7 +1795,7 @@ static int client_receive_message_raw(
         } else if ((size_t)len < sizeof(DHCPPacket))
                 return 0;
 
-        CMSG_FOREACH(cmsg, &msg) {
+        CMSG_FOREACH(cmsg, &msg)
                 if (cmsg->cmsg_level == SOL_PACKET &&
                     cmsg->cmsg_type == PACKET_AUXDATA &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct tpacket_auxdata))) {
@@ -1804,7 +1804,6 @@ static int client_receive_message_raw(
                         checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
                         break;
                 }
-        }
 
         r = dhcp_packet_verify_headers(packet, len, checksum, client->port);
         if (r < 0)
