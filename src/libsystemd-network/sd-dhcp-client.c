@@ -353,9 +353,9 @@ static int dhcp_client_set_iaid_duid_internal(
         size_t len;
 
         assert_return(client, -EINVAL);
-        assert_return(duid_len == 0 || duid != NULL, -EINVAL);
+        assert_return(duid_len == 0 || duid, -EINVAL);
 
-        if (duid != NULL) {
+        if (duid) {
                 r = dhcp_validate_duid_len(duid_type, duid_len, true);
                 if (r < 0)
                         return r;
@@ -377,7 +377,7 @@ static int dhcp_client_set_iaid_duid_internal(
                 }
         }
 
-        if (duid != NULL) {
+        if (duid) {
                 client->client_id.ns.duid.type = htobe16(duid_type);
                 memcpy(&client->client_id.ns.duid.raw.data, duid, duid_len);
                 len = sizeof(client->client_id.ns.duid.type) + duid_len;
