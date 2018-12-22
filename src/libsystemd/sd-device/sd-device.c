@@ -1002,6 +1002,9 @@ static int device_set_sysname(sd_device *device) {
         const char *pos;
         size_t len = 0;
 
+        if (!device->devpath)
+                return -EINVAL;
+
         pos = strrchr(device->devpath, '/');
         if (!pos)
                 return -EINVAL;
