@@ -37,7 +37,7 @@ is_built_with_asan() {
     fi
 
     # Borrowed from https://github.com/google/oss-fuzz/blob/cd9acd02f9d3f6e80011cc1e9549be526ce5f270/infra/base-images/base-runner/bad_build_check#L182
-    local _asan_calls=$(objdump -dC $BUILD_DIR/systemd | egrep "callq\s+[0-9a-f]+\s+<__asan" -c)
+    local _asan_calls=$(objdump -dC $BUILD_DIR/systemd-journald | egrep "callq\s+[0-9a-f]+\s+<__asan" -c)
     if (( $_asan_calls < 1000 )); then
         return 1
     else
