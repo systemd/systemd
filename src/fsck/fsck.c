@@ -414,7 +414,7 @@ static int run(int argc, char *argv[]) {
         exit_status = wait_for_terminate_and_check("fsck", pid, WAIT_LOG_ABNORMAL);
         if (exit_status < 0)
                 return exit_status;
-        if (exit_status & ~1) {
+        if ((exit_status & ~FSCK_ERROR_CORRECTED) != FSCK_SUCCESS) {
                 log_error("fsck failed with exit status %i.", exit_status);
 
                 if ((exit_status & FSCK_SYSTEM_SHOULD_REBOOT) && root_directory) {
