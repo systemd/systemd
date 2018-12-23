@@ -3243,11 +3243,11 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
 }
 
 static int manager_deserialize_units(Manager *m, FILE *f, FDSet *fds) {
-        _cleanup_free_ char *line = NULL;
         const char *unit_name;
         int r;
 
         for (;;) {
+                _cleanup_free_ char *line = NULL;
                 /* Start marker */
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
