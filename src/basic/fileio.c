@@ -667,46 +667,6 @@ int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space)
         return fputs(s, f);
 }
 
-int read_nul_string(FILE *f, char **ret) {
-        _cleanup_free_ char *x = NULL;
-        size_t allocated = 0, n = 0;
-
-        assert(f);
-        assert(ret);
-
-        /* Reads a NUL-terminated string from the specified file. */
-
-        for (;;) {
-                int c;
-
-                if (!GREEDY_REALLOC(x, allocated, n+2))
-                        return -ENOMEM;
-
-                c = fgetc(f);
-                if (c == 0) /* Terminate at NUL byte */
-                        break;
-                if (c == EOF) {
-                        if (ferror(f))
-                                return -errno;
-                        break; /* Terminate at EOF */
-                }
-
-                x[n++] = (char) c;
-        }
-
-        if (x)
-                x[n] = 0;
-        else {
-                x = new0(char, 1);
-                if (!x)
-                        return -ENOMEM;
-        }
-
-        *ret = TAKE_PTR(x);
-
-        return 0;
-}
-
 /* A bitmask of the EOL markers we know */
 typedef enum EndOfLineMarker {
         EOL_NONE     = 0,
@@ -715,11 +675,15 @@ typedef enum EndOfLineMarker {
         EOL_THIRTEEN = 1 << 2,  /* \r (aka CR)  */
 } EndOfLineMarker;
 
-static EndOfLineMarker categorize_eol(char c) {
-        if (c == '\n')
-                return EOL_TEN;
-        if (c == '\r')
-                return EOL_THIRTEEN;
+static EndOfLineMarker categorize_eol(char c, ReadLineFlags flags) {
+
+        if (!IN_SET(flags, READ_LINE_ONLY_NUL)) {
+                if (c == '\n')
+                        return EOL_TEN;
+                if (c == '\r')
+                        return EOL_THIRTEEN;
+        }
+
         if (c == '\0')
                 return EOL_ZERO;
 
@@ -728,9 +692,10 @@ static EndOfLineMarker categorize_eol(char c) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
 
-int read_line(FILE *f, size_t limit, char **ret) {
+int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
         size_t n = 0, allocated = 0, count = 0;
         _cleanup_free_ char *buffer = NULL;
+        int r;
 
         assert(f);
 
@@ -770,7 +735,7 @@ int read_line(FILE *f, size_t limit, char **ret) {
 
                 for (;;) {
                         EndOfLineMarker eol;
-                        int c;
+                        char c;
 
                         if (n >= limit)
                                 return -ENOBUFS;
@@ -778,31 +743,31 @@ int read_line(FILE *f, size_t limit, char **ret) {
                         if (count >= INT_MAX) /* We couldn't return the counter anymore as "int", hence refuse this */
                                 return -ENOBUFS;
 
-                        errno = 0;
-                        c = fgetc_unlocked(f);
-                        if (c == EOF) {
-                                /* if we read an error, and have no data to return, then propagate the error */
-                                if (ferror_unlocked(f) && n == 0)
-                                        return errno > 0 ? -errno : -EIO;
-
-                                /* EOF is line ending too. */
+                        r = safe_fgetc(f, &c);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) /* EOF is definitely EOL */
                                 break;
-                        }
 
-                        count++;
-
-                        eol = categorize_eol(c);
+                        eol = categorize_eol(c, flags);
 
                         if (FLAGS_SET(previous_eol, EOL_ZERO) ||
                             (eol == EOL_NONE && previous_eol != EOL_NONE) ||
                             (eol != EOL_NONE && (previous_eol & eol) != 0)) {
                                 /* Previous char was a NUL? This is not an EOL, but the previous char was? This type of
-                                 * EOL marker has been seen right before? In either of these three cases we are
-                                 * done. But first, let's put this character back in the queue. */
-                                assert_se(ungetc(c, f) != EOF);
-                                count--;
+                                 * EOL marker has been seen right before?  In either of these three cases we are
+                                 * done. But first, let's put this character back in the queue. (Note that we have to
+                                 * cast this to (unsigned char) here as ungetc() expects a positive 'int', and if we
+                                 * are on an architecture where 'char' equals 'signed char' we need to ensure we don't
+                                 * pass a negative value here. That said, to complicate things further ungetc() is
+                                 * actually happy with most negative characters and implicitly casts them back to
+                                 * positive ones as needed, except for \xff (aka -1, aka EOF), which it refuses. What a
+                                 * godawful API!) */
+                                assert_se(ungetc((unsigned char) c, f) != EOF);
                                 break;
                         }
+
+                        count++;
 
                         if (eol != EOL_NONE) {
                                 previous_eol |= eol;
@@ -813,7 +778,7 @@ int read_line(FILE *f, size_t limit, char **ret) {
                                 if (!GREEDY_REALLOC(buffer, allocated, n + 2))
                                         return -ENOMEM;
 
-                                buffer[n] = (char) c;
+                                buffer[n] = c;
                         }
 
                         n++;
@@ -827,4 +792,31 @@ int read_line(FILE *f, size_t limit, char **ret) {
         }
 
         return (int) count;
+}
+
+int safe_fgetc(FILE *f, char *ret) {
+        int k;
+
+        assert(f);
+
+        /* A safer version of plain fgetc(): let's propagate the error that happened while reading as such, and
+         * separate the EOF condition from the byte read, to avoid those confusion signed/unsigned issues fgetc()
+         * has. */
+
+        errno = 0;
+        k = fgetc(f);
+        if (k == EOF) {
+                if (ferror(f))
+                        return errno > 0 ? -errno : -EIO;
+
+                if (ret)
+                        *ret = 0;
+
+                return 0;
+        }
+
+        if (ret)
+                *ret = k;
+
+        return 1;
 }

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 project('systemd', 'c',
-        version : '239',
+        version : '240',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -12,8 +12,8 @@ project('systemd', 'c',
         meson_version : '>= 0.46',
        )
 
-libsystemd_version = '0.23.0'
-libudev_version = '1.6.11'
+libsystemd_version = '0.24.0'
+libudev_version = '1.6.12'
 
 # We need the same data in two different formats, ugh!
 # Also, for hysterical reasons, we use different variable
@@ -3126,7 +3126,7 @@ if conf.get('ENABLE_EFI') == 1
         if have_gnu_efi
                 status += [
                         'EFI machine type:                  @0@'.format(EFI_MACHINE_TYPE_NAME),
-                        'EFI CC                             @0@'.format(efi_cc),
+                        'EFI CC                             @0@'.format(' '.join(efi_cc)),
                         'EFI lib directory:                 @0@'.format(efi_libdir),
                         'EFI lds directory:                 @0@'.format(efi_ldsdir),
                         'EFI include directory:             @0@'.format(efi_incdir)]

@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2018.05.04
-# Date:    2018-05-04 20:34:07
+# Version: 2018.12.04
+# Date:    2018-12-04 20:34:05
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -783,6 +783,7 @@
 	8370  7 Port Hub
 	8371  PS/2 Keyboard And Mouse
 	8372  FT8U100AX Serial Port
+	87d0  Cressi Dive Computer Interface
 	8a28  Rainforest Automation ZigBee Controller
 	8a98  TIAO Multi-Protocol Adapter
 	8b28  Alpermann+Velte TCI70
@@ -815,6 +816,7 @@
 	bcd8  Stellaris Development Board
 	bcd9  Stellaris Evaluation Board
 	bcda  Stellaris ICDI Board
+	bd90  PICAXE Download Cable [AXE027]
 	bdc8  Egnite GmbH - JTAG/RS-232 adapter
 	bfd8  OpenDCC
 	bfd9  OpenDCC (Sniffer)
@@ -1191,6 +1193,7 @@
 	00da  WLI-U2-KG54L 802.11bg [ZyDAS ZD1211B]
 	00db  External Hard Drive HD-PF32OU2 [Buffalo Ministation]
 	00e8  WLI-UC-G300N Wireless LAN Adapter [Ralink RT2870]
+	00f9  Portable DVD Writer (DVSM-PL58U2)
 	0105  External Hard Drive HD-CEU2 [Drive Station]
 	012c  SATA Bridge
 	012e  WLI-UC-AG300N Wireless LAN Adapter
@@ -1204,11 +1207,14 @@
 	019e  WLI-UC-GNP Wireless LAN Adapter
 	01a1  MiniStation Metro
 	01a2  WLI-UC-GNM Wireless LAN Adapter [Ralink RT8070]
+	01ba  SATA Bridge
 	01dc  Ultra-Slim Portable DVD Writer (DVSM-PC58U2V)
 	01de  External Hard Drive HD-PCTU3 [Buffalo MiniStation]
+	01ea  SATA Bridge
 	01ee  WLI-UC-GNM2 Wireless LAN Adapter [Ralink RT3070]
 	01f1  SATA Adapter [HD-LBU3]
 	01fd  WLI-UC-G450 Wireless LAN Adapter
+	027e  HD-LCU3
 0412  Award Software International
 0413  Leadtek Research, Inc.
 	1310  WinFast TV - NTSC + FM
@@ -1318,6 +1324,7 @@
 	3121  WoW tap chat
 	3220  Sound Blaster Tactic(3D) Sigma sound card
 	3232  Sound Blaster Premium HD [SBX]
+	3237  SB X-Fi Surround 5.1 Pro
 	3f00  E-Mu Xboard 25 MIDI Controller
 	3f02  E-Mu 0202
 	3f04  E-Mu 0404
@@ -1937,6 +1944,7 @@
 	8140  TUSB8041 4-Port Hub
 	8142  TUSB8041 4-Port Hub
 	926b  TUSB9260 Boot Loader
+	bef3  CC1352R1 Launchpad
 	dbc0  Device Bay Controller
 	e001  GraphLink [SilverLink]
 	e003  TI-84 Plus Calculator
@@ -2382,6 +2390,7 @@
 	0797  Optical Mouse 200
 	0799  Surface Pro embedded keyboard
 	07a5  Wireless Receiver 1461C
+	07b2  2.4GHz Transceiver v8.0 used by mouse Wireless Desktop 900
 	07b9  Wired Keyboard 200
 	07c6  RTL8153 GigE [Surface Dock Ethernet]
 	07ca  Surface Pro 3 Docking Station Audio Device
@@ -2397,6 +2406,7 @@
 	090b  Hub
 	090c  SD Card
 	091a  Hub
+	09c0  Surface Type Cover
 	0a00  Lumia 950 Dual SIM (RM-1118)
 	930a  ISOUSB.SYS Intel 82930 Isochronous IO Test Board
 	ffca  Catalina
@@ -2464,6 +2474,8 @@
 	4d62  HP Laser Mobile Mini Mouse
 	4d75  Rocketfish RF-FLBTAD Bluetooth Adapter
 	4d81  Dell N889 Optical Mouse
+	4d91  Laser mouse M-D16DL
+	4d92  Optical mouse M-D17DR
 	4de3  HP 5-Button Optical Comfort Mouse
 	4de7  webcam
 	4e04  Lenovo Keyboard KB1021
@@ -2525,6 +2537,7 @@
 	080f  Webcam C120
 	0810  QuickCam Pro
 	0819  Webcam C210
+	081a  Webcam C260
 	081b  Webcam C310
 	081d  HD Webcam C510
 	0820  QuickCam VC
@@ -2728,6 +2741,7 @@
 	c07d  G502 Mouse
 	c07e  G402 Gaming Mouse
 	c083  G403 Prodigy Gaming Mouse
+	c084  G203 Gaming Mouse
 	c101  UltraX Media Remote
 	c110  Harmony 785/880/885 Remote
 	c111  Harmony 525 Remote
@@ -2824,9 +2838,11 @@
 	c31c  Keyboard K120
 	c31d  Media Keyboard K200
 	c31f  Comfort Keyboard K290
+	c326  Washable Keyboard K310
 	c328  Corded Keyboard K280e
 	c332  G502 Proteus Spectrum Optical Mouse
 	c335  G910 Orion Spectrum Mechanical Keyboard
+	c33a  G413 Gaming Keyboard
 	c401  TrackMan Marble Wheel
 	c402  Marble Mouse (2-button)
 	c403  Turbo TrackMan Marble FX
@@ -3158,6 +3174,7 @@
 	4254  BUA-100 Bluetooth Adapter
 	ac01  Savi 7xx
 	ad01  GameCom 777 5.1 Headset
+	af01  DA80
 	c008  Audio 655 DSP
 	c00e  Blackwire C310 headset
 0480  Toshiba America Inc
@@ -3172,6 +3189,7 @@
 	a009  Stor.E Basics
 	a00d  STOR.E BASICS 500GB
 	a100  Canvio Alu 2TB 2.5" Black External Disk Model HDTH320EK3CA
+	a102  Canvio Alu 2TB 2.5" Black External Disk Model HDTH320EK3CA
 	a202  Canvio Basics HDD
 	a208  Canvio Basics 2TB USB 3.0 Portable Hard Drive
 	b001  Stor.E Partner
@@ -3199,6 +3217,8 @@
 0483  STMicroelectronics
 	0137  BeWAN ADSL USB ST (blue or green)
 	0138  Unicorn II (ST70138B + MTC-20174TQ chipset)
+	0adb  Android Debug Bridge (ADB) device
+	0afb  Android Fastboot device
 	1307  Cytronix 6in1 Card Reader
 	163d  Cool Icam Digi-MP3
 	2015  TouchChip® Fingerprint Reader
@@ -3210,13 +3230,18 @@
 	3747  ST Micro Connect Lite
 	3748  ST-LINK/V2
 	374b  ST-LINK/V2.1
+	374d  STLINK-V3 Loader
+	374e  STLINK-V3
+	374f  STLINK-V3
+	3752  ST-LINK/V2.1
+	3753  STLINK-V3
 	4810  ISDN adapter
 	481d  BT Digital Access adapter
 	5000  ST Micro/Ergenic ERG BT-002 Bluetooth Adapter
 	5001  ST Micro Bluetooth Device
 	5710  Joystick in FS Mode
 	5720  Mass Storage Device
-	5721  Hantek DDS-3X25 Arbitrary Waveform Generator
+	5721  Interrupt Demo
 	5722  Bulk Demo
 	5730  Audio Speaker
 	5731  Microphone
@@ -3713,6 +3738,7 @@
 	1787  PIXMA MX490 Series
 	178a  PIXMA MG3600 Series
 	178d  PIXMA MG6853
+	180b  PIXMA MG3000 series
 	1900  CanoScan LiDE 90
 	1901  CanoScan 8800F
 	1904  CanoScan LiDE 100
@@ -3844,6 +3870,7 @@
 	26b0  MF4600 series
 	26b4  MF4010 series
 	26b5  MF4200 series
+	26b6  FAX-L140/L130
 	26da  LBP3010B printer
 	26e6  iR1024
 	271a  LBP6000
@@ -4151,7 +4178,10 @@
 	329c  PowerShot SX400 IS
 	329d  PowerShot G7 X
 	329f  PowerShot SX530 HS
+	32a0  EOS M10
 	32a6  PowerShot SX710 HS
+	32a7  PowerShot SX610 HS
+	32a8  PowerShot G3 X
 	32aa  Powershot ELPH 160 / IXUS 160
 	32ab  PowerShot ELPH 350HS / IXUS 275 HS
 	32ac  PowerShot ELPH 170 IS / IXUS 170
@@ -4163,6 +4193,11 @@
 	32bf  PowerShot SX420 IS
 	32c1  PowerShot ELPH 180 / IXUS 175
 	32c2  PowerShot SX720 HS
+	32c5  EOS M6
+	32cc  EOS 200D
+	32d1  EOS M100
+	32d2  EOS M50
+	32d4  Powershot ELPH 185 / IXUS 185 / IXY 200
 	32d5  PowerShot SX430 IS
 	32db  SELPHY CP1300
 04aa  DaeWoo Telecom, Ltd
@@ -4623,6 +4658,7 @@
 	10e1  fi-5220C
 	10e7  fi-5900C
 	10fe  S500
+	1104  KD02906 Line Thermal Printer
 	1150  fi-6230
 	125a  PalmSecure Sensor Device - MP
 	200f  Sigma DP2 (Mass Storage)
@@ -4808,6 +4844,7 @@
 	9004  Microchip REAL ICE
 	900a  PICkit3
 	9012  PICkit4
+	9015  ICD 4 In-Circuit Debugger
 	c001  PicoLCD 20x4
 	e11c  TL866CS EEPROM Programmer [MiniPRO]
 	f2c4  Macareux-labs Hygrometry Temperature Sensor
@@ -4815,6 +4852,7 @@
 	f3aa  Macareux-labs Usbce Bootloader mode
 	f437  SBE Tech Ultrasonic Anemometer
 	f4b5  SmartScope
+	f5fe  TrueRNG
 	f8da  Hughski Ltd. ColorHug
 	f8e8  Harmony 300/350 Remote
 	f91c  SPROG IIv3
@@ -4846,6 +4884,7 @@
 	2519  Shenzhen LogoTech 2.4GHz receiver
 	2832  HT82A832R Audio MCU
 	2834  HT82A834R Audio MCU
+	4545  Keyboard [Diatec Majestouch 2 Tenkeyless]
 	a01c  wireless multimedia keyboard with trackball [Trust ADURA 17911]
 	a050  Chatman V1
 	a052  USB-zyTemp
@@ -4865,6 +4904,7 @@
 	0d0a  CD-R Drive KXL-CB20AN
 	0d0d  CDRCB03
 	0d0e  DVD-ROM & CD-R/RW
+	0d14  DVD-RAM MLT08
 	0f07  KX-MB2030 Multifunction Laser Printer
 	0f40  Printer
 	104d  Elite Panaboard UB-T880 (HID)
@@ -5235,8 +5275,8 @@
 	685c  GT-I9250 Phone [Galaxy Nexus] (Mass storage mode)
 	685d  GT-I9100 Phone [Galaxy S II] (Download mode)
 	685e  GT-I9100 / GT-C3350 Phones (USB Debugging mode)
-	6860  Galaxy (MTP)
-	6863  GT-I9500 [Galaxy S4] / GT-I9250 [Galaxy Nexus] (network tethering)
+	6860  Galaxy series, misc. (MTP mode)
+	6863  Galaxy series, misc. (tethering mode)
 	6864  GT-I9070 (network tethering, USB debugging enabled)
 	6865  Galaxy (PTP mode)
 	6866  Galaxy (debugging mode)
@@ -5376,8 +5416,10 @@
 	b3fd  HD WebCam (Asus N-series)
 	b40e  HP Truevision HD camera
 	b444  Lenovo Integrated Webcam
+	b563  Integrated Camera
 	b5ce  Integrated Camera
 	b5cf  Integrated IR Camera
+	b5db  HP Webcam
 04f3  Elan Microelectronics Corp.
 	000a  Touchscreen
 	0103  ActiveJet K-2024 Multimedia Keyboard
@@ -5953,6 +5995,7 @@
 04fd  Soliton Systems, K.K.
 	0003  Smart Card Reader II
 04fe  PFU, Ltd
+	0006  Happy Hacking Keyboard Lite2
 04ff  E-CMOS Corp.
 0500  Siam United Hi-Tech
 	0001  DART Keyboard Mouse
@@ -6044,6 +6087,7 @@
 	0257  F5U257 Serial
 	0304  FSU304 USB 2.0 - 4 Ports Hub
 	0307  USB 2.0 - 7 ports Hub [FSU307]
+	038c  F2CU038 HDMI Adapter
 	0409  F5U409 Serial
 	0416  Staples 12416 7 port desktop hub
 	0551  F6C550-AVR UPS
@@ -6484,6 +6528,7 @@
 	07c4  ILCE-6000 (aka Alpha-6000) in Mass Storage mode
 	082f  Walkman NWZW Series
 	0847  WG-C10 Portable Wireless Server
+	0884  MDR-ZX770BN [Wireless Noise Canceling Stereo Headset]
 	088c  Portable Headphone Amplifier
 	08b7  ILCE-6000 (aka Alpha-6000) in MTP mode
 	094e  ILCE-6000 (aka Alpha-6000) in PC Remote mode
@@ -6647,7 +6692,9 @@
 	2802  Kbd Hub
 	3002  Keyboard
 	3004  Genius KB-29E
+	3027  Sun-Flex ProTouch
 	3107  Keyboard
+	3132  Optical mouse M-DY4DR / M-DY6DR
 	4006  FID 638 Mouse (Sun Microsystems)
 0567  Xyratex International, Ltd
 0568  Quartz Ingenierie
@@ -6832,17 +6879,20 @@
 	0003  Device Bay Controller
 056e  Elecom Co., Ltd
 	0002  29UO Mouse
-	0057  M-PGDL Mouse
-	005c  M-PGDL Mouse
-	005d  M-FGDL Mouse
-	005e  M-FG2DL Mouse
-	0062  M-D18DR Mouse
-	0063  M-SODL Mouse
-	0069  M-GE1UL Mouse
-	0071  M-GE3DL Mouse
-	0072  M-LS6UL Mouse
-	0073  M-LS7UL Mouse
-	0074  M-FW1UL Mouse
+	0057  Micro Grast Pop M-PGDL
+	005c  Micro Grast Pop M-PG2DL
+	005d  Micro Grast Fit M-FGDL
+	005e  Micro Grast Fit M-FG2DL
+	0062  Optical mouse M-D18DR
+	0063  Laser mouse M-SODL
+	0069  Laser mouse M-GE1UL
+	0071  Laser mouse M-GE3DL
+	0072  Laser mouse M-LS6UL
+	0073  Laser mouse M-LS7UL
+	0074  Optical mouse M-FW1UL
+	0075  M-FW2DL Mouse
+	2003  JC-U3613M
+	2004  JC-U3613M
 	200c  LD-USB/TX
 	4002  Laneed 100Mbps Ethernet LD-USB/TX [pegasus]
 	4005  LD-USBL/TX
@@ -18256,6 +18306,8 @@
 	ad02  SE340D PC Remote Control
 	af01  AUVIO Universal Remote Receiver for PlayStation 3
 1d5b  Smartronix, Inc.
+1d5c  Fresco Logic
+	2000  FL2000/FL2000DX VGA/DVI/HDMI Adapter
 1d6b  Linux Foundation
 	0001  1.1 root hub
 	0002  2.0 root hub
@@ -18386,6 +18438,7 @@
 1fc9  NXP Semiconductors
 	0003  LPC1343
 	010b  PR533
+	012b  i.MX 8M Dual/8M QuadLite/8M Quad Serial Downloader
 1fde  ILX Lightwave Corporation
 	0001  UART Bridge
 1fe7  Vertex Wireless Co., Ltd.
@@ -18623,6 +18676,25 @@
 	0001  EPOC Consumer Headset Wireless Dongle
 21d6  Agecodagis SARL
 	0002  Seismic recorder [Tellus]
+2207  Fuzhou Rockchip Electronics Company
+	0010  GoClever Tab R83
+	0011  SmartTab
+	281a  RK2818 in Mask ROM mode
+	290a  RK2918 in Mask ROM mode
+	292a  RK2928 in Mask ROM mode
+	292c  RK3026 in Mask ROM mode
+	300a  RK3066 in Mask ROM mode
+	300b  RK3168 in Mask ROM mode
+	301a  RK3036 in Mask ROM mode
+	310a  RK3066B in Mask ROM mode
+	310b  RK3188 in Mask ROM mode
+	310c  RK3126/RK3128 in Mask ROM mode
+	310d  RK3126 in Mask ROM mode
+	320a  RK3288 in Mask ROM mode
+	320b  RK3228/RK3229 in Mask ROM mode
+	320c  RK3328 in Mask ROM mode
+	330a  RK3368 in Mask ROM mode
+	330c  RK3399 in Mask ROM mode
 2222  MacAlly
 	0004  iWebKey Keyboard
 	2520  Mini Tablet
@@ -18841,6 +18913,9 @@
 	002d  Alcor mouse
 	0047  MasterKeys Pro L
 	9494  Sirus Headset
+2548  Pulse-Eight
+	1001  CEC Adapter
+	1002  CEC Adapter
 2632  TwinMOS
 	3209  7-in-1 Card Reader
 2639  Xsens
@@ -18954,6 +19029,11 @@
 	0100  Dual-relay board
 	0500  Energy meter
 	0502  Precision barometer
+28de  Valve Software
+	1102  Wired Controller
+	1142  Wireless Steam Controller
+	2000  Lighthouse FPGA RX
+	2101  Watchman Dongle
 2931  Jolla Oy
 	0a01  Jolla Phone MTP
 	0a02  Jolla Phone Developer
@@ -18998,6 +19078,15 @@
 	200b  MX Phone (PTP)
 	200c  MX Phone (PTP & ADB)
 	2012  MX Phone (MTP & ACM)
+2ac7  Ultrahaptics Ltd.
+	0101  Evaluation Kit [Dragonfly]
+	0102  UHDK5
+	0104  Touchbase
+	0110  STRATOS Explore
+	0111  STRATOS Explore DFU
+	0112  STRATOS Inspire
+	0113  STRATOS Inspire DFU
+	ffff  DFU
 2b24  KeepKey LLC
 	0001  Bitcoin hardware wallet
 2c02  Planex Communications
@@ -19015,6 +19104,8 @@
 2dcf  Dialog Semiconductor
 	c952  Audio Class 2.0 Devices
 2fb2  Fujitsu, Ltd
+3016  Boundary Devices, LLC
+	0001  Nitrogen Bootloader
 3125  Eagletron
 	0001  TrackerPod Camera Stand
 3136  Navini Networks

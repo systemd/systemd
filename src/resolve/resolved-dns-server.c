@@ -580,26 +580,6 @@ void dns_server_warn_downgrade(DnsServer *server) {
         server->warned_downgrade = true;
 }
 
-bool dns_server_limited_domains(DnsServer *server) {
-        DnsSearchDomain *domain;
-        bool domain_restricted = false;
-
-        /* Check if the server has route-only domains without ~., i. e. whether
-         * it should only be used for particular domains */
-        if (!server->link)
-                return false;
-
-        LIST_FOREACH(domains, domain, server->link->search_domains)
-                if (domain->route_only) {
-                        domain_restricted = true;
-                        /* ~. means "any domain", thus it is a global server */
-                        if (dns_name_is_root(DNS_SEARCH_DOMAIN_NAME(domain)))
-                                return false;
-                }
-
-        return domain_restricted;
-}
-
 static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
         assert(s);
 
@@ -904,6 +884,16 @@ void dns_server_unref_stream(DnsServer *s) {
 
         /* And then, unref it */
         dns_stream_unref(ref);
+}
+
+DnsScope *dns_server_scope(DnsServer *s) {
+        assert(s);
+        assert((s->type == DNS_SERVER_LINK) == !!s->link);
+
+        if (s->link)
+                return s->link->unicast_scope;
+
+        return s->manager->unicast_scope;
 }
 
 static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {

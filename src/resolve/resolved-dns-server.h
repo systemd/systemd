@@ -122,8 +122,6 @@ bool dns_server_dnssec_supported(DnsServer *server);
 
 void dns_server_warn_downgrade(DnsServer *server);
 
-bool dns_server_limited_domains(DnsServer *server);
-
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, int ifindex);
 
 void dns_server_unlink_all(DnsServer *first);
@@ -153,3 +151,5 @@ void dns_server_reset_features_all(DnsServer *s);
 void dns_server_dump(DnsServer *s, FILE *f);
 
 void dns_server_unref_stream(DnsServer *s);
+
+DnsScope *dns_server_scope(DnsServer *s);

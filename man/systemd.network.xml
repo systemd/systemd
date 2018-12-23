@@ -548,6 +548,17 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>DNSDefaultRoute=</varname></term>
+          <listitem>
+            <para>Takes a boolean argument. If true, this link's configured DNS servers are used for resolving domain
+            names that do not match any link's configured <varname>Domains=</varname> setting. If false, this link's
+            configured DNS servers are never used for such domains, and are exclusively used for resolving names that
+            match at least one of the domains configured on this link. If not specified defaults to an automatic mode:
+            queries not matching any link's configured domains will be routed to this link if it has no routing-only
+            domains configured.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>NTP=</varname></term>
           <listitem>
             <para>An NTP server address. This option may be specified more than once. This setting is read by

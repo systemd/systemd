@@ -55,7 +55,6 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
-static int mount_dispatch_proc_self_mountinfo_timer(sd_event_source *source, usec_t usec, void *userdata);
 
 static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
         return IN_SET(state,
@@ -1666,7 +1665,6 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 static void mount_shutdown(Manager *m) {
         assert(m);
 
-        m->mount_timeout_source = sd_event_source_unref(m->mount_timeout_source);
         m->mount_event_source = sd_event_source_unref(m->mount_event_source);
 
         mnt_unref_monitor(m->mount_monitor);
@@ -1782,50 +1780,13 @@ fail:
         mount_shutdown(m);
 }
 
-static void mount_process_proc_self_mountinfo(Manager *m);
-
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        _cleanup_set_free_free_ Set *around = NULL, *gone = NULL;
         Manager *m = userdata;
+        const char *what;
+        Iterator i;
+        Unit *u;
         int r;
-        usec_t next_read = usec_add(m->mount_last_read_usec,
-                                    m->mount_last_duration_usec * 10);
-
-        if (now(CLOCK_MONOTONIC) < next_read) {
-                /* The (current) API for getting mount events from the Linux kernel
-                 * involves getting a "something changed" notification, and then having
-                 * to re-read the entire /proc/self/mountinfo file.  When there are lots
-                 * of mountpoints, this file is large and parsing it can take noticeable
-                 * time.  As most of the file won't have changed, this can be seen as wasted time.
-                 * If there is a "mount storm" such as 1000 mount points being created
-                 * in quick succession, this will result in 1000 successive notification.
-                 * If we respond to every notification, we will do quadratically more work
-                 * than if we respond just once after all the notifications have arrived.
-                 * In this (pathological) case, a delay in scheduling would actually
-                 * improve throughput as we would combine notifications and parse
-                 * the file less often.  We cannot expect the scheduler to notice
-                 * this pathology without help.
-                 * So when the rate of notifications means we are spending more than
-                 * 10% of real time handling them, we set a timer and stop listening
-                 * to notifications for a while.
-                 * If/when Linux provides an API which provides only details of what
-                 * has changed, this rate-limiting can be removed.
-                 */
-
-                r = sd_event_source_set_enabled(source, SD_EVENT_OFF);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to disable monitoring of /proc/self/mounting, ignoring: %m");
-                if (!m->mount_timeout_source) {
-                        r = sd_event_add_time(m->event, &m->mount_timeout_source,
-                                              CLOCK_MONOTONIC,
-                                              next_read,
-                                              0,
-                                              mount_dispatch_proc_self_mountinfo_timer,
-                                              m);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to set timeout to reread /proc/self/mounting, ignoring: %m");
-                }
-                return 0;
-        }
 
         assert(m);
         assert(revents & EPOLLIN);
@@ -1853,40 +1814,13 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                         return 0;
         }
 
-        mount_process_proc_self_mountinfo(m);
-        return 0;
-}
-
-static int mount_dispatch_proc_self_mountinfo_timer(sd_event_source *source, usec_t usec, void *userdata) {
-        Manager *m = userdata;
-        int r;
-
-        r = sd_event_source_set_enabled(m->mount_event_source, SD_EVENT_ON);
-        if (r < 0)
-                log_warning_errno(r, "Failed to reenable /proc/self/mountinfo monitor, ignoring: %m");
-        m->mount_timeout_source = sd_event_source_unref(source);
-        mount_process_proc_self_mountinfo(m);
-        return 0;
-}
-
-static void mount_process_proc_self_mountinfo(Manager *m) {
-        _cleanup_set_free_free_ Set *around = NULL, *gone = NULL;
-        const char *what;
-        Iterator i;
-        Unit *u;
-        int r;
-
-        m->mount_last_read_usec = now(CLOCK_MONOTONIC);
-        /* If an error occurs, assume 10ms */
-        m->mount_last_duration_usec = 10 * USEC_PER_MSEC;
-
         r = mount_load_proc_self_mountinfo(m, true);
         if (r < 0) {
                 /* Reset flags, just in case, for later calls */
                 LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
                         MOUNT(u)->proc_flags = 0;
 
-                return;
+                return 0;
         }
 
         manager_dispatch_load_queue(m);
@@ -1974,8 +1908,8 @@ static void mount_process_proc_self_mountinfo(Manager *m) {
                 /* Let the device units know that the device is no longer mounted */
                 device_found_node(m, what, 0, DEVICE_FOUND_MOUNT);
         }
-        m->mount_last_duration_usec = usec_sub_unsigned(now(CLOCK_MONOTONIC),
-                                                        m->mount_last_read_usec);
+
+        return 0;
 }
 
 static void mount_reset_failed(Unit *u) {

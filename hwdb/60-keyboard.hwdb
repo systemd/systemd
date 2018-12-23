@@ -613,6 +613,11 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*640*G2*
  KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
  KEYBOARD_KEY_f8=unknown                                # rf kill; also reported via special evdev
 
+# HP ProBook 645 G4
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*645*G4*
+ KEYBOARD_KEY_73=slash                                  # Slash key
+ KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
+
 ###########################################################
 # IBM
 ###########################################################

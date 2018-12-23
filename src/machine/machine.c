@@ -594,7 +594,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         uid_t uid_base, uid_shift, uid_range;
         gid_t gid_base, gid_shift, gid_range;
         _cleanup_fclose_ FILE *f = NULL;
-        int k;
+        int k, r;
 
         assert(m);
         assert(ret);
@@ -643,7 +643,10 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
                 return -ENXIO;
 
         /* If there's more than one line, then we don't support this mapping. */
-        if (fgetc(f) != EOF)
+        r = safe_fgetc(f, NULL);
+        if (r < 0)
+                return r;
+        if (r != 0) /* Insist on EOF */
                 return -ENXIO;
 
         fclose(f);
@@ -664,7 +667,10 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         }
 
         /* If there's more than one line, then we don't support this file. */
-        if (fgetc(f) != EOF)
+        r = safe_fgetc(f, NULL);
+        if (r < 0)
+                return r;
+        if (r != 0) /* Insist on EOF */
                 return -ENXIO;
 
         /* If the UID and GID mapping doesn't match, we don't support this mapping. */

@@ -227,9 +227,6 @@ struct Manager {
         /* Data specific to the mount subsystem */
         struct libmnt_monitor *mount_monitor;
         sd_event_source *mount_event_source;
-        sd_event_source *mount_timeout_source;
-        usec_t mount_last_read_usec;
-        usec_t mount_last_duration_usec;
 
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;

@@ -30,16 +30,19 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         if (r < 0)
                 return r;
 
-        l = new0(Link, 1);
+        l = new(Link, 1);
         if (!l)
                 return -ENOMEM;
 
-        l->ifindex = ifindex;
-        l->llmnr_support = RESOLVE_SUPPORT_YES;
-        l->mdns_support = RESOLVE_SUPPORT_NO;
-        l->dnssec_mode = _DNSSEC_MODE_INVALID;
-        l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
-        l->operstate = IF_OPER_UNKNOWN;
+        *l = (Link) {
+                .ifindex = ifindex,
+                .default_route = -1,
+                .llmnr_support = RESOLVE_SUPPORT_YES,
+                .mdns_support = RESOLVE_SUPPORT_NO,
+                .dnssec_mode = _DNSSEC_MODE_INVALID,
+                .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+                .operstate = IF_OPER_UNKNOWN,
+        };
 
         if (asprintf(&l->state_file, "/run/systemd/resolve/netif/%i", ifindex) < 0)
                 return -ENOMEM;
@@ -60,6 +63,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
 void link_flush_settings(Link *l) {
         assert(l);
 
+        l->default_route = -1;
         l->llmnr_support = RESOLVE_SUPPORT_YES;
         l->mdns_support = RESOLVE_SUPPORT_NO;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
@@ -294,6 +298,27 @@ static int link_update_dns_servers(Link *l) {
 
 clear:
         dns_server_unlink_all(l->dns_servers);
+        return r;
+}
+
+static int link_update_default_route(Link *l) {
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_dns_default_route(l->ifindex);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->default_route = r > 0;
+        return 0;
+
+clear:
+        l->default_route = -1;
         return r;
 }
 
@@ -613,6 +638,10 @@ static void link_read_settings(Link *l) {
         r = link_update_search_domains(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+
+        r = link_update_default_route(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read default route setting for interface %s, proceeding anyway: %m", l->name);
 }
 
 int link_update(Link *l) {
@@ -1109,7 +1138,8 @@ static bool link_needs_save(Link *l) {
 
         if (l->llmnr_support != RESOLVE_SUPPORT_YES ||
             l->mdns_support != RESOLVE_SUPPORT_NO ||
-            l->dnssec_mode != _DNSSEC_MODE_INVALID)
+            l->dnssec_mode != _DNSSEC_MODE_INVALID ||
+            l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
                 return true;
 
         if (l->dns_servers ||
@@ -1117,6 +1147,9 @@ static bool link_needs_save(Link *l) {
                 return true;
 
         if (!set_isempty(l->dnssec_negative_trust_anchors))
+                return true;
+
+        if (l->default_route >= 0)
                 return true;
 
         return false;
@@ -1160,6 +1193,9 @@ int link_save_user(Link *l) {
         v = dnssec_mode_to_string(l->dnssec_mode);
         if (v)
                 fprintf(f, "DNSSEC=%s\n", v);
+
+        if (l->default_route >= 0)
+                fprintf(f, "DEFAULT_ROUTE=%s\n", yes_no(l->default_route));
 
         if (l->dns_servers) {
                 DnsServer *server;
@@ -1242,7 +1278,8 @@ int link_load_user(Link *l) {
                 *dnssec = NULL,
                 *servers = NULL,
                 *domains = NULL,
-                *ntas = NULL;
+                *ntas = NULL,
+                *default_route = NULL;
 
         ResolveSupport s;
         const char *p;
@@ -1265,7 +1302,8 @@ int link_load_user(Link *l) {
                            "DNSSEC", &dnssec,
                            "SERVERS", &servers,
                            "DOMAINS", &domains,
-                           "NTAS", &ntas);
+                           "NTAS", &ntas,
+                           "DEFAULT_ROUTE", &default_route);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1281,6 +1319,10 @@ int link_load_user(Link *l) {
         s = resolve_support_from_string(mdns);
         if (s >= 0)
                 l->mdns_support = s;
+
+        r = parse_boolean(default_route);
+        if (r >= 0)
+                l->default_route = r;
 
         /* If we can't recognize the DNSSEC setting, then set it to invalid, so that the daemon default is used. */
         l->dnssec_mode = dnssec_mode_from_string(dnssec);

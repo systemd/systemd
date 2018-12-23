@@ -1533,6 +1533,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         return log_error_errno(r, "Failed to output table: %m");
         }
 
+        assert(weight_sum > 0);
         exposure = DIV_ROUND_UP(badness_sum * 100U, weight_sum);
 
         for (i = 0; i < ELEMENTSOF(badness_table); i++)

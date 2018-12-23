@@ -65,7 +65,7 @@ int trivial_compare_func(const void *a, const void *b) {
 
 const struct hash_ops trivial_hash_ops = {
         .hash = trivial_hash_func,
-        .compare = trivial_compare_func
+        .compare = trivial_compare_func,
 };
 
 void uint64_hash_func(const uint64_t *p, struct siphash *state) {

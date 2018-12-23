@@ -34,8 +34,6 @@ Features:
 
 * when importing an fs tree with machined, complain if image is not an OS
 
-* when we fork off generators and such, lower LIMIT_NOFILE soft limit to 1K
-
 * Maybe introduce a helper safe_exec() or so, which is to execve() which
   safe_fork() is to fork(). And then make revert the RLIMIT_NOFILE soft limit
   to 1K implicitly, unless explicitly opted-out.
@@ -47,9 +45,6 @@ Features:
 * add a concept for automatically loading per-unit secrets off disk and
   inserting them into the kernel keyring. Maybe SecretsDirectory= similar to
   ConfigurationDirectory=.
-
-* systemd-gpt-auto: if we find the root dir mounted read-only and the gpt flag
-  doesn't say so generate job that remounts it writable
 
 * when no locale is configured, default to UEFI's PlatformLang variable
 
@@ -63,15 +58,10 @@ Features:
 * when a socket unit is spawned with an AF_UNIX path in /var/run, complain and
   patch it to use /run instead
 
-* consider splitting out all temporary file creation APIs (we have so many in
-  fileio.h and elsewhere!) into a new util file of its own.
-
 * set memory.oom.group in cgroupsv2 for all leaf cgroups (kernel v4.19+)
 
 * add a new syscall group "@esoteric" for more esoteric stuff such as bpf() and
   usefaultd() and make systemd-analyze check for it.
-
-* drop umask() calls and suchlike from our generators, pid1 should set things up correctly anyway
 
 * paranoia: whenever we process passwords, call mlock() on the memory
   first. i.e. look for all places we use string_erase()/string_free_erase() and
@@ -164,13 +154,6 @@ Features:
   schedule events based on time and timezone changes.
 
 * nspawn: greater control over selinux label?
-
-* cgroups: figure out if we can somehow communicate in a cleaner way whether a
-  systemd instance not running in the cgroup root shall or shall not manage the
-  attributes of its top-level cgroup. Currently it assumes it manages all, but
-  then might get EPERM due to permission porblems/userns, which is OK, but this
-  should be revisited to make clearer and also work if the payload systemd runs
-  with full privs and without userns.
 
 * hibernate/s2h: make this robust and safe to enable in Fedora by default.
   Specifically:
@@ -320,11 +303,6 @@ Features:
   StateDirectory=, LogsDirectory=, CacheDirectory=, as well as RootDirectory= if it
   is set, plus the whole disk space any image configured with RootImage=.
 
-* Introduce "exit" as an EmergencyAction value, and allow to configure a
-  per-unit success/failure exit code to configure. This would be useful for
-  running commands inside of services inside of containers, which could then
-  propagate their failure state all the way up.
-
 * In DynamicUser= mode: before selecting a UID, use disk quota APIs on relevant
   disks to see if the UID is already in use.
 
@@ -341,7 +319,7 @@ Features:
 * show whether a service has out-of-date configuration in "systemctl status" by
   using mtime data of ConfigurationDirectory=.
 
-* replace all uses of fgets() + LINE_MAX by read_line()
+* replace all remaining uses of fgets() + LINE_MAX by read_line()
 
 * Add AddUser= setting to unit files, similar to DynamicUser=1 which however
   creates a static, persistent user rather than a dynamic, transient user. We
@@ -507,9 +485,6 @@ Features:
   state.
   http://lists.freedesktop.org/archives/systemd-devel/2015-April/030229.html
 
-* Maybe add support for the equivalent of "ethtool advertise" to .link files?
-  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030112.html
-
 * The udev blkid built-in should expose a property that reflects
   whether media was sensed in USB CF/SD card readers. This should then
   be used to control SYSTEMD_READY=1/0 so that USB card readers aren't
@@ -635,7 +610,6 @@ Features:
 
 * cgroups:
   - implement per-slice CPUFairScheduling=1 switch
-  - handle jointly mounted controllers correctly
   - introduce high-level settings for RT budget, swappiness
   - how to reset dynamically changed unit cgroup attributes sanely?
   - when reloading configuration, apply new cgroup configuration
@@ -904,8 +878,6 @@ Features:
     PID 1...
   - optionally automatically add FORWARD rules to iptables whenever nspawn is
     running, remove them when shut down.
-  - maybe make copying of /etc/resolv.conf optional, and skip it if --read-only
-    is used
 
 * dissect
   - refuse mounting over a mount point

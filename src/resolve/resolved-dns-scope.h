@@ -18,9 +18,10 @@ typedef struct DnsScope DnsScope;
 typedef enum DnsScopeMatch {
         DNS_SCOPE_NO,
         DNS_SCOPE_MAYBE,
-        DNS_SCOPE_YES,
+        DNS_SCOPE_YES_BASE, /* Add the number of matching labels to this */
+        DNS_SCOPE_YES_END = DNS_SCOPE_YES_BASE + DNS_N_LABELS_MAX,
         _DNS_SCOPE_MATCH_MAX,
-        _DNS_SCOPE_INVALID = -1
+        _DNS_SCOPE_MATCH_INVALID = -1
 } DnsScopeMatch;
 
 struct DnsScope {
@@ -28,6 +29,8 @@ struct DnsScope {
 
         DnsProtocol protocol;
         int family;
+
+        /* Copied at scope creation time from the link/manager */
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
 
@@ -104,5 +107,6 @@ int dns_scope_ifindex(DnsScope *s);
 int dns_scope_announce(DnsScope *scope, bool goodbye);
 
 int dns_scope_add_dnssd_services(DnsScope *scope);
-
 int dns_scope_remove_dnssd_services(DnsScope *scope);
+
+bool dns_scope_is_default_route(DnsScope *scope);

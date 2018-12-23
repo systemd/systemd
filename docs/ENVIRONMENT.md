@@ -165,3 +165,11 @@ systemd itself:
 * `$SYSTEMD_ACTIVATION_SCOPE` — closely related to `$SYSTEMD_ACTIVATION_UNIT`,
   it is either set to `system` or `user` depending on whether the NSS/PAM
   module is called by systemd in `--system` or `--user` mode.
+
+systemd-remount-fs:
+
+* `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and and no entry for the root directory
+  exists in /etc/fstab (this file always takes precedence), then the root
+  directory is remounted writable. This is primarily used by
+  systemd-gpt-auto-generator to ensure the root partition is mounted writable
+  in accordance to the GPT partition flags.

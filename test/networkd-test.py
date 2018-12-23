@@ -652,7 +652,7 @@ Domains= ~company ~lab''')
         conf = '/run/systemd/resolved.conf.d/test-disable-dnssec.conf'
         os.makedirs(os.path.dirname(conf), exist_ok=True)
         with open(conf, 'w') as f:
-            f.write('[Resolve]\nDNSSEC=no')
+            f.write('[Resolve]\nDNSSEC=no\nLLMNR=no\nMulticastDNS=no\n')
         self.addCleanup(os.remove, conf)
 
         # create /etc/hosts bind mount which resolves my.example for IPv4

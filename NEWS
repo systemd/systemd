@@ -1,6 +1,35 @@
 systemd System and Service Manager
 
-CHANGES WITH 240 in spe:
+CHANGES WITH 240:
+
+        * NoNewPrivileges=yes has been set for all long-running services
+          implemented by systemd. Previously, this was problematic due to
+          SELinux (as this would also prohibit the transition from PID1's label
+          to the service's label). This restriction has since been lifted, but
+          an SELinux policy update is required.
+          (See e.g. https://github.com/fedora-selinux/selinux-policy/pull/234.)
+
+        * DynamicUser=yes is dropped from systemd-networkd.service,
+          systemd-resolved.service and systemd-timesyncd.service, which was
+          enabled in v239 for systemd-networkd.service and systemd-resolved.service,
+          and since v236 for systemd-timesyncd.service. The users and groups
+          systemd-network, systemd-resolve and systemd-timesync are created
+          by systemd-sysusers again. Distributors or system administrators
+          may need to create these users and groups if they not exist (or need
+          to re-enable DynamicUser= for those units) while upgrading systemd.
+
+        * When unit files are loaded from disk, previously systemd would
+          sometimes (depending on the unit loading order) load units from the
+          target path of symlinks in .wants/ or .requires/ directories of other
+          units. This meant that unit could be loaded from different paths
+          depending on whether the unit was requested explicitly or as a
+          dependency of another unit, not honouring the priority of directories
+          in search path. It also meant that it was possible to successfully
+          load and start units which are not found in the unit search path, as
+          long as they were requested as a dependency and linked to from
+          .wants/ or .requires/. The target paths of those symlinks are not
+          used for loading units anymore and the unit file must be found in
+          the search path.
 
         * A new service type has been added: Type=exec. It's very similar to
           Type=simple but ensures the service manager will wait for both fork()
@@ -98,6 +127,10 @@ CHANGES WITH 240 in spe:
         * Support for disabling a particular cgroup controller within a sub-tree
           has been added through the DisableControllers= directive.
 
+        * cgroup_no_v1=all on the kernel command line now also implies
+          using the unified cgroup hierarchy, unless one explicitly passes
+          systemd.unified_cgroup_hierarchy=0 on the kernel command line.
+
         * The new "MemoryMin=" unit file property may now be used to set the
           memory usage protection limit of processes invoked by the unit. This
           controls the cgroupsv2 memory.min attribute. Similarly, the new
@@ -145,9 +178,6 @@ CHANGES WITH 240 in spe:
 
         * Most configuration options that previously accepted percentage values
           now also accept permille values with the '‰' suffix (instead of '%').
-
-        * systemd-logind will offer hibernation only if the currently used
-          kernel image is still available on disk.
 
         * systemd-resolved may now optionally use OpenSSL instead of GnuTLS for
           DNS-over-TLS.
@@ -384,6 +414,17 @@ CHANGES WITH 240 in spe:
           SD_ID128_ALLF to test if a 128bit ID is set to all 0xFF bytes, and to
           initialize one to all 0xFF.
 
+        * After loading the SELinux policy systemd will now recursively relabel
+          all files and directories listed in
+          /run/systemd/relabel-extra.d/*.relabel (which should be simple
+          newline separated lists of paths) in addition to the ones it already
+          implicitly relabels in /run, /dev and /sys. After the relabelling is
+          completed the *.relabel files (and /run/systemd/relabel-extra.d/) are
+          removed. This is useful to permit initrds (i.e. code running before
+          the SELinux policy is in effect) to generate files in the host
+          filesystem safely and ensure that the correct label is applied during
+          the transition to the host OS.
+
         * KERNEL API BREAKAGE: Linux kernel 4.18 changed behaviour regarding
           mknod() handling in user namespaces. Previously mknod() would always
           fail with EPERM in user namespaces. Since 4.18 mknod() will succeed
@@ -416,47 +457,49 @@ CHANGES WITH 240 in spe:
         Filippov, Alexander Kurtz, Alexey Bogdanenko, Andreas Henriksson,
         Andrew Jorgensen, Anita Zhang, apnix-uk, Arkan49, Arseny Maslennikov,
         asavah, Asbjørn Apeland, aszlig, Bastien Nocera, Ben Boeckel, Benedikt
-        Morbach, Benjamin Berg, Carlo Caione, Cedric Viou, Chen Qi, ChenQi1989,
-        Chris Chiu, Chris Down, Chris Morin, Christian Rebischke, Claudius
-        Ellsel, ColinGuthrie, dana, Daniel, Daniele Medri, Daniel Kahn Gillmor,
-        Daniel Rusek, Daniel van Vugt, Dariusz Gadomski, Dave Reisner, David
-        Anderson, Davide Cavalca, David Leeds, David Malcolm, David Strauss,
-        David Tardon, Dimitri John Ledkov, dj-kaktus, Dongsu Park, Elias
-        Probst, Emil Soleyman, Erik Kooistra, Ervin Peters, Evgeni Golov,
-        Evgeny Vereshchagin, Fabrice Fontaine, Faheel Ahmad, faizalluthfi,
-        Felix Yan, Filipe Brandenburger, Franck Bui, Frank Schaefer, Frantisek
-        Sumsal, Gianluca Boiano, Giuseppe Scrivano, glitsj16, Hans de Goede,
-        Harald Hoyer, Harry Mallon, Harshit Jain, hellcp, Helmut Grohne, Henry
-        Tung, Hui Yiqun, imayoda, Insun Pyo, INSUN PYO, Iwan Timmer,
-        jambonmcyeah, Jan Janssen, Jan Pokorný, Jan Synacek, Jason
-        A. Donenfeld, javitoom, Jérémy Nouhaud, Jiuyang liu, João Paulo Rechi
+        Morbach, Benjamin Berg, Bruce Zhang, Carlo Caione, Cedric Viou, Chen
+        Qi, Chris Chiu, Chris Down, Chris Morin, Christian Rebischke, Claudius
+        Ellsel, Colin Guthrie, dana, Daniel, Daniele Medri, Daniel Kahn
+        Gillmor, Daniel Rusek, Daniel van Vugt, Dariusz Gadomski, Dave Reisner,
+        David Anderson, Davide Cavalca, David Leeds, David Malcolm, David
+        Strauss, David Tardon, Dimitri John Ledkov, Dmitry Torokhov, dj-kaktus,
+        Dongsu Park, Elias Probst, Emil Soleyman, Erik Kooistra, Ervin Peters,
+        Evgeni Golov, Evgeny Vereshchagin, Fabrice Fontaine, Faheel Ahmad,
+        Faizal Luthfi, Felix Yan, Filipe Brandenburger, Franck Bui, Frank
+        Schaefer, Frantisek Sumsal, Gautier Husson, Gianluca Boiano, Giuseppe
+        Scrivano, glitsj16, Hans de Goede, Harald Hoyer, Harry Mallon, Harshit
+        Jain, Helmut Grohne, Henry Tung, Hui Yiqun, imayoda, Insun Pyo, Iwan
+        Timmer, Jan Janssen, Jan Pokorný, Jan Synacek, Jason A. Donenfeld,
+        javitoom, Jérémy Nouhaud, Jeremy Su, Jiuyang Liu, João Paulo Rechi
         Vita, Joe Hershberger, Joe Rayhawk, Joerg Behrmann, Joerg Steffens,
-        Jonas DOREL, Jon Ringle, Josh Soref, Julian Andres Klode, Jürg
-        Billeter, Keith Busch, killermoehre, Kirill Marinushkin, Lennart
-        Poettering, LennartPoettering, Liberasys, Lion Yang, Li Song, Lorenz
+        Jonas Dorel, Jon Ringle, Josh Soref, Julian Andres Klode, Jun Bo Bi,
+        Jürg Billeter, Keith Busch, Khem Raj, Kirill Marinushkin, Larry
+        Bernstone, Lennart Poettering, Lion Yang, Li Song, Lorenz
         Hübschle-Schneider, Lubomir Rintel, Lucas Werkmeister, Ludwin Janvier,
         Lukáš Nykrýn, Luke Shumaker, mal, Marc-Antoine Perennou, Marcin
         Skarbek, Marco Trevisan (Treviño), Marian Cepok, Mario Hros, Marko
         Myllynen, Markus Grimm, Martin Pitt, Martin Sobotka, Martin Wilck,
         Mathieu Trudel-Lapierre, Matthew Leeds, Michael Biebl, Michael Olbrich,
-        Michael 'pbone' Pobega, Michal Koutný, Michal Sekletar, Michal Soltys,
-        Mike Gilbert, Mike Palmer, Muhammet Kara, Neal Gompa, Network Silence,
-        nikolas, NOGISAKA Sadata, Oliver Smith, Patrik Flykt, Pavel Hrdina,
-        Paweł Szewczyk, Peter Hutterer, Piotr Drąg, Ray Strode, remueller,
+        Michael 'pbone' Pobega, Michael Scherer, Michal Koutný, Michal
+        Sekletar, Michal Soltys, Mike Gilbert, Mike Palmer, Muhammet Kara, Neal
+        Gompa, Neil Brown, Network Silence, Niklas Tibbling, Nikolas Nyby,
+        Nogisaka Sadata, Oliver Smith, Patrik Flykt, Pavel Hrdina, Paweł
+        Szewczyk, Peter Hutterer, Piotr Drąg, Ray Strode, Reinhold Mueller,
         Renaud Métrich, Roman Gushchin, Ronny Chevalier, Rubén Suárez Alvarez,
-        Ruixin Bao, RussianNeuroMancer, Ryutaroh Matsumoto, Saleem Rashid,
-        Samuel Morris, Sandy, scootergrisen, seb128, Sergey Ptashnick, Shawn
-        Landden, Shengyao Xue, Shih-Yuan Lee (FourDollars), Sjoerd Simons,
-        Stephen Gallagher, Steven Allen, Steve Ramage, Susant Sahani, Sven
-        Joachim, Sylvain Plantefève, TanuKaskinen, Tejun Heo, Thiago Macieira,
-        Thomas Blume, Thomas Haller, Thomas H. P. Andersen, Tim Ruffing, TJ,
-        Tobias Jungel, Todd Walton, Tommi Rantala, Tomsod M, Tony Novak,
-        Trevonn, Victor Laskurain, Victor Tapia, Violet Halo, Vojtech Trefny,
-        welaq, William A. Kennington III, William Douglas, Wyatt Ward, Xiang
-        Fan, Xi Ruoyao, Xuanwo, Yann E. MORIN, YmrDtnJu, Yu Watanabe, Zbigniew
-        Jędrzejewski-Szmek, Zhang Xianwei, Zsolt Dollenstein
+        Ruixin Bao, RussianNeuroMancer, Ryutaroh Matsumoto, Saleem Rashid, Sam
+        Morris, Samuel Morris, Sandy Carter, scootergrisen, Sébastien Bacher,
+        Sergey Ptashnick, Shawn Landden, Shengyao Xue, Shih-Yuan Lee
+        (FourDollars), Silvio Knizek, Sjoerd Simons, Stasiek Michalski, Stephen
+        Gallagher, Steven Allen, Steve Ramage, Susant Sahani, Sven Joachim,
+        Sylvain Plantefève, Tanu Kaskinen, Tejun Heo, Thiago Macieira, Thomas
+        Blume, Thomas Haller, Thomas H. P. Andersen, Tim Ruffing, TJ, Tobias
+        Jungel, Todd Walton, Tommi Rantala, Tomsod M, Tony Novak, Tore
+        Anderson, Trevonn, Victor Laskurain, Victor Tapia, Violet Halo, Vojtech
+        Trefny, welaq, William A. Kennington III, William Douglas, Wyatt Ward,
+        Xiang Fan, Xi Ruoyao, Xuanwo, Yann E. Morin, YmrDtnJu, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, Zhang Xianwei, Zsolt Dollenstein
 
-        — Somewhere, 2018-xx-yy
+        — Warsaw, 2018-12-21
 
 CHANGES WITH 239:
 
