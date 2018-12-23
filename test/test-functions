@@ -455,6 +455,7 @@ EOF
 
 check_result_nspawn() {
     local ret=1
+    local journald_report=""
     [[ -e $TESTDIR/$1/testok ]] && ret=0
     [[ -f $TESTDIR/$1/failed ]] && cp -a $TESTDIR/$1/failed $TESTDIR
     cp -a $TESTDIR/$1/var/log/journal $TESTDIR
@@ -468,6 +469,12 @@ check_result_nspawn() {
             cat "$TESTDIR/$1/systemd.asan.log.1"
             ret=$(($ret+1))
         fi
+
+	journald_report=$(find "$TESTDIR/$1" -name "systemd-journald.asan.log*" -exec cat {} \;)
+	if [[ ! -z "$journald_report" ]]; then
+            printf "%s" "$journald_report"
+            ret=$(($ret+1))
+	fi
     fi
 
     return $ret
