@@ -246,7 +246,7 @@ static int client_context_read_label(
 }
 
 static int client_context_read_cgroup(Server *s, ClientContext *c, const char *unit_id) {
-        char *t = NULL;
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(c);
@@ -254,7 +254,6 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
         /* Try to acquire the current cgroup path */
         r = cg_pid_get_path_shifted(c->pid, s->cgroup_root, &t);
         if (r < 0 || empty_or_root(t)) {
-
                 /* We use the unit ID passed in as fallback if we have nothing cached yet and cg_pid_get_path_shifted()
                  * failed or process is running in a root cgroup. Zombie processes are automatically migrated to root cgroup
                  * on cgroupsv1 and we want to be able to map log messages from them too. */
@@ -268,10 +267,8 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
         }
 
         /* Let's shortcut this if the cgroup path didn't change */
-        if (streq_ptr(c->cgroup, t)) {
-                free(t);
+        if (streq_ptr(c->cgroup, t))
                 return 0;
-        }
 
         free_and_replace(c->cgroup, t);
 
