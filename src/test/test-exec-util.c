@@ -192,8 +192,8 @@ static int gather_stdout_one(int fd, void *arg) {
 static int gather_stdout_two(int fd, void *arg) {
         char ***s = arg, **t;
 
-        STRV_FOREACH(t, *s)
-        assert_se(write(fd, *t, strlen(*t)) == (ssize_t) strlen(*t));
+        STRV_FOREACH (t, *s)
+                assert_se(write(fd, *t, strlen(*t)) == (ssize_t) strlen(*t));
         safe_close(fd);
 
         return 0;
@@ -312,8 +312,8 @@ static void test_environment_gathering(void) {
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL);
         assert_se(r >= 0);
 
-        STRV_FOREACH(p, env)
-        log_info("got env: \"%s\"", *p);
+        STRV_FOREACH (p, env)
+                log_info("got env: \"%s\"", *p);
 
         assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
         assert_se(streq(strv_env_get(env, "B"), "12"));
@@ -329,8 +329,8 @@ static void test_environment_gathering(void) {
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env);
         assert_se(r >= 0);
 
-        STRV_FOREACH(p, env)
-        log_info("got env: \"%s\"", *p);
+        STRV_FOREACH (p, env)
+                log_info("got env: \"%s\"", *p);
 
         assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
         assert_se(streq(strv_env_get(env, "B"), "12"));

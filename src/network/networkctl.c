@@ -155,7 +155,7 @@ static int acquire_link_info_strv(sd_netlink *rtnl, char **l, LinkInfo **ret) {
         if (!links)
                 return log_oom();
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
                 int ifindex;
 
@@ -690,9 +690,7 @@ static void dump_list(const char *prefix, char **l) {
         if (strv_isempty(l))
                 return;
 
-        STRV_FOREACH(i, l) {
-                printf("%*s%s\n", (int) strlen(prefix), i == l ? prefix : "", *i);
-        }
+        STRV_FOREACH (i, l) { printf("%*s%s\n", (int) strlen(prefix), i == l ? prefix : "", *i); }
 }
 
 static int link_status_one(sd_netlink *rtnl, sd_hwdb *hwdb, const LinkInfo *info) {

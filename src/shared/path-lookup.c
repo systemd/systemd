@@ -450,7 +450,7 @@ static int patch_root_prefix_strv(char **l, const char *root_dir) {
         if (!root_dir)
                 return 0;
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 r = patch_root_prefix(i, root_dir);
                 if (r < 0)
                         return r;

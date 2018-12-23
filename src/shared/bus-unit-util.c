@@ -1776,7 +1776,7 @@ int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char
 
         assert(m);
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 r = bus_append_unit_property_assignment(m, t, *i);
                 if (r < 0)
                         return r;

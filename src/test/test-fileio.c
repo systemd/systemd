@@ -58,8 +58,8 @@ static void test_parse_env_file(void) {
         r = load_env_file(NULL, t, &a);
         assert_se(r >= 0);
 
-        STRV_FOREACH(i, a)
-        log_info("Got: <%s>", *i);
+        STRV_FOREACH (i, a)
+                log_info("Got: <%s>", *i);
 
         assert_se(streq_ptr(a[0], "one=BAR"));
         assert_se(streq_ptr(a[1], "two=bar"));
@@ -76,7 +76,7 @@ static void test_parse_env_file(void) {
         strv_env_clean(a);
 
         k = 0;
-        STRV_FOREACH(i, b) {
+        STRV_FOREACH (i, b) {
                 log_info("Got2: <%s>", *i);
                 assert_se(streq(*i, a[k++]));
         }
@@ -168,8 +168,8 @@ static void test_parse_multiline_env_file(void) {
         r = load_env_file(NULL, t, &a);
         assert_se(r >= 0);
 
-        STRV_FOREACH(i, a)
-        log_info("Got: <%s>", *i);
+        STRV_FOREACH (i, a)
+                log_info("Got: <%s>", *i);
 
         assert_se(streq_ptr(a[0], "one=BAR    VAR\tGAR"));
         assert_se(streq_ptr(a[1], "two=bar    var\tgar"));
@@ -217,8 +217,8 @@ static void test_merge_env_file(void) {
         assert_se(r >= 0);
         strv_sort(a);
 
-        STRV_FOREACH(i, a)
-        log_info("Got: <%s>", *i);
+        STRV_FOREACH (i, a)
+                log_info("Got: <%s>", *i);
 
         assert_se(streq(a[0], "one=2"));
         assert_se(streq(a[1], "twelve=12"));
@@ -236,8 +236,8 @@ static void test_merge_env_file(void) {
         assert_se(r >= 0);
         strv_sort(a);
 
-        STRV_FOREACH(i, a)
-        log_info("Got2: <%s>", *i);
+        STRV_FOREACH (i, a)
+                log_info("Got2: <%s>", *i);
 
         assert_se(streq(a[0], "one=2"));
         assert_se(streq(a[1], "twelve=12"));
@@ -281,8 +281,8 @@ static void test_merge_env_file_invalid(void) {
         r = merge_env_file(&a, NULL, t);
         assert_se(r >= 0);
 
-        STRV_FOREACH(i, a)
-        log_info("Got: <%s>", *i);
+        STRV_FOREACH (i, a)
+                log_info("Got: <%s>", *i);
 
         assert_se(strv_isempty(a));
 }

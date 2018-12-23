@@ -1811,7 +1811,7 @@ static int glob_item(Item *i, action_t action) {
         if (k < 0 && k != -ENOENT)
                 return log_error_errno(k, "glob(%s) failed: %m", i->path);
 
-        STRV_FOREACH(fn, g.gl_pathv) {
+        STRV_FOREACH (fn, g.gl_pathv) {
                 k = action(i, *fn);
                 if (k < 0 && r == 0)
                         r = k;
@@ -1831,7 +1831,7 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
         if (k < 0 && k != -ENOENT)
                 return log_error_errno(k, "glob(%s) failed: %m", i->path);
 
-        STRV_FOREACH(fn, g.gl_pathv) {
+        STRV_FOREACH (fn, g.gl_pathv) {
                 _cleanup_close_ int fd = -1;
 
                 /* Make sure we won't trigger/follow file object (such as
@@ -2323,17 +2323,17 @@ static bool item_compatible(Item *a, Item *b) {
 static bool should_include_path(const char *path) {
         char **prefix;
 
-        STRV_FOREACH(prefix, arg_exclude_prefixes)
-        if (path_startswith(path, *prefix)) {
-                log_debug("Entry \"%s\" matches exclude prefix \"%s\", skipping.", path, *prefix);
-                return false;
-        }
+        STRV_FOREACH (prefix, arg_exclude_prefixes)
+                if (path_startswith(path, *prefix)) {
+                        log_debug("Entry \"%s\" matches exclude prefix \"%s\", skipping.", path, *prefix);
+                        return false;
+                }
 
-        STRV_FOREACH(prefix, arg_include_prefixes)
-        if (path_startswith(path, *prefix)) {
-                log_debug("Entry \"%s\" matches include prefix \"%s\".", path, *prefix);
-                return true;
-        }
+        STRV_FOREACH (prefix, arg_include_prefixes)
+                if (path_startswith(path, *prefix)) {
+                        log_debug("Entry \"%s\" matches include prefix \"%s\".", path, *prefix);
+                        return true;
+                }
 
         /* no matches, so we should include this path only if we
          * have no whitelist at all */
@@ -2375,7 +2375,7 @@ static int specifier_expansion_from_arg(Item *i) {
         case RECURSIVE_SET_XATTR:
                 assert(i->xattrs);
 
-                STRV_FOREACH(xattr, i->xattrs) {
+                STRV_FOREACH (xattr, i->xattrs) {
                         r = specifier_printf(*xattr, specifier_table, NULL, &resolved);
                         if (r < 0)
                                 return r;
@@ -3019,7 +3019,7 @@ static int parse_arguments(char **config_dirs, char **args, bool *invalid_config
         char **arg;
         int r;
 
-        STRV_FOREACH(arg, args) {
+        STRV_FOREACH (arg, args) {
                 r = read_config_file(config_dirs, *arg, false, invalid_config);
                 if (r < 0)
                         return r;
@@ -3038,17 +3038,17 @@ static int read_config_files(char **config_dirs, char **args, bool *invalid_conf
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(f, files)
-        if (p && path_equal(*f, p)) {
-                log_debug("Parsing arguments at position \"%s\"…", *f);
+        STRV_FOREACH (f, files)
+                if (p && path_equal(*f, p)) {
+                        log_debug("Parsing arguments at position \"%s\"…", *f);
 
-                r = parse_arguments(config_dirs, args, invalid_config);
-                if (r < 0)
-                        return r;
-        } else
-                /* Just warn, ignore result otherwise.
-                 * read_config_file() has some debug output, so no need to print anything. */
-                (void) read_config_file(config_dirs, *f, true, invalid_config);
+                        r = parse_arguments(config_dirs, args, invalid_config);
+                        if (r < 0)
+                                return r;
+                } else
+                        /* Just warn, ignore result otherwise.
+                         * read_config_file() has some debug output, so no need to print anything. */
+                        (void) read_config_file(config_dirs, *f, true, invalid_config);
 
         return 0;
 }

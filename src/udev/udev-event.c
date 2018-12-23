@@ -466,8 +466,8 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                 if (!v)
                         return 0;
 
-                STRV_FOREACH(q, v)
-                log_debug("'%s'(%s) '%s'", spawn->cmd, fd == spawn->fd_stdout ? "out" : "err", *q);
+                STRV_FOREACH (q, v)
+                        log_debug("'%s'(%s) '%s'", spawn->cmd, fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
         return 0;

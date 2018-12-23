@@ -240,8 +240,8 @@ static int send_passwords(const char *socket_name, char **passwords) {
         if (salen < 0)
                 return salen;
 
-        STRV_FOREACH(p, passwords)
-        packet_length += strlen(*p) + 1;
+        STRV_FOREACH (p, passwords)
+                packet_length += strlen(*p) + 1;
 
         packet = new (char, packet_length);
         if (!packet)
@@ -250,8 +250,8 @@ static int send_passwords(const char *socket_name, char **passwords) {
         packet[0] = '+';
 
         d = packet + 1;
-        STRV_FOREACH(p, passwords)
-        d = stpcpy(d, *p) + 1;
+        STRV_FOREACH (p, passwords)
+                d = stpcpy(d, *p) + 1;
 
         socket_fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
         if (socket_fd < 0) {
@@ -786,7 +786,7 @@ static int ask_on_consoles(int argc, char *argv[]) {
                 return log_oom();
 
         /* Start an agent on each console. */
-        STRV_FOREACH(tty, consoles) {
+        STRV_FOREACH (tty, consoles) {
                 r = ask_on_this_console(*tty, &pid, argc, argv);
                 if (r < 0)
                         return r;

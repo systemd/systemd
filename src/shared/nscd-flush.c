@@ -140,7 +140,7 @@ int nscd_flush_cache(char **databases) {
 
         end = usec_add(now(CLOCK_MONOTONIC), NSCD_FLUSH_CACHE_TIMEOUT_USEC);
 
-        STRV_FOREACH(i, databases) {
+        STRV_FOREACH (i, databases) {
                 int k;
 
                 k = nscd_flush_cache_one(*i, end);

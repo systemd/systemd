@@ -41,7 +41,7 @@ static int setup_test(Manager **m) {
         assert_se(r >= 0);
         assert_se(manager_startup(tmp, NULL, NULL) >= 0);
 
-        STRV_FOREACH(test_path, tests_path) {
+        STRV_FOREACH (test_path, tests_path) {
                 _cleanup_free_ char *p = NULL;
 
                 p = strjoin("/tmp/test-path_", *test_path);

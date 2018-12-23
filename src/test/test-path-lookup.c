@@ -54,7 +54,7 @@ static void test_user_and_global_paths(void) {
          * entries in user search path which don't exist in the global
          * one, but not vice versa. */
         log_info("/* %s */", __func__);
-        STRV_FOREACH(p, g) {
+        STRV_FOREACH (p, g) {
                 while (u[k] && !streq(*p, u[k])) {
                         log_info("+ %s", u[k]);
                         k++;
@@ -63,8 +63,8 @@ static void test_user_and_global_paths(void) {
                 assert(u[k]); /* If NULL, we didn't find a matching entry */
                 k++;
         }
-        STRV_FOREACH(p, u + k)
-        log_info("+ %s", *p);
+        STRV_FOREACH (p, u + k)
+                log_info("+ %s", *p);
 }
 
 static void print_generator_binary_paths(UnitFileScope scope) {
@@ -74,8 +74,8 @@ static void print_generator_binary_paths(UnitFileScope scope) {
         log_info("Generators dirs (%s):", scope == UNIT_FILE_SYSTEM ? "system" : "user");
 
         paths = generator_binary_paths(scope);
-        STRV_FOREACH(dir, paths)
-        log_info("        %s", *dir);
+        STRV_FOREACH (dir, paths)
+                log_info("        %s", *dir);
 }
 
 int main(int argc, char **argv) {

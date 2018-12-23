@@ -63,7 +63,7 @@ static bool test_prefix(const char *p) {
         if (strv_isempty(arg_prefixes))
                 return true;
 
-        STRV_FOREACH(i, arg_prefixes) {
+        STRV_FOREACH (i, arg_prefixes) {
                 const char *t;
 
                 t = path_startswith(*i, "/proc/sys/");
@@ -300,7 +300,7 @@ static int run(int argc, char *argv[]) {
                         return cat_files(NULL, files, 0);
                 }
 
-                STRV_FOREACH(f, files) {
+                STRV_FOREACH (f, files) {
                         k = parse_file(sysctl_options, *f, true);
                         if (k < 0 && r == 0)
                                 r = k;

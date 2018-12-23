@@ -168,7 +168,7 @@ int fstab_extract_values(const char *opts, const char *name, char ***values) {
         if (!optsv)
                 return -ENOMEM;
 
-        STRV_FOREACH(s, optsv) {
+        STRV_FOREACH (s, optsv) {
                 char *arg;
                 int r;
 

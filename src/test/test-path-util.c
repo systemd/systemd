@@ -321,7 +321,7 @@ static void test_strv_resolve(void) {
 
         search_dirs = strv_new("/dir1", "/dir2", "/dir3");
         assert_se(search_dirs);
-        STRV_FOREACH(d, search_dirs) {
+        STRV_FOREACH (d, search_dirs) {
                 char *p = strappend(tmp_dir, *d);
                 assert_se(p);
                 assert_se(strv_push(&absolute_dirs, p) == 0);

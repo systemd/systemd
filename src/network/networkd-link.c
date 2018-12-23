@@ -1010,7 +1010,7 @@ static int link_push_uplink_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
 
         log_debug("Copying NTP server information from %s", link->ifname);
 
-        STRV_FOREACH(a, link->network->ntp) {
+        STRV_FOREACH (a, link->network->ntp) {
                 struct in_addr ia;
 
                 /* Only look for IPv4 addresses */

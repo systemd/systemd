@@ -277,7 +277,7 @@ static int link_update_dns_servers(Link *l) {
 
         dns_server_mark_all(l->dns_servers);
 
-        STRV_FOREACH(nameserver, nameservers) {
+        STRV_FOREACH (nameserver, nameservers) {
                 r = link_update_dns_server_one(l, *nameserver);
                 if (r < 0)
                         goto clear;
@@ -543,13 +543,13 @@ static int link_update_search_domains(Link *l) {
 
         dns_search_domain_mark_all(l->search_domains);
 
-        STRV_FOREACH(i, sdomains) {
+        STRV_FOREACH (i, sdomains) {
                 r = link_update_search_domain_one(l, *i, false);
                 if (r < 0)
                         goto clear;
         }
 
-        STRV_FOREACH(i, rdomains) {
+        STRV_FOREACH (i, rdomains) {
                 r = link_update_search_domain_one(l, *i, true);
                 if (r < 0)
                         goto clear;

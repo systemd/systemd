@@ -195,7 +195,7 @@ static int run(int argc, char *argv[]) {
                 _cleanup_strv_free_ char **files = NULL;
                 char **fn, **i;
 
-                STRV_FOREACH(i, arg_proc_cmdline_modules) {
+                STRV_FOREACH (i, arg_proc_cmdline_modules) {
                         k = module_load_and_warn(ctx, *i, true);
                         if (k < 0 && r == 0)
                                 r = k;
@@ -209,7 +209,7 @@ static int run(int argc, char *argv[]) {
                         return r;
                 }
 
-                STRV_FOREACH(fn, files) {
+                STRV_FOREACH (fn, files) {
                         k = apply_file(ctx, *fn, true);
                         if (k < 0 && r == 0)
                                 r = k;

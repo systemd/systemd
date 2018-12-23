@@ -133,7 +133,7 @@ int can_sleep_state(char **types) {
         if (r < 0)
                 return false;
 
-        STRV_FOREACH(type, types) {
+        STRV_FOREACH (type, types) {
                 const char *word, *state;
                 size_t l, k;
 
@@ -166,7 +166,7 @@ int can_sleep_disk(char **types) {
                 return false;
         }
 
-        STRV_FOREACH(type, types) {
+        STRV_FOREACH (type, types) {
                 const char *word, *state;
                 size_t l, k;
 

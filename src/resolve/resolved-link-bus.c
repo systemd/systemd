@@ -501,7 +501,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, ntas) {
+        STRV_FOREACH (i, ntas) {
                 r = dns_name_is_valid(*i);
                 if (r < 0)
                         return r;
@@ -513,7 +513,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         if (!ns)
                 return -ENOMEM;
 
-        STRV_FOREACH(i, ntas) {
+        STRV_FOREACH (i, ntas) {
                 r = set_put_strdup(ns, *i);
                 if (r < 0)
                         return r;

@@ -624,7 +624,7 @@ int image_remove(Image *i) {
                 return -EOPNOTSUPP;
         }
 
-        STRV_FOREACH(j, settings) {
+        STRV_FOREACH (j, settings) {
                 if (unlink(*j) < 0 && errno != ENOENT)
                         log_debug_errno(errno, "Failed to unlink %s, ignoring: %m", *j);
         }
@@ -743,7 +743,7 @@ int image_rename(Image *i, const char *new_name) {
         free_and_replace(i->path, new_path);
         free_and_replace(i->name, nn);
 
-        STRV_FOREACH(j, settings) {
+        STRV_FOREACH (j, settings) {
                 r = rename_auxiliary_file(*j, new_name, ".nspawn");
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to rename settings file %s, ignoring: %m", *j);
@@ -837,7 +837,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(j, settings) {
+        STRV_FOREACH (j, settings) {
                 r = clone_auxiliary_file(*j, new_name, ".nspawn");
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to clone settings %s, ignoring: %m", *j);

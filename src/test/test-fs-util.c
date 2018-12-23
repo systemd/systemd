@@ -682,7 +682,7 @@ static void test_rename_noreplace(void) {
         j = strjoina(z, table[4]);
         (void) symlink("foobar", j);
 
-        STRV_FOREACH(a, (char **) table) {
+        STRV_FOREACH (a, (char **) table) {
                 _cleanup_free_ char *x = NULL, *y = NULL;
 
                 x = strjoin(z, *a);
@@ -693,7 +693,7 @@ static void test_rename_noreplace(void) {
                         continue;
                 }
 
-                STRV_FOREACH(b, (char **) table) {
+                STRV_FOREACH (b, (char **) table) {
                         _cleanup_free_ char *w = NULL;
 
                         w = strjoin(w, *b);

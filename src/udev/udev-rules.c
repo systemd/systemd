@@ -1535,11 +1535,11 @@ int udev_rules_new(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing)
          * The offset value in the rules strct is limited; add all
          * rules file names to the beginning of the string buffer.
          */
-        STRV_FOREACH(f, files)
-        rules_add_string(rules, *f);
+        STRV_FOREACH (f, files)
+                rules_add_string(rules, *f);
 
-        STRV_FOREACH(f, files)
-        parse_file(rules, *f);
+        STRV_FOREACH (f, files)
+                parse_file(rules, *f);
 
         struct token end_token = { .type = TK_END };
         add_token(rules, &end_token);
@@ -2490,7 +2490,7 @@ int udev_rules_apply_static_dev_perms(UdevRules *rules) {
 
                         /* export the tags to a directory as symlinks, allowing otherwise dead nodes to be tagged */
                         if (tags) {
-                                STRV_FOREACH(t, tags) {
+                                STRV_FOREACH (t, tags) {
                                         _cleanup_free_ char *unescaped_filename = NULL;
 
                                         strscpyl(tags_dir, sizeof(tags_dir), "/run/udev/static_node-tags/", *t, "/", NULL);

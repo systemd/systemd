@@ -606,8 +606,8 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
                 char **l;
                 printf("\tSessions:");
 
-                STRV_FOREACH(l, i.sessions)
-                printf(" %s%s", streq_ptr(*l, i.display) ? "*" : "", *l);
+                STRV_FOREACH (l, i.sessions)
+                        printf(" %s%s", streq_ptr(*l, i.display) ? "*" : "", *l);
 
                 printf("\n");
         }
@@ -663,7 +663,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
                 char **l;
                 printf("\tSessions:");
 
-                STRV_FOREACH(l, i.sessions) {
+                STRV_FOREACH (l, i.sessions) {
                         if (streq_ptr(*l, i.active_session))
                                 printf(" *%s", *l);
                         else

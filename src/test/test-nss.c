@@ -101,9 +101,9 @@ static void print_struct_hostent(struct hostent *host, const char *canon) {
         char **s;
 
         log_info("        \"%s\"", host->h_name);
-        STRV_FOREACH(s, host->h_aliases)
-        log_info("        alias \"%s\"", *s);
-        STRV_FOREACH(s, host->h_addr_list) {
+        STRV_FOREACH (s, host->h_aliases)
+                log_info("        alias \"%s\"", *s);
+        STRV_FOREACH (s, host->h_addr_list) {
                 union in_addr_union u;
                 _cleanup_free_ char *a = NULL;
                 char family_name[DECIMAL_STR_MAX(int)];
@@ -405,8 +405,8 @@ static int test_one_module(const char *dir, const char *module, char **names, st
         if (!handle)
                 return -EINVAL;
 
-        STRV_FOREACH(name, names)
-        test_byname(handle, module, *name);
+        STRV_FOREACH (name, names)
+                test_byname(handle, module, *name);
 
         for (i = 0; i < n_addresses; i++)
                 test_byaddr(handle, module, &addresses[i].address, FAMILY_ADDRESS_SIZE(addresses[i].family), addresses[i].family);
@@ -445,7 +445,7 @@ static int parse_argv(int argc, char **argv, char ***the_modules, char ***the_na
                 int family;
                 union in_addr_union address;
 
-                STRV_FOREACH(name, argv + 2) {
+                STRV_FOREACH (name, argv + 2) {
                         r = in_addr_from_string_auto(*name, &family, &address);
                         if (r < 0) {
                                 /* assume this is a name */
@@ -505,7 +505,7 @@ int main(int argc, char **argv) {
         if (!dir)
                 return EXIT_FAILURE;
 
-        STRV_FOREACH(module, modules) {
+        STRV_FOREACH (module, modules) {
                 r = test_one_module(dir, *module, names, addresses, n_addresses);
                 if (r < 0)
                         return EXIT_FAILURE;

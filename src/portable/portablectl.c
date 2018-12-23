@@ -737,7 +737,7 @@ static int dump_profiles(void) {
         if (arg_legend)
                 log_info("Available unit profiles:");
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 fputs(*i, stdout);
                 fputc('\n', stdout);
         }

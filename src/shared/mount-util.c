@@ -189,7 +189,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                                 bool blacklisted = false;
                                 char **i;
 
-                                STRV_FOREACH(i, blacklist) {
+                                STRV_FOREACH (i, blacklist) {
 
                                         if (path_equal(*i, cleaned))
                                                 continue;

@@ -93,7 +93,7 @@ static int write_mode(char **modes) {
         int r = 0;
         char **mode;
 
-        STRV_FOREACH(mode, modes) {
+        STRV_FOREACH (mode, modes) {
                 int k;
 
                 k = write_string_file("/sys/power/disk", *mode, WRITE_STRING_FILE_DISABLE_BUFFER);
@@ -112,7 +112,7 @@ static int write_state(FILE **f, char **states) {
         char **state;
         int r = 0;
 
-        STRV_FOREACH(state, states) {
+        STRV_FOREACH (state, states) {
                 int k;
 
                 k = write_string_stream(*f, *state, WRITE_STRING_FILE_DISABLE_BUFFER);

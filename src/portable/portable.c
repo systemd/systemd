@@ -63,9 +63,9 @@ static bool unit_match(const char *unit, char **matches) {
                 return true;
 
         /* Otherwise, at least one needs to match */
-        STRV_FOREACH(i, matches)
-        if (prefix_match(unit, *i))
-                return true;
+        STRV_FOREACH (i, matches)
+                if (prefix_match(unit, *i))
+                        return true;
 
         return false;
 }
@@ -267,7 +267,7 @@ static int extract_now(const char *where, char **matches, int socket_fd, Portabl
         if (!unit_files)
                 return -ENOMEM;
 
-        STRV_FOREACH(i, paths.search_path) {
+        STRV_FOREACH (i, paths.search_path) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;

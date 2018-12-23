@@ -147,7 +147,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                 if (m->type == CUSTOM_MOUNT_OVERLAY) {
                         char **j;
 
-                        STRV_FOREACH(j, m->lower) {
+                        STRV_FOREACH (j, m->lower) {
                                 char *s;
 
                                 s = resolve_source_path(dest, *j);
@@ -294,9 +294,9 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
                 destination = lower[k - 1];
                 upper = TAKE_PTR(lower[k - 2]);
 
-                STRV_FOREACH(i, lower)
-                if (!source_path_is_valid(*i))
-                        return -EINVAL;
+                STRV_FOREACH (i, lower)
+                        if (!source_path_is_valid(*i))
+                                return -EINVAL;
 
                 /* If the upper directory is unspecified, then let's create it automatically as a throw-away directory
                  * in /var/tmp */

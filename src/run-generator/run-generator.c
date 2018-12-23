@@ -84,7 +84,7 @@ static int generate(void) {
               "StandardOutput=journal+console\n",
               f);
 
-        STRV_FOREACH(c, arg_commands) {
+        STRV_FOREACH (c, arg_commands) {
                 _cleanup_free_ char *a = NULL;
 
                 a = specifier_escape(*c);

@@ -1522,7 +1522,7 @@ int parse_syscall_archs(char **l, Set **archs) {
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(s, l) {
+        STRV_FOREACH (s, l) {
                 uint32_t a;
 
                 r = seccomp_arch_from_string(*s, &a);

@@ -241,8 +241,8 @@ static void test_get_timezones(void) {
         r = get_timezones(&zones);
         assert_se(r == 0);
 
-        STRV_FOREACH(zone, zones)
-        assert_se(timezone_is_valid(*zone, LOG_ERR));
+        STRV_FOREACH (zone, zones)
+                assert_se(timezone_is_valid(*zone, LOG_ERR));
 }
 
 static void test_usec_add(void) {

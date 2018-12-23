@@ -175,7 +175,7 @@ int cat_files(const char *file, char **dropins, CatFlags flags) {
                         return log_warning_errno(r, "Failed to cat %s: %m", file);
         }
 
-        STRV_FOREACH(path, dropins) {
+        STRV_FOREACH (path, dropins) {
                 r = cat_file(*path, file || path != dropins);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to cat %s: %m", *path);
@@ -231,8 +231,8 @@ int conf_files_cat(const char *root, const char *name) {
         if (DEBUG_LOGGING) {
                 log_debug("Looking for configuration in:");
                 log_debug("   %s", path);
-                STRV_FOREACH(t, dirs)
-                log_debug("   %s/*.conf", *t);
+                STRV_FOREACH (t, dirs)
+                        log_debug("   %s/*.conf", *t);
         }
 
         /* show */

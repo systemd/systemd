@@ -299,7 +299,7 @@ int network_load(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate network files: %m");
 
-        STRV_FOREACH_BACKWARDS(f, files) {
+        STRV_FOREACH_BACKWARDS (f, files) {
                 r = network_load_one(manager, *f);
                 if (r < 0)
                         return r;

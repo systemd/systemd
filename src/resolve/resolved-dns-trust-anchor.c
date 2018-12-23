@@ -428,7 +428,7 @@ static int dns_trust_anchor_load_files(DnsTrustAnchor *d,
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate %s trust anchor files: %m", suffix);
 
-        STRV_FOREACH(f, files) {
+        STRV_FOREACH (f, files) {
                 _cleanup_fclose_ FILE *g = NULL;
                 unsigned n = 0;
 

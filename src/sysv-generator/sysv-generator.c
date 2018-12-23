@@ -144,12 +144,12 @@ static int generate_unit_file(SysvStub *s) {
                 fprintf(f, "Description=%s\n", t);
         }
 
-        STRV_FOREACH(p, s->before)
-        fprintf(f, "Before=%s\n", *p);
-        STRV_FOREACH(p, s->after)
-        fprintf(f, "After=%s\n", *p);
-        STRV_FOREACH(p, s->wants)
-        fprintf(f, "Wants=%s\n", *p);
+        STRV_FOREACH (p, s->before)
+                fprintf(f, "Before=%s\n", *p);
+        STRV_FOREACH (p, s->after)
+                fprintf(f, "After=%s\n", *p);
+        STRV_FOREACH (p, s->wants)
+                fprintf(f, "Wants=%s\n", *p);
 
         fprintf(f,
                 "\n[Service]\n"
@@ -189,8 +189,8 @@ static int generate_unit_file(SysvStub *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit %s: %m", unit);
 
-        STRV_FOREACH(p, s->wanted_by)
-        (void) generator_add_symlink(arg_dest, *p, "wants", s->name);
+        STRV_FOREACH (p, s->wanted_by)
+                (void) generator_add_symlink(arg_dest, *p, "wants", s->name);
 
         return 1;
 }
@@ -730,7 +730,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(path, sysvinit_path) {
+        STRV_FOREACH (path, sysvinit_path) {
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 
@@ -811,7 +811,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(p, sysvrcnd_path) {
+        STRV_FOREACH (p, sysvrcnd_path) {
                 for (i = 0; i < ELEMENTSOF(rcnd_table); i++) {
 
                         _cleanup_closedir_ DIR *d = NULL;

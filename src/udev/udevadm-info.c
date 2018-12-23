@@ -439,7 +439,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Only one device may be specified with -a/--attribute-walk");
 
         char **p;
-        STRV_FOREACH(p, devices) {
+        STRV_FOREACH (p, devices) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
 
                 r = find_device(*p, NULL, &device);

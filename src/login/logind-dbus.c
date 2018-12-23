@@ -2889,13 +2889,13 @@ int manager_start_scope(Manager *manager,
                         return r;
         }
 
-        STRV_FOREACH(i, wants) {
+        STRV_FOREACH (i, wants) {
                 r = sd_bus_message_append(m, "(sv)", "Wants", "as", 1, *i);
                 if (r < 0)
                         return r;
         }
 
-        STRV_FOREACH(i, after) {
+        STRV_FOREACH (i, after) {
                 r = sd_bus_message_append(m, "(sv)", "After", "as", 1, *i);
                 if (r < 0)
                         return r;

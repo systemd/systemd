@@ -232,7 +232,7 @@ static int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *r
         if (r < 0)
                 return log_error_errno(r, "Failed to list files in \"%s\": %m", dir);
 
-        STRV_FOREACH(f, files) {
+        STRV_FOREACH (f, files) {
                 if (!GREEDY_REALLOC0(array, n_allocated, n + 1))
                         return log_oom();
 

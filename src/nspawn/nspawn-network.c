@@ -418,7 +418,7 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        STRV_FOREACH(i, ifaces) {
+        STRV_FOREACH (i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 int ifi;
 
@@ -455,7 +455,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        STRV_FOREACH(i, ifaces) {
+        STRV_FOREACH (i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 struct ether_addr mac;
@@ -535,7 +535,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        STRV_FOREACH(i, ifaces) {
+        STRV_FOREACH (i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 int ifi;

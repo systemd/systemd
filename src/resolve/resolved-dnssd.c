@@ -191,7 +191,7 @@ int dnssd_load(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate .dnssd files: %m");
 
-        STRV_FOREACH_BACKWARDS(f, files) {
+        STRV_FOREACH_BACKWARDS (f, files) {
                 r = dnssd_service_load(manager, *f);
                 if (r < 0)
                         log_warning_errno(r, "Failed to load '%s': %m", *f);

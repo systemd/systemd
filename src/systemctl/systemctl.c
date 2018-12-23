@@ -692,7 +692,7 @@ static int get_unit_list_recursive(sd_bus *bus, char **patterns, UnitInfo **_uni
                 if (r < 0)
                         return log_error_errno(r, "Failed to get machine names: %m");
 
-                STRV_FOREACH(i, machines) {
+                STRV_FOREACH (i, machines) {
                         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *container = NULL;
                         int k;
 
@@ -855,8 +855,8 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                         typelen = MAX(typelen, strlen(s->type));
                 pathlen = MAX(pathlen, strlen(s->path) + (s->machine ? strlen(s->machine) + 1 : 0));
 
-                STRV_FOREACH(a, s->triggered)
-                tmp += strlen(*a) + 2 * (a != s->triggered);
+                STRV_FOREACH (a, s->triggered)
+                        tmp += strlen(*a) + 2 * (a != s->triggered);
                 servlen = MAX(servlen, tmp);
         }
 
@@ -889,8 +889,8 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                                 printf("%-*s %-*s %-*s", pathlen, path, typelen, s->type, socklen, s->id);
                         else
                                 printf("%-*s %-*s", pathlen, path, socklen, s->id);
-                        STRV_FOREACH(a, s->triggered)
-                        printf("%s %s", a == s->triggered ? "" : ",", *a);
+                        STRV_FOREACH (a, s->triggered)
+                                printf("%s %s", a == s->triggered ? "" : ",", *a);
                         printf("\n");
                 }
 
@@ -1095,8 +1095,8 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
 
                 unitlen = MAX(unitlen, strlen(t->id) + (t->machine ? strlen(t->machine) + 1 : 0));
 
-                STRV_FOREACH(a, t->triggered)
-                ul += strlen(*a) + 2 * (a != t->triggered);
+                STRV_FOREACH (a, t->triggered)
+                        ul += strlen(*a) + 2 * (a != t->triggered);
 
                 activatelen = MAX(activatelen, ul);
         }
@@ -1139,8 +1139,8 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
 
                         printf("%-*s %-*s %-*s %-*s %-*s", nextlen, tstamp1, leftlen, trel1, lastlen, tstamp2, passedlen, trel2, unitlen, unit);
 
-                        STRV_FOREACH(a, t->triggered)
-                        printf("%s %s", a == t->triggered ? "" : ",", *a);
+                        STRV_FOREACH (a, t->triggered)
+                                printf("%s %s", a == t->triggered ? "" : ",", *a);
                         printf("\n");
                 }
 
@@ -1612,7 +1612,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, int level, char 
 
         typesafe_qsort(deps, strv_length(deps), list_dependencies_compare);
 
-        STRV_FOREACH(c, deps) {
+        STRV_FOREACH (c, deps) {
                 if (strv_contains(*units, *c)) {
                         if (!arg_plain) {
                                 printf("  ");
@@ -1799,7 +1799,7 @@ static int get_machine_list(sd_bus *bus, struct machine_info **_machine_infos, c
         if (r < 0)
                 return log_error_errno(r, "Failed to get machine list: %m");
 
-        STRV_FOREACH(i, m) {
+        STRV_FOREACH (i, m) {
                 _cleanup_free_ char *class = NULL;
 
                 if (!output_show_machine(*i, patterns))
@@ -2228,7 +2228,7 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_maybe();
 
-        STRV_FOREACH(name, strv_skip(argv, 1)) {
+        STRV_FOREACH (name, strv_skip(argv, 1)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 uint32_t id;
                 int q;
@@ -2308,7 +2308,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **re
         assert(lp);
         assert(unit_name);
 
-        STRV_FOREACH(p, lp->search_path) {
+        STRV_FOREACH (p, lp->search_path) {
                 _cleanup_free_ char *path = NULL, *lpath = NULL;
                 int r;
 
@@ -2576,7 +2576,7 @@ static int check_triggering_units(sd_bus *bus, const char *name) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get triggered by array of %s: %s", n, bus_error_message(&error, r));
 
-        STRV_FOREACH(i, triggered_by) {
+        STRV_FOREACH (i, triggered_by) {
                 r = get_state_one_unit(bus, *i, &active_state);
                 if (r < 0)
                         return r;
@@ -2843,7 +2843,7 @@ static int expand_names(sd_bus *bus, char **names, const char *suffix, char ***r
         assert(bus);
         assert(ret);
 
-        STRV_FOREACH(name, names) {
+        STRV_FOREACH (name, names) {
                 char *t;
                 UnitNameMangle options = UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN);
 
@@ -3021,7 +3021,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to attach bus to event loop: %m");
         }
 
-        STRV_FOREACH(name, names) {
+        STRV_FOREACH (name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = start_unit_one(bus, method, *name, mode, &error, w, arg_wait ? &wait_context : NULL);
@@ -3058,8 +3058,8 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 /* When stopping units, warn if they can still be triggered by
                  * another active unit (socket, path, timer) */
                 if (!arg_quiet)
-                        STRV_FOREACH(name, stopped_units)
-                (void) check_triggering_units(bus, *name);
+                        STRV_FOREACH (name, stopped_units)
+                                (void) check_triggering_units(bus, *name);
         }
 
         if (ret == EXIT_SUCCESS && arg_wait && !set_isempty(wait_context.unit_paths)) {
@@ -3268,7 +3268,7 @@ static int logind_check_inhibitors(enum action a) {
 
         /* Check for current sessions */
         sd_get_sessions(&sessions);
-        STRV_FOREACH(s, sessions) {
+        STRV_FOREACH (s, sessions) {
                 _cleanup_free_ char *type = NULL, *tty = NULL, *seat = NULL, *user = NULL, *service = NULL, *class = NULL;
 
                 if (sd_session_get_uid(*s, &uid) < 0 || uid == getuid())
@@ -3560,7 +3560,7 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
-        STRV_FOREACH(name, names) {
+        STRV_FOREACH (name, names) {
                 r = get_state_one_unit(bus, *name, &active_state);
                 if (r < 0)
                         return r;
@@ -3619,7 +3619,7 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
-        STRV_FOREACH(name, names) {
+        STRV_FOREACH (name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 q = sd_bus_call_method(bus,
@@ -3928,7 +3928,7 @@ static void print_status_info(sd_bus *bus, UnitStatusInfo *i, bool *ellipsized) 
                 bool last = false;
                 char **dropin;
 
-                STRV_FOREACH(dropin, i->dropin_paths) {
+                STRV_FOREACH (dropin, i->dropin_paths) {
                         _cleanup_free_ char *dropin_formatted = NULL;
                         const char *df;
 
@@ -4058,7 +4058,7 @@ static void print_status_info(sd_bus *bus, UnitStatusInfo *i, bool *ellipsized) 
         if (i->what)
                 printf("     What: %s\n", i->what);
 
-        STRV_FOREACH(t, i->documentation) {
+        STRV_FOREACH (t, i->documentation) {
                 _cleanup_free_ char *formatted = NULL;
                 const char *q;
 
@@ -4298,11 +4298,11 @@ static void show_unit_help(UnitStatusInfo *i) {
                 return;
         }
 
-        STRV_FOREACH(p, i->documentation)
-        if (startswith(*p, "man:"))
-                show_man_page(*p + 4, false);
-        else
-                log_info("Can't show: %s", *p);
+        STRV_FOREACH (p, i->documentation)
+                if (startswith(*p, "man:"))
+                        show_man_page(*p + 4, false);
+                else
+                        log_info("Can't show: %s", *p);
 }
 
 static int map_main_pid(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
@@ -4559,7 +4559,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 if (!whitelist)
                                         fputc('~', stdout);
 
-                                STRV_FOREACH(i, l) {
+                                STRV_FOREACH (i, l) {
                                         if (first)
                                                 first = false;
                                         else
@@ -4996,9 +4996,9 @@ static int show_one(sd_bus *bus, const char *path, const char *unit, SystemctlSh
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        STRV_FOREACH(pp, arg_properties)
-        if (!set_contains(found_properties, *pp))
-                log_debug("Property %s does not exist.", *pp);
+        STRV_FOREACH (pp, arg_properties)
+                if (!set_contains(found_properties, *pp))
+                        log_debug("Property %s does not exist.", *pp);
 
         return 0;
 }
@@ -5161,7 +5161,7 @@ static int show(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char **patterns = NULL;
                 char **name;
 
-                STRV_FOREACH(name, strv_skip(argv, 1)) {
+                STRV_FOREACH (name, strv_skip(argv, 1)) {
                         _cleanup_free_ char *path = NULL, *unit = NULL;
                         uint32_t id;
 
@@ -5202,7 +5202,7 @@ static int show(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to expand names: %m");
 
-                        STRV_FOREACH(name, names) {
+                        STRV_FOREACH (name, names) {
                                 _cleanup_free_ char *path;
 
                                 path = unit_dbus_path_from_name(*name);
@@ -5251,7 +5251,7 @@ static int cat(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        STRV_FOREACH(name, names) {
+        STRV_FOREACH (name, names) {
                 _cleanup_free_ char *fragment_path = NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
 
@@ -5460,7 +5460,7 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
-        STRV_FOREACH(name, names) {
+        STRV_FOREACH (name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 q = sd_bus_call_method(bus,
@@ -5681,14 +5681,14 @@ static int import_environment(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                STRV_FOREACH(a, strv_skip(argv, 1)) {
+                STRV_FOREACH (a, strv_skip(argv, 1)) {
 
                         if (!env_name_is_valid(*a)) {
                                 log_error("Not a valid environment variable name: %s", *a);
                                 return -EINVAL;
                         }
 
-                        STRV_FOREACH(b, environ) {
+                        STRV_FOREACH (b, environ) {
                                 const char *eq;
 
                                 eq = startswith(*b, *a);
@@ -5847,7 +5847,7 @@ static int mangle_names(char **original_names, char ***mangled_names) {
         if (!l)
                 return log_oom();
 
-        STRV_FOREACH(name, original_names) {
+        STRV_FOREACH (name, original_names) {
 
                 /* When enabling units qualified path names are OK,
                  * too, hence allow them explicitly. */
@@ -5880,22 +5880,24 @@ static int normalize_filenames(char **names) {
         char **u;
         int r;
 
-        STRV_FOREACH(u, names)
-        if (!path_is_absolute(*u)) {
-                char *normalized_path;
+        STRV_FOREACH (u, names)
+                if (!path_is_absolute(*u)) {
+                        char *normalized_path;
 
-                if (!isempty(arg_root))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Non-absolute paths are not allowed when --root is used: %s", *u);
+                        if (!isempty(arg_root))
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Non-absolute paths are not allowed when --root is used: %s", *u);
 
-                if (!strchr(*u, '/'))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Link argument does contain at least one directory separator: %s", *u);
+                        if (!strchr(*u, '/'))
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Link argument does contain at least one directory separator: %s", *u);
 
-                r = path_make_absolute_cwd(*u, &normalized_path);
-                if (r < 0)
-                        return r;
+                        r = path_make_absolute_cwd(*u, &normalized_path);
+                        if (r < 0)
+                                return r;
 
-                free_and_replace(*u, normalized_path);
-        }
+                        free_and_replace(*u, normalized_path);
+                }
 
         return 0;
 }
@@ -5904,7 +5906,7 @@ static int normalize_names(char **names, bool warn_if_path) {
         char **u;
         bool was_path = false;
 
-        STRV_FOREACH(u, names) {
+        STRV_FOREACH (u, names) {
                 int r;
 
                 if (!is_path(*u))
@@ -6038,7 +6040,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        STRV_FOREACH(name, names) {
+                        STRV_FOREACH (name, names) {
                                 r = unit_exists(&lp, *name);
                                 if (r < 0)
                                         return r;
@@ -6388,7 +6390,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
         enabled = r > 0;
 
         if (install_client_side()) {
-                STRV_FOREACH(name, names) {
+                STRV_FOREACH (name, names) {
                         UnitFileState state;
 
                         r = unit_file_get_state(arg_scope, arg_root, *name, &state);
@@ -6417,7 +6419,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                STRV_FOREACH(name, names) {
+                STRV_FOREACH (name, names) {
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                         const char *s;
 
@@ -6740,7 +6742,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(name, names) {
+        STRV_FOREACH (name, names) {
                 _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL, *tmp_name = NULL;
                 const char *unit_name;
 
@@ -6836,7 +6838,7 @@ static int edit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
-        STRV_FOREACH(tmp, names) {
+        STRV_FOREACH (tmp, names) {
                 r = unit_is_masked(bus, &lp, *tmp);
                 if (r < 0)
                         return r;

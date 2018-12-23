@@ -265,7 +265,7 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
                 if (!l)
                         return -ENOMEM;
 
-                STRV_FOREACH(i, a) {
+                STRV_FOREACH (i, a) {
                         if (strv_find(l, *i))
                                 continue;
 
@@ -310,7 +310,7 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
                 if (!l)
                         return -ENOMEM;
 
-                STRV_FOREACH(i, a) {
+                STRV_FOREACH (i, a) {
                         if (strv_find(l, *i))
                                 continue;
 
@@ -1265,30 +1265,30 @@ static int add_implicit(void) {
         ORDERED_HASHMAP_FOREACH_KEY(l, g, members, iterator) {
                 char **m;
 
-                STRV_FOREACH(m, l)
-                if (!ordered_hashmap_get(users, *m)) {
-                        _cleanup_(item_freep) Item *j = NULL;
+                STRV_FOREACH (m, l)
+                        if (!ordered_hashmap_get(users, *m)) {
+                                _cleanup_(item_freep) Item *j = NULL;
 
-                        r = ordered_hashmap_ensure_allocated(&users, &item_hash_ops);
-                        if (r < 0)
-                                return log_oom();
+                                r = ordered_hashmap_ensure_allocated(&users, &item_hash_ops);
+                                if (r < 0)
+                                        return log_oom();
 
-                        j = new0(Item, 1);
-                        if (!j)
-                                return log_oom();
+                                j = new0(Item, 1);
+                                if (!j)
+                                        return log_oom();
 
-                        j->type = ADD_USER;
-                        j->name = strdup(*m);
-                        if (!j->name)
-                                return log_oom();
+                                j->type = ADD_USER;
+                                j->name = strdup(*m);
+                                if (!j->name)
+                                        return log_oom();
 
-                        r = ordered_hashmap_put(users, j->name, j);
-                        if (r < 0)
-                                return log_oom();
+                                r = ordered_hashmap_put(users, j->name, j);
+                                if (r < 0)
+                                        return log_oom();
 
-                        log_debug("Adding implicit user '%s' due to m line", j->name);
-                        j = NULL;
-                }
+                                log_debug("Adding implicit user '%s' due to m line", j->name);
+                                j = NULL;
+                        }
 
                 if (!(ordered_hashmap_get(users, g) || ordered_hashmap_get(groups, g))) {
                         _cleanup_(item_freep) Item *j = NULL;
@@ -1864,7 +1864,7 @@ static int parse_arguments(char **args) {
         unsigned pos = 1;
         int r;
 
-        STRV_FOREACH(arg, args) {
+        STRV_FOREACH (arg, args) {
                 if (arg_inline)
                         /* Use (argument):n, where n==1 for the first positional arg */
                         r = parse_line("(argument)", pos, *arg);
@@ -1889,19 +1889,19 @@ static int read_config_files(char **args) {
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(f, files)
-        if (p && path_equal(*f, p)) {
-                log_debug("Parsing arguments at position \"%s\"…", *f);
+        STRV_FOREACH (f, files)
+                if (p && path_equal(*f, p)) {
+                        log_debug("Parsing arguments at position \"%s\"…", *f);
 
-                r = parse_arguments(args);
-                if (r < 0)
-                        return r;
-        } else {
-                log_debug("Reading config file \"%s\"…", *f);
+                        r = parse_arguments(args);
+                        if (r < 0)
+                                return r;
+                } else {
+                        log_debug("Reading config file \"%s\"…", *f);
 
-                /* Just warn, ignore result otherwise */
-                (void) read_config_file(*f, true);
-        }
+                        /* Just warn, ignore result otherwise */
+                        (void) read_config_file(*f, true);
+                }
 
         return 0;
 }

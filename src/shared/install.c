@@ -123,9 +123,9 @@ static int in_search_path(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        STRV_FOREACH(i, p->search_path)
-        if (path_equal(parent, *i))
-                return true;
+        STRV_FOREACH (i, p->search_path)
+                if (path_equal(parent, *i))
+                        return true;
 
         return false;
 }
@@ -837,7 +837,7 @@ static int find_symlinks_in_scope(
          * symlinks. The ones which are "below" (i.e. have lower priority) than the unit file itself are
          * efectively masked, so we should ignore them. */
 
-        STRV_FOREACH(p, paths->search_path) {
+        STRV_FOREACH (p, paths->search_path) {
                 bool same_name_link = false;
 
                 r = find_symlinks(paths->root_dir, i, match_name, ignore_same_name, *p, &same_name_link);
@@ -1329,7 +1329,7 @@ static int unit_file_search(InstallContext *c, UnitFileInstallInfo *info, const 
                         return r;
         }
 
-        STRV_FOREACH(p, paths->search_path) {
+        STRV_FOREACH (p, paths->search_path) {
                 _cleanup_free_ char *path = NULL;
 
                 path = strjoin(*p, "/", info->name);
@@ -1352,7 +1352,7 @@ static int unit_file_search(InstallContext *c, UnitFileInstallInfo *info, const 
                  * enablement was requested.  We will check if it is
                  * possible to load template unit file. */
 
-                STRV_FOREACH(p, paths->search_path) {
+                STRV_FOREACH (p, paths->search_path) {
                         _cleanup_free_ char *path = NULL;
 
                         path = strjoin(*p, "/", template);
@@ -1380,7 +1380,7 @@ static int unit_file_search(InstallContext *c, UnitFileInstallInfo *info, const 
         /* Search for drop-in directories */
 
         dropin_dir_name = strjoina(info->name, ".d");
-        STRV_FOREACH(p, paths->search_path) {
+        STRV_FOREACH (p, paths->search_path) {
                 char *path;
 
                 path = path_join(*p, dropin_dir_name);
@@ -1394,7 +1394,7 @@ static int unit_file_search(InstallContext *c, UnitFileInstallInfo *info, const 
 
         if (template) {
                 dropin_template_dir_name = strjoina(template, ".d");
-                STRV_FOREACH(p, paths->search_path) {
+                STRV_FOREACH (p, paths->search_path) {
                         char *path;
 
                         path = path_join(*p, dropin_template_dir_name);
@@ -1413,7 +1413,7 @@ static int unit_file_search(InstallContext *c, UnitFileInstallInfo *info, const 
         if (r < 0)
                 return log_debug_errno(r, "Failed to get list of conf files: %m");
 
-        STRV_FOREACH(p, files) {
+        STRV_FOREACH (p, files) {
                 r = unit_file_load_or_readlink(c, info, *p, paths->root_dir, flags | SEARCH_DROPIN);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load conf file %s: %m", *p);
@@ -1613,7 +1613,7 @@ static int install_info_symlink_alias(
         assert(paths);
         assert(config_path);
 
-        STRV_FOREACH(s, i->aliases) {
+        STRV_FOREACH (s, i->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL;
 
                 q = install_full_printf(i, *s, &dst);
@@ -1682,7 +1682,7 @@ static int install_info_symlink_wants(UnitFileInstallInfo *i,
         } else
                 n = i->name;
 
-        STRV_FOREACH(s, list) {
+        STRV_FOREACH (s, list) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
                 q = install_full_printf(i, *s, &dst);
@@ -1904,7 +1904,7 @@ int unit_file_mask(UnitFileScope scope, UnitFileFlags flags, const char *root_di
         if (!config_path)
                 return -ENXIO;
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH (i, files) {
                 _cleanup_free_ char *path = NULL;
                 int q;
 
@@ -1950,7 +1950,7 @@ int unit_file_unmask(UnitFileScope scope, UnitFileFlags flags, const char *root_
 
         dry_run = !!(flags & UNIT_FILE_DRY_RUN);
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH (i, files) {
                 _cleanup_free_ char *path = NULL;
 
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
@@ -1981,7 +1981,7 @@ int unit_file_unmask(UnitFileScope scope, UnitFileFlags flags, const char *root_
         strv_uniq(todo);
 
         r = 0;
-        STRV_FOREACH(i, todo) {
+        STRV_FOREACH (i, todo) {
                 _cleanup_free_ char *path = NULL;
                 const char *rp;
 
@@ -2034,7 +2034,7 @@ int unit_file_link(UnitFileScope scope, UnitFileFlags flags, const char *root_di
         if (!config_path)
                 return -ENXIO;
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH (i, files) {
                 _cleanup_free_ char *full = NULL;
                 struct stat st;
                 char *fn;
@@ -2075,7 +2075,7 @@ int unit_file_link(UnitFileScope scope, UnitFileFlags flags, const char *root_di
         strv_uniq(todo);
 
         r = 0;
-        STRV_FOREACH(i, todo) {
+        STRV_FOREACH (i, todo) {
                 _cleanup_free_ char *new_path = NULL;
 
                 new_path = path_make_absolute(basename(*i), config_path);
@@ -2133,14 +2133,14 @@ int unit_file_revert(UnitFileScope scope, const char *root_dir, char **files, Un
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH (i, files) {
                 bool has_vendor = false;
                 char **p;
 
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                STRV_FOREACH(p, paths.search_path) {
+                STRV_FOREACH (p, paths.search_path) {
                         _cleanup_free_ char *path = NULL, *dropin = NULL;
                         struct stat st;
 
@@ -2187,7 +2187,7 @@ int unit_file_revert(UnitFileScope scope, const char *root_dir, char **files, Un
                         continue;
 
                 /* OK, there's a vendor version, hence drop all configuration versions */
-                STRV_FOREACH(p, paths.search_path) {
+                STRV_FOREACH (p, paths.search_path) {
                         _cleanup_free_ char *path = NULL;
                         struct stat st;
 
@@ -2216,7 +2216,7 @@ int unit_file_revert(UnitFileScope scope, const char *root_dir, char **files, Un
         strv_uniq(todo);
 
         r = 0;
-        STRV_FOREACH(i, todo) {
+        STRV_FOREACH (i, todo) {
                 _cleanup_strv_free_ char **fs = NULL;
                 const char *rp;
                 char **j;
@@ -2229,7 +2229,7 @@ int unit_file_revert(UnitFileScope scope, const char *root_dir, char **files, Un
                         continue;
                 }
 
-                STRV_FOREACH(j, fs) {
+                STRV_FOREACH (j, fs) {
                         _cleanup_free_ char *t = NULL;
 
                         t = strjoin(*i, "/", *j);
@@ -2298,7 +2298,7 @@ int unit_file_add_dependency(UnitFileScope scope,
 
         assert(target_info->type == UNIT_FILE_TYPE_REGULAR);
 
-        STRV_FOREACH(f, files) {
+        STRV_FOREACH (f, files) {
                 char ***l;
 
                 r = install_info_discover_and_check(scope, &c, &paths, *f, SEARCH_FOLLOW_CONFIG_SYMLINKS, &i, changes, n_changes);
@@ -2346,7 +2346,7 @@ int unit_file_enable(UnitFileScope scope, UnitFileFlags flags, const char *root_
         if (!config_path)
                 return -ENXIO;
 
-        STRV_FOREACH(f, files) {
+        STRV_FOREACH (f, files) {
                 r = install_info_discover_and_check(
                         scope, &c, &paths, *f, SEARCH_LOAD | SEARCH_FOLLOW_CONFIG_SYMLINKS, &i, changes, n_changes);
                 if (r < 0)
@@ -2383,7 +2383,7 @@ int unit_file_disable(UnitFileScope scope, UnitFileFlags flags, const char *root
         if (!config_path)
                 return -ENXIO;
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH (i, files) {
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
 
@@ -2683,7 +2683,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(p, files) {
+        STRV_FOREACH (p, files) {
                 _cleanup_fclose_ FILE *f;
                 int n = 0;
 
@@ -2792,7 +2792,7 @@ static int pattern_match_multiple_instances(const PresetRule rule, const char *u
                 if (r < 0)
                         return r;
 
-                STRV_FOREACH(iter, rule.instances) {
+                STRV_FOREACH (iter, rule.instances) {
                         _cleanup_free_ char *name = NULL;
                         r = unit_name_build(prefix, *iter, ".service", &name);
                         if (r < 0)
@@ -2838,9 +2838,10 @@ static int query_presets(const char *name, const Presets presets, char ***instan
                 return 1;
         case PRESET_ENABLE:
                 if (instance_name_list && *instance_name_list)
-                        STRV_FOREACH(s, *instance_name_list)
-                log_debug("Preset files say enable %s.", *s);
-                else log_debug("Preset files say enable %s.", name);
+                        STRV_FOREACH (s, *instance_name_list)
+                                log_debug("Preset files say enable %s.", *s);
+                else
+                        log_debug("Preset files say enable %s.", name);
                 return 1;
         case PRESET_DISABLE:
                 log_debug("Preset files say disable %s.", name);
@@ -2938,7 +2939,7 @@ static int preset_prepare_one(UnitFileScope scope,
         if (r > 0) {
                 if (instance_name_list) {
                         char **s;
-                        STRV_FOREACH(s, instance_name_list) {
+                        STRV_FOREACH (s, instance_name_list) {
                                 r = install_info_discover_and_check(
                                         scope, plus, paths, *s, SEARCH_LOAD | SEARCH_FOLLOW_CONFIG_SYMLINKS, &i, changes, n_changes);
                                 if (r < 0)
@@ -2988,7 +2989,7 @@ int unit_file_preset(UnitFileScope scope,
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH (i, files) {
                 r = preset_prepare_one(scope, &plus, &minus, &paths, *i, presets, changes, n_changes);
                 if (r < 0)
                         return r;
@@ -3023,7 +3024,7 @@ int unit_file_preset_all(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, paths.search_path) {
+        STRV_FOREACH (i, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 
@@ -3089,7 +3090,7 @@ int unit_file_get_list(UnitFileScope scope, const char *root_dir, Hashmap *h, ch
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, paths.search_path) {
+        STRV_FOREACH (i, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 

@@ -206,7 +206,7 @@ int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want
         if (!split)
                 return -ENOMEM;
 
-        STRV_FOREACH(entry, split) {
+        STRV_FOREACH (entry, split) {
                 char *p;
 
                 p = STARTSWITH_SET(*entry, "default:", "d:");

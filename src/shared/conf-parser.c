@@ -393,7 +393,7 @@ static int config_parse_many_files(const char *conf_file,
                         return r;
         }
 
-        STRV_FOREACH(fn, files) {
+        STRV_FOREACH (fn, files) {
                 r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata);
                 if (r < 0)
                         return r;

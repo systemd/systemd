@@ -107,11 +107,11 @@ static int do_execute(char **directories,
         if (timeout != USEC_INFINITY)
                 alarm(DIV_ROUND_UP(timeout, USEC_PER_SEC));
 
-        STRV_FOREACH(e, envp)
-        if (putenv(*e) != 0)
-                return log_error_errno(errno, "Failed to set environment variable: %m");
+        STRV_FOREACH (e, envp)
+                if (putenv(*e) != 0)
+                        return log_error_errno(errno, "Failed to set environment variable: %m");
 
-        STRV_FOREACH(path, paths) {
+        STRV_FOREACH (path, paths) {
                 _cleanup_free_ char *t = NULL;
                 _cleanup_close_ int fd = -1;
                 pid_t pid;

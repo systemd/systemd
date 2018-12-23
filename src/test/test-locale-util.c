@@ -13,7 +13,7 @@ static void test_get_locales(void) {
         assert_se(r >= 0);
         assert_se(locales);
 
-        STRV_FOREACH(p, locales) {
+        STRV_FOREACH (p, locales) {
                 puts(*p);
                 assert_se(locale_is_valid(*p));
         }
@@ -52,7 +52,7 @@ static void test_keymaps(void) {
         assert_se(r >= 0);
         assert_se(kmaps);
 
-        STRV_FOREACH(p, kmaps) {
+        STRV_FOREACH (p, kmaps) {
                 puts(*p);
                 assert_se(keymap_is_valid(*p));
         }

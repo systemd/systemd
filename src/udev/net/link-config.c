@@ -202,7 +202,7 @@ int link_config_load(link_config_ctx *ctx) {
         if (r < 0)
                 return log_error_errno(r, "failed to enumerate link files: %m");
 
-        STRV_FOREACH_BACKWARDS(f, files) {
+        STRV_FOREACH_BACKWARDS (f, files) {
                 r = load_link(ctx, *f);
                 if (r < 0)
                         return r;

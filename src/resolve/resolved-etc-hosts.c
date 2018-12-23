@@ -305,7 +305,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {
                         if (r < 0)
                                 return r;
 
-                        STRV_FOREACH(n, item->names) {
+                        STRV_FOREACH (n, item->names) {
                                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
                                 rr = dns_resource_record_new(found_ptr);

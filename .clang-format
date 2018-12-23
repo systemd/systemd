@@ -39,7 +39,7 @@ ContinuationIndentWidth: 8
 Cpp11BracedListStyle: false
 ExperimentalAutoDetectBinPacking: false
 FixNamespaceComments: true
-ForEachMacros: [CMSG_FOREACH]
+ForEachMacros: [CMSG_FOREACH, STRV_FOREACH, STRV_FOREACH_BACKWARDS]
 IncludeBlocks: Preserve
 IndentCaseLabels: false
 IndentPPDirectives: None

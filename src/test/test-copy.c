@@ -88,7 +88,7 @@ static void test_copy_tree(void) {
         (void) rm_rf(copy_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
         (void) rm_rf(original_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
 
-        STRV_FOREACH(p, files) {
+        STRV_FOREACH (p, files) {
                 _cleanup_free_ char *f;
 
                 assert_se(f = strappend(original_dir, *p));
@@ -112,7 +112,7 @@ static void test_copy_tree(void) {
 
         assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK | COPY_MERGE) == 0);
 
-        STRV_FOREACH(p, files) {
+        STRV_FOREACH (p, files) {
                 _cleanup_free_ char *buf, *f;
                 size_t sz;
 

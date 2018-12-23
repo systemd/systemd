@@ -209,8 +209,8 @@ static void test_strv_unquote(const char *quoted, char **list) {
         assert_se(j);
         puts(j);
 
-        STRV_FOREACH(t, s)
-        assert_se(streq(list[i++], *t));
+        STRV_FOREACH (t, s)
+                assert_se(streq(list[i++], *t));
 
         assert_se(list[i] == NULL);
 }
@@ -373,9 +373,7 @@ static void test_strv_split_newlines(void) {
 
         assert_se(l);
 
-        STRV_FOREACH(s, l) {
-                assert_se(streq(*s, input_table_multiple[i++]));
-        }
+        STRV_FOREACH (s, l) { assert_se(streq(*s, input_table_multiple[i++])); }
 }
 
 static void test_strv_split_nulstr(void) {
@@ -509,9 +507,7 @@ static void test_strv_foreach(void) {
 
         assert_se(a);
 
-        STRV_FOREACH(check, a) {
-                assert_se(streq(*check, input_table_multiple[i++]));
-        }
+        STRV_FOREACH (check, a) { assert_se(streq(*check, input_table_multiple[i++])); }
 }
 
 static void test_strv_foreach_backwards(void) {
@@ -523,14 +519,14 @@ static void test_strv_foreach_backwards(void) {
 
         assert_se(a);
 
-        STRV_FOREACH_BACKWARDS(check, a)
-        assert_se(streq_ptr(*check, input_table_multiple[i--]));
+        STRV_FOREACH_BACKWARDS (check, a)
+                assert_se(streq_ptr(*check, input_table_multiple[i--]));
 
-        STRV_FOREACH_BACKWARDS(check, (char **) NULL)
-        assert_not_reached("Let's see that we check empty strv right, too.");
+        STRV_FOREACH_BACKWARDS (check, (char **) NULL)
+                assert_not_reached("Let's see that we check empty strv right, too.");
 
-        STRV_FOREACH_BACKWARDS(check, (char **){ NULL })
-        assert_not_reached("Let's see that we check empty strv right, too.");
+        STRV_FOREACH_BACKWARDS (check, (char **){ NULL })
+                assert_not_reached("Let's see that we check empty strv right, too.");
 }
 
 static void test_strv_foreach_pair(void) {

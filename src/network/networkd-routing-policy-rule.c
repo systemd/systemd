@@ -1122,7 +1122,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
 
                 p = startswith(*i, "RULE=");

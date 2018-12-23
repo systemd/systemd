@@ -39,7 +39,7 @@ bool manager_all_configured(Manager *m) {
         bool one_ready = false;
 
         /* wait for all the links given on the command line to appear */
-        STRV_FOREACH(ifname, m->interfaces) {
+        STRV_FOREACH (ifname, m->interfaces) {
                 l = hashmap_get(m->links_by_name, *ifname);
                 if (!l) {
                         log_debug("still waiting for %s", *ifname);

@@ -120,7 +120,7 @@ int serialize_strv(FILE *f, const char *key, char **l) {
 
         /* Returns the first error, or positive if anything was serialized, 0 otherwise. */
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 r = serialize_item_escaped(f, key, *i);
                 if ((ret >= 0 && r < 0) || (ret == 0 && r > 0))
                         ret = r;

@@ -988,7 +988,7 @@ static int manager_network_read_link_servers(Manager *m) {
         LIST_FOREACH(names, n, m->link_servers)
         n->marked = true;
 
-        STRV_FOREACH(i, ntp) {
+        STRV_FOREACH (i, ntp) {
                 bool found = false;
 
                 r = dns_name_is_valid_or_address(*i);

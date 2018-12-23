@@ -642,14 +642,14 @@ static int verb_query(int argc, char **argv, void *userdata) {
         int q, r = 0;
 
         if (arg_type != 0)
-                STRV_FOREACH(p, argv + 1) {
+                STRV_FOREACH (p, argv + 1) {
                         q = resolve_record(bus, *p, arg_class, arg_type, true);
                         if (q < 0)
                                 r = q;
                 }
 
         else
-                STRV_FOREACH(p, argv + 1) {
+                STRV_FOREACH (p, argv + 1) {
                         if (startswith(*p, "dns:"))
                                 q = resolve_rfc4501(bus, *p);
                         else {
@@ -923,7 +923,7 @@ static int verb_openpgp(int argc, char **argv, void *userdata) {
         char **p;
         int q, r = 0;
 
-        STRV_FOREACH(p, argv + 1) {
+        STRV_FOREACH (p, argv + 1) {
                 q = resolve_openpgp(bus, *p);
                 if (q < 0)
                         r = q;
@@ -974,7 +974,7 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
                 args++;
         }
 
-        STRV_FOREACH(p, args) {
+        STRV_FOREACH (p, args) {
                 q = resolve_tlsa(bus, family, *p);
                 if (q < 0)
                         r = q;
@@ -1330,8 +1330,8 @@ static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) 
 
         printf("%sLink %i (%s)%s:", ansi_highlight(), ifindex, ifname, ansi_normal());
 
-        STRV_FOREACH(i, p)
-        printf(" %s", *i);
+        STRV_FOREACH (i, p)
+                printf(" %s", *i);
 
         printf("\n");
 
@@ -1475,17 +1475,11 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (link_info.current_dns)
                 printf("  Current DNS Server: %s\n", link_info.current_dns);
 
-        STRV_FOREACH(i, link_info.dns) {
-                printf("         %s %s\n", i == link_info.dns ? "DNS Servers:" : "            ", *i);
-        }
+        STRV_FOREACH (i, link_info.dns) { printf("         %s %s\n", i == link_info.dns ? "DNS Servers:" : "            ", *i); }
 
-        STRV_FOREACH(i, link_info.domains) {
-                printf("          %s %s\n", i == link_info.domains ? "DNS Domain:" : "           ", *i);
-        }
+        STRV_FOREACH (i, link_info.domains) { printf("          %s %s\n", i == link_info.domains ? "DNS Domain:" : "           ", *i); }
 
-        STRV_FOREACH(i, link_info.ntas) {
-                printf("          %s %s\n", i == link_info.ntas ? "DNSSEC NTA:" : "           ", *i);
-        }
+        STRV_FOREACH (i, link_info.ntas) { printf("          %s %s\n", i == link_info.ntas ? "DNSSEC NTA:" : "           ", *i); }
 
         if (empty_line)
                 *empty_line = true;
@@ -1579,8 +1573,8 @@ static int status_print_strv_global(char **p) {
 
         printf("%sGlobal%s:", ansi_highlight(), ansi_normal());
 
-        STRV_FOREACH(i, p)
-        printf(" %s", *i);
+        STRV_FOREACH (i, p)
+                printf(" %s", *i);
 
         printf("\n");
 
@@ -1687,22 +1681,16 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         if (global_info.current_dns)
                 printf("  Current DNS Server: %s\n", global_info.current_dns);
 
-        STRV_FOREACH(i, global_info.dns) {
-                printf("         %s %s\n", i == global_info.dns ? "DNS Servers:" : "            ", *i);
-        }
+        STRV_FOREACH (i, global_info.dns) { printf("         %s %s\n", i == global_info.dns ? "DNS Servers:" : "            ", *i); }
 
-        STRV_FOREACH(i, global_info.fallback_dns) {
+        STRV_FOREACH (i, global_info.fallback_dns) {
                 printf("%s %s\n", i == global_info.fallback_dns ? "Fallback DNS Servers:" : "                     ", *i);
         }
 
-        STRV_FOREACH(i, global_info.domains) {
-                printf("          %s %s\n", i == global_info.domains ? "DNS Domain:" : "           ", *i);
-        }
+        STRV_FOREACH (i, global_info.domains) { printf("          %s %s\n", i == global_info.domains ? "DNS Domain:" : "           ", *i); }
 
         strv_sort(global_info.ntas);
-        STRV_FOREACH(i, global_info.ntas) {
-                printf("          %s %s\n", i == global_info.ntas ? "DNSSEC NTA:" : "           ", *i);
-        }
+        STRV_FOREACH (i, global_info.ntas) { printf("          %s %s\n", i == global_info.ntas ? "DNSSEC NTA:" : "           ", *i); }
 
         *empty_line = true;
 
@@ -1778,7 +1766,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                 char **ifname;
                 bool empty_line = false;
 
-                STRV_FOREACH(ifname, argv + 1) {
+                STRV_FOREACH (ifname, argv + 1) {
                         int ifindex;
 
                         ifindex = parse_ifindex_and_warn(*ifname);
@@ -1841,7 +1829,7 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         /* If only argument is the empty string, then call SetLinkDNS() with an
          * empty list, which will clear the list of domains for an interface. */
         if (!strv_equal(argv + 2, STRV_MAKE(""))) {
-                STRV_FOREACH(p, argv + 2) {
+                STRV_FOREACH (p, argv + 2) {
                         struct in_addr_data data;
 
                         r = in_addr_from_string_auto(*p, &data.family, &data.address);
@@ -1921,7 +1909,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         /* If only argument is the empty string, then call SetLinkDomains() with an
          * empty list, which will clear the list of domains for an interface. */
         if (!strv_equal(argv + 2, STRV_MAKE(""))) {
-                STRV_FOREACH(p, argv + 2) {
+                STRV_FOREACH (p, argv + 2) {
                         const char *n;
 
                         n = **p == '~' ? *p + 1 : *p;
@@ -2199,7 +2187,7 @@ static int verb_nta(int argc, char **argv, void *userdata) {
         clear = strv_equal(argv + 2, STRV_MAKE(""));
 
         if (!clear)
-                STRV_FOREACH(p, argv + 2) {
+                STRV_FOREACH (p, argv + 2) {
                         r = dns_name_is_valid(*p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to validate specified domain %s: %m", *p);

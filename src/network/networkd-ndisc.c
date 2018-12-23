@@ -441,7 +441,7 @@ static void ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                 return;
         }
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 _cleanup_free_ NDiscDNSSL *s;
                 NDiscDNSSL *x;
 
