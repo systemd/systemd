@@ -1,0 +1,92 @@
+# This configuration file can be used to auto-format the code base
+# To apply the coding style you can run the following command (assuming you installed clang-format-6.0 on your system):
+# $ find ./src -iregex '.*\.\(cpp\|hpp\|c\|h\|cc\|hh\|cxx\|hxx\)$' | xargs clang-format-6.0 -i -style=file
+# You can find more information on the different config parameters in this file here:
+# https://releases.llvm.org/6.0.0/tools/clang/docs/ClangFormatStyleOptions.html
+---
+TabWidth: 2
+UseTab: Never
+AccessModifierOffset: -4
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignOperands: false
+AlignTrailingComments: true
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: true
+AlwaysBreakTemplateDeclarations: true
+BinPackArguments: false
+BinPackParameters: false
+BreakAfterJavaFieldAnnotations: true
+BreakBeforeBinaryOperators: None
+BreakBeforeBraces: Custom
+BreakBeforeInheritanceComma: true
+BreakBeforeTernaryOperators: false
+BreakConstructorInitializers: BeforeColon
+BreakStringLiterals: false
+ColumnLimit: 140
+CompactNamespaces: true
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 0
+ContinuationIndentWidth: 8
+Cpp11BracedListStyle: false
+ExperimentalAutoDetectBinPacking: false
+FixNamespaceComments: true
+ForEachMacros: [CMSG_FOREACH]
+IncludeBlocks: Preserve
+IndentCaseLabels: false
+IndentPPDirectives: None
+IndentWidth: 8
+IndentWrappedFunctionNames: true
+JavaScriptQuotes: Leave
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 2
+NamespaceIndentation: None
+ObjCBlockIndentWidth: 2
+ObjCSpaceAfterProperty: true
+ObjCSpaceBeforeProtocolList: true
+PenaltyBreakAssignment: 65
+PenaltyBreakBeforeFirstCallParameter: 16
+PenaltyBreakComment: 320
+PenaltyBreakFirstLessLess: 50
+PenaltyBreakString: 0
+PenaltyExcessCharacter: 10
+PenaltyReturnTypeOnItsOwnLine: 100
+PointerAlignment: Right
+SortIncludes: false
+SortUsingDeclarations: true
+SpaceAfterCStyleCast: true
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: true
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: true
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+Standard: Cpp03
+BraceWrapping: 
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: true
+  AfterFunction: false
+  AfterNamespace: false
+  AfterObjCDeclaration: false
+  AfterStruct: false
+  AfterUnion: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  AfterExternBlock: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
