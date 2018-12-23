@@ -462,6 +462,14 @@ check_result_nspawn() {
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
+    if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+        ls -l "$TESTDIR/$1"
+        if [[ -e "$TESTDIR/$1/systemd.asan.log.1" ]]; then
+            cat "$TESTDIR/$1/systemd.asan.log.1"
+            ret=$(($ret+1))
+        fi
+    fi
+
     return $ret
 }
 

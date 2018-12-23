@@ -83,6 +83,10 @@
 #include "virt.h"
 #include "watchdog.h"
 
+#if HAS_FEATURE_ADDRESS_SANITIZER
+#include <sanitizer/lsan_interface.h>
+#endif
+
 static enum {
         ACTION_RUN,
         ACTION_HELP,
@@ -2610,6 +2614,10 @@ finish:
                 arg_watchdog_device = mfree(arg_watchdog_device);
                 return retval;
         }
+#endif
+
+#if HAS_FEATURE_ADDRESS_SANITIZER
+        __lsan_do_leak_check();
 #endif
 
         if (shutdown_verb) {
