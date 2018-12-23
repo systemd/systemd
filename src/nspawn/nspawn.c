@@ -5036,7 +5036,7 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = loop_device_make_by_path(arg_image, arg_read_only ? O_RDONLY : O_RDWR, &loop);
+                r = loop_device_make_by_path(arg_image, arg_read_only ? O_RDONLY : O_RDWR, LO_FLAGS_PARTSCAN, &loop);
                 if (r < 0) {
                         log_error_errno(r, "Failed to set up loopback block device: %m");
                         goto finish;

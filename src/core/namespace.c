@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
+#include <linux/loop.h>
 #include <sched.h>
 #include <stdio.h>
 #include <sys/mount.h>
@@ -1219,6 +1220,7 @@ int setup_namespace(
 
                 r = loop_device_make_by_path(root_image,
                                              dissect_image_flags & DISSECT_IMAGE_READ_ONLY ? O_RDONLY : O_RDWR,
+                                             LO_FLAGS_PARTSCAN,
                                              &loop_device);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create loop device for root image: %m");

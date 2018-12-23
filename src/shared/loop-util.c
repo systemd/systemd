@@ -10,9 +10,10 @@
 #include "loop-util.h"
 #include "stat-util.h"
 
-int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
+int loop_device_make(int fd, int open_flags, uint32_t loop_flags, LoopDevice **ret) {
         const struct loop_info64 info = {
-                .lo_flags = LO_FLAGS_AUTOCLEAR|LO_FLAGS_PARTSCAN|(open_flags == O_RDONLY ? LO_FLAGS_READ_ONLY : 0),
+                /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
+                .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((loop_flags & O_ACCMODE) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
         };
 
         _cleanup_close_ int control = -1, loop = -1;
@@ -103,7 +104,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         return d->fd;
 }
 
-int loop_device_make_by_path(const char *path, int open_flags, LoopDevice **ret) {
+int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_flags, LoopDevice **ret) {
         _cleanup_close_ int fd = -1;
 
         assert(path);
@@ -114,7 +115,7 @@ int loop_device_make_by_path(const char *path, int open_flags, LoopDevice **ret)
         if (fd < 0)
                 return -errno;
 
-        return loop_device_make(fd, open_flags, ret);
+        return loop_device_make(fd, open_flags, loop_flags, ret);
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {

@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
-#include <stdio.h>
 #include <getopt.h>
+#include <linux/loop.h>
+#include <stdio.h>
 
 #include "architecture.h"
 #include "dissect-image.h"
@@ -171,7 +172,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = loop_device_make_by_path(arg_image, (arg_flags & DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR, &d);
+        r = loop_device_make_by_path(arg_image, (arg_flags & DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR, LO_FLAGS_PARTSCAN, &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device: %m");
 
