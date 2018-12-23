@@ -19,6 +19,7 @@
 #include "device-nodes.h"
 #include "device-util.h"
 #include "dissect-image.h"
+#include "dm-util.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1225,40 +1226,6 @@ int dissected_image_decrypt_interactively(
         }
 }
 
-#if HAVE_LIBCRYPTSETUP
-static int deferred_remove(DecryptedPartition *p) {
-        struct dm_ioctl dm = {
-                .version = {
-                        DM_VERSION_MAJOR,
-                        DM_VERSION_MINOR,
-                        DM_VERSION_PATCHLEVEL
-                },
-                .data_size = sizeof(dm),
-                .flags = DM_DEFERRED_REMOVE,
-        };
-
-        _cleanup_close_ int fd = -1;
-
-        assert(p);
-
-        /* Unfortunately, libcryptsetup doesn't provide a proper API for this, hence call the ioctl() directly. */
-
-        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        if (strlen(p->name) > sizeof(dm.name))
-                return -ENAMETOOLONG;
-
-        strncpy(dm.name, p->name, sizeof(dm.name));
-
-        if (ioctl(fd, DM_DEV_REMOVE, &dm))
-                return -errno;
-
-        return 0;
-}
-#endif
-
 int decrypted_image_relinquish(DecryptedImage *d) {
 
 #if HAVE_LIBCRYPTSETUP
@@ -1278,7 +1245,7 @@ int decrypted_image_relinquish(DecryptedImage *d) {
                 if (p->relinquished)
                         continue;
 
-                r = deferred_remove(p);
+                r = dm_deferred_remove(p->name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to mark %s for auto-removal: %m", p->name);
 
