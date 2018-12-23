@@ -10,7 +10,9 @@
 
 typedef void (*free_func_t)(void *p);
 
-#define new (t, n)((t *) malloc_multiply(sizeof(t), (n)))
+/* clang-format off */
+#define new(t, n)((t *) malloc_multiply(sizeof(t), (n)))
+/* clang-format on */
 
 #define new0(t, n) ((t *) calloc((n) ?: 1, sizeof(t)))
 
